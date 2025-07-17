@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      target: development
+    working_dir: /app/backend
+    volumes:
+      - ./backend:/app/backend
+      - ./plugin-api:/app/plugin-api
+      - ./data:/app/data
+      - cargo_cache:/usr/local/cargo/registry
+      - cargo_git:/usr/local/cargo/git
+      - target_cache:/app/target
+    environment:
+      - RUST_BACKTRACE=1
+      - CARGO_WATCH_POLL=true
+      - PROJECT_ROOT=/app
+      - DATA_DIR=@/data
+    command: cargo watch -x run
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+      target: development
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://backend:8080
+    command: npm run dev -- --host 0.0.0.0
+    ports:
+      - "${FRONTEND_DEV_PORT:-5173}:5173"
+
+volumes:
+  cargo_cache:
+  cargo_git:
+  target_cache:

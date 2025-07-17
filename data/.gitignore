@@ -1,0 +1,17 @@
+# Ignore all user data
+users/*
+
+# But keep the directory structure
+!users/.gitkeep
+
+# Ignore any uploaded files
+uploads/
+temp/
+
+# Ignore logs if stored here
+*.log
+
+# Ignore any database files
+*.db
+*.sqlite
+*.sqlite3

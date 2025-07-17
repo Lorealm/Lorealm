@@ -1,0 +1,44 @@
+package eldoria-hub:api;
+
+interface log {
+    enum log-level {
+        trace,
+        debug,
+        info,
+        warning,
+        error,
+        critical
+    }
+    log: func(content: string, log-level: log-level);
+}
+
+interface load-events {
+    /**
+    * Called when permissions have been granted by the user
+    */
+    on-permissions-granted: func();
+    on-plugin-loaded: func();
+}
+
+interface prompt-processing {
+    /**
+    * Called when a prompt needs to be processed.
+    * Requires the **prompt:process** permission.
+    */
+    process-prompt: func(prompt: string);
+}
+
+world components {
+    import register-component: func(name: string);
+    export component-registered: func();
+}
+
+world api {
+    include components;
+
+    import log;
+    export load-events;
+    export prompt-processing;
+
+    export init: func();
+}

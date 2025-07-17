@@ -1,0 +1,49 @@
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+LICENSE
+docs/
+
+# Environment
+.env
+.env.*
+
+# Backend
+backend/target/
+backend/**/*.rs.bk
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Scripts (we'll copy what we need)
+scripts/
+
+# Logs and temp files
+*.log
+*.tmp
+*.temp
+
+# OS
+.DS_Store
+Thumbs.db

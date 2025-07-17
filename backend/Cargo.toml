@@ -1,0 +1,9 @@
+[workspace]
+name = "backend"
+resolver = "2"
+members = ["server", "llm-providers"]
+
+[workspace.dependencies]
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+log = "0.4"

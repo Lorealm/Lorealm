@@ -1,0 +1,14 @@
+{
+    "name": "hello-plugin",
+    "version": "1.0.0",
+    "type": "module",
+    "scripts": {
+      "build": "vite build"
+    },
+    "devDependencies": {
+      "vite": "^5.0.0",
+      "@sveltejs/vite-plugin-svelte": "^3.0.0",
+      "svelte": "^4.0.0"
+    }
+  }
+  

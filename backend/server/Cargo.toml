@@ -1,0 +1,43 @@
+[package]
+name = "server"
+version = "0.1.0"
+description = "Main backend server"
+authors = ["Cruxial"]
+edition = "2024"
+
+[dependencies]
+serde = {workspace = true}
+serde_json = {workspace = true}
+log = {workspace = true}
+
+llm-providers = { path = "../llm-providers" }
+
+axum = { version = "0.8.3", features = ["ws"] }
+tower-http = { version = "0.6.2", features = ["fs", "trace", "cors"] }
+tokio = { version = "1.44.2", features = ["full"] }
+axum-server = "0.7.2"
+
+# Wasmtime
+wasmtime = { version = "31.0.0", features = ["component-model", "cranelift", "std", "runtime"] }
+wasmtime-wasi = "31.0.0"
+
+uuid = { version = "1.16.0", features = ["v4", "v5", "serde"] }
+lazy_static = "1.5.0"
+reqwest = { version = "0.12.15", features = ["json", "stream"] }
+
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Async streaming
+futures = "0.3.31"
+tokio-stream = "0.1.17"
+
+# Tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+sqlx = {version = "0.8.6", features = ["runtime-tokio-rustls", "postgres", "chrono"]}
+argon2 = "0.5.3"
+http-body = "1.0.1"
