@@ -19,6 +19,7 @@ impl AppState {
         sqlx::migrate!("../migrations").run(&postgres_db).await.unwrap();
         let resource_manager = Arc::new(Mutex::new(ResourceManager::new()));
         let user_manager = Arc::new(Mutex::new(UserManager::new(postgres_db.clone(), resource_manager.lock().await.resource_dir().to_path_buf())));
+        user_manager.lock().await.create_root_user().await.unwrap();
         Self {
             start_time: Instant::now(),
             plugin_manager: Arc::new(Mutex::new(Some(PluginManager::new()))),

@@ -1,14 +1,14 @@
 <template>
   <div class="status-container">
-    <SmartTooltip :disabled="status !== 'online' || !statusDetails" verticalOffset="10">
+    <SmartTooltip :disabled="status !== 'online' || !statusDetails" :verticalOffset="10">
       <template #trigger>
-        <div 
-          class="status-circle" 
+        <div
+          class="status-circle"
           :class="statusClass"
           :title="status !== 'online' ? statusText : ''"
         ></div>
       </template>
-      
+
       <template #content>
         <div class="status-details">
           <div class="status-header">
@@ -28,7 +28,7 @@
         </div>
       </template>
     </SmartTooltip>
-    
+
     <span v-if="showText" class="status-text">{{ statusText }}</span>
   </div>
 </template>
@@ -40,31 +40,31 @@ import api from '@/services/api'
 export default {
   name: 'BackendStatusIcon',
   components: {
-    SmartTooltip
+    SmartTooltip,
   },
   props: {
     endpoint: {
       type: String,
-      default: '/status'
+      default: '/status',
     },
     checkInterval: {
       type: Number,
-      default: 5000 // 5 seconds
+      default: 5000, // 5 seconds
     },
     showText: {
       type: Boolean,
-      default: false
+      default: false,
     },
     timeout: {
       type: Number,
-      default: 5000 // 5 seconds
-    }
+      default: 5000, // 5 seconds
+    },
   },
   data() {
     return {
       status: 'checking', // 'online', 'offline', 'checking'
       statusDetails: null,
-      intervalId: null
+      intervalId: null,
     }
   },
   computed: {
@@ -72,17 +72,17 @@ export default {
       return {
         'status-online': this.status === 'online',
         'status-offline': this.status === 'offline',
-        'status-checking': this.status === 'checking'
+        'status-checking': this.status === 'checking',
       }
     },
     statusText() {
       const statusMap = {
         online: 'Backend Online',
         offline: 'Backend Offline',
-        checking: 'Checking...'
+        checking: 'Checking...',
       }
       return statusMap[this.status]
-    }
+    },
   },
   mounted() {
     this.checkStatus()
@@ -96,15 +96,15 @@ export default {
   methods: {
     async checkStatus() {
       this.status = 'checking'
-      
+
       try {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), this.timeout)
-        
+
         const response = await api.get(this.endpoint)
-        
+
         clearTimeout(timeoutId)
-        
+
         if (response.data.status) {
           this.status = 'online'
           this.statusDetails = response.data
@@ -121,31 +121,31 @@ export default {
         console.warn('Backend status check failed:', error.message)
       }
     },
-    
+
     startPeriodicCheck() {
       this.intervalId = setInterval(() => {
         this.checkStatus()
       }, this.checkInterval)
     },
-    
+
     // Manual refresh method
     refresh() {
       this.checkStatus()
     },
-    
+
     formatUptime(seconds) {
       if (seconds < 60) return `${seconds}s`
-      
+
       const minutes = Math.floor(seconds / 60)
       if (minutes < 60) return `${minutes}m`
-      
+
       const hours = Math.floor(minutes / 60)
       if (hours < 24) return `${hours}h ${minutes % 60}m`
-      
+
       const days = Math.floor(hours / 24)
       return `${days}d ${hours % 24}h`
-    }
-  }
+    },
+  },
 }
 </script>
 
@@ -187,7 +187,8 @@ export default {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {

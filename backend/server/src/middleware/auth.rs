@@ -22,6 +22,7 @@ pub async fn auth_middleware(
     mut request: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
+    log::info!("auth middleware");
     let token = headers
         .get("Authorization")
         .and_then(|v| v.to_str().ok())

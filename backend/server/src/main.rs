@@ -6,7 +6,7 @@ use axum::{
     Router,
     middleware::from_fn_with_state
 };
-use futures::StreamExt;
+use futures::{stream, StreamExt};
 use llm_providers::{llm_provider::LLMProvider, openrouter::OpenRouterProvider, types::Message};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -24,7 +24,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 mod state;
 use state::AppState;
 
-use crate::{middleware::auth::auth_middleware, plugin_system::plugin_manager::PluginManager, routes::users::{admin_routes, user_routes}};
+use crate::{middleware::auth::auth_middleware, plugin_system::plugin_manager::PluginManager, routes::users::{admin_routes, auth_routes, user_routes}};
 
 // Import your existing modules
 mod file;
@@ -143,20 +143,20 @@ fn create_app(app_state: Arc<AppState>, static_path: PathBuf) -> Router {
 
     Router::new()
         .nest("/api", api_routes)
+        .nest("/api", auth_routes(app_state.as_ref().clone()))
         .nest("/api/user", user_routes(app_state.as_ref().clone())
             .layer(
                 from_fn_with_state(
                 app_state.clone(),
                 auth_middleware
         )))
-        .nest("/api/admin", admin_routes(app_state.as_ref().clone()))
+        .nest("/api/admin", admin_routes(app_state.as_ref().clone())
             .layer(
                 from_fn_with_state(
                 app_state.clone(),
                 auth_middleware
-            ))
+            )))
         .fallback_service(static_files_service.clone())
-        .fallback(spa_handler)
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)
@@ -192,64 +192,63 @@ async fn status(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 async fn stream_handler(
     Query(params): Query<StreamQueryParams>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    let messages: Vec<Message> = serde_json::from_str(&params.messages).unwrap_or_default();
-    
     let provider = Arc::new(OpenRouterProvider::new());
     
-    let (tx, rx) = mpsc::channel(100);
-    
-    tokio::spawn(async move {
+    let stream = async_stream::stream! {
+        // Parse messages inside the stream
+        let messages = match serde_json::from_str::<Vec<Message>>(&params.messages) {
+            Ok(msgs) => msgs,
+            Err(e) => {
+                yield Ok(Event::default().data(serde_json::to_string(&StreamChunk {
+                    text: format!("Invalid messages format: {}", e),
+                    done: true,
+                }).unwrap()));
+                return;
+            }
+        };
+        
         match provider.generate_stream(messages).await {
             Ok(mut stream) => {
                 while let Some(result) = stream.next().await {
                     match result {
                         Ok(response) => {
                             let text = response.text();
-                            if !text.is_empty() || response.json().get("done").is_some() {
-                                let chunk = StreamChunk {
-                                    text,
-                                    done: response.json().get("done").is_some(),
-                                };
-                                
-                                let _ = tx.send(Ok(Event::default().data(serde_json::to_string(&chunk).unwrap()))).await;
+                            let is_done = response.json().get("done").is_some();
+                            
+                            if !text.is_empty() || is_done {
+                                yield Ok(Event::default().data(
+                                    serde_json::to_string(&StreamChunk { text, done: is_done }).unwrap()
+                                ));
                             }
                             
-                            if response.json().get("done").is_some() {
+                            if is_done {
                                 break;
                             }
                         }
                         Err(e) => {
-                            let chunk = StreamChunk {
-                                text: format!("Error: {}", e),
-                                done: true,
-                            };
-                            
-                            let _ = tx.send(Ok(Event::default().data(serde_json::to_string(&chunk).unwrap()))).await;
+                            yield Ok(Event::default().data(
+                                serde_json::to_string(&StreamChunk {
+                                    text: format!("Error: {}", e),
+                                    done: true,
+                                }).unwrap()
+                            ));
                             break;
                         }
                     }
                 }
-                
-                // Send final done message
-                let chunk = StreamChunk {
-                    text: String::new(),
-                    done: true,
-                };
-                
-                let _ = tx.send(Ok(Event::default().data(serde_json::to_string(&chunk).unwrap()))).await;
             }
             Err(e) => {
-                let chunk = StreamChunk {
-                    text: format!("Error: {}", e),
-                    done: true,
-                };
-                
-                let _ = tx.send(Ok(Event::default().data(serde_json::to_string(&chunk).unwrap()))).await;
+                yield Ok(Event::default().data(
+                    serde_json::to_string(&StreamChunk {
+                        text: format!("Error: {}", e),
+                        done: true,
+                    }).unwrap()
+                ));
             }
         }
-    });
+    };
     
-    Sse::new(ReceiverStream::new(rx))
+    Sse::new(stream)
 }
 
 // LLM completion handler
@@ -270,30 +269,6 @@ async fn completion_handler(
             })
         }
     }
-}
-
-// SPA fallback handler
-async fn spa_handler() -> impl IntoResponse {
-    let index_paths = vec![
-        std::env::current_dir().unwrap().join("dist/index.html"),
-        std::env::current_dir().unwrap().join("static/index.html"),
-    ];
-    
-    for index_path in index_paths {
-        if let Ok(content) = tokio::fs::read_to_string(&index_path).await {
-            return Response::builder()
-                .status(StatusCode::OK)
-                .header("Content-Type", "text/html; charset=utf-8")
-                .body::<String>(content.into())
-                .unwrap();
-        }
-    }
-    
-    // If no index.html found, return error
-    Response::builder()
-        .status(StatusCode::NOT_FOUND)
-        .body("index.html not found".into())
-        .unwrap()
 }
 
 // Error handler

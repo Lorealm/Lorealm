@@ -1,9 +1,9 @@
 <script lang="ts" setup>
 import { ref, onMounted, provide } from 'vue'
 import { Bell } from 'lucide-vue-next'
-import ChatWindow from '@/components/ChatWindow.vue'
 import { appStateKey } from '@/types/app'
 import HealthIcon from './components/HealthIcon.vue'
+import router from './router'
 
 // Create reactive state properly
 const messages = ref([
@@ -113,13 +113,15 @@ onMounted(async () => {
         </div>
 
         <div class="settings-section">
-          <button class="settings-btn">Settings</button>
+          <RouterLink to="/settings">
+            <button class="settings-btn">Settings</button>
+          </RouterLink>
         </div>
       </div>
     </aside>
 
     <!-- Main Chat Area -->
-    <ChatWindow />
+    <RouterView />
 
     <!-- Right Modules Panel -->
     <aside class="modules-panel" :class="{ collapsed: app.modulesPanelCollapsed.value }">

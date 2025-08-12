@@ -1,21 +1,22 @@
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
-use sqlx::{FromRow, Pool, Postgres, };
+use sqlx::{FromRow, Pool, Postgres, types::Uuid};
 use std::fs;
 use std::path::PathBuf;
-use uuid::Uuid;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub enum Role {
-    Admin,
-    User,
+    System = 2,
+    Admin = 1,
+    User = 0,
 }
 
 impl Role {
     pub fn from_str(s: &str) -> Result<Self, &'static str> {
         match s.to_lowercase().as_str() {
+            "system" => Ok(Role::System),
             "admin" => Ok(Role::Admin),
             "user" => Ok(Role::User),
             _ => Err("Invalid role"),
@@ -24,6 +25,7 @@ impl Role {
     
     pub fn to_string(&self) -> String {
         match self {
+            Role::System => "system".to_string(),
             Role::Admin => "admin".to_string(),
             Role::User => "user".to_string(),
         }
@@ -32,7 +34,7 @@ impl Role {
 
 #[derive(Debug, FromRow, Serialize, Clone)]
 pub struct User {
-    pub id: String,
+    pub id: Uuid,
     pub username: String,
     pub email: Option<String>,
     #[serde(skip_serializing)]
@@ -93,9 +95,9 @@ impl UserManager {
         Self { db, data_dir }
     }
 
-    pub async fn create_user(&self, req: CreateUserRequest, creator_role: &Role) -> Result<User, Box<anyhow::Error>> {
+    pub async fn create_user(&self, req: CreateUserRequest, creator_role: &Role, id_override: Option<Uuid>) -> Result<User, Box<anyhow::Error>> {
         // Only admins can create users
-        if *creator_role != Role::Admin {
+        if *creator_role < Role::Admin {
             return Err(Box::new(anyhow!("Only admins can create users")));
         }
 
@@ -107,16 +109,19 @@ impl UserManager {
             .to_string();
 
         let role = req.role.unwrap_or_else(|| "user".to_string());
-        Role::from_str(&role).map_err(|e| anyhow!(e)); // Validate role
+        let _ = Role::from_str(&role).map_err(|e| anyhow!(e)); // Validate role
+
+        let uuid = id_override.unwrap_or_else(Uuid::new_v4);
 
         // Insert user into database
         let user = sqlx::query_as::<_, User>(
             r#"
-            INSERT INTO users (username, email, password_hash, role)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO users (id, username, email, password_hash, role)
+            VALUES ($1, $2, $3, $4, $5)
             RETURNING *
             "#
         )
+        .bind(sqlx::types::Uuid::from(uuid))
         .bind(&req.username)
         .bind(&req.email)
         .bind(&password_hash)
@@ -126,15 +131,45 @@ impl UserManager {
         .map_err(|e| anyhow!(e))?;
 
         // Create user directory structure
-        self.create_user_directory(user.id.clone()).await
+        self.create_user_directory(user.id.to_string()).await
             .map_err(|_| anyhow::Error::msg("Error creating user directory"))?;
 
         Ok(user)
     }
 
+    pub async fn create_root_user(&self) -> Result<(), Box<anyhow::Error>> {
+        let req = CreateUserRequest {
+            username: "root".to_string(),
+            email: None,
+            password: "password".to_string(),
+            role: Some("admin".to_string()),
+        };
+        // Check if root user exists in database
+        let root_user = sqlx::query_as::<_, User>(
+            "SELECT * FROM users WHERE username = $1"
+        ).bind(&req.username)
+        .fetch_optional(&self.db)
+        .await
+        .map_err(|e| anyhow!(e))?;
+
+        if root_user.is_some() {
+            log::info!("Root user found in database");
+            return Ok(());
+        }
+
+        log::info!("Root user not found in database, creating root user");
+        self.create_user(
+            req,
+            &Role::System,
+            Some(Uuid::nil())
+        ).await?;
+
+        return Ok(());
+    }
+
     pub async fn authenticate(&self, req: LoginRequest) -> Result<(User, String), Box<dyn std::error::Error>> {
         let user = sqlx::query_as::<_, User>(
-            "SELECT * FROM users WHERE username = ? AND is_active = true"
+            "SELECT * FROM users WHERE username = $1 AND is_active = true"
         )
         .bind(&req.username)
         .fetch_optional(&self.db)
@@ -152,7 +187,7 @@ impl UserManager {
         sqlx::query(
             r#"
             INSERT INTO user_sessions (user_id, session_token, expires_at)
-            VALUES (?, ?, ?)
+            VALUES ($1, $2, $3)
             "#
         )
         .bind(&user.id.clone())
@@ -162,7 +197,7 @@ impl UserManager {
         .await?;
 
         // Update last login
-        sqlx::query("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?")
+        sqlx::query("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1")
             .bind(&user.id)
             .execute(&self.db)
             .await?;
@@ -175,7 +210,7 @@ impl UserManager {
             r#"
             SELECT u.* FROM users u
             JOIN user_sessions s ON u.id = s.user_id
-            WHERE s.session_token = ? AND s.expires_at > CURRENT_TIMESTAMP AND u.is_active = true
+            WHERE s.session_token = $1 AND s.expires_at > CURRENT_TIMESTAMP AND u.is_active = true
             "#
         )
         .bind(token)
@@ -187,7 +222,7 @@ impl UserManager {
     }
 
     pub async fn logout(&self, token: &str) -> Result<(), Box<dyn std::error::Error>> {
-        sqlx::query("DELETE FROM user_sessions WHERE session_token = ?")
+        sqlx::query("DELETE FROM user_sessions WHERE session_token = $1")
             .bind(token)
             .execute(&self.db)
             .await?;

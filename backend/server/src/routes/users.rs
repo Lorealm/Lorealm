@@ -54,7 +54,7 @@ pub async fn create_user(
         .user_manager
         .lock()
         .await
-        .create_user(req, &creator_role)
+        .create_user(req, &creator_role, None)
         .await
         .map_err(|_| StatusCode::BAD_REQUEST)?;
 
@@ -69,7 +69,7 @@ pub async fn get_user_settings(
         .user_manager
         .lock()
         .await
-        .get_user_settings(user.id.clone())
+        .get_user_settings(user.id.to_string())
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(ResponseJson(settings))
@@ -84,16 +84,17 @@ pub async fn update_user_settings(
         .user_manager
         .lock()
         .await
-        .update_user_settings(user.id.clone(), settings)
+        .update_user_settings(user.id.to_string(), settings)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(StatusCode::OK)
 }
 
-pub fn auth_routes() -> axum::Router<AppState> {
+pub fn auth_routes(state: AppState) -> axum::Router<Arc<AppState>> {
     axum::Router::new()
         .route("/login", axum::routing::post(login))
         .route("/logout", axum::routing::post(logout))
+        .with_state(state)
 }
 
 pub fn admin_routes(state: AppState) -> axum::Router<Arc<AppState>> {

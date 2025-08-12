@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use futures::{Stream, StreamExt};
 use serde::{Deserialize, Serialize};
 
-use crate::samplers::{config::SamplerConfig, json::{Payload, ProviderPayload}, max_tokens::MaxTokensSampler, temperature::TemperatureSampler, top_p::TopPSampler, types::{Sampler, SamplerCollection}};
+use crate::{parsers::sse::{SseEvent, SseStream}, samplers::{config::SamplerConfig, json::{Payload, ProviderPayload}, max_tokens::MaxTokensSampler, temperature::TemperatureSampler, top_p::TopPSampler, types::{Sampler, SamplerCollection}}};
 
 use super::{llm_provider::{LLMProvider, LLMProviderResponse}, types::Message};
 
@@ -57,115 +57,56 @@ impl LLMProvider for OpenRouterProvider {
         todo!()
     }
     
-    async fn generate_stream(self: Arc<Self>, prompt: Vec<Message>) -> Result<impl Stream<Item = Result<Box<dyn LLMProviderResponse>, Box<dyn std::error::Error + Send + Sync>>> + Send + Unpin, Box<dyn std::error::Error + Send + Sync>> {
+    async fn generate_stream(
+        self: Arc<Self>, 
+        prompt: Vec<Message>
+    ) -> Result<impl Stream<Item = Result<Box<dyn LLMProviderResponse>, Box<dyn std::error::Error + Send + Sync>>> + Send + Unpin, Box<dyn std::error::Error + Send + Sync>> {
         log::info!("Streaming with OpenRouter");
-        let mut options = OpenRouterSettings::new(MODEL_NAME.to_string(), prompt);
         
-        // Set stream to true in the payload
-        options.stream = Some(true);
+        let mut options = OpenRouterSettings::new(MODEL_NAME.to_string(), prompt)
+            .with_stream(true);
         
         let config = SamplerConfig {
             temperature: Some((1.0, false, 0.0)),
             max_tokens: Some(200),
             ..Default::default()
         };
-        let samplers = OpenRouterSamplers::samplers(&config);
-        let payload = options.with_samplers(&samplers);
-    
+        
+        let payload = options.with_samplers(&OpenRouterSamplers::samplers(&config));
+        
         let client = reqwest::Client::new();
-        let res = client.post(format!("{}/chat/completions", ENDPOINT))
+        let res = client
+            .post(format!("{}/chat/completions", ENDPOINT))
             .json(&payload)
             .bearer_auth(API_KEY.to_string())
             .send()
             .await?;
-            
-        // Create a buffer to accumulate partial SSE messages
-        let buffer = Arc::new(Mutex::new(String::new()));
         
-        // Track the current message being built (in case we receive partial JSON)
-        let current_message = Arc::new(Mutex::new(String::new()));
-        
-        // Convert the response stream to our response type
-        let stream = res.bytes_stream().map(move |bytes_result| {
-            match bytes_result {
-                Ok(bytes) => {
-                    // Parse the SSE data from bytes
-                    if let Ok(chunk_text) = std::str::from_utf8(&bytes) {
-                        let mut buffer = buffer.lock().unwrap();
-                        buffer.push_str(chunk_text);
-                        
-                        // Process complete lines in the buffer
-                        let mut processed_responses = Vec::new();
-                        
-                        // Split by lines and process each line
-                        while let Some(line_end) = buffer.find('\n') {
-                            let line = buffer[..line_end].trim().to_string();
-                            *buffer = buffer[line_end + 1..].to_string();
-                            
-                            // Handle SSE format which starts with "data: "
-                            if line.starts_with("data: ") {
-                                let data = &line[6..];
-                                
-                                if data == "[DONE]" {
-                                    processed_responses.push(Ok(Box::new(OpenRouterStreamEnd {}) as Box<dyn LLMProviderResponse>));
-                                    continue;
+        // Use a dedicated SSE parser
+        let stream = SseStream::new(res.bytes_stream())
+            .filter_map(|event| async move {
+                match event {
+                    Ok(SseEvent { data, .. }) => {
+                        if data == "[DONE]" {
+                            Some(Ok(Box::new(OpenRouterStreamEnd {}) as Box<dyn LLMProviderResponse>))
+                        } else {
+                            match serde_json::from_str::<OpenRouterStreamChunk>(&data) {
+                                Ok(chunk) if !chunk.is_empty() => {
+                                    Some(Ok(Box::new(chunk) as Box<dyn LLMProviderResponse>))
                                 }
-                                
-                                // Add to current message if it's a continuation 
-                                let mut current_message = current_message.lock().unwrap();
-                                current_message.push_str(data);
-                                
-                                // Try to parse the accumulated message
-                                match serde_json::from_str::<OpenRouterStreamChunk>(&current_message) {
-                                    Ok(chunk) => {
-                                        // Successfully parsed, clear the message buffer
-                                        current_message.clear();
-                                        
-                                        // Only add non-empty chunks
-                                        if !chunk.is_empty() {
-                                            processed_responses.push(Ok(Box::new(chunk) as Box<dyn LLMProviderResponse>));
-                                        }
-                                    },
-                                    Err(_) => {
-                                        // Not a complete JSON message yet, continue accumulating
-                                        // No error logged here as this is expected for partial messages
-                                    }
+                                Ok(_) => None, // Empty chunk, filter out
+                                Err(e) => {
+                                    log::warn!("Failed to parse chunk: {}", e);
+                                    None
                                 }
                             }
                         }
-                        
-                        if !processed_responses.is_empty() {
-                            // Return the first response and queue the rest (if any) for future processing
-                            return processed_responses.remove(0);
-                        }
                     }
-                    
-                    // Return an empty response that will be filtered out later
-                    Ok(Box::new(OpenRouterStreamEmpty {}) as Box<dyn LLMProviderResponse>)
-                },
-                Err(e) => Err(Box::new(e) as Box<dyn std::error::Error + Send + Sync>),
-            }
-        });
-        
-        // Use filter_map with a pinned boxed future to ensure it's Unpin
-        let filtered_stream = stream.filter_map(|result| {
-            Box::pin(async move {
-                match result {
-                    Ok(response) => {
-                        // Check if it's our empty placeholder and filter it out if so
-                        if response.is_empty() {
-                            None
-                        } else {
-                            Some(Ok(response))
-                        }
-                    },
-                    Err(e) => Some(Err(e)),
+                    Err(e) => Some(Err(e as Box<dyn std::error::Error + Send + Sync>)),
                 }
-            })
-        });
+            });
         
-        // Box the stream to make it Unpin
-        Ok(Box::pin(filtered_stream))
+        Ok(Box::pin(stream))
     }
 }
 
@@ -268,13 +209,13 @@ impl OpenRouterSettings {
     }
 
     
-    pub fn stream(&mut self, stream: bool) -> &mut Self {
+    pub fn with_stream(mut self, stream: bool) -> Self {
         self.stream = Some(stream);
 
         self
     }
 
-    pub fn seed(&mut self, seed: i32) -> &mut Self {
+    pub fn seed(mut self, seed: i32) -> Self {
         self.seed = Some(seed);
 
         self
