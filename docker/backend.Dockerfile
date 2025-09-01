@@ -5,7 +5,11 @@ WORKDIR /app
 
 # Install development dependencies
 RUN apt-get update && apt-get install -y \
+    build-essential \
     pkg-config \
+    cmake \
+    libprotobuf-dev \
+    protobuf-compiler \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
@@ -20,12 +24,16 @@ COPY plugin-api/Cargo.toml ./plugin-api/
 COPY backend/Cargo.toml backend/Cargo.lock ./backend/
 COPY backend/server/Cargo.toml ./backend/server/
 COPY backend/llm-providers/Cargo.toml ./backend/llm-providers/
+COPY backend/sentencepiece/sentencepiece/Cargo.toml ./backend/sentencepiece/sentencepiece/
+COPY backend/sentencepiece/sentencepiece-sys/Cargo.toml ./backend/sentencepiece/sentencepiece-sys/
 
 # Create dummy source files for dependency caching
-RUN mkdir -p backend/server/src backend/llm-providers/src plugin-api/src && \
+RUN mkdir -p backend/server/src backend/llm-providers/src backend/sentencepiece/sentencepiece/src backend/sentencepiece/sentencepiece-sys/src plugin-api/src && \
     echo "fn main() {}" > backend/server/src/main.rs && \
     echo "pub fn dummy() {}" > backend/llm-providers/src/lib.rs && \
-    echo "pub fn dummy() {}" > plugin-api/src/lib.rs
+    echo "pub fn dummy() {}" > plugin-api/src/lib.rs && \
+    echo "pub fn dummy () {}" > backend/sentencepiece/sentencepiece/src/lib.rs && \
+    echo "pub fn dummy () {}" > backend/sentencepiece/sentencepiece-sys/src/lib.rs
 
 # Build dependencies
 RUN cargo build --release --manifest-path plugin-api/Cargo.toml && \
