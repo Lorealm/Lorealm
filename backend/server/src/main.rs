@@ -1,39 +1,49 @@
 use axum::{
-    extract::{Json, Query, State},
-    http::{header, StatusCode},
-    response::{sse::{Event, Sse}, Html, IntoResponse, Response},
-    routing::{get, post},
     Router,
-    middleware::from_fn_with_state
+    extract::{Json, Query, State},
+    http::{StatusCode, header},
+    middleware::from_fn_with_state,
+    response::{
+        Html, IntoResponse, Response,
+        sse::{Event, Sse},
+    },
+    routing::{get, post},
 };
-use futures::{stream, StreamExt};
+use axum_extra::extract::CookieJar;
+use futures::{StreamExt, stream};
 use llm_providers::{llm_provider::LLMProvider, openrouter::OpenRouterProvider, types::Message};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::{collections::HashMap, convert::Infallible, net::SocketAddr, path::PathBuf, sync::Arc};
-use tokio::sync::{mpsc, Mutex};
-use tokio_stream::{wrappers::ReceiverStream, Stream};
+use std::{collections::HashMap, convert::Infallible, env, net::SocketAddr, path::PathBuf, sync::Arc};
+use tokio::sync::{Mutex, mpsc};
+use tokio_stream::{Stream, wrappers::ReceiverStream};
 use tower_http::{
     cors::{Any, CorsLayer},
     services::ServeDir,
     trace::TraceLayer,
 };
-use tracing::{info, Level};
+use tracing::{Level, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod state;
 use state::AppState;
 
-use crate::{middleware::auth::auth_middleware, plugin_system::plugin_manager::PluginManager, routes::users::{admin_routes, auth_routes, user_routes}};
+use crate::{
+    middleware::auth::{auth_middleware, verify_csrf},
+    plugin_system::plugin_manager::PluginManager,
+    routes::users::{admin_routes, auth_routes, protected_auth_routes, user_routes},
+};
 
-// Import your existing modules
 mod file;
 mod llm;
+pub mod middleware;
 mod plugin_system;
 mod resources;
-mod users;
 mod routes;
-pub mod middleware;
+pub mod systems;
+pub mod settings;
+mod users;
+mod jwt;
 
 // LLM-related types
 #[derive(Serialize, Deserialize)]
@@ -73,10 +83,18 @@ async fn main() {
     let app_state = Arc::new(AppState::new().await);
     initialize_plugin_manager(app_state.get_plugin_manager()).await;
 
+    let result = app_state.resource_manager.lock().await.request_builder()
+        .with_credentials(Some(env::var("SYSTEM_FILE_ACCESS_TOKEN").unwrap_or("".to_string())), true)
+        .with_dir("system".to_string())
+        .build(&app_state.clone())
+        .await;
+
+    println!("Result: {:#?}", result);
+
     // Get current directory for static file serving
     let current_dir = std::env::current_dir().unwrap();
     info!("Current directory: {}", current_dir.display());
-    
+
     // Determine static file path - check both 'dist' and 'static' directories
     let static_path = if current_dir.join("dist").exists() {
         current_dir.join("dist")
@@ -86,7 +104,7 @@ async fn main() {
         // Default to static for production builds
         current_dir.join("static")
     };
-    
+
     info!("Serving static files from: {}", static_path.display());
 
     // Build the application
@@ -105,7 +123,7 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind(addr)
         .await
         .expect("Failed to bind to address");
-    
+
     axum::serve(listener, app)
         .await
         .expect("Failed to start server");
@@ -120,7 +138,8 @@ async fn initialize_plugin_manager(plugin_manager: Arc<Mutex<Option<PluginManage
                 .await
                 .expect("Failed to initialize plugin manager");
         }
-    }.await;
+    }
+    .await;
 }
 
 fn create_app(app_state: Arc<AppState>, static_path: PathBuf) -> Router {
@@ -128,7 +147,7 @@ fn create_app(app_state: Arc<AppState>, static_path: PathBuf) -> Router {
     let static_files_service = ServeDir::new(&static_path)
         .precompressed_gzip()
         .append_index_html_on_directories(false);
-    
+
     let api_routes = Router::new()
         // Health and status endpoints
         .route("/health", get(health_check))
@@ -137,25 +156,27 @@ fn create_app(app_state: Arc<AppState>, static_path: PathBuf) -> Router {
         .route("/stream", get(stream_handler))
         .route("/completion", post(completion_handler));
 
-    
-
     // Main router
 
     Router::new()
         .nest("/api", api_routes)
         .nest("/api", auth_routes(app_state.as_ref().clone()))
-        .nest("/api/user", user_routes(app_state.as_ref().clone())
-            .layer(
-                from_fn_with_state(
-                app_state.clone(),
-                auth_middleware
-        )))
-        .nest("/api/admin", admin_routes(app_state.as_ref().clone())
-            .layer(
-                from_fn_with_state(
-                app_state.clone(),
-                auth_middleware
-            )))
+        .nest(
+            "/api/user",
+            user_routes(app_state.as_ref().clone())
+                .layer(from_fn_with_state(app_state.clone(), verify_csrf))
+                .layer(from_fn_with_state(app_state.clone(), auth_middleware)),
+        )
+        .nest(
+            "/api/user",
+            protected_auth_routes(app_state.as_ref().clone())
+                .layer(from_fn_with_state(app_state.clone(), auth_middleware)),
+        )
+        .nest(
+            "/api/admin",
+            admin_routes(app_state.as_ref().clone())
+                .layer(from_fn_with_state(app_state.clone(), auth_middleware)),
+        )
         .fallback_service(static_files_service.clone())
         .layer(
             CorsLayer::new()
@@ -177,13 +198,28 @@ async fn health_check() -> impl IntoResponse {
 }
 
 // Status endpoint with more detailed information
-async fn status(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+async fn status(cookies: CookieJar, State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let auth_token = cookies
+        .get("auth_token")
+        .and_then(|cookie| Some(cookie.value().to_string()));
+    let is_authenticated = if let Some(token) = auth_token {
+        state
+            .user_manager
+            .lock()
+            .await
+            .validate_session(&token)
+            .await
+            .is_ok()
+    } else {
+        false
+    };
     Json(json!({
         "status": "operational",
         "version": env!("CARGO_PKG_VERSION"),
         "plugins": {
             "count": state.get_plugin_manager().lock().await.as_ref().map(|pm| pm.get_plugin_count()).unwrap_or(0),
         },
+        "authenticated": is_authenticated,
         "uptime": state.get_uptime().as_secs(),
     }))
 }
@@ -193,7 +229,7 @@ async fn stream_handler(
     Query(params): Query<StreamQueryParams>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     let provider = Arc::new(OpenRouterProvider::new());
-    
+
     let stream = async_stream::stream! {
         // Parse messages inside the stream
         let messages = match serde_json::from_str::<Vec<Message>>(&params.messages) {
@@ -206,7 +242,7 @@ async fn stream_handler(
                 return;
             }
         };
-        
+
         match provider.generate_stream(messages).await {
             Ok(mut stream) => {
                 while let Some(result) = stream.next().await {
@@ -214,13 +250,13 @@ async fn stream_handler(
                         Ok(response) => {
                             let text = response.text();
                             let is_done = response.json().get("done").is_some();
-                            
+
                             if !text.is_empty() || is_done {
                                 yield Ok(Event::default().data(
                                     serde_json::to_string(&StreamChunk { text, done: is_done }).unwrap()
                                 ));
                             }
-                            
+
                             if is_done {
                                 break;
                             }
@@ -247,27 +283,21 @@ async fn stream_handler(
             }
         }
     };
-    
+
     Sse::new(stream)
 }
 
 // LLM completion handler
-async fn completion_handler(
-    Json(req): Json<CompletionRequest>,
-) -> impl IntoResponse {
+async fn completion_handler(Json(req): Json<CompletionRequest>) -> impl IntoResponse {
     let provider = Arc::new(OpenRouterProvider::new());
-    
+
     match provider.generate(req.messages).await {
-        Ok(response) => {
-            Json(CompletionResponse {
-                text: response.text(),
-            })
-        }
-        Err(e) => {
-            Json(CompletionResponse {
-                text: format!("Error: {}", e),
-            })
-        }
+        Ok(response) => Json(CompletionResponse {
+            text: response.text(),
+        }),
+        Err(e) => Json(CompletionResponse {
+            text: format!("Error: {}", e),
+        }),
     }
 }
 
@@ -278,3 +308,4 @@ async fn handle_error(error: std::io::Error) -> impl IntoResponse {
         format!("Internal server error: {}", error),
     )
 }
+

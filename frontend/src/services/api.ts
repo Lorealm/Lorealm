@@ -1,4 +1,5 @@
 import axios, { type AxiosInstance } from 'axios'
+import { useAuthStore } from '@/stores/authStore' // Adjust the import path as needed for your project structure
 
 // Create axios instance with default config
 export const api: AxiosInstance = axios.create({
@@ -7,22 +8,34 @@ export const api: AxiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true,
+  withXSRFToken: true,
+  xsrfHeaderName: 'X-CSRF-TOKEN',
 })
 
-// Request interceptor
-api.interceptors.request.use(
-  (config) => {
-    // Add auth token if available
-    const token = localStorage.getItem('authToken')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
+// Request interceptor to add X-CSRF-TOKEN for mutating methods
+api.interceptors.request.use(async (config) => {
+  if (!config.withXSRFToken) {
     return config
-  },
-  (error) => {
-    return Promise.reject(error)
   }
-)
+  const methodsNeedingCsrf = [
+    'get' /* Temporary; Should probably be removed down the road */,
+    'post',
+    'put',
+    'delete',
+    'patch',
+  ]
+  if (methodsNeedingCsrf.includes(config.method?.toLowerCase() || '')) {
+    const authStore = useAuthStore()
+    if (!authStore.csrfToken) {
+      await authStore.fetchCsrfToken()
+    }
+    if (authStore.csrfToken) {
+      config.headers['X-CSRF-TOKEN'] = authStore.csrfToken
+    }
+  }
+  return config
+})
 
 // Response interceptor
 api.interceptors.response.use(
@@ -34,7 +47,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // Handle unauthorized access
       localStorage.removeItem('authToken')
-      window.location.href = '/login'
+      //window.location.href = '/login'
     }
     return Promise.reject(error)
   }

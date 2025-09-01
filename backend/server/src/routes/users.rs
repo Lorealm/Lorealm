@@ -1,16 +1,18 @@
 use std::sync::Arc;
 
-use axum::{extract::State, middleware, response::Json as ResponseJson, Json};
-use reqwest::StatusCode;
+use axum::{extract::State, http::HeaderMap, middleware::{self, from_fn_with_state}, response::{IntoResponse, Json as ResponseJson}, Json};
+use axum_extra::extract::cookie::{Cookie, SameSite};
+use llm_providers::samplers::json;
+use reqwest::{header, StatusCode};
 
-use crate::{middleware::auth::auth_middleware, state::AppState, users::manager::{CreateUserRequest, LoginRequest, Role, User, UserSettings}};
+use crate::{middleware::auth::auth_middleware, routes::csrf::csrf_token, state::AppState, users::manager::{CreateUserRequest, LoginRequest, Role, User, UserSettings}};
 
 // Route handlers
 pub async fn login(
     State(state): State<AppState>,
     Json(req): Json<LoginRequest>,
-) -> Result<ResponseJson<serde_json::Value>, StatusCode> {
-    let (user, token) = state
+) -> Result<impl IntoResponse, StatusCode> {
+    let (user, token, csrf) = state
         .user_manager
         .lock()
         .await
@@ -18,14 +20,39 @@ pub async fn login(
         .await
         .map_err(|_| StatusCode::UNAUTHORIZED)?;
 
-    Ok(ResponseJson(serde_json::json!({
+    let is_secure = if cfg!(debug_assertions) { false } else { true };
+
+    let mut cookie_builder = Cookie::build(("auth_token", token))
+        .http_only(true)
+        .path("/");
+
+    if is_secure {
+        cookie_builder = cookie_builder
+                .secure(true)
+                .same_site(SameSite::None);
+        } else {
+            // Local dev: avoid SameSite=None + Secure requirement by using Lax and no Secure
+            cookie_builder = cookie_builder.same_site(SameSite::Lax);
+    }
+
+    let cookie = cookie_builder.build();
+
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        header::SET_COOKIE,
+        cookie.to_string().parse().unwrap(),
+    );
+
+    let body = serde_json::json!({
         "user": {
             "id": user.id,
             "username": user.username,
             "role": user.role
         },
-        "token": token
-    })))
+        "csrfToken": csrf
+    });
+
+    Ok((headers, Json(body)))
 }
 
 pub async fn logout(
@@ -35,11 +62,24 @@ pub async fn logout(
     todo!()
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct UserResponse {
+    pub id: String,
+    pub username: String,
+    pub role: String,
+}
+
 pub async fn get_current_user(
     State(state): State<AppState>,
     user: axum::Extension<User>,
-) -> Result<ResponseJson<User>, StatusCode> {
-    todo!()
+) -> Result<ResponseJson<UserResponse>, StatusCode> {
+    let u = UserResponse {
+        id: user.id.to_string(),
+        username: user.username.clone(),
+        role: user.role.clone(),
+    };
+
+    Ok(ResponseJson(u))
 }
 
 pub async fn create_user(
@@ -94,6 +134,12 @@ pub fn auth_routes(state: AppState) -> axum::Router<Arc<AppState>> {
     axum::Router::new()
         .route("/login", axum::routing::post(login))
         .route("/logout", axum::routing::post(logout))
+        .with_state(state)
+}
+
+pub fn protected_auth_routes(state: AppState) -> axum::Router<Arc<AppState>> {
+    axum::Router::new()
+        .route("/csrf-token", axum::routing::get(csrf_token))
         .with_state(state)
 }
 

@@ -13,7 +13,7 @@
       <div>
         <button type="submit">Login</button>
       </div>
-      <div v-if="error" style="color:red">
+      <div v-if="error" style="color: red">
         {{ error }}
       </div>
     </form>
@@ -23,6 +23,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import api from '@/services/api'
+import { useAuthStore } from '@/stores/authStore'
 
 const username = ref('')
 const password = ref('')
@@ -31,13 +32,14 @@ const error = ref('')
 async function login() {
   error.value = ''
   try {
+    const authStore = useAuthStore()
     const res = await api.post('/login', {
       username: username.value,
       password: password.value,
     })
+    authStore.fetchCsrfToken()
 
-    // Assuming your API returns { token: '...' }
-    localStorage.setItem('authToken', res.data.token)
+    localStorage.setItem('user', res.data.user)
     window.location.href = '/' // redirect after login
   } catch (err: any) {
     error.value = err.response?.data?.message || 'Login failed'
