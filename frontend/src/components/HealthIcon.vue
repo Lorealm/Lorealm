@@ -1,6 +1,9 @@
 <template>
   <div class="status-container">
-    <SmartTooltip :disabled="status !== 'online' || !statusDetails" :verticalOffset="10">
+    <SmartTooltip
+      :disabled="(status !== 'online' && status !== 'inauthenticated') || !statusDetails"
+      :verticalOffset="10"
+    >
       <template #trigger>
         <div
           class="status-circle"
@@ -23,6 +26,10 @@
             <div class="info-row">
               <span class="info-label">Uptime:</span>
               <span class="info-value">{{ formatUptime(statusDetails.uptime) }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Authenticated:</span>
+              <span class="info-value">{{ statusDetails.authenticated ? 'Yes' : 'No' }}</span>
             </div>
           </div>
         </div>
@@ -73,6 +80,7 @@ export default {
         'status-online': this.status === 'online',
         'status-offline': this.status === 'offline',
         'status-checking': this.status === 'checking',
+        'status-inauthenticated': this.status === 'inauthenticated',
       }
     },
     statusText() {
@@ -80,6 +88,7 @@ export default {
         online: 'Backend Online',
         offline: 'Backend Offline',
         checking: 'Checking...',
+        inauthenticated: 'Online; Not Authenticated',
       }
       return statusMap[this.status]
     },
@@ -101,14 +110,19 @@ export default {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), this.timeout)
 
-        const response = await api.get(this.endpoint)
+        const response = await api.get(this.endpoint, { withXSRFToken: false })
 
         clearTimeout(timeoutId)
 
         if (response.data.status) {
-          this.status = 'online'
           this.statusDetails = response.data
-          this.$emit('status-change', 'online')
+          if (!response.data.authenticated) {
+            this.status = 'inauthenticated'
+            this.$emit('status-change', 'inauthenticated')
+          } else {
+            this.status = 'online'
+            this.$emit('status-change', 'online')
+          }
         } else {
           this.status = 'offline'
           this.statusDetails = null
@@ -171,6 +185,11 @@ export default {
 
 .status-offline {
   background-color: #ef4444;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}
+
+.status-inauthenticated {
+  background-color: #f59e0b;
   box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
 }
 

@@ -1,10 +1,16 @@
 use anyhow::anyhow;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::Engine;
 use serde::{Deserialize, Serialize};
-use sqlx::{FromRow, Pool, Postgres, types::Uuid};
+use sqlx::{FromRow, Pool, Postgres, types::Uuid, Row};
 use std::fs;
 use std::path::PathBuf;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
-use argon2::password_hash::{rand_core::OsRng, SaltString};
+use argon2::password_hash::SaltString;
+use argon2::password_hash::rand_core::{OsRng as ArgonRng, RngCore};
+use rand::rand_core::{TryRngCore, OsRng};
+
+use crate::routes::csrf::{create_csrf_token, csrf_token};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub enum Role {
@@ -102,7 +108,7 @@ impl UserManager {
         }
 
         // Hash password
-        let salt = SaltString::generate(&mut OsRng);
+        let salt = SaltString::generate(&mut ArgonRng);
         let argon2 = Argon2::default();
         let password_hash = argon2.hash_password(req.password.as_bytes(), &salt)
             .map_err(|e| anyhow!(e))?
@@ -167,7 +173,7 @@ impl UserManager {
         return Ok(());
     }
 
-    pub async fn authenticate(&self, req: LoginRequest) -> Result<(User, String), Box<dyn std::error::Error>> {
+    pub async fn authenticate(&self, req: LoginRequest) -> Result<(User, String, String), Box<dyn std::error::Error>> {
         let user = sqlx::query_as::<_, User>(
             "SELECT * FROM users WHERE username = $1 AND is_active = true"
         )
@@ -181,20 +187,24 @@ impl UserManager {
         Argon2::default().verify_password(req.password.as_bytes(), &parsed_hash).map_err(|e| anyhow!(e))?;
 
         // Create session token
-        let session_token = Uuid::new_v4().to_string();
+        let session_token = generate_session_token();
         let expires_at = chrono::Utc::now() + chrono::Duration::hours(24);
 
-        sqlx::query(
+        let inserted_id: i32 = sqlx::query(
             r#"
             INSERT INTO user_sessions (user_id, session_token, expires_at)
             VALUES ($1, $2, $3)
+            RETURNING id
             "#
         )
         .bind(&user.id.clone())
         .bind(&session_token)
         .bind(expires_at)
-        .execute(&self.db)
-        .await?;
+        .fetch_one(&self.db)
+        .await?
+        .get::<i32, _>(0);
+
+        let initial_csrf = create_csrf_token(inserted_id, &self.db).await?;
 
         // Update last login
         sqlx::query("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1")
@@ -202,7 +212,7 @@ impl UserManager {
             .execute(&self.db)
             .await?;
 
-        Ok((user, session_token))
+        Ok((user, session_token, initial_csrf))
     }
 
     pub async fn validate_session(&self, token: &str) -> Result<User, Box<dyn std::error::Error>> {
@@ -219,6 +229,15 @@ impl UserManager {
         .ok_or("Invalid or expired session")?;
 
         Ok(user)
+    }
+
+    pub async fn get_session_id(&self, token: &str) -> Result<i32, Box<dyn std::error::Error>> {
+        let session_id = sqlx::query("SELECT id FROM user_sessions WHERE session_token = $1")
+            .bind(token)
+            .fetch_one(&self.db)
+            .await?
+            .get(0);
+        Ok(session_id)
     }
 
     pub async fn logout(&self, token: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -274,4 +293,10 @@ impl UserManager {
     pub fn get_user_directory(&self, user_id: i64) -> PathBuf {
         self.data_dir.join("users").join(user_id.to_string())
     }
+}
+
+fn generate_session_token() -> String {
+    let mut bytes = [0u8; 32];
+    let _ = OsRng.try_fill_bytes(&mut bytes);
+    URL_SAFE_NO_PAD.encode(&bytes)
 }

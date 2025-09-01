@@ -1,0 +1,99 @@
+{
+  "exact_self_matches": [
+    "text-davinci-003",
+    "text-davinci-002",
+    "text-davinci-001",
+    "text-curie-001",
+    "text-babbage-001",
+    "text-ada-001",
+    "davinci",
+    "curie",
+    "babbage",
+    "ada",
+    "code-davinci-002",
+    "code-davinci-001",
+    "code-cushman-001"
+  ],
+  "mappings": [
+    {
+      "tokenizer": "o1",
+      "patterns": [
+        "o1",
+        "o1-preview",
+        "o1-mini",
+        "o3-mini",
+        "gpt-5",
+        "o3",
+        "o4-mini"
+      ]
+    },
+    {
+      "tokenizer": "gpt-4o",
+      "patterns": ["gpt-4o", "chatgpt-4o-latest", "gpt-4.1", "gpt-4.5"]
+    },
+    {
+      "tokenizer": "gpt-4-32k",
+      "patterns": ["gpt-4-32k"]
+    },
+    {
+      "tokenizer": "gpt-4",
+      "patterns": ["gpt-4"]
+    },
+    {
+      "tokenizer": "gpt-3.5-turbo-0301",
+      "patterns": ["gpt-3.5-turbo-0301"]
+    },
+    {
+      "tokenizer": "gpt-3.5-turbo",
+      "patterns": ["gpt-3.5-turbo"]
+    },
+    {
+      "tokenizer": "claude",
+      "patterns": ["claude"]
+    },
+    {
+      "tokenizer": "llama3",
+      "patterns": ["llama3", "llama-3"]
+    },
+    {
+      "tokenizer": "llama",
+      "patterns": ["llama"]
+    },
+    {
+      "tokenizer": "mistral",
+      "patterns": ["mistral"]
+    },
+    {
+      "tokenizer": "yi",
+      "patterns": ["yi"]
+    },
+    {
+      "tokenizer": "deepseek",
+      "patterns": ["deepseek"]
+    },
+    {
+      "tokenizer": "gemma",
+      "patterns": ["gemma", "gemini", "learnlm"]
+    },
+    {
+      "tokenizer": "jamba",
+      "patterns": ["jamba"]
+    },
+    {
+      "tokenizer": "qwen2",
+      "patterns": ["qwen2"]
+    },
+    {
+      "tokenizer": "command-r",
+      "patterns": ["command-r"]
+    },
+    {
+      "tokenizer": "command-a",
+      "patterns": ["command-a"]
+    },
+    {
+      "tokenizer": "nemo",
+      "patterns": ["nemo"]
+    }
+  ]
+}
