@@ -48,7 +48,7 @@ pub async fn verify_csrf(
     cookies: CookieJar,
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    mut request: Request,
+    request: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
     log::info!("---- verify csrf middleware ----");

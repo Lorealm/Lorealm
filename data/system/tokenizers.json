@@ -25,75 +25,136 @@
         "gpt-5",
         "o3",
         "o4-mini"
-      ]
+      ],
+      "format": "tiktoken"
     },
     {
       "tokenizer": "gpt-4o",
-      "patterns": ["gpt-4o", "chatgpt-4o-latest", "gpt-4.1", "gpt-4.5"]
+      "patterns": ["gpt-4o", "chatgpt-4o-latest", "gpt-4.1", "gpt-4.5"],
+      "format": "tiktoken"
     },
     {
       "tokenizer": "gpt-4-32k",
-      "patterns": ["gpt-4-32k"]
+      "patterns": ["gpt-4-32k"],
+      "format": "tiktoken"
     },
     {
       "tokenizer": "gpt-4",
-      "patterns": ["gpt-4"]
+      "patterns": ["gpt-4"],
+      "format": "tiktoken"
     },
     {
       "tokenizer": "gpt-3.5-turbo-0301",
-      "patterns": ["gpt-3.5-turbo-0301"]
+      "patterns": ["gpt-3.5-turbo-0301"],
+      "format": "tiktoken"
     },
     {
       "tokenizer": "gpt-3.5-turbo",
-      "patterns": ["gpt-3.5-turbo"]
+      "patterns": ["gpt-3.5-turbo"],
+      "format": "tiktoken"
     },
     {
       "tokenizer": "claude",
-      "patterns": ["claude"]
+      "patterns": ["claude"],
+      "format": "diffusers",
+      "paths": {
+        "main": "res://system/tokenizers/claude.json",
+        "fallback": "res://system/tokenizers/llama3.json"
+      }
     },
     {
       "tokenizer": "llama3",
-      "patterns": ["llama3", "llama-3"]
+      "patterns": ["llama3", "llama-3"],
+      "format": "diffusers",
+      "paths": {
+        "main": "res://system/tokenizers/llama3.json",
+        "fallback": "res://system/tokenizers/llama3.json"
+      }
     },
     {
       "tokenizer": "llama",
-      "patterns": ["llama"]
+      "patterns": ["llama"],
+      "format": "sentencepiece",
+      "paths": {
+        "main": "res://system/tokenizers/llama.model"
+      }
     },
     {
       "tokenizer": "mistral",
-      "patterns": ["mistral"]
+      "patterns": ["mistral"],
+      "format": "sentencepiece",
+      "paths": {
+        "main": "res://system/tokenizers/mistral.model"
+      }
     },
     {
       "tokenizer": "yi",
-      "patterns": ["yi"]
+      "patterns": ["yi"],
+      "format": "sentencepiece",
+      "paths": {
+        "main": "res://system/tokenizers/yi.model"
+      }
     },
     {
       "tokenizer": "deepseek",
-      "patterns": ["deepseek"]
+      "patterns": ["deepseek"],
+      "format": "diffusers",
+      "paths": {
+        "main": "res://system/tokenizers/deepseek.json",
+        "fallback": "res://system/tokenizers/llama3.json"
+      }
     },
     {
       "tokenizer": "gemma",
-      "patterns": ["gemma", "gemini", "learnlm"]
+      "patterns": ["gemma", "gemini", "learnlm"],
+      "format": "sentencepiece",
+      "paths": {
+        "main": "res://system/tokenizers/gemma.model"
+      }
     },
     {
       "tokenizer": "jamba",
-      "patterns": ["jamba"]
+      "patterns": ["jamba"],
+      "format": "sentencepiece",
+      "paths": {
+        "main": "res://system/tokenizers/jamba.model"
+      }
     },
     {
       "tokenizer": "qwen2",
-      "patterns": ["qwen2"]
+      "patterns": ["qwen2"],
+      "format": "diffusers",
+      "paths": {
+        "main": "res://system/tokenizers/qwen2.json",
+        "fallback": "res://system/tokenizers/llama3.json"
+      }
     },
     {
       "tokenizer": "command-r",
-      "patterns": ["command-r"]
+      "patterns": ["command-r"],
+      "format": "diffusers",
+      "paths": {
+        "main": "res://system/tokenizers/command-r.json",
+        "fallback": "res://system/tokenizers/llama3.json"
+      }
     },
     {
       "tokenizer": "command-a",
-      "patterns": ["command-a"]
+      "patterns": ["command-a"],
+      "format": "diffusers",
+      "paths": {
+        "main": "res://system/tokenizers/command-a.json",
+        "fallback": "res://system/tokenizers/llama3.json"
+      }
     },
     {
       "tokenizer": "nemo",
-      "patterns": ["nemo"]
+      "patterns": ["nemo"],
+      "format": "diffusers",
+      "paths": {
+        "main": "res://system/tokenizers/nemo.json",
+        "fallback": "res://system/tokenizers/llama3.json"
+      }
     }
   ]
 }

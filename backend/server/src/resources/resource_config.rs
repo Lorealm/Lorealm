@@ -1,29 +1,34 @@
-use std:: path::PathBuf;
 use serde::{Deserialize, Serialize};
-use tracing_subscriber::fmt::format;
+use std::{
+    fmt::Debug,
+    fs::{self, File},
+    io::{Read, Seek, Write},
+    path::{Path, PathBuf},
+};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
-enum DirectoryScope {
-    Global,    // For all users
-    Local,     // For a specific user
-    System,    // For the system; Generally inaccessible to users
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub enum DirectoryScope {
+    Global, // Accessible to all users
+    Local,  // Specific to a user
+    System, // Generally inaccessible to users
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ResourceConfig {
     resource_dir: PathBuf,
-    directory_config: DirectoryConfig
+    directory_manager: DirectoryManager,
 }
 
 impl ResourceConfig {
-    pub fn new(resource_dir: PathBuf, directory_config: Option<DirectoryConfig>) -> Self {
-        let mut directory_config = directory_config.unwrap_or_default();
-        directory_config.set_root_directory(resource_dir.clone());
+    pub fn new(resource_dir: impl Into<PathBuf>, directory_manager: Option<DirectoryManager>) -> Self {
+        let resource_dir = resource_dir.into();
+        let mut directory_manager = directory_manager.unwrap_or_default();
+        directory_manager.set_root_directory(resource_dir.clone());
 
         Self {
             resource_dir,
-            directory_config
+            directory_manager,
         }
     }
 
@@ -31,80 +36,122 @@ impl ResourceConfig {
         &self.resource_dir
     }
 
-    pub fn directory_config(&self) -> &DirectoryConfig {
-        &self.directory_config
+    pub fn directory_manager(&self) -> &DirectoryManager {
+        &self.directory_manager
+    }
+}
+
+#[derive(Debug)]
+pub struct ManagedFile {
+    path: PathBuf,
+    handle: File,
+}
+
+impl ManagedFile {
+    pub fn new(path: PathBuf, file: File) -> Self {
+        Self { path, handle: file }
+    }
+}
+
+pub trait FileLike: Read + Write + Seek + Debug {
+    fn path(&self) -> &Path;
+}
+
+impl FileLike for ManagedFile {
+    fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl Read for ManagedFile {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.handle.read(buf)
+    }
+}
+
+impl Write for ManagedFile {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.handle.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.handle.flush()
+    }
+}
+
+impl Seek for ManagedFile {
+    fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
+        self.handle.seek(pos)
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct DirectoryConfig {
+pub struct DirectoryManager {
     base_directory: PathBuf,
-    directories: Vec<DirectoryEntry>
+    directories: Vec<DirectoryEntry>,
 }
 
-impl DirectoryConfig {
-
-    pub fn set_root_directory(&mut self, path: PathBuf) {
-        self.base_directory = path;
+impl DirectoryManager {
+    pub fn new(base_directory: impl Into<PathBuf>) -> Self {
+        let mut manager = Self::default();
+        manager.set_root_directory(base_directory);
+        manager
     }
 
-    /// Gets or infers a DirectoryEntry for the given path, creating a temporary entry if the exact path doesn't exist.
-    pub fn get_directory(&self, path: &str) -> Option<DirectoryEntry> {
-        let prefix = format!("{}/", self.base_directory.to_string_lossy());
-        let normalized_path = path
-            .strip_prefix(&prefix)
-            .unwrap_or(path);
-        
-        // Check for an exact match first
-        if let Some(entry) = self.directories.iter().find(|d| d.path == normalized_path) {
-            return Some(entry.clone());
+    pub fn set_root_directory(&mut self, path: impl Into<PathBuf>) {
+        self.base_directory = path.into();
+    }
+
+    /// Retrieves a `DirectoryEntry` for the given path, inferring from the closest parent if necessary.
+    pub fn get_directory_entry(&self, path: impl AsRef<Path>) -> Result<DirectoryEntry, ResourceError> {
+        let normalized_path = self.normalize_path(path.as_ref())?;
+
+        // Check for an exact match
+        if let Some(entry) = self.directories.iter().find(|d| PathBuf::from(d.path.as_str()) == normalized_path) {
+            return Ok(entry.clone());
         }
 
-        // Find the closest matching parent directory
-        let path_components: Vec<&str> = normalized_path.split('/').collect();
-        let mut best_match: Option<&DirectoryEntry> = None;
-        let mut max_matched_components = 0;
+        // Find the closest parent directory
+        let parent_entry = self.find_closest_parent(&normalized_path)?;
 
-        for entry in &self.directories {
-            let entry_components: Vec<&str> = entry.path.split('/').collect();
-            let min_len = path_components.len().min(entry_components.len());
-            
-            // Check if the entry path is a prefix of the requested path
-            let is_prefix = path_components.iter().take(min_len).eq(entry_components.iter().take(min_len));
-            
-            if is_prefix && entry_components.len() >= max_matched_components {
-                // Prefer the entry with the longest matching path
-                if entry_components.len() > max_matched_components || best_match.is_none() {
-                    best_match = Some(entry);
-                    max_matched_components = entry_components.len();
-                }
-            }
-        }
-
-        // If no parent is found, return None
-        let parent_entry = best_match?;
-
-        // Create a temporary DirectoryEntry for the requested path
-        let immediate_subdirs = self.read_directory_io(&PathBuf::from(normalized_path))
+        // Read immediate subdirectories from the filesystem
+        let subdirs = self
+            .read_directory_io(&self.base_directory.join(&normalized_path))
             .map(|dir_data| {
-                dir_data.subdirectories.into_iter()
-                    .filter_map(|subdir| subdir.path.file_name().and_then(|name| name.to_str().map(String::from)))
-                    .collect::<Vec<String>>()
+                dir_data
+                    .subdirectories
+                    .into_iter()
+                    .filter_map(|subdir| {
+                        subdir
+                            .path
+                            .file_name()
+                            .and_then(|name| name.to_str().map(String::from))
+                    })
+                    .collect()
             })
             .unwrap_or_default();
 
-        // Return a new temporary DirectoryEntry with inherited permissions
-        Some(DirectoryEntry {
-            path: normalized_path.to_string(),
-            scope: parent_entry.scope.clone(),
+        Ok(DirectoryEntry {
+            path: normalized_path.to_string_lossy().to_string(),
+            scope: parent_entry.scope,
             description: format!("Inferred directory from parent: {}", parent_entry.path),
             owner: parent_entry.owner,
-            subdirectiores: immediate_subdirs,
+            subdirectories: subdirs,
         })
     }
 
-    pub fn get_directories(&self) -> &Vec<DirectoryEntry> {
-        &self.directories
+    /// Retrieves a `FileEntry` for the given path, inheriting permissions from the closest parent.
+    pub fn get_file_entry(&self, path: impl AsRef<Path>) -> Result<FileEntry, ResourceError> {
+        let normalized_path = self.normalize_path(path.as_ref())?;
+
+        // Find the closest parent directory
+        let parent_entry = self.find_closest_parent(&normalized_path)?;
+
+        Ok(FileEntry {
+            path: self.anonymize_path(&PathBuf::from(&normalized_path)),
+            scope: parent_entry.scope,
+            owner: parent_entry.owner,
+        })
     }
 
     pub fn add_directory(&mut self, directory: DirectoryEntry) {
@@ -115,9 +162,9 @@ impl DirectoryConfig {
         self.add_directory(DirectoryEntry {
             path: format!("users/{}", user_id),
             scope: DirectoryScope::Local,
-            description: String::from("User directory. Stores files required for the user to run."),
+            description: "User directory for storing user-specific files.".to_string(),
             owner: Some(user_id),
-            subdirectiores: vec!["conversations", "lorebooks"].iter().map(|s| s.to_string()).collect()
+            subdirectories: vec!["conversations".to_string(), "lorebooks".to_string()],
         });
     }
 
@@ -126,159 +173,257 @@ impl DirectoryConfig {
     }
 
     pub fn get_accessible_directories(&self, user_id: Uuid) -> Vec<&DirectoryEntry> {
-        self.directories.iter().filter(|d| d.scope == DirectoryScope::Global || d.owner == Some(user_id)).collect()
+        self.directories
+            .iter()
+            .filter(|d| d.scope == DirectoryScope::Global || d.owner == Some(user_id))
+            .collect()
     }
 
-    pub fn request_directory_structure(&self, path: &str, user_id: Uuid) -> Result<DirectoryData, Box<dyn std::error::Error>> {
-        let prefix = format!("{}/", self.base_directory.to_string_lossy());
-        let normalized_path = path
-            .strip_prefix(&prefix)
-            .unwrap_or(path);
-        println!("Requesting directory structure for path: {}", normalized_path);
+    pub fn request_directory_structure(
+        &self,
+        path: impl AsRef<Path>,
+        user_id: Uuid,
+    ) -> Result<DirectoryStructure, ResourceError> {
+        let normalized_path = self.normalize_path(path.as_ref())?;
+        let dir_entry = self.get_directory_entry(&normalized_path)?;
 
-        // Verify access to the initial directory
-        let dir_entry = self.get_directory(normalized_path);
-        if let Some(entry) = &dir_entry {
-            if entry.scope != DirectoryScope::Global && entry.owner != Some(user_id) {
-                return Err("Permission denied".into());
-            }
-        } else {
-            return Err("Directory not found".into());
+        // Check permissions
+        if dir_entry.scope != DirectoryScope::Global && dir_entry.owner != Some(user_id) {
+            return Err(ResourceError::PermissionDenied);
         }
 
-        // Get the initial directory entry
-        let mut entry = dir_entry.clone().unwrap();
-        let initial_path = self.base_directory.join(&normalized_path);
-        
-        // Read the directory from the file system
-        let mut dir_data = match self.read_directory_io(&initial_path) {
-            Some(data) => data,
-            None => return Err("Failed to read directory".into()),
-        };
+        let full_path = self.base_directory.join(&normalized_path);
+        let mut dir_data = self
+            .read_directory_io(&full_path)
+            .ok_or(ResourceError::DirectoryNotFound)?;
 
-        // Add non-tracked subdirectories
+        // Update subdirectories with inferred entries
+        let mut entry = dir_entry.clone();
         for dir in dir_data.subdirectories.iter_mut() {
-            let prefix = "res:/".to_string();
-            let key = &dir.path.strip_prefix(&prefix).unwrap().to_string_lossy().to_string();
-            if !entry.subdirectiores.contains(key) {
-                entry.subdirectiores.push(key.clone());
+            let key = self.normalize_path(&dir.path)?.to_string_lossy().to_string();
+            if !entry.subdirectories.contains(&key) {
+                entry.subdirectories.push(key);
             }
         }
 
-        // Recursively process subdirectories
-        let mut valid_subdirectories = Vec::new();
-        for subdir in &entry.subdirectiores {
-            let subdir_path = self.deanonymize_path(&PathBuf::from(&subdir));
-            println!("Requesting directory structure for subdirectory: {}", subdir_path.display());
-            let subdir_normalized = subdir_path.to_string_lossy().to_string();
-            
-            // Check permissions for subdirectory
-            let subdir_entry = self.get_directory(&subdir_normalized);
-            if let Some(sub_entry) = subdir_entry {
-                if sub_entry.scope == DirectoryScope::Global || sub_entry.owner == Some(user_id) {
-                    // Recursively request subdirectory structure
-                    
-                    if let Ok(mut subdir_data) = self.request_directory_structure(&subdir_normalized, user_id) {
-                        subdir_data.path = self.anonymize_path(&subdir_data.path);
-                        valid_subdirectories.push(subdir_data);
-                    }
+        // Process subdirectories recursively
+        let valid_subdirs = entry
+            .subdirectories
+            .iter()
+            .filter_map(|subdir| {
+                let subdir_path = self.deanonymize_path(&PathBuf::from(subdir));
+                let subdir_normalized = subdir_path.to_string_lossy().to_string();
+                let subdir_entry = self.get_directory_entry(&subdir_normalized).ok()?;
+                if subdir_entry.scope == DirectoryScope::Global
+                    || subdir_entry.owner == Some(user_id)
+                {
+                    self.request_directory_structure(&subdir_normalized, user_id)
+                        .map(|mut subdir_data| {
+                            subdir_data.path = self.anonymize_path(&subdir_data.path);
+                            subdir_data
+                        })
+                        .ok()
+                } else {
+                    None
                 }
-            }
-        }
-        
-        // Update the directory data with valid subdirectories
-        dir_data.subdirectories = valid_subdirectories;
-        
+            })
+            .collect();
+
+        dir_data.subdirectories = valid_subdirs;
         Ok(dir_data)
     }
 
-    /// Reads a directory from the file system
-    fn read_directory_io(&self, path: &PathBuf) -> Option<DirectoryData> {
-        let entries = std::fs::read_dir(path);
-        if let Ok(entries) = entries {
-            let mut files = Vec::new();
-            let mut directories = Vec::new();
-            for entry in entries {
-                let entry = entry.unwrap();
-                if entry.path().is_dir() {
-                    directories.push(DirectoryData::new(entry.path()));
-                } else {
-                    files.push(entry.path());
-                }
+    pub fn request_file_contents(
+        &self,
+        path: impl AsRef<Path>,
+        user_id: Uuid,
+    ) -> Result<Box<dyn FileLike>, ResourceError> {
+        let normalized_path = self.normalize_path(path.as_ref())?;
+        let file_entry = self.get_file_entry(&normalized_path)?;
+
+        if user_id != Uuid::nil() {
+            if file_entry.scope != DirectoryScope::Global && file_entry.owner != Some(user_id) {
+                return Err(ResourceError::PermissionDenied);
             }
-            Some(DirectoryData {
-                path: path.to_path_buf(),
-                files: files.iter().map(|f| self.anonymize_path(f)).collect(),
-                subdirectories: directories.iter().map(|d| DirectoryData::new(self.anonymize_path(&d.path))).collect(),
-            })
-        } else {
-            None
+        }
+        
+
+        let full_path = self.base_directory.join(&normalized_path);
+        self.read_file_io(&full_path)
+    }
+
+    /// Gets the full, non-obfuscated path of a resource file. Should only ever be used locally.
+    pub(super) fn request_qualifed_path(
+        &self,
+        path: impl AsRef<Path>
+    ) -> Result<PathBuf, ResourceError> {
+        let full_path = self.deanonymize_path(&path);
+        match fs::exists(&full_path) {
+            Ok(exists) => {
+                if exists {
+                    return Ok(full_path);
+                };
+                return Err(ResourceError::InvalidPath(path.as_ref().into()));
+            },
+            Err(e) => Err(ResourceError::IoError(e.to_string()))
         }
     }
 
-    fn anonymize_path(&self, path: &PathBuf) -> PathBuf {
-        let path_str = path.to_string_lossy().to_string();
-        let prefix = self.base_directory.to_string_lossy().to_string();
-        let stripped_path = path_str.strip_prefix(&prefix).unwrap_or(&path_str).to_string();
-        PathBuf::from(format!("res:/{}", stripped_path))
+    fn read_file_io(&self, path: &PathBuf) -> Result<Box<dyn FileLike>, ResourceError> {
+        let file = File::open(path).map_err(|e| ResourceError::IoError(e.to_string()))?;
+        Ok(Box::new(ManagedFile::new(path.to_path_buf(), file)))
     }
 
-    fn deanonymize_path(&self, path: &PathBuf) -> PathBuf {
-        let path_str = path.to_string_lossy().to_string();
-        let prefix = self.base_directory.to_string_lossy().to_string();
-        let stripped_path = path_str.strip_prefix("res:/").unwrap_or(&path_str).to_string();
-        PathBuf::from(format!("{}/{}", prefix, stripped_path))
+    fn read_directory_io(&self, path: &PathBuf) -> Option<DirectoryStructure> {
+        let entries = fs::read_dir(path).ok()?;
+        let mut files = Vec::new();
+        let mut directories = Vec::new();
+
+        for entry in entries.filter_map(Result::ok) {
+            if entry.path().is_dir() {
+                directories.push(DirectoryStructure::new(self.anonymize_path(&entry.path())));
+            } else {
+                files.push(self.anonymize_path(&entry.path()));
+            }
+        }
+
+        Some(DirectoryStructure {
+            path: self.anonymize_path(path),
+            files,
+            subdirectories: directories,
+        })
+    }
+
+    fn normalize_path(&self, path: &Path) -> Result<PathBuf, ResourceError> {
+        let path_str = path
+            .to_str()
+            .ok_or_else(|| ResourceError::InvalidPath(path.to_path_buf()))?;
+        let prefix = format!("{}/", self.base_directory.to_string_lossy());
+        let normalized = path_str
+            .strip_prefix(&prefix)
+            .unwrap_or(path_str)
+            .trim_start_matches('/')
+            .to_string();
+        Ok(PathBuf::from(normalized))
+    }
+
+    fn find_closest_parent(&self, path: &Path) -> Result<&DirectoryEntry, ResourceError> {
+        let path_components: Vec<&str> = path.to_str().ok_or_else(|| ResourceError::InvalidPath(path.to_path_buf()))?.split('/').collect();
+        let mut best_match: Option<&DirectoryEntry> = None;
+        let mut max_matched_components = 0;
+
+        for entry in &self.directories {
+            let entry_components: Vec<&str> = entry.path.split('/').collect();
+            let min_len = path_components.len().min(entry_components.len());
+            let is_prefix = path_components
+                .iter()
+                .take(min_len)
+                .eq(entry_components.iter().take(min_len));
+
+            if is_prefix && entry_components.len() >= max_matched_components {
+                best_match = Some(entry);
+                max_matched_components = entry_components.len();
+            }
+        }
+
+        best_match.ok_or(ResourceError::DirectoryNotFound)
+    }
+
+    fn anonymize_path(&self, path: impl AsRef<Path>) -> PathBuf {
+        PathBuf::from(self.sanitize(path))
+    }
+
+    fn deanonymize_path(&self, path: impl AsRef<Path>) -> PathBuf {
+        let path_str = path.as_ref().to_string_lossy().to_string();
+        let stripped = path_str.strip_prefix("res://").unwrap_or(&path_str);
+        self.base_directory.join(stripped)
+    }
+
+    pub fn sanitize(&self, input: impl AsRef<Path>) -> String {
+        let input_path = input.as_ref();
+        let relative = input_path
+            .strip_prefix(&self.base_directory)
+            .unwrap_or(input_path);
+        let clean = relative
+            .components()
+            .filter(|comp| !matches!(comp, std::path::Component::CurDir))
+            .fold(PathBuf::new(), |mut acc, comp| {
+                if comp != std::path::Component::ParentDir {
+                    acc.push(comp);
+                } else {
+                    acc.pop();
+                }
+                acc
+            });
+        format!("res://{}", clean.to_string_lossy().replace('\\', "/").trim_start_matches('/'))
     }
 }
 
-impl Default for DirectoryConfig {
+impl Default for DirectoryManager {
     fn default() -> Self {
         Self {
             base_directory: PathBuf::from("."),
             directories: vec![
                 DirectoryEntry {
-                    path: String::from("system"),
-                    scope: DirectoryScope::Global,
-                    description: String::from("System directory. Stores files required for the system to run."),
+                    path: "system".to_string(),
+                    scope: DirectoryScope::System,
+                    description: "System directory for core system files.".to_string(),
                     owner: None,
-                    subdirectiores: vec!["tokenizers".to_string()]
+                    subdirectories: vec!["tokenizers".to_string()],
                 },
                 DirectoryEntry {
-                    path: String::from("users"),
-                    scope: DirectoryScope::Global, // The base user directory can be accessed by all users. Limitations apply further down the line
-                    description: String::from("User directory. Stores files required for the user to run."),
+                    path: "users".to_string(),
+                    scope: DirectoryScope::Global,
+                    description: "Base directory for user-specific data.".to_string(),
                     owner: None,
-                    subdirectiores: vec!["conversations", "lorebooks"].iter().map(|s| s.to_string()).collect()
-                }
-            ]
+                    subdirectories: vec!["conversations".to_string(), "lorebooks".to_string()],
+                },
+            ],
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DirectoryEntry {
-    /// The path to the directory relative to the resource directory.
     pub path: String,
     pub scope: DirectoryScope,
     pub description: String,
     pub owner: Option<Uuid>,
-    /// A list of immediate subdirectores. All derived subdirectories retain the same scope and owner as its parent.
-    pub subdirectiores: Vec<String>
+    pub subdirectories: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct FileEntry {
+    pub path: PathBuf,
+    pub scope: DirectoryScope,
+    pub owner: Option<Uuid>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DirectoryData {
+pub struct DirectoryStructure {
     pub path: PathBuf,
     pub files: Vec<PathBuf>,
-    pub subdirectories: Vec<DirectoryData>
+    pub subdirectories: Vec<DirectoryStructure>,
 }
 
-impl DirectoryData {
+impl DirectoryStructure {
     pub fn new(path: PathBuf) -> Self {
         Self {
             path,
             files: vec![],
-            subdirectories: vec![]
+            subdirectories: vec![],
         }
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ResourceError {
+    #[error("Invalid path: {0}")]
+    InvalidPath(PathBuf),
+    #[error("Directory not found")]
+    DirectoryNotFound,
+    #[error("Permission denied")]
+    PermissionDenied,
+    #[error("IO error: {0}")]
+    IoError(String),
 }

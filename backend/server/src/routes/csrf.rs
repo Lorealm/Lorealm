@@ -7,7 +7,7 @@ use rand::rngs::OsRng;
 use sqlx::{PgPool, Row};
 use thiserror::Error; // Add to deps for custom errors
 
-use crate::{middleware::auth, state::AppState};
+use crate::state::AppState;
 
 #[derive(Error, Debug)]
 pub enum CsrfError {
