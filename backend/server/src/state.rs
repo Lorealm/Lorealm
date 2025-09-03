@@ -1,8 +1,8 @@
-use std::{sync::Arc, time::{Duration, Instant}};
+use std::{env, sync::Arc, time::{Duration, Instant}};
 
 use tokio::sync::Mutex;
 
-use crate::{plugin_system::plugin_manager::PluginManager, resources::resource_manager::{self, ResourceManager}, systems::tokenizer::Tokenizer, users::manager::UserManager};
+use crate::{plugin_system::plugin_manager::PluginManager, resources::resource_manager::ResourceManager, systems::tokenizer::TokenizerManager, users::manager::UserManager};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -11,7 +11,7 @@ pub struct AppState {
     pub resource_manager: Arc<Mutex<ResourceManager>>,
     pub database_pool: Arc<Mutex<sqlx::PgPool>>,
     pub user_manager: Arc<Mutex<UserManager>>,
-    pub tokenizers: Arc<Mutex<Vec<Box<dyn Tokenizer>>>>
+    pub tokenizers: Arc<Mutex<TokenizerManager>>
 }
 
 impl AppState {
@@ -27,7 +27,25 @@ impl AppState {
             resource_manager,
             database_pool: Arc::new(Mutex::new(postgres_db)),
             user_manager,
-            tokenizers: Arc::new(Mutex::new(create_tokenizers().await))
+            tokenizers: Arc::new(Mutex::new(TokenizerManager::new()))
+        }
+    }
+
+    pub async fn initialize(&self) {
+        log::info!("Initializing tokenizers");
+        let tokenizer_definition = self.resource_manager.lock().await.request_builder()
+            .with_credentials(Some(env::var("SYSTEM_FILE_ACCESS_TOKEN").unwrap_or("".to_string())), true)
+            .with_file("res://system/tokenizers.json".to_string())
+            .request_content(&self.clone())
+            .await;
+        
+        if let Ok(mut payload) = tokenizer_definition {
+            if payload.data.files.len() == 0 {
+                log::warn!("No tokenizers found");
+                return
+            }
+            let file = payload.data.files.remove(0);
+            self.tokenizers.lock().await.load_definition_file(file, &self).await;
         }
     }
 
@@ -47,11 +65,4 @@ fn get_postgres_from_env() -> String {
     let port = std::env::var("POSTGRES_PORT").unwrap_or("5432".to_string());
     let db = std::env::var("POSTGRES_DATABASE").unwrap_or("postgres".to_string());
     format!("postgres://{}:{}@{}:{}/{}", user, password, host, port, db)
-}
-
-async fn create_tokenizers() -> Vec<Box<dyn Tokenizer>> {
-    use crate::systems::tokenizer::TiktokenTokenizer;
-    vec![
-        Box::new(TiktokenTokenizer::new("o1", None).await)
-    ]
 }

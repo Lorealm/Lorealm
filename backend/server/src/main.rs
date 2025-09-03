@@ -81,15 +81,12 @@ async fn main() {
 
     // Initialize app state
     let app_state = Arc::new(AppState::new().await);
+    app_state.initialize().await;
     initialize_plugin_manager(app_state.get_plugin_manager()).await;
 
-    let result = app_state.resource_manager.lock().await.request_builder()
-        .with_credentials(Some(env::var("SYSTEM_FILE_ACCESS_TOKEN").unwrap_or("".to_string())), true)
-        .with_dir("system".to_string())
-        .build(&app_state.clone())
-        .await;
-
-    println!("Result: {:#?}", result);
+    let tokens = app_state.tokenizers.lock().await.count_tokens(&"llama3".to_string(), &"I like big juice apples!".to_string()).await.unwrap();
+    
+    println!("Result (token count): {}", tokens);
 
     // Get current directory for static file serving
     let current_dir = std::env::current_dir().unwrap();

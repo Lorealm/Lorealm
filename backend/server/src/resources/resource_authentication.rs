@@ -1,7 +1,7 @@
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use uuid::Uuid;
 
-use crate::{jwt::jwt_utils::{issue_scoped_token, verify_and_authorize, DataClaims, FileAccessClaim}, main, users::manager::UserManager};
+use crate::{jwt::jwt_utils::{issue_scoped_token, verify_and_authorize, FileAccessClaim}, users::manager::UserManager};
 
 const JWT_AUDIENCE: &str = "file-access";
 const JWT_TTL: i64 = 3600; // 1 hour
