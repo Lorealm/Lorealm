@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
-use axum::{extract::State, http::HeaderMap, middleware::{self, from_fn_with_state}, response::{IntoResponse, Json as ResponseJson}, Json};
+use axum::{extract::State, http::HeaderMap, response::{IntoResponse, Json as ResponseJson}, Json};
 use axum_extra::extract::cookie::{Cookie, SameSite};
-use llm_providers::samplers::json;
 use reqwest::{header, StatusCode};
 
-use crate::{middleware::auth::auth_middleware, routes::csrf::csrf_token, state::AppState, users::manager::{CreateUserRequest, LoginRequest, Role, User, UserSettings}};
+use crate::{routes::csrf::csrf_token, state::AppState, users::manager::{CreateUserRequest, LoginRequest, Role, User, UserSettings}};
 
 // Route handlers
 pub async fn login(
@@ -14,7 +13,7 @@ pub async fn login(
 ) -> Result<impl IntoResponse, StatusCode> {
     let (user, token, csrf) = state
         .user_manager
-        .lock()
+        .write()
         .await
         .authenticate(req)
         .await
@@ -92,7 +91,7 @@ pub async fn create_user(
 
     let new_user = state
         .user_manager
-        .lock()
+        .write()
         .await
         .create_user(req, &creator_role, None)
         .await
@@ -107,7 +106,7 @@ pub async fn get_user_settings(
 ) -> Result<ResponseJson<UserSettings>, StatusCode> {
     let settings = state
         .user_manager
-        .lock()
+        .write()
         .await
         .get_user_settings(user.id.to_string())
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -122,7 +121,7 @@ pub async fn update_user_settings(
 ) -> Result<StatusCode, StatusCode> {
     state
         .user_manager
-        .lock()
+        .write()
         .await
         .update_user_settings(user.id.to_string(), settings)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;

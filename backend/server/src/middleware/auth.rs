@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use axum::{extract::{Request, State}, http::{self, HeaderMap, StatusCode}, middleware::Next, response::Response};
+use axum::{debug_middleware, extract::{Request, State}, http::{HeaderMap, StatusCode}, middleware::Next, response::Response};
 use axum_extra::extract::CookieJar;
 
-use crate::{routes::csrf::{csrf_token, get_csrf_token}, state::AppState, users::manager::{Role, User}};
+use crate::{routes::csrf::get_csrf_token, state::AppState, users::manager::{Role, User}};
 
 // Middleware for route protection
 pub fn require_auth(user: &User, required_role: Option<Role>) -> Result<(), &'static str> {
@@ -17,29 +17,44 @@ pub fn require_auth(user: &User, required_role: Option<Role>) -> Result<(), &'st
 }
 
 // Middleware to extract user from session token
+#[debug_middleware]
 pub async fn auth_middleware(
     cookies: CookieJar,
-    State(state): State<Arc<AppState>>,
-    mut request: Request,
+    State(state): axum::extract::State<Arc<AppState>>,
+    mut request: Request<axum::body::Body>,
     next: Next,
 ) -> Result<Response, StatusCode> {
     log::info!("auth middleware");
-    let token = cookies.get("auth_token").and_then(|cookie| Some(cookie.value().to_string()));
-    
-    if token.is_none() {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
+    let token = cookies
+        .get("auth_token")
+        .map(|cookie| cookie.value().to_string())
+        .ok_or(StatusCode::UNAUTHORIZED)?;
 
-    log::info!("token: {}", &token.clone().unwrap());
-    let user = state
-        .user_manager
-        .lock()
-        .await
-        .validate_session(&token.unwrap())
-        .await
-        .map_err(|_| StatusCode::UNAUTHORIZED)?;
+    log::info!("token: {}", &token);
+    let manager = state.user_manager.clone();
+    let mut mgr_write = manager.write().await;
+
+    // Try validating the session
+    let user = match mgr_write.validate_session(&token).await {
+        Ok(user) => user,
+        Err(_) => {
+            // Attempt auto-migration of session token
+            match mgr_write.migrate_token(&token).await {
+                Ok(new_token) => {
+                    // Validate the new token
+                    match mgr_write.validate_session(&new_token).await {
+                        Ok(user) => user,
+                        Err(_) => return Err(StatusCode::UNAUTHORIZED),
+                    }
+                }
+                Err(_) => return Err(StatusCode::UNAUTHORIZED),
+            }
+        }
+    };
+
     log::info!("user: {:#?}", user);
-    
+
+    // Insert the user into the request extensions
     request.extensions_mut().insert(user);
     Ok(next.run(request).await)
 }

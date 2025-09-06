@@ -1,28 +1,26 @@
 use axum::{
     Router,
     extract::{Json, Query, State},
-    http::{StatusCode, header},
     middleware::from_fn_with_state,
     response::{
-        Html, IntoResponse, Response,
-        sse::{Event, Sse},
+        IntoResponse, sse::{Event, Sse},
     },
     routing::{get, post},
 };
 use axum_extra::extract::CookieJar;
-use futures::{StreamExt, stream};
+use futures::StreamExt;
 use llm_providers::{llm_provider::LLMProvider, openrouter::OpenRouterProvider, types::Message};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::{collections::HashMap, convert::Infallible, env, net::SocketAddr, path::PathBuf, sync::Arc};
-use tokio::sync::{Mutex, mpsc};
-use tokio_stream::{Stream, wrappers::ReceiverStream};
+use std::{convert::Infallible, env, net::SocketAddr, path::PathBuf, sync::Arc};
+use tokio::sync::Mutex;
+use tokio_stream::Stream;
 use tower_http::{
     cors::{Any, CorsLayer},
     services::ServeDir,
     trace::TraceLayer,
 };
-use tracing::{Level, info};
+use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod state;
@@ -202,7 +200,7 @@ async fn status(cookies: CookieJar, State(state): State<Arc<AppState>>) -> impl 
     let is_authenticated = if let Some(token) = auth_token {
         state
             .user_manager
-            .lock()
+            .write()
             .await
             .validate_session(&token)
             .await
@@ -297,12 +295,3 @@ async fn completion_handler(Json(req): Json<CompletionRequest>) -> impl IntoResp
         }),
     }
 }
-
-// Error handler
-async fn handle_error(error: std::io::Error) -> impl IntoResponse {
-    (
-        StatusCode::INTERNAL_SERVER_ERROR,
-        format!("Internal server error: {}", error),
-    )
-}
-
