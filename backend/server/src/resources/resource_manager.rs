@@ -268,7 +268,7 @@ impl<'a> ResourceRequestBuilder<'a> {
             });
         }
 
-        let user_manager = app_state.user_manager.lock().await;
+        let user_manager = app_state.user_manager.write().await;
         let token_result = self
             .manager
             .auth

@@ -44,7 +44,7 @@ pub async fn csrf_token(
 }
 
 pub async  fn get_csrf_token(app_state: Arc<AppState>, auth_token: String) -> Result<String, CsrfError> { 
-    let user_manager = app_state.user_manager.lock().await;
+    let user_manager = app_state.user_manager.write().await;
     let session = user_manager
         .get_session_id(&auth_token)
         .await

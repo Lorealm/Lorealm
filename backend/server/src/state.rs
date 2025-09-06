@@ -1,8 +1,9 @@
-use std::{env, sync::Arc, time::{Duration, Instant}};
+use std::{env, sync::{Arc}, time::{Duration, Instant}};
 
-use tokio::sync::Mutex;
+use axum::extract::FromRef;
+use tokio::sync::{Mutex, RwLock};
 
-use crate::{plugin_system::plugin_manager::PluginManager, resources::resource_manager::ResourceManager, systems::tokenizer::TokenizerManager, users::manager::UserManager};
+use crate::{plugin_system::plugin_manager::PluginManager, resources::resource_manager::ResourceManager, systems::{session_manager::StateManager, tokenizer::TokenizerManager}, users::manager::UserManager};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -10,8 +11,15 @@ pub struct AppState {
     pub plugin_manager: Arc<Mutex<Option<PluginManager>>>,
     pub resource_manager: Arc<Mutex<ResourceManager>>,
     pub database_pool: Arc<Mutex<sqlx::PgPool>>,
-    pub user_manager: Arc<Mutex<UserManager>>,
-    pub tokenizers: Arc<Mutex<TokenizerManager>>
+    pub user_manager: Arc<RwLock<UserManager>>,
+    pub tokenizers: Arc<Mutex<TokenizerManager>>,
+    pub state_manager: Arc<RwLock<StateManager>>
+}
+
+impl FromRef<AppState> for Arc<RwLock<UserManager>> {
+    fn from_ref(state: &AppState) -> Self {
+        Arc::clone(&state.user_manager)
+    }
 }
 
 impl AppState {
@@ -19,15 +27,16 @@ impl AppState {
         let postgres_db = sqlx::PgPool::connect(&get_postgres_from_env()).await.unwrap();
         sqlx::migrate!("../migrations").run(&postgres_db).await.unwrap();
         let resource_manager = Arc::new(Mutex::new(ResourceManager::new(postgres_db.clone())));
-        let user_manager = Arc::new(Mutex::new(UserManager::new(postgres_db.clone(), resource_manager.lock().await.resource_dir().to_path_buf())));
-        user_manager.lock().await.create_root_user().await.unwrap();
+        let user_manager = Arc::new(RwLock::new(UserManager::new(postgres_db.clone(), resource_manager.lock().await.resource_dir().to_path_buf())));
+        user_manager.write().await.create_root_user().await.unwrap();
         Self {
             start_time: Instant::now(),
             plugin_manager: Arc::new(Mutex::new(Some(PluginManager::new()))),
             resource_manager,
             database_pool: Arc::new(Mutex::new(postgres_db)),
             user_manager,
-            tokenizers: Arc::new(Mutex::new(TokenizerManager::new()))
+            tokenizers: Arc::new(Mutex::new(TokenizerManager::new())),
+            state_manager: Arc::new(RwLock::new(StateManager::new()))
         }
     }
 
@@ -45,7 +54,7 @@ impl AppState {
                 return
             }
             let file = payload.data.files.remove(0);
-            self.tokenizers.lock().await.load_definition_file(file, &self).await;
+            let _ = self.tokenizers.lock().await.load_definition_file(file, &self).await;
         }
     }
 
