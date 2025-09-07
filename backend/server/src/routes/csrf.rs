@@ -35,16 +35,19 @@ pub async fn csrf_token(
     State(state): State<AppState>,
     cookies: CookieJar,
 ) -> Result<String, CsrfError> {
+    log::info!("retrieving csrf token");
     let auth_token = cookies
         .get("auth_token")
         .map(|c| c.value().to_string())
         .ok_or(CsrfError::SessionNotFound)?;
-
-    get_csrf_token(Arc::new(state), auth_token).await
+    log::info!("retrieving csrf token");
+    get_csrf_token(state.into(), auth_token).await
 }
 
-pub async  fn get_csrf_token(app_state: Arc<AppState>, auth_token: String) -> Result<String, CsrfError> { 
+pub async fn get_csrf_token(app_state: Arc<AppState>, auth_token: String) -> Result<String, CsrfError> { 
+    log::info!("CSRF: getting user manager write permission...");
     let user_manager = app_state.user_manager.write().await;
+    log::info!("CSRF: retrieving session from db");
     let session = user_manager
         .get_session_id(&auth_token)
         .await
@@ -52,12 +55,15 @@ pub async  fn get_csrf_token(app_state: Arc<AppState>, auth_token: String) -> Re
 
     drop(user_manager); // Release lock early
 
+    log::info!("try retrieve csrf from db");
     let pool = app_state.database_pool.lock().await;
     let token = get_csrf_token_from_db(session, &pool).await?;
 
     if let Some(t) = token {
+        log::info!("csrf found... returning");
         Ok(t)
     } else {
+        log::info!("csrf not found... creating new");
         create_csrf_token(session, &pool).await
     }
 }
@@ -82,8 +88,10 @@ async fn generate_csrf_token() -> Result<String, CsrfError> {
 }
 
 pub async fn create_csrf_token(session: i32, pool: &PgPool) -> Result<String, CsrfError> {
+    log::info!("generating token");
     let token = generate_csrf_token().await?;
 
+    log::info!("token generated... inserting into db");
     sqlx::query(
         "INSERT INTO csrf_tokens (session_id, token) VALUES ($1, $2)
         ON CONFLICT (session_id) DO UPDATE SET token = EXCLUDED.token, created_at = now()"

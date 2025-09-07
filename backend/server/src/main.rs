@@ -27,9 +27,7 @@ mod state;
 use state::AppState;
 
 use crate::{
-    middleware::auth::{auth_middleware, verify_csrf},
-    plugin_system::plugin_manager::PluginManager,
-    routes::users::{admin_routes, auth_routes, protected_auth_routes, user_routes},
+    api::state::state_routes, middleware::{auth::{auth_middleware, verify_csrf}, state::user_state_middleware}, plugin_system::plugin_manager::PluginManager, routes::users::{admin_routes, auth_routes, protected_auth_routes, user_routes}
 };
 
 mod file;
@@ -42,6 +40,7 @@ pub mod systems;
 pub mod settings;
 mod users;
 mod jwt;
+mod api;
 
 // LLM-related types
 #[derive(Serialize, Deserialize)]
@@ -67,15 +66,17 @@ struct CompletionResponse {
 
 #[tokio::main]
 async fn main() {
-    println!("Hello, world!");
+    let _ = dotenv::dotenv();
 
+    println!("Hello, world!");
+    let log_level = std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into());
     // Initialize tracing
     tracing_subscriber::registry()
-        .with(tracing_subscriber::EnvFilter::new(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
-        ))
+        .with(tracing_subscriber::EnvFilter::new(&log_level))
         .with(tracing_subscriber::fmt::layer())
         .init();
+
+    log::info!("Logger set up with level: {}", log_level.to_ascii_uppercase());
 
     // Initialize app state
     let app_state = Arc::new(AppState::new().await);
@@ -170,6 +171,13 @@ fn create_app(app_state: Arc<AppState>, static_path: PathBuf) -> Router {
         .nest(
             "/api/admin",
             admin_routes(app_state.as_ref().clone())
+                .layer(from_fn_with_state(app_state.clone(), auth_middleware)),
+        )
+        .nest(
+            "/api/state", 
+            state_routes(app_state.as_ref().clone())
+                .layer(from_fn_with_state(app_state.clone(), user_state_middleware))
+                .layer(from_fn_with_state(app_state.clone(), verify_csrf))
                 .layer(from_fn_with_state(app_state.clone(), auth_middleware)),
         )
         .fallback_service(static_files_service.clone())

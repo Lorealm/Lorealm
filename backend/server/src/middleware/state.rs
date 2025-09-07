@@ -12,19 +12,23 @@ use crate::{
     users::user_session::UserState,
 };
 
-pub async fn get_user_session(
+/// Gets or creates a new session based on a User object inserted in an earlier step.
+/// 
+/// NOTE: Due to the `User` dependency, this must be run after 
+/// [`crate::middleware::auth::auth_middleware`]
+pub async fn user_state_middleware(
     State(state): State<Arc<AppState>>,
     mut request: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    // `auth_middleware` must have already inserted the authenticated user
+    log::info!("state middleware");
     let user = request
         .extensions()
         .get::<User>()
         .cloned()
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // Extract the token string from the cookie header
+    log::info!("extracting token from headers");
     let token = request
         .headers()
         .get(axum::http::header::COOKIE)
@@ -46,23 +50,22 @@ pub async fn get_user_session(
         })
         .ok_or(StatusCode::UNAUTHORIZED)?;
 
-    // Now work with the in-memory session manager
+    log::info!("retrieving session");
     let mut sm = state.state_manager.write().await;
 
-    // Either get existing session or insert a new one for this token
-    let user_session = if let Some(session) = sm.get_session(&token) {
-        session.clone()
-    } else {
-        let session = UserState::new(
-            user.id.clone(),    // assuming User has `id: String`
-            token.clone()
-        );
-        sm.insert_session(token.clone(), session.clone());
+    // Get or create the session
+    let session_arc = if let Some(session) = sm.get_session(&token).cloned() {
+        log::info!("session found");
         session
+    } else {
+        log::info!("creating new session");
+        let session = UserState::new(user.id.clone(), token.clone());
+        sm.insert_session(token.clone(), session);
+        sm.get_session(&token).unwrap().clone() // Safe because we just inserted it
     };
 
-    // Attach session to request for downstream extractors
-    request.extensions_mut().insert(user_session);
+    // Insert the Arc<RwLock<UserState>> into the request extensions
+    request.extensions_mut().insert(session_arc);
 
     Ok(next.run(request).await)
 }
