@@ -41,6 +41,10 @@ impl ResourceConfig {
     }
 }
 
+pub trait FileLike: Read + Write + Seek + Debug {
+    fn path(&self) -> &Path;
+}
+
 #[derive(Debug)]
 pub struct ManagedFile {
     path: PathBuf,
@@ -51,10 +55,6 @@ impl ManagedFile {
     pub fn new(path: PathBuf, file: File) -> Self {
         Self { path, handle: file }
     }
-}
-
-pub trait FileLike: Read + Write + Seek + Debug {
-    fn path(&self) -> &Path;
 }
 
 impl FileLike for ManagedFile {
@@ -98,12 +98,81 @@ impl DirectoryManager {
         manager
     }
 
-    pub fn set_root_directory(&mut self, path: impl Into<PathBuf>) {
+    pub(super) fn set_root_directory(&mut self, path: impl Into<PathBuf>) {
         self.base_directory = path.into();
     }
 
+    /// Writes a serde-serializable value to a file at the specified path, respecting existing permission logic.
+    pub(super) fn write_file<T: Serialize>(
+        &self,
+        path: impl AsRef<Path>,
+        user_id: Uuid,
+        value: &T,
+    ) -> Result<(), ResourceError> {
+        let normalized_path = self.normalize_path(path.as_ref())?;
+        let file_entry = self.get_file_entry(&normalized_path)?;
+
+        // Check permissions
+        if user_id != Uuid::nil() {
+            if file_entry.scope != DirectoryScope::Global && file_entry.owner != Some(user_id) {
+                return Err(ResourceError::PermissionDenied);
+            }
+        }
+
+        // Ensure parent directory exists
+        let full_path = self.base_directory.join(&normalized_path);
+        if let Some(parent) = full_path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| ResourceError::IoError(e.to_string()))?;
+        }
+
+        // Serialize to JSON
+        let serialized = serde_json::to_string(value)
+            .map_err(|e| ResourceError::IoError(e.to_string()))?;
+
+        // Write to file
+        let mut file = File::create(&full_path)
+            .map_err(|e| ResourceError::IoError(e.to_string()))?;
+        file.write_all(serialized.as_bytes())
+            .map_err(|e| ResourceError::IoError(e.to_string()))?;
+        file.flush()
+            .map_err(|e| ResourceError::IoError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    /// Reads and deserializes a serde value from a file at the specified path, respecting existing permission logic.
+    pub fn read_file<T: for<'de> Deserialize<'de>>(
+        &self,
+        path: impl AsRef<Path>,
+        user_id: Uuid,
+    ) -> Result<T, ResourceError> {
+        let normalized_path = self.normalize_path(path.as_ref())?;
+        let file_entry = self.get_file_entry(&normalized_path)?;
+
+        // Check permissions
+        if user_id != Uuid::nil() {
+            if file_entry.scope != DirectoryScope::Global && file_entry.owner != Some(user_id) {
+                return Err(ResourceError::PermissionDenied);
+            }
+        }
+
+        let full_path = self.base_directory.join(&normalized_path);
+        let mut file = File::open(&full_path)
+            .map_err(|e| ResourceError::IoError(e.to_string()))?;
+        
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)
+            .map_err(|e| ResourceError::IoError(e.to_string()))?;
+
+        let deserialized = serde_json::from_str(&contents)
+            .map_err(|e| ResourceError::IoError(e.to_string()))?;
+
+        Ok(deserialized)
+    }
+
     /// Retrieves a `DirectoryEntry` for the given path, inferring from the closest parent if necessary.
-    pub fn get_directory_entry(&self, path: impl AsRef<Path>) -> Result<DirectoryEntry, ResourceError> {
+    pub(super) fn get_directory_entry(&self, path: impl AsRef<Path>) -> Result<DirectoryEntry, ResourceError> {
         let normalized_path = self.normalize_path(path.as_ref())?;
 
         // Check for an exact match
@@ -141,7 +210,7 @@ impl DirectoryManager {
     }
 
     /// Retrieves a `FileEntry` for the given path, inheriting permissions from the closest parent.
-    pub fn get_file_entry(&self, path: impl AsRef<Path>) -> Result<FileEntry, ResourceError> {
+    pub(super) fn get_file_entry(&self, path: impl AsRef<Path>) -> Result<FileEntry, ResourceError> {
         let normalized_path = self.normalize_path(path.as_ref())?;
 
         // Find the closest parent directory
@@ -154,11 +223,11 @@ impl DirectoryManager {
         })
     }
 
-    pub fn add_directory(&mut self, directory: DirectoryEntry) {
+    pub(super) fn add_directory(&mut self, directory: DirectoryEntry) {
         self.directories.push(directory);
     }
 
-    pub fn add_user_directory(&mut self, user_id: Uuid) {
+    pub(super) fn add_user_directory(&mut self, user_id: Uuid) {
         self.add_directory(DirectoryEntry {
             path: format!("users/{}", user_id),
             scope: DirectoryScope::Local,
@@ -168,18 +237,18 @@ impl DirectoryManager {
         });
     }
 
-    pub fn remove_user_directory(&mut self, user_id: Uuid) {
+    pub(super) fn remove_user_directory(&mut self, user_id: Uuid) {
         self.directories.retain(|d| d.owner != Some(user_id));
     }
 
-    pub fn get_accessible_directories(&self, user_id: Uuid) -> Vec<&DirectoryEntry> {
+    pub(super) fn get_accessible_directories(&self, user_id: Uuid) -> Vec<&DirectoryEntry> {
         self.directories
             .iter()
             .filter(|d| d.scope == DirectoryScope::Global || d.owner == Some(user_id))
             .collect()
     }
 
-    pub fn request_directory_structure(
+    pub(super) fn request_directory_structure(
         &self,
         path: impl AsRef<Path>,
         user_id: Uuid,
@@ -233,7 +302,7 @@ impl DirectoryManager {
         Ok(dir_data)
     }
 
-    pub fn request_file_contents(
+    pub(super) fn request_file_contents(
         &self,
         path: impl AsRef<Path>,
         user_id: Uuid,
@@ -339,7 +408,7 @@ impl DirectoryManager {
         self.base_directory.join(stripped)
     }
 
-    pub fn sanitize(&self, input: impl AsRef<Path>) -> String {
+    pub(super) fn sanitize(&self, input: impl AsRef<Path>) -> String {
         let input_path = input.as_ref();
         let relative = input_path
             .strip_prefix(&self.base_directory)

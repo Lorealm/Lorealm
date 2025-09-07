@@ -59,7 +59,7 @@ pub fn verify_and_authorize(
     requested_resource: &str,
     requested_perm: &str, // "read" / "write"
 ) -> Result<DataClaims> {
-    let mut validation = Validation::new(jsonwebtoken::Algorithm::RS256);
+    let mut validation = Validation::new(jsonwebtoken::Algorithm::HS512);
     validation.set_audience(&[expected_aud]);
     validation.set_issuer(&[expected_iss]);
     validation.leeway = 60;

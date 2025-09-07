@@ -38,9 +38,11 @@ pub async fn auth_middleware(
     let user = match mgr_write.validate_session(&token).await {
         Ok(user) => user,
         Err(_) => {
+            log::info!("migrating token...");
             // Attempt auto-migration of session token
             match mgr_write.migrate_token(&token).await {
                 Ok(new_token) => {
+                    log::info!("revalidating token...");
                     // Validate the new token
                     match mgr_write.validate_session(&new_token).await {
                         Ok(user) => user,
@@ -53,6 +55,7 @@ pub async fn auth_middleware(
     };
 
     log::info!("user: {:#?}", user);
+    drop(mgr_write);
 
     // Insert the user into the request extensions
     request.extensions_mut().insert(user);

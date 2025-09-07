@@ -26,11 +26,11 @@ impl ResourceAuthenticator {
 
         let resource = FileAccessClaim {
             path: "*".to_string(),
-            permissions: vec!["read".to_string()],
+            permissions: vec!["read".to_string(), "write".to_string()],
             user: user_id,
         };
 
-        let token = issue_scoped_token("eldora-hub-server", token, JWT_AUDIENCE, resource.clone(), JWT_TTL, &EncodingKey::from_secret(TEST_KEY.as_bytes()));
+        let token = issue_scoped_token("eldora-hub-server", &user_id.to_string(), JWT_AUDIENCE, resource.clone(), JWT_TTL, &EncodingKey::from_secret(TEST_KEY.as_bytes()));
         match token {
             Ok(tok) => Ok((tok, resource)),
             Err(e) => Err(e.into()),
@@ -38,7 +38,13 @@ impl ResourceAuthenticator {
     }
 
     pub fn authenticate_jwt(&self, token: &str) -> Result<FileAccessClaim, Box<dyn std::error::Error>> {
-        let data_claims = verify_and_authorize(token, &DecodingKey::from_secret(TEST_KEY.as_bytes()), "eldora-hub-server", JWT_AUDIENCE, "*", "read")?;
-        Ok(data_claims.res)
+        let data_claims = verify_and_authorize(token, &DecodingKey::from_secret(TEST_KEY.as_bytes()), "eldora-hub-server", JWT_AUDIENCE, "*", "read");
+        match data_claims {
+            Ok(data) => Ok(data.res),
+            Err(e) => {
+                log::warn!("Failed to decode claims {}", e);
+                Err(e.into())
+            },
+        }
     }
 }

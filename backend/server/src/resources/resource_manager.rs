@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap, env, path::{Path, PathBuf}
+    collections::HashMap, env, path::{Path, PathBuf}, sync::Arc
 };
 use rand::{rngs::OsRng, TryRngCore};
 
@@ -7,7 +7,7 @@ use crate::{
     jwt::jwt_utils::FileAccessClaim,
     resources::{
         resource_authentication::ResourceAuthenticator,
-        resource_config::{DirectoryStructure, FileLike, ResourceConfig, ResourceError},
+        resource_config::{DirectoryStructure, FileLike, ResourceConfig, ResourceError}, user_resources::UserResources,
     },
     state::AppState,
 };
@@ -26,10 +26,10 @@ pub struct DirectoryData {
     pub subdirectories: Vec<DirectoryData>,
 }
 
-struct DiscoveryDirectory {
-    path: PathBuf,
-    files: Vec<PathBuf>,
-    subdirectories: Vec<DiscoveryDirectory>,
+pub struct DiscoveryDirectory {
+    pub(super) path: PathBuf,
+    pub(super) files: Vec<PathBuf>,
+    pub(super) subdirectories: Vec<DiscoveryDirectory>,
 }
 
 pub struct ResourceRequestBuilder<'a> {
@@ -41,10 +41,10 @@ pub struct ResourceRequestBuilder<'a> {
     root_dir: PathBuf,
 }
 
-struct AuthenticationResult {
-    jwt_token: String,
-    file_access_claim: FileAccessClaim,
-    is_new_token: bool,
+pub struct AuthenticationResult {
+    pub(super) jwt_token: String,
+    pub file_access_claim: FileAccessClaim,
+    pub(super) is_new_token: bool,
 }
 
 impl<'a> ResourceRequestBuilder<'a> {
@@ -132,7 +132,7 @@ impl<'a> ResourceRequestBuilder<'a> {
         self,
         app_state: &AppState,
     ) -> Result<RequestPayload<DirectoryStructure>, ResourceError> {
-        let auth_result = self.try_authenticate(app_state).await?;
+        let auth_result = try_authenticate(app_state, self.credentials.clone(), self.is_system, &self.manager.auth).await?;
 
         let structure = self
             .manager
@@ -152,7 +152,7 @@ impl<'a> ResourceRequestBuilder<'a> {
         &self,
         app_state: &AppState,
     ) -> Result<RequestPayload<DirectoryData>, ResourceError> {
-        let auth_result = self.try_authenticate(app_state).await?;
+        let auth_result = try_authenticate(app_state, self.credentials.clone(), self.is_system, &self.manager.auth).await?;
 
         let discovery = self.generate_discovery_structure();
 
@@ -253,42 +253,12 @@ impl<'a> ResourceRequestBuilder<'a> {
             subdirectories,
         }
     }
-
-    async fn try_authenticate(
-        &self,
-        app_state: &AppState,
-    ) -> Result<AuthenticationResult, ResourceError> {
-        let creds = self.credentials.as_ref().ok_or(ResourceError::PermissionDenied)?.clone();
-
-        if let Ok(claims) = self.manager.auth.authenticate_jwt(&creds) {
-            return Ok(AuthenticationResult {
-                jwt_token: creds,
-                file_access_claim: claims,
-                is_new_token: false,
-            });
-        }
-
-        let user_manager = app_state.user_manager.write().await;
-        let token_result = self
-            .manager
-            .auth
-            .authenticate_session(&creds, &user_manager, self.is_system)
-            .await;
-
-        drop(user_manager);
-
-        token_result.map(|(jwt_token, file_access_claim)| AuthenticationResult {
-            jwt_token,
-            file_access_claim,
-            is_new_token: true,
-        }).map_err(|e| ResourceError::IoError(e.to_string()))
-    }
 }
 
 pub struct ResourceManager {
-    resource_config: ResourceConfig,
-    auth: ResourceAuthenticator,
-    system_token: String,
+    pub(super) resource_config: ResourceConfig,
+    pub(super) auth: ResourceAuthenticator,
+    pub(super) system_token: String,
 }
 
 impl ResourceManager {
@@ -316,7 +286,15 @@ impl ResourceManager {
         }
     }
 
-    fn request_file_structure(
+    pub async fn user_resources(
+        &self,
+        credentials: String,
+        app_state: &AppState,
+    ) -> Result<UserResources, ResourceError> {
+        UserResources::new(Arc::new(self), credentials, app_state, self.resource_dir().to_path_buf()).await
+    }
+
+    pub(super) fn request_file_structure(
         &self,
         claim: &FileAccessClaim,
         start_point: PathBuf,
@@ -334,7 +312,42 @@ impl ResourceManager {
         self.resource_config.directory_manager().request_qualifed_path(path)
     }
 
-    fn request_file_contents(
+    pub(super) async fn write_file_serde<T>(
+        &self,
+        app_state: &AppState,
+        path: &Path,
+        credentials: String,
+        value: T
+    ) -> Result<(), ResourceError> where T: serde::Serialize {
+        let auth = try_authenticate(app_state, Some(credentials), false, &self.auth).await?;
+
+        if !auth.file_access_claim.permissions.contains(&"write".to_string()) {
+            return Err(ResourceError::PermissionDenied);
+        }
+
+        self.resource_config
+            .directory_manager()
+            .write_file(path, auth.file_access_claim.user, &value)
+    }
+
+    pub(super) async fn read_file_serde<T: for<'de> serde::Deserialize<'de>>(
+        &self,
+        app_state: &AppState,
+        path: &Path,
+        credentials: String,
+    ) -> Result<T, ResourceError>{
+        let auth = try_authenticate(app_state, Some(credentials), false, &self.auth).await?;
+
+        if !auth.file_access_claim.permissions.contains(&"read".to_string()) {
+            return Err(ResourceError::PermissionDenied);
+        }
+
+        self.resource_config
+            .directory_manager()
+            .read_file(path, auth.file_access_claim.user)
+    }
+
+    pub(super) fn request_file_contents(
         &self,
         path: &Path,
         claim: &FileAccessClaim,
@@ -375,4 +388,38 @@ fn resolve_resource_dir() -> PathBuf {
     } else {
         PathBuf::from(resource_dir)
     }
+}
+
+async fn try_authenticate(
+    app_state: &AppState,
+    credentials: Option<String>,
+    is_system: bool,
+    auth: &ResourceAuthenticator
+) -> Result<AuthenticationResult, ResourceError> {
+    let creds = credentials.as_ref().ok_or(ResourceError::PermissionDenied)?.clone();
+
+    log::debug!("----- Attempting authenticate JWT: -----");
+    log::debug!("token: {}", &creds);
+    if let Ok(claims) = auth.authenticate_jwt(&creds) {
+        log::debug!("JWT Authentication Sucessful");
+        return Ok(AuthenticationResult {
+            jwt_token: creds,
+            file_access_claim: claims,
+            is_new_token: false,
+        });
+    }
+    log::debug!("----- Attempting authenticate session token: -----");
+    let user_manager = app_state.user_manager.write().await;
+    let token_result = auth
+        .authenticate_session(&creds, &user_manager, is_system)
+        .await;
+    log::debug!("Session Authentication Sucessful");
+
+    drop(user_manager);
+
+    token_result.map(|(jwt_token, file_access_claim)| AuthenticationResult {
+        jwt_token,
+        file_access_claim,
+        is_new_token: true,
+    }).map_err(|e| ResourceError::IoError(e.to_string()))
 }
