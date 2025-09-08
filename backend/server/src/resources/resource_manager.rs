@@ -288,10 +288,10 @@ impl ResourceManager {
 
     pub async fn user_resources(
         &self,
-        credentials: String,
+        credentials: &str,
         app_state: &AppState,
     ) -> Result<UserResources, ResourceError> {
-        UserResources::new(Arc::new(self), credentials, app_state, self.resource_dir().to_path_buf()).await
+        UserResources::new(Arc::new(self), credentials.to_string(), app_state, self.resource_dir().to_path_buf()).await
     }
 
     pub(super) fn request_file_structure(
@@ -359,6 +359,21 @@ impl ResourceManager {
         self.resource_config
             .directory_manager()
             .request_file_contents(path, claim.user)
+    }
+
+    pub(super) fn delete_file(
+        &self,
+        path: &Path,
+        claim: &FileAccessClaim,
+        soft_delete: bool
+    ) -> Result<(), ResourceError>{
+        if !claim.permissions.contains(&"write".to_string()) {
+            return Err(ResourceError::PermissionDenied);
+        }
+
+        self.resource_config
+            .directory_manager()
+            .delete_file(path, claim.user, soft_delete)
     }
 
     fn ensure_system_token() -> String {

@@ -6,6 +6,6 @@ pub mod context_template;
 
 pub fn state_routes(state: AppState) -> axum::Router<Arc<AppState>> {
     axum::Router::new()
-        .nest("/context_template", context_template_routes(state.clone()))
+        .nest("/context_templates/", context_template_routes(state.clone()))
         .with_state(state.into())
 }

@@ -2,7 +2,7 @@
 use std::{any::Any, fmt::{self, Debug}, usize};
 
 use dyn_clone::DynClone;
-use serde::{de::{self, DeserializeOwned, Visitor}, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{de::{self, Visitor}, Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;
 
 /// Important distinction, as message roles are not available in Text Completion
@@ -13,6 +13,8 @@ pub enum ContextType {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", content = "item")]
+#[serde(rename_all = "camelCase")]
 pub enum TemplateItem {
     Entry(TemplateEntry),
     Group(TemplateGroup),
@@ -129,11 +131,15 @@ impl TemplateEntry {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum ContextError {
+    #[error("Content Resolution Error: {0}")]
     ContentResolution(String),
+    #[error("Out of bounds")]
     OutOfBounds,
+    #[error("Not Initialized")]
     NotInitialized,
+    #[error("Not Found")]
     NotFound
 }
 

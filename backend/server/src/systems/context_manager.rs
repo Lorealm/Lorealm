@@ -1,6 +1,6 @@
 use uuid::Uuid;
 
-use crate::{resources::resource_manager::ResourceManager, settings::context_settings::ContextSettings, state::AppState, systems::context_template::{ContextError, ContextTemplate, ContextType, TemplateEntry, TemplateGroup, TemplateItem}};
+use crate::{api::state::context_template::templates::ContextTemplateError, resources::resource_manager::ResourceManager, settings::context_settings::ContextSettings, state::AppState, systems::context_template::{ContextError, ContextTemplate, ContextType, TemplateEntry, TemplateGroup, TemplateItem}};
 
 #[derive(Clone)]
 pub struct ContextBuilder {
@@ -21,18 +21,19 @@ impl ContextBuilder {
         self.template.as_ref()
     }
 
-    pub async fn save(&self, app_state: &AppState, session_token: String) -> Result<(), String> {
+    pub async fn save(&self, app_state: &AppState, session_token: &str) -> Result<(), ContextTemplateError> {
         if self.template.is_none() {
-            return Err("Resource Template not defined".into());
+            return Err(ContextTemplateError::ContextError(ContextError::NotInitialized));
         }
         let resource_manager = app_state.resource_manager.lock().await;
         let user_resources = resource_manager.user_resources(session_token, app_state).await;
         
         if let Ok(user_resources) = user_resources {
             user_resources.save_context_template(self.template.as_ref().unwrap().clone(), app_state).await
-                .map_err(|e| e.to_string())
+                .map_err(|e| ContextTemplateError::Resource(e))
         } else {
-            Err("Could not retrieve user resource manager".into())
+            let context_error = ContextError::ContentResolution("Could not retrieve user resource manager".into());
+            Err(ContextTemplateError::ContextError(context_error))
         }
     }
 
@@ -296,6 +297,12 @@ impl ContextBuilder {
             ContextType::ChatCompletion => Ok(build_context_chat_completion(settings, template)),
             ContextType::TextCompletion => Ok(build_context_text_completion(settings, template)),
         }
+    }
+}
+
+impl From<&ContextTemplate> for ContextBuilder {
+    fn from(value: &ContextTemplate) -> Self {
+        Self { settings: None, template: Some(value.clone()) }
     }
 }
 
