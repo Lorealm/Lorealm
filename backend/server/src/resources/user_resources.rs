@@ -75,6 +75,29 @@ impl<'a> UserResources<'a> {
         self.read_file_serde(app_state, &path).await
     }
 
+    pub async fn delete_context_template(&self, id: Uuid) -> Result<(), ResourceError> {
+        let path = self.base_path.join("context_templates").join(format!("{}.json", id));
+        self.manager.delete_file(&path, &self.claims, true)
+    }
+
+    pub async fn list_context_templates(&self, app_state: &AppState) -> Result<Vec<ContextTemplate>, ResourceError> {
+        let mut templates = Vec::new();
+        let path = self.base_path.join("context_templates");
+        let dir = self.manager.request_file_structure(&self.claims, path)?;
+
+        for file in dir.files {
+            log::debug!("Requesting file: {:?}", file);
+            if let Some(file_name) = file.file_name() {
+                let template_path = format!("res://context_templates/{}", file_name.to_str().unwrap());
+                log::debug!("Found path: {}", template_path);
+                let template: ContextTemplate = self.read_file_serde(app_state, &template_path).await?;
+                templates.push(template);
+            }   
+        }
+
+        Ok(templates)
+    } 
+
     pub async fn write_file_serde<T>(
         &self,
         app_state: &AppState,

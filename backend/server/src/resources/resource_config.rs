@@ -171,6 +171,70 @@ impl DirectoryManager {
         Ok(deserialized)
     }
 
+    /// Deletes a file or directory at the specified path, with an option for soft delete.
+    /// If `soft_delete` is true, moves the file/directory to `res://trash/{relative_path}`,
+    /// overwriting any existing items. Respects existing permission logic.
+    pub fn delete_file(
+        &self,
+        path: impl AsRef<Path>,
+        user_id: Uuid,
+        soft_delete: bool,
+    ) -> Result<(), ResourceError> {
+        let normalized_path = self.normalize_path(path.as_ref())?;
+        let file_entry = self.get_file_entry(&normalized_path)?;
+
+        // Check permissions
+        if user_id != Uuid::nil() {
+            if file_entry.scope != DirectoryScope::Global && file_entry.owner != Some(user_id) {
+                return Err(ResourceError::PermissionDenied);
+            }
+        }
+
+        let full_path = self.base_directory.join(&normalized_path);
+
+        // Verify the path exists
+        if !fs::exists(&full_path).map_err(|e| ResourceError::IoError(e.to_string()))? {
+            return Err(ResourceError::InvalidPath(normalized_path));
+        }
+
+        if soft_delete {
+            // Construct the trash path: res://trash/{relative_path}
+            let trash_path = self.base_directory.join("trash").join(&normalized_path);
+            
+            // Ensure the parent directory in trash exists
+            if let Some(parent) = trash_path.parent() {
+                fs::create_dir_all(parent)
+                    .map_err(|e| ResourceError::IoError(e.to_string()))?;
+            }
+
+            // Remove existing item in trash if it exists
+            if fs::exists(&trash_path).map_err(|e| ResourceError::IoError(e.to_string()))? {
+                if trash_path.is_dir() {
+                    fs::remove_dir_all(&trash_path)
+                        .map_err(|e| ResourceError::IoError(e.to_string()))?;
+                } else {
+                    fs::remove_file(&trash_path)
+                        .map_err(|e| ResourceError::IoError(e.to_string()))?;
+                }
+            }
+
+            // Move the file or directory to the trash
+            fs::rename(&full_path, &trash_path)
+                .map_err(|e| ResourceError::IoError(e.to_string()))?;
+        } else {
+            // Hard delete: remove file or directory
+            if full_path.is_dir() {
+                fs::remove_dir_all(&full_path)
+                    .map_err(|e| ResourceError::IoError(e.to_string()))?;
+            } else {
+                fs::remove_file(&full_path)
+                    .map_err(|e| ResourceError::IoError(e.to_string()))?;
+            }
+        }
+
+        Ok(())
+    }
+
     /// Retrieves a `DirectoryEntry` for the given path, inferring from the closest parent if necessary.
     pub(super) fn get_directory_entry(&self, path: impl AsRef<Path>) -> Result<DirectoryEntry, ResourceError> {
         let normalized_path = self.normalize_path(path.as_ref())?;
@@ -439,6 +503,13 @@ impl Default for DirectoryManager {
                     description: "System directory for core system files.".to_string(),
                     owner: None,
                     subdirectories: vec!["tokenizers".to_string()],
+                },
+                DirectoryEntry {
+                    path: "trash".to_string(),
+                    scope: DirectoryScope::System,
+                    description: "System directory for soft-deleted files".to_string(),
+                    owner: None,
+                    subdirectories: vec![]
                 },
                 DirectoryEntry {
                     path: "users".to_string(),
