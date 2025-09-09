@@ -30,6 +30,7 @@ use crate::{
     api::state::state_routes, middleware::{auth::{auth_middleware, verify_csrf}, state::user_state_middleware}, plugin_system::plugin_manager::PluginManager, routes::users::{admin_routes, auth_routes, protected_auth_routes, user_routes}
 };
 
+pub mod helpers;
 mod file;
 mod llm;
 pub mod middleware;

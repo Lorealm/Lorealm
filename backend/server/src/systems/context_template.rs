@@ -12,6 +12,14 @@ pub enum ContextType {
     TextCompletion
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ContextRole {
+    System,
+    Assistant,
+    User
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type", content = "item")]
 #[serde(rename_all = "camelCase")]
@@ -85,17 +93,21 @@ impl ContextTemplate {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TemplateGroup {
     pub name: String,
+    pub description: Option<String>,
+    pub color: Option<String>,
     pub id: Uuid,
     /// The order of the group, relative to it's root
     pub order: usize,
-    pub entries: Vec<TemplateEntry>,
-    pub enabled: bool
+    pub enabled: bool,
+    pub entries: Vec<TemplateEntry>
 }
 
 impl TemplateGroup {
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_owned(),
+            description: None,
+            color: None,
             id: Uuid::new_v4(),
             order: usize::MAX,
             entries: Vec::new(),
@@ -108,17 +120,18 @@ impl TemplateGroup {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TemplateEntry {
     pub name: String,
+    pub role: ContextRole,
     pub id: Uuid,
-    pub content: Box<dyn ContextSource>,
-    /// The order of the entry, relative to it's root
     pub order: usize,
-    pub enabled: bool
+    pub enabled: bool,
+    pub content: Box<dyn ContextSource>
 }
 
 impl TemplateEntry {
     pub fn new(name: &str) -> Self {
         Self { 
             name: name.to_owned(),
+            role: ContextRole::System,
             id: Uuid::new_v4(),
             content: "".into(),
             order: usize::MAX,
@@ -140,7 +153,13 @@ pub enum ContextError {
     #[error("Not Initialized")]
     NotInitialized,
     #[error("Not Found")]
-    NotFound
+    NotFound,
+    #[error("Negative Index not allowed: {0}")]
+    NegativeIndexNotAllowed(i32),
+    #[error("Integer overflow found: {0}")]
+    Overflow(i32),
+    #[error("Invalid operation: {0}")]
+    InvalidOperation(String),
 }
 
 // Wrapper for serializing/deserializing Box<dyn ContextSource>
@@ -248,6 +267,7 @@ impl From<&str> for Box<dyn ContextSource> {
     }
 }
 
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlainTextSource {
     text: String
@@ -265,7 +285,7 @@ impl ContextSource for PlainTextSource {
         Ok(self.text.clone())
     }
     fn source(&self) -> String {
-        String::from("PlainTextSource")
+        String::from("eldoria.core.text")
     }
     fn as_any(&self) -> &dyn Any {
         self

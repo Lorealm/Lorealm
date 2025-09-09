@@ -1,8 +1,10 @@
 use uuid::Uuid;
 
-use crate::{api::state::context_template::templates::ContextTemplateError, resources::resource_manager::ResourceManager, settings::context_settings::ContextSettings, state::AppState, systems::context_template::{ContextError, ContextTemplate, ContextType, TemplateEntry, TemplateGroup, TemplateItem}};
+use crate::{api::state::context_template::{templates::ContextTemplateError, types::ContextPosition}, settings::context_settings::ContextSettings, state::AppState, systems::context_template::{ContextError, ContextTemplate, ContextType, TemplateEntry, TemplateGroup, TemplateItem}};
 
 #[derive(Clone)]
+/// A function that takes an context template and settings. 
+/// It's used to shield the underlying data from the system, and has functions to build the context to the desired format
 pub struct ContextBuilder {
     settings: Option<ContextSettings>,
     template: Option<ContextTemplate>,
@@ -44,11 +46,21 @@ impl ContextBuilder {
         let template = self.template.as_mut().unwrap();
         if let Some(inner_id) = at.inner_id {
             // Add to group at outer_id
-            if let Some(item) = template.items.get_mut(at.outer_id) {
+            let outer_index = if at.outer_id == usize::MAX {
+                template.items.len() // Append to end
+            } else {
+                at.outer_id
+            };
+            if let Some(item) = template.items.get_mut(outer_index) {
                 if let TemplateItem::Group(group) = item {
-                    if inner_id <= group.entries.len() {
-                        log::debug!("Adding new entry with inner id: ({}, {})", at.outer_id, inner_id);
-                        group.entries.insert(inner_id, entry);
+                    let inner_index = if inner_id == usize::MAX {
+                        group.entries.len() // Append to end
+                    } else {
+                        inner_id
+                    };
+                    if inner_index <= group.entries.len() {
+                        log::debug!("Adding new entry with coordinates: ({}, {})", outer_index, inner_index);
+                        group.entries.insert(inner_index, entry);
                         template.reassign_orders();
                         Ok(())
                     } else {
@@ -62,9 +74,14 @@ impl ContextBuilder {
             }
         } else {
             // Add root entry
-            if at.outer_id <= template.items.len() {
-                log::debug!("Adding new entry with outer id: ({})", at.outer_id);
-                template.items.insert(at.outer_id, TemplateItem::Entry(entry));
+            let outer_index = if at.outer_id == usize::MAX {
+                template.items.len() // Append to end
+            } else {
+                at.outer_id
+            };
+            if outer_index <= template.items.len() {
+                log::debug!("Adding new entry with outer id: ({})", outer_index);
+                template.items.insert(outer_index, TemplateItem::Entry(entry));
                 template.reassign_orders();
                 Ok(())
             } else {
@@ -72,18 +89,77 @@ impl ContextBuilder {
             }
         }
     }
-    
+
     pub fn add_group(&mut self, group: TemplateGroup, at: usize) -> Result<(), ContextError> {
         if let None = self.template {
             return Err(ContextError::NotInitialized);
         }
         let template = self.template.as_mut().unwrap();
-        if at <= template.items.len() {
-            template.items.insert(at, TemplateItem::Group(group));
+        let insert_index = if at == usize::MAX {
+            template.items.len() // Append to end
+        } else {
+            at
+        };
+        if insert_index <= template.items.len() {
+            log::debug!("Adding new group at index: ({})", insert_index);
+            template.items.insert(insert_index, TemplateItem::Group(group));
             template.reassign_orders();
             Ok(())
         } else {
             Err(ContextError::OutOfBounds)
+        }
+    }
+
+    pub fn remove_entry(&mut self, id: Uuid) -> Result<(), ContextError> {
+        if self.template.is_none() {
+            return Err(ContextError::NotInitialized);
+        }
+
+        let template = self.template.as_mut().unwrap();
+
+        for (outer_idx, item) in template.items.iter_mut().enumerate() {
+            match item {
+                TemplateItem::Entry(entry) if entry.id == id => {
+                    log::debug!("Removing entry {} from root at index: {}", id, outer_idx);
+                    template.items.remove(outer_idx);
+                    template.reassign_orders();
+                    return Ok(());
+                }
+                TemplateItem::Group(group) => {
+                    if let Some(inner_idx) = group.entries.iter().position(|e| e.id == id) {
+                        log::debug!("Removing entry {} from group at index: ({}, {})", id, outer_idx, inner_idx);
+                        group.entries.remove(inner_idx);
+                        template.reassign_orders();
+                        return Ok(());
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Err(ContextError::NotFound)
+    }
+
+    pub fn remove_group(&mut self, id: Uuid) -> Result<(), ContextError> {
+        if self.template.is_none() {
+            return Err(ContextError::NotInitialized);
+        }
+
+        let template = self.template.as_mut().unwrap();
+
+        if let Some(outer_idx) = template.items.iter().position(|item| {
+            if let TemplateItem::Group(group) = item {
+                group.id == id
+            } else {
+                false
+            }
+        }) {
+            log::debug!("Removing group {} at index: {}", id, outer_idx);
+            template.items.remove(outer_idx);
+            template.reassign_orders();
+            Ok(())
+        } else {
+            Err(ContextError::NotFound)
         }
     }
 
@@ -154,6 +230,52 @@ impl ContextBuilder {
         }
     }
 
+    pub fn move_group(&mut self, group_id: Uuid, to: ContextCoordinate) -> Result<(), ContextError> {
+        if self.template.is_none() {
+            return Err(ContextError::NotInitialized);
+        }
+
+        if to.inner_id.is_some() {
+            return Err(ContextError::InvalidOperation("Cannot move group to inner coordinate".into()));
+        }
+
+        let template = self.template.as_mut().unwrap();
+
+        // Find and remove the group from its current location
+        let mut group_to_move = None;
+        if let Some(outer_idx) = template.items.iter().position(|item| {
+            if let TemplateItem::Group(group) = item {
+                group.id == group_id
+            } else {
+                false
+            }
+        }) {
+            group_to_move = Some(template.items.remove(outer_idx));
+        }
+
+        // Check if group was found
+        let group_item = match group_to_move {
+            Some(TemplateItem::Group(group)) => group,
+            _ => return Err(ContextError::NotFound),
+        };
+
+        // Insert the group at the new location
+        let insert_index = if to.outer_id == usize::MAX {
+            template.items.len() // Append to end
+        } else {
+            to.outer_id
+        };
+
+        if insert_index <= template.items.len() {
+            log::debug!("Moving group {} to root at ({})", group_id, insert_index);
+            template.items.insert(insert_index, TemplateItem::Group(group_item));
+            template.reassign_orders();
+            Ok(())
+        } else {
+            Err(ContextError::OutOfBounds)
+        }
+    }
+
     pub fn get_entry(&self, id: Uuid) -> Option<&TemplateEntry> {
         if let Some(template) = &self.template {
             for item in &template.items {
@@ -188,7 +310,7 @@ impl ContextBuilder {
         None
     }
 
-    pub fn get_entry_by_coordinate(&self, coordinate: ContextCoordinate) -> Option<&TemplateEntry> {
+    pub fn get_entry_by_coordinate(&self, coordinate: &ContextCoordinate) -> Option<&TemplateEntry> {
         if let Some(template) = &self.template {
             if let Some(inner_id) = coordinate.inner_id {
                 // Get entry from group
@@ -209,7 +331,7 @@ impl ContextBuilder {
         None
     }
 
-    pub fn get_entry_by_coordinate_mut(&mut self, coordinate: ContextCoordinate) -> Option<&mut TemplateEntry> {
+    pub fn get_entry_by_coordinate_mut(&mut self, coordinate: &ContextCoordinate) -> Option<&mut TemplateEntry> {
         if let Some(template) = self.template.as_mut() {
             if let Some(inner_id) = coordinate.inner_id {
                 // Get entry from group
@@ -256,7 +378,7 @@ impl ContextBuilder {
         None
     }
 
-    pub fn get_group_by_coordinate(&self, coordinate: ContextCoordinate) -> Option<&TemplateGroup> {
+    pub fn get_group_by_coordinate(&self, coordinate: &ContextCoordinate) -> Option<&TemplateGroup> {
         if let Some(template) = &self.template {
             if coordinate.inner_id.is_none() {
                 if let Some(item) = template.items.get(coordinate.outer_id) {
@@ -269,7 +391,7 @@ impl ContextBuilder {
         None
     }
 
-    pub fn get_group_by_coordinate_mut(&mut self, coordinate: ContextCoordinate) -> Option<&mut TemplateGroup> {
+    pub fn get_group_by_coordinate_mut(&mut self, coordinate: &ContextCoordinate) -> Option<&mut TemplateGroup> {
         if let Some(template) = self.template.as_mut() {
             if coordinate.inner_id.is_none() {
                 if let Some(item) = template.items.get_mut(coordinate.outer_id) {
@@ -307,8 +429,8 @@ impl From<&ContextTemplate> for ContextBuilder {
 }
 
 pub struct ContextCoordinate {
-    outer_id: usize,
-    inner_id: Option<usize>
+    pub outer_id: usize,
+    pub inner_id: Option<usize>
 }
 
 impl From<(usize, usize)> for ContextCoordinate {
@@ -320,6 +442,42 @@ impl From<(usize, usize)> for ContextCoordinate {
 impl From<(usize, Option<usize>)> for ContextCoordinate {
     fn from(value: (usize, Option<usize>)) -> Self {
         ContextCoordinate { outer_id: value.0, inner_id: value.1 }
+    }
+}
+
+impl TryFrom<(i32, Option<i32>)> for ContextCoordinate {
+    type Error = ContextError;
+
+    fn try_from(value: (i32, Option<i32>)) -> Result<Self, Self::Error> {
+        // Helper function to convert i32 to usize with -1 as sentinel
+        fn convert_index(val: i32) -> Result<usize, ContextError> {
+            if val == -1 {
+                // Use usize::MAX as the sentinel for "append"
+                Ok(usize::MAX)
+            } else if val < 0 {
+                Err(ContextError::NegativeIndexNotAllowed(val))
+            } else {
+                // Check for overflow when casting to usize
+                usize::try_from(val).map_err(|_| ContextError::Overflow(val))
+            }
+        }
+
+        let outer_id = convert_index(value.0)?;
+        let inner_id = value.1.map(convert_index).transpose()?;
+
+        Ok(ContextCoordinate { outer_id, inner_id })
+    }
+}
+
+// Convert Position to ContextCoordinate for use in the handler
+impl TryFrom<ContextPosition> for ContextCoordinate {
+    type Error = ContextError;
+
+    fn try_from(value: ContextPosition) -> Result<Self, Self::Error> {
+        value
+            .get()
+            .ok_or(ContextError::NotInitialized)?
+            .try_into()
     }
 }
 
