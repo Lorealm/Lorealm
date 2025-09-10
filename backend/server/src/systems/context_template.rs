@@ -20,6 +20,16 @@ pub enum ContextRole {
     User
 }
 
+impl fmt::Display for ContextRole {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ContextRole::System => write!(f, "system"),
+            ContextRole::Assistant => write!(f, "assistant"),
+            ContextRole::User => write!(f, "user"),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type", content = "item")]
 #[serde(rename_all = "camelCase")]

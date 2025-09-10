@@ -6,13 +6,11 @@ use crate::{jwt::jwt_utils::{issue_scoped_token, verify_and_authorize, FileAcces
 const JWT_AUDIENCE: &str = "file-access";
 const JWT_TTL: i64 = 3600; // 1 hour
 const TEST_KEY: &str = "test-key";
-pub struct ResourceAuthenticator {
-    db: sqlx::Pool<sqlx::Postgres>
-}
+pub struct ResourceAuthenticator;
 
 impl ResourceAuthenticator {
-    pub fn new(db: sqlx::Pool<sqlx::Postgres>) -> Self {
-        Self { db }
+    pub fn new() -> Self {
+        Self {}
     }
 
     /// Authenticates a session token and generates a new JWT token for file access

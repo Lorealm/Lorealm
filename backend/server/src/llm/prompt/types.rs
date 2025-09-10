@@ -10,3 +10,15 @@ pub struct ContextEntry {
     pub message: Message,
     pub source: String
 }
+
+impl ContextEntry {
+    pub fn new(content: &str, role: &str, source: &str) -> Self {
+        Self { message: 
+            Message { 
+                role: role.to_string(),
+                content: content.to_string()
+            }, 
+            source: source.to_string()
+        }
+    }
+}

@@ -7,7 +7,8 @@ use crate::jwt::jwt_utils::FileAccessClaim;
 use crate::resources::resource_config::{FileLike, ResourceError};
 use crate::resources::resource_manager::{AuthenticationResult, ResourceManager};
 use crate::state::AppState;
-use crate::systems::context_template::ContextTemplate; // Assuming log crate
+use crate::systems::context_template::ContextTemplate;
+use crate::users::user_state::UserState; // Assuming log crate
 
 // Assuming FileAccessClaim has user_id
 // If not, it would need to be added or derived from claims
@@ -96,7 +97,17 @@ impl<'a> UserResources<'a> {
         }
 
         Ok(templates)
-    } 
+    }
+
+    pub async fn save_user_state(&self, state: UserState, app_state: &AppState) -> Result<(), ResourceError> {
+        let path = ".state";
+        self.write_file_serde(app_state, &path, state).await
+    }
+
+    pub async fn load_user_state(&self, app_state: &AppState) -> Result<UserState, ResourceError> {
+        let path = ".state";
+        self.read_file_serde(app_state, &path).await
+    }
 
     pub async fn write_file_serde<T>(
         &self,
@@ -113,11 +124,7 @@ impl<'a> UserResources<'a> {
         self.manager.read_file_serde(app_state, &path, self.jwt_token.clone()).await
     }
 
-    // Additional convenience methods can be added here, e.g., for other deterministic paths
-    // pub fn get_settings(&self) -> Result<Box<dyn FileLike>, ResourceError> {
-    //     let path = self.base_path.join("settings.json");
-    //     self.manager.request_file_contents(&path, &self.claims)
-    // }
+    
 
     // Reusable authentication logic, adapted from try_authenticate
     async fn authenticate(

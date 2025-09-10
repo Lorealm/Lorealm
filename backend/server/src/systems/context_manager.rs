@@ -1,6 +1,11 @@
 use uuid::Uuid;
 
-use crate::{api::state::context_template::{templates::ContextTemplateError, types::ContextPosition}, settings::context_settings::ContextSettings, state::AppState, systems::context_template::{ContextError, ContextTemplate, ContextType, TemplateEntry, TemplateGroup, TemplateItem}};
+use crate::{api::state::context_template::{templates::ContextTemplateError, types::ContextPosition}, llm::prompt::types::ContextEntry, settings::context_settings::ContextSettings, state::AppState, systems::context_template::{ContextError, ContextTemplate, ContextType, TemplateEntry, TemplateGroup, TemplateItem}};
+
+pub enum BuiltContext {
+    Chat(Vec<ContextEntry>),
+    Text(String),
+}
 
 #[derive(Clone)]
 /// A function that takes an context template and settings. 
@@ -404,20 +409,19 @@ impl ContextBuilder {
         None
     }
 
-    pub fn build(&self) -> Result<String, ContextError> {
-        if let None = self.template {
-            return Err(ContextError::NotInitialized);
-        }
-        if let None = self.settings {
-            return Err(ContextError::NotInitialized);
-        }
-
-        let template = self.template.as_ref().unwrap();
-        let settings = self.settings.as_ref().unwrap();
+    pub async fn build(&self) -> Result<BuiltContext, ContextError> {
+        let template = self.template.as_ref().ok_or(ContextError::NotInitialized)?;
+        let settings = self.settings.as_ref().ok_or(ContextError::NotInitialized)?;
 
         match template.context_type {
-            ContextType::ChatCompletion => Ok(build_context_chat_completion(settings, template)),
-            ContextType::TextCompletion => Ok(build_context_text_completion(settings, template)),
+            ContextType::ChatCompletion => {
+                let messages = build_context_chat_completion(settings, template).await;
+                Ok(BuiltContext::Chat(messages))
+            }
+            ContextType::TextCompletion => {
+                let text = build_context_text_completion(settings, template).await;
+                Ok(BuiltContext::Text(text))
+            }
         }
     }
 }
@@ -481,10 +485,61 @@ impl TryFrom<ContextPosition> for ContextCoordinate {
     }
 }
 
-fn build_context_chat_completion(settings: &ContextSettings, template: &ContextTemplate) -> String {
-    String::new()
+async fn build_context_chat_completion(_: &ContextSettings, template: &ContextTemplate) -> Vec<ContextEntry> {
+    let mut entries = Vec::new();
+
+    for item in template.items.clone() {
+        match item {
+            TemplateItem::Entry(entry) => entries.push(entry),
+            TemplateItem::Group(group) => {
+                for entry in group.entries {
+                    entries.push(entry)
+                }
+            },
+        }
+    }
+
+    let mut messages = Vec::new();
+
+    for entry in entries {
+        let item = entry.content;
+        let data = match item.content().await {
+            Ok(c) => c,
+            Err(_) => continue, // ignore the error for now
+        };
+
+        let context_entry = ContextEntry::new(&data, &entry.role.to_string(), &item.source());
+        messages.push(context_entry);
+    }
+
+    return messages;
 }
 
-fn build_context_text_completion(settings: &ContextSettings, template: &ContextTemplate) -> String {
-    String::new()
+async fn build_context_text_completion(_: &ContextSettings, template: &ContextTemplate) -> String {
+    let mut entries = Vec::new();
+
+    for item in template.items.clone() {
+        match item {
+            TemplateItem::Entry(entry) => entries.push(entry),
+            TemplateItem::Group(group) => {
+                for entry in group.entries {
+                    entries.push(entry)
+                }
+            },
+        }
+    }
+
+    let mut message = String::new();
+
+    for entry in entries {
+        let item = entry.content;
+        let data = match item.content().await {
+            Ok(c) => c,
+            Err(_) => continue, // ignore the error for now
+        };
+
+        message.push_str(&format!("\n{}", data));
+    }
+
+    return message;
 }
