@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use crate::users::user_session::UserState;
+use crate::users::user_state::UserStateManager;
 
 pub struct StateManager {
-    sessions: HashMap<String, Arc<RwLock<UserState>>>,
+    sessions: HashMap<String, Arc<RwLock<UserStateManager>>>,
 }
 
 impl StateManager {
@@ -14,11 +14,11 @@ impl StateManager {
         }
     }
 
-    pub fn get_session(&self, session_token: &str) -> Option<&Arc<RwLock<UserState>>> {
+    pub fn get_session(&self, session_token: &str) -> Option<&Arc<RwLock<UserStateManager>>> {
         self.sessions.get(session_token)
     }
 
-    pub fn insert_session(&mut self, session_token: String, user_session: UserState) {
+    pub fn insert_session(&mut self, session_token: String, user_session: UserStateManager) {
         self.sessions
             .insert(session_token, Arc::new(RwLock::new(user_session)));
     }
@@ -30,8 +30,7 @@ impl StateManager {
     ) -> Result<(), Box<dyn std::error::Error>> {
         match self.sessions.remove(&old_token) {
             Some(session) => {
-                let mut session = session.blocking_write();
-                session.set_token(new_token.clone());
+                let session = session.blocking_write();
                 self.sessions.insert(new_token, Arc::new(RwLock::new(session.clone())));
                 Ok(())
             }

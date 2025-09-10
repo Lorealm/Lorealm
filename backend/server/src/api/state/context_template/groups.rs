@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
-use axum::{extract::{Path, State}, Form, Json};
+use axum::{extract::{Path, State}, Extension, Form, Json};
 use axum_extra::extract::CookieJar;
-use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{api::state::context_template::templates::ContextTemplateError, helpers::patch_variable, state::AppState, systems::{context_manager::ContextBuilder, context_template::{ContextError, TemplateGroup}}};
+use crate::{api::state::context_template::{extract_auth_token, load_template, templates::ContextTemplateError}, helpers::patch_variable, state::AppState, systems::context_template::{ContextError, TemplateGroup}, users::user_state::UserStateManager};
 
 #[derive(Serialize, Deserialize)]
 pub struct CreateGroupForm {
@@ -17,30 +16,20 @@ pub struct CreateGroupForm {
 pub async fn create_group(
     cookies: CookieJar,
     State(state): State<Arc<AppState>>,
+    Extension(mut state_mgr): Extension<UserStateManager>,
     Path(template_id): Path<Uuid>,
     Form(body_form): Form<CreateGroupForm>
 ) -> Result<Json<TemplateGroup>, ContextTemplateError> {
-    let token = cookies
-        .get("auth_token")
-        .map(|cookie| cookie.value().to_string())
-        .ok_or(ContextTemplateError::StatusCode(StatusCode::UNAUTHORIZED))?;
-
-    let resource_manager = state.resource_manager.lock().await;
-    let user_resources = resource_manager.user_resources(&token, &state).await
-        .map_err(|e| ContextTemplateError::Resource(e))?;
-    let template = user_resources.load_context_template(template_id, &state).await
-        .map_err(|e| ContextTemplateError::Resource(e))?;
-
-    drop(user_resources);
-    drop(resource_manager);
+    let token = extract_auth_token(cookies).await?;
+    let mut builder = load_template(&state, &token, template_id).await?;
 
     let coords = body_form.position.unwrap_or(usize::MAX as i32) as usize;
 
     let group = TemplateGroup::new(&body_form.name);
 
-    let mut builder = ContextBuilder::from(&template);
-    builder.add_group(group.clone(), coords).map_err(|e| ContextTemplateError::ContextError(e))?;
+    builder.add_group(group.clone(), coords)?;
     builder.save(&state, &token).await?;
+    state_mgr.touch_template_id(template_id, &state, &token).await?;
 
     let formatted_group = builder.get_group(group.id).unwrap();
 
@@ -52,23 +41,11 @@ pub async fn get_group(
     State(state): State<Arc<AppState>>,
     Path((template_id, group_id)): Path<(Uuid, Uuid)>
 ) -> Result<Json<TemplateGroup>, ContextTemplateError> {
-    let token = cookies
-        .get("auth_token")
-        .map(|cookie| cookie.value().to_string())
-        .ok_or(ContextTemplateError::StatusCode(StatusCode::UNAUTHORIZED))?;
+    let token = extract_auth_token(cookies).await?;
+    let builder = load_template(&state, &token, template_id).await?;
 
-    let resource_manager = state.resource_manager.lock().await;
-    let user_resources = resource_manager.user_resources(&token, &state).await
-        .map_err(|e| ContextTemplateError::Resource(e))?;
-    let template = user_resources.load_context_template(template_id, &state).await
-        .map_err(|e| ContextTemplateError::Resource(e))?;
-
-    drop(user_resources);
-    drop(resource_manager);
-
-    let builder = ContextBuilder::from(&template);
     let group = builder.get_group(group_id)
-        .ok_or(ContextTemplateError::ContextError(ContextError::NotFound))?;
+        .ok_or(ContextError::NotFound)?;
 
     Ok(Json(group.to_owned()))
 }
@@ -84,25 +61,12 @@ pub struct EditGroupForm {
 pub async fn edit_group_metadata(
     cookies: CookieJar,
     State(state): State<Arc<AppState>>,
+    Extension(mut state_mgr): Extension<UserStateManager>,
     Path((template_id, group_id)): Path<(Uuid, Uuid)>,
     Form(edit_form): Form<EditGroupForm>
 ) -> Result<Json<TemplateGroup>, ContextTemplateError> { 
-    let token = cookies
-        .get("auth_token")
-        .map(|cookie| cookie.value().to_string())
-        .ok_or(ContextTemplateError::StatusCode(StatusCode::UNAUTHORIZED))?;
-
-    let resource_manager = state.resource_manager.lock().await;
-    let user_resources = resource_manager.user_resources(&token, &state).await
-        .map_err(|e| ContextTemplateError::Resource(e))?;
-    let template = user_resources.load_context_template(template_id, &state).await
-        .map_err(|e| ContextTemplateError::Resource(e))?;
-
-    drop(user_resources);
-    drop(resource_manager);
-
-
-    let mut builder = ContextBuilder::from(&template);
+    let token = extract_auth_token(cookies).await?;
+    let mut builder = load_template(&state, &token, template_id).await?;
     {
         let group = builder.get_group_mut(group_id)
             .ok_or(ContextTemplateError::ContextError(ContextError::NotFound))?;
@@ -115,10 +79,11 @@ pub async fn edit_group_metadata(
     
 
     builder.save(&state, &token).await?;
+    state_mgr.touch_template_id(template_id, &state, &token).await?;
 
     // Since `group` is no longer available, you may need to retrieve it again immutably
     let group = builder.get_group(group_id)
-        .ok_or(ContextTemplateError::ContextError(ContextError::NotFound))?;
+        .ok_or(ContextError::NotFound)?;
 
     Ok(Json(group.to_owned()))
 }
@@ -126,26 +91,16 @@ pub async fn edit_group_metadata(
 pub async fn delete_group(
     cookies: CookieJar,
     State(state): State<Arc<AppState>>,
+    Extension(mut state_mgr): Extension<UserStateManager>,
     Path((template_id, group_id)): Path<(Uuid, Uuid)>
 ) -> Result<(), ContextTemplateError> {
-    let token = cookies
-        .get("auth_token")
-        .map(|cookie| cookie.value().to_string())
-        .ok_or(ContextTemplateError::StatusCode(StatusCode::UNAUTHORIZED))?;
+    let token = extract_auth_token(cookies).await?;
+    let mut builder = load_template(&state, &token, template_id).await?;
 
-    let resource_manager = state.resource_manager.lock().await;
-    let user_resources = resource_manager.user_resources(&token, &state).await
-        .map_err(|e| ContextTemplateError::Resource(e))?;
-    let template = user_resources.load_context_template(template_id, &state).await
-        .map_err(|e| ContextTemplateError::Resource(e))?;
-
-    drop(user_resources);
-    drop(resource_manager);
-
-    let mut builder = ContextBuilder::from(&template);
-    builder.remove_group(group_id).map_err(|e| ContextTemplateError::ContextError(e))?;
+    builder.remove_group(group_id)?;
 
     builder.save(&state, &token).await?;
+    state_mgr.touch_template_id(template_id, &state, &token).await?;
 
     Ok(())
 }

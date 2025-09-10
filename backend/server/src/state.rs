@@ -26,7 +26,7 @@ impl AppState {
     pub async fn new() -> Self {
         let postgres_db = sqlx::PgPool::connect(&get_postgres_from_env()).await.unwrap();
         sqlx::migrate!("../migrations").run(&postgres_db).await.unwrap();
-        let resource_manager = Arc::new(Mutex::new(ResourceManager::new(postgres_db.clone())));
+        let resource_manager = Arc::new(Mutex::new(ResourceManager::new()));
         let user_manager = Arc::new(RwLock::new(UserManager::new(postgres_db.clone(), resource_manager.lock().await.resource_dir().to_path_buf())));
         user_manager.write().await.create_root_user().await.unwrap();
         Self {

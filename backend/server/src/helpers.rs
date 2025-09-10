@@ -1,4 +1,4 @@
-trait Patch<T> {
+pub trait Patch<T> {
     fn patch(&mut self, value: Option<T>);
 }
 

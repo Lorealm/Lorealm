@@ -262,11 +262,11 @@ pub struct ResourceManager {
 }
 
 impl ResourceManager {
-    pub fn new(db: sqlx::Pool<sqlx::Postgres>) -> Self {
+    pub fn new() -> Self {
         let system_token = Self::ensure_system_token();
         Self {
             resource_config: ResourceConfig::new(resolve_resource_dir(), None),
-            auth: ResourceAuthenticator::new(db),
+            auth: ResourceAuthenticator::new(),
             system_token,
         }
     }

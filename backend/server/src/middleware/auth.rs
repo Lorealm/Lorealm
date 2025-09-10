@@ -32,7 +32,7 @@ pub async fn auth_middleware(
 
     log::info!("token: {}", &token);
     let manager = state.user_manager.clone();
-    let mut mgr_write = manager.write().await;
+    let mgr_write = manager.write().await;
 
     // Try validating the session
     let user = match mgr_write.validate_session(&token).await {

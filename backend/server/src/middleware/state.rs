@@ -9,7 +9,7 @@ use axum::{
 use crate::{
     state::AppState,
     users::manager::User,
-    users::user_session::UserState,
+    users::user_state::UserStateManager,
 };
 
 /// Gets or creates a new session based on a User object inserted in an earlier step.
@@ -59,7 +59,8 @@ pub async fn user_state_middleware(
         session
     } else {
         log::info!("creating new session");
-        let session = UserState::new(user.id.clone(), token.clone());
+        let session = UserStateManager::load(&state, &token).await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         sm.insert_session(token.clone(), session);
         sm.get_session(&token).unwrap().clone() // Safe because we just inserted it
     };
