@@ -1,5 +1,6 @@
 mod api;
-mod user;
+mod users;
+mod characters;
 
-use user::user_router;
+use users::user_router;
 pub use api::api_routes;

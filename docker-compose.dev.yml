@@ -2,11 +2,11 @@ version: "3.8"
 
 services:
   postgres:
-    image: postgres:latest
+    image: postgres:18-alpine
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=root
-      - POSTGRES_DB=postgres
+      - POSTGRES_DB=eldoria_hub
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
@@ -28,13 +28,8 @@ services:
     environment:
       - RUST_BACKTRACE=1
       - CARGO_WATCH_POLL=true
-      - PROJECT_ROOT=/app
-      - DATA_DIR=@/data
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=root
-      - POSTGRES_DB=postgres
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
+      - POSTGRES_URL=postgresql://postgres:root@postgres:5432/eldoria_hub
+      - ELDORIA_SERVER_SECRET=InsanelySecureSecret726
     command: cargo watch -x run
     depends_on:
       - postgres

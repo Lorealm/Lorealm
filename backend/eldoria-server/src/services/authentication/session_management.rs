@@ -1,7 +1,7 @@
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::{DateTime, Duration, Utc};
 use rand::{TryRngCore, rngs::OsRng};
-use storage_system::Storage;
+use storage_system::{Storage, StorageError};
 use uuid::Uuid;
 
 use crate::{
@@ -130,7 +130,7 @@ impl Session {
             config,
         })
     }
-    
+
     pub fn user_id(&self) -> Uuid {
         self.user_id
     }
@@ -142,7 +142,7 @@ impl Session {
     pub fn raw_csrf_token(&self) -> Option<String> {
         self.raw_csrf_token.clone()
     }
-    
+
     /// Retrieves a session object from the database. Performs cryptographic validation.
     pub async fn retrieve<S>(
         session_token: &str,
@@ -161,6 +161,22 @@ impl Session {
         }
 
         Ok(session)
+    }
+
+    /// Invalidates existing sessions with the same user id, ip and user agents
+    /// before creating a new one
+    pub async fn invalidate_and_create<S>(
+        user_id: Uuid,
+        user_device: &UserDevice,
+        server_secret: &str,
+        config: SessionConfig,
+        session_service: &SessionService<S>,
+    ) -> Result<Self, SessionError>
+    where
+        S: Storage + ?Sized,
+    {
+        session_service.invalidate_sessions(user_id, user_device).await?;
+        Ok(Self::new(user_id, user_device, server_secret, config).await?)
     }
 
     /// Validates CSRF token for state-changing requests

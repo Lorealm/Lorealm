@@ -43,11 +43,12 @@ pub async fn login(
 
     let user_device = UserDevice::from_http(&headers);
     
-    let session = Session::new(
+    let session = Session::invalidate_and_create(
         user.id,
         &user_device,
         &state.server_secret().expose_secret(),
         storage.session_config().clone(),
+        &storage.session_service()
     )
     .await
     .map_err(|e| AuthError::Session(e))?;

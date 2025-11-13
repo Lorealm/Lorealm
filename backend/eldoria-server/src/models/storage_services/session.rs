@@ -5,7 +5,7 @@ use storage_system::{Storage, StorageError};
 use uuid::Uuid;
 
 use crate::{
-    models::StorageService,
+    models::{StorageService, UserDevice},
     services::authentication::{Session, SessionConfig},
 };
 
@@ -74,5 +74,13 @@ impl<S: Storage + ?Sized> SessionService<S> {
         self.storage
             .update_csrf_token(session_id, new_csrf_token, rotation_count, rotated_at)
             .await
+    }
+
+    pub async fn invalidate_sessions(
+        &self,
+        user_id: Uuid,
+        user_device: &UserDevice,
+    ) -> Result<(), StorageError> {
+        self.storage.invalidate_sessions(user_id, &user_device.ip, &user_device.user_agent).await
     }
 }

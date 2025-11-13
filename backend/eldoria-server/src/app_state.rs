@@ -46,10 +46,24 @@ impl StorageProvider {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ServerConfig {
+    pub max_card_upload_size_mb: usize,
+}
+
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {
+            max_card_upload_size_mb: 20,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct AppState {
     storage: Arc<RwLock<StorageProvider>>,
     server_secret: SecretString,
+    config: ServerConfig
 }
 
 // Manual Debug that hides the secret
@@ -58,6 +72,7 @@ impl std::fmt::Debug for AppState {
         f.debug_struct("AppState")
             .field("storage", &self.storage)
             .field("server_secret", &"[REDACTED]")
+            .field("config", &self.config)
             .finish()
     }
 }
@@ -70,6 +85,7 @@ impl AppState {
         Ok(Self {
             storage: Arc::new(RwLock::new(StorageProvider::new(manager))),
             server_secret: SecretString::new(secret.into_boxed_str()),
+            config: ServerConfig::default()
         })
     }
 
@@ -77,6 +93,10 @@ impl AppState {
         Arc::clone(&self.storage)
     }
     
+    pub fn config(&self) -> &ServerConfig {
+        &self.config
+    }
+
     // Return a reference to avoid copies
     pub(crate) fn server_secret(&self) -> &SecretString {
         &self.server_secret
