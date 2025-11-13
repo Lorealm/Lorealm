@@ -3,18 +3,26 @@ use std::fmt::Display;
 use std::fs::File;
 use std::io::Read;
 
-#[derive(Deserialize, Debug)]
+#[derive(Default, Deserialize, Debug)]
 pub struct AppConfig {
     pub backends: Vec<storage_system::BackendConfig>,
     pub require_postgres_fallback: bool,
     pub cache: storage_system::CacheConfig,
     pub security: SecurityConfig,
-    pub server: ServerConfig
+    pub server: ServerConfig,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct SecurityConfig {
-    pub cors_origins: Vec<String>
+    pub cors_origins: Vec<String>,
+}
+
+impl Default for SecurityConfig {
+    fn default() -> Self {
+        Self {
+            cors_origins: vec!["http://localhost:3000".to_string()],
+        }
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -44,25 +52,45 @@ impl Display for LogLevel {
 pub struct ServerConfig {
     pub host: String,
     pub port: u16,
-    pub log_level: LogLevel
+    pub log_level: LogLevel,
 }
 
 impl ServerConfig {
     pub fn host_addr(&self) -> [u8; 4] {
-            let parts: Vec<&str> = self.host.split(".").collect();
-            [
-                parts[0].parse().unwrap_or(0),
-                parts[1].parse().unwrap_or(0),
-                parts[2].parse().unwrap_or(0),
-                parts[3].parse().unwrap_or(0),
-            ]
+        let parts: Vec<&str> = self.host.split(".").collect();
+        [
+            parts[0].parse().unwrap_or(0),
+            parts[1].parse().unwrap_or(0),
+            parts[2].parse().unwrap_or(0),
+            parts[3].parse().unwrap_or(0),
+        ]
+    }
+}
+
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {
+            host: "127.0.0.1".to_string(),
+            port: 3000,
+            log_level: LogLevel::Info,
         }
+    }
 }
 
 pub fn load_config() -> anyhow::Result<AppConfig> {
-    let mut file = File::open("config/config.dev.yaml")?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    let config: AppConfig = serde_yaml::from_str(&contents)?;
-    Ok(config)
+    let config_path =
+        std::env::var("CONFIG_PATH").unwrap_or_else(|_| "config/config.dev.yaml".to_string());
+
+    if let Ok(mut file) = File::open(&config_path) {
+        let mut contents = String::new();
+        if file.read_to_string(&mut contents).is_ok() {
+            let config: AppConfig = serde_yaml::from_str(&contents)?;
+            return Ok(config);
+        }
+        tracing::warn!("Failed to read config file: {config_path}");
+    }
+
+    tracing::info!("Config file not found... Using default values.");
+
+    return Ok(AppConfig::default());
 }

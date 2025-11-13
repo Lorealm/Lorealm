@@ -1,0 +1,215 @@
+.app-container {
+  max-width: 100vw;
+  margin: 0 auto;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  background: rgba(20, 22, 30, 0.8);
+  padding: 14px var(--spacing-xl);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-border-subtle);
+  backdrop-filter: var(--backdrop-blur);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.logo {
+  width: 24px;
+  height: 24px;
+  background: var(--gradient-primary);
+  border-radius: var(--radius-md);
+  animation: pulse 4s ease-in-out infinite;
+}
+
+.title {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+}
+
+.header-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  align-items: center;
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: var(--spacing-xs);
+  border-radius: var(--radius-lg);
+}
+
+.status {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--color-success);
+  border-radius: 50%;
+  animation: statusPulse 2s ease-in-out infinite;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.status-bar {
+  background: rgba(20, 22, 30, 0.8);
+  padding: var(--spacing-sm) var(--spacing-xl);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--color-border-subtle);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  z-index: var(--z-index-elevated);
+}
+
+.status-left,
+.status-right {
+  display: flex;
+  gap: var(--spacing-xl);
+}
+
+.panel {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-xl);
+  backdrop-filter: var(--backdrop-blur);
+  transition: all var(--transition-normal);
+}
+
+.panel:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.panel-header {
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: var(--spacing-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.sidebar {
+  width: 250px;
+  background: var(--color-bg-elevated-2);
+  border-right: 1px solid var(--color-border-subtle);
+  display: flex;
+  flex-direction: column;
+  transition: width var(--transition-normal) ease;
+  overflow-y: auto;
+}
+
+.sidebar.collapsed {
+  width: 40px;
+}
+
+.context-sidebar {
+  width: 250px;
+  background: var(--color-bg-panel);
+  border-right: 1px solid var(--color-border-subtle);
+  padding: var(--spacing-xl);
+  overflow-y: auto;
+}
+
+.context-nav-section {
+  margin-bottom: var(--spacing-2xl);
+}
+
+.context-nav-title {
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: var(--spacing-md);
+  opacity: 0.8;
+}
+
+.context-nav-item {
+  color: var(--color-text-primary);
+  padding: var(--spacing-sm) var(--spacing-md);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  margin: var(--spacing-xs) 0;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+}
+
+.context-nav-item:hover {
+  background: rgba(138, 127, 219, 0.1);
+}
+
+.context-nav-item.active {
+  background: var(--color-hover);
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-index-modal);
+  backdrop-filter: var(--backdrop-blur-sm);
+}
+
+.modal {
+  background: var(--color-bg-modal);
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-2xl);
+  min-width: 400px;
+  max-width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-lg);
+}
+
+.modal-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: flex-end;
+  margin-top: var(--spacing-2xl);
+}

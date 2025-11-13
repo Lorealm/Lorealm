@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import MainLayout from '@/layouts/MainLayout.vue' // Import your new layout
+import { setupAuthGuards } from './guards'
+import MainLayout from '@/layouts/MainLayout.vue'
 import LoginPage from '@/pages/LoginPage.vue'
 import UserInfoView from '@/views/user/UserInfoView.vue'
 import WriteView from '@/views/WriteView.vue'
@@ -12,7 +13,8 @@ const router = createRouter({
     {
       path: '/',
       component: MainLayout,
-      children: [ 
+      meta: { requiresAuth: true },
+      children: [
         {
           path: 'user/me',
           name: 'me',
@@ -21,38 +23,39 @@ const router = createRouter({
         {
           path: 'write',
           name: 'write',
-          component: WriteView
+          component: WriteView,
         },
         {
           path: 'context',
           name: 'context',
-          component: ContextView
+          component: ContextView,
         },
         {
           path: 'characters',
           name: 'characters',
-          component: PlaceholderView
+          component: PlaceholderView,
         },
         {
           path: 'worlds',
           name: 'worlds',
-          component: PlaceholderView
-        }
-        ,
+          component: PlaceholderView,
+        },
         {
           path: 'plugins',
           name: 'plugins',
-          component: PlaceholderView
-        }
+          component: PlaceholderView,
+        },
       ],
     },
     {
       path: '/login',
       name: 'login',
       component: LoginPage,
-    }
-    // Add more top-level routes here for other full-page screens (e.g., signup, error pages)
+      meta: { requiresAuth: false },
+    },
   ],
 })
+
+setupAuthGuards(router)
 
 export default router

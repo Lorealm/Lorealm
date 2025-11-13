@@ -145,6 +145,18 @@ pub trait UserStorage: StorageCore {
             self.backend_type()
         )))
     }
+    
+    async fn invalidate_sessions(
+        &self,
+        user_id: Uuid,
+        ip: &str,
+        user_agent: &str,
+    ) -> Result<(), StorageError> {
+        Err(StorageError::NotImplemented(format!(
+            "{} does not support sessions",
+            self.backend_type()
+        )))
+    }
 }
 
 #[allow(unused_variables)]

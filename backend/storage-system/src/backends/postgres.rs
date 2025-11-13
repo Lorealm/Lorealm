@@ -36,10 +36,6 @@ impl PostgresStorage {
     }
 }
 
-// ============================================================================
-// StorageCore implementation
-// ============================================================================
-
 #[async_trait]
 impl StorageCore for PostgresStorage {
     async fn is_available(&self) -> bool {
@@ -565,6 +561,33 @@ impl UserStorage for PostgresStorage {
         .bind(rotation_count as i32)
         .bind(rotated_at)
         .bind(session_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| StorageError::Database(e.to_string()))?;
+
+        Ok(())
+    }
+
+    async fn invalidate_sessions(
+        &self,
+        user_id: Uuid,
+        ip: &str,
+        user_agent: &str,
+    ) -> Result<(), StorageError> {
+        sqlx::query(
+            r#"
+            UPDATE sessions
+            SET revoked_at = NOW()
+            WHERE user_id = $1
+              AND ip_address = $2
+              AND user_agent = $3
+              AND expires_at > NOW()
+              AND revoked_at IS NULL
+            "#,
+        )
+        .bind(user_id)
+        .bind(ip)
+        .bind(user_agent)
         .execute(&self.pool)
         .await
         .map_err(|e| StorageError::Database(e.to_string()))?;

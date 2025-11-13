@@ -24,7 +24,7 @@ mod services;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    dotenv::dotenv()?;
+    let _ = dotenv::dotenv();
     let config = config::load_config()?;
 
     // Init logging

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::{Router, routing::get};
 use secrecy::ExposeSecret;
 
-use crate::{app_state::AppState, middleware::authentication::SessionMiddlewareState, routes::user_router};
+use crate::{app_state::AppState, middleware::authentication::SessionMiddlewareState, routes::{characters::char_router, user_router}};
 
 pub async fn api_routes(app_state: Arc<AppState>) -> Router {
     let storage_lock = app_state.storage();
@@ -18,5 +18,6 @@ pub async fn api_routes(app_state: Arc<AppState>) -> Router {
     
     Router::new()
         .route("/health", get(|| async { "OK" }))
-        .nest("/user", user_router(app_state, middleware_state))
+        .nest("/user", user_router(app_state.clone(), middleware_state.clone()))
+        .nest("/char", char_router(app_state.clone(), middleware_state.clone()))
 }
