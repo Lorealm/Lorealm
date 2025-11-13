@@ -341,7 +341,7 @@ struct TokenizerDefinition {
 
 #[derive(Deserialize)]
 struct TokenizerConfig {
-    exact_self_matches: Vec<String>,
+    _exact_self_matches: Vec<String>,
     mappings: Vec<TokenizerDefinition>
 }
 

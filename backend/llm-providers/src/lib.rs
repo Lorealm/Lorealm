@@ -1,8 +1,11 @@
-#[macro_use]
-extern crate dotenv_codegen;
+mod client;
+mod types;
+mod error;
+mod providers;
+mod streaming;
 
-pub mod llm_provider;
-pub mod openrouter;
-pub mod types;
-pub mod samplers;
-pub(crate) mod parsers;
+pub use client::{Client, RequestBuilder};
+pub use types::{Message, Response, Role, Usage, Delta, ModelInfo, ModelPricing};
+pub use error::{Error, Result};
+pub use providers::*;
+pub use streaming::DeltaStreamExt;
