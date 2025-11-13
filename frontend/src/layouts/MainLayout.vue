@@ -1,195 +1,236 @@
-<script lang="ts" setup>
-import { ref, onMounted, provide } from 'vue'
-import { Bell } from 'lucide-vue-next'
-import { appStateKey } from '@/types/app'
-import HealthIcon from '@/components/HealthIcon.vue'
+<script lang="ts">
 import router from '@/router'
 
-// Create reactive state properly
-const messages = ref([
-  { role: 'system', content: 'You are a helpful assistant.' },
-  { role: 'assistant', content: 'Hello! What can I help you with today?' },
-])
-const userInput = ref('')
+export default {
+  methods: {
+    switchTab(dest: string, btn: HTMLButtonElement) {
+      const active_elements = document.getElementsByClassName('active')
 
-const app = {
-  sidebarCollapsed: ref(false),
-  modulesPanelCollapsed: ref(false),
-  activeProfile: ref('Productivity'),
-  activeModule: ref('Knowledge Base'),
-  messages,
-  userInput,
-  profiles: [
-    { id: 'Productivity', name: 'Productivity', icon: '💼' },
-    { id: 'Creative', name: 'Creative Writing', icon: '✍️' },
-    { id: 'RPG', name: 'Roleplay', icon: '🎭' },
-    { id: 'Programming', name: 'Coding Assistant', icon: '💻' },
-  ],
-  modules: {
-    Productivity: ['Knowledge Base', 'File Browser', 'Task Manager'],
-    Creative: ['Character Profiles', 'Story Archives', 'Prompt Templates'],
-    RPG: ['Character Sheets', 'World Settings', 'Scenario Builder'],
-    Programming: ['Code Editor', 'Documentation', 'Snippets'],
-  } as { [key: string]: string[] },
+      Array.from(active_elements).forEach((el) => {
+        el.classList.remove('active')
+      })
+
+      btn.classList.add('active')
+      router.push(dest)
+    },
+  },
 }
-
-// Provide the app state - make sure this happens before ChatWindow is rendered
-provide(appStateKey, app)
-
-const dynamicComponents = ref<string[]>([])
-const loadedComponents = new Map<string, any>()
-
-function toggleSidebar() {
-  app.sidebarCollapsed.value = !app.sidebarCollapsed.value
-}
-
-function toggleModulesPanel() {
-  app.modulesPanelCollapsed.value = !app.modulesPanelCollapsed.value
-}
-
-function switchProfile(profileId: string) {
-  app.activeProfile.value = profileId
-  app.activeModule.value = app.modules[profileId][0]
-}
-
-function switchModule(moduleName: string) {
-  app.activeModule.value = moduleName
-}
-
-onMounted(async () => {
-  const components = new Array<string>()
-  dynamicComponents.value = components
-
-  for (const path of components) {
-    try {
-      const mod = await import(/* @vite-ignore */ path)
-      loadedComponents.set(path, mod.default)
-    } catch (err) {
-      console.error(`Failed to load component ${path}`, err)
-    }
-  }
-})
 </script>
 
 <template>
-  <main class="app-container">
-    <!-- Left Sidebar -->
-    <aside class="sidebar" :class="{ collapsed: app.sidebarCollapsed.value }">
-      <button class="toggle-btn" @click="toggleSidebar">
-        {{ app.sidebarCollapsed.value ? '→' : '←' }}
-      </button>
-
-      <div v-if="!app.sidebarCollapsed.value">
-        <div class="profiles-section">
-          <h3>Profiles</h3>
-          <ul class="profile-list">
-            <li v-for="profile in app.profiles" :key="profile.id">
-              <button
-                :class="{ active: app.activeProfile.value === profile.id }"
-                @click="switchProfile(profile.id)"
-              >
-                <span class="profile-icon">{{ profile.icon }}</span>
-                <span class="profile-name">{{ profile.name }}</span>
-              </button>
-            </li>
-          </ul>
-        </div>
-
-        <div class="modules-section">
-          <h3>Active Modules</h3>
-          <ul class="module-list">
-            <li v-for="module in app.modules[app.activeProfile.value] || []" :key="module">
-              <button
-                :class="{ active: app.activeModule.value === module }"
-                @click="switchModule(module)"
-              >
-                {{ module }}
-              </button>
-            </li>
-          </ul>
-        </div>
-
-        <div class="settings-section">
-          <RouterLink to="/settings">
-            <button class="settings-btn">Settings</button>
-          </RouterLink>
-        </div>
+  <div class="app-container">
+    <div class="header">
+      <div class="brand">
+        <div class="logo"></div>
+        <div class="title">Eldoria Hub</div>
       </div>
-    </aside>
-
-    <!-- Main Chat Area -->
-    <RouterView />
-
-    <!-- Right Modules Panel -->
-    <aside class="modules-panel" :class="{ collapsed: app.modulesPanelCollapsed.value }">
-      <button class="toggle-btn" @click="toggleModulesPanel">
-        {{ app.modulesPanelCollapsed.value ? '←' : '→' }}
-      </button>
-
-      <div v-if="!app.modulesPanelCollapsed.value">
-        <div class="module-header">
-          <h2>{{ app.activeModule.value }}</h2>
-        </div>
-
-        <div class="module-content">
-          <div v-if="app.activeModule.value === 'Knowledge Base'" class="knowledge-base-module">
-            <input type="text" placeholder="Search knowledge base..." />
-            <div class="kb-results">
-              <p>Content would dynamically load here based on the active module.</p>
-            </div>
-          </div>
-
-          <div
-            v-else-if="app.activeModule.value === 'Character Profiles'"
-            class="character-profiles-module"
-          >
-            <select>
-              <option>Character 1</option>
-              <option>Character 2</option>
-            </select>
-            <div class="character-details">
-              <p>Character details would appear here.</p>
-            </div>
-          </div>
-
-          <div v-else class="generic-module">
-            <p>This is the {{ app.activeModule.value }} module interface.</p>
-            <p>Module-specific controls would appear here.</p>
-          </div>
-        </div>
-
-        <div id="extension-area" style="height: 500px; border-top: 1px solid #444">
-          <div v-for="component in dynamicComponents" :key="component" class="extension-component">
-            <component
-              v-if="loadedComponents.get(component)"
-              :is="loadedComponents.get(component)"
-            />
-            <div v-else class="extension-loading">Loading {{ component }}...</div>
-          </div>
-        </div>
-      </div>
-    </aside>
-
-    <!-- Status Bar -->
-    <footer class="status-bar">
-      <div class="status-item model-info">Model: GPT-4 Turbo</div>
-      <div class="status-item token-usage">Tokens: 145/4096</div>
-      <div class="status-item settings-info">
-        <button class="settings-btn">ℹ</button>
-      </div>
-      <div class="status-item connection-status">Connected ✓</div>
-      <div class="status-item">
-        <button class="round-button">
-          <Bell />
+      <div class="tabs">
+        <button class="tab active" @click="switchTab('write', $event.target as HTMLButtonElement)">
+          Write
+        </button>
+        <button class="tab" @click="switchTab('context', $event.target as HTMLButtonElement)">
+          Context
+        </button>
+        <button class="tab" @click="switchTab('characters', $event.target as HTMLButtonElement)">
+          Characters
+        </button>
+        <button class="tab" @click="switchTab('worlds', $event.target as HTMLButtonElement)">
+          World
+        </button>
+        <button class="tab" @click="switchTab('plugins', $event.target as HTMLButtonElement)">
+          Plugins
         </button>
       </div>
-      <div class="status-item">
-        <HealthIcon />
+      <div class="header-actions">
+        <div class="status">
+          <div class="status-dot"></div>
+          Connected
+        </div>
+        <button class="btn-settings">Settings</button>
       </div>
-    </footer>
-  </main>
+    </div>
+    <div class="main-content">
+      <RouterView />
+    </div>
+    <div class="status-bar">
+      <div class="status-left">
+        <span>Words: 847</span>
+        <span>Characters: 4,231</span>
+        <span>Context: 71%</span>
+        <span>Autosave: On</span>
+      </div>
+      <div class="status-right">
+        <span>Model: GPT-4</span>
+        <span>Temp: 0.8</span>
+        <span>Max Tokens: 500</span>
+      </div>
+    </div>
+  </div>
 </template>
 
-<style scoped>
-@import '@/assets/app.css';
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: linear-gradient(135deg, #1a1f2e 0%, #241b2f 100%);
+  color: #e0def4;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.app-container {
+  max-width: 100vw;
+  margin: 0 auto;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.header {
+  background: rgba(20, 22, 30, 0.8);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(138, 127, 219, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo {
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, #8a7fdb 0%, #6366f1 100%);
+  border-radius: 6px;
+  animation: pulse 4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.title {
+  color: #e0def4;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.tab {
+  color: #908caa;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 13px;
+  transition: all 0.2s;
+  background: transparent;
+  border: none;
+}
+
+.tab:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tab.active {
+  background: rgba(138, 127, 219, 0.2);
+  color: #e0def4;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.status {
+  color: #908caa;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  background: #10b981;
+  border-radius: 50%;
+  animation: statusPulse 2s ease-in-out infinite;
+}
+
+@keyframes statusPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.btn-settings {
+  background: rgba(138, 127, 219, 0.2);
+  border: 1px solid rgba(138, 127, 219, 0.3);
+  color: #e0def4;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.btn-settings:hover {
+  background: rgba(138, 127, 219, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Main Content Area */
+.main-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* Status Bar */
+.status-bar {
+  background: rgba(20, 22, 30, 0.8);
+  padding: 8px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid rgba(138, 127, 219, 0.05);
+  font-size: 12px;
+  color: #908caa;
+  z-index: 99;
+}
+
+.status-left,
+.status-right {
+  display: flex;
+  gap: 20px;
+}
 </style>

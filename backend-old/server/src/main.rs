@@ -84,9 +84,8 @@ async fn main() {
     app_state.initialize().await;
     initialize_plugin_manager(app_state.get_plugin_manager()).await;
 
-    let tokens = app_state.tokenizers.lock().await.count_tokens(&"llama3".to_string(), &"I like big juice apples!".to_string()).await.unwrap();
-    
-    println!("Result (token count): {}", tokens);
+    // let tokens = app_state.tokenizers.lock().await.count_tokens(&"llama3".to_string(), &"I like big juice apples!".to_string()).await.unwrap();
+    // println!("Result (token count): {}", tokens);
 
     // Get current directory for static file serving
     let current_dir = std::env::current_dir().unwrap();
