@@ -3,6 +3,7 @@ use bitflags::bitflags;
 bitflags! {
     #[derive(Clone, Copy, Debug)]
     pub struct UserPermissions: u64 {
+        const NONE = 0;
         // Admin-only (implies everything below)
         const ADMINISTRATOR = 1 << 63;  // Highest bit for override
 

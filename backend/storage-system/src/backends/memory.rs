@@ -1,5 +1,5 @@
 use crate::error::StorageError;
-use crate::models::*;
+use crate::{models::*, TemplateStorage};
 use crate::storage::CharacterStorage;
 use crate::{
     impl_storage_capabilities,
@@ -28,6 +28,7 @@ pub struct MemoryStorage {
     messages: Arc<RwLock<HashMap<Uuid, Vec<Message>>>>,
     users: Arc<RwLock<HashMap<Uuid, User>>>,
     sessions: Arc<RwLock<HashMap<Uuid, Session>>>,
+    templates: Arc<RwLock<HashMap<Uuid, Template>>>,
     max_size: usize,
     current_size: Arc<RwLock<usize>>,
 }
@@ -44,6 +45,7 @@ impl MemoryStorage {
             messages: Arc::new(RwLock::new(HashMap::new())),
             users: Arc::new(RwLock::new(HashMap::new())),
             sessions: Arc::new(RwLock::new(HashMap::new())),
+            templates: Arc::new(RwLock::new(HashMap::new())),
             max_size,
             current_size: Arc::new(RwLock::new(0)),
         }
@@ -83,6 +85,7 @@ impl MemoryStorage {
         let users = self.users.read().await.len();
         let messages_map = self.messages.read().await;
         let total_messages: usize = messages_map.values().map(|v| v.len()).sum();
+        let templates = self.templates.read().await.len();
 
         MemoryStorageStats {
             conversation_count: conversations,
@@ -90,6 +93,7 @@ impl MemoryStorage {
             message_count: total_messages,
             max_size: self.max_size,
             current_size: *self.current_size.read().await,
+            template_count: templates
         }
     }
 
@@ -100,6 +104,7 @@ impl MemoryStorage {
         self.messages.write().await.clear();
         self.users.write().await.clear();
         self.sessions.write().await.clear();
+        self.templates.write().await.clear();
         *self.current_size.write().await = 0;
     }
 }
@@ -112,6 +117,7 @@ pub struct MemoryStorageStats {
     pub message_count: usize,
     pub max_size: usize,
     pub current_size: usize,
+    pub template_count: usize,
 }
 
 #[async_trait]
@@ -302,7 +308,7 @@ impl UserStorage for MemoryStorage {
         let users = self.users.read().await;
         let user = users
             .iter()
-            .find(|x| x.1.display_name == Some(name.to_string()));
+            .find(|x| x.1.name == name.to_string());
 
         match user {
             Some(u) => Ok(Some(u.1.clone())),
@@ -394,12 +400,145 @@ impl UserStorage for MemoryStorage {
 
 impl CharacterStorage for MemoryStorage {}
 
+#[async_trait]
+impl TemplateStorage for MemoryStorage {
+    async fn save_template(&self, template: &Template) -> Result<Uuid, StorageError> {
+        let mut templates = self.templates.write().await;
+
+        // Check if this is a new template
+        let is_new = !templates.contains_key(&template.id);
+
+        if is_new {
+            // Check size limit
+            if !self.can_add_item().await {
+                return Err(StorageError::InvalidOperation(format!(
+                    "Memory storage limit reached (max: {})",
+                    self.max_size
+                )));
+            }
+        }
+
+        templates.insert(template.id, template.clone());
+
+        if is_new {
+            self.increment_size().await;
+        }
+
+        Ok(template.id)
+    }
+
+    async fn get_template(&self, id: Uuid) -> Result<Option<Template>, StorageError> {
+        let templates = self.templates.read().await;
+        Ok(templates.get(&id).cloned())
+    }
+
+    async fn get_template_owned(
+        &self,
+        id: Uuid,
+        owner_id: Uuid,
+    ) -> Result<Option<Template>, StorageError> {
+        let templates = self.templates.read().await;
+        
+        match templates.get(&id) {
+            Some(template) if template.owner_id == owner_id => Ok(Some(template.clone())),
+            Some(_) => Err(StorageError::PermissionDenied(
+                "Template not owned by user".to_string(),
+            )),
+            None => Ok(None),
+        }
+    }
+
+    async fn list_templates(&self, owner_id: Uuid) -> Result<Vec<TemplateMetadata>, StorageError> {
+        let templates = self.templates.read().await;
+
+        let mut result: Vec<TemplateMetadata> = templates
+            .values()
+            .filter(|t| t.owner_id == owner_id)
+            .map(|t| {
+                // Parse nodes_json to count nodes
+                let node_count = if let Ok(nodes) =
+                    serde_json::from_str::<serde_json::Value>(&t.nodes_json)
+                {
+                    nodes.as_array().map(|arr| arr.len()).unwrap_or(0)
+                } else {
+                    0
+                };
+
+                TemplateMetadata {
+                    id: t.id,
+                    owner_id: t.owner_id,
+                    name: t.name.clone(),
+                    description: t.description.clone(),
+                    node_count,
+                    version: t.version,
+                    created_at: t.created_at,
+                    updated_at: t.updated_at,
+                }
+            })
+            .collect();
+
+        // Sort by created_at descending (most recent first)
+        result.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+
+        Ok(result)
+    }
+
+    async fn delete_template(&self, id: Uuid, owner_id: Uuid) -> Result<(), StorageError> {
+        let mut templates = self.templates.write().await;
+
+        // First verify ownership
+        if let Some(template) = templates.get(&id) {
+            if template.owner_id != owner_id {
+                return Err(StorageError::PermissionDenied(
+                    "Cannot delete template not owned by user".to_string(),
+                ));
+            }
+        } else {
+            return Err(StorageError::NotFound(format!(
+                "Template {id} not found"
+            )));
+        }
+
+        if templates.remove(&id).is_some() {
+            self.decrement_size().await;
+        }
+
+        Ok(())
+    }
+
+    async fn template_exists(&self, id: Uuid) -> Result<bool, StorageError> {
+        let templates = self.templates.read().await;
+        Ok(templates.contains_key(&id))
+    }
+
+    async fn template_name_exists(
+        &self,
+        owner_id: Uuid,
+        name: &str,
+        exclude_id: Option<Uuid>,
+    ) -> Result<bool, StorageError> {
+        let templates = self.templates.read().await;
+
+        for template in templates.values() {
+            if template.owner_id == owner_id
+                && template.name == name
+                && exclude_id.map_or(true, |exclude| template.id != exclude)
+            {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
+    }
+}
+
 impl_storage_capabilities!(MemoryStorage, {
     supports_conversations: true,
     supports_messages: true,
     supports_users: true,
     supports_sessions: true,
-    supports_characters: false
+    supports_characters: false,
+    supports_templates: true
 });
 
 // Implement Clone for MemoryStorage to allow sharing
@@ -411,6 +550,7 @@ impl Clone for MemoryStorage {
             messages: Arc::clone(&self.messages),
             users: Arc::clone(&self.users),
             sessions: Arc::clone(&self.sessions),
+            templates: Arc::clone(&self.templates),
             max_size: self.max_size,
             current_size: Arc::clone(&self.current_size),
         }

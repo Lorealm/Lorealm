@@ -2,7 +2,7 @@ use crate::StorageError;
 use crate::models::*;
 use crate::storage::{
     CharacterStorage, ConversationStorage, MessageStorage, Storage, StorageCapabilities,
-    StorageCore, UserStorage,
+    StorageCore, UserStorage, TemplateStorage
 };
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -529,6 +529,121 @@ impl CharacterStorage for CachedStorage {
     }
 }
 
+#[async_trait]
+#[cfg(feature = "redis")]
+impl TemplateStorage for CachedStorage {
+    async fn save_template(&self, template: &Template) -> Result<Uuid, StorageError> {
+        // Save to backend first
+        let result = self.backend.save_template(template).await?;
+
+        // Update cache
+        let key = self.cache_key("template", &template.id.to_string());
+        self.set_cached(&key, template).await?;
+
+        // Invalidate list cache for this user
+        let list_pattern =
+            self.cache_pattern("template_list", &format!("{}:*", template.owner_id));
+        self.invalidate(&list_pattern).await?;
+
+        Ok(result)
+    }
+
+    async fn get_template(&self, id: Uuid) -> Result<Option<Template>, StorageError> {
+        let key = self.cache_key("template", &id.to_string());
+        self.get_with_cache(&key, self.backend.get_template(id))
+            .await
+    }
+
+    async fn get_template_owned(
+        &self,
+        id: Uuid,
+        owner_id: Uuid,
+    ) -> Result<Option<Template>, StorageError> {
+        // For owned templates, we need to check ownership
+        // We can still use cache but verify ownership after retrieval
+        let key = self.cache_key("template", &id.to_string());
+
+        match self.get_with_cache(&key, self.backend.get_template(id)).await? {
+            Some(template) if template.owner_id == owner_id => Ok(Some(template)),
+            Some(_) => Err(StorageError::PermissionDenied(
+                "Template not owned by user".to_string(),
+            )),
+            None => Ok(None),
+        }
+    }
+
+    async fn list_templates(&self, owner_id: Uuid) -> Result<Vec<TemplateMetadata>, StorageError> {
+        let key = self.cache_key("template_list", &owner_id.to_string());
+
+        // For lists, we might want shorter TTL
+        let mut conn = self
+            .redis
+            .get_multiplexed_async_connection()
+            .await
+            .map_err(|e| StorageError::Database(format!("Redis error: {e}")))?;
+
+        if let Ok(Some(cached)) = conn.get::<_, Option<Vec<u8>>>(&key).await {
+            if let Ok(value) = serde_json::from_slice(&cached) {
+                return Ok(value);
+            }
+        }
+
+        // Fetch from backend
+        let result = self.backend.list_templates(owner_id).await?;
+
+        // Cache with shorter TTL for lists (they change more often)
+        if let Ok(serialized) = serde_json::to_vec(&result) {
+            let _: Result<(), _> = conn.set_ex(&key, serialized, self.ttl / 2).await;
+        }
+
+        Ok(result)
+    }
+
+    async fn delete_template(&self, id: Uuid, owner_id: Uuid) -> Result<(), StorageError> {
+        // Delete from backend
+        self.backend.delete_template(id, owner_id).await?;
+
+        // Invalidate cache
+        let key = self.cache_key("template", &id.to_string());
+        let mut conn = self
+            .redis
+            .get_multiplexed_async_connection()
+            .await
+            .map_err(|e| StorageError::Database(format!("Redis error: {e}")))?;
+        let _: Result<(), _> = conn.del(&key).await;
+
+        // Invalidate list cache for this user
+        let list_pattern = self.cache_pattern("template_list", &format!("{owner_id}:*"));
+        self.invalidate(&list_pattern).await?;
+
+        Ok(())
+    }
+
+    async fn template_exists(&self, id: Uuid) -> Result<bool, StorageError> {
+        // Check cache first
+        let key = self.cache_key("template", &id.to_string());
+
+        if let Ok(Some(_)) = self.get_cached::<Template>(&key).await {
+            return Ok(true);
+        }
+
+        // Fall back to backend
+        self.backend.template_exists(id).await
+    }
+
+    async fn template_name_exists(
+        &self,
+        owner_id: Uuid,
+        name: &str,
+        exclude_id: Option<Uuid>,
+    ) -> Result<bool, StorageError> {
+        // This is a query operation - don't cache, just pass through
+        self.backend
+            .template_name_exists(owner_id, name, exclude_id)
+            .await
+    }
+}
+
 #[cfg(feature = "redis")]
 impl StorageCapabilities for CachedStorage {
     // Cache supports whatever the underlying backend supports
@@ -546,6 +661,9 @@ impl StorageCapabilities for CachedStorage {
         true
     }
     fn supports_characters(&self) -> bool {
+        true
+    }
+    fn supports_templates(&self) -> bool {
         true
     }
 }

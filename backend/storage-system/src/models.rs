@@ -73,7 +73,7 @@ pub struct User {
     pub id: Uuid,
     pub permissions: u64,
     pub email: Option<String>,
-    pub display_name: Option<String>,
+    pub name: String,
     /// Should only be retrieved when logging in
     pub password: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -123,4 +123,30 @@ pub struct CharacterGreeting {
     pub character_id: Uuid,
     pub greeting: String,
     pub display_order: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Template {
+    pub id: Uuid,
+    pub owner_id: Uuid,
+    pub name: String,
+    pub description: String,
+    /// JSON-serialized nodes structure
+    pub nodes_json: String,
+    pub version: u32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Lightweight template metadata for listings
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemplateMetadata {
+    pub id: Uuid,
+    pub owner_id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub node_count: usize,
+    pub version: u32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }

@@ -1,10 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { setupAuthGuards } from './guards'
 import MainLayout from '@/layouts/MainLayout.vue'
-import LoginPage from '@/pages/LoginPage.vue'
+import LoginPage from '@/views/auth/LoginView.vue'
 import UserInfoView from '@/views/user/UserInfoView.vue'
-import WriteView from '@/views/WriteView.vue'
-import ContextView from '@/views/ContextView.vue'
+import WriteView from '@/views/write/WriteView.vue'
+import ContextView from '@/views/context/ContextView.vue'
 import PlaceholderView from '@/views/PlaceholderView.vue'
 
 const router = createRouter({

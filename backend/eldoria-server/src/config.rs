@@ -20,7 +20,10 @@ pub struct SecurityConfig {
 impl Default for SecurityConfig {
     fn default() -> Self {
         Self {
-            cors_origins: vec!["http://localhost:3000".to_string()],
+            cors_origins: vec![
+                "http://localhost:5173".to_string(),
+                "http://frontend:5173".to_string(),
+            ],
         }
     }
 }
@@ -70,7 +73,7 @@ impl ServerConfig {
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
-            host: "127.0.0.1".to_string(),
+            host: "0.0.0.0".to_string(),
             port: 3000,
             log_level: LogLevel::Info,
         }

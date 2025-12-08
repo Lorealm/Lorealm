@@ -6,6 +6,7 @@ use axum::{
 use secrecy::ExposeSecret;
 use tower_cookies::{Cookie, Cookies};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::{app_state::AppState, middleware::authentication::{AuthenticatedSession, NewCsrfToken}, models::{users::EldoriaUser, AuthError, UserDevice}, services::authentication::{error::SessionError, Session}};
 
@@ -37,7 +38,7 @@ pub async fn login(
 ) -> Result<Json<LoginResponse>, AuthError> {
     let storage_lock = state.storage();
     let storage = storage_lock.write().await;
-    
+    tracing::info!("login attempt");
     let user = EldoriaUser::login(payload.username, payload.password, &storage.user_service())
         .await?;
 
@@ -80,14 +81,34 @@ pub async fn login(
     }))
 }
 
+#[derive(Serialize)]
+pub struct MeResponse {
+    id: Uuid,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    email: Option<String>,
+    username: String,
+}
+
 // GET endpoint - only requires session authentication
-pub async fn get_profile(
+pub async fn me(
+    State(state): State<Arc<AppState>>,
     auth: AuthenticatedSession,
-) -> Result<Json<serde_json::Value>, StatusCode> {
-    Ok(Json(serde_json::json!({
-        "user_id": auth.user_id.to_string(),
-        "message": "This is your profile"
-    })))
+) -> Result<Json<MeResponse>, StatusCode> {
+    let storage_lock = state.storage();
+    let storage = storage_lock.read().await;
+    
+    if let Ok(user) = storage.user_service().get_user(auth.user_id).await
+        .map_err(|_| StatusCode::FORBIDDEN) {
+        let response = MeResponse {
+            id: user.inner.id,
+            email: user.email,
+            username: user.name,
+        };
+        
+        return Ok(Json(response));
+    }
+    
+    Err(StatusCode::FORBIDDEN)
 }
 
 // POST endpoint - requires both session and CSRF

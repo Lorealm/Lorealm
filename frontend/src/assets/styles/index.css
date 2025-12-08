@@ -1,0 +1,12 @@
+@import './variables.css';
+
+/* 2. Base styles and resets */
+@import './base.css';
+
+/* 3. Layout utilities */
+@import './utilities.css';
+
+/* 4. Component-specific styles */
+@import './components/buttons.css';
+@import './components/forms.css';
+@import './components/messages.css';

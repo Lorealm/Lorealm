@@ -123,7 +123,7 @@ impl UserBuilder {
                 id: Uuid::new_v4(),
                 permissions: 0,
                 email: Some("test@example.com".to_string()),
-                display_name: Some("Test User".to_string()),
+                name: "Test User".to_string(),
                 password: Some("VeryArticulatePassword".to_string()),
                 created_at: Utc::now(),
             },
@@ -141,7 +141,7 @@ impl UserBuilder {
     }
 
     pub fn display_name(mut self, name: impl Into<String>) -> Self {
-        self.user.display_name = Some(name.into());
+        self.user.name = name.into();
         self
     }
 

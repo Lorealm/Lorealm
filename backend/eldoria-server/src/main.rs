@@ -1,4 +1,5 @@
 use axum::{Router, ServiceExt};
+use tower_http::cors::{Any, CorsLayer};
 use std::{io::Read, net::SocketAddr, sync::Arc, time::Duration};
 use storage_system::{Storage, StorageConfig, StorageManager};
 use tokio::time::{Instant, sleep};
@@ -37,11 +38,17 @@ async fn main() -> anyhow::Result<()> {
         .init();
     let storage_config = StorageConfig::server_default();
     let app_state = Arc::new(AppState::new(storage_config).await?);
-
+    
+    let cors = CorsLayer::new()
+        .allow_origin(config.security.cors_origins.iter().map(|s| s.parse().unwrap()).collect::<Vec<_>>())
+        .allow_methods(Any)
+        .allow_headers(Any);
+    
     // Build app with security middleware
     let app = Router::new()
         .with_state(Arc::clone(&app_state))
-        .merge(routes::api_routes(Arc::clone(&app_state)).await);
+        .merge(routes::api_routes(Arc::clone(&app_state)).await)
+        .layer(cors);
 
     let binding = app_state.clone().storage();
     let storage = binding.write().await;

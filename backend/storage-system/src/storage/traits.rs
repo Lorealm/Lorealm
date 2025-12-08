@@ -145,7 +145,7 @@ pub trait UserStorage: StorageCore {
             self.backend_type()
         )))
     }
-    
+
     async fn invalidate_sessions(
         &self,
         user_id: Uuid,
@@ -235,15 +235,85 @@ pub trait CharacterStorage: StorageCore {
     }
 }
 
+/// Template storage operations
+#[allow(unused_variables)]
+#[async_trait]
+pub trait TemplateStorage: StorageCore {
+    /// Save a template (insert or update)
+    async fn save_template(&self, template: &Template) -> Result<Uuid, StorageError> {
+        Err(StorageError::NotImplemented(format!(
+            "{} does not support templates",
+            self.backend_type()
+        )))
+    }
+
+    /// Get a template by ID
+    async fn get_template(&self, id: Uuid) -> Result<Option<Template>, StorageError> {
+        Err(StorageError::NotImplemented(format!(
+            "{} does not support templates",
+            self.backend_type()
+        )))
+    }
+
+    /// Get a template by ID, but only if owned by the specified user
+    async fn get_template_owned(
+        &self,
+        id: Uuid,
+        owner_id: Uuid,
+    ) -> Result<Option<Template>, StorageError> {
+        Err(StorageError::NotImplemented(format!(
+            "{} does not support templates",
+            self.backend_type()
+        )))
+    }
+
+    /// List all templates for a user (metadata only)
+    async fn list_templates(&self, owner_id: Uuid) -> Result<Vec<TemplateMetadata>, StorageError> {
+        Err(StorageError::NotImplemented(format!(
+            "{} does not support templates",
+            self.backend_type()
+        )))
+    }
+
+    /// Delete a template
+    async fn delete_template(&self, id: Uuid, owner_id: Uuid) -> Result<(), StorageError> {
+        Err(StorageError::NotImplemented(format!(
+            "{} does not support templates",
+            self.backend_type()
+        )))
+    }
+
+    /// Check if a template exists
+    async fn template_exists(&self, id: Uuid) -> Result<bool, StorageError> {
+        Err(StorageError::NotImplemented(format!(
+            "{} does not support templates",
+            self.backend_type()
+        )))
+    }
+
+    /// Check if a template name is already used by this owner
+    async fn template_name_exists(
+        &self,
+        owner_id: Uuid,
+        name: &str,
+        exclude_id: Option<Uuid>,
+    ) -> Result<bool, StorageError> {
+        Err(StorageError::NotImplemented(format!(
+            "{} does not support templates",
+            self.backend_type()
+        )))
+    }
+}
+
 /// Combined trait for backwards compatibility
 pub trait Storage:
-    StorageCore + ConversationStorage + MessageStorage + UserStorage + CharacterStorage
+    StorageCore + ConversationStorage + MessageStorage + UserStorage + CharacterStorage + TemplateStorage
 {
 }
 
 // Blanket implementation
 impl<T> Storage for T where
-    T: StorageCore + ConversationStorage + MessageStorage + UserStorage + CharacterStorage
+    T: StorageCore + ConversationStorage + MessageStorage + UserStorage + CharacterStorage + TemplateStorage
 {
 }
 
@@ -262,7 +332,10 @@ pub trait StorageCapabilities {
     }
     fn supports_characters(&self) -> bool {
         false
-    } // Add this
+    }
+    fn supports_templates(&self) -> bool {
+        false
+    }
 }
 
 pub enum ItemSortType {
