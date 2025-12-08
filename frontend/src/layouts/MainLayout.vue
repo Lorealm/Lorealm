@@ -76,9 +76,9 @@ export default {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: linear-gradient(135deg, #1a1f2e 0%, #241b2f 100%);
-  color: #e0def4;
+  font-family: var(--font-family-base);
+  background: var(--gradient-bg);
+  color: var(--color-text-primary);
   min-height: 100vh;
   overflow: hidden;
 }
@@ -93,26 +93,26 @@ body {
 
 /* Header */
 .header {
-  background: rgba(20, 22, 30, 0.8);
+  background: var(--color-bg-panel);
   padding: 14px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid rgba(138, 127, 219, 0.1);
+  border-bottom: 1px solid var(--color-border-subtle);
   backdrop-filter: blur(10px);
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--spacing-md);
 }
 
 .logo {
-  width: 24px;
-  height: 24px;
-  background: linear-gradient(135deg, #8a7fdb 0%, #6366f1 100%);
-  border-radius: 6px;
+  width: var(--spacing-2xl);
+  height: var(--spacing-2xl);
+  background: var(--gradient-primary);
+  border-radius: var(--radius-sm);
   animation: pulse 4s ease-in-out infinite;
 }
 
@@ -127,25 +127,25 @@ body {
 }
 
 .title {
-  color: #e0def4;
-  font-size: 16px;
-  font-weight: 500;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
 }
 
 .tabs {
   display: flex;
   gap: 2px;
   background: rgba(0, 0, 0, 0.2);
-  padding: 4px;
-  border-radius: 8px;
+  padding: var(--spacing-xs);
+  border-radius: var(--spacing-sm);
 }
 
 .tab {
-  color: #908caa;
-  padding: 8px 16px;
+  color: var(--color-text-secondary);
+  padding: var(--spacing-sm) var(--spacing-lg);
   cursor: pointer;
-  border-radius: 6px;
-  font-size: 13px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
   transition: all 0.2s;
   background: transparent;
   border: none;
@@ -157,18 +157,18 @@ body {
 
 .tab.active {
   background: rgba(138, 127, 219, 0.2);
-  color: #e0def4;
+  color: var(--color-text-primary);
 }
 
 .header-actions {
   display: flex;
-  gap: 12px;
+  gap: var(--spacing-md);
   align-items: center;
 }
 
 .status {
-  color: #908caa;
-  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-size: var(--spacing-md);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -177,7 +177,7 @@ body {
 .status-dot {
   width: 8px;
   height: 8px;
-  background: #10b981;
+  background: var(--color-success);
   border-radius: 50%;
   animation: statusPulse 2s ease-in-out infinite;
 }
@@ -193,18 +193,18 @@ body {
 }
 
 .btn-settings {
-  background: rgba(138, 127, 219, 0.2);
-  border: 1px solid rgba(138, 127, 219, 0.3);
-  color: #e0def4;
+  background: var(--color-hover);
+  border: 1px solid var(--color-active);
+  color: var(--color-text-primary);
   padding: 6px 14px;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   transition: all 0.2s;
 }
 
 .btn-settings:hover {
-  background: rgba(138, 127, 219, 0.3);
+  background: var(--color-active);
   transform: translateY(-1px);
 }
 
@@ -218,19 +218,19 @@ body {
 /* Status Bar */
 .status-bar {
   background: rgba(20, 22, 30, 0.8);
-  padding: 8px 20px;
+  padding: var(--spacing-sm) var(--spacing-xl);
   display: flex;
   justify-content: space-between;
   align-items: center;
   border-top: 1px solid rgba(138, 127, 219, 0.05);
-  font-size: 12px;
-  color: #908caa;
-  z-index: 99;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  z-index: var(--z-index-always-top);
 }
 
 .status-left,
 .status-right {
   display: flex;
-  gap: 20px;
+  gap: var(--spacing-xl);
 }
 </style>

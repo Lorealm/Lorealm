@@ -12,11 +12,6 @@ class ApiClient {
     this.csrfToken = localStorage.getItem('csrf_token')
   }
 
-  setAccessToken(token: string): void {
-    this.accessToken = token
-    localStorage.setItem('access_token', token)
-  }
-
   setCsrfToken(token: string): void {
     this.csrfToken = token
     localStorage.setItem('csrf_token', token)
@@ -58,8 +53,9 @@ class ApiClient {
 
     if (!response.ok) {
       const errorData: ApiErrorResponse = await response.json()
-      const error = new Error(errorData.error) as Error & { errorType?: string }
+      const error = new Error(errorData.error) as Error & { errorType?: string; code?: string }
       error.errorType = errorData.error_type
+      error.code = errorData.error_type
       throw error
     }
 
@@ -118,4 +114,6 @@ class ApiClient {
   }
 }
 
-export const apiClient = new ApiClient(process.env.VITE_API_URL || '')
+// Use '/api' in dev to route through proxy; fall back to absolute URL in prod
+const apiBaseUrl = import.meta.env.DEV ? '/api' : import.meta.env.VITE_API_URL || ''
+export const apiClient = new ApiClient(apiBaseUrl)

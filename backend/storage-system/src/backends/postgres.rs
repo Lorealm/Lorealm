@@ -4,7 +4,7 @@ use sqlx::Row;
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow};
 use uuid::Uuid;
 
-use crate::ItemSortType;
+use crate::{ItemSortType, TemplateStorage};
 use crate::storage::CharacterStorage;
 use crate::{
     error::StorageError,
@@ -312,7 +312,7 @@ impl UserStorage for PostgresStorage {
         .bind(id)
         .bind(user.permissions as i64)
         .bind(&user.email)
-        .bind(&user.display_name)
+        .bind(&user.name)
         .bind(&user.password)
         .bind(user.created_at);
 
@@ -332,7 +332,7 @@ impl UserStorage for PostgresStorage {
             .bind(id)
             .bind(user.permissions as i64)
             .bind(&user.email)
-            .bind(&user.display_name)
+            .bind(&user.name)
             .bind(&user.password)
             .bind(user.created_at);
         }
@@ -358,7 +358,7 @@ impl UserStorage for PostgresStorage {
             id: row.get("id"),
             permissions: row.get::<i64, _>("permissions") as u64,
             email: row.get("email"),
-            display_name: row.get("display_name"),
+            name: row.get("display_name"),
             password: Some(row.get("password")),
             created_at: row.get("created_at"),
         })
@@ -369,12 +369,14 @@ impl UserStorage for PostgresStorage {
         Ok(result)
     }
 
+    /// The postgres implementation uses name OR email
     async fn get_user_by_name(&self, name: &str) -> Result<Option<User>, StorageError> {
         let result = sqlx::query(
             r#"
             SELECT id, permissions, email, display_name, password, created_at
             FROM users
             WHERE display_name = $1
+            OR email = $1
             "#,
         )
         .bind(name)
@@ -382,7 +384,7 @@ impl UserStorage for PostgresStorage {
             id: row.get("id"),
             permissions: row.get::<i64, _>("permissions") as u64,
             email: row.get("email"),
-            display_name: row.get("display_name"),
+            name: row.get("display_name"),
             password: Some(row.get("password")),
             created_at: row.get("created_at"),
         })
@@ -848,6 +850,209 @@ impl CharacterStorage for PostgresStorage {
         .map_err(|e| StorageError::Database(e.to_string()))?;
 
         Ok(results)
+    }
+}
+
+#[async_trait]
+impl TemplateStorage for PostgresStorage {
+    async fn save_template(&self, template: &Template) -> Result<Uuid, StorageError> {
+        let id = template.id;
+
+        // Handle JSONB field - convert JSON string to serde_json::Value
+        let nodes_json_value: serde_json::Value = serde_json::from_str(&template.nodes_json)
+            .map_err(|e| StorageError::Database(format!("Invalid nodes JSON: {e}")))?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO templates
+                (id, owner_id, name, description, nodes_json, version, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ON CONFLICT (id) DO UPDATE SET
+                name = EXCLUDED.name,
+                description = EXCLUDED.description,
+                nodes_json = EXCLUDED.nodes_json,
+                version = EXCLUDED.version,
+                updated_at = EXCLUDED.updated_at
+            "#,
+        )
+        .bind(id)
+        .bind(template.owner_id)
+        .bind(&template.name)
+        .bind(&template.description)
+        .bind(nodes_json_value)
+        .bind(template.version as i32)
+        .bind(template.created_at)
+        .bind(template.updated_at)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| StorageError::Database(e.to_string()))?;
+
+        Ok(id)
+    }
+
+    async fn get_template(&self, id: Uuid) -> Result<Option<Template>, StorageError> {
+        let result = sqlx::query(
+            r#"
+            SELECT id, owner_id, name, description, nodes_json, version, created_at, updated_at
+            FROM templates
+            WHERE id = $1
+            "#,
+        )
+        .bind(id)
+        .map(|row: PgRow| {
+            // Handle JSONB field - convert to JSON string
+            let nodes_json_value: serde_json::Value = row.get("nodes_json");
+            let nodes_json = serde_json::to_string(&nodes_json_value).unwrap_or_default();
+
+            Template {
+                id: row.get("id"),
+                owner_id: row.get("owner_id"),
+                name: row.get("name"),
+                description: row.get("description"),
+                nodes_json,
+                version: row.get::<i32, _>("version") as u32,
+                created_at: row.get("created_at"),
+                updated_at: row.get("updated_at"),
+            }
+        })
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| StorageError::Database(e.to_string()))?;
+
+        Ok(result)
+    }
+
+    async fn get_template_owned(
+        &self,
+        id: Uuid,
+        owner_id: Uuid,
+    ) -> Result<Option<Template>, StorageError> {
+        let result = sqlx::query(
+            r#"
+            SELECT id, owner_id, name, description, nodes_json, version, created_at, updated_at
+            FROM templates
+            WHERE id = $1 AND owner_id = $2
+            "#,
+        )
+        .bind(id)
+        .bind(owner_id)
+        .map(|row: PgRow| {
+            // Handle JSONB field - convert to JSON string
+            let nodes_json_value: serde_json::Value = row.get("nodes_json");
+            let nodes_json = serde_json::to_string(&nodes_json_value).unwrap_or_default();
+
+            Template {
+                id: row.get("id"),
+                owner_id: row.get("owner_id"),
+                name: row.get("name"),
+                description: row.get("description"),
+                nodes_json,
+                version: row.get::<i32, _>("version") as u32,
+                created_at: row.get("created_at"),
+                updated_at: row.get("updated_at"),
+            }
+        })
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| StorageError::Database(e.to_string()))?;
+
+        Ok(result)
+    }
+
+    async fn list_templates(&self, owner_id: Uuid) -> Result<Vec<TemplateMetadata>, StorageError> {
+        let results = sqlx::query(
+            r#"
+            SELECT id, owner_id, name, description, nodes_json, version, created_at, updated_at
+            FROM templates
+            WHERE owner_id = $1
+            ORDER BY updated_at DESC
+            "#,
+        )
+        .bind(owner_id)
+        .map(|row: PgRow| {
+            // Extract node count from JSONB
+            let nodes_json_value: serde_json::Value = row.get("nodes_json");
+            let node_count = if let Some(obj) = nodes_json_value.as_object() {
+                obj.len()
+            } else if let Some(arr) = nodes_json_value.as_array() {
+                arr.len()
+            } else {
+                0
+            };
+
+            TemplateMetadata {
+                id: row.get("id"),
+                owner_id: row.get("owner_id"),
+                name: row.get("name"),
+                description: row.get("description"),
+                node_count,
+                version: row.get::<i32, _>("version") as u32,
+                created_at: row.get("created_at"),
+                updated_at: row.get("updated_at"),
+            }
+        })
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| StorageError::Database(e.to_string()))?;
+
+        Ok(results)
+    }
+
+    async fn delete_template(&self, id: Uuid, owner_id: Uuid) -> Result<(), StorageError> {
+        let result = sqlx::query("DELETE FROM templates WHERE id = $1 AND owner_id = $2")
+            .bind(id)
+            .bind(owner_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+
+        if result.rows_affected() == 0 {
+            return Err(StorageError::NotFound(format!(
+                "Template {id} not found or not owned by user {owner_id}"
+            )));
+        }
+
+        Ok(())
+    }
+
+    async fn template_exists(&self, id: Uuid) -> Result<bool, StorageError> {
+        let result: Option<bool> = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM templates WHERE id = $1)")
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+
+        Ok(result.unwrap_or(false))
+    }
+
+    async fn template_name_exists(
+        &self,
+        owner_id: Uuid,
+        name: &str,
+        exclude_id: Option<Uuid>,
+    ) -> Result<bool, StorageError> {
+        let result: Option<bool> = if let Some(exclude_id) = exclude_id {
+            sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM templates WHERE owner_id = $1 AND name = $2 AND id != $3)"
+            )
+            .bind(owner_id)
+            .bind(name)
+            .bind(exclude_id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| StorageError::Database(e.to_string()))?
+        } else {
+            sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM templates WHERE owner_id = $1 AND name = $2)"
+            )
+            .bind(owner_id)
+            .bind(name)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| StorageError::Database(e.to_string()))?
+        };
+
+        Ok(result.unwrap_or(false))
     }
 }
 

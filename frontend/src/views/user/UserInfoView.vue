@@ -15,8 +15,6 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import api from '@/services/api'
 import { ref } from 'vue'
 
 var error = ref('')
@@ -25,19 +23,19 @@ var id = ref('')
 var username = ref('')
 var role = ref('')
 
-onMounted(async () => {
-  try {
-    // Get token from cookie
-    const res = await api.get('/user/me', { withCredentials: true })
+// onMounted(async () => {
+//   try {
+//     // Get token from cookie
+//     const res = await api.get('/user/me', { withCredentials: true })
 
-    hasAccess.value = true
-    console.log(res.data)
-    id.value = res.data.id
-    username.value = res.data.username
-    role.value = res.data.role
-  } catch (err: any) {
-    hasAccess.value = false
-    error.value = err.message || 'generic error'
-  }
-})
+//     hasAccess.value = true
+//     console.log(res.data)
+//     id.value = res.data.id
+//     username.value = res.data.username
+//     role.value = res.data.role
+//   } catch (err: any) {
+//     hasAccess.value = false
+//     error.value = err.message || 'generic error'
+//   }
+// })
 </script>

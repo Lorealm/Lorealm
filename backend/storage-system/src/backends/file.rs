@@ -2,7 +2,7 @@ use crate::{
     error::StorageError,
     impl_storage_capabilities,
     models::*,
-    storage::{CharacterStorage, ConversationStorage, MessageStorage, StorageCore, UserStorage},
+    storage::{CharacterStorage, ConversationStorage, MessageStorage, StorageCore, UserStorage}, TemplateStorage,
 };
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -481,10 +481,8 @@ impl UserStorage for FileStorage {
                     let user_path = path.join("user.json");
                     if user_path.exists() {
                         if let Ok(Some(user)) = self.read_json::<User>(&user_path).await {
-                            if let Some(display_name) = &user.display_name {
-                                if display_name == name {
-                                    return Ok(Some(user));
-                                }
+                            if user.name == name {
+                                return Ok(Some(user));
                             }
                         }
                     } else {
@@ -652,10 +650,211 @@ impl UserStorage for FileStorage {
 
 impl CharacterStorage for FileStorage {}
 
+// Add to FileStorage impl block
+#[async_trait]
+impl TemplateStorage for FileStorage {
+    async fn save_template(&self, template: &Template) -> Result<Uuid, StorageError> {
+        Self::validate_path_component(&template.id.to_string())?;
+        Self::validate_path_component(&template.owner_id.to_string())?;
+
+        let template_dir = self.sharded_path("templates", &template.id.to_string())?;
+        let template_path = template_dir.join("template.json");
+
+        let content = if self.pretty {
+            serde_json::to_string_pretty(template)?
+        } else {
+            serde_json::to_string(template)?
+        };
+
+        self.atomic_write(&template_path, &content).await?;
+        Ok(template.id)
+    }
+
+    async fn get_template(&self, id: Uuid) -> Result<Option<Template>, StorageError> {
+        Self::validate_path_component(&id.to_string())?;
+
+        let template_dir = self.sharded_path("templates", &id.to_string())?;
+        let template_path = template_dir.join("template.json");
+
+        self.read_json(&template_path).await
+    }
+
+    async fn get_template_owned(
+        &self,
+        id: Uuid,
+        owner_id: Uuid,
+    ) -> Result<Option<Template>, StorageError> {
+        Self::validate_path_component(&id.to_string())?;
+        Self::validate_path_component(&owner_id.to_string())?;
+
+        let template_dir = self.sharded_path("templates", &id.to_string())?;
+        let template_path = template_dir.join("template.json");
+
+        match self.read_json::<Template>(&template_path).await? {
+            Some(template) if template.owner_id == owner_id => Ok(Some(template)),
+            Some(_) => Err(StorageError::PermissionDenied(
+                "Template not owned by user".to_string(),
+            )),
+            None => Ok(None),
+        }
+    }
+
+    async fn list_templates(&self, owner_id: Uuid) -> Result<Vec<TemplateMetadata>, StorageError> {
+        Self::validate_path_component(&owner_id.to_string())?;
+
+        let templates_base = self.safe_path(&["templates"])?;
+
+        if !templates_base.exists() {
+            return Ok(Vec::new());
+        }
+
+        let mut result = Vec::new();
+        let mut stack = vec![templates_base];
+
+        while let Some(dir) = stack.pop() {
+            let mut entries = match fs::read_dir(&dir).await {
+                Ok(entries) => entries,
+                Err(_) => continue,
+            };
+
+            while let Some(entry) = entries.next_entry().await? {
+                let path = entry.path();
+
+                if path.is_dir() {
+                    let template_path = path.join("template.json");
+                    if template_path.exists() {
+                        if let Ok(Some(template)) =
+                            self.read_json::<Template>(&template_path).await
+                        {
+                            if template.owner_id == owner_id {
+                                // Parse nodes_json to count nodes
+                                let node_count = if let Ok(nodes) =
+                                    serde_json::from_str::<serde_json::Value>(&template.nodes_json)
+                                {
+                                    nodes.as_array().map(|arr| arr.len()).unwrap_or(0)
+                                } else {
+                                    0
+                                };
+
+                                result.push(TemplateMetadata {
+                                    id: template.id,
+                                    owner_id: template.owner_id,
+                                    name: template.name,
+                                    description: template.description,
+                                    node_count,
+                                    version: template.version,
+                                    created_at: template.created_at,
+                                    updated_at: template.updated_at,
+                                });
+                            }
+                        }
+                    } else {
+                        // It's a shard directory, continue traversing
+                        stack.push(path);
+                    }
+                }
+            }
+        }
+
+        // Sort by created_at descending (most recent first)
+        result.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+
+        Ok(result)
+    }
+
+    async fn delete_template(&self, id: Uuid, owner_id: Uuid) -> Result<(), StorageError> {
+        Self::validate_path_component(&id.to_string())?;
+        Self::validate_path_component(&owner_id.to_string())?;
+
+        // First verify ownership
+        let template_dir = self.sharded_path("templates", &id.to_string())?;
+        let template_path = template_dir.join("template.json");
+
+        if let Some(template) = self.read_json::<Template>(&template_path).await? {
+            if template.owner_id != owner_id {
+                return Err(StorageError::PermissionDenied(
+                    "Cannot delete template not owned by user".to_string(),
+                ));
+            }
+        } else {
+            return Err(StorageError::NotFound(format!(
+                "Template {id} not found"
+            )));
+        }
+
+        // Delete the directory
+        if template_dir.exists() {
+            fs::remove_dir_all(&template_dir).await?;
+        }
+
+        Ok(())
+    }
+
+    async fn template_exists(&self, id: Uuid) -> Result<bool, StorageError> {
+        Self::validate_path_component(&id.to_string())?;
+
+        let template_dir = self.sharded_path("templates", &id.to_string())?;
+        let template_path = template_dir.join("template.json");
+
+        Ok(template_path.exists())
+    }
+
+    async fn template_name_exists(
+        &self,
+        owner_id: Uuid,
+        name: &str,
+        exclude_id: Option<Uuid>,
+    ) -> Result<bool, StorageError> {
+        Self::validate_path_component(&owner_id.to_string())?;
+
+        let templates_base = self.safe_path(&["templates"])?;
+
+        if !templates_base.exists() {
+            return Ok(false);
+        }
+
+        let mut stack = vec![templates_base];
+
+        while let Some(dir) = stack.pop() {
+            let mut entries = match fs::read_dir(&dir).await {
+                Ok(entries) => entries,
+                Err(_) => continue,
+            };
+
+            while let Some(entry) = entries.next_entry().await? {
+                let path = entry.path();
+
+                if path.is_dir() {
+                    let template_path = path.join("template.json");
+                    if template_path.exists() {
+                        if let Ok(Some(template)) =
+                            self.read_json::<Template>(&template_path).await
+                        {
+                            // Check if this template matches criteria
+                            if template.owner_id == owner_id
+                                && template.name == name
+                                && exclude_id.map_or(true, |exclude| template.id != exclude)
+                            {
+                                return Ok(true);
+                            }
+                        }
+                    } else {
+                        // It's a shard directory, continue traversing
+                        stack.push(path);
+                    }
+                }
+            }
+        }
+
+        Ok(false)
+    }
+}
+
 impl_storage_capabilities!(FileStorage, {
     supports_conversations: true,
     supports_messages: true,
     supports_users: true,
     supports_sessions: true,
-    supports_characters: false
+    supports_characters: false,
+    supports_templates: true
 });

@@ -2,6 +2,7 @@ mod message;
 mod user;
 mod session;
 mod character;
+mod templates;
 
 use std::sync::Arc;
 
@@ -10,6 +11,7 @@ use storage_system::Storage;
 pub use user::UserService;
 pub use session::SessionService;
 pub use character::CharacterService;
+pub use templates::*;
 
 pub trait StorageService<S: Storage + ?Sized> {
     fn new(storage: Arc<S>) -> Self;

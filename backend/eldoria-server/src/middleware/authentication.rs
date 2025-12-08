@@ -73,6 +73,7 @@ pub async fn session_auth_middleware(
 
     // Build user device from request
     let user_device = extract_user_device(&headers)?;
+    println!("user device extracted:");
 
     // Retrieve and validate session
     let mut session =

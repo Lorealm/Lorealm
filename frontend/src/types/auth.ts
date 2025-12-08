@@ -1,7 +1,7 @@
 export interface User {
   id: string
-  email: string
-  name: string
+  email: string | undefined
+  username: string
 }
 
 export interface LoginResponse {

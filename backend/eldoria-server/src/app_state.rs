@@ -3,10 +3,14 @@ use std::sync::Arc;
 use secrecy::SecretString;
 use storage_system::{Storage, StorageConfig, StorageManager};
 use tokio::sync::RwLock;
+use crate::models::StorageService;
 
 use crate::{
-    models::{CharacterService, SessionService, StorageService, UserService},
-    services::authentication::SessionConfig,
+    models::{CharacterService, SessionService, TemplateService, UserService},
+    services::{
+        authentication::SessionConfig,
+        context::SourceRegistry,
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -41,6 +45,11 @@ impl StorageProvider {
         ))
     }
 
+    pub fn template_service(&self) -> Arc<TemplateService<dyn Storage>> {
+        let storage = self.storage_manager.storage();
+        Arc::new(TemplateService::new(storage))
+    }
+
     pub fn session_config(&self) -> SessionConfig {
         self.session_config.clone()
     }
@@ -63,7 +72,10 @@ impl Default for ServerConfig {
 pub struct AppState {
     storage: Arc<RwLock<StorageProvider>>,
     server_secret: SecretString,
-    config: ServerConfig
+    config: ServerConfig,
+    
+    /// Registry of available context sources (runtime only, not persisted)
+    source_registry: SourceRegistry,
 }
 
 // Manual Debug that hides the secret
@@ -73,6 +85,7 @@ impl std::fmt::Debug for AppState {
             .field("storage", &self.storage)
             .field("server_secret", &"[REDACTED]")
             .field("config", &self.config)
+            .field("source_registry", &self.source_registry)
             .finish()
     }
 }
@@ -85,16 +98,27 @@ impl AppState {
         Ok(Self {
             storage: Arc::new(RwLock::new(StorageProvider::new(manager))),
             server_secret: SecretString::new(secret.into_boxed_str()),
-            config: ServerConfig::default()
+            config: ServerConfig::default(),
+            source_registry: SourceRegistry::new(),
         })
     }
 
     pub fn storage(&self) -> Arc<RwLock<StorageProvider>> {
         Arc::clone(&self.storage)
     }
-    
+
     pub fn config(&self) -> &ServerConfig {
         &self.config
+    }
+
+    /// Get a reference to the source registry
+    pub fn source_registry(&self) -> &SourceRegistry {
+        &self.source_registry
+    }
+
+    /// Get a mutable reference to register custom sources
+    pub fn source_registry_mut(&mut self) -> &mut SourceRegistry {
+        &mut self.source_registry
     }
 
     // Return a reference to avoid copies

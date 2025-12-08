@@ -30,6 +30,7 @@ crc32fast = "1.5.0"
 tower-cookies = "0.11.0"
 axum-extra = { version = "0.12.1", features = ["cookie"] }
 secrecy = "0.10.3"
+schemars = "1.1.0"
 
 [dev-dependencies]
 axum-test = "18.2.1"  # For testing handlers

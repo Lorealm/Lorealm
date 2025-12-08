@@ -16,7 +16,7 @@ pub struct EldoriaUser {
 pub struct EldoriaUserExtended {
     pub inner: EldoriaUser,
     pub name: String,
-    pub email: String,
+    pub email: Option<String>,
 }
 
 pub struct UserRegistration {
@@ -64,18 +64,41 @@ impl EldoriaUser {
     where
         S: Storage + ?Sized,
     {
-        let auth_data = service.get_auth_data(&username).await
+        let auth_data = service
+            .get_auth_data(&username)
+            .await
             .map_err(|x| UserError::InvalidUser(x.to_string()))?;
-        
+
         match encryption_service::verify_password(&password, &auth_data.password_hash) {
             Ok(success) => {
                 if !success {
                     return Err(UserError::IncorrectPassword);
                 }
-                
-                Ok(Self { id: auth_data.id, permissions: auth_data.permissions })
-            },
-            Err(e) => Err(UserError::Encryption(e))
+
+                Ok(Self {
+                    id: auth_data.id,
+                    permissions: auth_data.permissions,
+                })
+            }
+            Err(e) => Err(UserError::Encryption(e)),
         }
     }
+}
+
+impl TryInto<EldoriaUserExtended> for storage_system::User {
+    type Error = UserError;
+
+    fn try_into(self) -> Result<EldoriaUserExtended, Self::Error> {
+            let permissions = UserPermissions::from_bits(self.permissions)
+                .ok_or(UserError::PermissionError { msg: "Could not parse permissions".to_string(), expected: UserPermissions::NONE })?;
+
+            Ok(EldoriaUserExtended {
+                inner: EldoriaUser {
+                    id: self.id,
+                    permissions,
+                },
+                name: self.name,
+                email: self.email,
+            })
+        }
 }

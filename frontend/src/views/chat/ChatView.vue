@@ -52,11 +52,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, inject, onUnmounted, reactive, computed, nextTick } from 'vue'
+import { ref, inject, onUnmounted, reactive } from 'vue'
 import { BotMessageSquare } from 'lucide-vue-next'
 import { LLMClient, ConversationManager, HypebotManager} from '@/services/llm-framework'
 import { type Message } from '@/types/llm'
-import { appStateKey, type AppState } from '@/types/app'
+import { appStateKey } from '@/types/app'
 
 // Inject the app state with proper typing
 const app = inject(appStateKey)

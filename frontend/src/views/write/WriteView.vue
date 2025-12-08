@@ -1,3 +1,7 @@
+<script lang="ts">
+import "@assets/styles/views/write-view.css"
+</script>
+
 <template>
   <!-- Write View -->
   <div class="write-view active" id="write-view">
@@ -144,3 +148,7 @@
     </div>
   </div>
 </template>
+
+<style>
+
+</style>

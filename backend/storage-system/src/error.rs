@@ -29,4 +29,6 @@ pub enum StorageError {
     ConnectionError(String),
     #[error("Not Implemented Error: {0}")]
     NotImplemented(String),
+    #[error("Permission Denied: {0}")]
+    PermissionDenied(String),
 }
