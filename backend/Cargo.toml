@@ -1,8 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["eldoria-server", "storage-system", "encryption-service", "llm-providers"]
-
-rust-version = "1.88.0"
+members = ["eldoria_storage", "eldoria_providers", "eldoria_encryption"]
 
 [workspace.dependencies]
 
