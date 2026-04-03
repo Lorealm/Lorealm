@@ -20,6 +20,7 @@ pub struct CreateSession {
     pub id: Snowflake,
     pub user_id: Snowflake,
     pub token: String,
+    pub csrf: String,
     pub ip_address: Option<String>,
     pub user_agent: Option<String>,
     pub expires_at: DateTime<Utc>,

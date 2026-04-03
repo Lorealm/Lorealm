@@ -102,10 +102,13 @@ impl StorageManager {
             BackendConfig::Postgres {
                 connection_string,
                 max_connections,
-            } => Ok(Box::new(
-                PostgresStorage::new(connection_string, *max_connections).await?,
-            )),
-            BackendConfig::Memory { max_size: _ } => Ok(Box::new(MemoryStorage::new())),
+            } => Ok(
+                Box::new(PostgresStorage::new(connection_string, *max_connections).await?)
+                    as Box<dyn Storage>,
+            ),
+            BackendConfig::Memory { max_size: _ } => {
+                Ok(Box::new(MemoryStorage::new()) as Box<dyn Storage>)
+            }
         }
     }
 

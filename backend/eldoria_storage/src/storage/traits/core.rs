@@ -9,27 +9,6 @@ pub trait StorageCore: Send + Sync + std::fmt::Debug {
     fn backend_type(&self) -> &str;
 }
 
-pub trait StorageCapabilities {
-    fn supports_conversations(&self) -> bool {
-        false
-    }
-    fn supports_messages(&self) -> bool {
-        false
-    }
-    fn supports_users(&self) -> bool {
-        false
-    }
-    fn supports_sessions(&self) -> bool {
-        false
-    }
-    fn supports_characters(&self) -> bool {
-        false
-    }
-    fn supports_templates(&self) -> bool {
-        false
-    }
-}
-
 pub enum ItemSortType {
     Id,
     LatestUpdate,
