@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     id         BIGINT PRIMARY KEY,
     user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token      TEXT NOT NULL UNIQUE,
+    csrf       TEXT NOT NULL,
     ip_address TEXT,
     user_agent TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

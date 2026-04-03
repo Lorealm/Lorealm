@@ -16,6 +16,7 @@ impl SessionStorage for MemoryStorage {
             id: input.id,
             user_id: input.user_id,
             token: input.token.clone(),
+            csrf: input.csrf.clone(),
             ip_address: input.ip_address.clone(),
             user_agent: input.user_agent.clone(),
             created_at: now,

@@ -2,14 +2,12 @@ pub mod permissions;
 pub mod sessions;
 pub mod users;
 
-use crate::StorageCore;
+use crate::{Storage, StorageCore};
 use crate::error::StorageError;
 use async_trait::async_trait;
 use redis::Client;
 use serde::{Serialize, de::DeserializeOwned};
 use std::sync::Arc;
-
-use super::Storage;
 
 #[derive(Debug)]
 pub struct CachedStorage {
