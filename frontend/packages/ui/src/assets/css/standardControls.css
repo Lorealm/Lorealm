@@ -5,12 +5,18 @@ button {
 	border-color: transparent;
 	border-radius: var(--radius-md);
 	padding: var(--spacing-sm);
-	font-family: var(--font-family-base);
+	font-family: var(--font-family-body);
 	font-size: var(--font-size-base);
 }
 button:hover {
 	background-color: var(--color-hover);
 	color: var(--color-text-accent);
+}
+
+body {
+	font-family: var(--font-family-body);
+	font-size: var(--font-size-base);
+	margin: 0;
 }
 
 input,
@@ -23,7 +29,7 @@ textarea {
 	border-color: transparent;
 	border-radius: var(--radius-md);
 	padding: var(--spacing-sm);
-	font-family: var(--font-family-base);
+	font-family: var(--font-family-body);
 	font-size: var(--font-size-base);
 }
 
@@ -37,11 +43,11 @@ textarea:focus {
 
 h1 {
 	color: var(--color-primary);
-	font-family: var(--font-family-base);
+	font-family: var(--font-family-heading);
 	font-size: var(--font-size-h1);
 }
 label {
 	color: var(--color-text-secondary);
-	font-family: var(--font-family-base);
+	font-family: var(--font-family-body);
 	font-size: var(--font-size-base);
 }

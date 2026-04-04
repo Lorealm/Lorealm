@@ -1,3 +1,8 @@
+@import '@fontsource-variable/quicksand';
+@import '@fontsource-variable/nunito';
+@import '@fontsource-variable/josefin-sans';
+@import '@fontsource-variable/karla';
+
 :root {
 	/* ===== PRIMARY PALETTE ===== */
 	--color-primary: #9b7db8;
@@ -93,8 +98,28 @@
 	--radius-full: 9999px;
 
 	/* ===== TYPOGRAPHY — FAMILIES ===== */
-	--font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+	--font-family-system: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 	--font-family-mono: 'Consolas', 'Monaco', monospace;
+
+	/* --- Pairing A: Quicksand + Nunito (rounded, warm, cozy) --- */
+	--font-family-quicksand: 'Quicksand', var(--font-family-system);
+	--font-family-nunito: 'Nunito', var(--font-family-system);
+
+	/* --- Pairing B: Josefin Sans + Karla (geometric, vintage-modern) --- */
+	--font-family-josefin: 'Josefin Sans', var(--font-family-system);
+	--font-family-karla: 'Karla', var(--font-family-system);
+
+	/* --- Semantic aliases (swap these to switch pairing across the UI) --- */
+	--font-family-heading: var(--font-family-quicksand);
+	--font-family-body: var(--font-family-nunito);
+	--font-family-heading-alt: var(--font-family-josefin);
+	--font-family-body-alt: var(--font-family-karla);
+
+	/* --- Recommended weights per font --- */
+	--font-weight-heading-quicksand: 600;
+	--font-weight-heading-josefin: 300;
+	--font-weight-body-nunito: 300;
+	--font-weight-body-karla: 400;
 
 	/* ===== TYPOGRAPHY — BODY SIZES ===== */
 	--font-size-xs: 11px;
