@@ -61,7 +61,7 @@ impl UserStorage for MemoryStorage {
             .read()
             .await
             .values()
-            .find(|u| u.email == email)
+            .find(|u| u.email.as_deref() == Some(email))
             .cloned())
     }
 
@@ -76,7 +76,7 @@ impl UserStorage for MemoryStorage {
             user.display_name = name.clone();
         }
         if let Some(ref email) = input.email {
-            user.email = email.clone();
+            user.email = Some(email.clone());
         }
         if let Some(ref hash) = input.password_hash {
             user.password_hash = hash.clone();
