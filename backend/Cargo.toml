@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["eldoria_storage", "eldoria_providers", "eldoria_encryption"]
+members = ["eldoria_storage", "eldoria_providers", "eldoria_encryption", "eldoria_server"]
 
 [workspace.dependencies]
 

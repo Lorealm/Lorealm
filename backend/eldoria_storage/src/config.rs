@@ -50,12 +50,15 @@ pub enum BackendConfig {
 
 impl StorageConfig {
     /// Create a default config for single-user local deployment
-    /// 
+    ///
     /// Creates an in-memory storage with a 50MB capacity
     pub fn local_default() -> Self {
         Self {
-            backends: vec![BackendConfig::Memory { max_size: 50 * 1024 * 1024 }],
+            backends: vec![BackendConfig::Memory {
+                max_size: 50 * 1024 * 1024,
+            }],
             require_postgres_fallback: false,
+            #[cfg(feature = "redis")]
             cache: None, // No cache for local single-user
         }
     }
@@ -63,13 +66,11 @@ impl StorageConfig {
     /// Create a default config for multi-user server deployment
     pub fn server_default() -> Self {
         Self {
-            backends: vec![
-                BackendConfig::Postgres {
-                    connection_string: std::env::var("POSTGRES_URL")
-                        .unwrap_or_else(|_| "postgresql://localhost/eldoria".to_string()),
-                    max_connections: 10,
-                },
-            ],
+            backends: vec![BackendConfig::Postgres {
+                connection_string: std::env::var("POSTGRES_URL")
+                    .unwrap_or_else(|_| "postgresql://localhost/eldoria".to_string()),
+                max_connections: 10,
+            }],
             require_postgres_fallback: true,
             #[cfg(feature = "redis")]
             cache: Some(CacheConfig {

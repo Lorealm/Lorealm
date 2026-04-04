@@ -2,6 +2,7 @@ use crate::SessionStorage;
 use crate::error::StorageError;
 use crate::models::{CreateSession, Session, Snowflake};
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 
 use super::CachedStorage;
 
@@ -36,5 +37,72 @@ impl SessionStorage for CachedStorage {
 
     async fn cleanup_expired(&self) -> Result<u64, StorageError> {
         self.backend.cleanup_expired().await
+    }
+
+    async fn rotate_session_token(
+        &self,
+        session_id: Snowflake,
+        new_token_hash: &str,
+        old_token_hash: &str,
+        grace_expires_at: DateTime<Utc>,
+        new_expires_at: Option<DateTime<Utc>>,
+    ) -> Result<(), StorageError> {
+        self.backend
+            .rotate_session_token(
+                session_id,
+                new_token_hash,
+                old_token_hash,
+                grace_expires_at,
+                new_expires_at,
+            )
+            .await?;
+
+        // Invalidate the old token cache entry; don't cache the new one yet —
+        // it'll be populated on the next lookup via get_through.
+        self.cache_del(&self.key("session", old_token_hash)).await;
+        Ok(())
+    }
+
+    async fn extend_session(
+        &self,
+        session_id: Snowflake,
+        new_expires_at: DateTime<Utc>,
+    ) -> Result<(), StorageError> {
+        self.backend
+            .extend_session(session_id, new_expires_at)
+            .await?;
+        // We don't have the token here to invalidate by key, so this is a
+        // best-effort situation — the cached entry will serve stale expiry
+        // until its TTL lapses. Backend remains source of truth.
+        Ok(())
+    }
+
+    async fn revoke_session(&self, id: Snowflake) -> Result<(), StorageError> {
+        self.backend.revoke_session(id).await?;
+        // Same as extend — no token available to build the cache key.
+        Ok(())
+    }
+
+    async fn revoke_all_user_sessions(&self, user_id: Snowflake) -> Result<u64, StorageError> {
+        // Same rationale as delete_user_sessions: can't efficiently
+        // invalidate all session keys for a user without scanning.
+        self.backend.revoke_all_user_sessions(user_id).await
+    }
+
+    async fn rotate_csrf_token(
+        &self,
+        session_id: Snowflake,
+        new_csrf_hash: &str,
+    ) -> Result<(), StorageError> {
+        self.backend
+            .rotate_csrf_token(session_id, new_csrf_hash)
+            .await?;
+        Ok(())
+    }
+
+    async fn increment_request_count(&self, session_id: Snowflake) -> Result<i32, StorageError> {
+        // Always pass through to backend — this is a counter that
+        // shouldn't serve stale values from cache.
+        self.backend.increment_request_count(session_id).await
     }
 }

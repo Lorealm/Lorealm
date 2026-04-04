@@ -1,6 +1,6 @@
+use crate::UserStorage;
 use crate::error::StorageError;
 use crate::models::{CreateUser, Snowflake, UpdateUser, User};
-use crate::UserStorage;
 use async_trait::async_trait;
 
 use super::PostgresStorage;
@@ -59,9 +59,9 @@ impl UserStorage for PostgresStorage {
 
         let user = sqlx::query_as::<_, User>(
             "UPDATE users
-             SET display_name = $2, email = $3, password_hash = $4, updated_at = now()
-             WHERE id = $1
-             RETURNING *",
+                         SET display_name = $2, email = $3, password_hash = $4, updated_at = now()
+                         WHERE id = $1
+                         RETURNING *",
         )
         .bind(id)
         .bind(
@@ -70,7 +70,7 @@ impl UserStorage for PostgresStorage {
                 .as_deref()
                 .unwrap_or(&current.display_name),
         )
-        .bind(input.email.as_deref().unwrap_or(&current.email))
+        .bind(input.email.as_deref().or(current.email.as_deref()))
         .bind(
             input
                 .password_hash

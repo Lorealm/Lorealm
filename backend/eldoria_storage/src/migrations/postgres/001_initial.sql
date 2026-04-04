@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS users (
     id         BIGINT PRIMARY KEY,
     username   TEXT NOT NULL UNIQUE,
     display_name TEXT NOT NULL,
-    email      TEXT NOT NULL UNIQUE,
+    email      TEXT UNIQUE,
     password_hash TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -13,15 +13,21 @@ CREATE INDEX idx_users_username ON users (username);
 CREATE INDEX idx_users_email ON users (email);
 
 -- Sessions
-CREATE TABLE IF NOT EXISTS sessions (
-    id         BIGINT PRIMARY KEY,
-    user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    token      TEXT NOT NULL UNIQUE,
-    csrf       TEXT NOT NULL,
-    ip_address TEXT,
-    user_agent TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    expires_at TIMESTAMPTZ NOT NULL
+CREATE TABLE sessions (
+    id                           BIGINT PRIMARY KEY,
+    user_id                      BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token                        VARCHAR(512) NOT NULL UNIQUE,
+    csrf_token                   VARCHAR(256) NOT NULL,
+    ip_address                   VARCHAR(256),
+    user_agent                   VARCHAR(256),
+    created_at                   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at                   TIMESTAMPTZ NOT NULL,
+    revoked_at                   TIMESTAMPTZ,
+    last_rotated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+    previous_token               VARCHAR(512),
+    grace_expires_at             TIMESTAMPTZ,
+    last_csrf_rotated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    requests_since_csrf_rotation INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX idx_sessions_token ON sessions (token);
