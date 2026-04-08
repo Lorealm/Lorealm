@@ -26,6 +26,7 @@ pub struct Role {
     pub id: Snowflake,
     pub name: String,
     pub permissions: i64,
+    pub position: i32,
     pub created_at: DateTime<Utc>,
 }
 
@@ -34,12 +35,14 @@ pub struct CreateRole {
     pub id: Snowflake,
     pub name: String,
     pub permissions: i64,
+    pub position: i32,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct UpdateRole {
     pub name: Option<String>,
     pub permissions: Option<i64>,
+    pub position: Option<i32>,
 }
 
 // =============================================================================

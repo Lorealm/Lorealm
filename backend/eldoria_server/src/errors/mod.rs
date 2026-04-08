@@ -1,6 +1,8 @@
 mod auth;
+mod permission;
 
 pub use auth::*;
+pub use permission::*;
 
 use axum::{Json, http::StatusCode, response::IntoResponse};
 use serde_json::json;

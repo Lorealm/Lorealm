@@ -26,6 +26,7 @@ impl PermissionStorage for MemoryStorage {
             id: input.id,
             name: input.name.clone(),
             permissions: input.permissions,
+            position: input.position,
             created_at: Utc::now(),
         };
 
