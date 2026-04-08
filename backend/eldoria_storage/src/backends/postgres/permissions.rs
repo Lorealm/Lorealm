@@ -9,13 +9,14 @@ use super::PostgresStorage;
 impl PermissionStorage for PostgresStorage {
     async fn create_role(&self, input: &CreateRole) -> Result<Role, StorageError> {
         let role = sqlx::query_as::<_, Role>(
-            "INSERT INTO roles (id, name, permissions)
+            "INSERT INTO roles (id, name, permissions, position)
              VALUES ($1, $2, $3)
              RETURNING *",
         )
         .bind(input.id)
         .bind(&input.name)
         .bind(input.permissions)
+        .bind(&input.position)
         .fetch_one(&self.pool)
         .await?;
 
@@ -60,6 +61,7 @@ impl PermissionStorage for PostgresStorage {
         .bind(id)
         .bind(input.name.as_deref().unwrap_or(&current.name))
         .bind(input.permissions.unwrap_or(current.permissions))
+        .bind(input.position.unwrap_or(current.position))
         .fetch_one(&self.pool)
         .await?;
 
