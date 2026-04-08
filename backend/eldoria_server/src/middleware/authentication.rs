@@ -1,10 +1,7 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{FromRequestParts, Request, State},
-    http::{HeaderMap, StatusCode, header, request::Parts},
-    middleware::Next,
-    response::Response,
+    debug_middleware, extract::{FromRequestParts, Request, State}, http::{HeaderMap, StatusCode, header, request::Parts}, middleware::Next, response::Response
 };
 use secrecy::SecretString;
 use tower_cookies::{
@@ -13,7 +10,7 @@ use tower_cookies::{
 };
 
 use crate::{
-    errors::AuthError,
+    errors::{AppError, AuthError},
     extract::AuthenticatedSession,
     services::session::{SessionService, ValidatedSession},
 };
@@ -133,7 +130,7 @@ pub async fn session_auth_middleware(
     headers: HeaderMap,
     mut request: Request,
     next: Next,
-) -> Result<Response, AuthError> {
+) -> Result<Response, AppError> {
     let (session_token, _source) =
         extract_session_token(&cookies, &headers, &state.session_cookie_name)?;
 

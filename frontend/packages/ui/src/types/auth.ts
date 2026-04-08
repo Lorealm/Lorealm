@@ -1,4 +1,4 @@
-import type { User } from "./user.ts";
+import type { User } from './user.js';
 
 export interface LoginRequest {
 	username: string;

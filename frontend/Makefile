@@ -36,7 +36,7 @@ dev-desktop-nvidia: ## Run the tauri app in dev mode (NVIDIA GPU + Wayland worka
 # ─── Build ───────────────────────────────────────────────────────────
 
 build-ui: ## Build the UI library and generate type definitions
-	cd packages/ui && bun run package
+	cd packages/ui && bun run prepack
 
 build-web: ## Build the web app for production
 	cd apps/web && bun run build

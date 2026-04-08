@@ -1,7 +1,12 @@
 use std::sync::Arc;
 
-use axum::{Json, extract::State, http::StatusCode};
+use axum::{
+    Json,
+    extract::{Path, State},
+    http::StatusCode,
+};
 use chrono::Utc;
+use eldoria_storage::models::Snowflake;
 use tower_cookies::{
     Cookie, Cookies,
     cookie::{SameSite, time},
@@ -11,7 +16,7 @@ use crate::{
     config::UserConfig,
     core::AppState,
     errors::{AppError, AuthError},
-    extract::UserDevice,
+    extract::{AuthenticatedSession, UserDevice},
 };
 
 const REGISTER_DISABLED_REASON: &str = "Registration is disabled on this server.";
@@ -88,4 +93,30 @@ pub async fn login(
         csrf_token: result.csrf_token,
         session_token: result.session_token,
     }))
+}
+
+async fn get_user_inner(
+    state: &AppState,
+    user_id: Snowflake,
+) -> Result<Json<super::dto::UserResponse>, AppError> {
+    let user = state.services().users().get_user(user_id).await?;
+    Ok(Json(super::dto::UserResponse {
+        username: user.username,
+        id: user.id,
+    }))
+}
+
+pub async fn me(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+) -> Result<Json<super::dto::UserResponse>, AppError> {
+    get_user_inner(&state, session.user_id).await
+}
+
+pub async fn get_user(
+    State(state): State<Arc<AppState>>,
+    _session: AuthenticatedSession,
+    Path(user_id): Path<Snowflake>,
+) -> Result<Json<super::dto::UserResponse>, AppError> {
+    get_user_inner(&state, user_id).await
 }
