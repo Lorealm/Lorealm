@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { useApi } from '$lib/api/client.js';
+	import { getPlatformApi } from '$lib/core/context.js';
 	import { setAuthState } from '$lib/stores/auth.svelte';
+	import type { LoginRequest } from '$lib/types/auth.js';
 
-	const api = useApi();
+	const platform = getPlatformApi();
 	let username = $state('');
 	let password = $state('');
 	let serverUrl = $state('');
@@ -10,7 +11,9 @@
 
 	async function handleLogin() {
 		try {
-			const session = await api.auth.login({ username, password });
+			console.log('[HYDRATE] Loggin in from UI package');
+			const session = await platform.auth.login({ username, password } as LoginRequest);
+			console.log('[HYDRATE] Loggin in from UI packagsdsdsde');
 			setAuthState({ status: 'authenticated', session });
 		} catch (e) {
 			error = 'Login failed: ' + JSON.stringify(e);

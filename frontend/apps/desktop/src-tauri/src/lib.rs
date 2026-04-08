@@ -1,14 +1,54 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
+use serde::Serialize;
+use tauri::Manager;
+use tokio::sync::Mutex;
+
+use crate::{config::AppConfig, state::AppState};
+
+mod auth;
+mod config;
+mod http;
+mod snowflake;
+mod state;
+
+type AppResult<T> = Result<T, Error>;
+
+#[derive(Debug, Serialize, thiserror::Error)]
+#[serde(tag = "type", content = "message")]
+enum Error {
+    #[error("Parse Error: {0}")]
+    Parse(String),
+    #[error("Config Error: {0}")]
+    Config(String),
+    #[error("Authentication Error: {0}")]
+    Auth(String),
+    #[error("HTTP Error: {0}")]
+    Http(String),
+    #[error("Internal Client Error: {0}")]
+    Internal(String),
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![
+            http::http_get,
+            http::http_post,
+            auth::login,
+            auth::validate_token,
+            auth::get_stored_token,
+            auth::clear_stored_token
+        ])
+        .setup(|app| {
+            match AppConfig::load(app.handle()) {
+                Ok(cfg) => app.manage(Mutex::new(AppState::new(cfg))),
+                Err(e) => {
+                    print!("An error occured during app state creation");
+                    return Err(e.into());
+                }
+            };
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

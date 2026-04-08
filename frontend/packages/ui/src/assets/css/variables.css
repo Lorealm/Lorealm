@@ -165,7 +165,9 @@
 	--shadow-glow: 0 0 16px rgba(155, 125, 184, 0.2);
 
 	/* ===== SIZING ===== */
-	--width-sidebar: 260px;
+	--width-sidebar-full: 260px;
+	--width-sidebar-small: 200px;
+	--width-sidebar-collapsed: 46px;
 	--width-content-max: 960px;
 	--width-content-narrow: 640px;
 	--height-header: 56px;
