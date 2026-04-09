@@ -3,6 +3,7 @@
 	import ChatBox from '$lib/widgets/chat/ChatBox.svelte';
 	import ChatControls from '../chat/ChatControls.svelte';
 	import Placeholder from '../Placeholder.svelte';
+	import SettingsPage from '../settings/SettingsPage.svelte';
 </script>
 
 {#if navigationStore.sidebarActive === SidebarView.Write}
@@ -15,5 +16,5 @@
 {:else if navigationStore.sidebarActive === SidebarView.Studio}
 	<Placeholder label="Studio" />
 {:else if navigationStore.sidebarActive === SidebarView.Settings}
-	<Placeholder label="Settings" />
+	<SettingsPage />
 {/if}
