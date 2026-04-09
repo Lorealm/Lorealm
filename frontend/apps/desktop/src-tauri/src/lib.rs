@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::Manager;
 use tokio::sync::Mutex;
 
@@ -13,18 +13,18 @@ mod state;
 type AppResult<T> = Result<T, Error>;
 
 #[derive(Debug, Serialize, thiserror::Error)]
-#[serde(tag = "type", content = "message")]
-enum Error {
+#[serde(tag = "error_type", content = "data")]
+pub enum Error {
     #[error("Parse Error: {0}")]
     Parse(String),
     #[error("Config Error: {0}")]
     Config(String),
-    #[error("Authentication Error: {0}")]
-    Auth(String),
     #[error("HTTP Error: {0}")]
     Http(String),
     #[error("Internal Client Error: {0}")]
     Internal(String),
+    #[error("Server Error: {error_code}")]
+    Server { error_code: String, message: String },
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

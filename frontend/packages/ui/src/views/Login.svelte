@@ -2,6 +2,7 @@
 	import { getPlatformApi } from '$lib/core/context.js';
 	import { setAuthState } from '$lib/stores/auth.svelte';
 	import type { LoginRequest } from '$lib/types/auth.js';
+	import type { AppError, ServerError } from '$lib/types/error.js';
 
 	const platform = getPlatformApi();
 	let username = $state('');
@@ -15,8 +16,13 @@
 			const session = await platform.auth.login({ username, password } as LoginRequest);
 			console.log('[HYDRATE] Loggin in from UI packagsdsdsde');
 			setAuthState({ status: 'authenticated', session });
-		} catch (e) {
-			error = 'Login failed: ' + JSON.stringify(e);
+		} catch (e: unknown) {
+			if ((e as AppError).error_type == 'Server') {
+				const data = (e as ServerError).data;
+				error = `<b>${data.error_code}:</b> ${data.message}`;
+				return;
+			}
+			error = JSON.stringify(e);
 		}
 	}
 </script>
@@ -24,7 +30,7 @@
 <div class="container">
 	<h1>Login Page</h1>
 	{#if error}
-		<div class="error-box">{error}</div>
+		<div class="error-box">{@html error}</div>
 	{/if}
 	<div class="input-row" style="margin-bottom: var(--spacing-xs);">
 		<label for="ServerUrl">Server URL</label>

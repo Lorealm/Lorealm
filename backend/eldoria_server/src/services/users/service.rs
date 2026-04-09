@@ -53,8 +53,12 @@ impl UserService {
         }
         .ok_or(AuthError::UserNotFound)?;
 
-        eldoria_encryption::verify_password(&password, &user.password_hash)
+        let is_valid = eldoria_encryption::verify_password(&password, &user.password_hash)
             .map_err(|_| AuthError::IncorrectPassword)?;
+
+        if !is_valid {
+            return Err(AuthError::IncorrectPassword);
+        }
 
         let session_created = self
             .session_service
