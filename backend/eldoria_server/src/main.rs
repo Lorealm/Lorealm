@@ -5,7 +5,11 @@ use eldoria_storage::StorageConfig;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::{config::HostingConfig, core::AppState, middleware::SessionMiddlewareState};
+use crate::{
+    config::HostingConfig,
+    core::AppState,
+    middleware::{PermissionMiddlewareState, SessionMiddlewareState},
+};
 
 mod config;
 mod core;
@@ -28,7 +32,9 @@ async fn main() -> anyhow::Result<()> {
     let state = Arc::new(AppState::new(storage_config).await?);
 
     let session_service = Arc::clone(state.services().sessions());
-    let middleware_state = SessionMiddlewareState::new(session_service, state.secret());
+    let permission_service = Arc::clone(state.services().permissions());
+    let session_state = SessionMiddlewareState::new(session_service, state.secret());
+    let permission_state = PermissionMiddlewareState::new(permission_service);
 
     // Extremely open for testing purposes
     // TODO: IMPORTANT: Make more restrictive
@@ -40,7 +46,7 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .nest(
             "/api/v1",
-            routes::api_routes(Arc::clone(&state), middleware_state).await,
+            routes::api_routes(Arc::clone(&state), session_state, permission_state).await,
         )
         .layer(cors);
 

@@ -1,9 +1,10 @@
+pub mod characters;
 pub mod permissions;
 pub mod sessions;
 pub mod users;
 
-use crate::{Storage, StorageCore};
 use crate::error::StorageError;
+use crate::{Storage, StorageCore};
 use async_trait::async_trait;
 use redis::Client;
 use serde::{Serialize, de::DeserializeOwned};

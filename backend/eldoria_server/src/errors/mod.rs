@@ -1,12 +1,16 @@
 mod auth;
+mod card;
 mod permission;
 
 pub use auth::*;
+pub use card::*;
 pub use permission::*;
 
 use axum::{Json, http::StatusCode, response::IntoResponse};
 use serde_json::json;
 use std::borrow::Cow;
+
+use crate::services::character::CharacterServiceError;
 
 /// Application-level error type exposed through API responses.
 ///
@@ -60,7 +64,7 @@ impl AppError {
     fn client_message(&self) -> &str {
         match self {
             Self::Forbidden { message, code: _ }
-            | Self::Unauthorized { message, code: _}
+            | Self::Unauthorized { message, code: _ }
             | Self::BadRequest { message, code: _ }
             | Self::Conflict { message, code: _ } => message,
             Self::Internal { .. } => "An internal error occurred",
@@ -117,6 +121,34 @@ impl From<AuthError> for AppError {
             _ => AppError::Unauthorized {
                 message: Cow::Borrowed(err.client_message()),
                 code: "UNAUTHORIZED",
+            },
+        }
+    }
+}
+
+impl From<PermissionError> for AppError {
+    fn from(err: PermissionError) -> Self {
+        tracing::error!("[ERROR] perms: {err}");
+
+        match err {
+            PermissionError::Missing(_) => AppError::Forbidden {
+                code: "INVALID_PERMISSIONS",
+                message: Cow::Borrowed(err.client_message()),
+            },
+            PermissionError::Storage(_) => AppError::Internal {
+                internal: Cow::Borrowed(err.client_message()),
+            },
+        }
+    }
+}
+
+impl From<CharacterServiceError> for AppError {
+    fn from(err: CharacterServiceError) -> Self {
+        tracing::error!("[ERROR] character service: {err}");
+
+        match err {
+            _ => AppError::Internal {
+                internal: Cow::Borrowed(err.client_message()),
             },
         }
     }
