@@ -2,16 +2,23 @@ use std::sync::Arc;
 
 use axum::Router;
 
-use crate::{core::AppState, middleware::SessionMiddlewareState};
+use crate::{core::AppState, middleware::{PermissionMiddlewareState, SessionMiddlewareState}};
 
+mod characters;
 mod users;
 
 pub async fn api_routes(
     app_state: Arc<AppState>,
-    middleware_state: SessionMiddlewareState,
+    session_state: SessionMiddlewareState,
+    permission_state: PermissionMiddlewareState
 ) -> Router {
-    Router::new().nest(
-        "/users",
-        users::router(Arc::clone(&app_state), middleware_state.clone()),
-    )
+    Router::new()
+        .nest(
+            "/users",
+            users::router(Arc::clone(&app_state), session_state.clone()),
+        )
+        .nest(
+            "/characters",
+            characters::router(Arc::clone(&app_state), session_state.clone(), permission_state.clone()),
+        )
 }

@@ -1,8 +1,10 @@
+pub mod characters;
 pub mod permissions;
 pub mod sessions;
 pub mod users;
 
 use crate::StorageCore;
+use crate::backends::memory::characters::StoredVersion;
 use crate::error::StorageError;
 use crate::models::*;
 use async_trait::async_trait;
@@ -15,11 +17,17 @@ pub struct MemoryStorage {
     pub(crate) sessions: RwLock<HashMap<String, Session>>, // keyed by token
     pub(crate) roles: RwLock<HashMap<Snowflake, Role>>,
     pub(crate) user_roles: RwLock<Vec<UserRole>>,
+    pub(crate) characters: RwLock<HashMap<Snowflake, Character>>,
+    pub(crate) character_versions: RwLock<HashMap<Snowflake, StoredVersion>>,
 }
 
 impl MemoryStorage {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn characters(&self) -> &RwLock<HashMap<Snowflake, Character>> {
+        &self.characters
     }
 }
 

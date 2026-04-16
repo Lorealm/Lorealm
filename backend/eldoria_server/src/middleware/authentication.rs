@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{
-    debug_middleware, extract::{FromRequestParts, Request, State}, http::{HeaderMap, StatusCode, header, request::Parts}, middleware::Next, response::Response
+    extract::{Request, State}, http::{HeaderMap, header}, middleware::Next, response::Response
 };
 use secrecy::SecretString;
 use tower_cookies::{
@@ -203,26 +203,6 @@ pub async fn session_csrf_middleware(
     });
 
     Ok(next.run(request).await)
-}
-
-// ─── Extractor ───────────────────────────────────────────────
-
-impl<S> FromRequestParts<S> for AuthenticatedSession
-where
-    S: Send + Sync,
-{
-    type Rejection = (StatusCode, &'static str);
-
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        parts
-            .extensions
-            .get::<AuthenticatedSession>()
-            .cloned()
-            .ok_or((
-                StatusCode::UNAUTHORIZED,
-                "Not authenticated. Missing session middleware.",
-            ))
-    }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
