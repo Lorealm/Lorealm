@@ -2,6 +2,7 @@ pub mod characters;
 pub mod permissions;
 pub mod sessions;
 pub mod users;
+pub mod templates;
 
 use crate::StorageCore;
 use crate::backends::memory::characters::StoredVersion;
@@ -19,6 +20,7 @@ pub struct MemoryStorage {
     pub(crate) user_roles: RwLock<Vec<UserRole>>,
     pub(crate) characters: RwLock<HashMap<Snowflake, Character>>,
     pub(crate) character_versions: RwLock<HashMap<Snowflake, StoredVersion>>,
+    pub(crate) templates: RwLock<HashMap<Snowflake, Template>>,
 }
 
 impl MemoryStorage {

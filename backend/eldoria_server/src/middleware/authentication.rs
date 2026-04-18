@@ -42,25 +42,25 @@ impl SessionMiddlewareState {
         }
     }
 
-    pub fn with_session_cookie_name(mut self, name: impl Into<String>) -> Self {
-        self.session_cookie_name = name.into();
-        self
-    }
+    // pub fn with_session_cookie_name(mut self, name: impl Into<String>) -> Self {
+    //     self.session_cookie_name = name.into();
+    //     self
+    // }
 
-    pub fn with_csrf_header(mut self, name: impl Into<String>) -> Self {
-        self.csrf_header_name = name.into();
-        self
-    }
+    // pub fn with_csrf_header(mut self, name: impl Into<String>) -> Self {
+    //     self.csrf_header_name = name.into();
+    //     self
+    // }
 
-    pub fn with_cookie_domain(mut self, domain: impl Into<String>) -> Self {
-        self.cookie_domain = Some(domain.into());
-        self
-    }
+    // pub fn with_cookie_domain(mut self, domain: impl Into<String>) -> Self {
+    //     self.cookie_domain = Some(domain.into());
+    //     self
+    // }
 
-    pub fn with_cookie_secure(mut self, secure: bool) -> Self {
-        self.cookie_secure = secure;
-        self
-    }
+    // pub fn with_cookie_secure(mut self, secure: bool) -> Self {
+    //     self.cookie_secure = secure;
+    //     self
+    // }
 
     /// Build a session cookie (HttpOnly, not accessible to JS)
     fn build_session_cookie(&self, value: &str, max_age_secs: i64) -> Cookie<'static> {
@@ -160,7 +160,7 @@ pub async fn session_csrf_middleware(
     headers: HeaderMap,
     mut request: Request,
     next: Next,
-) -> Result<Response, AuthError> {
+) -> Result<Response, AppError> {
     let (session_token, source) =
         extract_session_token(&cookies, &headers, &state.session_cookie_name)?;
 

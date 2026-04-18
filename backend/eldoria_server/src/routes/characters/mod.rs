@@ -7,7 +7,7 @@ use crate::{
     core::AppState,
     middleware::{
         PermissionMiddlewareState, SessionMiddlewareState, server_permission_middleware,
-        session_auth_middleware,
+        session_csrf_middleware,
     },
 };
 
@@ -28,7 +28,7 @@ pub(super) fn router(
         ))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
-            session_auth_middleware,
+            session_csrf_middleware,
         ))
         .layer(DefaultBodyLimit::max(20 * 1024 * 1024));
 

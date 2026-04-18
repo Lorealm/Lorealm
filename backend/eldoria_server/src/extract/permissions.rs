@@ -13,12 +13,10 @@ use crate::{errors::PermissionError, services::permission::Permissions};
 #[derive(Clone, Debug)]
 pub struct ResolvedPermissions {
     pub permissions: Permissions,
-    pub is_owner: bool,
 }
 
 impl ResolvedPermissions {
-    /// Check that a specific permission is present, returning a
-    /// typed error suitable for use with `?` in handlers.
+    /// Check that a specific permission is present. Returns an error if not.
     pub fn require(&self, required: Permissions) -> Result<(), PermissionError> {
         if self.has(Permissions::ADMINISTRATOR) {
             return Ok(());
@@ -35,11 +33,6 @@ impl ResolvedPermissions {
     /// Convenience: does this user have a specific permission?
     pub fn has(&self, perm: Permissions) -> bool {
         self.permissions.contains(perm)
-    }
-
-    /// Convenience: is this user the server owner?
-    pub fn is_owner(&self) -> bool {
-        self.is_owner
     }
 }
 

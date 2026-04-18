@@ -5,8 +5,9 @@ use eldoria_storage::StorageManager;
 use crate::{
     config::{ConfigProvider, SessionConfig, UserConfig},
     services::{
-        character::CharacterService, permission::service::PermissionService,
-        session::SessionService, snowflake::SnowflakeService, users::UserService,
+        character::CharacterService, context::ContextService,
+        permission::service::PermissionService, session::SessionService,
+        snowflake::SnowflakeService, users::UserService,
     },
 };
 
@@ -15,6 +16,7 @@ pub struct ServiceProvider {
     users: Arc<UserService>,
     permissions: Arc<PermissionService>,
     characters: Arc<CharacterService>,
+    context: Arc<ContextService>,
 }
 
 impl ServiceProvider {
@@ -47,11 +49,17 @@ impl ServiceProvider {
             Arc::clone(&snowflake),
         ));
 
+        let context = Arc::new(ContextService::new(
+            Arc::clone(&storage),
+            Arc::clone(&snowflake),
+        ));
+
         Self {
             sessions,
             users,
             permissions,
             characters,
+            context,
         }
     }
 
@@ -69,5 +77,9 @@ impl ServiceProvider {
 
     pub fn characters(&self) -> &Arc<CharacterService> {
         &self.characters
+    }
+    
+    pub fn context(&self) -> &Arc<ContextService> {
+        &self.context
     }
 }
