@@ -46,6 +46,7 @@ impl<S> FailableStorage<S> {
         *self.fail_on_availability.write().await = false;
     }
 
+    #[allow(dead_code)]
     async fn check_failure(&self) -> Result<(), StorageError> {
         if *self.should_fail.read().await {
             Err(StorageError::Database("Simulated failure".to_string()))

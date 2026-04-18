@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use eldoria_storage::{StorageConfig, StorageManager};
 use secrecy::SecretString;
@@ -7,7 +7,6 @@ use crate::{config::ConfigProvider, core::ServiceProvider};
 
 #[derive(Clone)]
 pub struct AppState {
-    storage_manager: Arc<RwLock<StorageManager>>,
     config_provider: Arc<ConfigProvider>,
     service_provider: Arc<ServiceProvider>,
     secret: SecretString,
@@ -20,7 +19,6 @@ impl AppState {
         let service_provider = Arc::new(ServiceProvider::new(&manager, Arc::clone(&config)));
 
         Ok(Self {
-            storage_manager: Arc::new(RwLock::new(manager)),
             config_provider: config,
             service_provider,
             secret: SecretString::new(

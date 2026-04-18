@@ -1,6 +1,7 @@
 pub mod characters;
 pub mod permissions;
 pub mod sessions;
+pub mod templates;
 pub mod users;
 
 use crate::StorageCore;

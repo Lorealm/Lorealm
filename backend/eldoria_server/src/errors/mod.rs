@@ -1,9 +1,11 @@
 mod auth;
 mod card;
+mod context;
 mod permission;
 
 pub use auth::*;
 pub use card::*;
+pub use context::*;
 pub use permission::*;
 
 use axum::{Json, http::StatusCode, response::IntoResponse};
@@ -49,13 +51,13 @@ impl AppError {
         }
     }
 
-    fn error_code(&self) -> &'static str {
+    fn error_code(&self) -> String {
         match self {
-            Self::Forbidden { .. } => "FORBIDDEN",
-            Self::Unauthorized { .. } => "UNAUTHORIZED",
-            Self::BadRequest { .. } => "BAD_REQUEST",
-            Self::Conflict { .. } => "CONFLICT",
-            Self::Internal { .. } => "INTERNAL",
+            Self::Forbidden { code, message: _ } => format!("FORBIDDEN: {code}"),
+            Self::Unauthorized { code, message: _ } => format!("UNAUTHORIZED: {code}"),
+            Self::BadRequest { code, message: _ } => format!("BAD_REQUEST: {code}"),
+            Self::Conflict { code, message: _ } => format!("CONFLICT: {code}"),
+            Self::Internal { .. } => "INTERNAL".to_string(),
         }
     }
 
@@ -149,6 +151,22 @@ impl From<CharacterServiceError> for AppError {
         match err {
             _ => AppError::Internal {
                 internal: Cow::Borrowed(err.client_message()),
+            },
+        }
+    }
+}
+
+impl From<ContextError> for AppError {
+    fn from(err: ContextError) -> Self {
+        tracing::error!("[ERROR] context service: {err}");
+
+        match err {
+            ContextError::NotFound(_) => AppError::BadRequest {
+                code: "NOT_FOUND",
+                message: Cow::Owned(err.client_message()),
+            },
+            _ => AppError::Internal {
+                internal: Cow::Owned(err.client_message()),
             },
         }
     }

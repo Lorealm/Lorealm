@@ -86,10 +86,7 @@ async fn resolve_server_permissions(
         .iter()
         .fold(Permissions::empty(), |acc, role| acc | role.permissions);
 
-    let is_owner = permissions.contains(Permissions::ADMINISTRATOR);
-
     Ok(ResolvedPermissions {
         permissions,
-        is_owner,
     })
 }
