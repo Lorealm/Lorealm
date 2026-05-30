@@ -34,6 +34,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             http::http_get,
             http::http_post,
+            http::http_put,
+            http::http_delete,
             auth::login,
             auth::validate_token,
             auth::get_stored_token,

@@ -432,7 +432,6 @@ impl ContextTemplate {
             self.nodes.remove(index)
         } else {
             let parent_path: Vec<usize> = path[..path.len() - 1].to_vec();
-            tracing::info!("Parent path: {:?}", parent_path);
             let parent = self
                 .get_node_mut(&parent_path)
                 .ok_or(TemplateError::NodeNotFound(node_id))?;

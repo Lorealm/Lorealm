@@ -31,7 +31,7 @@
 		align-items: center;
 	}
 	.container > span {
-		font-size: var(--font-size-xl);
+		font-size: var(--font-size-lg);
 		margin-left: 0.5em;
 	}
 	.container.active {

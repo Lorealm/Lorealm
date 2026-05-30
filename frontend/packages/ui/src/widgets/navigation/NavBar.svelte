@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ArrowLeft, Earth, MenuIcon, Palette, PencilIcon, Settings, User } from '@lucide/svelte';
+	import { ChevronLeft, Earth, MenuIcon, Palette, PencilIcon, Settings, User } from '@lucide/svelte';
 	import NavButton from './NavButton.svelte';
 	import { SidebarView } from '$lib/stores/navigation.svelte';
 	var collapsed = $state(false);
@@ -21,7 +21,7 @@
 			{#if collapsed}
 				<MenuIcon />
 			{:else}
-				<ArrowLeft />
+				<ChevronLeft />
 			{/if}
 		</button>
 	</div>

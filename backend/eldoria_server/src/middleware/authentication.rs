@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Request, State}, http::{HeaderMap, header}, middleware::Next, response::Response
+    extract::{Request, State},
+    http::{HeaderMap, header},
+    middleware::Next,
+    response::Response,
 };
 use secrecy::SecretString;
 use tower_cookies::{
@@ -101,6 +104,11 @@ enum TokenSource {
     Bearer,
 }
 
+#[derive(Clone)]
+struct PendingTokenRotation {
+    new_token: String,
+}
+
 fn extract_session_token(
     cookies: &Cookies,
     headers: &HeaderMap,
@@ -131,7 +139,7 @@ pub async fn session_auth_middleware(
     mut request: Request,
     next: Next,
 ) -> Result<Response, AppError> {
-    let (session_token, _source) =
+    let (session_token, source) =
         extract_session_token(&cookies, &headers, &state.session_cookie_name)?;
 
     let validated = state
@@ -139,17 +147,32 @@ pub async fn session_auth_middleware(
         .validate_session(&session_token, &state.server_secret)
         .await?;
 
-    if let Some(ref new_token) = validated.new_token {
-        let max_age = remaining_seconds(&validated);
-        cookies.add(state.build_session_cookie(new_token, max_age));
-    }
+    let bearer_rotation = match source {
+        TokenSource::Cookie => {
+            if let Some(ref new_token) = validated.new_token {
+                let max_age = remaining_seconds(&validated);
+                cookies.add(state.build_session_cookie(new_token, max_age));
+            }
+            None
+        }
+        TokenSource::Bearer => validated.new_token.clone(),
+    };
 
     request.extensions_mut().insert(AuthenticatedSession {
         session_id: validated.session.id,
         user_id: validated.session.user_id,
     });
 
-    Ok(next.run(request).await)
+    let mut response = next.run(request).await;
+
+    // Attach the token as a header for clients that need Bearer tokens
+    if let Some(token) = bearer_rotation {
+        if let Ok(value) = token.parse() {
+            response.headers_mut().insert("X-New-Session-Token", value);
+        }
+    }
+
+    Ok(response)
 }
 
 // ─── Session + CSRF middleware (state-changing routes) ───────

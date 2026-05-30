@@ -16,13 +16,12 @@ pub struct HttpResponse {
 pub async fn http_get(handle: AppHandle, path: String) -> AppResult<HttpResponse> {
     let (base_url, client, token) = extract_request_deps(&handle).await?;
 
-    println!("Sending request to: {}", format!("{base_url}{path}"));
     let mut req = client.get(format!("{base_url}{path}"));
     if let Some(t) = token {
         req = req.bearer_auth(t);
     }
 
-    send_request(req).await
+    send_request(&handle, req).await
 }
 
 #[tauri::command]
@@ -40,7 +39,40 @@ pub async fn http_post(
     // Attach CSRF if you have it stored
     // req = req.header("x-csrf-token", csrf);
 
-    send_request(req).await
+    send_request(&handle, req).await
+}
+
+#[tauri::command]
+pub async fn http_put(
+    handle: AppHandle,
+    path: String,
+    body: serde_json::Value,
+) -> AppResult<HttpResponse> {
+    let (base_url, client, token) = extract_request_deps(&handle).await?;
+    let mut req = client.put(format!("{base_url}{path}")).json(&body);
+    if let Some(t) = token {
+        req = req.bearer_auth(t);
+    }
+    // Attach CSRF if you have it stored
+    // req = req.header("x-csrf-token", csrf);
+
+    send_request(&handle, req).await
+}
+
+#[tauri::command]
+pub async fn http_delete(
+    handle: AppHandle,
+    path: String,
+) -> AppResult<HttpResponse> {
+    let (base_url, client, token) = extract_request_deps(&handle).await?;
+    let mut req = client.delete(format!("{base_url}{path}"));
+    if let Some(t) = token {
+        req = req.bearer_auth(t);
+    }
+    // Attach CSRF if you have it stored
+    // req = req.header("x-csrf-token", csrf);
+
+    send_request(&handle, req).await
 }
 
 async fn extract_request_deps(
@@ -62,9 +94,26 @@ async fn extract_request_deps(
     }
 }
 
-async fn send_request(req: reqwest::RequestBuilder) -> AppResult<HttpResponse> {
+async fn send_request(handle: &AppHandle, req: reqwest::RequestBuilder) -> AppResult<HttpResponse> {
     let response = req.send().await.map_err(|e| Error::Http(e.to_string()))?;
     let status = response.status().as_u16();
+
+    // Capture rotated token before consuming the response
+    if let Some(new_token) = response
+        .headers()
+        .get("X-New-Session-Token")
+        .and_then(|v| v.to_str().ok())
+    {
+        if let Some(state) = handle.try_state::<Mutex<AppState>>() {
+            let mut state = state.lock().await;
+            state.config.auth.session_token = Some(new_token.to_string());
+            state
+                .config
+                .save(&handle)
+                .map_err(|e| Error::Config(e.to_string()))?;
+        }
+    }
+
     let body = response
         .json::<serde_json::Value>()
         .await
