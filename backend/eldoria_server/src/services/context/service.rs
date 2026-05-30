@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use eldoria_storage::{
     Storage,
@@ -206,14 +206,21 @@ impl ContextService {
         Ok(MovedNode { new_path })
     }
 
+    /// Toggles a node while respecting the [`GroupMode`] of its parent
+    /// 
+    /// # Returns:
+    /// A HashMap containing each modified entry along with it's new state
     pub async fn toggle_node(
         &self,
         template_id: Snowflake,
         node_id: Snowflake,
         owner_id: Snowflake,
-    ) -> Result<bool, ContextError> {
+    ) -> Result<HashMap<Snowflake, bool>, ContextError> {
+        let mut changes = HashMap::new();
         let mut template = self.get_template(template_id, owner_id).await?;
         let enabled = template.toggle_node(node_id)?;
+
+        changes.insert(node_id, enabled);
 
         let path = template
             .find_node_path(node_id)
@@ -234,6 +241,7 @@ impl ContextService {
                     for child in children.iter_mut() {
                         if child.id != node_id {
                             child.enabled = false;
+                            changes.insert(child.id, false);
                         }
                     }
                 }
@@ -242,7 +250,7 @@ impl ContextService {
 
         self.storage.save_template(&template.to_db()?).await?;
 
-        Ok(enabled)
+        Ok(changes)
     }
 
     pub fn with_registry<R>(&self, f: impl FnOnce(&SourceRegistry) -> R) -> R {

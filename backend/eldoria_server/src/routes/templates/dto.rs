@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+
+use eldoria_storage::models::Snowflake;
 use serde::{Deserialize, Serialize};
 
 use crate::services::context::{
@@ -56,7 +59,7 @@ pub(super) struct MoveNodeResponse {
 
 #[derive(Debug, Serialize)]
 pub(super) struct ToggleNodeResponse {
-    pub enabled: bool,
+    pub delta: HashMap<Snowflake, bool>,
 }
 
 impl Into<CreateNode> for CreateNodeRequest {

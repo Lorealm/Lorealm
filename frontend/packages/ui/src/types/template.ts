@@ -43,7 +43,7 @@ export interface MoveNodeResponse {
 }
 
 export interface ToggleNodeResponse {
-	enabled: boolean;
+	delta: Record<Snowflake, boolean>;
 }
 
 /** The full template definition. */

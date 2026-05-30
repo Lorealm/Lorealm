@@ -295,23 +295,16 @@ class TemplateStore {
 		if (!path) return;
 		const node = nodeAt(draft.nodes, path)!;
 
-		const enabled = !node.enabled;
-		node.enabled = enabled; // optimistic
-
-		// Mirror the backend: turning a node ON inside an invariant group
-		// forces its siblings OFF. (Disabling does nothing extra.)
-		if (enabled) {
-			const parent = nodeAt(draft.nodes, path.slice(0, -1));
-			if (parent && isGroup(parent.content) && parent.content.mode === 'invariant') {
-				for (const child of parent.content.children) {
-					if (child.id !== nodeId) child.enabled = false;
-				}
-			}
-		}
+		node.enabled = !node.enabled; // optimistic: only the clicked node
 
 		try {
 			const res: ToggleNodeResponse = await this.#api.templates.nodes.toggle(draft.id, nodeId);
-			node.enabled = res.enabled; // reconcile
+			// Apply the authoritative delta: the clicked node plus any siblings
+			// the server forced off in an invariant group.
+			for (const [id, enabled] of Object.entries(res.delta)) {
+				const p = findPath(draft.nodes, id);
+				if (p) nodeAt(draft.nodes, p)!.enabled = enabled;
+			}
 			this.commit();
 		} catch (e) {
 			this.rollback();
