@@ -168,11 +168,11 @@ pub async fn toggle_node(
     session: AuthenticatedSession,
     Path((template_id, node_id)): Path<(Snowflake, Snowflake)>,
 ) -> Result<Json<super::ToggleNodeResponse>, AppError> {
-    let enabled = state
+    let changes = state
         .services()
         .context()
         .toggle_node(template_id, node_id, session.user_id)
         .await?;
 
-    Ok(Json(super::ToggleNodeResponse { enabled }))
+    Ok(Json(super::ToggleNodeResponse { delta: changes }))
 }
