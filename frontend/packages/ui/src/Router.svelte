@@ -1,4 +1,3 @@
-<!-- src/lib/Router.svelte -->
 <script lang="ts">
 	import { ActiveView, navigationStore } from './stores/navigation.svelte.ts';
 	import Login from './views/Login.svelte';

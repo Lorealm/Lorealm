@@ -59,7 +59,7 @@ fn ttl_seconds() -> i64 {
 }
 
 fn sliding_policy() -> SlidingPolicy {
-    SlidingPolicy::Always
+    SlidingPolicy::Window(60 * 60)
 }
 
 fn csrf_rotation_policy() -> CsrfRotationPolicy {

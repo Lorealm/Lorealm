@@ -95,43 +95,43 @@ impl SessionService {
         }
 
         let now = Utc::now();
-
         if now >= session.expires_at {
             return Err(AuthError::Expired);
         }
 
-        let should_extend = match self.config.sliding_policy {
-            SlidingPolicy::Fixed => false,
-            SlidingPolicy::Always => true,
+        // Determine if we should rotate/extend based on policy
+        let should_rotate = match self.config.sliding_policy {
+            SlidingPolicy::Fixed => false, // Fixed means do nothing until it naturally expires
+            SlidingPolicy::Always => true, // Rotate/Extend every time
             SlidingPolicy::Window(window_secs) => {
                 let remaining = session.expires_at - now;
                 remaining < chrono::Duration::seconds(window_secs)
             }
         };
 
-        let new_expires_at = if should_extend {
-            Some(now + chrono::Duration::seconds(self.config.ttl_seconds))
-        } else {
-            None
-        };
+        let mut new_token = None;
 
-        // Rotate token: generate new token, replace old hash in storage
-        let new_token_raw = generate_token(self.config.token_length)?;
-        let new_token_hash = eldoria_encryption::hash_session_token(&new_token_raw, secret)?;
+        if should_rotate {
+            let new_expires_at = Some(now + chrono::Duration::seconds(self.config.ttl_seconds));
+            let new_token_raw = generate_token(self.config.token_length)?;
+            let new_token_hash = eldoria_encryption::hash_session_token(&new_token_raw, secret)?;
 
-        self.storage
-            .rotate_session_token(
-                session.id,
-                &new_token_hash,
-                &session_token,
-                session.expires_at,
-                new_expires_at,
-            )
-            .await?;
+            self.storage
+                .rotate_session_token(
+                    session.id,
+                    &new_token_hash,
+                    &session_token,
+                    session.expires_at,
+                    new_expires_at,
+                )
+                .await?;
+
+            new_token = Some(new_token_raw);
+        }
 
         Ok(ValidatedSession {
             session,
-            new_token: Some(new_token_raw),
+            new_token, // Will be `None` for Fixed policy, preventing the frontend race condition!
             new_csrf_token: None,
         })
     }

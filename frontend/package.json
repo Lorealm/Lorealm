@@ -9,6 +9,10 @@
     "@tauri-apps/cli": "^2.10.1"
   },
   "dependencies": {
-    "@lucide/svelte": "^1.7.0"
+    "@lucide/svelte": "^1.7.0",
+    "@types/luxon": "^3.7.1",
+    "http-status-codes": "^2.3.0",
+    "luxon": "^3.7.2",
+    "svelte-dnd-action": "^0.9.69"
   }
 }

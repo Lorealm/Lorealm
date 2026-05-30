@@ -33,10 +33,17 @@ pub async fn register(
         });
     };
 
-    state
+    let user = state
         .services()
         .users()
         .register(payload.username, payload.email, payload.password)
+        .await?;
+
+    // Create the default context template
+    state
+        .services()
+        .context()
+        .create_template(user.id, None, None, true)
         .await?;
 
     Ok(StatusCode::OK)

@@ -5,6 +5,7 @@
 	import type { AppError, ServerError } from '$lib/types/error.js';
 
 	const platform = getPlatformApi();
+
 	let username = $state('');
 	let password = $state('');
 	let serverUrl = $state('');

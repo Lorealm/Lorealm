@@ -40,7 +40,6 @@ interface HttpResponse {
 
 const http: HttpTransport = {
 	async get<T>(path: string): Promise<T> {
-		console.log("we going!!");
 		const res = await invoke<HttpResponse>("http_get", { path });
 		return res.body as T;
 	},

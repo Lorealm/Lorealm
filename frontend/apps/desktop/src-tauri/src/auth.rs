@@ -107,6 +107,22 @@ pub async fn validate_token(handle: AppHandle) -> AppResult<MeResponse> {
         .await
         .map_err(|e| Error::Http(e.to_string()))?;
 
+    if let Some(new_token) = response
+        .headers()
+        .get("X-New-Session-Token")
+        .and_then(|v| v.to_str().ok())
+    {
+        println!("New token found... Persisting...");
+        if let Some(state) = handle.try_state::<Mutex<AppState>>() {
+            let mut state = state.lock().await;
+            state.config.auth.session_token = Some(new_token.to_string());
+            state
+                .config
+                .save(&handle)
+                .map_err(|e| Error::Config(e.to_string()))?;
+        }
+    }
+
     parse_response(response).await
 }
 

@@ -51,3 +51,138 @@ label {
 	font-family: var(--font-family-body);
 	font-size: var(--font-size-base);
 }
+
+select {
+	display: flex;
+	width: 100%;
+	box-sizing: border-box;
+	appearance: none;
+	-webkit-appearance: none;
+	background-color: var(--color-bg-elevated);
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right var(--spacing-sm) center;
+	color: var(--color-text-primary);
+	border: 1px solid transparent;
+	border-radius: var(--radius-md);
+	padding: var(--spacing-sm) calc(var(--spacing-sm) + 1.25rem) var(--spacing-sm) var(--spacing-sm);
+	font-family: var(--font-family-body);
+	font-size: var(--font-size-base);
+	cursor: pointer;
+}
+
+select:focus {
+	outline: none;
+}
+
+select:hover {
+	background-color: var(--color-hover);
+	color: var(--color-text-accent);
+}
+
+option {
+	background-color: var(--color-bg-elevated);
+	color: var(--color-text-primary);
+	font-family: var(--font-family-body);
+	font-size: var(--font-size-base);
+}
+
+/* Separator — Chrome 119+, Firefox 128+, Safari 17+ */
+select hr {
+	border: none;
+	border-top: 1px solid currentColor;
+	opacity: 0.2;
+	margin: var(--spacing-sm) 0;
+}
+
+/* ===== CHECKBOX =====
+   The attribute selector outranks the generic `input` rule above, so it
+   undoes the full-width/elevated styling that rule applies to every input.
+   `flex: 0 0 auto` means components no longer need their own override to stop
+   the box from stretching in a flex row. */
+input[type='checkbox'] {
+	appearance: none;
+	-webkit-appearance: none;
+	display: inline-block;
+	flex: 0 0 auto;
+	box-sizing: border-box;
+	width: 18px;
+	height: 18px;
+	padding: 0;
+	margin: 0;
+	vertical-align: middle;
+	background-color: var(--color-bg-elevated);
+	background-repeat: no-repeat;
+	background-position: center;
+	border: 1px solid var(--color-border-medium);
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	transition:
+		background-color var(--transition-fast) var(--easing-default),
+		border-color var(--transition-fast) var(--easing-default);
+}
+
+input[type='checkbox']:hover {
+	border-color: var(--color-border-active);
+}
+
+input[type='checkbox']:checked {
+	background-color: var(--color-primary);
+	border-color: var(--color-primary);
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M2.5 6.5l2.5 2.5 4.5-5'/%3E%3C/svg%3E");
+}
+
+input[type='checkbox']:focus-visible {
+	box-shadow: 0 0 0 2px var(--color-focus);
+}
+
+input[type='checkbox']:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+/* ===== SWITCH =====
+   Add `class="switch"` to any checkbox to render it as a pill toggle.
+   The knob is a background-image circle whose position animates on :checked,
+   so no extra markup is required. Defined after the checkbox rules so it wins
+   the equal-specificity background-image battle. */
+input[type='checkbox'].switch {
+	width: 36px;
+	height: 20px;
+	border-radius: var(--radius-full);
+	background-color: var(--color-bg-elevated-3);
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%23fff'/%3E%3C/svg%3E");
+	background-position: 2px center;
+	transition:
+		background-color var(--transition-fast) var(--easing-default),
+		border-color var(--transition-fast) var(--easing-default),
+		background-position var(--transition-fast) var(--easing-spring);
+}
+
+input[type='checkbox'].switch:checked {
+	background-color: var(--color-primary);
+	border-color: var(--color-primary);
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%23fff'/%3E%3C/svg%3E");
+	background-position: calc(100% - 2px) center;
+}
+
+/* ===== SCROLLBARS ===== */
+html {
+	scrollbar-width: thin;
+	scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+	width: var(--scrollbar-width);
+	height: var(--scrollbar-width);
+}
+*::-webkit-scrollbar-track {
+	background: var(--scrollbar-track);
+}
+*::-webkit-scrollbar-thumb {
+	background: var(--scrollbar-thumb);
+	border-radius: var(--radius-full);
+}
+*::-webkit-scrollbar-thumb:hover {
+	background: var(--scrollbar-thumb-hover);
+}

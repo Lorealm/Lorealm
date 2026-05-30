@@ -6,10 +6,10 @@ use eldoria_storage::{
 };
 
 use crate::{
-    errors::ContextError,
+    errors::{ContextError, TemplateError},
     services::{
         context::{
-            ContextNode, CreateNode, NodeWithPath, MoveNode, MovedNode, UpdateNode,
+            ContextNode, CreateNode, GroupMode, MoveNode, MovedNode, NodeWithPath, UpdateNode,
             providers::SourceRegistry, template::ContextTemplate,
         },
         snowflake::SnowflakeService,
@@ -214,6 +214,32 @@ impl ContextService {
     ) -> Result<bool, ContextError> {
         let mut template = self.get_template(template_id, owner_id).await?;
         let enabled = template.toggle_node(node_id)?;
+
+        let path = template
+            .find_node_path(node_id)
+            .ok_or(ContextError::NotFound(node_id))?;
+
+        // Only act when we just turned the node ON, and only when it's nested
+        // deeply enough to actually have a parent node.
+        if enabled && path.len() >= 2 {
+            let parent_path = path[..path.len() - 1].to_vec();
+            let parent_node = template
+                .get_node_mut(&parent_path)
+                .ok_or(ContextError::Template(TemplateError::InvalidPath(
+                    parent_path,
+                )))?;
+
+            if let super::NodeContent::Group { children, mode, .. } = &mut parent_node.content {
+                if *mode == GroupMode::Invariant {
+                    for child in children.iter_mut() {
+                        if child.id != node_id {
+                            child.enabled = false;
+                        }
+                    }
+                }
+            }
+        }
+
         self.storage.save_template(&template.to_db()?).await?;
 
         Ok(enabled)
