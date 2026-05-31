@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ContextNode } from '$lib/types/node.js';
 	import Modal from './Modal.svelte';
-	import NodeSettings from './NodeSettings.svelte';
+	import NodeSettings from '../nodes/NodeSettings.svelte';
 
 	let { node, onclose }: { node: ContextNode; onclose: () => void } = $props();
 

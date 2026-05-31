@@ -1,4 +1,5 @@
 pub mod characters;
+pub mod lorebook;
 pub mod permissions;
 pub mod sessions;
 pub mod templates;

@@ -12,13 +12,13 @@
 	import type { ContextNode, NodePath } from '$lib/types/node.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import type { CreateNodeRequest } from '$lib/types/template.js';
-	import TemplateNode from './TemplateNode.svelte';
-	import NodeEditor from './NodeEditor.svelte';
-	import AddNodeButton from './AddNodeButton.svelte';
-	import CreateNodeModal from './CreateNodeModal.svelte';
-	import DropGhost from './DropGhost.svelte';
-	import NodeContextMenu from './NodeContextMenu.svelte';
-	import EditSettingsModal from './EditSettingsModal.svelte';
+	import TemplateNode from './nodes/TemplateNode.svelte';
+	import NodeEditor from './nodes/NodeEditor.svelte';
+	import AddNodeButton from './nodes/AddNodeButton.svelte';
+	import CreateNodeModal from './modals/CreateNodeModal.svelte';
+	import DropGhost from './nodes/DropGhost.svelte';
+	import NodeContextMenu from './nodes/NodeContextMenu.svelte';
+	import EditSettingsModal from './modals/EditSettingsModal.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	const FLIP_MS = 150;

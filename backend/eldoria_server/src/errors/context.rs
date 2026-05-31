@@ -1,7 +1,26 @@
+use std::fmt::Display;
+
 use eldoria_storage::{StorageError, models::Snowflake};
 use thiserror::Error;
 
-use crate::services::context::NodePath;
+use crate::{errors::LorebookError, services::context::NodePath};
+
+#[derive(Debug)]
+pub enum ContextType {
+    Template,
+    Lorebook,
+    LorebookEntry
+}
+
+impl Display for ContextType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ContextType::Template => write!(f, "Template"),
+            ContextType::Lorebook => write!(f, "Lorebook"),
+            ContextType::LorebookEntry => write!(f, "Lorebook Entry"),
+        }
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum ContextError {
@@ -11,8 +30,10 @@ pub enum ContextError {
     Serialization(#[from] serde_json::Error),
     #[error("Template error: {0}")]
     Template(#[from] TemplateError),
-    #[error("Template not found: {0}")]
-    NotFound(Snowflake),
+    #[error("Lorebook error: {0}")]
+    Lorebook(#[from] LorebookError),
+    #[error("{0} not found: {1}")]
+    NotFound(ContextType, Snowflake),
 }
 
 impl ContextError {
@@ -21,8 +42,9 @@ impl ContextError {
             ContextError::Storage(_) | ContextError::Serialization(_) => {
                 "Unknown error".to_string()
             }
-            ContextError::NotFound(snowflake) => format!("Template not found: {snowflake}"),
+            ContextError::NotFound(ctx_type, snowflake) => format!("{ctx_type} not found: {snowflake}"),
             ContextError::Template(template_error) => template_error.client_message(),
+            ContextError::Lorebook(lorebook_error) => lorebook_error.client_message(),
         }
     }
 }

@@ -1,11 +1,13 @@
 pub mod characters;
+pub mod lorebook;
 pub mod permissions;
 pub mod sessions;
-pub mod users;
 pub mod templates;
+pub mod users;
 
 use crate::StorageCore;
 use crate::backends::memory::characters::StoredVersion;
+use crate::backends::memory::lorebook::StoredLorebookVersion;
 use crate::error::StorageError;
 use crate::models::*;
 use async_trait::async_trait;
@@ -21,6 +23,9 @@ pub struct MemoryStorage {
     pub(crate) characters: RwLock<HashMap<Snowflake, Character>>,
     pub(crate) character_versions: RwLock<HashMap<Snowflake, StoredVersion>>,
     pub(crate) templates: RwLock<HashMap<Snowflake, Template>>,
+    pub(crate) lorebook_versions: RwLock<HashMap<Snowflake, StoredLorebookVersion>>,
+    pub(crate) lorebook_sessions: RwLock<HashMap<Snowflake, LorebookSession>>,
+    pub(crate) lorebooks: RwLock<HashMap<Snowflake, Lorebook>>,
 }
 
 impl MemoryStorage {

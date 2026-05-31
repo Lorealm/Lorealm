@@ -33,6 +33,36 @@ const tauriAuth: AuthApi = {
 	},
 };
 
+export class ApiError extends Error {
+	constructor(
+		readonly status: number,
+		readonly code: string | undefined,
+		message: string,
+		readonly body: unknown
+	) {
+		super(message);
+		this.name = "ApiError";
+	}
+}
+
+function check<T>(res: HttpResponse): T {
+	if (res.status >= 400) {
+		const body = res.body;
+		let code: string | undefined;
+		let message: string;
+		if (body && typeof body === "object") {
+			code = (body as { error_code?: string }).error_code;
+			message = (body as { message?: string }).message ?? `HTTP ${res.status}`;
+		} else if (typeof body === "string" && body.trim() !== "") {
+			message = body; // plain-text framework error (e.g. serde deserialize message)
+		} else {
+			message = `HTTP ${res.status}`;
+		}
+		throw new ApiError(res.status, code, message, body);
+	}
+	return res.body as T;
+}
+
 interface HttpResponse {
 	status: number;
 	body: unknown;
@@ -40,26 +70,16 @@ interface HttpResponse {
 
 const http: HttpTransport = {
 	async get<T>(path: string): Promise<T> {
-		const res = await invoke<HttpResponse>("http_get", { path });
-		return res.body as T;
+		return check<T>(await invoke<HttpResponse>("http_get", { path }));
 	},
 	async post<T>(path: string, body?: unknown): Promise<T> {
-		const res = await invoke<HttpResponse>("http_post", {
-			path,
-			body: body ?? null,
-		});
-		return res.body as T;
+		return check<T>(await invoke<HttpResponse>("http_post", { path, body: body ?? null }));
 	},
 	async put<T>(path: string, body?: unknown): Promise<T> {
-		const res = await invoke<HttpResponse>("http_put", {
-			path,
-			body: body ?? null,
-		});
-		return res.body as T;
+		return check<T>(await invoke<HttpResponse>("http_put", { path, body: body ?? null }));
 	},
 	async delete<T>(path: string): Promise<T> {
-		const res = await invoke<HttpResponse>("http_delete", { path });
-		return res.body as T;
+		return check<T>(await invoke<HttpResponse>("http_delete", { path }));
 	},
 };
 

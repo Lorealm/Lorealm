@@ -1,3 +1,5 @@
+use std::{num::ParseIntError, str::FromStr};
+
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Snowflake ID — a 64-bit unique identifier encoding timestamp + worker + sequence.
@@ -38,5 +40,13 @@ impl<'de> Deserialize<'de> for Snowflake {
             }
         }
         d.deserialize_any(Visitor)
+    }
+}
+
+impl FromStr for Snowflake {
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Snowflake(s.parse::<i64>()?))
     }
 }
