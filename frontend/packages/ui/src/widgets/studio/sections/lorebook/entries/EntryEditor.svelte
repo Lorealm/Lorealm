@@ -6,6 +6,7 @@
 	import SlotPicker from '../SlotPicker.svelte';
 	import SaveIndicator from '../SaveIndicator.svelte';
 	import NumberInput from '$lib/components/NumberInput.svelte';
+	import WeaverEditor from '$lib/weaver/editor/WeaverEditor.svelte';
 
 	// Pure view: edits mutate the draft entry (reactive) and call `requestSave`,
 	// which the shell debounces into `lorebookStore.saveEntry`. `config` supplies
@@ -85,12 +86,9 @@
 
 	<section class="block">
 		<div class="block-title">Content</div>
-		<WeaverInput
-			multiline
-			value={entry.body}
-			onchange={setBody}
-			placeholder="weaver template…"
-			ariaLabel="Entry content"
+		<WeaverEditor
+			doc={entry.body}
+			onChange={setBody}
 		/>
 	</section>
 
