@@ -3,10 +3,15 @@
 	import { flip } from 'svelte/animate';
 	import { dndzone, SHADOW_ITEM_MARKER_PROPERTY_NAME, type DndEvent } from 'svelte-dnd-action';
 	import { templateStore } from '$lib/stores/template.svelte.js';
-	import type { ContextNode, NodePath } from '$lib/types/node.js';
+	import type {
+		ContextNode,
+		NodeContentGroup,
+		NodePath
+	} from '$lib/types/node.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import Self from './TemplateNode.svelte';
 	import DropGhost from './DropGhost.svelte';
+	import { CircleDot, Pencil, Plug, SquaresSubtract } from '@lucide/svelte';
 
 	const FLIP_MS = 150;
 	const DND_KEY = 'template:dnd';
@@ -68,8 +73,24 @@
 		collapsed = !collapsed;
 	}
 
-	// Narrow once for the group branch.
+	const ROLE_LABEL: Record<string, string> = {
+		system: 'SYS',
+		user: 'USR',
+		assistant: 'AST'
+	};
+
 	const group = $derived(node.content.type === 'group' ? node.content : null);
+	const leaf = $derived(node.content.type === 'text' ? node.content : null);
+	const role = $derived(leaf?.role ?? 'system'); // 'system' | 'user' | 'assistant'
+	const isText = $derived(leaf?.type === 'text'); // adjust to your real discriminant
+	const isSource = $derived(node.content.type === 'source'); // however you mark dynamic nodes
+	// Using Svelte 5 runes style based on your snippets
+	const showBadges = $derived(
+		(group &&
+			((node.content as NodeContentGroup).mode === 'invariant' ||
+				(node.content as NodeContentGroup).children.length === 0)) ||
+			node.content.type === 'source'
+	);
 
 	function select() {
 		onSelect(node.id);
@@ -119,6 +140,25 @@
 	</button>
 {/snippet}
 
+{#snippet badges()}
+	{#if showBadges}
+		<div class="badges" class:selected={selectedId === node.id}>
+			{#if group?.mode === 'invariant'}
+				<span class="badge-item" data-tooltip="Invariant"><CircleDot /></span>
+			{/if}
+			{#if group && group.children.length === 0}
+				<span class="badge-item" data-tooltip="Empty"><SquaresSubtract /></span>
+			{/if}
+			{#if isSource}
+				<span class="badge-item" data-tooltip="Dynamic source"><Plug /></span>
+			{/if}
+		</div>
+	{/if}
+	{#if isText && role}
+		<span class="role-pill" data-role={role}><Pencil /> {ROLE_LABEL[role]}</span>
+	{/if}
+{/snippet}
+
 {#if group}
 	<div class="node group" class:disabled={!node.enabled}>
 		<div
@@ -157,7 +197,10 @@
 					/>
 				</svg>
 			</button>
-			<span class="title">{node.title || 'Untitled group'}</span>
+			<div class="title-container">
+				<span class="title">{node.title || 'Untitled group'}</span>
+				{@render badges()}
+			</div>
 			{@render kebab()}
 		</div>
 
@@ -190,6 +233,7 @@
 	<div class="node leaf" class:disabled={!node.enabled}>
 		<div
 			class="node-row"
+			data-role={role}
 			class:selected={selectedId === node.id}
 			role="button"
 			tabindex="0"
@@ -199,6 +243,7 @@
 		>
 			{@render enableBox()}
 			<span class="title">{node.title || 'Untitled'}</span>
+			{@render badges()}
 			{@render kebab()}
 		</div>
 	</div>
@@ -226,6 +271,18 @@
 		border-color: var(--color-border-active);
 		color: var(--color-text-accent);
 	}
+	.node-row[data-role] {
+		border-left: 3px solid var(--role-color, transparent);
+	}
+	.node-row[data-role='system'] {
+		--role-color: var(--color-role-system);
+	}
+	.node-row[data-role='user'] {
+		--role-color: var(--color-role-user);
+	}
+	.node-row[data-role='assistant'] {
+		--role-color: var(--color-role-assistant);
+	}
 
 	.group-row {
 		background-color: var(--color-bg-elevated-2);
@@ -241,6 +298,62 @@
 		color: var(--color-text-secondary);
 		border-radius: var(--radius-sm);
 		margin-left: calc(0 - var(--spacing-sm));
+	}
+	.badges {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		background-color: var(--color-overlay-light);
+		border: 1px solid var(--color-border-subtle);
+		padding: var(--spacing-xs);
+		border-radius: var(--radius-sm);
+		gap: var(--spacing-sm);
+	}
+	.badges.selected {
+		border: 1px solid var(--color-border-active);
+	}
+	.badges:empty {
+		display: none;
+	}
+
+	.badge-item {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.badge-item :global(svg) {
+		width: 1em;
+		height: 1em;
+		display: block;
+	}
+
+	.badge-item::after {
+		content: attr(data-tooltip);
+		position: absolute;
+		bottom: 140%;
+		left: 50%;
+		transform: translateX(-50%) scale(0.9);
+		background-color: var(--color-bg-elevated-2, #1e1e1e);
+		color: var(--color-text-primary, #ffffff);
+		padding: var(--spacing-xs) var(--spacing-sm);
+		font-size: 0.75rem;
+		white-space: nowrap;
+		border-radius: var(--radius-sm, 4px);
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+		border: 1px solid var(--color-border-subtle);
+		z-index: 10;
+		opacity: 0;
+		pointer-events: none;
+		transition:
+			opacity 0.15s ease,
+			transform 0.15s ease;
+	}
+
+	.badge-item:hover::after {
+		opacity: 1;
+		transform: translateX(-50%) scale(1);
 	}
 	.caret:hover {
 		background-color: var(--color-hover);
@@ -266,8 +379,16 @@
 		min-height: var(--spacing-xl);
 	}
 
-	.title {
+	.title-container {
 		flex: 1 1 auto;
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+		min-width: 0;
+	}
+
+	.title {
+		flex: 0 1 auto;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -292,6 +413,7 @@
 		font-size: var(--font-size-md);
 		line-height: 1;
 		opacity: 0;
+		margin-left: auto;
 	}
 	.node-row:hover .kebab,
 	.kebab:focus-visible {
@@ -304,5 +426,35 @@
 	/* a disabled node dims itself and, for a group, its whole subtree */
 	.node.disabled {
 		opacity: 0.5;
+	}
+
+	.role-pill {
+		display: flex;
+		flex-direction: row;
+		gap: var(--spacing-xs);
+		flex: 0 0 auto;
+		font-size: var(--font-size-xs);
+		letter-spacing: var(--letter-spacing-uppercase);
+		padding: 2px var(--spacing-sm);
+		border-radius: var(--radius-full);
+		background-color: var(--role-bg);
+		color: var(--role-text);
+	}
+	.role-pill[data-role='system'] {
+		--role-bg: var(--color-role-system-bg);
+		--role-text: var(--color-role-system-text);
+	}
+	.role-pill[data-role='user'] {
+		--role-bg: var(--color-role-user-bg);
+		--role-text: var(--color-role-user-text);
+	}
+	.role-pill[data-role='assistant'] {
+		--role-bg: var(--color-role-assistant-bg);
+		--role-text: var(--color-role-assistant-text);
+	}
+	.role-pill :global(svg) {
+		display: block;
+		height: var(--font-size-sm);
+		width: var(--font-size-sm);
 	}
 </style>

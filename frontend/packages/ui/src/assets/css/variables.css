@@ -61,6 +61,19 @@
 	--color-info-text: #a0c4e8;
 	--color-info-border: rgba(124, 172, 220, 0.3);
 
+	/* ===== CHAT ROLES ===== */
+	--color-role-system: #5fb3a8;
+	--color-role-system-bg: rgba(95, 179, 168, 0.15);
+	--color-role-system-text: #84c9bf;
+
+	--color-role-user: #d98aa8;
+	--color-role-user-bg: rgba(217, 138, 168, 0.15);
+	--color-role-user-text: #e6a6bd;
+
+	--color-role-assistant: #b08cc8;
+	--color-role-assistant-bg: rgba(176, 140, 200, 0.15);
+	--color-role-assistant-text: #c4a6d8;
+
 	/* ===== INTERACTIVE STATES ===== */
 	--color-hover: rgba(155, 125, 184, 0.2);
 	--color-active: rgba(155, 125, 184, 0.3);
