@@ -573,7 +573,7 @@ impl ContextTemplate {
             node.enabled = e;
         }
         if let Some(mut c) = content {
-            // 1. Note the 'mut c' here
+            // Check whether the group was just switched from [`GroupMode::Collection`] to [`GroupMode::Invariant`]
             let perform_disable = match (&c, &node.content) {
                 (
                     NodeContent::Group { mode: new_mode, .. },
@@ -582,8 +582,8 @@ impl ContextTemplate {
                 _ => false,
             };
 
+            // Find the first non-disabled child node then disable the intersection
             if perform_disable {
-                // 2. Modify the INCOMING content 'c', not the soon-to-be-replaced old content
                 if let NodeContent::Group { children, .. } = &mut c {
                     let first_active_idx = children.iter().position(|child| child.enabled);
 
@@ -595,7 +595,6 @@ impl ContextTemplate {
                 }
             }
 
-            // 3. Now when we assign 'c', it carries your mutated child states
             node.content = c;
         }
 
