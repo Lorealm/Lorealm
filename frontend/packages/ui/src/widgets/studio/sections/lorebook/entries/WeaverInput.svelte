@@ -1,4 +1,6 @@
 <script lang="ts">
+	import WeaverField from "$lib/weaver/editor/WeaverField.svelte";
+
 	// The one place weaver text is entered. Today it is a plain <textarea>/<input>;
 	// swapping in CodeMirror later means replacing the markup below while keeping
 	// this controlled `value` / `onchange` contract, so no caller has to change.
@@ -29,13 +31,9 @@
 		oninput={(e) => onchange(e.currentTarget.value)}
 	></textarea>
 {:else}
-	<input
-		class="weaver-input"
-		type="text"
-		{placeholder}
-		aria-label={ariaLabel}
-		{value}
-		oninput={(e) => onchange(e.currentTarget.value)}
+	<WeaverField
+		doc={value}
+		onChange={onchange}
 	/>
 {/if}
 
