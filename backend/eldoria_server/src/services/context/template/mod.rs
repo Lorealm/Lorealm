@@ -486,7 +486,7 @@ impl ContextTemplate {
             }
             None => None,
         };
-        
+
         // Remove the node (this changes paths in the tree)
         let node = self.remove_node(node_id)?;
 
@@ -572,7 +572,30 @@ impl ContextTemplate {
         if let Some(e) = enabled {
             node.enabled = e;
         }
-        if let Some(c) = content {
+        if let Some(mut c) = content {
+            // 1. Note the 'mut c' here
+            let perform_disable = match (&c, &node.content) {
+                (
+                    NodeContent::Group { mode: new_mode, .. },
+                    NodeContent::Group { mode: old_mode, .. },
+                ) => new_mode == &GroupMode::Invariant && old_mode != &GroupMode::Invariant,
+                _ => false,
+            };
+
+            if perform_disable {
+                // 2. Modify the INCOMING content 'c', not the soon-to-be-replaced old content
+                if let NodeContent::Group { children, .. } = &mut c {
+                    let first_active_idx = children.iter().position(|child| child.enabled);
+
+                    for (i, child) in children.iter_mut().enumerate() {
+                        if Some(i) != first_active_idx {
+                            child.enabled = false;
+                        }
+                    }
+                }
+            }
+
+            // 3. Now when we assign 'c', it carries your mutated child states
             node.content = c;
         }
 
