@@ -11,7 +11,7 @@
 use crate::backends::CachedStorage;
 use crate::error::StorageError;
 use crate::models::{Character, CharacterVersionInfo, Snowflake};
-use crate::storage::characters::CharacterStorage;
+use crate::storage::CharacterStorage;
 use async_trait::async_trait;
 
 impl CachedStorage {

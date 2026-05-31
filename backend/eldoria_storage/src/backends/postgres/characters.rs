@@ -11,7 +11,7 @@ use crate::models::{
     Character, CharacterDefinition, CharacterMetadata, CharacterVersionInfo, ExampleDialogue,
     Greeting, Snowflake,
 };
-use crate::storage::characters::CharacterStorage;
+use crate::storage::CharacterStorage;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sqlx::FromRow;

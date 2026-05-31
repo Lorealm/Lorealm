@@ -1,11 +1,13 @@
 mod auth;
 mod card;
 mod context;
+mod lorebook;
 mod permission;
 
 pub use auth::*;
 pub use card::*;
 pub use context::*;
+pub use lorebook::*;
 pub use permission::*;
 
 use axum::{Json, http::StatusCode, response::IntoResponse};
@@ -161,9 +163,23 @@ impl From<ContextError> for AppError {
         tracing::error!("[ERROR] context service: {err}");
 
         match err {
-            ContextError::NotFound(_) => AppError::BadRequest {
+            ContextError::NotFound(_, _) => AppError::BadRequest {
                 code: "NOT_FOUND",
                 message: Cow::Owned(err.client_message()),
+            },
+            ContextError::Lorebook(e) => match e {
+                LorebookError::NotOwned(_, _) => AppError::BadRequest {
+                    code: "NOT_FOUND",
+                    message: Cow::Owned(e.client_message()),
+                },
+                LorebookError::ContextWeaver(_) => AppError::BadRequest {
+                    code: "CONTEXT_WEAVER",
+                    message: Cow::Owned(e.client_message()),
+                },
+                LorebookError::Yaml(_) => AppError::BadRequest {
+                    code: "SERIALIZATION",
+                    message: Cow::Owned(e.client_message()),
+                },
             },
             _ => AppError::Internal {
                 internal: Cow::Owned(err.client_message()),

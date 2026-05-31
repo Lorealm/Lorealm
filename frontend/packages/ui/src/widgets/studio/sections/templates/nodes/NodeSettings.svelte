@@ -12,11 +12,13 @@
 	import type { Snowflake } from '$lib/types/core.js';
 	import type { UpdateNodeRequest } from '$lib/types/template.js';
 	import { SvelteSet } from 'svelte/reactivity';
+	import NumberInput from '$lib/components/NumberInput.svelte';
 
 	type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
 	let {
 		node,
+		// eslint-disable-next-line no-useless-assignment
 		saveState = $bindable<SaveState>('idle')
 	}: {
 		node: ContextNode;
@@ -263,30 +265,27 @@
 								{/each}
 							</select>
 						{:else if st.type === 'integer'}
-							<input
-								type="number"
-								step="1"
+							<NumberInput
+								step={1}
 								min={st.min ?? undefined}
 								max={st.max ?? undefined}
 								value={(settings[s.key] as number) ?? ''}
-								oninput={(e) => onNumberSetting(s.key, e.currentTarget.value, true)}
+								onchange={(v) => onNumberSetting(s.key, v.toString(), true)}
 							/>
 						{:else if st.type === 'token_count'}
-							<input
-								type="number"
-								step="1"
-								min="0"
+							<NumberInput
+								step={1}
+								min={0}
 								value={(settings[s.key] as number) ?? ''}
-								oninput={(e) => onNumberSetting(s.key, e.currentTarget.value, true)}
+								onchange={(v) => onNumberSetting(s.key, v.toString(), true)}
 							/>
 						{:else if st.type === 'float'}
-							<input
-								type="number"
-								step="any"
+							<NumberInput
+								step={0.1}
 								min={st.min ?? undefined}
 								max={st.max ?? undefined}
 								value={(settings[s.key] as number) ?? ''}
-								oninput={(e) => onNumberSetting(s.key, e.currentTarget.value, false)}
+								onchange={(v) => onNumberSetting(s.key, v.toString(), true)}
 							/>
 						{:else}
 							<input
@@ -343,7 +342,6 @@
 	}
 	/* the global input rule forces full width/elevated bg; checkboxes opt out */
 	input[type='checkbox'] {
-		width: auto;
 		flex: 0 0 auto;
 		margin-top: 2px;
 	}

@@ -1,11 +1,13 @@
 <script lang="ts">
+	import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
 	import { studioStore } from '$lib/stores/studio.svelte';
+	import { onMount } from 'svelte';
 
-	// placeholder — replace with a load from CharacterService-style storage
-	const lorebooks = [
-		{ id: 'codex', name: 'Eldoria Codex' },
-		{ id: 'north', name: 'Northern Reaches' }
-	];
+	const lorebooks = $derived(lorebookStore.metadataList);
+
+	onMount(async () => {
+		await lorebookStore.loadList();
+	});
 </script>
 
 {#each lorebooks as book (book.id)}

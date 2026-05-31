@@ -8,6 +8,7 @@ use crate::{
 };
 
 mod characters;
+mod lorebooks;
 mod templates;
 mod users;
 
@@ -32,5 +33,9 @@ pub async fn api_routes(
         .nest(
             "/templates",
             templates::router(Arc::clone(&app_state), session_state.clone()),
+        )
+        .nest(
+            "/lorebooks",
+            lorebooks::router(Arc::clone(&app_state), session_state.clone()),
         )
 }

@@ -6,7 +6,7 @@ use eldoria_storage::{
 };
 
 use crate::{
-    errors::{ContextError, TemplateError},
+    errors::{ContextError, ContextType, TemplateError},
     services::{
         context::{
             ContextNode, CreateNode, GroupMode, MoveNode, MovedNode, NodeWithPath, UpdateNode,
@@ -16,6 +16,7 @@ use crate::{
     },
 };
 
+// TODO: Rename to TemplateService. Module should also be renamed.
 pub struct ContextService {
     storage: Arc<dyn Storage>,
     snowflake_service: Arc<SnowflakeService>,
@@ -47,7 +48,7 @@ impl ContextService {
             .storage
             .get_template_owned(template_id, owner_id)
             .await?
-            .ok_or(ContextError::NotFound(template_id))?;
+            .ok_or(ContextError::NotFound(ContextType::Template, template_id))?;
 
         Ok(ContextTemplate::from_db(template)?)
     }
@@ -224,7 +225,7 @@ impl ContextService {
 
         let path = template
             .find_node_path(node_id)
-            .ok_or(ContextError::NotFound(node_id))?;
+            .ok_or(ContextError::NotFound(ContextType::Template, node_id))?;
 
         // Only act when we just turned the node ON, and only when it's nested
         // deeply enough to actually have a parent node.

@@ -60,10 +60,7 @@ pub async fn http_put(
 }
 
 #[tauri::command]
-pub async fn http_delete(
-    handle: AppHandle,
-    path: String,
-) -> AppResult<HttpResponse> {
+pub async fn http_delete(handle: AppHandle, path: String) -> AppResult<HttpResponse> {
     let (base_url, client, token) = extract_request_deps(&handle).await?;
     let mut req = client.delete(format!("{base_url}{path}"));
     if let Some(t) = token {
@@ -114,14 +111,13 @@ async fn send_request(handle: &AppHandle, req: reqwest::RequestBuilder) -> AppRe
         }
     }
 
-    let body = response
-        .json::<serde_json::Value>()
-        .await
-        .unwrap_or(serde_json::Value::Null);
+    let text = response.text().await.unwrap_or_default();
+    let body =
+        serde_json::from_str::<serde_json::Value>(&text).unwrap_or(serde_json::Value::String(text));
 
-    if status >= 400 {
+    /*     if status >= 400 {
         return Err(Error::Http(format!("HTTP {status}: {body}")));
-    }
+    } */
 
     Ok(HttpResponse { status, body })
 }

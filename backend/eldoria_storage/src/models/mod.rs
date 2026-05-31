@@ -1,12 +1,14 @@
-pub mod characters;
-pub mod common;
-pub mod permissions;
-pub mod sessions;
-pub mod templates;
-pub mod users;
+mod characters;
+mod common;
+mod lorebook;
+mod permissions;
+mod sessions;
+mod templates;
+mod users;
 
 pub use characters::*;
 pub use common::*;
+pub use lorebook::*;
 pub use permissions::*;
 pub use sessions::*;
 pub use templates::*;
