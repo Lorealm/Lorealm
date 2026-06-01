@@ -1,6 +1,12 @@
-use std::{num::ParseIntError, str::FromStr};
+use std::{
+    fmt::Display,
+    num::ParseIntError,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use sha2::{Digest, Sha256};
 
 /// Snowflake ID — a 64-bit unique identifier encoding timestamp + worker + sequence.
 /// Generated in the application layer, stored as BIGINT in Postgres.
@@ -49,4 +55,50 @@ impl FromStr for Snowflake {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Snowflake(s.parse::<i64>()?))
     }
+}
+
+/// Content address of a stored blob. NOT a snowflake — identity *is* the bytes.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct BlobId(String); // lowercase hex of the sha256 digest
+
+impl BlobId {
+    /// Hash content. Identical bytes always yield the same id.
+    pub fn from_content(bytes: &[u8]) -> Self {
+        Self(hex::encode(Sha256::digest(bytes)))
+    }
+
+    pub fn as_hex(&self) -> &str {
+        &self.0
+    }
+
+    /// The string you persist in `character_versions.avatar_uri`.
+    pub fn to_uri(&self) -> String {
+        format!("sha256:{}", self.0)
+    }
+
+    pub fn from_uri(uri: &str) -> Option<Self> {
+        uri.strip_prefix("sha256:").map(|hex| Self(hex.to_string()))
+    }
+
+    /// Relative location under the blobs root: `<ab>/<full-hex>`.
+    pub fn relative_path(&self) -> PathBuf {
+        Path::new(&self.0[..2]).join(&self.0)
+    }
+}
+
+impl Display for BlobId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+/// Specifies how functions requiring versioning should be saved.
+/// 
+/// This is used for providing transaction-based behavior so every minute change
+/// don't result in a new version.
+pub enum VersionedSaveMode {
+    /// Append a new version. Caller has set a fresh `current_version_id`.
+    NewVersion,
+    /// Update the existing version identified by `current_version_id`.
+    UpdateCurrent,
 }

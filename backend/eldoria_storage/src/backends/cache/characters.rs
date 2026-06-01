@@ -10,7 +10,7 @@
 
 use crate::backends::CachedStorage;
 use crate::error::StorageError;
-use crate::models::{Character, CharacterVersionInfo, Snowflake};
+use crate::models::{Character, CharacterVersionInfo, Snowflake, VersionedSaveMode};
 use crate::storage::CharacterStorage;
 use async_trait::async_trait;
 
@@ -47,8 +47,12 @@ impl CharacterStorage for CachedStorage {
         self.backend.list_characters_by_owner(user_id).await
     }
 
-    async fn save_character(&self, character: &Character) -> Result<Snowflake, StorageError> {
-        let result = self.backend.save_character(character).await?;
+    async fn save_character(
+        &self,
+        character: &Character,
+        mode: VersionedSaveMode,
+    ) -> Result<Snowflake, StorageError> {
+        let result = self.backend.save_character(character, mode).await?;
         self.cache_del(&self.character_key(character.id)).await;
         Ok(result)
     }
@@ -78,5 +82,9 @@ impl CharacterStorage for CachedStorage {
             .await?;
         self.cache_del(&self.character_key(id)).await;
         Ok(result)
+    }
+
+    async fn get_latest_version(&self, id: Snowflake) -> Result<Snowflake, StorageError> {
+        self.backend.get_latest_version(id).await
     }
 }

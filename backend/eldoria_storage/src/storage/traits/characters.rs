@@ -5,7 +5,7 @@
 //! a new `character_versions` row and atomically updates the head.
 
 use crate::error::StorageError;
-use crate::models::{Character, CharacterVersionInfo, Snowflake};
+use crate::models::{Character, CharacterVersionInfo, Snowflake, VersionedSaveMode};
 use async_trait::async_trait;
 
 #[async_trait]
@@ -37,7 +37,7 @@ pub trait CharacterStorage: Send + Sync {
     /// Caller is responsible for generating `character.id` and
     /// `character.current_version_id` (via snowflake gen) before calling.
     /// The storage layer treats those IDs as authoritative.
-    async fn save_character(&self, character: &Character) -> Result<Snowflake, StorageError>;
+    async fn save_character(&self, character: &Character, mode: VersionedSaveMode) -> Result<Snowflake, StorageError>;
 
     /// Hard-delete a character and all its versions/child rows.
     /// Returns `true` if a row was deleted.
@@ -59,5 +59,10 @@ pub trait CharacterStorage: Send + Sync {
         id: Snowflake,
         version_id: Snowflake,
         new_version_id: Snowflake,
+    ) -> Result<Snowflake, StorageError>;
+
+    async fn get_latest_version(
+        &self,
+        id: Snowflake
     ) -> Result<Snowflake, StorageError>;
 }

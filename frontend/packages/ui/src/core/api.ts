@@ -16,8 +16,12 @@ export interface AuthApi {
 }
 
 export interface HttpTransport {
+  /* JSON */
 	get<T>(path: string): Promise<T>;
 	post<T>(path: string, body?: unknown): Promise<T>;
 	put<T>(path: string, body?: unknown): Promise<T>;
-	delete<T>(path: string): Promise<T>;
+  delete<T>(path: string): Promise<T>;
+
+  /* Bytes */
+  getBlob(path: string): Promise<Blob>;
 }

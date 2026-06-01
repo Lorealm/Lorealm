@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use chrono::Utc;
 use eldoria_storage::{
     Storage,
@@ -7,11 +8,10 @@ use eldoria_storage::{
 };
 
 use crate::{
-    errors::{ContextError, ContextType, LorebookError},
-    services::{
+    core::CleanableService, errors::{ContextError, ContextType, LorebookError}, services::{
         lorebook::{CreateLorebook, UpdateLorebook},
         snowflake::SnowflakeService,
-    },
+    }
 };
 
 const DEFAULT_ENTRY_ID: &str = "new_entry";
@@ -267,4 +267,11 @@ fn weaver_entry_to_storage(
         entry_id: entry.meta.id.clone(), // the human string id ("dark_forest")
         source: entry_to_source(entry)?,
     })
+}
+
+#[async_trait]
+impl CleanableService for LorebookService {
+    async fn clean(&self) -> usize {
+        0 // TODO: Implement
+    }
 }

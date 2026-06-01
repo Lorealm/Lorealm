@@ -7,7 +7,7 @@
 
 use crate::backends::MemoryStorage;
 use crate::error::StorageError;
-use crate::models::{Character, CharacterVersionInfo, Snowflake};
+use crate::models::{Character, CharacterVersionInfo, Snowflake, VersionedSaveMode};
 use crate::storage::CharacterStorage;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -64,32 +64,54 @@ impl CharacterStorage for MemoryStorage {
             .collect())
     }
 
-    async fn save_character(&self, character: &Character) -> Result<Snowflake, StorageError> {
-        // Compute next version_num.
-        let next_version_num = {
-            let versions = self.character_versions.read().await;
-            versions
-                .values()
-                .filter(|v| v.character_id == character.id)
-                .map(|v| v.version_num)
-                .max()
-                .map(|n| n + 1)
-                .unwrap_or(1)
-        };
+    async fn save_character(
+        &self,
+        character: &Character,
+        mode: VersionedSaveMode,
+    ) -> Result<Snowflake, StorageError> {
+        match mode {
+            VersionedSaveMode::NewVersion => {
+                let next_version_num = {
+                    let versions = self.character_versions.read().await;
+                    versions
+                        .values()
+                        .filter(|v| v.character_id == character.id)
+                        .map(|v| v.version_num)
+                        .max()
+                        .map(|n| n + 1)
+                        .unwrap_or(1)
+                };
 
-        let stored = StoredVersion {
-            version_id: character.current_version_id,
-            character_id: character.id,
-            version_num: next_version_num,
-            card_version: character.metadata.card_version.clone(),
-            created_at: Utc::now(),
-            character: character.clone(),
-        };
+                let stored = StoredVersion {
+                    version_id: character.current_version_id,
+                    character_id: character.id,
+                    version_num: next_version_num,
+                    card_version: character.metadata.card_version.clone(),
+                    created_at: Utc::now(),
+                    character: character.clone(),
+                };
 
-        {
-            let mut versions = self.character_versions.write().await;
-            versions.insert(character.current_version_id, stored);
+                let mut versions = self.character_versions.write().await;
+                versions.insert(character.current_version_id, stored);
+            }
+            VersionedSaveMode::UpdateCurrent => {
+                let mut versions = self.character_versions.write().await;
+                let existing =
+                    versions
+                        .get_mut(&character.current_version_id)
+                        .ok_or_else(|| {
+                            StorageError::NotFound(format!(
+                                "save_character: version '{}' not found for in-place update",
+                                character.current_version_id
+                            ))
+                        })?;
+
+                // Overwrite content, preserve version_num and created_at.
+                existing.card_version = character.metadata.card_version.clone();
+                existing.character = character.clone();
+            }
         }
+
         {
             let mut chars = self.characters.write().await;
             chars.insert(character.id, character.clone());
@@ -142,6 +164,17 @@ impl CharacterStorage for MemoryStorage {
         };
         let mut to_save = character;
         to_save.current_version_id = new_version_id;
-        self.save_character(&to_save).await
+        self.save_character(&to_save, VersionedSaveMode::NewVersion)
+            .await
+    }
+
+    async fn get_latest_version(&self, id: Snowflake) -> Result<Snowflake, StorageError> {
+        self.character_versions
+            .read()
+            .await
+            .iter()
+            .max_by_key(|x| x.0.0)
+            .map(|x| *x.0)
+            .ok_or_else(|| StorageError::NotFound(format!("found no versions for character {id}")))
     }
 }

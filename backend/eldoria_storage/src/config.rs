@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5,6 +7,10 @@ pub struct StorageConfig {
     /// Ordered list of backends to try (first available wins)
     pub backends: Vec<BackendConfig>,
 
+    // TODO: Improve. We might not always want a filesystem path
+    /// The filesystem path to use for blob-storage
+    pub data_directory: PathBuf,
+    
     /// Whether to require postgres as fallback
     pub require_postgres_fallback: bool,
 
@@ -57,6 +63,7 @@ impl StorageConfig {
             backends: vec![BackendConfig::Memory {
                 max_size: 50 * 1024 * 1024,
             }],
+            data_directory: PathBuf::from("data"),
             require_postgres_fallback: false,
             #[cfg(feature = "redis")]
             cache: None, // No cache for local single-user
@@ -71,6 +78,7 @@ impl StorageConfig {
                     .unwrap_or_else(|_| "postgresql://localhost/eldoria".to_string()),
                 max_connections: 10,
             }],
+            data_directory: PathBuf::from("data"),
             require_postgres_fallback: true,
             #[cfg(feature = "redis")]
             cache: Some(CacheConfig {

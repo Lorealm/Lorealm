@@ -9,7 +9,7 @@ use crate::backends::PostgresStorage;
 use crate::error::StorageError;
 use crate::models::{
     Character, CharacterDefinition, CharacterMetadata, CharacterVersionInfo, ExampleDialogue,
-    Greeting, Snowflake,
+    Greeting, Snowflake, VersionedSaveMode,
 };
 use crate::storage::CharacterStorage;
 use async_trait::async_trait;
@@ -94,19 +94,12 @@ impl CharacterStorage for PostgresStorage {
         Ok(out)
     }
 
-    async fn save_character(&self, character: &Character) -> Result<Snowflake, StorageError> {
+    async fn save_character(
+        &self,
+        character: &Character,
+        mode: VersionedSaveMode,
+    ) -> Result<Snowflake, StorageError> {
         let mut tx = self.pool.begin().await?;
-
-        let next_version_num: i32 = sqlx::query_scalar(
-            r#"
-            SELECT COALESCE(MAX(version_num), 0) + 1
-            FROM character_versions
-            WHERE character_id = $1
-            "#,
-        )
-        .bind(character.id)
-        .fetch_one(&mut *tx)
-        .await?;
 
         let snapshot = serde_json::to_value(CharacterSnapshot {
             metadata: &character.metadata,
@@ -134,21 +127,61 @@ impl CharacterStorage for PostgresStorage {
         .execute(&mut *tx)
         .await?;
 
-        sqlx::query(
-            r#"
-            INSERT INTO character_versions
-                (id, character_id, version_num, card_version, avatar_uri, snapshot)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            "#,
-        )
-        .bind(character.current_version_id)
-        .bind(character.id)
-        .bind(next_version_num)
-        .bind(&character.metadata.card_version)
-        .bind(character.metadata.avatar_uri.as_deref())
-        .bind(&snapshot)
-        .execute(&mut *tx)
-        .await?;
+        match mode {
+            VersionedSaveMode::NewVersion => {
+                let next_version_num: i32 = sqlx::query_scalar(
+                    r#"
+                        SELECT COALESCE(MAX(version_num), 0) + 1
+                        FROM character_versions
+                        WHERE character_id = $1
+                        "#,
+                )
+                .bind(character.id)
+                .fetch_one(&mut *tx)
+                .await?;
+
+                sqlx::query(
+                    r#"
+                        INSERT INTO character_versions
+                            (id, character_id, version_num, card_version, avatar_uri, snapshot)
+                        VALUES ($1, $2, $3, $4, $5, $6)
+                        "#,
+                )
+                .bind(character.current_version_id)
+                .bind(character.id)
+                .bind(next_version_num)
+                .bind(&character.metadata.card_version)
+                .bind(character.metadata.avatar_uri.as_deref())
+                .bind(&snapshot)
+                .execute(&mut *tx)
+                .await?;
+            }
+            VersionedSaveMode::UpdateCurrent => {
+                let affected = sqlx::query(
+                    r#"
+                        UPDATE character_versions SET
+                            card_version = $2,
+                            avatar_uri   = $3,
+                            snapshot     = $4
+                        WHERE id = $1
+                        "#,
+                )
+                .bind(character.current_version_id)
+                .bind(&character.metadata.card_version)
+                .bind(character.metadata.avatar_uri.as_deref())
+                .bind(&snapshot)
+                .execute(&mut *tx)
+                .await?
+                .rows_affected();
+
+                if affected == 0 {
+                    return Err(StorageError::NotFound(format!(
+                        "save_character: version '{}' not found for in-place update",
+                        character.current_version_id
+                    )));
+                }
+            }
+        }
 
         // Rewrite child tables from scratch. Correct regardless of
         // whether this was an insert or update.
@@ -254,7 +287,23 @@ impl CharacterStorage for PostgresStorage {
 
         let mut to_save = character;
         to_save.current_version_id = new_version_id;
-        self.save_character(&to_save).await
+        self.save_character(&to_save, VersionedSaveMode::NewVersion)
+            .await
+    }
+
+    async fn get_latest_version(&self, id: Snowflake) -> Result<Snowflake, StorageError> {
+        let version_id: Snowflake = sqlx::query_scalar(
+            r#"
+            SELECT current_version_id
+            FROM characters
+            WHERE id = $1
+            "#,
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(version_id)
     }
 }
 

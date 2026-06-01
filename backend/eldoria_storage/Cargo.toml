@@ -32,6 +32,8 @@ sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio-rustls", "chr
 # Redis caching
 redis = { version = "1", features = ["tokio-comp", "connection-manager"], optional = true }
 serde_yaml = "0.9.34"
+bytes = "1.11.1"
+hex = "0.4.3"
 
 [dev-dependencies]
 # Testing framework

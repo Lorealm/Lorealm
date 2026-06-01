@@ -1,3 +1,5 @@
+use std::{path::PathBuf, str::FromStr};
+
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
@@ -8,6 +10,7 @@ pub struct HostingConfig {
     pub ip: [u8; 4],
     #[serde(default = "default_port")]
     pub port: u16,
+    
 }
 
 fn default_ip() -> [u8; 4] {
@@ -20,8 +23,8 @@ fn default_port() -> u16 {
 impl Default for HostingConfig {
     fn default() -> Self {
         Self {
-            ip: [127, 0, 0, 1],
-            port: 1551,
+            ip: default_ip(),
+            port: default_port(),
         }
     }
 }

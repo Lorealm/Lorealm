@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use eldoria_storage::StorageManager;
 
 use crate::{
@@ -11,7 +12,9 @@ use crate::{
     },
 };
 
-pub struct ServiceProvider {
+pub struct ServiceManager {
+    /// A list of services which can be cleaned via a lazy routine sweep
+    cleanable: Arc<Vec<Arc<dyn CleanableService>>>,
     sessions: Arc<SessionService>,
     users: Arc<UserService>,
     permissions: Arc<PermissionService>,
@@ -20,10 +23,11 @@ pub struct ServiceProvider {
     lorebook: Arc<LorebookService>,
 }
 
-impl ServiceProvider {
+impl ServiceManager {
     pub fn new(storage_manager: &StorageManager, config: Arc<ConfigProvider>) -> Self {
         // General services
         let storage = storage_manager.storage();
+        let blob = storage_manager.blob();
         let snowflake = Arc::new(SnowflakeService::new(0)); // TODO: Change or derive from config
 
         // Session Service
@@ -47,6 +51,7 @@ impl ServiceProvider {
 
         let characters = Arc::new(CharacterService::new(
             Arc::clone(&storage),
+            Arc::clone(&blob),
             Arc::clone(&snowflake),
         ));
 
@@ -60,7 +65,13 @@ impl ServiceProvider {
             Arc::clone(&snowflake),
         ));
 
+        let cleanable: Vec<Arc<dyn CleanableService>> = vec![
+            Arc::clone(&characters) as Arc<dyn CleanableService>,
+            Arc::clone(&lorebook) as Arc<dyn CleanableService>,
+        ];
+
         Self {
+            cleanable: Arc::new(cleanable),
             sessions,
             users,
             permissions,
@@ -93,4 +104,12 @@ impl ServiceProvider {
     pub fn lorebooks(&self) -> &Arc<LorebookService> {
         &self.lorebook
     }
+}
+
+#[async_trait]
+pub trait CleanableService: Send + Sync {
+    /// Cleans the service.
+    ///
+    /// Returns amount of items cleaned.
+    async fn clean(&self) -> usize;
 }

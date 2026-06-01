@@ -1,12 +1,14 @@
 mod hosting;
 mod session;
 mod user;
+mod storage;
 
 use std::collections::HashMap;
 
 pub use hosting::HostingConfig;
 pub use session::*;
 pub use user::*;
+pub use storage::*;
 
 use serde::{Serialize, de::DeserializeOwned};
 
@@ -60,6 +62,7 @@ impl ConfigProvider {
     pub fn load() -> Self {
         let mut provider = Self::new();
         provider.register::<HostingConfig>();
+        provider.register::<StorageConfig>();
         provider.register::<SessionConfig>();
         provider.register::<UserConfig>();
         provider
