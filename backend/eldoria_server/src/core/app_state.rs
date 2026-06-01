@@ -3,12 +3,12 @@ use std::sync::Arc;
 use eldoria_storage::{StorageConfig, StorageManager};
 use secrecy::SecretString;
 
-use crate::{config::ConfigProvider, core::ServiceProvider};
+use crate::{config::ConfigProvider, core::ServiceManager};
 
 #[derive(Clone)]
 pub struct AppState {
     config_provider: Arc<ConfigProvider>,
-    service_provider: Arc<ServiceProvider>,
+    service_provider: Arc<ServiceManager>,
     secret: SecretString,
 }
 
@@ -16,7 +16,7 @@ impl AppState {
     pub(crate) async fn new(config: StorageConfig) -> anyhow::Result<Self> {
         let manager = StorageManager::new(config).await?;
         let config = Arc::new(ConfigProvider::load());
-        let service_provider = Arc::new(ServiceProvider::new(&manager, Arc::clone(&config)));
+        let service_provider = Arc::new(ServiceManager::new(&manager, Arc::clone(&config)));
 
         Ok(Self {
             config_provider: config,
@@ -28,7 +28,7 @@ impl AppState {
         })
     }
 
-    pub(crate) fn services(&self) -> &Arc<ServiceProvider> {
+    pub(crate) fn services(&self) -> &Arc<ServiceManager> {
         &self.service_provider
     }
 

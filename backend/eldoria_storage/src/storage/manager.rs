@@ -2,7 +2,7 @@
 use crate::CacheConfig;
 // #[cfg(feature = "surrealdb")]
 // use crate::backends::surrealdb::SurrealDbStorage;
-use crate::backends::{memory::MemoryStorage, postgres::PostgresStorage};
+use crate::{BlobStore, backends::{blob::FsBlobStore, memory::MemoryStorage, postgres::PostgresStorage}};
 #[cfg(feature = "redis")]
 use crate::storage::Storage;
 use crate::{BackendConfig, StorageConfig, StorageError};
@@ -13,6 +13,7 @@ use tracing::{error, info, warn};
 pub struct StorageManager {
     /// The active storage backend (possibly wrapped with cache)
     active_backend: Arc<dyn Storage>,
+    blob_store: Arc<dyn BlobStore>,
     /// Name of the active backend for logging
     backend_name: String,
     /// Whether caching is enabled
@@ -69,6 +70,7 @@ impl StorageManager {
 
                                 return Ok(Self {
                                     active_backend: final_backend,
+                                    blob_store: Arc::new(FsBlobStore::scaffold(config.data_directory).await?),
                                     backend_name,
                                     cache_enabled,
                                 });
@@ -140,6 +142,10 @@ impl StorageManager {
     /// Get the active storage backend
     pub fn storage(&self) -> Arc<dyn Storage> {
         Arc::clone(&self.active_backend)
+    }
+
+    pub fn blob(&self) -> Arc<dyn BlobStore> {
+        Arc::clone(&self.blob_store)
     }
 
     /// Get the name of the active backend

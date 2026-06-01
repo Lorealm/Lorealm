@@ -2,16 +2,172 @@ use std::{borrow::Cow, sync::Arc};
 
 use axum::{
     Json,
-    extract::{Multipart, State},
+    extract::{Multipart, Path, State},
+    http::header::{CACHE_CONTROL, CONTENT_TYPE},
+    response::{IntoResponse, Response},
 };
+use eldoria_storage::models::{Character, Snowflake};
 
 use crate::{
     core::AppState,
     errors::AppError,
     extract::{AuthenticatedSession, ResolvedPermissions},
-    routes::characters::types::ImportResult,
+    routes::characters::{dto::CharacterEdit, types::ImportResult},
     services::permission::Permissions,
 };
+
+async fn get_character(
+    state: Arc<AppState>,
+    session: AuthenticatedSession,
+    character_id: Snowflake,
+    version_id: Snowflake,
+) -> Result<Json<Character>, AppError> {
+    let char = state
+        .services()
+        .characters()
+        .load_version(character_id, version_id, session.user_id)
+        .await?;
+
+    return Ok(Json(char));
+}
+
+pub async fn get_character_version(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path((character_id, version_id)): Path<(Snowflake, Snowflake)>,
+) -> Result<Json<Character>, AppError> {
+    get_character(state, session, character_id, version_id).await
+}
+
+pub async fn get_character_latest(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(character_id): Path<Snowflake>,
+) -> Result<Json<Character>, AppError> {
+    let latest_version_id = state
+        .services()
+        .characters()
+        .get_latest_version_id(character_id)
+        .await?;
+
+    get_character(state, session, character_id, latest_version_id).await
+}
+
+pub async fn edit_character(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(character_id): Path<Snowflake>,
+    Json(request): Json<Vec<CharacterEdit>>,
+) -> Result<Json<Character>, AppError> {
+    let char_service = state.services().characters();
+    let latest_version = char_service.get_latest_version_id(character_id).await?;
+    let mut latest_char: Character = char_service
+        .load_version(character_id, latest_version, session.user_id)
+        .await?;
+    for edit in request {
+        latest_char = match edit {
+            CharacterEdit::Definition(edit_definition) => {
+                char_service
+                    .patch_definition(character_id, edit_definition)
+                    .await?
+            }
+            CharacterEdit::Metadata(edit_metadata) => {
+                char_service
+                    .patch_metadata(character_id, edit_metadata)
+                    .await?
+            }
+            CharacterEdit::AddGreeting { text } => {
+                char_service.add_greeting(character_id, text).await?
+            }
+            CharacterEdit::UpdateGreeting { id, text } => {
+                char_service.update_greeting(character_id, id, text).await?
+            }
+            CharacterEdit::RemoveGreeting { id } => {
+                char_service.remove_greeting(character_id, id).await?
+            }
+            CharacterEdit::ReorderGreetings { ids } => {
+                char_service.reorder_greetings(character_id, ids).await?
+            }
+            CharacterEdit::AddExample { content } => {
+                char_service.add_example(character_id, content).await?
+            }
+            CharacterEdit::UpdateExample { id, content } => {
+                char_service
+                    .update_example(character_id, id, content)
+                    .await?
+            }
+            CharacterEdit::RemoveExample { id } => {
+                char_service.remove_example(character_id, id).await?
+            }
+            CharacterEdit::ReorderExamples { ids } => {
+                char_service.reorder_example(character_id, ids).await?
+            }
+            CharacterEdit::SetTags { tags } => char_service.set_tags(character_id, tags).await?,
+            CharacterEdit::SetAltNames { alt_names } => {
+                char_service.set_alt_names(character_id, alt_names).await?
+            }
+        };
+    }
+    Ok(Json(latest_char))
+}
+
+async fn get_version_image(
+    state: Arc<AppState>,
+    session: AuthenticatedSession,
+    character_id: Snowflake,
+    version_id: Snowflake,
+    cache_control: &'static str,
+) -> Result<Response, AppError> {
+    let version = state
+        .services()
+        .characters()
+        .load_version(character_id, version_id, session.user_id)
+        .await?;
+
+    let avatar_bytes = state
+        .services()
+        .characters()
+        .avatar_from_uri(version.metadata.avatar_uri)
+        .await?;
+
+    let content_type = infer::get(&avatar_bytes)
+        .map(|t| t.mime_type())
+        .unwrap_or("application/octet-stream");
+
+    Ok((
+        [(CONTENT_TYPE, content_type), (CACHE_CONTROL, cache_control)],
+        avatar_bytes,
+    )
+        .into_response())
+}
+
+pub async fn get_image_for_version(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path((character_id, version_id)): Path<(Snowflake, Snowflake)>,
+) -> Result<Response, AppError> {
+    get_version_image(
+        state,
+        session,
+        character_id,
+        version_id,
+        "public, max-age=31536000, immutable",
+    )
+    .await
+}
+
+pub async fn get_image_for_latest(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(character_id): Path<Snowflake>,
+) -> Result<Response, AppError> {
+    let latest_version_id = state
+        .services()
+        .characters()
+        .get_latest_version_id(character_id)
+        .await?;
+    get_version_image(state, session, character_id, latest_version_id, "no-cache").await
+}
 
 pub async fn import_card(
     State(state): State<Arc<AppState>>,

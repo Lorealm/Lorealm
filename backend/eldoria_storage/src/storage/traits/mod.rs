@@ -1,3 +1,4 @@
+mod blob;
 mod characters;
 mod core;
 mod lorebook;
@@ -7,6 +8,7 @@ mod sessions;
 mod templates;
 mod users;
 
+pub use blob::BlobStore;
 pub use characters::CharacterStorage;
 pub use core::StorageCore;
 pub use lorebook::LorebookStorage;

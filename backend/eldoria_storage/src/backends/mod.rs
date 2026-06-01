@@ -1,3 +1,4 @@
+pub mod blob;
 pub mod cache;
 pub mod memory;
 pub mod postgres;
