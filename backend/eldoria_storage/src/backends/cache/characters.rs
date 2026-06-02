@@ -10,7 +10,9 @@
 
 use crate::backends::CachedStorage;
 use crate::error::StorageError;
-use crate::models::{Character, CharacterVersionInfo, Snowflake, VersionedSaveMode};
+use crate::models::{
+    Character, CharacterSummary, CharacterVersionInfo, Snowflake, VersionedSaveMode,
+};
 use crate::storage::CharacterStorage;
 use async_trait::async_trait;
 
@@ -22,6 +24,12 @@ impl CachedStorage {
 
 #[async_trait]
 impl CharacterStorage for CachedStorage {
+    async fn list_characters(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Vec<CharacterSummary>, StorageError> {
+        self.backend.list_characters(user_id).await
+    }
     async fn get_character(&self, id: Snowflake) -> Result<Option<Character>, StorageError> {
         let key = self.character_key(id);
         self.get_through(&key, self.backend.get_character(id)).await

@@ -6,7 +6,7 @@ use axum::{
     http::header::{CACHE_CONTROL, CONTENT_TYPE},
     response::{IntoResponse, Response},
 };
-use eldoria_storage::models::{Character, Snowflake};
+use eldoria_storage::models::{Character, CharacterSummary, Snowflake};
 
 use crate::{
     core::AppState,
@@ -15,6 +15,19 @@ use crate::{
     routes::characters::{dto::CharacterEdit, types::ImportResult},
     services::permission::Permissions,
 };
+
+pub async fn list_characters(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+) -> Result<Json<Vec<CharacterSummary>>, AppError> {
+    let chars = state
+        .services()
+        .characters()
+        .list_characters(session.user_id)
+        .await?;
+
+    Ok(Json(chars))
+}
 
 async fn get_character(
     state: Arc<AppState>,

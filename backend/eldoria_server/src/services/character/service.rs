@@ -4,7 +4,10 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use eldoria_storage::{
     BlobStore, Storage, StorageError,
-    models::{BlobId, Character, ExampleDialogue, Greeting, Snowflake, VersionedSaveMode},
+    models::{
+        BlobId, Character, CharacterSummary, ExampleDialogue, Greeting, Snowflake,
+        VersionedSaveMode,
+    },
 };
 use tokio::{sync::RwLock, time::Instant};
 
@@ -50,6 +53,13 @@ impl CharacterService {
             snowflake,
             editing_sessions: RwLock::new(HashMap::new()),
         }
+    }
+
+    pub async fn list_characters(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Vec<CharacterSummary>, CharacterServiceError> {
+        Ok(self.storage.list_characters(user_id).await?)
     }
 
     pub async fn load_version(

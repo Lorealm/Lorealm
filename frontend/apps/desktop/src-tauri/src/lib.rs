@@ -25,6 +25,8 @@ pub enum Error {
     Internal(String),
     #[error("Server Error: {error_code}")]
     Server { error_code: String, message: String },
+    #[error("HTTP {status}")]
+    HttpStatus { status: u16, body: serde_json::Value },
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -36,6 +38,7 @@ pub fn run() {
             http::http_post,
             http::http_put,
             http::http_delete,
+            http::http_get_blob,
             auth::login,
             auth::validate_token,
             auth::get_stored_token,

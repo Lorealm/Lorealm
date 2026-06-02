@@ -5,11 +5,12 @@
 //! a new `character_versions` row and atomically updates the head.
 
 use crate::error::StorageError;
-use crate::models::{Character, CharacterVersionInfo, Snowflake, VersionedSaveMode};
+use crate::models::{Character, CharacterSummary, CharacterVersionInfo, Snowflake, VersionedSaveMode};
 use async_trait::async_trait;
 
 #[async_trait]
 pub trait CharacterStorage: Send + Sync {
+    async fn list_characters(&self, user_id: Snowflake) -> Result<Vec<CharacterSummary>, StorageError>;
     /// Load the current version of a character, including child rows
     /// (tags, greetings, example messages). Returns `None` if absent.
     async fn get_character(&self, id: Snowflake) -> Result<Option<Character>, StorageError>;

@@ -8,8 +8,8 @@
 use crate::backends::PostgresStorage;
 use crate::error::StorageError;
 use crate::models::{
-    Character, CharacterDefinition, CharacterMetadata, CharacterVersionInfo, ExampleDialogue,
-    Greeting, Snowflake, VersionedSaveMode,
+    Character, CharacterDefinition, CharacterMetadata, CharacterSummary, CharacterVersionInfo,
+    ExampleDialogue, Greeting, Snowflake, VersionedSaveMode,
 };
 use crate::storage::CharacterStorage;
 use async_trait::async_trait;
@@ -18,6 +18,38 @@ use sqlx::FromRow;
 
 #[async_trait]
 impl CharacterStorage for PostgresStorage {
+    async fn list_characters(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Vec<CharacterSummary>, StorageError> {
+        let summaries = sqlx::query_as::<_, CharacterSummary>(
+            r#"
+            SELECT
+                c.id,
+                c.user_id,
+                c.lorebook_id,
+                c.updated_at,
+                COALESCE(v.snapshot->'definition'->>'name', '')       AS name,
+                v.snapshot->'metadata'->>'display_name'               AS display_name,
+                v.snapshot->'metadata'->>'avatar_uri'                 AS avatar_uri,
+                COALESCE(v.snapshot->'metadata'->>'card_version', '') AS card_version,
+                ARRAY(
+                    SELECT t.tag FROM character_tags t
+                    WHERE t.character_id = c.id
+                ) AS tags
+            FROM characters c
+            JOIN character_versions v ON v.id = c.current_version_id
+            WHERE c.user_id = $1
+            ORDER BY c.updated_at DESC
+            "#,
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(summaries)
+    }
+
     async fn get_character(&self, id: Snowflake) -> Result<Option<Character>, StorageError> {
         let head: Option<CharacterHeadRow> = sqlx::query_as(
             r#"

@@ -1,5 +1,6 @@
 import type { PlatformAPI } from '$lib/core/api.js';
 import type { LoginRequest, Session } from '$lib/types/auth.js';
+import type { Character, CharacterEdit, CharacterSummary } from '$lib/types/character.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type {
 	Lorebook,
@@ -76,6 +77,26 @@ export function createApiClient(platform: PlatformAPI) {
 					http.put<LorebookEntry>(`/api/v1/lorebooks/${lorebookId}/entries/${entryId}`, update),
 				delete: (lorebookId: Snowflake, entryId: Snowflake) =>
 					http.delete(`/api/v1/lorebooks/${lorebookId}/entries/${entryId}`)
+			}
+		},
+		characters: {
+			list: () => http.get<Array<CharacterSummary>>('/api/v1/characters'),
+			get: (characterId: Snowflake) => http.get<Character>(`/api/v1/characters/${characterId}`),
+			/** __Note on edit:__ Edits are applied in the same order the array is constructed
+			 *
+			 * The request will fail if any given edits fail, but preceeding edits will still apply.
+			 * Make sure to account for this on failure by refetching cards from source accordingly.
+			 */
+			update: (characterId: Snowflake, edit: CharacterEdit[]) =>
+				http.put<Character>(`/api/v1/characters/${characterId}`, edit),
+			avatar: (characterId: Snowflake) => http.getBlob(`/api/v1/characters/${characterId}/image`),
+			import: () =>
+				http.post(`/api/v1/characters/import`, { placeholder: 'this endpoint is not valid yet' }),
+			versions: {
+				get: (characterId: Snowflake, versionId: Snowflake) =>
+					http.get(`/api/v1/characters/${characterId}/versions/${versionId}`),
+				avatar: (characterId: Snowflake, versionId: Snowflake) =>
+					http.get(`/api/v1/characters/${characterId}/versions/${versionId}/image`)
 			}
 		}
 	};
