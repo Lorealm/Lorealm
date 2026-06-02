@@ -4,6 +4,7 @@
 	import { studioStore } from '$lib/stores/studio.svelte';
 	import type { Snowflake } from '$lib/types/core.js';
 	import TagField from './TagField.svelte';
+	import { DateTime } from 'luxon';
 
 	const SAVE_MS = 500;
 
@@ -37,11 +38,8 @@
 		characterStore.versions.find((v) => v.id === characterStore.currentVersionId) ?? null
 	);
 
-	function formatDate(value: unknown): string {
-		if (value && typeof (value as { toLocaleString?: unknown }).toLocaleString === 'function') {
-			return (value as { toLocaleString: () => string }).toLocaleString();
-		}
-		return String(value ?? '');
+	function formatDate(value: string): string {
+		return DateTime.fromISO(value as string).toLocaleString(DateTime.DATETIME_MED);
 	}
 
 	// (Re)open the editing session whenever the routed id changes. Untracked so

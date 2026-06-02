@@ -2,7 +2,6 @@
 // EntryMeta / Slot / LorebookConfig mirror the parsed `.weaver` frontmatter and
 // `lorebook.yaml`. Frontmatter round-tripping lives in weaver/weaverFile.ts.
 
-import type { DateTime } from 'luxon';
 import type { Snowflake } from './core.js';
 
 // ── Storage-facing (wire) types ────────────────────────────────────────────
@@ -15,8 +14,8 @@ export interface Lorebook {
 	description: string;
 	config_yaml: string;
 	schema_version: number;
-	created_at: DateTime;
-	updated_at: DateTime;
+	created_at: string;
+	updated_at: string;
 	entries: LorebookEntry[];
 }
 
@@ -36,7 +35,7 @@ export interface LorebookVersionInfo {
 	id: Snowflake;
 	version_num: number;
 	book_version: string;
-	created_at: DateTime;
+	created_at: string;
 }
 
 export interface LorebookMetadata {
