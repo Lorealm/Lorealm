@@ -1,5 +1,6 @@
 mod blob;
 mod characters;
+mod conversations;
 mod core;
 mod lorebook;
 mod lorebook_session;
@@ -10,6 +11,7 @@ mod users;
 
 pub use blob::BlobStore;
 pub use characters::CharacterStorage;
+pub use conversations::ConversationStorage;
 pub use core::StorageCore;
 pub use lorebook::LorebookStorage;
 pub use lorebook_session::LorebookSessionStorage;
@@ -27,6 +29,7 @@ pub trait Storage:
     + TemplateStorage
     + LorebookStorage
     + LorebookSessionStorage
+    + ConversationStorage
 {
 }
 
@@ -39,5 +42,6 @@ impl<T> Storage for T where
         + TemplateStorage
         + LorebookStorage
         + LorebookSessionStorage
+        + ConversationStorage
 {
 }

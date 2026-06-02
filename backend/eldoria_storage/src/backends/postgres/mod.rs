@@ -4,6 +4,7 @@ pub mod sessions;
 pub mod templates;
 pub mod users;
 pub mod lorebook;
+pub mod conversations;
 
 use crate::StorageCore;
 use crate::error::StorageError;

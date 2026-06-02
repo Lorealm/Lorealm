@@ -1,0 +1,132 @@
+//! Caching wrapper for ConversationStorage.
+//!
+//! Only the single-id reads (`get_conversation`, `get_message`) are cached —
+//! they fit the `get_through` Option<T> shape. The volatile collection reads
+//! (lists, children, active path) and all writes delegate straight to the
+//! backend; writes additionally invalidate the affected key.
+//!
+//! Known staleness: cascade deletes can orphan cached entries we can't
+//! enumerate by id. `delete_conversation` cascades its messages and
+//! `delete_message` cascades its subtree, but only the directly-named key is
+//! evicted here. Those orphaned message entries expire on their own TTL.
+
+use crate::ConversationStorage;
+use crate::backends::CachedStorage;
+use crate::error::StorageError;
+use crate::models::{
+    Conversation, ConversationMessage, ConversationMetadata, MessageEdit, Snowflake,
+};
+use async_trait::async_trait;
+
+#[async_trait]
+impl ConversationStorage for CachedStorage {
+    // ----- conversation rows -----
+
+    async fn list_conversations(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Vec<ConversationMetadata>, StorageError> {
+        self.backend.list_conversations(user_id).await
+    }
+
+    async fn get_conversation(&self, id: Snowflake) -> Result<Option<Conversation>, StorageError> {
+        let key = self.key("conversation", &id.to_string());
+        self.get_through(&key, self.backend.get_conversation(id))
+            .await
+    }
+
+    async fn create_conversation(
+        &self,
+        conversation: &Conversation,
+    ) -> Result<Snowflake, StorageError> {
+        self.backend.create_conversation(conversation).await
+    }
+
+    async fn update_conversation(
+        &self,
+        id: Snowflake,
+        title: Option<&str>,
+        active_leaf_id: Option<Snowflake>,
+    ) -> Result<(), StorageError> {
+        self.backend
+            .update_conversation(id, title, active_leaf_id)
+            .await?;
+        self.cache_del(&self.key("conversation", &id.to_string()))
+            .await;
+        Ok(())
+    }
+
+    async fn delete_conversation(&self, id: Snowflake) -> Result<bool, StorageError> {
+        let deleted = self.backend.delete_conversation(id).await?;
+        if deleted {
+            self.cache_del(&self.key("conversation", &id.to_string()))
+                .await;
+        }
+        Ok(deleted)
+    }
+
+    // ----- messages -----
+
+    async fn add_message(&self, message: &ConversationMessage) -> Result<Snowflake, StorageError> {
+        let id = self.backend.add_message(message).await?;
+        // The conversation's updated_at changed.
+        self.cache_del(&self.key("conversation", &message.conversation_id.to_string()))
+            .await;
+        Ok(id)
+    }
+
+    async fn append_and_advance(
+        &self,
+        message: &ConversationMessage,
+    ) -> Result<Snowflake, StorageError> {
+        let id = self.backend.append_and_advance(message).await?;
+        // The conversation's active_leaf_id and updated_at both changed.
+        self.cache_del(&self.key("conversation", &message.conversation_id.to_string()))
+            .await;
+        Ok(id)
+    }
+
+    async fn get_message(
+        &self,
+        id: Snowflake,
+    ) -> Result<Option<ConversationMessage>, StorageError> {
+        let key = self.key("message", &id.to_string());
+        self.get_through(&key, self.backend.get_message(id)).await
+    }
+
+    async fn list_messages(
+        &self,
+        conversation_id: Snowflake,
+    ) -> Result<Vec<ConversationMessage>, StorageError> {
+        self.backend.list_messages(conversation_id).await
+    }
+
+    async fn get_children(
+        &self,
+        conversation_id: Snowflake,
+        parent: Option<Snowflake>,
+    ) -> Result<Vec<ConversationMessage>, StorageError> {
+        self.backend.get_children(conversation_id, parent).await
+    }
+
+    async fn get_active_path(
+        &self,
+        conversation_id: Snowflake,
+    ) -> Result<Vec<ConversationMessage>, StorageError> {
+        self.backend.get_active_path(conversation_id).await
+    }
+
+    async fn update_message(&self, id: Snowflake, edit: &MessageEdit) -> Result<(), StorageError> {
+        self.backend.update_message(id, edit).await?;
+        self.cache_del(&self.key("message", &id.to_string())).await;
+        Ok(())
+    }
+
+    async fn delete_message(&self, id: Snowflake) -> Result<bool, StorageError> {
+        let deleted = self.backend.delete_message(id).await?;
+        if deleted {
+            self.cache_del(&self.key("message", &id.to_string())).await;
+        }
+        Ok(deleted)
+    }
+}

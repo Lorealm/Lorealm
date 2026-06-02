@@ -1,5 +1,6 @@
 mod characters;
 mod common;
+mod conversation;
 mod lorebook;
 mod permissions;
 mod sessions;
@@ -8,6 +9,7 @@ mod users;
 
 pub use characters::*;
 pub use common::*;
+pub use conversation::*;
 pub use lorebook::*;
 pub use permissions::*;
 pub use sessions::*;

@@ -1,4 +1,5 @@
 pub mod characters;
+pub mod conversations;
 pub mod lorebook;
 pub mod permissions;
 pub mod sessions;
@@ -26,6 +27,8 @@ pub struct MemoryStorage {
     pub(crate) lorebook_versions: RwLock<HashMap<Snowflake, StoredLorebookVersion>>,
     pub(crate) lorebook_sessions: RwLock<HashMap<Snowflake, LorebookSession>>,
     pub(crate) lorebooks: RwLock<HashMap<Snowflake, Lorebook>>,
+    pub(crate) conversations: RwLock<HashMap<Snowflake, Conversation>>,
+    pub(crate) messages: RwLock<HashMap<Snowflake, ConversationMessage>>,
 }
 
 impl MemoryStorage {
@@ -35,6 +38,44 @@ impl MemoryStorage {
 
     pub fn characters(&self) -> &RwLock<HashMap<Snowflake, Character>> {
         &self.characters
+    }
+
+    /// Count messages on the active path (leaf -> root) by walking `parent`.
+    fn active_path_len(
+        messages: &HashMap<Snowflake, ConversationMessage>,
+        leaf: Option<Snowflake>,
+    ) -> i64 {
+        let mut count = 0i64;
+        let mut current = leaf;
+        while let Some(id) = current {
+            match messages.get(&id) {
+                Some(m) => {
+                    count += 1;
+                    current = m.parent;
+                }
+                None => break,
+            }
+        }
+        count
+    }
+
+    /// Collect `root` and every descendant id (the subtree a cascade delete
+    /// would remove).
+    fn collect_subtree(
+        messages: &HashMap<Snowflake, ConversationMessage>,
+        root: Snowflake,
+    ) -> Vec<Snowflake> {
+        let mut found = vec![root];
+        let mut stack = vec![root];
+        while let Some(parent_id) = stack.pop() {
+            for (id, m) in messages.iter() {
+                if m.parent == Some(parent_id) {
+                    found.push(*id);
+                    stack.push(*id);
+                }
+            }
+        }
+        found
     }
 }
 
