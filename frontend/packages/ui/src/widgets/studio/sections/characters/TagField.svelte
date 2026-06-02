@@ -42,7 +42,7 @@
 </script>
 
 <div class="tag-field">
-	<label>{label}</label>
+	<label for="chips">{label}</label>
 	<div class="chips">
 		{#each items as item, i (item)}
 			<span class="chip">

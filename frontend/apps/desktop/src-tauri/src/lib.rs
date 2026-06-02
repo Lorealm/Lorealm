@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tauri::Manager;
 use tokio::sync::Mutex;
 
@@ -26,7 +26,10 @@ pub enum Error {
     #[error("Server Error: {error_code}")]
     Server { error_code: String, message: String },
     #[error("HTTP {status}")]
-    HttpStatus { status: u16, body: serde_json::Value },
+    HttpStatus {
+        status: u16,
+        body: serde_json::Value,
+    },
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

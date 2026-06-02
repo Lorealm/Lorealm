@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
@@ -11,12 +10,6 @@ use crate::{state::AppState, AppResult, Error};
 pub struct HttpResponse {
     pub status: u16,
     pub body: serde_json::Value,
-}
-
-#[derive(Serialize)]
-struct BlobBody {
-    content_type: String,
-    data: String, // base64
 }
 
 #[tauri::command]
