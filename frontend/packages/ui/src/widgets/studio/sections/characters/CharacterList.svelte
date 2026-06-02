@@ -2,7 +2,7 @@
 	import { characterStore } from '$lib/stores/character.svelte.js';
 	import { onMount } from 'svelte';
 	import { ArrowUpDown, Plus } from '@lucide/svelte';
-	import { studioStore } from '$lib/stores/studio.svelte.js';
+	import CharacterListItem from './CharacterListItem.svelte';
 
 	type SortKey = 'name-asc' | 'name-desc' | 'updated' | 'created';
 
@@ -80,12 +80,7 @@
 	{:else}
 		<div class="list">
 			{#each sortedCharacters as char (char.id)}
-				<button
-					onclick={() => {
-						characterStore.startEditing(char.id);
-						studioStore.open(char.id);
-					}}>{char.display_name ?? char.name}</button
-				>
+				<CharacterListItem summary={char} />
 			{/each}
 		</div>
 	{/if}
@@ -154,9 +149,7 @@
 	.list {
 		flex: 1 1 auto;
 		min-height: 0;
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(var(--grid-card-min), 1fr));
-		gap: var(--grid-gap);
+		display: flex;
 		padding: var(--spacing-lg);
 		overflow-y: auto;
 	}

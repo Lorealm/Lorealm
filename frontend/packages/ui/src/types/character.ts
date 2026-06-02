@@ -1,4 +1,3 @@
-import type { DateTime } from 'luxon';
 import type { Snowflake } from './core.ts';
 
 export interface CharacterSummary {
@@ -10,7 +9,7 @@ export interface CharacterSummary {
 	avatar_uri?: string;
 	card_version: string;
 	lorebook_id?: Snowflake;
-	updated_at: DateTime;
+	updated_at: string;
 }
 
 export interface Character {
@@ -29,7 +28,7 @@ export interface CharacterVersionInfo {
 	id: Snowflake;
 	version_num: number;
 	card_version: string;
-	created_at: DateTime;
+	created_at: string;
 }
 
 export interface CharacterMetadata {
@@ -43,8 +42,8 @@ export interface CharacterMetadata {
 	/** the HUMAN-facing version string ("1.2.0") */
 	card_version: string;
 	avatar_uri?: string;
-	created_at: DateTime;
-	updated_at: DateTime;
+	created_at: string;
+	updated_at: string;
 }
 
 export interface CharacterDefinition {

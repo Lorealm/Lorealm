@@ -1,8 +1,8 @@
 <!-- CharacterCard.svelte -->
 <script lang="ts">
 	import TransportImage from '$lib/components/TransportImage.svelte';
-	import { navigationStore, SidebarView } from '$lib/stores/navigation.svelte.ts';
-	import { studioStore } from '$lib/stores/studio.svelte.ts';
+	import { navigationStore, SidebarView } from '$lib/stores/navigation.svelte.js';
+	import { studioStore } from '$lib/stores/studio.svelte.js';
 	import type { CharacterSummary } from '$lib/types/character.js';
 	import { MessageCircle, Pencil } from '@lucide/svelte';
 

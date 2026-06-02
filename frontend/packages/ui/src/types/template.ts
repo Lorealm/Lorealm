@@ -1,4 +1,3 @@
-import type { DateTime } from 'luxon';
 import type { Snowflake } from './core.ts';
 import type { ContextNode, NodeContent, NodePath } from './node.ts';
 
@@ -57,9 +56,9 @@ export interface ContextTemplate {
 	nodes: ContextNode[];
 	/** Template format version for migrations (Rust `u32`). */
 	version: number;
-	/** When the template was created (ISO 8601 / RFC 3339 datetime string). */
+	/** When the template was created (ISO 8601 / RFC 3339 string string). */
 	created_at: string;
-	/** When the template was last modified (ISO 8601 / RFC 3339 datetime string). */
+	/** When the template was last modified (ISO 8601 / RFC 3339 string string). */
 	updated_at: string;
 }
 
@@ -70,6 +69,6 @@ export interface TemplateMetadata {
 	description: string;
 	node_count: number;
 	version: number;
-	created_at: DateTime;
-	updated_at: DateTime;
+	created_at: string;
+	updated_at: string;
 }
