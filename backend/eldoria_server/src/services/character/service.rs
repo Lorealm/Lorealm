@@ -5,8 +5,8 @@ use bytes::Bytes;
 use eldoria_storage::{
     BlobStore, Storage, StorageError,
     models::{
-        BlobId, Character, CharacterSummary, ExampleDialogue, Greeting, Snowflake,
-        VersionedSaveMode,
+        BlobId, Character, CharacterSummary, CharacterVersionInfo, ExampleDialogue, Greeting,
+        Snowflake, VersionedSaveMode,
     },
 };
 use tokio::{sync::RwLock, time::Instant};
@@ -94,6 +94,14 @@ impl CharacterService {
         Ok(self.storage.get_latest_version(character_id).await?)
     }
 
+    pub async fn list_versions(
+        &self,
+        character_id: Snowflake,
+        _user_id: Snowflake
+    ) -> Result<Vec<CharacterVersionInfo>, CharacterServiceError> {
+        Ok(self.storage.list_character_versions(character_id).await?)
+    }
+
     // Tries retrieving an avatar from blob storage using its uri.
     //
     // Returns an error if no blob is found
@@ -122,12 +130,12 @@ impl CharacterService {
         &self,
         character_id: Snowflake,
     ) -> Result<EditableCharacter, CharacterServiceError> {
-        let character = self.storage.get_character(character_id).await?.ok_or(
+        let mut character = self.storage.get_character(character_id).await?.ok_or(
             CharacterServiceError::NotFound(TargetType::Character, character_id),
         )?;
 
         let window = Duration::from_secs(SESSION_LENGTH); // TODO: config
-        let (mode, _target) = {
+        let (mode, target) = {
             let mut sessions = self.editing_sessions.write().await;
             match sessions.get_mut(&character.id) {
                 Some(s) if s.last_touched.elapsed() < window => {
@@ -147,6 +155,8 @@ impl CharacterService {
                 }
             }
         };
+
+        character.current_version_id = target;
         Ok(EditableCharacter {
             character,
             save_mode: mode,

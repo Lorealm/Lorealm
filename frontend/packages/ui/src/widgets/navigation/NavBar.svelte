@@ -1,5 +1,13 @@
 <script lang="ts">
-	import { ChevronLeft, Earth, MenuIcon, Palette, PencilIcon, Settings, User } from '@lucide/svelte';
+	import {
+		ChevronLeft,
+		Earth,
+		MenuIcon,
+		Palette,
+		PencilIcon,
+		Settings,
+		User
+	} from '@lucide/svelte';
 	import NavButton from './NavButton.svelte';
 	import { SidebarView } from '$lib/stores/navigation.svelte';
 	var collapsed = $state(false);
@@ -27,7 +35,7 @@
 	</div>
 	<NavButton label="Write" Icon={PencilIcon} {collapsed} view={SidebarView.Write} />
 	<NavButton label="Characters" Icon={User} {collapsed} view={SidebarView.Characters} />
-	<NavButton label="Worlds" Icon={Earth} {collapsed} view={SidebarView.Worlds} />
+	<NavButton label="Realms" Icon={Earth} {collapsed} view={SidebarView.Realm} />
 	<NavButton label="Studio" Icon={Palette} {collapsed} view={SidebarView.Studio} />
 
 	<div style="margin-top: auto; margin-bottom: 0.33em;">

@@ -8,7 +8,7 @@ export enum ActiveView {
 export enum SidebarView {
 	Write = 'Write',
 	Characters = 'Characters',
-	Worlds = 'Worlds',
+	Realm = 'Realm',
 	Studio = 'Studio',
 	Settings = 'Settings'
 }

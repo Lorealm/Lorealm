@@ -6,14 +6,14 @@ use axum::{
     http::header::{CACHE_CONTROL, CONTENT_TYPE},
     response::{IntoResponse, Response},
 };
-use eldoria_storage::models::{Character, CharacterSummary, Snowflake};
+use eldoria_storage::models::{Character, CharacterSummary, CharacterVersionInfo, Snowflake};
 
 use crate::{
     core::AppState,
     errors::AppError,
     extract::{AuthenticatedSession, ResolvedPermissions},
     routes::characters::{dto::CharacterEdit, types::ImportResult},
-    services::permission::Permissions,
+    services::{permission::Permissions, session},
 };
 
 pub async fn list_characters(
@@ -42,6 +42,20 @@ async fn get_character(
         .await?;
 
     return Ok(Json(char));
+}
+
+pub async fn list_character_versions(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(character_id): Path<Snowflake>,
+) -> Result<Json<Vec<CharacterVersionInfo>>, AppError> {
+    let versions = state
+        .services()
+        .characters()
+        .list_versions(character_id, session.user_id)
+        .await?;
+
+    Ok(Json(versions))
 }
 
 pub async fn get_character_version(

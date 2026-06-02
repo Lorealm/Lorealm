@@ -217,4 +217,13 @@
 	--scrollbar-track: transparent;
 	--scrollbar-thumb: rgba(255, 255, 255, 0.15);
 	--scrollbar-thumb-hover: rgba(255, 255, 255, 0.25);
+
+	/* ===== GRID ===== */
+	--grid-card-min-sm: 140px;
+	--grid-card-min-md: 180px;
+	--grid-card-min-lg: 240px;
+
+	/* active knob — swap to -sm / -lg, or override on a container */
+	--grid-card-min: var(--grid-card-min-sm);
+	--grid-gap: var(--spacing-lg);
 }

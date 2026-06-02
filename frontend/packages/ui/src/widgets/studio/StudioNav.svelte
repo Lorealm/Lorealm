@@ -1,13 +1,18 @@
 <script lang="ts">
 	import { studioStore, StudioSection } from '$lib/stores/studio.svelte';
 
-	const worlds = [
+	var selectedWorld = $state();
+
+	const realms = [
 		{ id: '1', name: 'Eldoria' },
 		{ id: '2', name: 'Earth' },
 		{ id: '3', name: 'Venus' }
 	];
 
+	const activeRealmExists = $derived(selectedWorld !== 'None');
+
 	const sections = [
+		{ id: StudioSection.Realm, label: 'Realm' },
 		{ id: StudioSection.Characters, label: 'Characters' },
 		{ id: StudioSection.Lorebooks, label: 'Lorebooks' },
 		{ id: StudioSection.Templates, label: 'Templates' },
@@ -16,22 +21,24 @@
 </script>
 
 <nav class="studioNav">
-	<select>
+	<select bind:value={selectedWorld}>
 		<option>None</option>
 		<hr />
-		{#each worlds as { id, name } (id)}
+		{#each realms as { id, name } (id)}
 			<option>{name}</option>
 		{/each}
 	</select>
 	<hr />
 	{#each sections as { id, label } (id)}
-		<button
-			class="tab"
-			class:active={studioStore.section === id}
-			onclick={() => studioStore.setSection(id)}
-		>
-			{label}
-		</button>
+		{#if id !== StudioSection.Realm || activeRealmExists}
+			<button
+				class="tab"
+				class:active={studioStore.section === id}
+				onclick={() => studioStore.setSection(id)}
+			>
+				{label}
+			</button>
+		{/if}
 	{/each}
 </nav>
 
