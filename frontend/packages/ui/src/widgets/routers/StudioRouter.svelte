@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { studioStore, StudioSection } from '$lib/stores/studio.svelte';
+	import Placeholder from '../Placeholder.svelte';
 	import StudioNav from '../studio/StudioNav.svelte';
 	import LorebooksSection from '../studio/sections/lorebook/LorebooksSection.svelte';
-	import Placeholder from '../Placeholder.svelte';
 	import TemplateSection from '../studio/sections/templates/TemplateSection.svelte';
+	import CharacterSection from '../studio/sections/characters/CharacterSection.svelte';
+	import RealmSection from '../studio/sections/realm/RealmSection.svelte';
 </script>
 
 <div style="display:flex; flex-direction:column; flex:1; min-height:0; padding:var(--spacing-sm)">
@@ -14,8 +16,10 @@
 	{:else if studioStore.section === StudioSection.Templates}
 		<TemplateSection />
 	{:else if studioStore.section === StudioSection.Characters}
-		<Placeholder label="Characters" />
+		<CharacterSection />
 	{:else if studioStore.section === StudioSection.Commands}
 		<Placeholder label="Commands" />
+	{:else if studioStore.section === StudioSection.Realm}
+	    <RealmSection />
 	{/if}
 </div>

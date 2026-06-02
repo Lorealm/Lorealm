@@ -1,4 +1,5 @@
 export enum StudioSection {
+	Realm,
 	Lorebooks,
 	Templates,
 	Characters,

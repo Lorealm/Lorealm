@@ -44,17 +44,28 @@
 	});
 </script>
 
-{#snippet error(alt: string | null)}
-	<span class="transport-image-error" aria-label={alt}></span>
-{/snippet}
-{#snippet loading()}
-	<span class="transport-image-loading" aria-label="Loading"></span>
-{/snippet}
+<span class="transport-image" data-status={status} {...rest}>
+	{#if status === 'loaded'}
+		<img src={objectUrl} {alt} />
+	{:else if status === 'error'}
+		<span class="transport-image-error" aria-label={alt}></span>
+	{:else}
+		<span class="transport-image-loading" aria-label="Loading"></span>
+	{/if}
+</span>
 
-{#if status === 'loaded'}
-	<img src={objectUrl} {alt} {...rest} />
-{:else if status === 'error'}
-	{@render error(alt)}
-{:else}
-	{@render loading()}
-{/if}
+<style>
+	img {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: cover; /* crops to fill; use `contain` to letterbox instead */
+	}
+
+	.transport-image-loading,
+	.transport-image-error {
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
+</style>

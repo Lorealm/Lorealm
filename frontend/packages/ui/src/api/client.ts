@@ -1,6 +1,6 @@
 import type { PlatformAPI } from '$lib/core/api.js';
 import type { LoginRequest, Session } from '$lib/types/auth.js';
-import type { Character, CharacterEdit, CharacterSummary } from '$lib/types/character.js';
+import type { Character, CharacterEdit, CharacterSummary, CharacterVersionInfo, ImportResult } from '$lib/types/character.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type {
 	Lorebook,
@@ -91,10 +91,11 @@ export function createApiClient(platform: PlatformAPI) {
 				http.put<Character>(`/api/v1/characters/${characterId}`, edit),
 			avatar: (characterId: Snowflake) => http.getBlob(`/api/v1/characters/${characterId}/image`),
 			import: () =>
-				http.post(`/api/v1/characters/import`, { placeholder: 'this endpoint is not valid yet' }),
-			versions: {
+				http.post<ImportResult>(`/api/v1/characters/import`, { placeholder: 'this endpoint is not valid yet' }),
+      versions: {
+        list: (characterId: Snowflake) => http.get<Array<CharacterVersionInfo>>(`/api/v1/characters/${characterId}/versions`),
 				get: (characterId: Snowflake, versionId: Snowflake) =>
-					http.get(`/api/v1/characters/${characterId}/versions/${versionId}`),
+					http.get<Character>(`/api/v1/characters/${characterId}/versions/${versionId}`),
 				avatar: (characterId: Snowflake, versionId: Snowflake) =>
 					http.get(`/api/v1/characters/${characterId}/versions/${versionId}/image`)
 			}
