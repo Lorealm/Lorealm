@@ -68,3 +68,16 @@ pub struct ExampleDialogue {
     pub order: u32,
     pub content: String,
 }
+
+#[derive(Debug, Serialize, FromRow, Clone)]
+pub struct CharacterSummary {
+    pub id: Snowflake,
+    pub user_id: Snowflake,
+    pub name: String,
+    pub display_name: Option<String>,
+    pub tags: Vec<String>,
+    pub avatar_uri: Option<String>,
+    pub card_version: String,
+    pub lorebook_id: Option<Snowflake>,
+    pub updated_at: DateTime<Utc>,
+}

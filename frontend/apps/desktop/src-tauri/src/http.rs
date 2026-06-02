@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
@@ -10,6 +11,12 @@ use crate::{state::AppState, AppResult, Error};
 pub struct HttpResponse {
     pub status: u16,
     pub body: serde_json::Value,
+}
+
+#[derive(Serialize)]
+struct BlobBody {
+    content_type: String,
+    data: String, // base64
 }
 
 #[tauri::command]
@@ -72,6 +79,18 @@ pub async fn http_delete(handle: AppHandle, path: String) -> AppResult<HttpRespo
     send_request(&handle, req).await
 }
 
+#[tauri::command]
+pub async fn http_get_blob(handle: AppHandle, path: String) -> AppResult<tauri::ipc::Response> {
+    let (base_url, client, token) = extract_request_deps(&handle).await?;
+
+    let mut req = client.get(format!("{base_url}{path}"));
+    if let Some(t) = token {
+        req = req.bearer_auth(t);
+    }
+
+    send_blob_request(&handle, req).await
+}
+
 async fn extract_request_deps(
     handle: &AppHandle,
 ) -> AppResult<(String, Arc<reqwest::Client>, Option<String>)> {
@@ -95,21 +114,7 @@ async fn send_request(handle: &AppHandle, req: reqwest::RequestBuilder) -> AppRe
     let response = req.send().await.map_err(|e| Error::Http(e.to_string()))?;
     let status = response.status().as_u16();
 
-    // Capture rotated token before consuming the response
-    if let Some(new_token) = response
-        .headers()
-        .get("X-New-Session-Token")
-        .and_then(|v| v.to_str().ok())
-    {
-        if let Some(state) = handle.try_state::<Mutex<AppState>>() {
-            let mut state = state.lock().await;
-            state.config.auth.session_token = Some(new_token.to_string());
-            state
-                .config
-                .save(&handle)
-                .map_err(|e| Error::Config(e.to_string()))?;
-        }
-    }
+    handle_token_rotation(handle, &response).await?;
 
     let text = response.text().await.unwrap_or_default();
     let body =
@@ -120,4 +125,47 @@ async fn send_request(handle: &AppHandle, req: reqwest::RequestBuilder) -> AppRe
     } */
 
     Ok(HttpResponse { status, body })
+}
+
+async fn send_blob_request(
+    handle: &AppHandle,
+    req: reqwest::RequestBuilder,
+) -> AppResult<tauri::ipc::Response> {
+    let response = req.send().await.map_err(|e| Error::Http(e.to_string()))?;
+    let status = response.status().as_u16();
+
+    handle_token_rotation(handle, &response).await?;
+
+    // Errors are small JSON — route them through Err so getBlob can rebuild ApiError.
+    if status >= 400 {
+        let text = response.text().await.unwrap_or_default();
+        let body = serde_json::from_str::<serde_json::Value>(&text)
+            .unwrap_or(serde_json::Value::String(text));
+        return Err(Error::HttpStatus { status, body });
+    }
+
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| Error::Http(e.to_string()))?;
+
+    Ok(tauri::ipc::Response::new(bytes.to_vec()))
+}
+
+async fn handle_token_rotation(handle: &AppHandle, response: &reqwest::Response) -> AppResult<()> {
+    if let Some(new_token) = response
+        .headers()
+        .get("X-New-Session-Token")
+        .and_then(|v| v.to_str().ok())
+    {
+        if let Some(state) = handle.try_state::<Mutex<AppState>>() {
+            let mut state = state.lock().await;
+            state.config.auth.session_token = Some(new_token.to_string());
+            state
+                .config
+                .save(handle)
+                .map_err(|e| Error::Config(e.to_string()))?;
+        }
+    }
+    Ok(())
 }

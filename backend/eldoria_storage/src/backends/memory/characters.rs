@@ -7,7 +7,9 @@
 
 use crate::backends::MemoryStorage;
 use crate::error::StorageError;
-use crate::models::{Character, CharacterVersionInfo, Snowflake, VersionedSaveMode};
+use crate::models::{
+    Character, CharacterSummary, CharacterVersionInfo, Snowflake, VersionedSaveMode,
+};
 use crate::storage::CharacterStorage;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -34,6 +36,30 @@ pub(crate) struct StoredVersion {
 
 #[async_trait]
 impl CharacterStorage for MemoryStorage {
+    async fn list_characters(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Vec<CharacterSummary>, StorageError> {
+        let chars = self.characters.read().await;
+        let summaries = chars
+            .iter()
+            .filter(|c| c.1.user_id == user_id)
+            .map(|o| CharacterSummary {
+                id: o.1.id,
+                name: o.1.definition.name.clone(),
+                user_id,
+                display_name: o.1.metadata.display_name.clone(),
+                tags: o.1.metadata.tags.clone(),
+                avatar_uri: o.1.metadata.avatar_uri.clone(),
+                card_version: o.1.metadata.card_version.clone(),
+                lorebook_id: o.1.lorebook_id,
+                updated_at: o.1.metadata.updated_at,
+            })
+            .collect();
+
+        Ok(summaries)
+    }
+
     async fn get_character(&self, id: Snowflake) -> Result<Option<Character>, StorageError> {
         let chars = self.characters.read().await;
         Ok(chars.get(&id).cloned())

@@ -68,6 +68,14 @@ interface HttpResponse {
 	body: unknown;
 }
 
+function sniffMime(b: Uint8Array): string {
+	if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+	if (b.length >= 4 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "image/png";
+	if (b.length >= 4 && b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return "image/gif";
+	if (b.length >= 12 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return "image/webp";
+	return "application/octet-stream";
+}
+
 const http: HttpTransport = {
 	async get<T>(path: string): Promise<T> {
 		return check<T>(await invoke<HttpResponse>("http_get", { path }));
@@ -80,7 +88,18 @@ const http: HttpTransport = {
 	},
 	async delete<T>(path: string): Promise<T> {
 		return check<T>(await invoke<HttpResponse>("http_delete", { path }));
-	},
+  },
+  async getBlob(path: string): Promise<Blob> {
+	try {
+		const buf = await invoke<ArrayBuffer>("http_get_blob", { path });
+		const bytes = new Uint8Array(buf);
+		return new Blob([bytes], { type: sniffMime(bytes) });
+	} catch (e) {
+		const err = (e as { HttpStatus?: { status: number; body: unknown } }).HttpStatus;
+		if (err) return check<never>({ status: err.status, body: err.body }); // always throws
+		throw e;
+	}
+  },
 };
 
 export const tauriPlatform: PlatformAPI = {
