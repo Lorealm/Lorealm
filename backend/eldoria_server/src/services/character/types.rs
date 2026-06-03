@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use eldoria_storage::models::{Character, Snowflake, VersionedSaveMode};
+use eldoria_storage::models::{Character, VersionedSaveMode};
 
 pub(super) struct EditableCharacter{
     pub character: Character,
