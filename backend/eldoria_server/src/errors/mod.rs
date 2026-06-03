@@ -1,5 +1,6 @@
 mod auth;
 mod card;
+mod chat;
 mod context;
 mod conversation;
 mod lorebook;
@@ -8,6 +9,7 @@ mod state;
 
 pub use auth::*;
 pub use card::*;
+pub use chat::*;
 pub use context::*;
 pub use conversation::*;
 pub use lorebook::*;
@@ -185,6 +187,23 @@ impl From<ContextError> for AppError {
                     message: Cow::Owned(e.client_message()),
                 },
             },
+            _ => AppError::Internal {
+                internal: Cow::Owned(err.client_message()),
+            },
+        }
+    }
+}
+
+impl From<ChatError> for AppError {
+    fn from(err: ChatError) -> Self {
+        tracing::error!("[ERROR] chat service: {err}");
+
+        match err {
+            ChatError::NotFound(_, _) | ChatError::NotOwned(_, _) => AppError::BadRequest {
+                code: "NOT_FOUND",
+                message: Cow::Owned(err.client_message()),
+            },
+            ChatError::Character(character_service_error) => character_service_error.into(),
             _ => AppError::Internal {
                 internal: Cow::Owned(err.client_message()),
             },
