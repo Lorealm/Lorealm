@@ -57,6 +57,12 @@ pub trait ConversationStorage: Send + Sync {
     /// conversation's `updated_at`. Does NOT move `active_leaf_id`.
     async fn add_message(&self, message: &ConversationMessage) -> Result<Snowflake, StorageError>;
 
+    async fn set_active_leaf(
+        &self,
+        conversation_id: Snowflake,
+        leaf: Option<Snowflake>,
+    ) -> Result<(), StorageError>;
+
     /// Append a message AND set it as the conversation's active leaf, in one
     /// transaction. This is the normal-turn path (reply / regenerate), so it's
     /// worth a dedicated atomic op rather than `add_message` + a separate
