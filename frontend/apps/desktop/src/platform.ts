@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import type { AuthApi, HttpTransport, PlatformAPI, Session, User } from "@eldoria-hub/ui";
 import { SvelteSet } from "svelte/reactivity";
 
@@ -76,30 +76,88 @@ function sniffMime(b: Uint8Array): string {
 	return "application/octet-stream";
 }
 
-const http: HttpTransport = {
-	async get<T>(path: string): Promise<T> {
-		return check<T>(await invoke<HttpResponse>("http_get", { path }));
-	},
-	async post<T>(path: string, body?: unknown): Promise<T> {
-		return check<T>(await invoke<HttpResponse>("http_post", { path, body: body ?? null }));
-	},
-	async put<T>(path: string, body?: unknown): Promise<T> {
-		return check<T>(await invoke<HttpResponse>("http_put", { path, body: body ?? null }));
-	},
-	async delete<T>(path: string): Promise<T> {
-		return check<T>(await invoke<HttpResponse>("http_delete", { path }));
-  },
-  async getBlob(path: string): Promise<Blob> {
-	try {
-		const buf = await invoke<ArrayBuffer>("http_get_blob", { path });
-		const bytes = new Uint8Array(buf);
-		return new Blob([bytes], { type: sniffMime(bytes) });
-	} catch (e) {
-		const err = (e as { HttpStatus?: { status: number; body: unknown } }).HttpStatus;
-		if (err) return check<never>({ status: err.status, body: err.body }); // always throws
-		throw e;
+type StreamEvent<T> =
+	| { kind: "message"; data: T }
+	| { kind: "error"; message: string }
+	| { kind: "done" };
+
+async function* stream<T>(path: string, body?: unknown): AsyncGenerator<T> {
+	const channel = new Channel<StreamEvent<T>>();
+
+	// Bridge push (channel.onmessage) to pull (the generator).
+	const queue: StreamEvent<T>[] = [];
+	let wake: (() => void) | null = null;
+	let finished = false;
+	let failure: unknown = null;
+
+	channel.onmessage = (msg) => {
+		queue.push(msg);
+		wake?.();
+		wake = null;
+	};
+
+	// Resolves once the SSE stream ends (a done/error message is already queued
+	// by then). Rejects ONLY on a pre-flight HTTP error — before any message.
+	invoke<void>("http_stream", { path, body: body ?? null, onEvent: channel })
+		.then(() => {
+			finished = true;
+		})
+		.catch((e) => {
+			const err = (e as { HttpStatus?: { status: number; body: unknown } }).HttpStatus;
+			if (err) {
+				try {
+					check<never>({ status: err.status, body: err.body }); // builds + throws ApiError
+				} catch (apiErr) {
+					failure = apiErr;
+				}
+			} else {
+				failure = e;
+			}
+		})
+		.finally(() => {
+			wake?.();
+			wake = null;
+		});
+
+	while (true) {
+		if (queue.length === 0) {
+			if (failure) throw failure;
+			if (finished) return;
+			await new Promise<void>((r) => (wake = r));
+			continue;
+		}
+		const msg = queue.shift()!;
+		if (msg.kind === "message") yield msg.data;
+		else if (msg.kind === "error") throw new Error(msg.message); // mid-stream failure
+		else return; // "done"
 	}
+}
+
+const http: HttpTransport = {
+  	async get<T>(path: string): Promise<T> {
+  		return check<T>(await invoke<HttpResponse>("http_get", { path }));
+  	},
+  	async post<T>(path: string, body?: unknown): Promise<T> {
+  		return check<T>(await invoke<HttpResponse>("http_post", { path, body: body ?? null }));
+  	},
+  	async put<T>(path: string, body?: unknown): Promise<T> {
+  		return check<T>(await invoke<HttpResponse>("http_put", { path, body: body ?? null }));
+  	},
+  	async delete<T>(path: string): Promise<T> {
+  		return check<T>(await invoke<HttpResponse>("http_delete", { path }));
+    },
+    async getBlob(path: string): Promise<Blob> {
+     	try {
+      		const buf = await invoke<ArrayBuffer>("http_get_blob", { path });
+      		const bytes = new Uint8Array(buf);
+      		return new Blob([bytes], { type: sniffMime(bytes) });
+     	} catch (e) {
+      		const err = (e as { HttpStatus?: { status: number; body: unknown } }).HttpStatus;
+      		if (err) return check<never>({ status: err.status, body: err.body }); // always throws
+      		throw e;
+        }
   },
+    stream
 };
 
 export const tauriPlatform: PlatformAPI = {
