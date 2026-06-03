@@ -10,7 +10,7 @@ use sha2::{Digest, Sha256};
 
 /// Snowflake ID — a 64-bit unique identifier encoding timestamp + worker + sequence.
 /// Generated in the application layer, stored as BIGINT in Postgres.
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Hash, sqlx::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Hash, Ord, sqlx::Type)]
 #[sqlx(transparent)]
 pub struct Snowflake(pub i64);
 

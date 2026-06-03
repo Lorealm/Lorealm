@@ -1,6 +1,7 @@
 mod auth;
 mod card;
 mod context;
+mod conversation;
 mod lorebook;
 mod permission;
 mod state;
@@ -8,6 +9,7 @@ mod state;
 pub use auth::*;
 pub use card::*;
 pub use context::*;
+pub use conversation::*;
 pub use lorebook::*;
 pub use permission::*;
 pub use state::*;

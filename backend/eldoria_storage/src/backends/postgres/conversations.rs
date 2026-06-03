@@ -173,6 +173,27 @@ impl ConversationStorage for PostgresStorage {
         Ok(message.id)
     }
 
+    async fn set_active_leaf(
+        &self,
+        conversation_id: Snowflake,
+        leaf: Option<Snowflake>,
+    ) -> Result<(), StorageError> {
+        let result = sqlx::query(
+            "UPDATE conversations SET active_leaf_id = $2, updated_at = now() WHERE id = $1",
+        )
+        .bind(conversation_id)
+        .bind(leaf)
+        .execute(&self.pool)
+        .await?;
+
+        if result.rows_affected() == 0 {
+            return Err(StorageError::NotFound(format!(
+                "Conversation {conversation_id} not found"
+            )));
+        }
+        Ok(())
+    }
+
     async fn append_and_advance(
         &self,
         message: &ConversationMessage,

@@ -3,7 +3,11 @@ use std::collections::HashSet;
 use async_trait::async_trait;
 use chrono::Utc;
 
-use crate::{ConversationStorage, StorageError, backends::MemoryStorage, models::{Conversation, ConversationMessage, ConversationMetadata, MessageEdit, Snowflake}};
+use crate::{
+    ConversationStorage, StorageError,
+    backends::MemoryStorage,
+    models::{Conversation, ConversationMessage, ConversationMetadata, MessageEdit, Snowflake},
+};
 
 #[async_trait]
 impl ConversationStorage for MemoryStorage {
@@ -105,6 +109,18 @@ impl ConversationStorage for MemoryStorage {
         }
 
         Ok(message.id)
+    }
+
+    async fn set_active_leaf(
+        &self,
+        conversation_id: Snowflake,
+        leaf: Option<Snowflake>,
+    ) -> Result<(), StorageError> {
+        if let Some(conv) = self.conversations.write().await.get_mut(&conversation_id) {
+            conv.active_leaf_id = leaf;
+            conv.updated_at = Utc::now();
+        };
+        Ok(())
     }
 
     async fn append_and_advance(
