@@ -1,15 +1,19 @@
 use std::fmt::Display;
 
+use context_weaver::ContextWeaverError;
 use eldoria_storage::{StorageError, models::Snowflake};
 use thiserror::Error;
 
-use crate::{errors::LorebookError, services::context::NodePath};
+use crate::{
+    errors::{LorebookError, StateError},
+    services::context::NodePath,
+};
 
 #[derive(Debug)]
 pub enum ContextType {
     Template,
     Lorebook,
-    LorebookEntry
+    LorebookEntry,
 }
 
 impl Display for ContextType {
@@ -28,23 +32,46 @@ pub enum ContextError {
     Storage(#[from] StorageError),
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
+    #[error("Serialization error: {0}")]
+    Yaml(#[from] serde_yaml::Error),
     #[error("Template error: {0}")]
     Template(#[from] TemplateError),
     #[error("Lorebook error: {0}")]
     Lorebook(#[from] LorebookError),
+    #[error("State error: {0}")]
+    State(#[from] StateError),
+    #[error("ContextWeaver error: {0}")]
+    ContextWeaver(#[from] ContextWeaverError),
     #[error("{0} not found: {1}")]
     NotFound(ContextType, Snowflake),
+    #[error("Resolver not found: {0}")]
+    ResolverNotFound(String),
+    #[error("Resolver found no active character")]
+    NoActiveCharacter,
+    #[error("Unknown source node: {source_id}:{node_id}")]
+    UnknownSourceNode { source_id: String, node_id: String },
 }
 
 impl ContextError {
     pub fn client_message(&self) -> String {
         match self {
-            ContextError::Storage(_) | ContextError::Serialization(_) => {
+            ContextError::Storage(_) | ContextError::Serialization(_) | ContextError::Yaml(_) => {
                 "Unknown error".to_string()
             }
-            ContextError::NotFound(ctx_type, snowflake) => format!("{ctx_type} not found: {snowflake}"),
+            ContextError::NotFound(ctx_type, snowflake) => {
+                format!("{ctx_type} not found: {snowflake}")
+            }
             ContextError::Template(template_error) => template_error.client_message(),
             ContextError::Lorebook(lorebook_error) => lorebook_error.client_message(),
+            ContextError::ResolverNotFound(resolver) => format!("resolver not found: {resolver}"),
+            ContextError::State(state_error) => state_error.client_message(),
+            ContextError::NoActiveCharacter => "resolver found no active character".to_string(),
+            ContextError::UnknownSourceNode { source_id, node_id } => {
+                format!("Unknown source node: {source_id}:{node_id}")
+            }
+            ContextError::ContextWeaver(context_weaver_error) => {
+                format!("ContextWeaver: {context_weaver_error}")
+            }
         }
     }
 }

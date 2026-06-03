@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     errors::{ContextError, TemplateError},
-    services::{context::providers::SourceRegistry, snowflake::SnowflakeService},
+    services::{context::{PromptRole, providers::SourceRegistry}, snowflake::SnowflakeService},
 };
 
 pub mod providers;
@@ -20,6 +20,19 @@ pub enum GroupMode {
     Collection,
     /// Makes the group act as a "toggle-group". Only allows the selection of a single item within this group.
     Invariant,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum GroupWrapMode {
+    /// Only creates wrappers if all [`PromptRole`]s are the same
+    NoMixed,
+    /// Wraps around the most abundant [`PromptRole`]
+    Majority,
+    /// Creates new wrapper groups for each prompt role
+    All,
+    /// Only create for this specific prompt role
+    Only(PromptRole)
 }
 
 /// Defines what kind of node this is and its type-specific data
@@ -46,6 +59,7 @@ pub enum NodeContent {
     /// A grouping container for organization
     Group {
         children: Vec<ContextNode>,
+        wrap_mode: GroupWrapMode,
         /// Optional text to prepend before group contents
         prefix: Option<String>,
         /// Optional text to append after group contents
@@ -101,6 +115,7 @@ impl ContextNode {
             enabled: true,
             content: NodeContent::Group {
                 children,
+                wrap_mode: GroupWrapMode::NoMixed,
                 prefix: None,
                 suffix: None,
                 always_include_wrappers: false,

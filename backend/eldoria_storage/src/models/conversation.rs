@@ -6,7 +6,7 @@ use sqlx::prelude::FromRow;
 
 use crate::models::Snowflake;
 
-#[derive(Debug, Serialize, Deserialize, Clone, sqlx::Type)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, sqlx::Type)]
 #[sqlx(type_name = "TEXT", rename_all = "lowercase")]
 pub enum ChatRole {
     System,
