@@ -4,8 +4,7 @@ use std::sync::Arc;
 use chrono::Utc;
 
 use eldoria_storage::{
-    ConversationStorage,
-    models::{ChatRole, ConversationMessage, MessageEdit, Snowflake},
+    ConversationStorage, Storage, models::{ChatRole, ConversationMessage, MessageEdit, Snowflake}
 };
 
 use crate::{
@@ -17,12 +16,12 @@ use crate::{
 };
 
 pub struct ConversationService {
-    storage: Arc<dyn ConversationStorage>,
+    storage: Arc<dyn Storage>,
     snowflake: Arc<SnowflakeService>,
 }
 
 impl ConversationService {
-    pub fn new(storage: Arc<dyn ConversationStorage>, snowflake: Arc<SnowflakeService>) -> Self {
+    pub fn new(storage: Arc<dyn Storage>, snowflake: Arc<SnowflakeService>) -> Self {
         Self { storage, snowflake }
     }
 
@@ -332,8 +331,7 @@ mod tests {
 
     use async_trait::async_trait;
     use eldoria_storage::{
-        StorageError,
-        models::{Conversation, ConversationMetadata},
+        StorageError, backends::MemoryStorage, models::{Conversation, ConversationMetadata}
     };
 
     use super::*;
@@ -346,223 +344,21 @@ mod tests {
         messages: HashMap<Snowflake, ConversationMessage>,
     }
 
-    struct InMemoryStore {
-        inner: Mutex<Inner>,
-    }
-
-    impl InMemoryStore {
-        fn new() -> Self {
-            Self {
-                inner: Mutex::new(Inner::default()),
-            }
-        }
-
-        fn subtree_ids(
-            messages: &HashMap<Snowflake, ConversationMessage>,
-            root: Snowflake,
-        ) -> Vec<Snowflake> {
-            let mut out = Vec::new();
-            let mut stack = vec![root];
-            while let Some(id) = stack.pop() {
-                out.push(id);
-                for m in messages.values() {
-                    if m.parent == Some(id) {
-                        stack.push(m.id);
-                    }
+    fn subtree_ids(
+        messages: &HashMap<Snowflake, ConversationMessage>,
+        root: Snowflake,
+    ) -> Vec<Snowflake> {
+        let mut out = Vec::new();
+        let mut stack = vec![root];
+        while let Some(id) = stack.pop() {
+            out.push(id);
+            for m in messages.values() {
+                if m.parent == Some(id) {
+                    stack.push(m.id);
                 }
             }
-            out
         }
-    }
-
-    #[async_trait]
-    impl ConversationStorage for InMemoryStore {
-        async fn list_conversations(
-            &self,
-            _user_id: Snowflake,
-        ) -> Result<Vec<ConversationMetadata>, StorageError> {
-            Ok(Vec::new()) // not exercised by ConversationService
-        }
-
-        async fn get_conversation(
-            &self,
-            id: Snowflake,
-        ) -> Result<Option<Conversation>, StorageError> {
-            Ok(self.inner.lock().unwrap().conversations.get(&id).cloned())
-        }
-
-        async fn create_conversation(
-            &self,
-            conversation: &Conversation,
-        ) -> Result<Snowflake, StorageError> {
-            let mut g = self.inner.lock().unwrap();
-            g.conversations
-                .insert(conversation.id, conversation.clone());
-            Ok(conversation.id)
-        }
-
-        async fn update_conversation(
-            &self,
-            id: Snowflake,
-            title: Option<&str>,
-            active_leaf_id: Option<Snowflake>,
-        ) -> Result<(), StorageError> {
-            let mut g = self.inner.lock().unwrap();
-            let Some(c) = g.conversations.get_mut(&id) else {
-                return Err(StorageError::NotFound(format!(
-                    "Conversation {id} not found"
-                )));
-            };
-            c.title = title.map(|s| s.to_string());
-            c.active_leaf_id = active_leaf_id;
-            c.updated_at = Utc::now();
-            Ok(())
-        }
-
-        async fn delete_conversation(&self, id: Snowflake) -> Result<bool, StorageError> {
-            let mut g = self.inner.lock().unwrap();
-            let existed = g.conversations.remove(&id).is_some();
-            g.messages.retain(|_, m| m.conversation_id != id);
-            Ok(existed)
-        }
-
-        async fn add_message(
-            &self,
-            message: &ConversationMessage,
-        ) -> Result<Snowflake, StorageError> {
-            let mut g = self.inner.lock().unwrap();
-            g.messages.insert(message.id, message.clone());
-            if let Some(c) = g.conversations.get_mut(&message.conversation_id) {
-                c.updated_at = Utc::now();
-            }
-            Ok(message.id)
-        }
-
-        async fn append_and_advance(
-            &self,
-            message: &ConversationMessage,
-        ) -> Result<Snowflake, StorageError> {
-            let mut g = self.inner.lock().unwrap();
-            g.messages.insert(message.id, message.clone());
-            if let Some(c) = g.conversations.get_mut(&message.conversation_id) {
-                c.active_leaf_id = Some(message.id);
-                c.updated_at = Utc::now();
-            }
-            Ok(message.id)
-        }
-
-        async fn get_message(
-            &self,
-            id: Snowflake,
-        ) -> Result<Option<ConversationMessage>, StorageError> {
-            Ok(self.inner.lock().unwrap().messages.get(&id).cloned())
-        }
-
-        async fn list_messages(
-            &self,
-            conversation_id: Snowflake,
-        ) -> Result<Vec<ConversationMessage>, StorageError> {
-            let g = self.inner.lock().unwrap();
-            Ok(g.messages
-                .values()
-                .filter(|m| m.conversation_id == conversation_id)
-                .cloned()
-                .collect())
-        }
-
-        async fn get_children(
-            &self,
-            conversation_id: Snowflake,
-            parent: Option<Snowflake>,
-        ) -> Result<Vec<ConversationMessage>, StorageError> {
-            let g = self.inner.lock().unwrap();
-            let mut children: Vec<ConversationMessage> = g
-                .messages
-                .values()
-                .filter(|m| m.conversation_id == conversation_id && m.parent == parent)
-                .cloned()
-                .collect();
-            children.sort_by_key(|m| m.order);
-            Ok(children)
-        }
-
-        async fn get_active_path(
-            &self,
-            conversation_id: Snowflake,
-        ) -> Result<Vec<ConversationMessage>, StorageError> {
-            let g = self.inner.lock().unwrap();
-            let Some(conv) = g.conversations.get(&conversation_id) else {
-                return Ok(Vec::new());
-            };
-            let mut path = Vec::new();
-            let mut cursor = conv.active_leaf_id;
-            while let Some(id) = cursor {
-                let Some(m) = g.messages.get(&id) else { break };
-                path.push(m.clone());
-                cursor = m.parent;
-                if path.len() > g.messages.len() {
-                    break;
-                }
-            }
-            path.reverse();
-            Ok(path)
-        }
-
-        async fn update_message(
-            &self,
-            id: Snowflake,
-            edit: &MessageEdit,
-        ) -> Result<(), StorageError> {
-            let mut g = self.inner.lock().unwrap();
-            let Some(m) = g.messages.get_mut(&id) else {
-                return Err(StorageError::NotFound(format!("Message {id} not found")));
-            };
-            if let Some(content) = &edit.content {
-                m.content = content.clone();
-            }
-            if let Some(metadata) = &edit.metadata {
-                m.metadata = metadata.clone();
-            }
-            m.updated_at = Utc::now();
-            Ok(())
-        }
-
-        async fn delete_message(&self, id: Snowflake) -> Result<bool, StorageError> {
-            let mut g = self.inner.lock().unwrap();
-            if !g.messages.contains_key(&id) {
-                return Ok(false);
-            }
-            let conv_id = g.messages.get(&id).expect("checked above").conversation_id;
-            let removed = Self::subtree_ids(&g.messages, id);
-            for rid in &removed {
-                g.messages.remove(rid);
-            }
-            // Mirror ON DELETE SET NULL on the active leaf.
-            if let Some(c) = g.conversations.get_mut(&conv_id) {
-                if let Some(leaf) = c.active_leaf_id {
-                    if removed.contains(&leaf) {
-                        c.active_leaf_id = None;
-                    }
-                }
-            }
-            Ok(true)
-        }
-
-        async fn set_active_leaf(
-            &self,
-            conversation_id: Snowflake,
-            leaf: Option<Snowflake>,
-        ) -> Result<(), StorageError> {
-            let mut g = self.inner.lock().unwrap();
-            let Some(c) = g.conversations.get_mut(&conversation_id) else {
-                return Err(StorageError::NotFound(format!(
-                    "Conversation {conversation_id} not found"
-                )));
-            };
-            c.active_leaf_id = leaf;
-            c.updated_at = Utc::now();
-            Ok(())
-        }
+        out
     }
 
     // ---- helpers ----------------------------------------------------------
@@ -574,12 +370,12 @@ mod tests {
 
     async fn setup() -> (
         ConversationService,
-        Arc<InMemoryStore>,
+        Arc<MemoryStorage>,
         Snowflake,
         Arc<SnowflakeService>,
     ) {
         let snow = snowflakes();
-        let store = Arc::new(InMemoryStore::new());
+        let store = Arc::new(MemoryStorage::new());
         let now = Utc::now();
         let conv = Conversation {
             id: snow.generate(),
@@ -627,7 +423,7 @@ mod tests {
             .unwrap()
     }
 
-    async fn active_leaf(store: &InMemoryStore, c: Snowflake) -> Option<Snowflake> {
+    async fn active_leaf(store: &MemoryStorage, c: Snowflake) -> Option<Snowflake> {
         store
             .get_conversation(c)
             .await

@@ -6,9 +6,10 @@ use eldoria_storage::StorageManager;
 use crate::{
     config::{ConfigProvider, SessionConfig, UserConfig},
     services::{
-        character::CharacterService, context::ContextService, lorebook::LorebookService,
+        character::CharacterService, chat::ChatService, context::ContextService,
+        conversation::ConversationService, lorebook::LorebookService,
         permission::service::PermissionService, session::SessionService,
-        snowflake::SnowflakeService, users::UserService,
+        snowflake::SnowflakeService, state::StateService, users::UserService,
     },
 };
 
@@ -21,6 +22,9 @@ pub struct ServiceManager {
     characters: Arc<CharacterService>,
     context: Arc<ContextService>,
     lorebook: Arc<LorebookService>,
+    state: Arc<StateService>,
+    conversation: Arc<ConversationService>,
+    chat: Arc<ChatService>,
 }
 
 impl ServiceManager {
@@ -65,6 +69,23 @@ impl ServiceManager {
             Arc::clone(&snowflake),
         ));
 
+        let state = Arc::new(StateService::new(
+            Arc::clone(&lorebook),
+            Arc::clone(&characters),
+        ));
+
+        let conversation = Arc::new(ConversationService::new(
+            Arc::clone(&storage),
+            Arc::clone(&snowflake),
+        ));
+
+        let chat = Arc::new(ChatService::new(
+            Arc::clone(&storage),
+            Arc::clone(&snowflake),
+            Arc::clone(&conversation),
+            Arc::clone(&characters),
+        ));
+
         let cleanable: Vec<Arc<dyn CleanableService>> = vec![
             Arc::clone(&characters) as Arc<dyn CleanableService>,
             Arc::clone(&lorebook) as Arc<dyn CleanableService>,
@@ -78,6 +99,9 @@ impl ServiceManager {
             characters,
             context,
             lorebook,
+            state,
+            conversation,
+            chat,
         }
     }
 
@@ -103,6 +127,10 @@ impl ServiceManager {
 
     pub fn lorebooks(&self) -> &Arc<LorebookService> {
         &self.lorebook
+    }
+
+    pub fn chat(&self) -> &Arc<ChatService> {
+        &self.chat
     }
 }
 

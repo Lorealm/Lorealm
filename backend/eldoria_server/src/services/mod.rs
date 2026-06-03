@@ -1,4 +1,5 @@
 pub mod character;
+pub mod chat;
 pub mod context;
 pub mod conversation;
 pub mod lorebook;
