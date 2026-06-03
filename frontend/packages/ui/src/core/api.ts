@@ -16,12 +16,16 @@ export interface AuthApi {
 }
 
 export interface HttpTransport {
-  /* JSON */
+	/* JSON */
 	get<T>(path: string): Promise<T>;
 	post<T>(path: string, body?: unknown): Promise<T>;
 	put<T>(path: string, body?: unknown): Promise<T>;
-  delete<T>(path: string): Promise<T>;
+	delete<T>(path: string): Promise<T>;
 
-  /* Bytes */
-  getBlob(path: string): Promise<Blob>;
+	/* Bytes */
+	getBlob(path: string): Promise<Blob>;
+
+	/* SSE stream — POSTs `body`, then yields each event as it arrives.
+	   Throws ApiError on a pre-flight HTTP error; throws on a mid-stream error event. */
+	stream<T>(path: string, body?: unknown): AsyncIterable<T>;
 }

@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
+use eventsource_stream::Eventsource;
+use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
+use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 
@@ -10,6 +13,14 @@ use crate::{state::AppState, AppResult, Error};
 pub struct HttpResponse {
     pub status: u16,
     pub body: serde_json::Value,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum StreamEvent {
+    Message { data: serde_json::Value },
+    Error { message: String },
+    Done,
 }
 
 #[tauri::command]
@@ -82,6 +93,69 @@ pub async fn http_get_blob(handle: AppHandle, path: String) -> AppResult<tauri::
     }
 
     send_blob_request(&handle, req).await
+}
+
+#[tauri::command]
+pub async fn http_stream(
+    handle: AppHandle,
+    path: String,
+    body: serde_json::Value,
+    on_event: Channel<StreamEvent>,
+) -> AppResult<()> {
+    let (base_url, client, token) = extract_request_deps(&handle).await?;
+
+    let mut req = client.post(format!("{base_url}{path}")).json(&body);
+    if let Some(t) = token {
+        req = req.bearer_auth(t);
+    }
+
+    let response = req.send().await.map_err(|e| Error::Http(e.to_string()))?;
+    let status = response.status().as_u16();
+
+    handle_token_rotation(&handle, &response).await?;
+
+    // Pre-flight error (the handler's `?` path): small JSON body, route through
+    // Err so the frontend rebuilds ApiError just like getBlob does.
+    if status >= 400 {
+        let text = response.text().await.unwrap_or_default();
+        let body = serde_json::from_str::<serde_json::Value>(&text)
+            .unwrap_or(serde_json::Value::String(text));
+        return Err(Error::HttpStatus { status, body });
+    }
+
+    let mut stream = response.bytes_stream().eventsource();
+
+    while let Some(event) = stream.next().await {
+        match event {
+            Ok(ev) => {
+                let data = serde_json::from_str::<serde_json::Value>(&ev.data)
+                    .unwrap_or(serde_json::Value::String(ev.data));
+
+                // Your axum handler tags failures with `.event("error")`.
+                if ev.event == "error" {
+                    let message = data
+                        .get("message")
+                        .and_then(|m| m.as_str())
+                        .unwrap_or("stream error")
+                        .to_string();
+                    let _ = on_event.send(StreamEvent::Error { message });
+                    return Ok(());
+                }
+
+                let _ = on_event.send(StreamEvent::Message { data });
+            }
+            Err(e) => {
+                // Transport-level break mid-stream (connection dropped, etc.)
+                let _ = on_event.send(StreamEvent::Error {
+                    message: e.to_string(),
+                });
+                return Ok(());
+            }
+        }
+    }
+
+    let _ = on_event.send(StreamEvent::Done);
+    Ok(())
 }
 
 async fn extract_request_deps(
