@@ -101,6 +101,7 @@ export interface FullConversation {
  * snake_case.
  */
 export type ChatStreamEvent =
+	| { type: 'user_message'; message: ConversationMessage }
 	/** A chunk of generated text. Client appends to a provisional bubble. */
 	| { type: 'delta'; content: string }
 	/**

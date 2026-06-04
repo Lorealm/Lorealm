@@ -1,13 +1,13 @@
-use std::{collections::HashMap, pin::Pin, sync::Arc};
+use std::{pin::Pin, sync::Arc};
 
 use chrono::Utc;
+use eldoria_providers::{Client, OpenRouterProvider};
 use eldoria_storage::{
     Storage,
     models::{ChatRole, Conversation, ConversationMessage, ConversationMetadata, Snowflake},
 };
 use futures_util::{Stream, StreamExt};
 use serde_json::json;
-use tokio::sync::RwLock;
 
 use crate::{
     errors::{ChatError, TargetType},
@@ -15,7 +15,7 @@ use crate::{
         character::CharacterService,
         chat::{ChatStreamEvent, FullConversation},
         context::{
-            ResolveContext, ResolverRegistry, TracedBlock, assemble,
+            PromptRole, ResolveContext, ResolverRegistry, TracedBlock, assemble,
             builtin::register_builtin_resolvers,
         },
         conversation::{ConversationService, EditMode},
@@ -321,6 +321,7 @@ impl ChatService {
         // Synchronous resolution: maybe create the user message, decide where the
         // assistant attaches, and which leaf the prompt thread ends at.
         let assembly_leaf: Option<Snowflake>;
+        let created_user: Option<ConversationMessage>;
         let persist: Persist;
 
         match (content, target) {
@@ -332,6 +333,7 @@ impl ChatService {
                     .await?;
                 assembly_leaf = Some(user.id);
                 persist = Persist::Child(user.id);
+                created_user = Some(user);
             }
             // User-message swipe commit: user sibling of `target`, then reply.
             (Some(text), Some(t)) => {
@@ -342,12 +344,14 @@ impl ChatService {
                     .await?;
                 assembly_leaf = Some(user.id);
                 persist = Persist::Child(user.id);
+                created_user = Some(user);
             }
             // Assistant-message swipe.
             (None, Some(t)) => {
                 let msg = self.owned_message(t, convo_id).await?;
                 assembly_leaf = msg.parent;
                 persist = Persist::Sibling(t);
+                created_user = None;
             }
             // Continue / regenerate from the leaf.
             (None, None) => {
@@ -357,6 +361,7 @@ impl ChatService {
                     .ok_or(ChatError::NotFound(TargetType::Message, convo_id))?;
                 assembly_leaf = Some(leaf);
                 persist = Persist::Child(leaf);
+                created_user = None;
             }
         }
 
@@ -377,7 +382,16 @@ impl ChatService {
             assemble(&template, &self.resolvers, &ctx).await?
         };
 
-        let token_stream = self.infer(thread).await?;
+        let mut ephemeral_prompt: Vec<super::PromptMessage> = Vec::with_capacity(trace.len());
+
+        for traced in &trace {
+            ephemeral_prompt.push(super::PromptMessage {
+                role: traced.block.role.clone(),
+                content: traced.block.content.clone(),
+            });
+        }
+
+        let token_stream = self.infer(ephemeral_prompt).await?;
 
         // Forward deltas, accumulate, persist on completion. Buffer-then-persist:
         // the assistant row exists exactly when the leaf advances.
@@ -385,6 +399,11 @@ impl ChatService {
         let stream = async_stream::try_stream! {
             let mut acc = String::new();
             futures_util::pin_mut!(token_stream);
+
+            if let Some(user) = created_user {
+                yield ChatStreamEvent::UserMessage { message: user };
+            }
+
             while let Some(delta) = token_stream.next().await {
                 let delta = delta?;
                 acc.push_str(&delta);
@@ -411,11 +430,6 @@ impl ChatService {
         convo_id: Snowflake,
         leaf: Option<Snowflake>,
     ) -> Result<Vec<ConversationMessage>, ChatError> {
-        // TODO: a `get_path_to(node)` storage method (recursive SQL like
-        // get_active_path, seeded at an arbitrary id) avoids loading every
-        // message here. TODO: run ContextWeaver over this thread — set char/
-        // user/chat namespaces, restore persistent `state:`, assemble blocks,
-        // convert to provider Messages, and (on Done) snapshot `state:` back.
         let Some(leaf) = leaf else {
             return Ok(Vec::new());
         };
@@ -445,20 +459,30 @@ impl ChatService {
     /// Token stream from the model. Stub for now.
     async fn infer(
         &self,
-        _prompt: Vec<ConversationMessage>,
+        prompt: Vec<super::PromptMessage>,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<String, ChatError>> + Send>>, ChatError> {
-        // TODO: select provider/model for this conversation, build the LLM
-        // `Client`, call `stream`, map `Delta` -> String and its error ->
-        // ChatError. Blocked on provider dispatch: `LlmProvider::ProviderParams`
-        // makes `dyn LlmProvider` non-object-safe, so you need edge dispatch on a
-        // provider-kind enum or an erased wrapper trait.
-        let chunks: Vec<String> = assistant_placeholder()
-            .split_inclusive(' ')
-            .map(str::to_string)
+        let api_key = std::env::var("OPENROUTER_API_KEY")
+            .map_err(|_| ChatError::ConnectionProfile("missing api key".to_string()))?;
+        let model = std::env::var("OPENROUTER_MODEL")
+            .map_err(|_| ChatError::ConnectionProfile("missing model".to_string()))?;
+
+        let http_client = Arc::new(reqwest::Client::new());
+        let provider = OpenRouterProvider::new(http_client, api_key, model);
+        let client = Client::new(provider);
+
+        // Map your custom payload directly to what the provider client expects
+        let messages: Vec<eldoria_providers::Message> = prompt
+            .into_iter()
+            .map(|m| eldoria_providers::Message {
+                role: prompt_role_to_provider_role(m.role),
+                content: m.content,
+            })
             .collect();
-        Ok(Box::pin(futures_util::stream::iter(
-            chunks.into_iter().map(Ok::<String, ChatError>),
-        )))
+
+        let upstream = client.request().messages(messages).stream().await?;
+        let mapped = upstream.map(|delta| delta.map(|d| d.content).map_err(ChatError::from));
+
+        Ok(Box::pin(mapped))
     }
 }
 
@@ -467,4 +491,12 @@ fn assistant_placeholder() -> String {
         "This is an emulated response for the character. Have a random number for some extra flare: {}",
         rand::random::<u8>()
     )
+}
+
+fn prompt_role_to_provider_role(role: PromptRole) -> eldoria_providers::Role {
+    match role {
+        PromptRole::System => eldoria_providers::Role::System,
+        PromptRole::User => eldoria_providers::Role::User,
+        PromptRole::Assistant => eldoria_providers::Role::Assistant,
+    }
 }

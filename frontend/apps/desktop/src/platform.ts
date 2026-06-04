@@ -81,56 +81,54 @@ type StreamEvent<T> =
 	| { kind: "error"; message: string }
 	| { kind: "done" };
 
-async function* stream<T>(path: string, body?: unknown): AsyncGenerator<T> {
-	const channel = new Channel<StreamEvent<T>>();
+	async function* stream<T>(path: string, body?: unknown): AsyncGenerator<T> {
+		const channel = new Channel<StreamEvent<T>>();
 
-	// Bridge push (channel.onmessage) to pull (the generator).
-	const queue: StreamEvent<T>[] = [];
-	let wake: (() => void) | null = null;
-	let finished = false;
-	let failure: unknown = null;
+		const queue: StreamEvent<T>[] = [];
+		let wake: (() => void) | null = null;
+		let failure: unknown = null;
 
-	channel.onmessage = (msg) => {
-		queue.push(msg);
-		wake?.();
-		wake = null;
-	};
-
-	// Resolves once the SSE stream ends (a done/error message is already queued
-	// by then). Rejects ONLY on a pre-flight HTTP error — before any message.
-	invoke<void>("http_stream", { path, body: body ?? null, onEvent: channel })
-		.then(() => {
-			finished = true;
-		})
-		.catch((e) => {
-			const err = (e as { HttpStatus?: { status: number; body: unknown } }).HttpStatus;
-			if (err) {
-				try {
-					check<never>({ status: err.status, body: err.body }); // builds + throws ApiError
-				} catch (apiErr) {
-					failure = apiErr;
-				}
-			} else {
-				failure = e;
-			}
-		})
-		.finally(() => {
+		channel.onmessage = (msg) => {
+			queue.push(msg);
 			wake?.();
 			wake = null;
-		});
+		};
 
-	while (true) {
-		if (queue.length === 0) {
-			if (failure) throw failure;
-			if (finished) return;
-			await new Promise<void>((r) => (wake = r));
-			continue;
+		// Resolves when the command returns; rejects ONLY on a pre-flight HTTP error
+		// (before any message). We do NOT use resolution to end the stream — the
+		// in-band `done`/`error` events are the authoritative terminators, and they
+		// are ordered within the channel after all data. `.finally` only unparks the
+		// generator so a pre-flight `failure` surfaces promptly.
+		invoke<void>("http_stream", { path, body: body ?? null, onEvent: channel })
+			.catch((e) => {
+				const err = (e as { HttpStatus?: { status: number; body: unknown } }).HttpStatus;
+				if (err) {
+					try {
+						check<never>({ status: err.status, body: err.body });
+					} catch (apiErr) {
+						failure = apiErr;
+					}
+				} else {
+					failure = e;
+				}
+			})
+			.finally(() => {
+				wake?.();
+				wake = null;
+			});
+
+		while (true) {
+			if (queue.length > 0) {
+				const msg = queue.shift()!;
+				if (msg.kind === "message") yield msg.data;
+				else if (msg.kind === "error") throw new Error(msg.message);
+				else return; // in-band "done": the authoritative terminator
+			} else if (failure) {
+				throw failure; // pre-flight HTTP error, queued before any message
+			} else {
+				await new Promise<void>((r) => (wake = r));
+			}
 		}
-		const msg = queue.shift()!;
-		if (msg.kind === "message") yield msg.data;
-		else if (msg.kind === "error") throw new Error(msg.message); // mid-stream failure
-		else return; // "done"
-	}
 }
 
 const http: HttpTransport = {

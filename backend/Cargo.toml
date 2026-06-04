@@ -7,3 +7,4 @@ members = ["eldoria_storage", "eldoria_providers", "eldoria_encryption", "eldori
 # Errors
 thiserror = "1"
 anyhow = "1"
+reqwest = { version = "0.13.4", features = ["json", "native-tls", "stream"] }

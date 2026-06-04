@@ -193,6 +193,7 @@ impl super::LlmProvider for OpenRouterProvider {
         params: &CommonParams,
         provider_params: &Self::ProviderParams,
     ) -> Result<Box<dyn Stream<Item = Result<Delta>> + Unpin + Send>> {
+        println!("{:?}", &messages);
         let request = OpenRouterRequest {
             model: self.model.clone(),
             messages,

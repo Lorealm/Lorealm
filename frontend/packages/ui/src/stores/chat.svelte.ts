@@ -388,7 +388,6 @@ class ChatStore {
 		const prevLeaf = this._activeLeafId;
 		let provisionalUserId: Snowflake | null = null;
 
-		// Some content => a user message is committed too; show it immediately.
 		let assistantParent = this.#provisionalParent(content, target);
 		if (content !== null) {
 			provisionalUserId = this.#tempId();
@@ -429,25 +428,35 @@ class ChatStore {
 				content: content ?? undefined,
 				target: target ?? undefined
 			});
-			let done: ConversationMessage | null = null;
+
+			let committedUser: ConversationMessage | null = null;
+			let committedAssistant: ConversationMessage | null = null;
 			for await (const event of stream as AsyncIterable<ChatStreamEvent>) {
-				if (event.type === 'delta') {
-					this._streamBuffer += event.content;
-				} else {
-					done = event.message;
+				switch (event.type) {
+					case 'delta':
+						this._streamBuffer += event.content;
+						console.log('delta');
+						break;
+					case 'user_message':
+						committedUser = event.message;
+						console.log('user message');
+						break;
+					case 'done':
+						committedAssistant = event.message;
+						break;
 				}
 			}
 
-			// Drop provisional bubbles and take the authoritative tree. The refetch
-			// resolves the committed user message's real id/order, which `done`
-			// alone doesn't carry.
+			// Reconcile locally from the messages the stream carried — no refetch.
+			// Swap each provisional temp for its committed counterpart; the
+			// server-supplied parent/order keep the tree linked, so the live tree
+			// converges to what a reload would show.
 			if (provisionalUserId) this._messages.delete(provisionalUserId);
 			this._messages.delete(assistantId);
+			if (committedUser) this._messages.set(committedUser.id, committedUser);
+			if (committedAssistant) this._messages.set(committedAssistant.id, committedAssistant);
 
-			const msgs = await this.#api.chat.messages.list(convId);
-			this._messages.clear();
-			for (const m of msgs) this._messages.set(m.id, m);
-			this._activeLeafId = done?.id ?? this.#deriveLeaf();
+			this._activeLeafId = committedAssistant?.id ?? this.#deriveLeaf();
 			this._streamingId = null;
 			this._streamBuffer = '';
 			this.streamState = { status: 'idle' };
@@ -459,6 +468,7 @@ class ChatStore {
 			this._streamingId = null;
 			this._streamBuffer = '';
 			this.streamState = { status: 'error', ...extractError(e) };
+			console.log(e);
 		}
 	}
 
