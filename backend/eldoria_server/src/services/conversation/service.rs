@@ -4,15 +4,13 @@ use std::sync::Arc;
 use chrono::Utc;
 
 use eldoria_storage::{
-    ConversationStorage, Storage, models::{ChatRole, ConversationMessage, MessageEdit, Snowflake}
+    Storage,
+    models::{ChatRole, ConversationMessage, MessageEdit, Snowflake},
 };
 
 use crate::{
     errors::ConversationError,
-    services::{
-        conversation::{BranchInfo, EditMode},
-        snowflake::SnowflakeService,
-    },
+    services::{conversation::EditMode, snowflake::SnowflakeService},
 };
 
 pub struct ConversationService {
@@ -278,6 +276,7 @@ impl ConversationService {
     }
 
     /// The current visible thread, root -> leaf. Empty if there is no active leaf.
+    #[cfg(test)] // temporary until needed
     pub async fn active_thread(
         &self,
         conversation_id: Snowflake,
@@ -289,11 +288,14 @@ impl ConversationService {
     /// through — everything a "‹ n / m ›" switcher needs. When rendering chevrons
     /// for the whole visible thread, the reads here can be batched by the caller
     /// (one `get_active_path`, reused across messages).
+    #[cfg(test)]
     pub async fn branch_info(
         &self,
         conversation_id: Snowflake,
         message_id: Snowflake,
     ) -> Result<super::BranchInfo, ConversationError> {
+        use crate::services::conversation::BranchInfo;
+
         let parent = self
             .storage
             .get_message(message_id)
@@ -316,6 +318,7 @@ impl ConversationService {
 
     /// Ordered children of `parent` (use `None` for roots). Convenience for
     /// rendering a tree view of the whole conversation.
+    #[cfg(test)] // temporary until needed
     pub async fn children_of(
         &self,
         conversation_id: Snowflake,
@@ -327,44 +330,12 @@ impl ConversationService {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
-
-    use async_trait::async_trait;
-    use eldoria_storage::{
-        StorageError, backends::MemoryStorage, models::{Conversation, ConversationMetadata}
-    };
-
     use super::*;
-
-    // ---- in-memory ConversationStorage fake -------------------------------
-
-    #[derive(Default)]
-    struct Inner {
-        conversations: HashMap<Snowflake, Conversation>,
-        messages: HashMap<Snowflake, ConversationMessage>,
-    }
-
-    fn subtree_ids(
-        messages: &HashMap<Snowflake, ConversationMessage>,
-        root: Snowflake,
-    ) -> Vec<Snowflake> {
-        let mut out = Vec::new();
-        let mut stack = vec![root];
-        while let Some(id) = stack.pop() {
-            out.push(id);
-            for m in messages.values() {
-                if m.parent == Some(id) {
-                    stack.push(m.id);
-                }
-            }
-        }
-        out
-    }
+    use eldoria_storage::{ConversationStorage, backends::MemoryStorage, models::Conversation};
 
     // ---- helpers ----------------------------------------------------------
 
     fn snowflakes() -> Arc<SnowflakeService> {
-        // ⚠ Adjust to your SnowflakeService constructor (e.g. ::new(machine_id)).
         Arc::new(SnowflakeService::new(0))
     }
 
@@ -522,7 +493,7 @@ mod tests {
     #[tokio::test]
     async fn edit_in_place_mutates_and_keeps_subtree() {
         let (s, _store, c, _) = setup().await;
-        let a = append(&s, c, "A").await;
+        let _a = append(&s, c, "A").await;
         let b = append(&s, c, "B").await;
         let leaf = append(&s, c, "C").await; // A -> B -> C
 

@@ -104,11 +104,6 @@ enum TokenSource {
     Bearer,
 }
 
-#[derive(Clone)]
-struct PendingTokenRotation {
-    new_token: String,
-}
-
 fn extract_session_token(
     cookies: &Cookies,
     headers: &HeaderMap,

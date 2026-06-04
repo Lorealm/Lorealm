@@ -1,21 +1,13 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use async_trait::async_trait;
 use eldoria_storage::models::{Character, ExampleDialogue};
 
-use crate::{errors::ContextError, services::state::StateService};
+use crate::errors::ContextError;
 
 use super::super::{PromptRole, ResolveContext, ResolvedBlock, SourceResolver};
 
-pub struct CharacterResolver {
-    state: Arc<StateService>,
-}
-
-impl CharacterResolver {
-    pub fn new(state: Arc<StateService>) -> Self {
-        Self { state }
-    }
-}
+pub struct CharacterResolver;
 
 #[async_trait]
 impl SourceResolver for CharacterResolver {
