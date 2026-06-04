@@ -1,5 +1,8 @@
 <script lang="ts">
+	import { chatStore } from '$lib/stores/chat.svelte.js';
 	import { Paperclip, Send } from '@lucide/svelte';
+
+	chatStore.ensureApi();
 
 	let inputText = $state('');
 	let textareaEl: HTMLTextAreaElement;
@@ -9,11 +12,18 @@
 		textareaEl.style.height = textareaEl.scrollHeight + 'px';
 	}
 
+	function send() {
+		const text = inputText.trim();
+		if (!text || chatStore.isStreaming) return;
+		inputText = '';
+		textareaEl.style.height = 'auto';
+		chatStore.sendMessage(text);
+	}
+
 	function handleMessageSend(event: KeyboardEvent) {
 		if (event.key === 'Enter' && !event.shiftKey) {
 			event.preventDefault();
-
-			inputText = '';
+			send();
 		}
 	}
 </script>
@@ -30,7 +40,7 @@
 			onkeydown={handleMessageSend}
 			oninput={resize}
 		></textarea>
-		<button class="emoji-button"><Send /></button>
+		<button class="emoji-button" disabled={chatStore.isStreaming} onclick={send}><Send /></button>
 	</div>
 </div>
 

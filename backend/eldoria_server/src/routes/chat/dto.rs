@@ -1,6 +1,12 @@
 use eldoria_storage::models::Snowflake;
 use serde::Deserialize;
 
+#[derive(serde::Deserialize)]
+pub struct GetConversationQuery {
+    #[serde(default)]
+    pub full: bool,
+}
+
 #[derive(Deserialize)]
 pub struct StartChatRequest {
     pub character_id: Snowflake,

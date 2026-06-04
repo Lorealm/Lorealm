@@ -25,6 +25,8 @@ impl ConversationStorage for MemoryStorage {
             .filter(|c| c.user_id == user_id)
             .map(|c| ConversationMetadata {
                 id: c.id,
+                character_id: c.character_id,
+                char_version_id: c.char_version_id,
                 title: c.title.clone(),
                 length: Self::active_path_len(&messages, c.active_leaf_id),
                 created_at: c.created_at,

@@ -143,19 +143,10 @@ impl ChatService {
                 json!({}),
             )
             .await?;
-        self.conversations
-            .append_message(convo.id, ChatRole::User, content, json!({}))
-            .await?;
-
-        // TODO: replace with actual context handling and LLM responses
+        
         let latest_id = self
             .conversations
-            .append_message(
-                convo.id,
-                ChatRole::Assistant,
-                assistant_placeholder(),
-                json!({}),
-            )
+            .append_message(convo.id, ChatRole::User, content, json!({}))
             .await?
             .id;
 

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     response::{
         Sse,
         sse::{Event, KeepAlive},
@@ -17,7 +17,7 @@ use crate::{
     extract::AuthenticatedSession,
     routes::chat::{
         StartChatRequest,
-        dto::{ChatEdit, CompletionsRequest, SendMessageRequest},
+        dto::{ChatEdit, CompletionsRequest, GetConversationQuery, SendMessageRequest},
     },
     services::chat::FullConversation,
 };
@@ -53,11 +53,12 @@ pub async fn get_conversation(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
     Path(conversation_id): Path<Snowflake>,
+    Query(query): Query<GetConversationQuery>,
 ) -> Result<Json<FullConversation>, AppError> {
     let convo = state
         .services()
         .chat()
-        .get_full_conversation(conversation_id, session.user_id, false)
+        .get_full_conversation(conversation_id, session.user_id, query.full)
         .await?;
 
     Ok(Json(convo))

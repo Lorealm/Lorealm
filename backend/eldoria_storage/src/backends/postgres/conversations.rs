@@ -47,8 +47,9 @@ impl ConversationStorage for PostgresStorage {
             )
             SELECT
                 c.id,
+                c.character_id,
+                c.char_version_id,
                 c.title,
-                c.metadata,
                 c.created_at,
                 c.updated_at,
                 COALESCE(lengths.length, 0) AS length
