@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use eldoria_storage::{error::StorageError, models::Snowflake};
 use thiserror::Error;
 

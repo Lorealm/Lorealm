@@ -1,3 +1,4 @@
+#[cfg(test)] // temporary until needed
 use eldoria_storage::models::ConversationMessage;
 
 /// How `edit_message` treats the original.
@@ -14,6 +15,7 @@ pub enum EditMode {
 
 /// Sibling set around a message, for rendering a "‹ 2 / 3 ›" branch switcher.
 #[derive(Debug, Clone)]
+#[cfg(test)] // temporary until needed
 pub struct BranchInfo {
     /// Siblings ordered by `order`.
     pub siblings: Vec<ConversationMessage>,
@@ -22,6 +24,7 @@ pub struct BranchInfo {
     pub active_index: Option<usize>,
 }
 
+#[cfg(test)] // temporary until needed
 impl BranchInfo {
     pub fn total(&self) -> usize {
         self.siblings.len()

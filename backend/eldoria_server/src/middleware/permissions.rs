@@ -29,7 +29,6 @@ impl PermissionMiddlewareState {
 /// these are infrastructure/routing problems.
 #[derive(Debug)]
 pub enum PermissionMiddlewareError {
-    NoRoles,
     /// Something went wrong in the DB.
     Internal(String),
 }
@@ -39,10 +38,6 @@ impl IntoResponse for PermissionMiddlewareError {
         match self {
             Self::Internal(msg) => {
                 tracing::error!("Permission resolution failed: {msg}");
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response()
-            }
-            PermissionMiddlewareError::NoRoles => {
-                tracing::error!("Middleware failed to compute because the user has no roles");
                 (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response()
             }
         }
