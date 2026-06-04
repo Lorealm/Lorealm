@@ -12,6 +12,10 @@ export interface UpdateTemplateRequest {
 	description?: string;
 }
 
+export interface SetActiveRequest {
+  id: Snowflake
+}
+
 export interface CreateNodeRequest {
 	title: string;
 	description: string;

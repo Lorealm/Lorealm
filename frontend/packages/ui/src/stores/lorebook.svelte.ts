@@ -78,6 +78,7 @@ class LorebookStore {
 
 	/** Server-confirmed lorebooks (raw wire shape) — the rollback baseline. */
 	private loadedLorebooks = new SvelteMap<Snowflake, Lorebook>();
+	private activeLorebooks = $state<Snowflake[]>([]);
 
 	/** The editable proxy. */
 	private _draft = $state<LorebookDraft | null>(null);
@@ -103,6 +104,9 @@ class LorebookStore {
 	get config(): LorebookConfig | null {
 		return this._draft?.config ?? null;
 	}
+	get active(): Snowflake[] {
+		return this.activeLorebooks;
+	}
 	entrySaveState(snowflake: Snowflake): SaveState {
 		return this.saveStates.get(snowflake) ?? { status: 'idle' };
 	}
@@ -117,6 +121,25 @@ class LorebookStore {
 		if (this.loadedLorebooks.has(id)) return;
 		const book = await this.#api.lorebooks.get(id);
 		this.loadedLorebooks.set(id, book);
+	}
+
+	async setActive(id: Snowflake) {
+		await this.loadLorebook(id);
+		this.activeLorebooks.push(id);
+		await this.#api.lorebooks.active.set({ ids: this.activeLorebooks }).catch(() => {
+			this.activeLorebooks.pop();
+		});
+	}
+
+	isActive(id: Snowflake | undefined) {
+		if (id) {
+			return this.activeLorebooks.includes(id);
+		}
+		return false;
+	}
+
+	async loadActive() {
+		this.activeLorebooks = (await this._api?.lorebooks.active.get()) ?? [];
 	}
 
 	/* --- editing session -------------------------------------------------- */

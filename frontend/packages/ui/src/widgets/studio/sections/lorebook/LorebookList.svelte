@@ -1,15 +1,16 @@
 <script lang="ts">
 	import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
-	import { studioStore } from '$lib/stores/studio.svelte';
 	import { onMount } from 'svelte';
+	import LorebookCard from './LorebookCard.svelte';
 
 	const lorebooks = $derived(lorebookStore.metadataList);
 
 	onMount(async () => {
 		await lorebookStore.loadList();
+		await lorebookStore.loadActive();
 	});
 </script>
 
 {#each lorebooks as book (book.id)}
-	<button onclick={() => studioStore.open(book.id)}>{book.name}</button>
+	<LorebookCard id={book.id} />
 {/each}

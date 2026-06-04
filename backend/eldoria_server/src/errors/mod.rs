@@ -18,9 +18,37 @@ pub use state::*;
 
 use axum::{Json, http::StatusCode, response::IntoResponse};
 use serde_json::json;
-use std::borrow::Cow;
+use std::{
+    borrow::Cow,
+    fmt::Display,
+};
 
 use crate::services::character::CharacterServiceError;
+
+#[derive(Debug)]
+pub enum TargetType {
+    Character,
+    CharacterVersion,
+    Greeting,
+    Conversation,
+    Message,
+    ExampleMessage,
+    ContextTemplate,
+}
+
+impl Display for TargetType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TargetType::Character => write!(f, "character"),
+            TargetType::CharacterVersion => write!(f, "character_version"),
+            TargetType::Greeting => write!(f, "greeting"),
+            TargetType::Conversation => write!(f, "conversation"),
+            TargetType::Message => write!(f, "message"),
+            TargetType::ExampleMessage => write!(f, "example_message"),
+            TargetType::ContextTemplate => write!(f, "context_template"),
+        }
+    }
+}
 
 /// Application-level error type exposed through API responses.
 ///
@@ -204,6 +232,20 @@ impl From<ChatError> for AppError {
                 message: Cow::Owned(err.client_message()),
             },
             ChatError::Character(character_service_error) => character_service_error.into(),
+            _ => AppError::Internal {
+                internal: Cow::Owned(err.client_message()),
+            },
+        }
+    }
+}
+
+impl From<StateError> for AppError {
+    fn from(err: StateError) -> Self {
+        match err {
+            StateError::NoActiveTemplate | StateError::NotFound(_, _ ) => AppError::BadRequest {
+                code: "NOT_FOUND",
+                message: Cow::Owned(err.client_message()),
+            },
             _ => AppError::Internal {
                 internal: Cow::Owned(err.client_message()),
             },

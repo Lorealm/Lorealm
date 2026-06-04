@@ -8,11 +8,3 @@ pub trait StorageCore: Send + Sync + std::fmt::Debug {
     async fn initialize(&mut self) -> Result<(), StorageError>;
     fn backend_type(&self) -> &str;
 }
-
-pub enum ItemSortType {
-    Id,
-    LatestUpdate,
-    LatestAdded,
-    Random(i32), // Randomized with reproducible seed
-    Tags,        // To be implemented
-}

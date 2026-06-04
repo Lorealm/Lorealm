@@ -6,7 +6,10 @@ use axum::{
 };
 use eldoria_storage::models::{Lorebook, LorebookEntry, LorebookMetadata, Snowflake};
 
-use crate::{core::AppState, errors::AppError, extract::AuthenticatedSession};
+use crate::{
+    core::AppState, errors::AppError, extract::AuthenticatedSession,
+    routes::lorebooks::dto::SetActiveLorebooksRequest,
+};
 
 pub async fn get_lorebook(
     State(state): State<Arc<AppState>>,
@@ -131,6 +134,33 @@ pub async fn delete_entry(
         .services()
         .lorebooks()
         .delete_entry(lorebook_id, entry_id, session.user_id)
+        .await?;
+
+    Ok(())
+}
+
+pub async fn get_active(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+) -> Result<Json<Option<Vec<Snowflake>>>, AppError> {
+    let lorebooks = state
+        .services()
+        .state()
+        .get_active_lorebook_ids(session.user_id)
+        .await?;
+
+    Ok(Json(lorebooks))
+}
+
+pub async fn set_active(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Json(request): Json<SetActiveLorebooksRequest>,
+) -> Result<(), AppError> {
+    state
+        .services()
+        .state()
+        .set_active_lorebooks(session.user_id, request.ids)
         .await?;
 
     Ok(())

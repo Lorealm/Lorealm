@@ -27,8 +27,10 @@ pub struct MemoryStorage {
     pub(crate) lorebook_versions: RwLock<HashMap<Snowflake, StoredLorebookVersion>>,
     pub(crate) lorebook_sessions: RwLock<HashMap<Snowflake, LorebookSession>>,
     pub(crate) lorebooks: RwLock<HashMap<Snowflake, Lorebook>>,
+    pub(crate) enabled_lorebooks: RwLock<HashMap<Snowflake, Vec<Snowflake>>>,
     pub(crate) conversations: RwLock<HashMap<Snowflake, Conversation>>,
     pub(crate) messages: RwLock<HashMap<Snowflake, ConversationMessage>>,
+    pub(crate) user_state: RwLock<HashMap<Snowflake, Option<Snowflake>>>, // only one item in state for now
 }
 
 impl MemoryStorage {

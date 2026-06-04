@@ -167,6 +167,34 @@ impl LorebookStorage for MemoryStorage {
         restored.current_version_id = new_version_id;
         self.save_lorebook(&restored).await
     }
+
+    async fn list_enabled_lorebooks(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Vec<Snowflake>, StorageError> {
+        let ids: Vec<Snowflake> = self
+            .enabled_lorebooks
+            .read()
+            .await
+            .iter()
+            .find(|b| b.0 == &user_id)
+            .ok_or(StorageError::NotFound(format!(
+                "No state for user: {user_id}"
+            )))?
+            .1
+            .to_owned();
+
+        Ok(ids)
+    }
+
+    async fn set_enabled_lorebooks(
+        &self,
+        user_id: Snowflake,
+        ordered: &[Snowflake],
+    ) -> Result<(), StorageError> {
+        self.enabled_lorebooks.write().await.insert(user_id, ordered.to_vec());
+        Ok(())
+    }
 }
 
 #[async_trait]

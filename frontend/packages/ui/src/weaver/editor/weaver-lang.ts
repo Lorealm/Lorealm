@@ -193,7 +193,20 @@ const parser: StreamParser<State> = {
 		}
 	},
 
-	languageData: { name: 'weaver' },
+	// Indentation follows the construct stack. Each open construct
+	// (@[ $[ {{ [[ {#) is one level deep; a line that *begins* with a
+	// closing delimiter is pulled back one level to sit under its opener.
+	indent(state, textAfter, cx) {
+		const depth = state.stack.length;
+		if (depth === 0) return null; // top-level prose: leave as typed
+		const dedent = /^[)\]}]/.test(textAfter) ? 1 : 0;
+		return Math.max(0, depth - dedent) * cx.unit;
+	},
+
+	languageData: {
+		name: 'weaver',
+		indentOnInput: /^\s*[)\]}]$/
+	},
 
 	// Map our token names to highlight tags.
 	tokenTable: {

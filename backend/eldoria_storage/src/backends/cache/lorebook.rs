@@ -82,6 +82,35 @@ impl LorebookStorage for CachedStorage {
         self.cache_del(&self.key("lorebook", &id.to_string())).await;
         Ok(new_id)
     }
+
+    async fn list_enabled_lorebooks(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Vec<Snowflake>, StorageError> {
+        // Not routed through get_through: a Vec doesn't fit its Option<T> shape, and
+        // an empty enabled-list is a real value we *want* cached, not a miss.
+        let key = self.key("enabled_lorebooks", &user_id.to_string());
+    
+        if let Some(cached) = self.cache_get::<Vec<Snowflake>>(&key).await {
+            return Ok(cached);
+        }
+    
+        let ids = self.backend.list_enabled_lorebooks(user_id).await?;
+        self.cache_set(&key, &ids).await;
+        Ok(ids)
+    }
+    
+    async fn set_enabled_lorebooks(
+        &self,
+        user_id: Snowflake,
+        ordered: &[Snowflake],
+    ) -> Result<(), StorageError> {
+        self.backend.set_enabled_lorebooks(user_id, ordered).await?;
+        // Invalidate after the source of truth commits, not before.
+        self.cache_del(&self.key("enabled_lorebooks", &user_id.to_string()))
+            .await;
+        Ok(())
+    }
 }
 
 #[async_trait]

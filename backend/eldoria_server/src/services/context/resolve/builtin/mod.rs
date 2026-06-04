@@ -14,5 +14,6 @@ pub use world_info::WorldInfoResolver;
 
 pub fn register_builtin_resolvers(registry: &mut ResolverRegistry, state: Arc<StateService>) {
     registry.register(Arc::new(ChatHistoryResolver));
-    registry.register(Arc::new(CharacterResolver::new(state)));
+    registry.register(Arc::new(CharacterResolver::new(Arc::clone(&state))));
+    registry.register(Arc::new(WorldInfoResolver::new(Arc::clone(&state))));
 }

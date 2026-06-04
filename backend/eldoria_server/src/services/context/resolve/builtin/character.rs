@@ -1,13 +1,9 @@
-// services/context/resolve/builtin/character.rs
 use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 use eldoria_storage::models::{Character, ExampleDialogue};
 
-use crate::{
-    errors::{AppError, ContextError},
-    services::state::StateService,
-};
+use crate::{errors::ContextError, services::state::StateService};
 
 use super::super::{PromptRole, ResolveContext, ResolvedBlock, SourceResolver};
 
@@ -33,11 +29,7 @@ impl SourceResolver for CharacterResolver {
         settings: &HashMap<String, serde_json::Value>,
         ctx: &ResolveContext<'_>,
     ) -> Result<Vec<ResolvedBlock>, ContextError> {
-        let character = self
-            .state
-            .get_active_character(ctx.user_id)
-            .await?
-            .ok_or(ContextError::NoActiveCharacter)?;
+        let character = ctx.character;
 
         let blocks = match node_id {
             "definition" => text_block(PromptRole::System, &character.definition.description),

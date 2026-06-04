@@ -1,7 +1,11 @@
 use async_trait::async_trait;
 use sqlx::Row;
 
-use crate::{StorageError, TemplateStorage, backends::PostgresStorage, models::{Snowflake, Template, TemplateMetadata}};
+use crate::{
+    StorageError, TemplateStorage,
+    backends::PostgresStorage,
+    models::{Snowflake, Template, TemplateMetadata},
+};
 
 fn row_to_template(row: &sqlx::postgres::PgRow) -> Result<Template, sqlx::Error> {
     Ok(Template {
@@ -185,5 +189,41 @@ impl TemplateStorage for PostgresStorage {
         .await
         .map_err(db_err)?;
         Ok(exists)
+    }
+
+    async fn get_active_template(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Option<Snowflake>, StorageError> {
+        let active: Option<Option<Snowflake>> =
+            sqlx::query_scalar("SELECT active_template_id FROM user_settings WHERE user_id = $1")
+                .bind(user_id)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(db_err)?;
+
+        // Outer None: no settings row. Inner None: row exists, pointer unset.
+        // Both collapse to "no active template".
+        Ok(active.flatten())
+    }
+
+    async fn set_active_template(
+        &self,
+        user_id: Snowflake,
+        template_id: Option<Snowflake>,
+    ) -> Result<(), StorageError> {
+        // UPSERT: the migration creates no user_settings rows, so the first write
+        // for a user is an INSERT and every later one an UPDATE.
+        sqlx::query(
+            "INSERT INTO user_settings (user_id, active_template_id) VALUES ($1, $2) \
+             ON CONFLICT (user_id) DO UPDATE SET active_template_id = EXCLUDED.active_template_id",
+        )
+        .bind(user_id)
+        .bind(template_id)
+        .execute(&self.pool)
+        .await
+        .map_err(db_err)?;
+
+        Ok(())
     }
 }

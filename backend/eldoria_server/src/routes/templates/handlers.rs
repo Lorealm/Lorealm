@@ -11,6 +11,7 @@ use crate::{
     core::AppState,
     errors::AppError,
     extract::AuthenticatedSession,
+    routes::templates::SetActiveRequest,
     services::context::{ContextTemplate, SourceDefinition},
 };
 
@@ -175,4 +176,46 @@ pub async fn toggle_node(
         .await?;
 
     Ok(Json(super::ToggleNodeResponse { delta: changes }))
+}
+
+pub async fn get_active(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+) -> Result<Json<Option<Snowflake>>, AppError> {
+    let template = state
+        .services()
+        .state()
+        .get_active_template_id(session.user_id)
+        .await?;
+
+    Ok(Json(template))
+}
+
+async fn set_active(
+    state: Arc<AppState>,
+    session: AuthenticatedSession,
+    value: Option<Snowflake>,
+) -> Result<(), AppError> {
+    state
+        .services()
+        .state()
+        .set_active_template(session.user_id, value)
+        .await?;
+    Ok(())
+}
+
+pub async fn set_active_template(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Json(request): Json<SetActiveRequest>,
+) -> Result<(), AppError> {
+    tracing::info!("setting active template");
+    set_active(state, session, Some(request.id)).await
+}
+
+pub async fn unset_active_template(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+) -> Result<(), AppError> {
+    set_active(state, session, None).await
 }

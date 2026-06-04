@@ -1,4 +1,5 @@
 use context_weaver::LorebookConfig;
+use eldoria_storage::models::Snowflake;
 use serde::Deserialize;
 
 use crate::services::lorebook::{CreateLorebook, UpdateLorebook};
@@ -19,6 +20,11 @@ pub struct UpdateLorebookRequest {
 #[derive(Deserialize)]
 pub struct UpdateEntryRequest {
     pub source: String
+}
+
+#[derive(Deserialize)]
+pub struct SetActiveLorebooksRequest {
+    pub ids: Vec<Snowflake>
 }
 
 impl Into<CreateLorebook> for CreateLorebookRequest {

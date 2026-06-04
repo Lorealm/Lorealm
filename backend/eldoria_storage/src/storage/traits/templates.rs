@@ -39,4 +39,14 @@ pub trait TemplateStorage: Send + Sync {
         name: &str,
         exclude_id: Option<Snowflake>,
     ) -> Result<bool, StorageError>;
+
+    async fn get_active_template(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Option<Snowflake>, StorageError>;
+    async fn set_active_template(
+        &self,
+        user_id: Snowflake,
+        template_id: Option<Snowflake>,
+    ) -> Result<(), StorageError>;
 }

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { EditorState, type ChangeSpec } from '@codemirror/state';
-	import { EditorView, drawSelection, keymap } from '@codemirror/view';
+	import { EditorView, drawSelection, keymap, tooltips } from '@codemirror/view';
 	import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
 	import { weaverSyntax } from './weaver-lang.js';
 	import { weaverHover } from './weaver-hover.js';
@@ -53,6 +53,7 @@
 					fieldSizing,
 					drawSelection(),
 					history(),
+					tooltips({ position: 'fixed' }),
 					// Enter does nothing in a field; our binding wins by being first.
 					keymap.of([{ key: 'Enter', run: () => true }, ...defaultKeymap, ...historyKeymap]),
 					flattenNewlines,

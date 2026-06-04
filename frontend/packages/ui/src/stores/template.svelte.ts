@@ -146,7 +146,12 @@ class TemplateStore {
 	/** Set the active template, loading it if needed. */
 	async setActive(id: Snowflake) {
 		await this.loadTemplate(id);
+		await this.#api.templates.active.set({ id });
 		this.activeTemplateId = id;
+	}
+
+	async loadActive() {
+		this.activeTemplateId = await this.#api.templates.active.get();
 	}
 
 	/* --- Editing session --------------------------------------------------- */

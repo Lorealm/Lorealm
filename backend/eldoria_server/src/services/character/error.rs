@@ -3,26 +3,7 @@ use std::fmt::Display;
 use eldoria_storage::{error::StorageError, models::Snowflake};
 use thiserror::Error;
 
-use crate::errors::CardParseError;
-
-#[derive(Debug)]
-pub enum TargetType {
-    CharacterVersion,
-    Character,
-    Greeting,
-    ExampleMessage,
-}
-
-impl Display for TargetType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TargetType::CharacterVersion => write!(f, "character_version"),
-            TargetType::Character => write!(f, "avatar"),
-            TargetType::Greeting => write!(f, "greeting"),
-            TargetType::ExampleMessage => write!(f, "example_message"),
-        }
-    }
-}
+use crate::errors::{CardParseError, TargetType};
 
 #[derive(Error, Debug)]
 pub enum CharacterServiceError {

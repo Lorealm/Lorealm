@@ -69,10 +69,7 @@ impl ServiceManager {
             Arc::clone(&snowflake),
         ));
 
-        let state = Arc::new(StateService::new(
-            Arc::clone(&lorebook),
-            Arc::clone(&characters),
-        ));
+        let state = Arc::new(StateService::new(Arc::clone(&storage)));
 
         let conversation = Arc::new(ConversationService::new(
             Arc::clone(&storage),
@@ -84,6 +81,7 @@ impl ServiceManager {
             Arc::clone(&snowflake),
             Arc::clone(&conversation),
             Arc::clone(&characters),
+            Arc::clone(&state),
         ));
 
         let cleanable: Vec<Arc<dyn CleanableService>> = vec![
@@ -131,6 +129,10 @@ impl ServiceManager {
 
     pub fn chat(&self) -> &Arc<ChatService> {
         &self.chat
+    }
+
+    pub fn state(&self) -> &Arc<StateService> {
+        &self.state
     }
 }
 

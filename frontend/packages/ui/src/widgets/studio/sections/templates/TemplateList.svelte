@@ -7,6 +7,7 @@
 
 	onMount(async () => {
 		await templateStore.loadList();
+		await templateStore.loadActive();
 	});
 </script>
 
