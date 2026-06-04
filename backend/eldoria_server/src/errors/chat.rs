@@ -22,6 +22,10 @@ pub enum ChatError {
     Context(#[from] ContextError),
     #[error("state error: {0}")]
     State(#[from] StateError),
+    #[error("connection profile error: {0}")]
+    ConnectionProfile(String),
+    #[error("provider error: {0}")]
+    Provider(#[from] eldoria_providers::Error)
 }
 
 impl ChatError {
@@ -40,6 +44,8 @@ impl ChatError {
             ChatError::Conversation(conversation_error) => conversation_error.to_string(),
             ChatError::Context(context_error) => context_error.client_message(),
             ChatError::State(state_error) => state_error.client_message(),
+            ChatError::ConnectionProfile(msg) => format!("connection profile error: {msg}"),
+            ChatError::Provider(error) => error.to_string(),
         }
     }
 }

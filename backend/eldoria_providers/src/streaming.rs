@@ -64,7 +64,7 @@ where
                                 return Some((
                                     Err(Error::StreamError(format!("Invalid UTF-8: {}", e))),
                                     (stream, parser, buffer),
-                                ))
+                                ));
                             }
                         };
 
@@ -74,26 +74,35 @@ where
                         while let Some(event_end) = buffer.find("\n\n") {
                             let event = buffer[..event_end].to_string();
                             buffer = buffer[event_end + 2..].to_string();
-
-                            // Parse SSE format: "data: {...}"
                             for line in event.lines() {
                                 if let Some(data) = line.strip_prefix("data: ") {
                                     match parser(data) {
                                         Ok(Some(item)) => {
-                                            return Some((Ok(item), (stream, parser, buffer)))
+                                            return Some((Ok(item), (stream, parser, buffer)));
                                         }
                                         Ok(None) => continue,
-                                        Err(e) => {
-                                            return Some((Err(e), (stream, parser, buffer)))
-                                        }
+                                        Err(e) => return Some((Err(e), (stream, parser, buffer))),
                                     }
                                 }
                             }
                         }
+                        match stream.next().await {
+                            Some(Ok(chunk)) => match std::str::from_utf8(&chunk) {
+                                Ok(s) => buffer.push_str(s),
+                                Err(e) => {
+                                    return Some((
+                                        Err(Error::StreamError(format!("Invalid UTF-8: {}", e))),
+                                        (stream, parser, buffer),
+                                    ));
+                                }
+                            },
+                            Some(Err(e)) => {
+                                return Some((Err(Error::Http(e)), (stream, parser, buffer)));
+                            }
+                            None => return None,
+                        }
                     }
-                    Some(Err(e)) => {
-                        return Some((Err(Error::Http(e)), (stream, parser, buffer)))
-                    }
+                    Some(Err(e)) => return Some((Err(Error::Http(e)), (stream, parser, buffer))),
                     None => return None,
                 }
             }

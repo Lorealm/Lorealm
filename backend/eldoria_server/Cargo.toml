@@ -7,10 +7,12 @@ edition = "2024"
 # In-house dependencies
 eldoria_storage = { path = "../eldoria_storage" }
 eldoria_encryption = { path = "../eldoria_encryption" }
+eldoria_providers = { path = "../eldoria_providers"}
 
 # Workspace dependencies
 thiserror = { workspace = true }
 anyhow = { workspace = true }
+reqwest = { workspace = true }
 
 # Project-specific dependencies
 axum = { version = "0.8.8", features = ["macros", "multipart"] }
@@ -37,3 +39,4 @@ serde_yaml = "0.9.34"
 bytes = "1.11.1"
 infer = "0.19.0"
 async-stream = "0.3.6"
+
