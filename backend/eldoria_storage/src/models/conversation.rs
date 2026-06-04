@@ -8,6 +8,7 @@ use crate::models::Snowflake;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, sqlx::Type)]
 #[sqlx(type_name = "TEXT", rename_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum ChatRole {
     System,
     User,
@@ -52,6 +53,8 @@ pub struct ConversationMessage {
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct ConversationMetadata {
     pub id: Snowflake,
+    pub character_id: Snowflake,
+    pub char_version_id: Snowflake,
     pub title: Option<String>,
     pub length: i64,
     pub created_at: DateTime<Utc>,

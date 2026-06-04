@@ -1,6 +1,7 @@
-<!-- CharacterCard.svelte -->
 <script lang="ts">
 	import TransportImage from '$lib/components/TransportImage.svelte';
+	import { characterStore } from '$lib/stores/character.svelte.js';
+	import { chatStore } from '$lib/stores/chat.svelte.js';
 	import { navigationStore, SidebarView } from '$lib/stores/navigation.svelte.js';
 	import { studioStore } from '$lib/stores/studio.svelte.js';
 	import type { CharacterSummary } from '$lib/types/character.js';
@@ -8,6 +9,26 @@
 
 	let { summary }: { summary: CharacterSummary } = $props();
 	let imageEndpoint = $derived(`/api/v1/characters/${summary.id}/image`);
+
+	async function startChat() {
+		characterStore.setActive(summary.id);
+		navigationStore.setSidebarView(SidebarView.Write);
+
+		// Returning user: reopen their latest chat. Otherwise begin a fresh one,
+		// seeded with this character's greetings (the author picks one before the
+		// first send).
+		const opened = await chatStore.openLatestForCharacter(summary.id);
+		if (!opened) {
+			const character = characterStore.activeCharacter;
+			if (character) {
+				chatStore.beginNewConversation({
+					characterId: character.id,
+					versionId: character.current_version_id,
+					greetings: character.definition.greetings
+				});
+			}
+		}
+	}
 </script>
 
 <div class="card">
@@ -17,7 +38,7 @@
 		<h3 class="name">{summary.display_name ?? summary.name}</h3>
 
 		<div class="actions">
-			<button class="btn btn-chat" type="button">
+			<button class="btn btn-chat" type="button" onclick={startChat}>
 				<MessageCircle size={16} aria-hidden="true" />
 				<span>Chat</span>
 			</button>

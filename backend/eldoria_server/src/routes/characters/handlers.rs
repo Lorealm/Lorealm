@@ -6,14 +6,16 @@ use axum::{
     http::header::{CACHE_CONTROL, CONTENT_TYPE},
     response::{IntoResponse, Response},
 };
-use eldoria_storage::models::{Character, CharacterSummary, CharacterVersionInfo, Snowflake};
+use eldoria_storage::models::{
+    Character, CharacterSummary, CharacterVersionInfo, ConversationMetadata, Snowflake,
+};
 
 use crate::{
     core::AppState,
     errors::AppError,
     extract::{AuthenticatedSession, ResolvedPermissions},
     routes::characters::{dto::CharacterEdit, types::ImportResult},
-    services::{permission::Permissions, session},
+    services::permission::Permissions,
 };
 
 pub async fn list_characters(
@@ -252,4 +254,20 @@ pub async fn import_card(
     }
 
     Ok(Json(super::dto::ImportCharResponse { results }))
+}
+
+pub async fn list_character_chats(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(character_id): Path<Snowflake>,
+) -> Result<Json<Vec<ConversationMetadata>>, AppError> {
+    let mut convos = state
+        .services()
+        .chat()
+        .list_conversations(session.user_id)
+        .await?;
+
+    convos.retain(|c| c.character_id == character_id);
+
+    Ok(Json(convos))
 }

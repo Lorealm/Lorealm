@@ -1,6 +1,21 @@
 import type { PlatformAPI } from '$lib/core/api.js';
 import type { LoginRequest, Session } from '$lib/types/auth.js';
-import type { Character, CharacterEdit, CharacterSummary, CharacterVersionInfo, ImportResult } from '$lib/types/character.js';
+import type {
+	Character,
+	CharacterEdit,
+	CharacterSummary,
+	CharacterVersionInfo,
+	ImportResult
+} from '$lib/types/character.js';
+import type {
+	ConversationMetadata,
+	ChatEdit,
+	ChatStreamEvent,
+	CompletionsRequest,
+	ConversationMessage,
+	FullConversation,
+	StartChatRequest
+} from '$lib/types/conversation.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type {
 	Lorebook,
@@ -26,6 +41,7 @@ import type {
 import type { User } from '$lib/types/user.js';
 import type { StatusCodes } from 'http-status-codes';
 import { getContext, setContext } from 'svelte';
+
 const API_KEY = Symbol('api-client');
 
 export function createApiClient(platform: PlatformAPI) {
@@ -91,13 +107,35 @@ export function createApiClient(platform: PlatformAPI) {
 				http.put<Character>(`/api/v1/characters/${characterId}`, edit),
 			avatar: (characterId: Snowflake) => http.getBlob(`/api/v1/characters/${characterId}/image`),
 			import: () =>
-				http.post<ImportResult>(`/api/v1/characters/import`, { placeholder: 'this endpoint is not valid yet' }),
-      versions: {
-        list: (characterId: Snowflake) => http.get<Array<CharacterVersionInfo>>(`/api/v1/characters/${characterId}/versions`),
+				http.post<ImportResult>(`/api/v1/characters/import`, {
+					placeholder: 'this endpoint is not valid yet'
+				}),
+			chats: (characterId: Snowflake) =>
+				http.get<Array<ConversationMetadata>>(`/api/v1/characters/${characterId}/chats`),
+			versions: {
+				list: (characterId: Snowflake) =>
+					http.get<Array<CharacterVersionInfo>>(`/api/v1/characters/${characterId}/versions`),
 				get: (characterId: Snowflake, versionId: Snowflake) =>
 					http.get<Character>(`/api/v1/characters/${characterId}/versions/${versionId}`),
 				avatar: (characterId: Snowflake, versionId: Snowflake) =>
 					http.get(`/api/v1/characters/${characterId}/versions/${versionId}/image`)
+			}
+		},
+		chat: {
+			list: () => http.get<Array<ConversationMetadata>>('/api/v1/chat'),
+			start: (request: StartChatRequest) => http.post<FullConversation>('/api/v1/chat', request),
+			get: (conversation_id: Snowflake, full: boolean) =>
+				http.get<FullConversation>(`/api/v1/chat/${conversation_id}?full=${full}`),
+			delete: (conversation_id: Snowflake) => http.delete(`/api/v1/chat/${conversation_id}`),
+			completions: (conversation_id: Snowflake, request: CompletionsRequest) =>
+				http.stream<ChatStreamEvent>(`/api/v1/chat/${conversation_id}/completions`, request),
+			messages: {
+				list: (conversation_id: Snowflake) =>
+					http.get<Array<ConversationMessage>>(`/api/v1/chat/${conversation_id}/messages`),
+				edit: (conversation_id: Snowflake, edit: ChatEdit) =>
+					http.put(`/api/v1/chat/${conversation_id}/messages`, edit),
+				delete: (conversation_id: Snowflake, message_id: Snowflake) =>
+					http.delete(`/api/v1/chat/${conversation_id}/messages/${message_id}`)
 			}
 		}
 	};

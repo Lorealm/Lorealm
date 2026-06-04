@@ -29,6 +29,10 @@ pub(super) fn router(
         .route("/{character_id}", get(handlers::get_character_latest))
         .route("/{character_id}/image", get(handlers::get_image_for_latest))
         .route(
+            "/{character_id}/chats",
+            get(handlers::list_character_chats),
+        )
+        .route(
             "/{character_id}/versions",
             get(handlers::list_character_versions),
         )

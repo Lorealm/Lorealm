@@ -83,6 +83,8 @@ class CharacterStore {
 	private _api = $state<ApiClient>();
 	metadataList = $state<Array<CharacterSummary>>([]);
 
+  activeCharacter = $state<Character | null>(null);
+	
 	get #api() {
 		if (!this._api) this._api = useApi(); // accessed once during page init
 		return this._api;
@@ -139,7 +141,11 @@ class CharacterStore {
 
 	async loadList() {
 		this.metadataList = await this.#api.characters.list();
-	}
+  }
+
+  async setActive(charId: Snowflake) {
+    this.activeCharacter = await this.#api.characters.get(charId);
+  }
 
 	/* --- editing session -------------------------------------------------- */
 
