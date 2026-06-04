@@ -53,6 +53,10 @@ export interface CreateLorebookRequest {
 	description?: string;
 }
 
+export interface SetActiveLorebooksRequest {
+  ids: Snowflake[]
+}
+
 export interface UpdateLorebookRequest {
 	name?: string;
 	description?: string;

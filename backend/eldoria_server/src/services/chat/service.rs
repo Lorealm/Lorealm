@@ -1,4 +1,4 @@
-use std::{pin::Pin, sync::Arc};
+use std::{collections::HashMap, pin::Pin, sync::Arc};
 
 use chrono::Utc;
 use eldoria_storage::{
@@ -7,14 +7,20 @@ use eldoria_storage::{
 };
 use futures_util::{Stream, StreamExt};
 use serde_json::json;
+use tokio::sync::RwLock;
 
 use crate::{
     errors::{ChatError, TargetType},
     services::{
         character::CharacterService,
         chat::{ChatStreamEvent, FullConversation},
+        context::{
+            ResolveContext, ResolverRegistry, TracedBlock, assemble,
+            builtin::register_builtin_resolvers,
+        },
         conversation::{ConversationService, EditMode},
         snowflake::SnowflakeService,
+        state::StateService,
     },
 };
 
@@ -28,6 +34,8 @@ pub struct ChatService {
     snowflake: Arc<SnowflakeService>,
     conversations: Arc<ConversationService>,
     characters: Arc<CharacterService>,
+    state: Arc<StateService>,
+    resolvers: Arc<ResolverRegistry>,
 }
 
 impl ChatService {
@@ -36,12 +44,18 @@ impl ChatService {
         snowflake: Arc<SnowflakeService>,
         conversations: Arc<ConversationService>,
         characters: Arc<CharacterService>,
+        state: Arc<StateService>,
     ) -> Self {
+        let mut registry = ResolverRegistry::new();
+        register_builtin_resolvers(&mut registry, Arc::clone(&state));
+
         Self {
             storage,
             snowflake,
             conversations,
             characters,
+            state,
+            resolvers: Arc::new(registry),
         }
     }
 
@@ -143,7 +157,7 @@ impl ChatService {
                 json!({}),
             )
             .await?;
-        
+
         let latest_id = self
             .conversations
             .append_message(convo.id, ChatRole::User, content, json!({}))
@@ -346,8 +360,24 @@ impl ChatService {
             }
         }
 
-        let prompt = self.build_prompt(convo_id, assembly_leaf).await?;
-        let token_stream = self.infer(prompt).await?;
+        let thread = self.build_prompt(convo_id, assembly_leaf).await?;
+
+        let character = self
+            .characters
+            .load_version(convo.character_id, convo.char_version_id, user_id)
+            .await?;
+        let template = self.state.get_active_template(user_id).await?;
+
+        let trace: Vec<TracedBlock> = {
+            let ctx = ResolveContext {
+                character: &character,
+                messages: &thread, // map ConversationMessage -> whatever ctx wants
+                user_id,
+            };
+            assemble(&template, &self.resolvers, &ctx).await?
+        };
+
+        let token_stream = self.infer(thread).await?;
 
         // Forward deltas, accumulate, persist on completion. Buffer-then-persist:
         // the assistant row exists exactly when the leaf advances.
@@ -361,19 +391,13 @@ impl ChatService {
                 yield ChatStreamEvent::Delta { content: delta };
             }
 
+            let meta = json!({ "context": trace });
             let message = match persist {
-                Persist::Child(parent) => {
-                    conversations
-                        .branch_from(convo_id, parent, ChatRole::Assistant, acc, json!({}))
-                        .await?
-                }
-                Persist::Sibling(sibling) => {
-                    conversations
-                        .create_alternate(convo_id, sibling, ChatRole::Assistant, acc, json!({}))
-                        .await?
-                }
+                Persist::Child(parent) =>
+                    conversations.branch_from(convo_id, parent, ChatRole::Assistant, acc, meta).await?,
+                Persist::Sibling(sibling) =>
+                    conversations.create_alternate(convo_id, sibling, ChatRole::Assistant, acc, meta).await?,
             };
-
             yield ChatStreamEvent::Done { message };
         };
 

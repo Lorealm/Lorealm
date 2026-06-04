@@ -23,7 +23,8 @@ import type {
 	CreateLorebookRequest,
 	LorebookEntry,
 	UpdateEntryRequest,
-	UpdateLorebookRequest
+	UpdateLorebookRequest,
+	SetActiveLorebooksRequest
 } from '$lib/types/lorebook.js';
 import type { SourceDefinition } from '$lib/types/node.js';
 import type {
@@ -33,6 +34,7 @@ import type {
 	MoveNodeRequest,
 	MoveNodeResponse,
 	NodeResponse,
+	SetActiveRequest as SetActiveTemplateRequest,
 	TemplateMetadata,
 	ToggleNodeResponse,
 	UpdateNodeRequest,
@@ -64,6 +66,11 @@ export function createApiClient(platform: PlatformAPI) {
 				http.put<ContextTemplate>(`/api/v1/templates/${id}`, update),
 			delete: (id: Snowflake) => http.delete(`/api/v1/templates/${id}`),
 			sources: () => http.get<Array<SourceDefinition>>('/api/v1/templates/sources'),
+			active: {
+				get: () => http.get<Snowflake | null>('/api/v1/templates/active'),
+				set: (request: SetActiveTemplateRequest) => http.put('/api/v1/templates/active', request),
+				clear: () => http.delete('/api/v1/templates/active')
+			},
 			nodes: {
 				add: (templateId: Snowflake, create: CreateNodeRequest) =>
 					http.post<NodeResponse>(`/api/v1/templates/${templateId}/nodes`, create),
@@ -84,6 +91,10 @@ export function createApiClient(platform: PlatformAPI) {
 			update: (id: Snowflake, update: UpdateLorebookRequest) =>
 				http.put<Lorebook>(`/api/v1/lorebooks/${id}`, update),
 			delete: (id: Snowflake) => http.delete(`/api/v1/lorebooks/${id}`),
+			active: {
+				get: () => http.get<Array<Snowflake> | null>('/api/v1/lorebooks/active'),
+				set: (request: SetActiveLorebooksRequest) => http.put('/api/v1/lorebooks/active', request)
+			},
 			entries: {
 				get: (lorebookId: Snowflake, entryId: Snowflake) =>
 					http.get<LorebookEntry>(`/api/v1/lorebooks/${lorebookId}/entries/${entryId}`),

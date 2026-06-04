@@ -19,6 +19,7 @@ use dto::*;
 pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewareState) -> Router {
     let session_only_routes = Router::new()
         .route("/", get(handlers::list_templates))
+        .route("/active", get(handlers::get_active))
         .route("/{template_id}", get(handlers::get_template))
         .route("/sources", get(handlers::list_sources))
         .layer(axum::middleware::from_fn_with_state(
@@ -28,6 +29,8 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
 
     let csrf_routes = Router::new()
         .route("/", post(handlers::create_template))
+        .route("/active", put(handlers::set_active_template))
+        .route("/active", delete(handlers::unset_active_template))
         .route("/{template_id}", put(handlers::update_template))
         .route("/{template_id}", delete(handlers::delete_template))
         .route("/{template_id}/nodes", post(handlers::add_node))

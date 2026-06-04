@@ -12,15 +12,14 @@ use eldoria_storage::{
 use tokio::{sync::RwLock, time::Instant};
 
 use crate::{
-    core::CleanableService,
-    services::{
+    core::CleanableService, errors::TargetType, services::{
         character::{
-            CharacterServiceError, EditDefinition, EditMetadata, EditableCharacter, TargetType,
+            CharacterServiceError, EditDefinition, EditMetadata, EditableCharacter,
             card_parser::{DetectedSpec, parse_character_card_png},
             compat::{CharaV2, convert_from_ccv2},
         },
         snowflake::SnowflakeService,
-    },
+    }
 };
 
 const SESSION_LENGTH: u64 = 60;

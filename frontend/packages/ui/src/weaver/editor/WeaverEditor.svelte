@@ -7,8 +7,11 @@
 		highlightActiveLine,
 		highlightActiveLineGutter,
 		drawSelection,
-		keymap
+		keymap,
+		tooltips
 	} from '@codemirror/view';
+	import { indentUnit, indentOnInput } from '@codemirror/language';
+	import { indentWithTab } from '@codemirror/commands';
 	import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
 	import { weaverSyntax } from './weaver-lang.js';
 	import { weaverHover } from './weaver-hover.js';
@@ -24,6 +27,17 @@
 		'.cm-content': { padding: '12px 0' }
 	});
 
+	const fieldSizing = EditorView.theme({
+		'&': {
+			width: '100%',
+			boxSizing: 'border-box',
+			borderRadius: '6px',
+			border: '1px solid #23262e'
+		},
+		'.cm-content': { padding: '7px 10px' },
+		'.cm-scroller': { overflowX: 'auto' }
+	});
+
 	onMount(() => {
 		view = new EditorView({
 			parent: host,
@@ -35,12 +49,16 @@
 					highlightActiveLine(),
 					drawSelection(),
 					history(),
-					keymap.of([...defaultKeymap, ...historyKeymap]),
+					keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]), // Tab reindents
+					indentUnit.of('  '), // two spaces; matches your examples
+					indentOnInput(), // snap closers left as they're typed
 					EditorView.lineWrapping, // wrap + line numbers coexist
 					weaverSyntax,
 					weaverHover,
 					weaverTheme,
 					editorSizing,
+					fieldSizing,
+					tooltips({ position: 'fixed', parent: document.body }),
 					...(onChange
 						? [
 								EditorView.updateListener.of((u) => {

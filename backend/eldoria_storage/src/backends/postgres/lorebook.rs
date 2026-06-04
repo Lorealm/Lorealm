@@ -225,6 +225,53 @@ impl LorebookStorage for PostgresStorage {
         restored.current_version_id = new_version_id;
         self.save_lorebook(&restored).await
     }
+
+    async fn list_enabled_lorebooks(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Vec<Snowflake>, StorageError> {
+        let ids: Vec<Snowflake> = sqlx::query_scalar(
+            "SELECT lorebook_id FROM enabled_lorebooks WHERE user_id = $1 ORDER BY position",
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(db_err)?;
+
+        Ok(ids)
+    }
+
+    async fn set_enabled_lorebooks(
+        &self,
+        user_id: Snowflake,
+        ordered: &[Snowflake],
+    ) -> Result<(), StorageError> {
+        // Replace-the-whole-list, atomically: positions are rewritten 0..n so there
+        // is no gap management and the writer fully owns ordering.
+        let mut tx = self.pool.begin().await.map_err(db_err)?;
+
+        sqlx::query("DELETE FROM enabled_lorebooks WHERE user_id = $1")
+            .bind(user_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(db_err)?;
+
+        for (position, lorebook_id) in ordered.iter().enumerate() {
+            sqlx::query(
+                "INSERT INTO enabled_lorebooks (user_id, lorebook_id, position) \
+                 VALUES ($1, $2, $3)",
+            )
+            .bind(user_id)
+            .bind(*lorebook_id)
+            .bind(position as i32)
+            .execute(&mut *tx)
+            .await
+            .map_err(db_err)?;
+        }
+
+        tx.commit().await.map_err(db_err)?;
+        Ok(())
+    }
 }
 
 #[async_trait]

@@ -64,4 +64,27 @@ impl TemplateStorage for CachedStorage {
             .template_name_exists(owner_id, name, exclude_id)
             .await
     }
+
+    async fn get_active_template(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Option<Snowflake>, StorageError> {
+        // Fits get_through exactly: T = Snowflake, returns Option<Snowflake>.
+        let key = self.key("active_template", &user_id.to_string());
+        self.get_through(&key, self.backend.get_active_template(user_id))
+            .await
+    }
+
+    async fn set_active_template(
+        &self,
+        user_id: Snowflake,
+        template_id: Option<Snowflake>,
+    ) -> Result<(), StorageError> {
+        self.backend
+            .set_active_template(user_id, template_id)
+            .await?;
+        self.cache_del(&self.key("active_template", &user_id.to_string()))
+            .await;
+        Ok(())
+    }
 }

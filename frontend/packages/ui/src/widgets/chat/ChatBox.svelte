@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { chatStore } from '$lib/stores/chat.svelte.js';
 	import MessageBubble from './MessageBubble.svelte';
+	import ContextInspector from './ContextInspector.svelte';
 	import { tick } from 'svelte';
 
 	let scrollEl: HTMLDivElement;
@@ -25,6 +26,8 @@
 		{/each}
 	{/if}
 </div>
+
+<ContextInspector />
 
 <style>
 	.container {

@@ -66,4 +66,14 @@ pub trait LorebookStorage: Send + Sync {
         version_id: Snowflake,
         new_version_id: Snowflake,
     ) -> Result<Snowflake, StorageError>;
+
+    async fn list_enabled_lorebooks(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Vec<Snowflake>, StorageError>;
+    async fn set_enabled_lorebooks(
+        &self,
+        user_id: Snowflake,
+        ordered: &[Snowflake],
+    ) -> Result<(), StorageError>;
 }

@@ -86,4 +86,31 @@ impl TemplateStorage for MemoryStorage {
             t.owner_id == owner_id && t.name == name && exclude_id.is_none_or(|eid| t.id != eid)
         }))
     }
+
+    async fn get_active_template(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Option<Snowflake>, StorageError> {
+        let template = self
+            .user_state
+            .read()
+            .await
+            .get(&user_id)
+            .ok_or(StorageError::NotFound(format!(
+                "no state for user: {user_id}"
+            )))?
+            .to_owned();
+
+        Ok(template)
+    }
+
+    async fn set_active_template(
+        &self,
+        user_id: Snowflake,
+        template_id: Option<Snowflake>,
+    ) -> Result<(), StorageError> {
+        self.user_state.write().await.insert(user_id, template_id);
+
+        Ok(())
+    }
 }

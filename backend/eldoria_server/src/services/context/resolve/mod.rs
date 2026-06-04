@@ -1,8 +1,7 @@
 use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc};
 
 use async_trait::async_trait;
-use context_weaver::ChatMessage;
-use eldoria_storage::models::{ConversationMessage, Snowflake};
+use eldoria_storage::models::{Character, ConversationMessage, Snowflake};
 use serde::Serialize;
 use tokio::sync::OnceCell;
 
@@ -54,9 +53,9 @@ pub enum OriginKind {
 /// Per-turn input handed to every resolver. Resolvers hold their own
 /// long-lived deps (service Arcs); this only carries what changes per assembly.
 pub struct ResolveContext<'a> {
+    pub character: &'a Character,
     pub messages: &'a [ConversationMessage],
-    pub user_id: Snowflake,
-    world_info: OnceCell<Vec<context_weaver::AssembledBlock>>,
+    pub user_id: Snowflake
 }
 
 #[async_trait]

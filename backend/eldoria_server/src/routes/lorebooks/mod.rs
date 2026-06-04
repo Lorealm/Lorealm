@@ -19,6 +19,7 @@ use dto::*;
 pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewareState) -> Router {
     let session_only_routes = Router::new()
         .route("/", get(handlers::list_lorebooks))
+        .route("/active", get(handlers::get_active))
         .route("/{lorebook_id}", get(handlers::get_lorebook))
         .route(
             "/{lorebook_id}/entries/{entry_id}",
@@ -31,6 +32,7 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
 
     let csrf_routes = Router::new()
         .route("/", post(handlers::create_lorebook))
+        .route("/active", put(handlers::set_active))
         .route("/{lorebook_id}", put(handlers::update_lorebook))
         .route("/{lorebook_id}", delete(handlers::delete_lorebook))
         .route("/{lorebook_id}/entries", post(handlers::create_entry))

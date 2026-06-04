@@ -3,7 +3,9 @@
 	import { characterStore } from '$lib/stores/character.svelte.js';
 	import type { ConversationMessage } from '$lib/types/conversation.js';
 	import TransportImage from '$lib/components/TransportImage.svelte';
-	import { ChevronLeft, ChevronRight, Pencil, Trash2 } from '@lucide/svelte';
+	import { ChevronLeft, ChevronRight, Layers, Pencil, Trash2 } from '@lucide/svelte';
+	import { contextInspector } from '$lib/stores/contextInspector.svelte.js';
+	import { parseContextBlocks } from '$lib/types/context.js';
 
 	let { message, last = false }: { message: ConversationMessage; last?: boolean } = $props();
 
@@ -28,6 +30,8 @@
 	let editing = $state(false);
 	let editMode = $state<'edit' | 'branch'>('edit');
 	let editText = $state('');
+
+	let hasContext = $derived(parseContextBlocks(message.metadata) !== null);
 
 	function startEdit(mode: 'edit' | 'branch') {
 		editMode = mode;
@@ -70,6 +74,15 @@
 			<span class="name">{name}</span>
 			{#if committed}
 				<div class="actions">
+					{#if hasContext}
+						<button
+							class="icon-btn"
+							title="Inspect context"
+							onclick={() => contextInspector.open(message)}
+						>
+							<Layers />
+						</button>
+					{/if}
 					<button class="icon-btn" title="Edit" disabled={busy} onclick={() => startEdit('edit')}>
 						<Pencil />
 					</button>

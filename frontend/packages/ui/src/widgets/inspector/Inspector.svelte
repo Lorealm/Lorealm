@@ -1,5 +1,10 @@
+<script>
+	import ContextWidget from "./widgets/ContextWidget.svelte";
+
+</script>
 <div class="container">
 	<div class="topBar"></div>
+	<ContextWidget />
 </div>
 
 <style>

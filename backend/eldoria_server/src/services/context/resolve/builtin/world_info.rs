@@ -1,4 +1,3 @@
-// services/context/resolve/builtin/world_info.rs
 use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
@@ -7,9 +6,12 @@ use context_weaver::{
 };
 use eldoria_storage::models::{ChatRole, ConversationMessage, Snowflake};
 
-use crate::{errors::ContextError, services::{context::to_weaver_lorebook, state::StateService}};
+use crate::{
+    errors::ContextError,
+    services::{context::to_weaver_lorebook, state::StateService},
+};
 
-use super::super::{ChatMessage, PromptRole, ResolveContext, ResolvedBlock, SourceResolver};
+use super::super::{PromptRole, ResolveContext, ResolvedBlock, SourceResolver};
 
 pub struct WorldInfoResolver {
     state: Arc<StateService>,
@@ -36,10 +38,7 @@ impl SourceResolver for WorldInfoResolver {
         let slot = slot_for_node(node_id)?;
 
         // Single pipeline run, shared across all six world_info nodes this turn.
-        let blocks = ctx
-            .world_info
-            .get_or_try_init(|| self.run_pipeline(ctx.user_id, ctx.messages))
-            .await?;
+        let blocks = self.run_pipeline(ctx.user_id, ctx.messages).await?;
 
         let separator = settings
             .get("separator")
