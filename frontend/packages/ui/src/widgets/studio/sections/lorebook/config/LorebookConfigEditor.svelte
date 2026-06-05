@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { LorebookDraft, SaveState } from '$lib/stores/lorebook.svelte.js';
-	import type { Slot } from '$lib/types/lorebook.js';
+	import type { NamespaceAccess, NamespaceConfig, Slot } from '$lib/types/lorebook.js';
 	import SlotPicker from '../SlotPicker.svelte';
 	import SaveIndicator from '../SaveIndicator.svelte';
 	import NumberInput from '$lib/components/NumberInput.svelte';
@@ -53,7 +53,37 @@
 		newBudget = '';
 	}
 
+	// namespaces: edit access/description in place, remove in place, add via a
+	// dedicated form (mirrors group budgets). Renaming = remove + re-add, so the
+	// record never has to hold a transient empty key.
 	const namespaceRows = $derived(Object.entries(config.namespaces ?? {}));
+	let newNamespace = $state('');
+	let newAccess = $state<NamespaceAccess>('readonly');
+	let newDescription = $state('');
+	function setNamespace(key: string, ns: NamespaceConfig) {
+		draft.config.namespaces = { ...config.namespaces, [key]: ns };
+		touch();
+	}
+	function setNamespaceAccess(key: string, access: NamespaceAccess) {
+		setNamespace(key, { ...config.namespaces[key], access });
+	}
+	function setNamespaceDescription(key: string, description: string) {
+		setNamespace(key, { ...config.namespaces[key], description });
+	}
+	function removeNamespace(key: string) {
+		const next = { ...config.namespaces };
+		delete next[key];
+		draft.config.namespaces = next;
+		touch();
+	}
+	function addNamespace() {
+		const key = newNamespace.trim();
+		if (key === '') return;
+		setNamespace(key, { access: newAccess, description: newDescription.trim() });
+		newNamespace = '';
+		newAccess = 'readonly';
+		newDescription = '';
+	}
 </script>
 
 <div class="config-editor">
@@ -196,20 +226,50 @@
 
 	<fieldset class="block">
 		<legend>Namespaces</legend>
-		{#if namespaceRows.length === 0}
-			<p class="muted">None declared.</p>
-		{:else}
-			<ul class="namespaces">
-				{#each namespaceRows as [name, ns] (name)}
-					<li>
-						<code>{name}</code>
-						<span class="access">{ns.access}</span>
-						{#if ns.description}<span class="muted">— {ns.description}</span>{/if}
-					</li>
-				{/each}
-			</ul>
-		{/if}
-		<p class="muted hint">Namespaces are read-only here.</p>
+		<div class="map-list">
+			{#each namespaceRows as [name, ns] (name)}
+				<div class="ns-row">
+					<code class="ns-name" title={name}>{name}</code>
+					<select
+						class="ns-access"
+						value={ns.access}
+						onchange={(e) => setNamespaceAccess(name, e.currentTarget.value as NamespaceAccess)}
+						aria-label={`${name} access`}
+					>
+						<option value="readonly">readonly</option>
+						<option value="readwrite">readwrite</option>
+					</select>
+					<input
+						type="text"
+						class="ns-desc"
+						placeholder="description"
+						value={ns.description}
+						oninput={(e) => setNamespaceDescription(name, e.currentTarget.value)}
+						aria-label={`${name} description`}
+					/>
+					<button
+						type="button"
+						class="remove"
+						aria-label="Remove"
+						onclick={() => removeNamespace(name)}>×</button
+					>
+				</div>
+			{/each}
+			<div class="ns-row add">
+				<input
+					type="text"
+					class="ns-name-input"
+					placeholder="namespace"
+					bind:value={newNamespace}
+				/>
+				<select class="ns-access" bind:value={newAccess} aria-label="New namespace access">
+					<option value="readonly">readonly</option>
+					<option value="readwrite">readwrite</option>
+				</select>
+				<input type="text" class="ns-desc" placeholder="description" bind:value={newDescription} />
+				<button type="button" onclick={addNamespace}>+ Add</button>
+			</div>
+		</div>
 	</fieldset>
 </div>
 
@@ -307,24 +367,29 @@
 		flex: 0 0 auto;
 		line-height: 1;
 	}
-	.namespaces {
-		margin: 0;
-		padding-left: var(--spacing-md);
+	.ns-row {
 		display: flex;
-		flex-direction: column;
 		gap: var(--spacing-xs);
+		align-items: center;
+	}
+	.ns-name {
+		flex: 0 1 16em;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-family: var(--font-family-mono, ui-monospace, monospace);
 		font-size: var(--font-size-sm);
 	}
-	.access {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+	.ns-access {
+		flex: 0 1 auto;
 	}
-	.muted {
-		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
-		margin: 0;
+	.ns-desc {
+		flex: 1 1 auto;
+		min-width: 0;
 	}
-	.hint {
-		margin-top: calc(-1 * var(--spacing-xs));
+	.ns-row.add .ns-name-input {
+		flex: 0 1 16rem;
+		min-width: 0;
 	}
 </style>

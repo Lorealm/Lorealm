@@ -16,10 +16,8 @@
 use async_trait::async_trait;
 
 use crate::error::StorageError;
-use crate::models::{
-    Lorebook, LorebookEntry, LorebookMetadata, LorebookSession, LorebookVersionInfo, Snowflake,
-};
-use crate::storage::{LorebookSessionStorage, LorebookStorage};
+use crate::models::{Lorebook, LorebookEntry, LorebookMetadata, LorebookVersionInfo, Snowflake};
+use crate::storage::LorebookStorage;
 
 use super::PostgresStorage;
 
@@ -271,56 +269,5 @@ impl LorebookStorage for PostgresStorage {
 
         tx.commit().await.map_err(db_err)?;
         Ok(())
-    }
-}
-
-#[async_trait]
-impl LorebookSessionStorage for PostgresStorage {
-    async fn get_session(
-        &self,
-        conversation_id: Snowflake,
-    ) -> Result<Option<LorebookSession>, StorageError> {
-        let session = sqlx::query_as::<_, LorebookSession>(
-            "SELECT conversation_id, lorebook_id, activation_state, persistent_state, updated_at
-             FROM lorebook_sessions WHERE conversation_id = $1",
-        )
-        .bind(conversation_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(db_err)?;
-        Ok(session)
-    }
-
-    async fn save_lorebook_session(&self, session: &LorebookSession) -> Result<(), StorageError> {
-        sqlx::query(
-            "INSERT INTO lorebook_sessions
-                (conversation_id, lorebook_id, activation_state, persistent_state, updated_at)
-             VALUES ($1, $2, $3, $4, now())
-             ON CONFLICT (conversation_id) DO UPDATE SET
-                lorebook_id      = EXCLUDED.lorebook_id,
-                activation_state = EXCLUDED.activation_state,
-                persistent_state = EXCLUDED.persistent_state,
-                updated_at       = now()",
-        )
-        .bind(session.conversation_id)
-        .bind(session.lorebook_id)
-        .bind(&session.activation_state)
-        .bind(&session.persistent_state)
-        .execute(&self.pool)
-        .await
-        .map_err(db_err)?;
-        Ok(())
-    }
-
-    async fn delete_lorebook_session(
-        &self,
-        conversation_id: Snowflake,
-    ) -> Result<bool, StorageError> {
-        let res = sqlx::query("DELETE FROM lorebook_sessions WHERE conversation_id = $1")
-            .bind(conversation_id)
-            .execute(&self.pool)
-            .await
-            .map_err(db_err)?;
-        Ok(res.rows_affected() > 0)
     }
 }

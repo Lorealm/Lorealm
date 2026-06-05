@@ -3,9 +3,9 @@ mod characters;
 mod conversations;
 mod core;
 mod lorebook;
-mod lorebook_session;
 mod permissions;
 mod sessions;
+mod state;
 mod templates;
 mod users;
 
@@ -14,9 +14,9 @@ pub use characters::CharacterStorage;
 pub use conversations::ConversationStorage;
 pub use core::StorageCore;
 pub use lorebook::LorebookStorage;
-pub use lorebook_session::LorebookSessionStorage;
 pub use permissions::PermissionStorage;
 pub use sessions::SessionStorage;
+pub use state::WeaverStateStorage;
 pub use templates::TemplateStorage;
 pub use users::UserStorage;
 
@@ -28,8 +28,8 @@ pub trait Storage:
     + CharacterStorage
     + TemplateStorage
     + LorebookStorage
-    + LorebookSessionStorage
     + ConversationStorage
+    + WeaverStateStorage
 {
 }
 
@@ -41,7 +41,7 @@ impl<T> Storage for T where
         + CharacterStorage
         + TemplateStorage
         + LorebookStorage
-        + LorebookSessionStorage
         + ConversationStorage
+        + WeaverStateStorage
 {
 }

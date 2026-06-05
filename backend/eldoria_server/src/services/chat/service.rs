@@ -8,6 +8,7 @@ use eldoria_storage::{
 };
 use futures_util::{Stream, StreamExt};
 use serde_json::json;
+use tokio::sync::Mutex;
 
 use crate::{
     errors::{ChatError, TargetType},
@@ -20,7 +21,7 @@ use crate::{
         },
         conversation::{ConversationService, EditMode},
         snowflake::SnowflakeService,
-        state::StateService,
+        state::{CapturedState, StateService},
     },
 };
 
@@ -373,13 +374,19 @@ impl ChatService {
             .await?;
         let template = self.state.get_active_template(user_id).await?;
 
+        let captured: Option<CapturedState>;
+        let state_service = self.state.clone();
         let trace: Vec<TracedBlock> = {
             let ctx = ResolveContext {
                 character: &character,
-                messages: &thread, // map ConversationMessage -> whatever ctx wants
+                messages: &thread,
                 user_id,
+                lorebook_state: Mutex::new(None),
             };
-            assemble(&template, &self.resolvers, &ctx).await?
+            let trace = assemble(&template, &self.resolvers, &ctx).await?;
+            // ctx still alive here — take ownership of whatever the resolver wrote.
+            captured = ctx.lorebook_state.lock().await.take();
+            trace
         };
 
         let mut ephemeral_prompt: Vec<super::PromptMessage> = Vec::with_capacity(trace.len());
@@ -422,13 +429,18 @@ impl ChatService {
             let meta = json!({
                 "context": stored,
             });
-            
+
             let message = match persist {
                 Persist::Child(parent) =>
                     conversations.branch_from(convo_id, parent, ChatRole::Assistant, acc, meta).await?,
                 Persist::Sibling(sibling) =>
                     conversations.create_alternate(convo_id, sibling, ChatRole::Assistant, acc, meta).await?,
             };
+
+            if let Some(captured) = captured {
+                state_service.persist(message.id, captured).await?;
+            }
+
             yield ChatStreamEvent::Done { message };
         };
 

@@ -3,6 +3,7 @@ pub mod conversation;
 pub mod lorebook;
 pub mod permissions;
 pub mod sessions;
+pub mod state;
 pub mod templates;
 pub mod users;
 

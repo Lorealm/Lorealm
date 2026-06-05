@@ -50,6 +50,8 @@ pub enum ContextError {
     NoActiveCharacter,
     #[error("Unknown source node: {source_id}:{node_id}")]
     UnknownSourceNode { source_id: String, node_id: String },
+    #[error("State conversion: {0}")]
+    StateConversion(String),
 }
 
 impl ContextError {
@@ -71,6 +73,9 @@ impl ContextError {
             }
             ContextError::ContextWeaver(context_weaver_error) => {
                 format!("ContextWeaver: {context_weaver_error}")
+            }
+            ContextError::StateConversion(e) => {
+                format!("State conversion: {e}")
             }
         }
     }

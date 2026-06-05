@@ -3,8 +3,9 @@ use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc};
 use async_trait::async_trait;
 use eldoria_storage::models::{Character, ConversationMessage, Snowflake};
 use serde::Serialize;
+use tokio::sync::Mutex;
 
-use crate::{errors::ContextError, services::context::GroupWrapMode};
+use crate::{errors::ContextError, services::{context::GroupWrapMode, state::CapturedState}};
 
 use super::{
     PromptRole,
@@ -87,6 +88,7 @@ pub struct ResolveContext<'a> {
     pub character: &'a Character,
     pub messages: &'a [ConversationMessage],
     pub user_id: Snowflake,
+    pub lorebook_state: Mutex<Option<CapturedState>>
 }
 
 #[async_trait]

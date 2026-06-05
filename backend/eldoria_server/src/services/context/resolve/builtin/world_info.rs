@@ -2,15 +2,20 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 use context_weaver::{
-    AssembledBlock, ChatMessage as CwMessage, ContextWeaver, NamespaceAccess, Slot,
+    ActivationState as CwActivationState, AssembledBlock, BookId, ChatMessage as CwMessage,
+    ContextWeaver, EngineConfig, NamespaceAccess, Slot,
 };
-use eldoria_storage::models::{ChatRole, ConversationMessage, Snowflake};
+use eldoria_storage::models::{
+    ActivationState, Character, ChatRole, ConversationMessage, Snowflake,
+};
+use serde_json::Value as JsonValue;
+use weaver_lang::Value as WeaverValue;
 
 use crate::{
     errors::ContextError,
     services::{
         context::{ContentRef, to_weaver_lorebook},
-        state::StateService,
+        state::{CapturedState, StatePool, StateService},
     },
 };
 
@@ -39,8 +44,11 @@ impl SourceResolver for WorldInfoResolver {
         ctx: &ResolveContext<'_>,
     ) -> Result<Vec<ResolvedBlock>, ContextError> {
         let slot = slot_for_node(node_id)?;
+        tracing::info!("resolving block: {slot}");
 
-        let blocks = self.run_pipeline(ctx.user_id, ctx.messages).await?;
+        let (blocks, persistent) = self
+            .run_pipeline(ctx.user_id, ctx.messages, ctx.character)
+            .await?;
 
         let separator = settings
             .get("separator")
@@ -67,6 +75,8 @@ impl SourceResolver for WorldInfoResolver {
             return Ok(Vec::new());
         }
 
+        *ctx.lorebook_state.lock().await = persistent;
+
         Ok(vec![ResolvedBlock {
             role: PromptRole::System,
             content: entries.join(separator),
@@ -80,7 +90,8 @@ impl WorldInfoResolver {
         &self,
         user_id: Snowflake,
         messages: &[ConversationMessage],
-    ) -> Result<Vec<AssembledBlock>, ContextError> {
+        character: &Character,
+    ) -> Result<(Vec<AssembledBlock>, Option<CapturedState>), ContextError> {
         let lorebooks = self
             .state
             .get_active_lorebooks(user_id)
@@ -90,24 +101,67 @@ impl WorldInfoResolver {
         // Init with the first book, stack the rest. No active books -> every slot empty.
         let mut iter = lorebooks.into_iter();
         let Some(first) = iter.next() else {
-            return Ok(Vec::new());
+            return Ok((Vec::new(), None));
         };
-        let mut weaver = ContextWeaver::new(to_weaver_lorebook(first)?);
+
+        let mut book_ids: HashMap<Snowflake, BookId> = HashMap::new();
+
+        let first_sf = first.id;
+        let mut weaver = ContextWeaver::new(to_weaver_lorebook(first)?).with_config(EngineConfig {
+            lenient: true,
+            ..Default::default()
+        });
+
+        book_ids.insert(first_sf, BookId(0)); // The first BookId is always 0
+
         for book in iter {
-            weaver.add_lorebook(to_weaver_lorebook(book)?);
+            let sf = book.id;
+            let bid = weaver.add_lorebook(to_weaver_lorebook(book)?);
+            book_ids.insert(sf, bid);
         }
 
-        // TODO(namespace-service): namespace reservation + seeding is hardcoded.
-        // This needs a dedicated service to feed `char`/`user` (and likely active
-        // state) from the real active character + user, replacing these literals.
+        let ids: Vec<Snowflake> = messages.iter().map(|m| m.id).collect();
+        let state = self.state.reconstruct(&ids).await?;
+
         weaver.reserve_namespace("char", NamespaceAccess::ReadOnly);
         weaver.reserve_namespace("user", NamespaceAccess::ReadOnly);
-        weaver.set_variable("char", "name", "Aria");
+
+        weaver.restore_persistent(to_weaver_snapshot(&state.persistent)?);
+
+        for (sf, act) in &state.activation {
+            if let Some(&bid) = book_ids.get(sf) {
+                let activation = storage_activation_to_weaver(act.clone())?;
+                weaver.restore_activation_state(bid, activation);
+            }
+        }
+
+        weaver.set_variable("char", "name", character.definition.name.clone());
         weaver.set_variable("user", "name", "Player");
 
         let cw_messages = convert_messages(messages);
+        tracing::info!("Found {} messages", cw_messages.len());
         let blocks = weaver.assemble(&cw_messages)?;
-        Ok(blocks)
+
+        let exported = weaver.export_persistent();
+        let output_pool = to_state_pool(&exported)?;
+        let persistent = self.state.diff(&state.persistent, &output_pool);
+
+        let states = weaver.activation_states();
+        tracing::info!("Activation states: {:?}", states);
+        let mut activation = HashMap::with_capacity(book_ids.len());
+        for (&sf, &bid) in &book_ids {
+            let weaver_act = &states[bid.0];
+            activation.insert(sf, weaver_activation_to_storage(weaver_act)?);
+        }
+
+        let captured = CapturedState {
+            activation,
+            persistent,
+        };
+
+        tracing::info!("Got state: {:?}", captured);
+
+        Ok((blocks, Some(captured)))
     }
 }
 
@@ -136,6 +190,110 @@ fn convert_messages(messages: &[ConversationMessage]) -> Vec<CwMessage> {
             ChatRole::User => CwMessage::user(&m.content),
             ChatRole::Assistant => CwMessage::assistant(&m.content),
             ChatRole::System => CwMessage::system(&m.content),
+        })
+        .collect()
+}
+
+fn storage_activation_to_weaver(
+    act: ActivationState,
+) -> Result<CwActivationState, serde_json::Error> {
+    let json = serde_json::to_string(&act)?;
+    serde_json::from_str(&json)
+}
+
+fn weaver_activation_to_storage(
+    act: &CwActivationState,
+) -> Result<ActivationState, serde_json::Error> {
+    let json = serde_json::to_string(act)?;
+    serde_json::from_str(&json)
+}
+
+fn to_weaver_value(value: &JsonValue) -> Result<WeaverValue, ContextError> {
+    Ok(match value {
+        JsonValue::Null => WeaverValue::None,
+        JsonValue::Bool(b) => WeaverValue::Bool(*b),
+        JsonValue::String(s) => WeaverValue::String(s.clone()),
+        JsonValue::Number(n) => match n.as_f64() {
+            Some(f) => WeaverValue::Number(f),
+            // Only non-finite arbitrary-precision numbers yield None, and
+            // weaver-lang's f64 model couldn't hold them anyway.
+            None => {
+                return Err(ContextError::StateConversion(format!(
+                    "number not representable as f64: {n}"
+                )));
+            }
+        },
+        JsonValue::Array(items) => WeaverValue::Array(
+            items
+                .iter()
+                .map(to_weaver_value)
+                .collect::<Result<_, _>>()?,
+        ),
+        JsonValue::Object(_) => {
+            return Err(ContextError::StateConversion(
+                "object has no weaver-lang representation".into(),
+            ));
+        }
+    })
+}
+
+fn weaver_value_to_json(value: &WeaverValue) -> Result<JsonValue, ContextError> {
+    Ok(match value {
+        WeaverValue::None => JsonValue::Null,
+        WeaverValue::Bool(b) => JsonValue::Bool(*b),
+        WeaverValue::String(s) => JsonValue::String(s.clone()),
+        WeaverValue::Number(n) => {
+            if !n.is_finite() {
+                return Err(ContextError::StateConversion(format!(
+                    "non-finite number cannot be stored as JSON: {n}"
+                )));
+            }
+            // Emit whole numbers as JSON integers — see the diff-stability note.
+            if n.fract() == 0.0 && *n >= i64::MIN as f64 && *n <= i64::MAX as f64 {
+                JsonValue::Number((*n as i64).into())
+            } else {
+                JsonValue::Number(
+                    serde_json::Number::from_f64(*n).expect("finite f64 is representable"),
+                )
+            }
+        }
+        WeaverValue::Array(items) => JsonValue::Array(
+            items
+                .iter()
+                .map(weaver_value_to_json)
+                .collect::<Result<_, _>>()?,
+        ),
+    })
+}
+
+/// Snapshot weaver's persistent `state:` pool as a `StatePool` for diffing and
+/// storage. Must stay a faithful inverse of the `to_weaver_value` restore, or
+/// the diff baseline drifts.
+fn to_state_pool(
+    snapshot: &HashMap<String, HashMap<String, WeaverValue>>,
+) -> Result<StatePool, ContextError> {
+    snapshot
+        .iter()
+        .map(|(ns, vars)| {
+            let converted = vars
+                .iter()
+                .map(|(name, v)| Ok((name.clone(), weaver_value_to_json(v)?)))
+                .collect::<Result<HashMap<_, _>, ContextError>>()?;
+            Ok((ns.clone(), converted))
+        })
+        .collect()
+}
+
+fn to_weaver_snapshot(
+    pool: &StatePool,
+) -> Result<HashMap<String, HashMap<String, WeaverValue>>, ContextError> {
+    pool.iter()
+        .map(|(ns, vars)| {
+            let converted = vars
+                .iter()
+                .map(|(name, v)| Ok((name.clone(), to_weaver_value(v)?)))
+                .collect::<Result<HashMap<_, _>, ContextError>>()?;
+            Ok((ns.clone(), converted))
         })
         .collect()
 }

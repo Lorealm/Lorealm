@@ -11,3 +11,11 @@ CREATE TABLE user_settings (
     active_template_id BIGINT REFERENCES templates(id) ON DELETE SET NULL
     -- TODO: active_connection_profile_id
 );
+
+-- Per-message save state
+CREATE TABLE weaver_message_state (
+    message_id       BIGINT PRIMARY KEY REFERENCES conversation_messages(id) ON DELETE CASCADE,
+    activation       jsonb NOT NULL,  -- { "<lorebook_id>": <ActivationState>, ... }
+    persistent_delta jsonb NOT NULL,  -- shared-pool delta { writes, deletes }
+    created_at       timestamptz NOT NULL DEFAULT now()
+);
