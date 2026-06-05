@@ -17,8 +17,8 @@
 use async_trait::async_trait;
 
 use crate::error::StorageError;
-use crate::models::{Lorebook, LorebookMetadata, LorebookSession, LorebookVersionInfo, Snowflake};
-use crate::storage::{LorebookSessionStorage, LorebookStorage};
+use crate::models::{Lorebook, LorebookMetadata, LorebookVersionInfo, Snowflake};
+use crate::storage::LorebookStorage;
 
 use super::CachedStorage;
 
@@ -90,16 +90,16 @@ impl LorebookStorage for CachedStorage {
         // Not routed through get_through: a Vec doesn't fit its Option<T> shape, and
         // an empty enabled-list is a real value we *want* cached, not a miss.
         let key = self.key("enabled_lorebooks", &user_id.to_string());
-    
+
         if let Some(cached) = self.cache_get::<Vec<Snowflake>>(&key).await {
             return Ok(cached);
         }
-    
+
         let ids = self.backend.list_enabled_lorebooks(user_id).await?;
         self.cache_set(&key, &ids).await;
         Ok(ids)
     }
-    
+
     async fn set_enabled_lorebooks(
         &self,
         user_id: Snowflake,
@@ -110,33 +110,5 @@ impl LorebookStorage for CachedStorage {
         self.cache_del(&self.key("enabled_lorebooks", &user_id.to_string()))
             .await;
         Ok(())
-    }
-}
-
-#[async_trait]
-impl LorebookSessionStorage for CachedStorage {
-    async fn get_session(
-        &self,
-        conversation_id: Snowflake,
-    ) -> Result<Option<LorebookSession>, StorageError> {
-        let key = self.key("lb_session", &conversation_id.to_string());
-        self.get_through(&key, self.backend.get_session(conversation_id))
-            .await
-    }
-
-    async fn save_lorebook_session(&self, session: &LorebookSession) -> Result<(), StorageError> {
-        self.backend.save_lorebook_session(session).await?;
-        // Write-through: sessions are read every turn, so keep the entry warm
-        // rather than just deleting it.
-        let key = self.key("lb_session", &session.conversation_id.to_string());
-        self.cache_set(&key, session).await;
-        Ok(())
-    }
-
-    async fn delete_lorebook_session(&self, conversation_id: Snowflake) -> Result<bool, StorageError> {
-        let deleted = self.backend.delete_lorebook_session(conversation_id).await?;
-        self.cache_del(&self.key("lb_session", &conversation_id.to_string()))
-            .await;
-        Ok(deleted)
     }
 }

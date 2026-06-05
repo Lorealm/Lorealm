@@ -33,12 +33,3 @@ CREATE TABLE lorebook_versions (
 );
 
 CREATE INDEX idx_lorebook_version_book ON lorebook_versions (lorebook_id, version_num DESC);
-
--- Per-conversation save state (the part that changes every turn).
-CREATE TABLE weaver_session (
-    conversation_id  BIGINT PRIMARY KEY,
-    lorebook_id      BIGINT NOT NULL REFERENCES lorebooks(id) ON DELETE CASCADE,
-    activation_state jsonb NOT NULL,
-    persistent_state jsonb NOT NULL,
-    updated_at       timestamptz NOT NULL DEFAULT now()
-);

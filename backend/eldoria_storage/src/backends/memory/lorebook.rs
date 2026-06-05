@@ -23,10 +23,9 @@ use chrono::Utc;
 
 use crate::error::StorageError;
 use crate::models::{
-    Lorebook, LorebookMetadata, LorebookSession, LorebookVersionInfo, Snowflake,
-    extract_book_version,
+    Lorebook, LorebookMetadata, LorebookVersionInfo, Snowflake, extract_book_version,
 };
-use crate::storage::{LorebookSessionStorage, LorebookStorage};
+use crate::storage::LorebookStorage;
 
 use super::MemoryStorage;
 
@@ -117,10 +116,6 @@ impl LorebookStorage for MemoryStorage {
                 .write()
                 .await
                 .retain(|_, v| v.lorebook_id != id);
-            self.lorebook_sessions
-                .write()
-                .await
-                .retain(|_, s| s.lorebook_id != id);
         }
         Ok(removed)
     }
@@ -192,42 +187,10 @@ impl LorebookStorage for MemoryStorage {
         user_id: Snowflake,
         ordered: &[Snowflake],
     ) -> Result<(), StorageError> {
-        self.enabled_lorebooks.write().await.insert(user_id, ordered.to_vec());
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl LorebookSessionStorage for MemoryStorage {
-    async fn get_session(
-        &self,
-        conversation_id: Snowflake,
-    ) -> Result<Option<LorebookSession>, StorageError> {
-        Ok(self
-            .lorebook_sessions
-            .read()
-            .await
-            .get(&conversation_id)
-            .cloned())
-    }
-
-    async fn save_lorebook_session(&self, session: &LorebookSession) -> Result<(), StorageError> {
-        self.lorebook_sessions
+        self.enabled_lorebooks
             .write()
             .await
-            .insert(session.conversation_id, session.clone());
+            .insert(user_id, ordered.to_vec());
         Ok(())
-    }
-
-    async fn delete_lorebook_session(
-        &self,
-        conversation_id: Snowflake,
-    ) -> Result<bool, StorageError> {
-        Ok(self
-            .lorebook_sessions
-            .write()
-            .await
-            .remove(&conversation_id)
-            .is_some())
     }
 }

@@ -35,15 +35,6 @@ pub struct LorebookVersionInfo {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
-pub struct LorebookSession {
-    pub conversation_id: Snowflake,
-    pub lorebook_id: Snowflake,
-    pub activation_state: serde_json::Value,
-    pub persistent_state: serde_json::Value,
-    pub updated_at: DateTime<Utc>,
-}
-
 #[derive(Debug, Serialize)]
 pub struct LorebookMetadata {
     pub id: Snowflake,
