@@ -1,25 +1,3 @@
-// weaverFile — the parse/serialize boundary between a raw `.weaver` source
-// string and the structured view the editor binds to.
-//
-// A `.weaver` file is:
-//     ---
-//     <YAML frontmatter>
-//     ---
-//     <weaver body>
-//
-// The frontend owns the full round-trip for entries, so fidelity matters: an
-// autosave that rewrites the whole `source` must NOT lose author comments, key
-// order, or unknown frontmatter keys, and must not gratuitously reformat fields
-// the author never touched. We achieve that by editing through a preserved
-// `yaml.Document` and only mutating keys whose value actually changed.
-//
-// Fidelity bound: comments, key order, unknown extension keys, block-style
-// content, and the body are all preserved. The one cosmetic exception is that
-// re-emitting normalizes whitespace INSIDE flow collections and run-in comments
-// (`[a, b]` -> `[ a, b ]`); no author content is lost. Byte-exact flow spacing
-// is not recoverable through edit-through-Document and is not worth a bespoke
-// text-splicing serializer.
-
 import { parse, parseDocument, type Document } from 'yaml';
 import type { EntryMeta, LorebookConfig } from '../types/lorebook.js';
 
@@ -30,18 +8,12 @@ export class WeaverFileError extends Error {
 	}
 }
 
-/** A parsed entry: the preserved frontmatter document, a structured view for
- *  the form, and the raw body. `doc` is the fidelity anchor — serialize edits a
- *  clone of it rather than building YAML from scratch. */
 export interface ParsedEntry {
 	doc: Document;
 	meta: EntryMeta;
 	body: string;
 }
 
-/** Known frontmatter keys, in canonical order. Anything not here is an unknown
- *  extension key and is never touched by the serializer. Collection keys are
- *  extension key and is never touched by the serializer. */
 const KNOWN_KEYS = [
 	'id',
 	'name',

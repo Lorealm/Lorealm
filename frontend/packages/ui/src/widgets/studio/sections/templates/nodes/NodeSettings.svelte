@@ -4,12 +4,10 @@
 	import type {
 		ContextNode,
 		GroupMode,
-		JsonValue,
 		NodeContent,
-		PromptRole,
 		SourceNodeDefinition
 	} from '$lib/types/node.js';
-	import type { Snowflake } from '$lib/types/core.js';
+	import type { JsonValue, PromptRole, Snowflake } from '$lib/types/core.js';
 	import type { UpdateNodeRequest } from '$lib/types/template.js';
 	import { SvelteSet } from 'svelte/reactivity';
 	import NumberInput from '$lib/components/NumberInput.svelte';
@@ -27,8 +25,7 @@
 
 	const DEBOUNCE = 500;
 
-	// Local mirrors. Synced from `node` only when the selected node changes, so a
-	// server reconcile mid-edit can't clobber what the user is typing.
+	// Local mirrors
 	let title = $state('');
 	let description = $state('');
 	let role = $state<PromptRole>('system');
@@ -43,11 +40,11 @@
 	const dirty = new SvelteSet<'title' | 'description' | 'content'>();
 
 	$effect(() => {
-		const n = node; // track node identity only
+		const n = node;
 		const nid = n.id;
 		if (nid === lastId) return;
 		untrack(() => {
-			void flush(); // persist edits from the node we're leaving
+			void flush();
 			lastId = nid;
 			saveState = 'idle';
 			title = n.title;
@@ -71,8 +68,6 @@
 		return src?.nodes.find((sn) => sn.node_id === node_id) ?? null;
 	});
 
-	// Rebuild full NodeContent, preserving the fields this form doesn't edit
-	// (text body, group children, source identity).
 	function buildContent(): NodeContent {
 		const c = node.content;
 		if (c.type === 'text') return { type: 'text', content: c.content, role };

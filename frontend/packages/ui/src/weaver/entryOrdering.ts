@@ -1,9 +1,3 @@
-// Ordering for the entry list. Two rules, in order:
-//   1. Enabled entries always sort before disabled ones, whatever the key.
-//   2. Within each group, sort by the chosen key.
-// A stable tiebreak on `id` keeps the order deterministic. Kept pure (operates
-// on `{ meta }`, returns a new array) so it is unit-testable without the store.
-
 import type { EntryMeta } from '../types/lorebook.ts';
 
 export type SortKey = 'name' | 'priority' | 'insertion_order' | 'id';
@@ -28,20 +22,20 @@ export function sortEntries<T extends Sortable>(
 	return [...entries].sort((a, b) => {
 		const ea = a.meta.enabled ?? true;
 		const eb = b.meta.enabled ?? true;
-		if (ea !== eb) return ea ? -1 : 1; // enabled first
+		if (ea !== eb) return ea ? -1 : 1;
 
 		const byKey = compareKey(a.meta, b.meta, key, dp);
 		if (byKey !== 0) return byKey;
-		return a.meta.id.localeCompare(b.meta.id); // deterministic tiebreak
+		return a.meta.id.localeCompare(b.meta.id);
 	});
 }
 
 function compareKey(a: EntryMeta, b: EntryMeta, key: SortKey, dp: number): number {
 	switch (key) {
 		case 'priority':
-			return (b.priority ?? dp) - (a.priority ?? dp); // higher priority first
+			return (b.priority ?? dp) - (a.priority ?? dp);
 		case 'insertion_order':
-			return (a.insertion_order ?? 0) - (b.insertion_order ?? 0); // lower first
+			return (a.insertion_order ?? 0) - (b.insertion_order ?? 0);
 		case 'id':
 			return a.id.localeCompare(b.id);
 		case 'name':

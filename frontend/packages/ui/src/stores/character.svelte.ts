@@ -9,56 +9,25 @@ import type {
 	EditMetadata
 } from '$lib/types/character.js';
 
-// ---------------------------------------------------------------------------
-// Characters differ from lorebooks in the one way that reshapes the whole store:
-//
-//  1. The wire write is an ordered `CharacterEdit[]`, NOT a whole-object PUT,
-//     and a partial failure persists preceding ops. So instead of saving a
-//     serialized blob, the store diffs the baseline against the draft into a
-//     minimal op list and sends that.
-//  2. Every endpoint returns the full `Character`, so optimistic mutation buys
-//     nothing. The draft is still the source of truth (it's what the form binds
-//     to), but we never roll it back. On success the baseline simply advances;
-//     the draft is left alone. The only thing pulled back onto the draft is the
-//     server-minted ids for newly added greetings/examples — patched by object
-//     reference so re-diffing won't re-add them, and without touching any text
-//     the author may still be editing.
-//  3. On a (possibly partial) failure we refetch the character to re-base,
-//     reconcile ids the same way, and surface the diagnostic. The next diff
-//     then retries only whatever still differs.
-//
-// A single book-style `saveState` covers the whole character (one PUT, one
-// status). An in-flight guard coalesces concurrent saves; a post-save diff
-// check re-runs the save if the author typed mid-flight or if item ordering
-// hasn't converged yet, so both settle without a manual nudge.
-// ---------------------------------------------------------------------------
-
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 export interface SaveState {
 	status: SaveStatus;
-	/** Server diagnostic, surfaced verbatim on `error`. */
 	message?: string;
 	code?: string;
 }
 
-/** A greeting in the editable draft. No `id` until the server mints one on the
- *  first successful save that includes it. `order` is the array index, so it
- *  isn't tracked here. */
 export interface DraftGreeting {
 	id?: Snowflake;
 	text: string;
 }
 
-/** An example dialogue in the draft. Same id/ordering story as DraftGreeting. */
 export interface DraftExample {
 	id?: Snowflake;
 	content: string;
 }
 
-/** The editable, flattened form of the active character. Metadata and
- *  definition scalars are hoisted to the top level so the form binds directly;
- *  server-managed fields (timestamps, version id) stay on the baseline. */
+/** The editable, flattened form of the active character. */
 export interface CharacterDraft {
 	id: Snowflake;
 	// metadata (editable subset)
@@ -86,37 +55,26 @@ class CharacterStore {
   activeCharacter = $state<Character | null>(null);
 	
 	get #api() {
-		if (!this._api) this._api = useApi(); // accessed once during page init
+		if (!this._api) this._api = useApi(); // NOTE: This assumes it's accessed once during page init. Dirty workaround.
 		return this._api;
 	}
 
-	/** Last server-confirmed character — the diff reference and the source of
-	 *  display-only fields (timestamps, current_version_id). */
 	#baseline = $state<Character | null>(null);
 
-	/** The editable proxy the form binds to. */
+	/** The editable proxy */
 	private _draft = $state<CharacterDraft | null>(null);
 
-	/** Object-URL for the avatar blob, owned by this store (revoked on close). */
 	avatarUrl = $state<string | null>(null);
 
-	/** Whole-character save state. */
 	saveState = $state<SaveState>({ status: 'idle' });
 
-	/** Version history (newest first), refreshed on load and whenever a save
-	 *  opens a new version. */
+	/** Version history */
 	versions = $state<CharacterVersionInfo[]>([]);
 
-	/** True when the most recent user-initiated save opened a NEW backend version
-	 *  rather than updating the current one. The backend groups edits within a
-	 *  session window; this lights up only on the save that starts a fresh one. */
 	lastSaveCreatedVersion = $state(false);
 
-	// Save concurrency: one PUT in flight at a time; coalesce the rest.
 	#saving = false;
 	#resaveQueued = false;
-
-	/* --- accessors -------------------------------------------------------- */
 
 	get editingCharacter(): CharacterDraft | null {
 		return this._draft;
@@ -124,8 +82,7 @@ class CharacterStore {
 	get editingId(): Snowflake | null {
 		return this._draft?.id ?? null;
 	}
-	/** Lorebook attached to the character, if any. Read-only — there is no edit
-	 *  op for it, so the editor surfaces it but cannot change it here. */
+	/** Lorebook attached to the character */
 	get lorebookId(): Snowflake | undefined {
 		return this.#baseline?.lorebook_id;
 	}
@@ -137,8 +94,6 @@ class CharacterStore {
 		return this.#baseline?.current_version_id ?? null;
 	}
 
-	/* --- loading ---------------------------------------------------------- */
-
 	async loadList() {
 		this.metadataList = await this.#api.characters.list();
   }
@@ -147,10 +102,6 @@ class CharacterStore {
     this.activeCharacter = await this.#api.characters.get(charId);
   }
 
-	/* --- editing session -------------------------------------------------- */
-
-	/** Open `id` for editing: fetch the full character, build the draft, and
-	 *  load the avatar in the background (its failure must not block editing). */
 	async startEditing(id: Snowflake) {
 		this.#resetSession();
 		const base = await this.#api.characters.get(id);
@@ -164,7 +115,6 @@ class CharacterStore {
 		this.#resetSession();
 	}
 
-	/** Throw away uncommitted draft changes, back to the last confirmed state. */
 	discardChanges() {
 		if (this.#baseline) this._draft = buildDraft(this.#baseline);
 		this.saveState = { status: 'idle' };
@@ -183,8 +133,7 @@ class CharacterStore {
 		}
 	}
 
-	/** Fetch the version history (newest first). Best-effort; a failure leaves
-	 *  the existing list in place. */
+	/** Fetch the version history */
 	async loadVersions() {
 		const id = this.editingId;
 		if (!id) return;
@@ -203,11 +152,9 @@ class CharacterStore {
 			if (this.editingId !== id) return; // session moved on while fetching
 			this.avatarUrl = URL.createObjectURL(blob);
 		} catch {
-			// no avatar / fetch failed — leave it null, the editor shows a placeholder
+			// no avatar / fetch failed.
 		}
 	}
-
-	/* --- draft list mutations (local until next save) --------------------- */
 
 	addGreeting() {
 		this._draft?.greetings.push({ text: '' });
@@ -229,17 +176,11 @@ class CharacterStore {
 		swap(this._draft?.examples, index, index + dir);
 	}
 
-	/* --- saving ----------------------------------------------------------- */
-
 	#diffEdits(): CharacterEdit[] {
 		if (!this.#baseline || !this._draft) return [];
 		return diffCharacter(this.#baseline, this._draft).edits;
 	}
 
-	/** Diff the draft against the baseline and persist the resulting op list.
-	 *  Debounce the call site; this guards against overlapping PUTs itself.
-	 *  `internal` marks the one follow-up save that converges new-item ordering —
-	 *  it must not move the version marker, which reflects user-initiated saves. */
 	async save(internal = false) {
 		const draft = this._draft;
 		const base = this.#baseline;
@@ -275,34 +216,27 @@ class CharacterStore {
 			succeeded = true;
 		} catch (e) {
 			// Preceding ops may have landed (see the API contract on `update`), so
-			// re-base from the server before reporting. Reconcile ids too: if an
-			// add applied before the failing op, the draft item needs its id or the
-			// next diff would re-add it.
+			// re-base from the server before reporting.
 			try {
 				const fresh = await this.#api.characters.get(draft.id);
 				reconcileNewIds(fresh, addRefs);
 				this.#baseline = fresh;
 			} catch {
-				// refetch failed — keep the stale baseline; the author can retry
+				// refetch failed
 			}
 			this.saveState = { status: 'error', ...extractError(e) };
 		} finally {
 			this.#saving = false;
 			if (this.#resaveQueued) {
-				// The author edited while the save was in flight — coalesced retry.
+				// The author edited while the save was in flight
 				this.#resaveQueued = false;
 				void this.save();
 			} else if (succeeded && hadAdds && this.hasUnsavedChanges) {
-				// New items just received ids. A reorder placing them among existing
-				// items couldn't be expressed before (no ids), so emit it now. This
-				// follow-up carries no adds, so it cannot chain — bounded to one pass.
 				void this.save(true);
 			}
 		}
 	}
 }
-
-/* --- draft construction ------------------------------------------------- */
 
 function buildDraft(base: Character): CharacterDraft {
 	return {
@@ -329,16 +263,11 @@ const orderedGreetings = (c: Character) =>
 const orderedExamples = (c: Character) =>
 	[...c.definition.example_messages].sort((a, b) => a.order - b.order);
 
-/* --- diffing ------------------------------------------------------------ */
-
 interface AddRefs {
 	greetings: DraftGreeting[];
 	examples: DraftExample[];
 }
 
-/** Produce the minimal op list that turns `base` into `draft`, plus references
- *  to the draft items that generated `add_*` ops (in emit order) so the caller
- *  can patch their server-minted ids back on once the save returns. */
 function diffCharacter(
 	base: Character,
 	draft: CharacterDraft
@@ -363,10 +292,7 @@ function diffCharacter(
 	if (draft.creator !== base.metadata.creator) meta.creator = draft.creator;
 	if (draft.creator_notes !== base.metadata.creator_notes) meta.creator_notes = draft.creator_notes;
 	if (draft.card_version !== base.metadata.card_version) meta.card_version = draft.card_version;
-	// display_name is three-state: '' means "none" (=> null to clear), else set.
-	// Normalize both sides to a single "none" value so a cleared name round-trips
-	// cleanly whether the server echoes it as null, '', undefined, or absent —
-	// otherwise this op re-emits on every pass and autosave never settles.
+	// display_name is three-state. See field docs.
 	const draftDn = draft.display_name === '' ? undefined : draft.display_name;
 	const baseDn = base.metadata.display_name || undefined;
 	if (draftDn !== baseDn) meta.display_name = draftDn ?? null;
@@ -378,7 +304,7 @@ function diffCharacter(
 	if (!arrayEq(draft.alt_names, base.metadata.alt_names))
 		edits.push({ op: 'set_alt_names', alt_names: [...draft.alt_names] });
 
-	// greetings (item-level)
+	// greetings
 	diffList(
 		orderedGreetings(base).map((g) => ({ id: g.id, value: g.text })),
 		draft.greetings.map((g) => ({ ref: g, id: g.id, value: g.text })),
@@ -393,7 +319,7 @@ function diffCharacter(
 		}
 	);
 
-	// example dialogues (item-level)
+	// example dialogues
 	diffList(
 		orderedExamples(base).map((e) => ({ id: e.id, value: e.content })),
 		draft.examples.map((e) => ({ ref: e, id: e.id, value: e.content })),
@@ -427,10 +353,6 @@ interface ListOps {
 	reorder: (ids: Snowflake[]) => void;
 }
 
-/** Shared item-list diff for greetings and examples. Removes, then updates,
- *  then a reorder over surviving ids if their relative order changed, then
- *  adds (new items have no id yet, so they append server-side and are placed
- *  by a follow-up reorder on the next save if needed). */
 function diffList(baseList: BaseItem[], draftList: DraftItem[], ops: ListOps) {
 	const baseById = new Map(baseList.map((b) => [b.id, b.value]));
 	const draftIds = new Set(draftList.filter((d) => d.id).map((d) => d.id!));
@@ -451,9 +373,6 @@ function diffList(baseList: BaseItem[], draftList: DraftItem[], ops: ListOps) {
 	if (!arrayEq(draftOrder, baseOrder)) ops.reorder(draftOrder);
 }
 
-/** Patch server-minted ids onto the draft items that produced `add_*` ops.
- *  The freshly created server items are those whose ids the draft doesn't yet
- *  claim; mapped in order to the add refs (both follow creation order). */
 function reconcileNewIds(saved: Character, addRefs: AddRefs) {
 	assignIds(
 		orderedGreetings(saved).map((g) => g.id),
@@ -474,8 +393,6 @@ function assignIds(serverIds: Snowflake[], refs: Array<{ id?: Snowflake }>) {
 	});
 }
 
-/* --- small helpers ------------------------------------------------------ */
-
 function arrayEq(a: string[], b: string[]): boolean {
 	return a.length === b.length && a.every((v, i) => v === b[i]);
 }
@@ -485,7 +402,6 @@ function swap<T>(arr: T[] | undefined, i: number, j: number) {
 	[arr[i], arr[j]] = [arr[j], arr[i]];
 }
 
-/** Unwrap an http rejection into the server's `{ message, code }`. */
 function extractError(e: unknown): { message: string; code?: string } {
 	if (e instanceof Error) {
 		const code = (e as { code?: unknown }).code;

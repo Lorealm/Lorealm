@@ -6,14 +6,10 @@
 
 	type SortKey = 'name-asc' | 'name-desc' | 'updated' | 'created';
 
-	// Optional callbacks so the parent decides what "create"/"import" actually do
-	// (open a modal, route somewhere, hand the file to the store, etc.).
 	let {
 		oncreate,
-		onimport
 	}: {
 		oncreate?: () => void;
-		onimport?: (file: File) => void;
 	} = $props();
 
 	type SortableMeta = {
@@ -24,7 +20,6 @@
 	};
 
 	let sortBy = $state<SortKey>('name-asc');
-	let fileInput = $state<HTMLInputElement>();
 
 	const characters = $derived(characterStore.metadataList);
 
@@ -54,14 +49,7 @@
 	});
 
 	function openImport() {
-		fileInput?.click();
-	}
-
-	function handleFileChange(event: Event) {
-		const input = event.currentTarget as HTMLInputElement;
-		const file = input.files?.[0];
-		if (file) onimport?.(file);
-		input.value = ''; // let the same file be picked again
+	    return; // TODO: link to PlatformApi file picker
 	}
 
 	onMount(async () => {
@@ -103,14 +91,6 @@
 		</div>
 	{/if}
 </div>
-
-<input
-	type="file"
-	accept=".json,.png,application/json,image/png"
-	bind:this={fileInput}
-	onchange={handleFileChange}
-	style="display: none"
-/>
 
 <style>
 	.page {

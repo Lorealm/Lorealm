@@ -30,9 +30,6 @@ impl PermissionStorage for CachedStorage {
     async fn update_role(&self, id: Snowflake, input: &UpdateRole) -> Result<Role, StorageError> {
         let role = self.backend.update_role(id, input).await?;
         self.cache_del(&self.key("role", &id.to_string())).await;
-        // Invalidate computed permissions for all users with this role.
-        // This is coarse — a scan of user_roles would be more precise,
-        // but for a self-hosted app the cache TTL handles staleness fine.
         Ok(role)
     }
 

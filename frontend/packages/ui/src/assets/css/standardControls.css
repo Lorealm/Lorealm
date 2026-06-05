@@ -87,7 +87,6 @@ option {
 	font-size: var(--font-size-base);
 }
 
-/* Separator — Chrome 119+, Firefox 128+, Safari 17+ */
 select hr {
 	border: none;
 	border-top: 1px solid currentColor;
@@ -95,11 +94,6 @@ select hr {
 	margin: var(--spacing-sm) 0;
 }
 
-/* ===== CHECKBOX =====
-   The attribute selector outranks the generic `input` rule above, so it
-   undoes the full-width/elevated styling that rule applies to every input.
-   `flex: 0 0 auto` means components no longer need their own override to stop
-   the box from stretching in a flex row. */
 input[type='checkbox'] {
 	appearance: none;
 	-webkit-appearance: none;
@@ -141,11 +135,6 @@ input[type='checkbox']:disabled {
 	cursor: not-allowed;
 }
 
-/* ===== SWITCH =====
-   Add `class="switch"` to any checkbox to render it as a pill toggle.
-   The knob is a background-image circle whose position animates on :checked,
-   so no extra markup is required. Defined after the checkbox rules so it wins
-   the equal-specificity background-image battle. */
 input[type='checkbox'].switch {
 	width: 36px;
 	height: 20px;
@@ -166,7 +155,6 @@ input[type='checkbox'].switch:checked {
 	background-position: calc(100% - 2px) center;
 }
 
-/* ===== SCROLLBARS ===== */
 html {
 	scrollbar-width: thin;
 	scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);

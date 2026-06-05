@@ -2,17 +2,6 @@ import { StreamLanguage, type StreamParser } from '@codemirror/language';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { tags as t } from '@lezer/highlight';
 
-// ---------------------------------------------------------------------------
-// Tokenizer
-//
-// The editor only ever sees the weaver-lang BODY. Frontmatter is parsed out
-// before the document is loaded, so there is no `---` handling here.
-//
-// weaver-lang constructs nest (e.g. `$[set_var("k", @[core.rng(min: 0)])]`),
-// so we keep a context stack. Each frame knows what kind of construct it is
-// and (for proc/cmd) whether the callable name has been consumed yet.
-// ---------------------------------------------------------------------------
-
 type Frame =
 	| { k: 'var' }
 	| { k: 'tag' }
@@ -29,9 +18,6 @@ const IDENT = /^[A-Za-z_]\w*/;
 const DOTTED = /^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*/; // e.g. core.weaver.rng
 const KEYWORD = /^(?:if|elif|else|endif|foreach|endforeach|in)\b/;
 
-// Shared atom tokenizer for expression positions (proc args, cmd args, tag
-// conditions). Recognizes nested constructs, literals and operators. Returns
-// a token name, or null if nothing matched (caller must then advance).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function exprAtom(stream: any, state: State): string | null {
 	// Nested constructs
@@ -66,7 +52,7 @@ function exprAtom(stream: any, state: State): string | null {
 	// Punctuation
 	if (stream.match(/^[(),]/)) return 'punctuation';
 	if (stream.match(/^:/)) return 'punctuation';
-	// Bare identifier (e.g. a foreach binding referenced in a condition)
+	// Bare identifier
 	if (stream.match(IDENT)) return 'varName';
 	return null;
 }
@@ -107,9 +93,8 @@ const parser: StreamParser<State> = {
 				state.stack.push({ k: 'trigger' });
 				return 'tagName';
 			}
-			// Consume a run of plain text up to the next possible opener.
 			if (stream.match(/^[^{@$[<]+/)) return null;
-			stream.next(); // a lone special char that didn't open a construct
+			stream.next();
 			return null;
 		}
 
@@ -193,9 +178,6 @@ const parser: StreamParser<State> = {
 		}
 	},
 
-	// Indentation follows the construct stack. Each open construct
-	// (@[ $[ {{ [[ {#) is one level deep; a line that *begins* with a
-	// closing delimiter is pulled back one level to sit under its opener.
 	indent(state, textAfter, cx) {
 		const depth = state.stack.length;
 		if (depth === 0) return null; // top-level prose: leave as typed
@@ -208,7 +190,6 @@ const parser: StreamParser<State> = {
 		indentOnInput: /^\s*[)\]}]$/
 	},
 
-	// Map our token names to highlight tags.
 	tokenTable: {
 		delimiter: t.brace,
 		bracket: t.squareBracket,
@@ -230,10 +211,6 @@ const parser: StreamParser<State> = {
 };
 
 export const weaverLanguage = StreamLanguage.define(parser);
-
-// ---------------------------------------------------------------------------
-// Highlight style
-// ---------------------------------------------------------------------------
 
 const weaverHighlight = HighlightStyle.define([
 	{ tag: t.brace, color: '#7c8a9e', fontWeight: '600' }, // {{ }} {# #}

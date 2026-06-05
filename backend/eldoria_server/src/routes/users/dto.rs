@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 use eldoria_storage::models::Snowflake;
 
-// ----- Login -----
-
 #[derive(Deserialize)]
 pub struct LoginRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -19,8 +17,6 @@ pub struct LoginResponse {
     pub session_token: String,
 }
 
-// ----- Register -----
-
 #[derive(Deserialize)]
 pub struct RegisterRequest {
     pub username: String,
@@ -28,8 +24,6 @@ pub struct RegisterRequest {
     pub email: Option<String>,
     pub password: String,
 }
-
-// ----- User -----
 
 #[derive(Serialize)]
 pub struct UserResponse {

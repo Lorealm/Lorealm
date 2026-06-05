@@ -9,7 +9,6 @@
 
 	let { message, last = false }: { message: ConversationMessage; last?: boolean } = $props();
 
-	// Slide position drives the chevrons; recomputes as siblings appear.
 	let info = $derived(chatStore.siblingInfo(message.id));
 	let name = $derived(
 		message.role === 'user'
@@ -18,15 +17,11 @@
 				? 'System'
 				: (characterStore.activeCharacter?.definition.name ?? 'Assistant')
 	);
-	// Provisional bubbles (greeting picker, in-flight stream) have temp ids and
-	// can't be edited/deleted yet, so hide those actions for them.
+
 	let committed = $derived(!message.id.startsWith('tmp_'));
-	// The streaming bubble can be momentarily empty before the first token.
 	let typing = $derived(last && chatStore.isStreaming && message.content.length === 0);
 	let busy = $derived(chatStore.isStreaming);
 
-	// One inline editor serves both in-place edits (`edit`) and user-branch
-	// swipes (`branch`); only the commit differs.
 	let editing = $state(false);
 	let editMode = $state<'edit' | 'branch'>('edit');
 	let editText = $state('');
@@ -46,9 +41,6 @@
 		else await chatStore.commitUserSwipe(message.id, text);
 	}
 
-	// Chevron-right: step to the next slide, or — at the last slide — make a new
-	// one. Assistant messages generate a fresh reply; user messages open the
-	// editor to commit a new branch (Some/Some needs text).
 	function onRight() {
 		if (info.index < info.count - 1) {
 			chatStore.swipeNext(message.id);
@@ -106,6 +98,7 @@
 			</div>
 		{:else if typing}
 			<div class="body">
+			    <!-- YUMMYYYYYY (this is a trick for the animated message indicator btw. `<span />` is apparently illegal) -->
 				<span class="typing"><span></span><span></span><span></span></span>
 			</div>
 		{:else}
@@ -147,7 +140,7 @@
 		overflow: hidden;
 		border: 2px solid var(--color-border-medium);
 	}
-	/* TransportImage's root <span> carries no intrinsic size; fill the avatar. */
+
 	.avatar :global(.transport-image) {
 		display: block;
 		width: 100%;
@@ -233,8 +226,6 @@
 		font-size: var(--font-size-sm);
 	}
 
-	/* Subtle, transparent icon button. Global `button:hover` supplies the hover
-	   background + accent colour from standardControls.css. */
 	.icon-btn {
 		background-color: transparent;
 		justify-content: center;

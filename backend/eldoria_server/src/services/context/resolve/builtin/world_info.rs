@@ -44,7 +44,6 @@ impl SourceResolver for WorldInfoResolver {
         ctx: &ResolveContext<'_>,
     ) -> Result<Vec<ResolvedBlock>, ContextError> {
         let slot = slot_for_node(node_id)?;
-        tracing::info!("resolving block: {slot}");
 
         let (blocks, persistent) = self
             .run_pipeline(ctx.user_id, ctx.messages, ctx.character)
@@ -136,10 +135,9 @@ impl WorldInfoResolver {
         }
 
         weaver.set_variable("char", "name", character.definition.name.clone());
-        weaver.set_variable("user", "name", "Player");
+        weaver.set_variable("user", "name", "Player"); // TODO: implement
 
         let cw_messages = convert_messages(messages);
-        tracing::info!("Found {} messages", cw_messages.len());
         let blocks = weaver.assemble(&cw_messages)?;
 
         let exported = weaver.export_persistent();
@@ -147,7 +145,6 @@ impl WorldInfoResolver {
         let persistent = self.state.diff(&state.persistent, &output_pool);
 
         let states = weaver.activation_states();
-        tracing::info!("Activation states: {:?}", states);
         let mut activation = HashMap::with_capacity(book_ids.len());
         for (&sf, &bid) in &book_ids {
             let weaver_act = &states[bid.0];
@@ -158,8 +155,6 @@ impl WorldInfoResolver {
             activation,
             persistent,
         };
-
-        tracing::info!("Got state: {:?}", captured);
 
         Ok((blocks, Some(captured)))
     }
@@ -215,8 +210,6 @@ fn to_weaver_value(value: &JsonValue) -> Result<WeaverValue, ContextError> {
         JsonValue::String(s) => WeaverValue::String(s.clone()),
         JsonValue::Number(n) => match n.as_f64() {
             Some(f) => WeaverValue::Number(f),
-            // Only non-finite arbitrary-precision numbers yield None, and
-            // weaver-lang's f64 model couldn't hold them anyway.
             None => {
                 return Err(ContextError::StateConversion(format!(
                     "number not representable as f64: {n}"
@@ -248,7 +241,6 @@ fn weaver_value_to_json(value: &WeaverValue) -> Result<JsonValue, ContextError> 
                     "non-finite number cannot be stored as JSON: {n}"
                 )));
             }
-            // Emit whole numbers as JSON integers — see the diff-stability note.
             if n.fract() == 0.0 && *n >= i64::MIN as f64 && *n <= i64::MAX as f64 {
                 JsonValue::Number((*n as i64).into())
             } else {
@@ -266,9 +258,6 @@ fn weaver_value_to_json(value: &WeaverValue) -> Result<JsonValue, ContextError> 
     })
 }
 
-/// Snapshot weaver's persistent `state:` pool as a `StatePool` for diffing and
-/// storage. Must stay a faithful inverse of the `to_weaver_value` restore, or
-/// the diff baseline drifts.
 fn to_state_pool(
     snapshot: &HashMap<String, HashMap<String, WeaverValue>>,
 ) -> Result<StatePool, ContextError> {

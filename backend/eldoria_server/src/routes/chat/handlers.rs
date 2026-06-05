@@ -17,9 +17,9 @@ use crate::{
     extract::AuthenticatedSession,
     routes::chat::{
         StartChatRequest,
-        dto::{ChatEdit, CompletionsRequest, GetConversationQuery, SendMessageRequest},
+        dto::{ChatEdit, CompletionsRequest, GetConversationQuery},
     },
-    services::chat::FullConversation,
+    services::{chat::FullConversation, state::ReconstructedState},
 };
 
 pub async fn list_conversations(
@@ -84,6 +84,20 @@ pub async fn start_chat(
     Ok(Json(chat))
 }
 
+pub async fn get_message(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path((conversation_id, message_id)): Path<(Snowflake, Snowflake)>,
+) -> Result<Json<ConversationMessage>, AppError> {
+    let message = state
+        .services()
+        .chat()
+        .get_message(conversation_id, message_id, session.user_id)
+        .await?;
+
+    Ok(Json(message))
+}
+
 pub async fn edit_message(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
@@ -117,21 +131,6 @@ pub async fn edit_message(
     Ok(Json(conv))
 }
 
-pub async fn send_message(
-    State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession,
-    Path(conversation_id): Path<Snowflake>,
-    Json(request): Json<SendMessageRequest>,
-) -> Result<Json<ConversationMessage>, AppError> {
-    let response = state
-        .services()
-        .chat()
-        .send_message(conversation_id, session.user_id, request.content)
-        .await?;
-
-    Ok(Json(response))
-}
-
 pub async fn delete_conversation(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
@@ -160,6 +159,25 @@ pub async fn delete_message(
     Ok(())
 }
 
+pub async fn get_message_state(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path((conversation_id, message_id)): Path<(Snowflake, Snowflake)>,
+) -> Result<Json<ReconstructedState>, AppError> {
+    let messages: Vec<Snowflake> = state
+        .services()
+        .chat()
+        .get_path_to(conversation_id, message_id, session.user_id)
+        .await?
+        .iter()
+        .map(|m| m.id)
+        .collect();
+
+    let state = state.services().state().reconstruct(&messages).await?;
+
+    Ok(Json(state))
+}
+
 pub async fn completions(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
@@ -175,7 +193,7 @@ pub async fn completions(
             request.content,
             request.target,
         )
-        .await?; // pre-flight errors -> HTTP error here
+        .await?;
 
     let sse = events.map(|item| match item {
         Ok(event) => Event::default().json_data(event),

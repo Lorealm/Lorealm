@@ -39,7 +39,7 @@
 		onSelect
 	}: {
 		node: ContextNode;
-		/** This node's live path in the tree (recomputed from each-index on render). */
+		/** This node's live path in the tree. */
 		path: NodePath;
 		selectedId: Snowflake | null;
 		onSelect: (id: Snowflake) => void;
@@ -81,10 +81,9 @@
 
 	const group = $derived(node.content.type === 'group' ? node.content : null);
 	const leaf = $derived(node.content.type === 'text' ? node.content : null);
-	const role = $derived(leaf?.role ?? 'system'); // 'system' | 'user' | 'assistant'
-	const isText = $derived(leaf?.type === 'text'); // adjust to your real discriminant
-	const isSource = $derived(node.content.type === 'source'); // however you mark dynamic nodes
-	// Using Svelte 5 runes style based on your snippets
+	const role = $derived(leaf?.role ?? 'system');
+	const isText = $derived(leaf?.type === 'text');
+	const isSource = $derived(node.content.type === 'source');
 	const showBadges = $derived(
 		(group &&
 			((node.content as NodeContentGroup).mode === 'invariant' ||
@@ -102,9 +101,6 @@
 		}
 	}
 
-	// --- dnd for this group's children zone --------------------------------
-	// Order matters: tell the controller first (it reads the still-intact draft
-	// on DRAG_STARTED), then write the library's items back for the animation.
 	function handleConsider(e: CustomEvent<DndEvent<ContextNode>>) {
 		dnd.onConsider({ trigger: e.detail.info.trigger, id: e.detail.info.id as Snowflake });
 		const c = node.content;
@@ -423,7 +419,6 @@
 		color: var(--color-text-accent);
 	}
 
-	/* a disabled node dims itself and, for a group, its whole subtree */
 	.node.disabled {
 		opacity: 0.5;
 	}

@@ -4,10 +4,6 @@ use std::fmt;
 
 use crate::prelude::Snowflake;
 
-// =============================================================================
-// Permission bitfield
-// =============================================================================
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Permissions(pub i64);
 
@@ -16,10 +12,6 @@ impl fmt::Display for Permissions {
         write!(f, "Permissions({:#018x})", self.0)
     }
 }
-
-// =============================================================================
-// Role
-// =============================================================================
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Role {
@@ -44,10 +36,6 @@ pub struct UpdateRole {
     pub permissions: Option<i64>,
     pub position: Option<i32>,
 }
-
-// =============================================================================
-// User ↔ Role mapping
-// =============================================================================
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct UserRole {

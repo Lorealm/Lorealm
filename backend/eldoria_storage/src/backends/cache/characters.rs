@@ -1,13 +1,3 @@
-//! Redis-cached wrapper for `CharacterStorage`.
-//!
-//! Caching policy (per our earlier decision):
-//!   - Read: `get_character` caches on hit under `character:{id}`.
-//!   - Write: `save_character`, `delete_character`, `restore_character_version`
-//!     all invalidate `character:{id}`.
-//!   - Everything else (lists, versioned reads, version listings) passes
-//!     through without caching. These calls are rare and cache invalidation
-//!     for them isn't worth the complexity.
-
 use crate::backends::CachedStorage;
 use crate::error::StorageError;
 use crate::models::{
@@ -40,9 +30,6 @@ impl CharacterStorage for CachedStorage {
         id: Snowflake,
         version_id: Snowflake,
     ) -> Result<Option<Character>, StorageError> {
-        // Uncached passthrough. Pinned reads are rare; caching them would
-        // require a second key per (id, version_id) tuple and we'd rather
-        // not pay for that.
         self.backend.get_character_at_version(id, version_id).await
     }
 
@@ -50,8 +37,6 @@ impl CharacterStorage for CachedStorage {
         &self,
         user_id: Snowflake,
     ) -> Result<Vec<Character>, StorageError> {
-        // Uncached. Lists invalidate on any character write for that user,
-        // which is a lot of cross-key accounting for marginal benefit.
         self.backend.list_characters_by_owner(user_id).await
     }
 

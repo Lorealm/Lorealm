@@ -19,7 +19,7 @@ use tokio::sync::RwLock;
 #[derive(Debug, Default)]
 pub struct MemoryStorage {
     pub(crate) users: RwLock<HashMap<Snowflake, User>>,
-    pub(crate) sessions: RwLock<HashMap<String, Session>>, // keyed by token
+    pub(crate) sessions: RwLock<HashMap<String, Session>>,
     pub(crate) roles: RwLock<HashMap<Snowflake, Role>>,
     pub(crate) user_roles: RwLock<Vec<UserRole>>,
     pub(crate) characters: RwLock<HashMap<Snowflake, Character>>,
@@ -62,8 +62,7 @@ impl MemoryStorage {
         count
     }
 
-    /// Collect `root` and every descendant id (the subtree a cascade delete
-    /// would remove).
+    /// Collect `root` and every descendant id
     fn collect_subtree(
         messages: &HashMap<Snowflake, ConversationMessage>,
         root: Snowflake,

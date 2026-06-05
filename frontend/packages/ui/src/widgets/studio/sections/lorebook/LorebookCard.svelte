@@ -83,7 +83,7 @@
 	.controls > button :global(svg) {
 		width: 1.3em;
 		height: 1.3em;
-		flex-shrink: 0; /* prevents squishing in tight flex layouts */
+		flex-shrink: 0;
 	}
 
 	.controls > button.btn-primary {

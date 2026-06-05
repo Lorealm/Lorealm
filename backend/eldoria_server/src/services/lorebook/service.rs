@@ -90,8 +90,6 @@ impl LorebookService {
             lorebook.description = desc;
         }
 
-        // Rebuild config from whatever the caller sent (or the existing YAML),
-        // then force the canonical name/description onto it so the two never drift.
         let mut config: context_weaver::LorebookConfig = match update.config {
             Some(c) => c,
             None => serde_yaml::from_str(&lorebook.config_yaml)
@@ -224,7 +222,6 @@ fn default_entry_source(id: String) -> String {
 
 fn entry_to_source(entry: &context_weaver::Entry) -> Result<String, ContextError> {
     // Reconstruct the .weaver file: serialized frontmatter + preserved body.
-    // Stand-in for the not-yet-implemented Entry::to_source().
     let frontmatter = serde_yaml::to_string(&entry.meta)
         .map_err(|e| ContextError::Lorebook(LorebookError::Yaml(e)))?;
     Ok(format!("---\n{frontmatter}---\n{}", entry.source_body))
@@ -234,12 +231,12 @@ fn weaver_to_db(
     lb: context_weaver::Lorebook,
     id: Snowflake,
     owner_id: Snowflake,
-    snowflake_gen: &SnowflakeService, // was by-value — can't move into a .map closure
+    snowflake_gen: &SnowflakeService,
 ) -> Result<Lorebook, ContextError> {
     let entries = lb
         .entries_in_order()
         .map(|e| weaver_entry_to_storage(e, id, snowflake_gen))
-        .collect::<Result<Vec<_>, _>>()?; // collect Results into one Result
+        .collect::<Result<Vec<_>, _>>()?;
 
     Ok(Lorebook {
         id,
@@ -262,9 +259,9 @@ fn weaver_entry_to_storage(
     snowflake_gen: &SnowflakeService,
 ) -> Result<LorebookEntry, ContextError> {
     Ok(LorebookEntry {
-        id: snowflake_gen.generate(), // fresh row id; see note
+        id: snowflake_gen.generate(),
         lorebook_id: lb_id,
-        entry_id: entry.meta.id.clone(), // the human string id ("dark_forest")
+        entry_id: entry.meta.id.clone(),
         source: entry_to_source(entry)?,
     })
 }

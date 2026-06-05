@@ -2,12 +2,11 @@
 	import type { CreateNodeRequest } from '$lib/types/template.js';
 	import type {
 		GroupMode,
-		JsonValue,
-		PromptRole,
 		SourceDefinition,
 		SourceNodeDefinition
 	} from '$lib/types/node.js';
 	import SourcePicker from './SourcePicker.svelte';
+	import type { JsonValue, PromptRole } from '$lib/types/core.js';
 
 	type Kind = 'text' | 'group' | 'source';
 
@@ -94,7 +93,7 @@
 		submitting = true;
 		error = null;
 		try {
-			await oncreate(req); // parent unmounts this modal on success
+			await oncreate(req);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to add node.';
 			submitting = false;
@@ -172,7 +171,7 @@
 						<span>Mode</span>
 						<select bind:value={mode}>
 							<option value="collection">Collection</option>
-							<option value="invariant">Invariant (one active child)</option>
+							<option value="invariant">Invariant</option>
 						</select>
 					</label>
 					<label class="field">
@@ -180,12 +179,12 @@
 						<textarea
 							bind:value={prefix}
 							rows="2"
-							placeholder="Optional — prepended before children"
+							placeholder="Optional (prepended before children)"
 						></textarea>
 					</label>
 					<label class="field">
 						<span>Suffix</span>
-						<textarea bind:value={suffix} rows="2" placeholder="Optional — appended after children"
+						<textarea bind:value={suffix} rows="2" placeholder="Optional (appended after children)"
 						></textarea>
 					</label>
 					<label class="check">
@@ -197,7 +196,6 @@
 				{#if kind === 'source' && picked}
 					<p class="hint">
 						{picked.def.settings.length} setting{picked.def.settings.length === 1 ? '' : 's'} set to defaults.
-						Settings editing comes later.
 					</p>
 				{/if}
 			{/if}

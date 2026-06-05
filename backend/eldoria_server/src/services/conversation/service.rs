@@ -46,9 +46,7 @@ impl ConversationService {
         }
     }
 
-    /// Next `order` for a new child of `parent` (max existing + 1, or 0).
-    /// `get_children` returns siblings sorted by `order`, so the last one is the
-    /// max. Using max rather than count keeps `order` unique after deletions.
+    /// Next `order` for a new child of `parent`
     async fn next_order(
         &self,
         conversation_id: Snowflake,
@@ -58,10 +56,8 @@ impl ConversationService {
         Ok(children.last().map_or(0, |m| m.order + 1))
     }
 
-    // --- Writing --------------------------------------------------------
-
     /// Continue the current thread: append a child of the active leaf, advancing
-    /// the leaf to it. With no active leaf yet, this inserts the root message.
+    /// the leaf to it.
     pub async fn append_message(
         &self,
         conversation_id: Snowflake,
@@ -84,8 +80,7 @@ impl ConversationService {
     }
 
     /// Fork *below* `message_id`: keep it and its existing children, start a new
-    /// continuation as a fresh child of it. The old path stays intact. Use for
-    /// "the conversation up to here is fine, take it a different way from here".
+    /// continuation as a fresh child of it.
     pub async fn branch_from(
         &self,
         conversation_id: Snowflake,
@@ -113,9 +108,8 @@ impl ConversationService {
         Ok(message)
     }
 
-    /// Create an *alternate* of `message_id` (a "swipe"): a new sibling sharing
-    /// the same parent, which becomes the active leaf. Use for "redo this message
-    /// differently". The original and its subtree stay in the tree.
+    /// Create an *alternate (swipe)* of `message_id`: a new sibling sharing
+    /// the same parent, which becomes the active leaf.
     pub async fn create_alternate(
         &self,
         conversation_id: Snowflake,
@@ -138,8 +132,7 @@ impl ConversationService {
         Ok(message)
     }
 
-    /// Edit a message, in place or as a new branch (see `EditMode`). The target
-    /// is validated first, so a missing id always yields `MessageNotFound`.
+    /// Edit a message, in place or as a new branch (see `EditMode`).
     pub async fn edit_message(
         &self,
         conversation_id: Snowflake,
@@ -183,9 +176,7 @@ impl ConversationService {
         }
     }
 
-    /// Delete `message_id` and its subtree (cascades in storage). If the active
-    /// leaf was inside it, move the leaf to the deleted node's parent (the fork
-    /// point), or leave it cleared if a root was removed.
+    /// Delete `message_id` and its subtree
     pub async fn delete_subtree(
         &self,
         conversation_id: Snowflake,
@@ -198,8 +189,6 @@ impl ConversationService {
             .ok_or(ConversationError::MessageNotFound(message_id))?
             .parent;
 
-        // `message_id` on the active path <=> the active leaf is a descendant of
-        // it <=> the leaf is in the subtree we're about to delete.
         let on_active_path = self
             .storage
             .get_active_path(conversation_id)
@@ -217,11 +206,7 @@ impl ConversationService {
         Ok(())
     }
 
-    // --- Navigation & reading ------------------------------------------
-
-    /// Move the active path so it runs through `message_id`, descending into that
-    /// branch's most recently updated leaf. This is what the branch switcher
-    /// (chevrons) calls. Returns the new visible thread, root -> leaf.
+    /// Move the active path so it runs through `message_id`
     pub async fn switch_to(
         &self,
         conversation_id: Snowflake,
@@ -242,7 +227,6 @@ impl ConversationService {
             return Err(ConversationError::MessageNotFound(message_id));
         }
 
-        // Descend: most recently updated child each step, tie-break (order, id).
         let mut leaf = message_id;
         for _ in 0..by_id.len() {
             let Some(next) = children.get(&leaf).and_then(|kids| {
@@ -285,9 +269,7 @@ impl ConversationService {
     }
 
     /// Sibling set around `message_id` plus which one the active path runs
-    /// through — everything a "‹ n / m ›" switcher needs. When rendering chevrons
-    /// for the whole visible thread, the reads here can be batched by the caller
-    /// (one `get_active_path`, reused across messages).
+    /// through
     #[cfg(test)]
     pub async fn branch_info(
         &self,
@@ -316,8 +298,7 @@ impl ConversationService {
         })
     }
 
-    /// Ordered children of `parent` (use `None` for roots). Convenience for
-    /// rendering a tree view of the whole conversation.
+    /// Ordered children of `parent`
     #[cfg(test)] // temporary until needed
     pub async fn children_of(
         &self,
@@ -332,8 +313,6 @@ impl ConversationService {
 mod tests {
     use super::*;
     use eldoria_storage::{ConversationStorage, backends::MemoryStorage, models::Conversation};
-
-    // ---- helpers ----------------------------------------------------------
 
     fn snowflakes() -> Arc<SnowflakeService> {
         Arc::new(SnowflakeService::new(0))
@@ -407,8 +386,6 @@ mod tests {
         msgs.iter().map(|m| m.content.clone()).collect()
     }
 
-    // ---- append / linear --------------------------------------------------
-
     #[tokio::test]
     async fn append_to_empty_creates_root() {
         let (s, store, c, _) = setup().await;
@@ -435,8 +412,6 @@ mod tests {
             vec!["A", "B", "C"]
         );
     }
-
-    // ---- branching --------------------------------------------------------
 
     #[tokio::test]
     async fn branch_from_preserves_old_subtree_and_is_reachable() {
@@ -488,8 +463,6 @@ mod tests {
         assert!(store.get_message(a.id).await.unwrap().is_some());
     }
 
-    // ---- editing ----------------------------------------------------------
-
     #[tokio::test]
     async fn edit_in_place_mutates_and_keeps_subtree() {
         let (s, _store, c, _) = setup().await;
@@ -504,7 +477,7 @@ mod tests {
 
         assert_eq!(edited.id, b.id);
         assert_eq!(edited.content, "B-edited");
-        // Continuation and active leaf untouched.
+        
         assert_eq!(active_leaf(&_store, c).await, Some(leaf.id));
         assert_eq!(
             contents(&s.active_thread(c).await.unwrap()),
@@ -539,8 +512,6 @@ mod tests {
         assert!(store.get_message(b.id).await.unwrap().is_some());
         assert!(store.get_message(old_leaf.id).await.unwrap().is_some());
     }
-
-    // ---- navigation -------------------------------------------------------
 
     #[tokio::test]
     async fn switch_to_descends_to_most_recent_leaf() {
@@ -601,8 +572,6 @@ mod tests {
         );
     }
 
-    // ---- branch_info ------------------------------------------------------
-
     #[tokio::test]
     async fn branch_info_reports_siblings_and_active_index() {
         let (s, _store, c, _) = setup().await;
@@ -616,7 +585,6 @@ mod tests {
         assert_eq!(contents(&info.siblings), vec!["B0", "B1", "B2"]);
         assert_eq!(info.active_index, Some(2)); // active path runs through B2
 
-        // Asking about a different sibling reports the same active index.
         let info0 = s.branch_info(c, b0.id).await.unwrap();
         assert_eq!(info0.active_index, Some(2));
     }
@@ -648,8 +616,6 @@ mod tests {
         assert_eq!(info.active_index, Some(0));
         let _ = a;
     }
-
-    // ---- deletion ---------------------------------------------------------
 
     #[tokio::test]
     async fn delete_subtree_on_active_path_repoints_to_parent() {
@@ -712,8 +678,6 @@ mod tests {
         assert!(store.get_message(a.id).await.unwrap().is_some());
     }
 
-    // ---- ordering ---------------------------------------------------------
-
     #[tokio::test]
     async fn next_order_uses_max_not_count_after_delete() {
         let (s, _store, c, _) = setup().await;
@@ -743,8 +707,6 @@ mod tests {
         assert_eq!(contents(&children), vec!["B"]);
     }
 
-    // ---- depth / guards ---------------------------------------------------
-
     #[tokio::test]
     async fn deep_linear_path_reconstructs() {
         let (s, _store, c, _) = setup().await;
@@ -765,8 +727,6 @@ mod tests {
         let path = s.switch_to(c, first.unwrap()).await.unwrap();
         assert_eq!(path.len(), 10);
     }
-
-    // ---- error paths ------------------------------------------------------
 
     #[tokio::test]
     async fn missing_message_errors_across_ops() {

@@ -6,15 +6,12 @@ use crate::models::Snowflake;
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct Character {
-    pub id: Snowflake,      // entity id, stable across versions
-    pub user_id: Snowflake, // owner
+    pub id: Snowflake,
+    pub user_id: Snowflake,
     pub current_version_id: Snowflake,
 
     pub metadata: CharacterMetadata,
     pub definition: CharacterDefinition,
-
-    // Optional ownership of a lorebook (CCv3 character_book).
-    // None = no embedded lorebook. Lorebook lives in its own table.
     pub lorebook_id: Option<Snowflake>,
 
     // CCv3 round-trip preservation. Opaque JSON blob of anything

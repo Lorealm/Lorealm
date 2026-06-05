@@ -4,10 +4,6 @@
 	import { resolveBlockContent } from '$lib/types/content.js';
 	import { ChevronDown } from '@lucide/svelte';
 
-	// Track the latest *traced* turn, not literally the last message: user turns
-	// and the in-flight streaming bubble carry no trace. Walk the active path back
-	// from the leaf and take the first message that has one. Reading `activePath`
-	// subscribes us to the tree + stream, so this re-derives as turns complete.
 	let latest = $derived.by(() => {
 		const path = chatStore.activePath;
 		for (let i = path.length - 1; i >= 0; i--) {
@@ -17,13 +13,8 @@
 		return null;
 	});
 
-	// Group adjacent blocks from the same source node so long runs (chat history
-	// especially) fold into one entry instead of stacking. Recomputed per turn.
 	let groups = $derived(latest ? groupAdjacentBlocks(latest.blocks) : null);
 
-	// Two-level accordion: one group open at a time, and within it one block's
-	// content open. Single-block groups skip the middle step — opening the group
-	// shows its content directly. Reset both whenever the tracked turn changes.
 	let openGroup = $state<number | null>(null);
 	let openBlock = $state<number | null>(null);
 	$effect(() => {
@@ -45,7 +36,6 @@
 		openBlock = openBlock === bi ? null : bi;
 	}
 
-	// Collapse the whole widget down to just its head.
 	let collapsed = $state(false);
 
 	function roleClass(role: string): 'system' | 'user' | 'assistant' | 'unknown' {
@@ -143,8 +133,6 @@
 </div>
 
 <style>
-	/* Fixed height so sibling widgets can stack beneath; full width of whatever
-	   the sidebar happens to be. Height is a knob, not a hardcode. */
 	.widget {
 		display: flex;
 		flex-direction: column;
@@ -153,8 +141,7 @@
 		height: var(--inspector-widget-height, 280px);
 		border-bottom: 1px solid var(--color-border-subtle);
 	}
-	/* Collapsed: only the head remains, so let the box shrink to it and drop the
-	   head's own divider (the widget border already separates it from the next). */
+
 	.widget.collapsed {
 		height: auto;
 	}
@@ -165,8 +152,6 @@
 		transform: rotate(-90deg);
 	}
 
-	/* Head doubles as the collapse toggle. As a button it picks up the global
-	   `button:hover` wash; strip the elevated bg/radius and lay it out flat. */
 	.head {
 		display: flex;
 		flex-direction: row;
@@ -210,8 +195,6 @@
 		text-align: center;
 	}
 
-	/* Row is a button so the global `button:hover` gives it the hover wash; we
-	   strip the elevated bg/radius the base rule applies and lay it out flat. */
 	.row {
 		display: flex;
 		flex-direction: row;
@@ -224,8 +207,7 @@
 		text-align: left;
 		cursor: pointer;
 	}
-	/* Child rows sit under an expanded group header; indent + faint rail to show
-	   they belong to the group above. */
+
 	.row.child {
 		padding-left: var(--spacing-xl);
 		border-left: 2px solid var(--color-border-subtle);
@@ -235,7 +217,6 @@
 		border-left: 2px solid var(--color-border-subtle);
 	}
 
-	/* Count pill standing in for the kind tag on multi-block group headers. */
 	.badge {
 		flex: 0 0 auto;
 		min-width: 18px;
@@ -289,8 +270,6 @@
 		border-color: var(--color-warning-border);
 	}
 
-	/* The flexible cell: takes the slack and truncates, so changing the sidebar
-	   width only changes how much title is visible. */
 	.title {
 		flex: 1;
 		min-width: 0;

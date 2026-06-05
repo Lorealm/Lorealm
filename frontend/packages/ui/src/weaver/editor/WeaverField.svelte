@@ -11,17 +11,14 @@
 
 	let host: HTMLDivElement;
 	let view: EditorView;
-
-	// Compact, single-line chrome (no gutter, no wrapping, horizontal scroll).
+	
 	const fieldSizing = EditorView.theme({
 		'&': { borderRadius: '6px', border: '1px solid #23262e' },
 		'.cm-content': { padding: '7px 10px' },
 		'.cm-scroller': { overflowX: 'auto' }
 	});
 
-	// Keep the document to one line. Enter is a no-op (below); this flattens any
-	// newlines that arrive via paste or programmatic edits into spaces. Newline
-	// -> space is length-preserving, so the transaction's selection stays valid.
+	// Keep the document to one line.
 	const flattenNewlines = EditorState.transactionFilter.of((tr) => {
 		if (!tr.docChanged || tr.newDoc.lines === 1) return tr;
 		const changes: ChangeSpec[] = [];

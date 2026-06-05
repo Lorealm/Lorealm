@@ -17,7 +17,6 @@ pub trait Config: Serialize + DeserializeOwned + Clone + Default + Send + Sync +
     fn key() -> &'static str;
 
     /// Load from raw JSON, falling back to defaults for missing fields.
-    /// This is the "self-healing" path.
     fn from_value(value: serde_json::Value) -> Self {
         // Merge the incoming value on top of the serialized default,
         // so any new fields that aren't in the stored config get filled in.
@@ -26,7 +25,7 @@ pub trait Config: Serialize + DeserializeOwned + Clone + Default + Send + Sync +
         serde_json::from_value(base).unwrap_or_default()
     }
 
-    /// Patch with a partial update (same self-healing merge logic)
+    /// Patch with a partial update
     fn patch(&mut self, partial: serde_json::Value) {
         let mut current = serde_json::to_value(&*self).unwrap();
         merge_json(&mut current, partial);

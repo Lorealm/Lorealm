@@ -15,18 +15,10 @@ import type {
 } from '$lib/types/template.js';
 import { SvelteMap } from 'svelte/reactivity';
 
-// ---------------------------------------------------------------------------
-// Tree helpers (pure). Nodes nest: a group node holds `content.children`.
-// A NodePath is the list of indices to walk from the roots. The parent of a
-// node at path P is `childrenAt(roots, P.slice(0, -1))`.
-// ---------------------------------------------------------------------------
-
 function isGroup(content: NodeContent): content is Extract<NodeContent, { type: 'group' }> {
 	return content.type === 'group';
 }
 
-/** The children array at `parentPath` ([] = roots). Undefined if the path
- *  doesn't resolve through groups. */
 function childrenAt(roots: ContextNode[], parentPath: NodePath): ContextNode[] | undefined {
 	let nodes = roots;
 	for (const idx of parentPath) {
@@ -81,7 +73,6 @@ function insertAt(
 	return true;
 }
 
-/** Detach a $state proxy into a plain, independent copy. */
 function clone<T>(value: T): T {
 	return structuredClone($state.snapshot(value)) as T;
 }
@@ -89,10 +80,9 @@ function clone<T>(value: T): T {
 // ---------------------------------------------------------------------------
 
 /// TODO: errors are rolled back locally and re-thrown so pages can react.
-/// They are not surfaced/stored on the store itself yet.
 class TemplateStore {
 	private _api = $state<ApiClient>();
-	/** Metadata list over ContextTemplates. Does not contain concrete values. Used for listing only. */
+	/** Metadata list over ContextTemplates */
 	metadataList = $state<Array<TemplateMetadata>>();
 
 	sources = $state<Array<SourceDefinition>>();
@@ -102,14 +92,11 @@ class TemplateStore {
 		return this._api;
 	}
 
-	/** Server-confirmed templates — the "latest correct state" / rollback baseline. */
 	private loadedTemplates = new SvelteMap<Snowflake, ContextTemplate>();
 	private activeTemplateId = $state<Snowflake | null>(null);
 
-	/** The editable proxy. Edits apply here first; the UI binds to this. */
+	/** Editable proxy object */
 	private _draft = $state<ContextTemplate | null>(null);
-
-	/* --- Concept accessors (qualified, symmetric) ------------------------- */
 
 	get editingTemplate(): ContextTemplate | null {
 		return this._draft;
@@ -123,8 +110,6 @@ class TemplateStore {
 	get activeId(): Snowflake | null {
 		return this.activeTemplateId;
 	}
-
-	/* --- Loading ----------------------------------------------------------- */
 
 	async loadList() {
 		await this.#api.templates.list().then((template) => {
@@ -154,8 +139,6 @@ class TemplateStore {
 		this.activeTemplateId = await this.#api.templates.active.get();
 	}
 
-	/* --- Editing session --------------------------------------------------- */
-
 	async createTemplate(req: CreateTemplateRequest): Promise<ContextTemplate> {
 		const tpl = await this.#api.templates.create(req);
 		this.loadedTemplates.set(tpl.id, clone(tpl));
@@ -173,12 +156,10 @@ class TemplateStore {
 		this._draft = null;
 	}
 
-	/** Throw away uncommitted draft changes, back to the latest correct state. */
 	discardChanges() {
 		this.rollback();
 	}
 
-	/** Promote the current draft to the baseline (call on a successful write). */
 	private commit() {
 		if (this._draft) this.loadedTemplates.set(this._draft.id, clone(this._draft));
 	}
@@ -190,10 +171,7 @@ class TemplateStore {
 		if (base) this._draft = clone(base);
 	}
 
-	/** Persist a move that has ALREADY been applied to the draft locally (e.g. by
-	 *  drag-and-drop). Unlike moveNode, this does NOT splice the tree on the way in;
-	 *  it only confirms with the server, snaps to the authoritative path, and
-	 *  commits. Rolls the draft back to the last known-good on failure. */
+	/** Persist a move that has ALREADY been applied to the draft locally */
 	async persistMove(nodeId: Snowflake, move: MoveNodeRequest) {
 		const draft = this._draft;
 		if (!draft) return;
@@ -212,9 +190,8 @@ class TemplateStore {
 		}
 	}
 
-	/* --- Template-level writes -------------------------------------------- */
 
-	/** Update name/description. Optimistic on the draft (if editing this id). */
+	/** Update name/description */
 	async updateTemplate(id: Snowflake, req: UpdateTemplateRequest) {
 		const editingThis = this._draft?.id === id;
 		if (editingThis) {
@@ -231,7 +208,7 @@ class TemplateStore {
 		}
 	}
 
-	/** Delete a template. Optimistic across caches + list. */
+	/** Delete a template */
 	async deleteTemplate(id: Snowflake) {
 		const prevLoaded = this.loadedTemplates.get(id);
 		const prevList = this.metadataList ? [...this.metadataList] : undefined;
@@ -256,9 +233,7 @@ class TemplateStore {
 		}
 	}
 
-	/* --- Node-level writes (operate on the current draft) ----------------- */
-
-	/** Add a node. Pessimistic — the server mints the id and decides the path. */
+	/** Add a node. */
 	async addNode(create: CreateNodeRequest) {
 		const draft = this._draft;
 		if (!draft) return;
@@ -300,12 +275,11 @@ class TemplateStore {
 		if (!path) return;
 		const node = nodeAt(draft.nodes, path)!;
 
-		node.enabled = !node.enabled; // optimistic: only the clicked node
+		node.enabled = !node.enabled; // optimistic
 
 		try {
 			const res: ToggleNodeResponse = await this.#api.templates.nodes.toggle(draft.id, nodeId);
-			// Apply the authoritative delta: the clicked node plus any siblings
-			// the server forced off in an invariant group.
+			// Apply the authoritative delta
 			for (const [id, enabled] of Object.entries(res.delta)) {
 				const p = findPath(draft.nodes, id);
 				if (p) nodeAt(draft.nodes, p)!.enabled = enabled;
@@ -345,8 +319,7 @@ class TemplateStore {
 
 		try {
 			const res: MoveNodeResponse = await this.#api.templates.nodes.move(draft.id, nodeId, move);
-			// Snap to the server's resulting path. Assumes new_path indexes the
-			// post-move tree (i.e. the array with the node removed from its old spot).
+			// Snap to the server's resulting path
 			const cur = findPath(draft.nodes, nodeId);
 			if (cur) {
 				const n = removeAt(draft.nodes, cur)!;

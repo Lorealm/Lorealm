@@ -5,20 +5,14 @@
 	import { ChevronDown, X } from '@lucide/svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 
-	// Re-parse whenever the inspected message changes. `null` => this message has
-	// no trace (handled in the body); the inspector should only be opened for
-	// messages that do, but we stay defensive.
 	let blocks = $derived(
 		contextInspector.message ? parseContextBlocks(contextInspector.message.metadata) : null
 	);
-	// Resolve each block to its display text once; reused for the count and body.
 	let resolved = $derived(
 		blocks?.map((b) => ({ block: b, content: resolveBlockContent(b) })) ?? null
 	);
 	let totalChars = $derived(resolved?.reduce((n, r) => n + r.content.text.length, 0) ?? 0);
 
-	// Fold runs of same-source blocks under a collapsible header. Default expanded
-	// (this is the read view); the set tracks which groups the user has collapsed.
 	let groups = $derived(blocks ? groupAdjacentBlocks(blocks) : null);
 	let collapsedGroups = new SvelteSet<number>();
 	$effect(() => {
@@ -196,8 +190,6 @@
 		line-height: var(--line-height-normal);
 	}
 
-	/* Header for a folded run of same-source blocks. Flat full-width toggle; the
-	   global `button:hover` supplies the wash. */
 	.group-head {
 		display: flex;
 		flex-direction: row;
@@ -240,8 +232,6 @@
 		height: 16px;
 	}
 
-	/* Each block indents by its group depth so nesting reads at a glance, and
-	   gets a role-coloured left rail for quick scanning down the stack. */
 	.block {
 		display: flex;
 		flex-direction: column;
@@ -361,8 +351,6 @@
 		overflow-wrap: anywhere;
 	}
 
-	/* Transparent icon button, same as MessageBubble; global `button:hover`
-	   supplies the hover background + accent from standardControls.css. */
 	.icon-btn {
 		flex: 0 0 auto;
 		background-color: transparent;

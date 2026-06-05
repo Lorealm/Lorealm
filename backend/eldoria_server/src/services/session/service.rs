@@ -101,8 +101,8 @@ impl SessionService {
 
         // Determine if we should rotate/extend based on policy
         let should_rotate = match self.config.sliding_policy {
-            SlidingPolicy::Fixed => false, // Fixed means do nothing until it naturally expires
-            SlidingPolicy::Always => true, // Rotate/Extend every time
+            SlidingPolicy::Fixed => false,
+            SlidingPolicy::Always => true,
             SlidingPolicy::Window(window_secs) => {
                 let remaining = session.expires_at - now;
                 remaining < chrono::Duration::seconds(window_secs)
@@ -131,7 +131,7 @@ impl SessionService {
 
         Ok(ValidatedSession {
             session,
-            new_token, // Will be `None` for Fixed policy, preventing the frontend race condition!
+            new_token, // Awlays `None` for Fixed policy
             new_csrf_token: None,
         })
     }

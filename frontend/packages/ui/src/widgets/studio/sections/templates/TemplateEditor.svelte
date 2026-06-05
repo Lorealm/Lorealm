@@ -25,7 +25,6 @@
 	const DND_KEY = 'template:dnd';
 	const MENU_KEY = 'template:menu';
 
-	/** True for the placeholder item svelte-dnd-action injects during a drag. */
 	const isShadow = (n: ContextNode) => SHADOW_ITEM_MARKER_PROPERTY_NAME in n;
 
 	let { id }: { id: Snowflake } = $props();
@@ -35,19 +34,18 @@
 	let selectedId = $state<Snowflake | null>(null);
 	let saveState = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
-	/** Which create flow (if any) is open, and where the node should land. */
+	/** Which create flow is open, and where the node should land. */
 	let creating = $state<{ kind: 'text' | 'group' | 'source'; parentPath?: NodePath } | null>(null);
 
-	/** Open right-click menu, anchored at viewport coords. */
+	/** Open right-click menu */
 	let menu = $state<{ node: ContextNode; x: number; y: number } | null>(null);
 
-	/** Node currently open in the Edit modal (by id, so it stays live). */
+	/** Node currently open in the Edit modal */
 	let editingNodeId = $state<Snowflake | null>(null);
 	const editNode = $derived(
 		editingNodeId && template ? findNode(template.nodes, editingNodeId) : null
 	);
 
-	/** `${source_id}\u0000${node_id}` pairs already used, so the picker can hide them. */
 	const existingSourcePairs = $derived.by(() => {
 		const set = new SvelteSet<string>();
 		const tpl = template;
@@ -65,9 +63,6 @@
 		return set;
 	});
 
-	// Append wherever `creating.parentPath` points (root if absent); the server
-	// places it and reconcile inserts at the returned path. On failure the
-	// rejection propagates to the modal, which shows it and stays open.
 	async function handleCreate(req: CreateNodeRequest) {
 		const target = creating;
 		const full = target?.parentPath ? { ...req, parent_path: target.parentPath } : req;
@@ -75,7 +70,6 @@
 		creating = null;
 	}
 
-	// --- context menu --------------------------------------------------------
 	setContext(MENU_KEY, {
 		open(node: ContextNode, x: number, y: number) {
 			menu = { node, x, y };
@@ -99,10 +93,6 @@
 	}
 
 	// (Re)open the editing session whenever the routed id changes.
-	// Only `id` should trigger this. The side-effect calls reach into the store,
-	// which synchronously reads the loadedTemplates map (via startEditing →
-	// loadTemplate); untracking keeps those reads from subscribing this effect,
-	// otherwise every commit() would re-run it and clear the selection.
 	$effect(() => {
 		const tid = id;
 		untrack(() => {
@@ -110,7 +100,6 @@
 			void templateStore.startEditing(tid);
 		});
 	});
-	// Sources are needed to label source-backed nodes in column 2.
 	$effect(() => {
 		if (!templateStore.sources) void templateStore.loadSources();
 	});
@@ -124,7 +113,6 @@
 		selectedId = nodeId;
 	}
 
-	// --- pure tree helpers -------------------------------------------------
 	function findNode(nodes: ContextNode[], target: Snowflake): ContextNode | null {
 		for (const n of nodes) {
 			if (n.id === target) return n;
@@ -162,11 +150,8 @@
 		return a.length === b.length && a.every((v, i) => v === b[i]);
 	}
 
-	// --- drag controller (shared with TemplateNode via context) ------------
-	// `forbidden` = the dragged node + all its descendants. Any group zone owned
-	// by one of these disables drops from other zones, which is what stops a
-	// group being dropped into itself or its own subtree. Read during the drag,
-	// cleared on finalize.
+	// Tracks forbidden drop-zones so invalid operations such as dropping into
+	// itself doesn't occur
 	let forbidden = $state<Set<Snowflake>>(new Set());
 	let startPath: NodePath | null = null;
 
@@ -212,7 +197,6 @@
 	};
 	setContext(DND_KEY, dnd);
 
-	// --- root zone (depth 0) -----------------------------------------------
 	function onRootConsider(e: CustomEvent<DndEvent<ContextNode>>) {
 		dnd.onConsider({ trigger: e.detail.info.trigger, id: e.detail.info.id as Snowflake });
 		if (template) template.nodes = e.detail.items;

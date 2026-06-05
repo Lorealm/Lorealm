@@ -5,11 +5,6 @@
 	import SaveIndicator from '../SaveIndicator.svelte';
 	import NumberInput from '$lib/components/NumberInput.svelte';
 
-	// The lorebook's global settings. Edits mutate the draft (reactive); the
-	// shell debounces `requestSave` into `lorebookStore.saveLorebook`. Note: the
-	// visible Name/Description bind to the top-level fields; `config.name` /
-	// `config.description` (which also exist in lorebook.yaml) are passed through
-	// untouched on save.
 	let {
 		draft,
 		saveState,
@@ -30,8 +25,6 @@
 		touch();
 	}
 
-	// group budgets: edit values / remove in place; add via a dedicated form so
-	// the record never has to hold a transient empty key.
 	const groupRows = $derived(Object.entries(config.group_budgets ?? {}));
 	let newGroup = $state('');
 	let newBudget = $state<number | ''>('');
@@ -53,9 +46,6 @@
 		newBudget = '';
 	}
 
-	// namespaces: edit access/description in place, remove in place, add via a
-	// dedicated form (mirrors group budgets). Renaming = remove + re-add, so the
-	// record never has to hold a transient empty key.
 	const namespaceRows = $derived(Object.entries(config.namespaces ?? {}));
 	let newNamespace = $state('');
 	let newAccess = $state<NamespaceAccess>('readonly');

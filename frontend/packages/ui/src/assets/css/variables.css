@@ -4,7 +4,7 @@
 @import '@fontsource-variable/karla';
 
 :root {
-	/* ===== PRIMARY PALETTE ===== */
+	/* PRIMARY PALETTE */
 	--color-primary: #9b7db8;
 	--color-primary-light: #c4a6d8;
 	--color-primary-lighter: #dcc4e8;
@@ -12,7 +12,7 @@
 	--color-primary-darker: #5c4278;
 	--color-primary-dark-hover: rgba(156, 125, 184, 0.47);
 
-	/* ===== BACKGROUNDS ===== */
+	/* BACKGROUNDS */
 	--color-bg-base: #141018;
 	--color-bg-elevated: #1c1525;
 	--color-bg-elevated-2: #201a2a;
@@ -24,7 +24,7 @@
 	--color-bg-modal: rgba(34, 26, 45, 0.98);
 	--color-bg-disabled: #2a2530;
 
-	/* ===== TEXT ===== */
+	/* TEXT */
 	--color-text-primary: #e8ddf0;
 	--color-text-secondary: #a898b0;
 	--color-text-muted: #6e6478;
@@ -33,14 +33,14 @@
 	--color-text-accent: #c4a6d8;
 	--color-text-inverse: #141018;
 
-	/* ===== BORDERS ===== */
+	/* BORDERS */
 	--color-border-subtle: rgba(155, 125, 184, 0.1);
 	--color-border-medium: rgba(155, 125, 184, 0.2);
 	--color-border-strong: rgba(155, 125, 184, 0.3);
 	--color-border-active: rgba(155, 125, 184, 0.4);
 	--color-border-default: rgba(255, 255, 255, 0.08);
 
-	/* ===== SEMANTIC STATUS ===== */
+	/* SEMANTIC STATUS */
 	--color-success: #10b981;
 	--color-success-bg: rgba(34, 197, 94, 0.2);
 	--color-success-text: #4ade80;
@@ -61,7 +61,7 @@
 	--color-info-text: #a0c4e8;
 	--color-info-border: rgba(124, 172, 220, 0.3);
 
-	/* ===== CHAT ROLES ===== */
+	/* CHAT ROLES */
 	--color-role-system: #5fb3a8;
 	--color-role-system-bg: rgba(95, 179, 168, 0.15);
 	--color-role-system-text: #84c9bf;
@@ -74,14 +74,14 @@
 	--color-role-assistant-bg: rgba(176, 140, 200, 0.15);
 	--color-role-assistant-text: #c4a6d8;
 
-	/* ===== INTERACTIVE STATES ===== */
+	/* INTERACTIVE STATES */
 	--color-hover: rgba(155, 125, 184, 0.2);
 	--color-active: rgba(155, 125, 184, 0.3);
 	--color-focus: rgba(155, 125, 184, 0.4);
 	--color-disabled: rgba(255, 255, 255, 0.05);
 	--color-selected: rgba(155, 125, 184, 0.15);
 
-	/* ===== GRADIENTS ===== */
+	/* GRADIENTS */
 	--gradient-primary: linear-gradient(135deg, #9b7db8 0%, #7a5d9a 100%);
 	--gradient-bg: linear-gradient(135deg, #181220 0%, #2a1f3a 100%);
 	--gradient-portrait: linear-gradient(135deg, #b08cc8 0%, #8a68a8 100%);
@@ -91,7 +91,7 @@
 		rgba(155, 125, 184, 0.05) 100%
 	);
 
-	/* ===== SPACING ===== */
+	/* SPACING */
 	--spacing-xs: 4px;
 	--spacing-sm: 8px;
 	--spacing-md: 12px;
@@ -102,7 +102,7 @@
 	--spacing-4xl: 48px;
 	--spacing-5xl: 64px;
 
-	/* ===== BORDER RADIUS ===== */
+	/* BORDER RADIUS */
 	--radius-sm: 4px;
 	--radius-md: 6px;
 	--radius-lg: 8px;
@@ -110,31 +110,29 @@
 	--radius-2xl: 16px;
 	--radius-full: 9999px;
 
-	/* ===== TYPOGRAPHY — FAMILIES ===== */
+	/* FONT FAMILIES */
 	--font-family-system: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 	--font-family-mono: 'Consolas', 'Monaco', monospace;
 
-	/* --- Pairing A: Quicksand + Nunito (rounded, warm, cozy) --- */
 	--font-family-quicksand: 'Quicksand', var(--font-family-system);
 	--font-family-nunito: 'Nunito', var(--font-family-system);
 
-	/* --- Pairing B: Josefin Sans + Karla (geometric, vintage-modern) --- */
 	--font-family-josefin: 'Josefin Sans', var(--font-family-system);
 	--font-family-karla: 'Karla', var(--font-family-system);
 
-	/* --- Semantic aliases (swap these to switch pairing across the UI) --- */
+	/* Semantic aliases */
 	--font-family-heading: var(--font-family-quicksand);
 	--font-family-body: var(--font-family-nunito);
 	--font-family-heading-alt: var(--font-family-josefin);
 	--font-family-body-alt: var(--font-family-karla);
 
-	/* --- Recommended weights per font --- */
+	/* Recommended weights per font */
 	--font-weight-heading-quicksand: 600;
 	--font-weight-heading-josefin: 300;
 	--font-weight-body-nunito: 300;
 	--font-weight-body-karla: 400;
 
-	/* ===== TYPOGRAPHY — BODY SIZES ===== */
+	/* FONT SIZES */
 	--font-size-xs: 11px;
 	--font-size-sm: 12px;
 	--font-size-base: 13px;
@@ -142,7 +140,7 @@
 	--font-size-lg: 16px;
 	--font-size-xl: 18px;
 
-	/* ===== TYPOGRAPHY — HEADING SIZES ===== */
+	/* HEADING SIZES */
 	--font-size-h1: 32px;
 	--font-size-h2: 26px;
 	--font-size-h3: 22px;
@@ -151,25 +149,25 @@
 	--font-size-h6: 14px;
 	--font-size-display: 48px;
 
-	/* ===== TYPOGRAPHY — WEIGHTS ===== */
+	/* FONT WEIGHTS */
 	--font-weight-normal: 400;
 	--font-weight-medium: 500;
 	--font-weight-semibold: 600;
 	--font-weight-bold: 700;
 
-	/* ===== TYPOGRAPHY — LINE HEIGHTS ===== */
+	/* LINE HEIGHTS */
 	--line-height-tight: 1.2;
 	--line-height-snug: 1.4;
 	--line-height-normal: 1.6;
 	--line-height-relaxed: 1.8;
 
-	/* ===== LETTER SPACING ===== */
+	/* LETTER SPACING */
 	--letter-spacing-tight: -0.02em;
 	--letter-spacing-normal: 0em;
 	--letter-spacing-wide: 0.04em;
 	--letter-spacing-uppercase: 0.08em;
 
-	/* ===== SHADOWS ===== */
+	/* SHADOWS */
 	--shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
 	--shadow-md: 0 4px 12px rgba(155, 125, 184, 0.1);
 	--shadow-lg: 0 4px 12px rgba(155, 125, 184, 0.25);
@@ -177,9 +175,9 @@
 	--shadow-inset: inset 0 1px 3px rgba(0, 0, 0, 0.2);
 	--shadow-glow: 0 0 16px rgba(155, 125, 184, 0.2);
 
-	/* ===== SIZING ===== */
+	/* SIZING */
 	--width-sidebar-full: 230px;
-	--width-sidebar-small: 200px;
+	--width-sidebar-small: 230px;
 	--width-sidebar-collapsed: 46px;
 	--width-content-max: 960px;
 	--width-content-narrow: 640px;
@@ -187,14 +185,14 @@
 	--height-input: 36px;
 	--height-input-lg: 44px;
 
-	/* ===== TRANSITIONS ===== */
+	/* TRANSITIONS */
 	--transition-fast: 0.2s;
 	--transition-normal: 0.3s;
 	--transition-slow: 0.4s;
 	--easing-default: cubic-bezier(0.4, 0, 0.2, 1);
 	--easing-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
-	/* ===== Z-INDEX ===== */
+	/* Z-INDEX */
 	--z-index-base: 1;
 	--z-index-elevated: 10;
 	--z-index-dropdown: 50;
@@ -203,22 +201,22 @@
 	--z-index-modal: 1000;
 	--z-index-toast: 2000;
 
-	/* ===== BACKDROP ===== */
+	/* BACKDROP */
 	--backdrop-blur: blur(10px);
 	--backdrop-blur-sm: blur(4px);
 	--backdrop-blur-lg: blur(20px);
 
-	/* ===== OVERLAY ===== */
+	/* OVERLAY */
 	--color-overlay-bg: rgba(0, 0, 0, 0.6);
 	--color-overlay-light: rgba(0, 0, 0, 0.3);
 
-	/* ===== SCROLLBAR ===== */
+	/* SCROLLBAR */
 	--scrollbar-width: 6px;
 	--scrollbar-track: transparent;
 	--scrollbar-thumb: rgba(255, 255, 255, 0.15);
 	--scrollbar-thumb-hover: rgba(255, 255, 255, 0.25);
 
-	/* ===== GRID ===== */
+	/* GRID */
 	--grid-card-min-sm: 140px;
 	--grid-card-min-md: 180px;
 	--grid-card-min-lg: 240px;

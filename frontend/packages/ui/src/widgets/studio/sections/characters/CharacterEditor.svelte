@@ -33,7 +33,6 @@
 		{ key: 'history', label: 'History', count: () => characterStore.versions.length }
 	];
 
-	// The version number edits are currently landing in, looked up from history.
 	const currentVersion = $derived(
 		characterStore.versions.find((v) => v.id === characterStore.currentVersionId) ?? null
 	);
@@ -42,8 +41,6 @@
 		return DateTime.fromISO(value as string).toLocaleString(DateTime.DATETIME_MED);
 	}
 
-	// (Re)open the editing session whenever the routed id changes. Untracked so
-	// the synchronous store reads don't subscribe this effect.
 	$effect(() => {
 		const cid = id;
 		untrack(() => {
@@ -54,7 +51,6 @@
 	});
 	onDestroy(() => characterStore.stopEditing());
 
-	// --- debounced autosave (one save covers the whole character) -----------
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	function requestSave() {
 		clearTimeout(timer);
@@ -62,8 +58,7 @@
 	}
 	onDestroy(() => clearTimeout(timer));
 
-	// Discrete list actions mutate the draft AND schedule a save — without this
-	// a reorder/add/remove wouldn't persist until the next keystroke in a field.
+	// The below functions are discrete and do not need debounced saving
 	function addGreeting() {
 		characterStore.addGreeting();
 		requestSave();
@@ -89,11 +84,6 @@
 		requestSave();
 	}
 
-	// --- maximize a single text field ---------------------------------------
-	// The overlay edits a local copy (real two-way bind, so no cursor jank) and
-	// propagates each change back to the draft through the field's setter, so
-	// autosave is unchanged. It's rendered inside .character-editor and
-	// absolutely positioned, so it fills the editor's own box — not the viewport.
 	let maximizedValue = $state('');
 	let maximized = $state<{ title: string; set: (v: string) => void } | null>(null);
 	function maximize(title: string, get: () => string, set: (v: string) => void) {
@@ -107,13 +97,14 @@
 		node.focus();
 	}
 
+	// beautiful
 	const saveLabel = $derived(
 		save.status === 'saving'
 			? 'Saving…'
 			: save.status === 'saved'
 				? 'Saved'
 				: save.status === 'error'
-					? 'Unsaved — error'
+					? 'Unsaved; error'
 					: characterStore.hasUnsavedChanges
 						? 'Unsaved'
 						: 'Saved'
@@ -187,10 +178,10 @@
 							{:else}
 								<div class="avatar-placeholder" aria-hidden="true"></div>
 							{/if}
-							<p class="hint">Avatar is managed separately and can't be changed here yet.</p>
+							<p class="hint">Avatar manipulation pending... Limited by a severe case of laziness</p>
 						</div>
 						<div class="identity-fields">
-							<label for="f-name">Name <span class="req">in-chat, {`{{char}}`}</span></label>
+							<label for="f-name">Name <span class="req">in-chat, {`{{char:name}}`}</span></label>
 							<input id="f-name" bind:value={draft.name} oninput={requestSave} />
 
 							<label for="f-display">Display name</label>
@@ -277,7 +268,7 @@
 						<button type="button" class="add" onclick={addGreeting}>＋ Greeting</button>
 					</div>
 					{#if draft.greetings.length === 0}
-						<p class="empty">No greetings yet. The first one is the default opener.</p>
+						<p class="empty">No greetings yet.</p>
 					{/if}
 					{#each draft.greetings as greeting, i (greeting)}
 						<div class="item-card">
@@ -740,7 +731,7 @@
 		color: var(--color-text-accent);
 	}
 
-	/* --- maximize overlay (fills the editor's own box, not the viewport) --- */
+	/* --- maximize overlay --- */
 	.maximize-overlay {
 		position: absolute;
 		inset: 0;

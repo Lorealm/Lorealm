@@ -58,7 +58,6 @@ pub async fn update_lorebook(
     Path(lorebook_id): Path<Snowflake>,
     Json(request): Json<super::UpdateLorebookRequest>,
 ) -> Result<Json<Lorebook>, AppError> {
-    tracing::info!("updating lorebook");
     let lorebook = state
         .services()
         .lorebooks()

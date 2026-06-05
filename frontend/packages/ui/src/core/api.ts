@@ -25,7 +25,6 @@ export interface HttpTransport {
 	/* Bytes */
 	getBlob(path: string): Promise<Blob>;
 
-	/* SSE stream — POSTs `body`, then yields each event as it arrives.
-	   Throws ApiError on a pre-flight HTTP error; throws on a mid-stream error event. */
+	/* SSE stream */
 	stream<T>(path: string, body?: unknown): AsyncIterable<T>;
 }

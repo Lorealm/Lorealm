@@ -60,8 +60,7 @@ impl StateService {
         }
 
         let mut lorebooks: Vec<Lorebook> = Vec::new();
-        // unwrap: invariant check above
-        for lorebook_id in lorebook_ids.unwrap() {
+        for lorebook_id in lorebook_ids.unwrap() { // unwrap: invariant check above
             let maybe_lorebook = self.storage.get_lorebook(lorebook_id).await?;
             if let Some(lorebook) = maybe_lorebook {
                 if lorebook.owner_id != user_id {
@@ -129,7 +128,7 @@ impl StateService {
         let states = self.storage.get_message_states(chain).await?;
 
         let mut persistent: StatePool = HashMap::new();
-        // Borrow the nearest snapshot during the walk, clone once at the end.
+        // Borrow the nearest snapshot during the walk
         let mut nearest_activation: Option<&HashMap<Snowflake, ActivationState>> = None;
 
         for id in chain {
@@ -189,7 +188,7 @@ impl StateService {
                 let gone = output
                     .get(ns)
                     .map(|vars| !vars.contains_key(name))
-                    .unwrap_or(true);
+                    .unwrap_or(false);
                 if gone {
                     deletes.entry(ns.clone()).or_default().push(name.clone());
                 }

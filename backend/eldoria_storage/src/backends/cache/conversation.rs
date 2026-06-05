@@ -1,15 +1,3 @@
-//! Caching wrapper for ConversationStorage.
-//!
-//! Only the single-id reads (`get_conversation`, `get_message`) are cached —
-//! they fit the `get_through` Option<T> shape. The volatile collection reads
-//! (lists, children, active path) and all writes delegate straight to the
-//! backend; writes additionally invalidate the affected key.
-//!
-//! Known staleness: cascade deletes can orphan cached entries we can't
-//! enumerate by id. `delete_conversation` cascades its messages and
-//! `delete_message` cascades its subtree, but only the directly-named key is
-//! evicted here. Those orphaned message entries expire on their own TTL.
-
 use crate::ConversationStorage;
 use crate::backends::CachedStorage;
 use crate::error::StorageError;
@@ -20,8 +8,6 @@ use async_trait::async_trait;
 
 #[async_trait]
 impl ConversationStorage for CachedStorage {
-    // ----- conversation rows -----
-
     async fn list_conversations(
         &self,
         user_id: Snowflake,
@@ -64,8 +50,6 @@ impl ConversationStorage for CachedStorage {
         }
         Ok(deleted)
     }
-
-    // ----- messages -----
 
     async fn add_message(&self, message: &ConversationMessage) -> Result<Snowflake, StorageError> {
         let id = self.backend.add_message(message).await?;
@@ -122,6 +106,14 @@ impl ConversationStorage for CachedStorage {
         conversation_id: Snowflake,
     ) -> Result<Vec<ConversationMessage>, StorageError> {
         self.backend.get_active_path(conversation_id).await
+    }
+
+    async fn get_path_to(
+        &self,
+        conversation_id: Snowflake,
+        message_id: Snowflake
+    ) -> Result<Vec<ConversationMessage>, StorageError> {
+        self.backend.get_path_to(conversation_id, message_id).await
     }
 
     async fn update_message(&self, id: Snowflake, edit: &MessageEdit) -> Result<(), StorageError> {

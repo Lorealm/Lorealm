@@ -6,8 +6,6 @@
 
 	type SortKey = 'name-asc' | 'name-desc' | 'updated' | 'created';
 
-	// Optional callbacks so the parent decides what "create"/"import" actually do
-	// (open a modal, route somewhere, hand the file to the store, etc.).
 	let {
 		oncreate
 	}: {

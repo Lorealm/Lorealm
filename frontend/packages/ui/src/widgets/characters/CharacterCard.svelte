@@ -14,9 +14,6 @@
 		characterStore.setActive(summary.id);
 		navigationStore.setSidebarView(SidebarView.Write);
 
-		// Returning user: reopen their latest chat. Otherwise begin a fresh one,
-		// seeded with this character's greetings (the author picks one before the
-		// first send).
 		const opened = await chatStore.openLatestForCharacter(summary.id);
 		if (!opened) {
 			const character = characterStore.activeCharacter;
@@ -78,12 +75,11 @@
 		object-fit: cover;
 	}
 
-	/* full-card dim layer — fades in on hover */
 	.card::before {
 		content: '';
 		position: absolute;
 		inset: 0;
-		background: var(--color-overlay-light); /* rgba(0,0,0,0.3) */
+		background: var(--color-overlay-light);
 		opacity: 0;
 		transition: opacity var(--transition-fast) var(--easing-default);
 		pointer-events: none;
@@ -102,12 +98,10 @@
 		color: var(--color-text-white);
 		z-index: var(--z-index-elevated);
 
-		/* always-on semi-transparent panel */
-		background: var(--color-overlay-bg); /* uniform rgba(0,0,0,0.6) tint */
+		background: var(--color-overlay-bg);
 		backdrop-filter: var(--backdrop-blur-sm);
-		-webkit-backdrop-filter: var(--backdrop-blur-sm); /* Safari */
-
-		/* feather the top edge so the panel blends into the image */
+		-webkit-backdrop-filter: var(--backdrop-blur-sm);
+		
 		-webkit-mask-image: linear-gradient(to top, #000 97%, transparent);
 		mask-image: linear-gradient(to top, #000 97%, transparent);
 	}
@@ -119,7 +113,6 @@
 		line-height: var(--line-height-tight);
 	}
 
-	/* hidden until hover/focus, then slides up into place */
 	.actions {
 		display: flex;
 		gap: var(--spacing-sm);

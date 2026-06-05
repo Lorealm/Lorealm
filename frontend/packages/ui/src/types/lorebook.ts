@@ -1,10 +1,4 @@
-// Lorebook + entry types. Storage-facing types match the server's wire shape;
-// EntryMeta / Slot / LorebookConfig mirror the parsed `.weaver` frontmatter and
-// `lorebook.yaml`. Frontmatter round-tripping lives in weaver/weaverFile.ts.
-
 import type { Snowflake } from './core.js';
-
-// ── Storage-facing (wire) types ────────────────────────────────────────────
 
 export interface Lorebook {
 	id: Snowflake;
@@ -22,12 +16,7 @@ export interface Lorebook {
 export interface LorebookEntry {
 	id: Snowflake;
 	lorebook_id: Snowflake;
-	/** ContextWeaver id from the frontmatter (`id:`). Human-readable, referenced
-	 *  by triggers and document refs. May collide across entries — that is
-	 *  breaking, surfaced later by a validator, not enforced here. */
 	entry_id: string;
-	/** The entire raw `.weaver` file: frontmatter + body. The full round-trip
-	 *  (parse for the form, serialize on save) is the frontend's responsibility. */
 	source: string;
 }
 
@@ -46,8 +35,6 @@ export interface LorebookMetadata {
 	entry_count: string;
 }
 
-// ── Requests ────────────────────────────────────────────────────────────────
-
 export interface CreateLorebookRequest {
 	name: string;
 	description?: string;
@@ -63,19 +50,10 @@ export interface UpdateLorebookRequest {
 	config?: LorebookConfig;
 }
 
-/** The patch is the full updated `.weaver` source. The server re-validates it
- *  and rejects invalid frontmatter / weaver syntax, so callers must preserve
- *  unrelated content exactly. */
 export interface UpdateEntryRequest {
 	source: string;
 }
 
-// ── Slot ──────────────────────────────────────────────────────────────────
-
-/**
- * Slot enum — unit variants serialize as snake_case strings; `AtDepth` is an
- * externally-tagged tuple variant: `{ at_depth: [n] }`.
- */
 export type Slot =
 	| 'prelude'
 	| 'preamble'
@@ -83,8 +61,9 @@ export type Slot =
 	| 'setting'
 	| 'foreground'
 	| 'coda'
-	| { at_depth: number }; // newtype variant: { at_depth: N }
+	| { at_depth: number };
 
+/** Flattened enum as array for easier iterator access */
 export const SLOT_KINDS = [
 	'prelude',
 	'preamble',
@@ -99,16 +78,13 @@ export function isAtDepth(slot: Slot): slot is { at_depth: number } {
 	return typeof slot === 'object' && slot !== null && 'at_depth' in slot;
 }
 
-// ── EntryMeta (parsed frontmatter) ──────────────────────────────────────────
-
 /**
  * The parsed view of an entry's YAML frontmatter. Optional fields are
- * `undefined` when absent from the source (NOT defaulted) so the serializer can
- * tell "author left this out" from "author set it" — display defaults are
- * applied at the form layer, never written back unless the author edits.
+ * `undefined` when absent from the source, not defaulted.
  *
  * Unknown frontmatter keys are intentionally absent here: they live only in the
- * preserved YAML document and survive untouched across a round-trip.
+ * preserved YAML document and survive untouched across a round-trip. This behavior
+ * is a temporary band-aid may need to be changed or revised in the future.
  */
 export interface EntryMeta {
 	id: string;
@@ -135,8 +111,6 @@ export interface EntryMeta {
 	tags?: string[];
 }
 
-// ── lorebook.yaml config ────────────────────────────────────────────────────
-
 export type NamespaceAccess = 'readonly' | 'readwrite';
 
 export interface NamespaceConfig {
@@ -145,7 +119,7 @@ export interface NamespaceConfig {
 }
 
 /**
- * Parsed `lorebook.yaml`. Unlike entries this is NOT round-tripped through the
+ * Parsed lorebook frontmatter. Unlike entries this is NOT round-tripped through the
  * frontend: it is sent back whole as `UpdateLorebookRequest.config` and the
  * server re-serializes, so the `& Record<string, unknown>` extension keys
  * survive as long as the full object is passed through unmodified.

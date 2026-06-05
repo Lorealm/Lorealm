@@ -25,11 +25,9 @@ impl PermissionMiddlewareState {
 }
 
 /// Errors that can occur during permission resolution in middleware.
-/// Separate from `PermissionError` (which is for missing perms) —
-/// these are infrastructure/routing problems.
 #[derive(Debug)]
 pub enum PermissionMiddlewareError {
-    /// Something went wrong in the DB.
+    /// Something went wrong in storage.
     Internal(String),
 }
 
@@ -73,7 +71,7 @@ async fn resolve_server_permissions(
             permissions: Permissions::ADMINISTRATOR,
             position: 0,
         });
-        // TODO: fix.
+        // TODO: for future me: i'm lazy af. pls fix
     }
 
     // Union all role permissions together

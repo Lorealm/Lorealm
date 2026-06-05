@@ -21,7 +21,6 @@ impl UserStorage for CachedStorage {
     }
 
     async fn get_user_by_username(&self, username: &str) -> Result<Option<User>, StorageError> {
-        // Username lookups go straight to backend — not worth caching a secondary index
         self.backend.get_user_by_username(username).await
     }
 

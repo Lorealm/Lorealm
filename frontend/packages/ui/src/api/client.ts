@@ -27,6 +27,7 @@ import type {
 	SetActiveLorebooksRequest
 } from '$lib/types/lorebook.js';
 import type { SourceDefinition } from '$lib/types/node.js';
+import type { ReconstructedState } from '$lib/types/state.js';
 import type {
 	ContextTemplate,
 	CreateNodeRequest,
@@ -143,10 +144,16 @@ export function createApiClient(platform: PlatformAPI) {
 			messages: {
 				list: (conversation_id: Snowflake) =>
 					http.get<Array<ConversationMessage>>(`/api/v1/chat/${conversation_id}/messages`),
+				get: (conversation_id: Snowflake, message_id: Snowflake) =>
+					http.get<ConversationMessage>(`/api/v1/chat/${conversation_id}/messages/${message_id}`),
 				edit: (conversation_id: Snowflake, edit: ChatEdit) =>
 					http.put(`/api/v1/chat/${conversation_id}/messages`, edit),
 				delete: (conversation_id: Snowflake, message_id: Snowflake) =>
-					http.delete(`/api/v1/chat/${conversation_id}/messages/${message_id}`)
+					http.delete(`/api/v1/chat/${conversation_id}/messages/${message_id}`),
+				state: (conversation_id: Snowflake, message_id: Snowflake) =>
+					http.get<ReconstructedState>(
+						`/api/v1/chat/${conversation_id}/messages/${message_id}/state`
+					)
 			}
 		}
 	};

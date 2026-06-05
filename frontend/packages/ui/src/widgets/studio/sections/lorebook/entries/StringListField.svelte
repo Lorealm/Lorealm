@@ -1,7 +1,4 @@
 <script lang="ts">
-	// Edits a list of strings (keywords / regex / tags). Emits `undefined` when
-	// the list is emptied so the serializer drops the key rather than writing an
-	// empty array — absent and [] are equivalent for these fields.
 	let {
 		values,
 		onchange,

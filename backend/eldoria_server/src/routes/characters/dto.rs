@@ -10,16 +10,13 @@ pub struct ImportCharResponse {
 
 /// A single edit applied against the current editing checkpoint.
 ///
-/// The endpoint accepts a `Vec<CharacterEdit>`; all ops in one request land in
+/// The endpoint accepts a `Vec<CharacterEdit>`. All ops in one request land in
 /// the same debounced version. Order is preserved and ops apply in sequence.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
 pub enum CharacterEdit {
-    // --- scalar field groups (merge-patch: None = leave unchanged) ---
     Definition(EditDefinition),
     Metadata(EditMetadata),
-
-    // --- greetings (item-level, identity via Snowflake) ---
     AddGreeting {
         text: String,
     },
@@ -30,12 +27,9 @@ pub enum CharacterEdit {
     RemoveGreeting {
         id: Snowflake,
     },
-    /// Full ordered id list. `order` stays server-authoritative.
     ReorderGreetings {
         ids: Vec<Snowflake>,
     },
-
-    // --- example dialogues (item-level, identity via Snowflake) ---
     AddExample {
         content: String,
     },
@@ -49,8 +43,6 @@ pub enum CharacterEdit {
     ReorderExamples {
         ids: Vec<Snowflake>,
     },
-
-    // --- whole-list replace (no per-item identity needed) ---
     SetTags {
         tags: Vec<String>,
     },

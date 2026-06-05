@@ -1,10 +1,3 @@
-//! In-memory implementation of `CharacterStorage`.
-//!
-//! Keeps characters in `RwLock<HashMap>` and versions in a separate map.
-//! Not atomic across locks in the strict sense (another reader could see
-//! an inconsistent intermediate state), but for a single-writer in-memory
-//! backend used in tests and local dev this is fine.
-
 use crate::backends::MemoryStorage;
 use crate::error::StorageError;
 use crate::models::{
@@ -14,8 +7,6 @@ use crate::storage::CharacterStorage;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
-/// One stored version: metadata needed for `CharacterVersionInfo` +
-/// the full Character snapshot for restoration.
 #[derive(Debug, Clone)]
 pub(crate) struct StoredVersion {
     pub(crate) version_id: Snowflake,
@@ -25,14 +16,6 @@ pub(crate) struct StoredVersion {
     pub(crate) created_at: DateTime<Utc>,
     pub(crate) character: Character,
 }
-
-// NOTE: these fields need to be added to your `MemoryStorage` struct:
-//
-//     pub(crate) characters: RwLock<HashMap<Snowflake, Character>>,
-//     pub(crate) character_versions: RwLock<HashMap<Snowflake, StoredVersion>>,
-//
-// The existing MemoryStorage you showed me only has users/sessions/roles.
-// Add these two fields when integrating; the impl below assumes they exist.
 
 #[async_trait]
 impl CharacterStorage for MemoryStorage {
@@ -132,7 +115,6 @@ impl CharacterStorage for MemoryStorage {
                             ))
                         })?;
 
-                // Overwrite content, preserve version_num and created_at.
                 existing.card_version = character.metadata.card_version.clone();
                 existing.character = character.clone();
             }

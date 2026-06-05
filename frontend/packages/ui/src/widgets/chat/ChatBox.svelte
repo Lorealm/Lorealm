@@ -6,9 +6,6 @@
 
 	let scrollEl: HTMLDivElement;
 
-	// Stick to the bottom as the path grows and as tokens stream in. Reading
-	// `activePath` (and the last bubble's content) subscribes us to both the
-	// tree changing and the live stream buffer.
 	$effect(() => {
 		const path = chatStore.activePath;
 		void path.length;

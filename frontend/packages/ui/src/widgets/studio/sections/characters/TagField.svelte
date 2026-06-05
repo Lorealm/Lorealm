@@ -1,9 +1,4 @@
 <script lang="ts">
-	// A minimal chip editor over a string[]. Mutates the passed array in place
-	// (it's backed by the parent's $state, so the proxy stays reactive) and
-	// notifies the parent so it can schedule a save. The add-input keeps its own
-	// local state, which sidesteps the cursor-jump you get from a controlled
-	// comma-separated text field.
 	let {
 		items,
 		label,

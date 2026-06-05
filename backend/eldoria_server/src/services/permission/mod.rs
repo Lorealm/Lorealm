@@ -35,9 +35,6 @@ bitflags! {
 
 impl Permissions {
     /// Wrap a raw i64 from the database into a Permissions value.
-    /// Uses `from_bits_truncate` so unknown bits are silently dropped
-    /// rather than causing a panic — important for forward-compatibility
-    /// if you add new flags later.
     pub fn from_db(bits: i64) -> Self {
         Self::from_bits_truncate(bits)
     }

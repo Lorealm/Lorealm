@@ -10,61 +10,21 @@ import type {
 } from '$lib/types/conversation.js';
 import type { Greeting } from '$lib/types/character.js';
 import { SvelteMap } from 'svelte/reactivity';
-
-// ---------------------------------------------------------------------------
-// A conversation is a TREE of messages, not a flat list. Each message points at
-// its `parent`; `active_leaf_id` on the conversation names the currently visible
-// leaf. The displayed chat is the chain from the root greeting down to that leaf
-// (walk `parent` up, reverse). Anything sharing a parent is a "slide" — the
-// chevrons step between siblings.
-//
-// Three things shape this store:
-//
-//  1. Streaming, not request/response. `completions` is an SSE stream of
-//     `delta` chunks terminated by `done`. We paint a provisional assistant
-//     bubble from the deltas for instant feedback, then reconcile against the
-//     server on `done`. Live token text lives in ONE `$state` string
-//     (`_streamBuffer`) rather than rewriting a map entry per token — the
-//     active-path getter splices it in for the streaming message.
-//
-//  2. The 4-way completions contract (content × target) is the only way new
-//     turns are made. We expose one private `#runCompletion` and four thin
-//     public wrappers so each row of the contract has exactly one entry point:
-//       Some/None  → normal turn          (sendMessage)
-//       Some/Some  → user-message swipe    (commitUserSwipe)
-//       None/Some  → assistant swipe       (swipeNext at last slide / regenerate of a sibling)
-//       None/None  → continue / regenerate (regenerate)
-//
-//  3. A conversation does not exist until the first user message. Before that
-//     we run in a "pending" mode: a synthetic greeting bubble is shown with a
-//     null conversation id, and the first `sendMessage` calls `start` (which
-//     persists greeting + user message together) before streaming the reply.
-//
-// Reconciliation choice: on `done` we refetch `messages.list` (the full tree)
-// rather than fabricating the committed user message from `done.message.parent`.
-// `edit`/`activate` PUTs are treated as fire-and-persist — the local tree is the
-// source of truth between loads, and a (re)load is authoritative.
-// ---------------------------------------------------------------------------
+import { messageStateStore } from './messageState.svelte.ts';
 
 export type StreamStatus = 'idle' | 'streaming' | 'error';
 
 export interface StreamState {
 	status: StreamStatus;
-	/** Server diagnostic, surfaced verbatim on `error`. */
 	message?: string;
 }
 
-/** What the host hands us to open a brand-new (not-yet-persisted) conversation.
- *  A character may define several greetings; the author picks one (by swiping
- *  the greeting bubble) before the first send, and the selected greeting's id is
- *  what `start` commits. */
 export interface NewConversationOptions {
 	characterId: Snowflake;
 	versionId?: Snowflake | null;
 	greetings: Greeting[];
 }
 
-/** Internal pending state: the options plus which greeting is currently shown. */
 interface PendingState extends NewConversationOptions {
 	selected: number;
 }
@@ -76,39 +36,27 @@ class ChatStore {
 	private _api = $state<ApiClient>();
 
 	get #api() {
-		if (!this._api) this._api = useApi(); // accessed once during page init
+		if (!this._api) this._api = useApi(); // NOTE: This assumes it's accessed once during page init. Dirty workaround.
 		return this._api;
 	}
 
-	/** Resolve the lazy `#api` now, while a component context is live. `useApi()`
-	 *  calls `getContext`, which Svelte only permits during component
-	 *  initialisation — so call this from a component's top-level `<script>` (the
-	 *  view that hosts the chat), never from an event handler. Idempotent; the
-	 *  resolved client is cached for the rest of the session. */
 	ensureApi() {
 		void this.#api;
 	}
 
-	/** Listing-only metadata for the sidebar. Does not carry messages. */
 	metadataList = $state<Array<ConversationMetadata>>();
 
-	/** Active conversation metadata. `null` while in pending (pre-`start`) mode. */
+	/** Active conversation metadata */
 	private _conversation = $state<Conversation | null>(null);
 
-	/** Every message of the active conversation, the whole tree keyed by id.
-	 *  Provisional (temp-id) bubbles live here too during a stream. */
+	/** Every message (including branches) of the active conversation */
 	private _messages = new SvelteMap<Snowflake, ConversationMessage>();
 
-	/** The visible leaf. Defines the active path. */
 	private _activeLeafId = $state<Snowflake | null>(null);
 
-	/** Pending (pre-`start`) state. `null` once the chat is persisted or closed. */
 	private _pending = $state<PendingState | null>(null);
-	/** Temp id of the synthetic greeting bubble shown in pending mode. */
 	private _pendingGreetingId: Snowflake | null = null;
 
-	/** Live token text for the in-flight assistant bubble. Spliced into the
-	 *  active path by id so we don't churn the message map per token. */
 	private _streamingId = $state<Snowflake | null>(null);
 	private _streamBuffer = $state('');
 
@@ -119,16 +67,13 @@ class ChatStore {
 		return `${TEMP_PREFIX}${this.#tempCounter++}` as unknown as Snowflake;
 	}
 
-	/* --- accessors -------------------------------------------------------- */
-
 	get conversation(): Conversation | null {
 		return this._conversation;
 	}
 	get conversationId(): Snowflake | null {
 		return this._conversation?.id ?? null;
 	}
-	/** The character this chat is bound to — for avatar src, name lookups, etc.
-	 *  Available in both pending and persisted modes. */
+	/** The character this chat is bound to */
 	get characterId(): Snowflake | null {
 		return this._conversation?.character_id ?? this._pending?.characterId ?? null;
 	}
@@ -136,8 +81,6 @@ class ChatStore {
 		return this.streamState.status === 'streaming';
 	}
 
-	/** The ordered, visible messages (root → leaf). The streaming bubble carries
-	 *  the live buffer instead of its (empty) stored content. */
 	get activePath(): ConversationMessage[] {
 		const path: ConversationMessage[] = [];
 		let cur = this._activeLeafId ? this._messages.get(this._activeLeafId) : undefined;
@@ -149,10 +92,6 @@ class ChatStore {
 		return path;
 	}
 
-	/** Slide position of a message among its siblings — drives the chevrons.
-	 *  `count === 1` means no chevrons; `index === count - 1` is the last slide
-	 *  (chevron-right generates from there). In pending mode the greeting bubble's
-	 *  "siblings" are the character's greetings. */
 	siblingInfo(id: Snowflake): { index: number; count: number } {
 		if (this._pending && id === this._pendingGreetingId) {
 			return { index: this._pending.selected, count: this._pending.greetings.length };
@@ -162,8 +101,6 @@ class ChatStore {
 		const sibs = this.#siblingsOf(msg);
 		return { index: sibs.findIndex((s) => s.id === id), count: sibs.length };
 	}
-
-	/* --- tree helpers ----------------------------------------------------- */
 
 	#siblingsOf(msg: ConversationMessage): ConversationMessage[] {
 		return [...this._messages.values()]
@@ -177,9 +114,6 @@ class ChatStore {
 			.sort((a, b) => a.order - b.order);
 	}
 
-	/** Descend from a node to a leaf, following the latest child at each step.
-	 *  Used when switching slides: a sibling may already own a subtree, and we
-	 *  want to land on its tip rather than mid-branch. */
 	#descendToLeaf(id: Snowflake): Snowflake {
 		let cur = id;
 		for (;;) {
@@ -189,8 +123,7 @@ class ChatStore {
 		}
 	}
 
-	/** Pick a sensible leaf when the server didn't give one (e.g. straight after
-	 *  `start`): the message with the highest `order`. */
+	/** Pick a sensible leaf when the server didn't give one. */
 	#deriveLeaf(): Snowflake | null {
 		let leaf: ConversationMessage | null = null;
 		for (const m of this._messages.values()) {
@@ -207,28 +140,22 @@ class ChatStore {
 		this._pending = null;
 	}
 
-	/* --- loading / session ------------------------------------------------ */
-
 	async loadList() {
 		this.metadataList = await this.#api.chat.list();
 	}
 
-	/** Open a persisted conversation for viewing/editing. */
+	/** Open a persisted conversation */
 	async loadConversation(id: Snowflake) {
 		this.#resetSession();
 		const full = await this.#api.chat.get(id, true);
 		this.#ingestFull(full);
 	}
 
-	/** Look up any message in the loaded tree by id (read-only). Used by the
-	 *  context inspector to reconstruct `Message` content refs. */
 	messageById(id: Snowflake): ConversationMessage | undefined {
 		return this._messages.get(id);
 	}
 
-	/** Open this character's most recent conversation. Returns `true` if one
-	 *  existed (and was loaded), `false` if the character has no chats yet — the
-	 *  caller decides how to begin a fresh one. ISO timestamps sort lexically. */
+	/** Open this character's most recent conversation */
 	async openLatestForCharacter(characterId: Snowflake): Promise<boolean> {
 		const chats = await this.#api.characters.chats(characterId);
 		if (chats.length === 0) return false;
@@ -237,10 +164,6 @@ class ChatStore {
 		return true;
 	}
 
-	/** Enter pending mode for a not-yet-persisted chat. Shows the first greeting
-	 *  (by `order`); the author can swipe the bubble to pick another before the
-	 *  first send. Does nothing if the character has no greetings — `start`
-	 *  requires one. */
 	beginNewConversation(opts: NewConversationOptions) {
 		this.#resetSession();
 		if (opts.greetings.length === 0) return;
@@ -263,7 +186,6 @@ class ChatStore {
 		this._activeLeafId = id;
 	}
 
-	/** Switch the pending greeting bubble to `index`, clamped. */
 	#showGreeting(index: number) {
 		const p = this._pending;
 		const id = this._pendingGreetingId;
@@ -290,11 +212,7 @@ class ChatStore {
 		this.streamState = { status: 'idle' };
 	}
 
-	/* --- sending / generation --------------------------------------------- */
-
-	/** Send a user message. In pending mode this first `start`s the conversation
-	 *  (persisting greeting + user message), then streams the reply. Otherwise
-	 *  it's a normal turn (Some / None). */
+	/** Send a user message */
 	async sendMessage(content: string) {
 		if (this.isStreaming) return;
 
@@ -309,7 +227,7 @@ class ChatStore {
 				content
 			});
 			this.#ingestFull(full);
-			await this.loadList(); // the new conversation now belongs in the sidebar
+			await this.loadList();
 			await this.#runCompletion(null, null); // generate the first assistant reply
 			return;
 		}
@@ -317,24 +235,17 @@ class ChatStore {
 		await this.#runCompletion(content, null);
 	}
 
-	/** Continue / regenerate from the current leaf (None / None). */
+	/** Continue or regenerate from the current leaf. */
 	async regenerate() {
 		if (this.isStreaming) return;
 		await this.#runCompletion(null, null);
 	}
 
-	/** Commit a user-message swipe with new text (Some / Some): a new user
-	 *  sibling of `target`, then stream the reply. The UI calls this when the
-	 *  author edits a user bubble into a new branch. */
 	async commitUserSwipe(target: Snowflake, content: string) {
 		if (this.isStreaming) return;
 		await this.#runCompletion(content, target);
-	}
-
-	/** Chevron-right. Within a run of slides it just switches the active sibling.
-	 *  At the last slide it generates a new one: assistant messages stream a new
-	 *  sibling; user messages can't (they need text) — the UI should open its
-	 *  editor and call `commitUserSwipe` instead, so we no-op here. */
+  }
+	
 	async swipeNext(id: Snowflake) {
 		if (this._pending && id === this._pendingGreetingId) {
 			this.#showGreeting(this._pending.selected + 1);
@@ -353,10 +264,9 @@ class ChatStore {
 		if (msg.role === 'assistant') {
 			await this.#runCompletion(null, id); // new assistant sibling of this one
 		}
-		// user-message last slide: caller handles via commitUserSwipe
 	}
 
-	/** Chevron-left: switch to the previous sibling (clamped at the first). */
+	/** switch to the previous sibling */
 	async swipePrev(id: Snowflake) {
 		if (this._pending && id === this._pendingGreetingId) {
 			this.#showGreeting(this._pending.selected - 1);
@@ -369,24 +279,19 @@ class ChatStore {
 		if (idx > 0) await this.activate(sibs[idx - 1].id);
 	}
 
-	/** Where the in-flight assistant bubble attaches, per the completions contract. */
 	#provisionalParent(content: string | null, target: Snowflake | null): Snowflake | null {
 		if (target) {
 			const t = this._messages.get(target);
-			// Some/Some inserts a user sibling first (handled by the caller); both
-			// cases ultimately sit under the target's parent.
+			// Some/Some inserts a user sibling first
 			return t?.parent ?? null;
 		}
 		if (content !== null) return this._activeLeafId; // Some/None: under current leaf
-		// None/None: regenerate. If the leaf is a user turn, the reply hangs off
-		// it; if it's an assistant turn, we want a sibling (its parent).
+		// None/None: regenerate.
 		const leaf = this._activeLeafId ? this._messages.get(this._activeLeafId) : undefined;
 		if (!leaf) return null;
 		return leaf.role === 'user' ? leaf.id : leaf.parent;
 	}
 
-	/** The single streaming path behind every turn. Paints provisional bubble(s),
-	 *  consumes the SSE stream into `_streamBuffer`, then reconciles on `done`. */
 	async #runCompletion(content: string | null, target: Snowflake | null) {
 		const convId = this.conversationId;
 		if (!convId) return; // can't stream without a persisted conversation
@@ -453,10 +358,7 @@ class ChatStore {
 				}
 			}
 
-			// Reconcile locally from the messages the stream carried — no refetch.
-			// Swap each provisional temp for its committed counterpart; the
-			// server-supplied parent/order keep the tree linked, so the live tree
-			// converges to what a reload would show.
+			// Reconcile locally from the messages the stream carried
 			if (provisionalUserId) this._messages.delete(provisionalUserId);
 			this._messages.delete(assistantId);
 			if (committedUser) this._messages.set(committedUser.id, committedUser);
@@ -466,6 +368,11 @@ class ChatStore {
 			this._streamingId = null;
 			this._streamBuffer = '';
 			this.streamState = { status: 'idle' };
+
+			// TODO: think of alternative approachs
+			if (committedAssistant) {
+				messageStateStore.inspect(committedAssistant?.id, committedAssistant?.conversation_id);
+			}
 		} catch (e) {
 			// Roll the provisional bubbles back so a failed stream leaves no ghosts.
 			if (provisionalUserId) this._messages.delete(provisionalUserId);
@@ -478,10 +385,7 @@ class ChatStore {
 		}
 	}
 
-	/* --- structural edits (no new generation) ----------------------------- */
-
-	/** Edit a message's text in place — no new branch (op `edit`). Optimistic,
-	 *  rolls back on failure. */
+	/** Edit a message's text in place */
 	async editMessage(id: Snowflake, content: string) {
 		const convId = this.conversationId;
 		const msg = convId ? this._messages.get(id) : undefined;
@@ -497,9 +401,7 @@ class ChatStore {
 		}
 	}
 
-	/** Route the active path through `id` (op `activate`). We descend to a leaf
-	 *  locally for an instant view switch and persist the choice; rolls the leaf
-	 *  back on failure. */
+	/** Route the active path through `id` */
 	async activate(id: Snowflake) {
 		const convId = this.conversationId;
 		if (!convId || !this._messages.has(id)) return;
@@ -515,15 +417,13 @@ class ChatStore {
 		}
 	}
 
-	/** Delete a message and its whole subtree. Optimistic; restores on failure.
-	 *  If the active leaf was inside the removed subtree, it falls back to the
-	 *  deleted node's parent (descended to a leaf). */
+	/** Delete a message and its whole subtree. */
 	async deleteMessage(id: Snowflake) {
 		const convId = this.conversationId;
 		const target = convId ? this._messages.get(id) : undefined;
 		if (!convId || !target) return;
 
-		// Collect the subtree (target + all descendants) for removal & rollback.
+		// Collect the subtree for removal & rollback.
 		const removed: ConversationMessage[] = [];
 		const stack = [id];
 		while (stack.length) {
@@ -551,9 +451,7 @@ class ChatStore {
 		}
 	}
 
-	/* --- conversation-level ----------------------------------------------- */
-
-	/** Delete a conversation. Optimistic across the active session + list. */
+	/** Delete a conversation */
 	async deleteConversation(id: Snowflake) {
 		const prevList = this.metadataList ? [...this.metadataList] : undefined;
 		const wasActive = this.conversationId === id;
@@ -570,9 +468,6 @@ class ChatStore {
 	}
 }
 
-/** Unwrap an http rejection into a clean `{ message, code }`. Mirrors the
- *  transport's `ApiError`; the object/string branches catch raw rejections that
- *  don't go through it. */
 function extractError(e: unknown): { message: string } {
 	if (e instanceof Error) return { message: e.message };
 	if (e && typeof e === 'object') {
