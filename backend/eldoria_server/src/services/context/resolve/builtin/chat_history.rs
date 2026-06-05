@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use async_trait::async_trait;
 use eldoria_storage::models::ChatRole;
 
-use crate::errors::ContextError;
+use crate::{errors::ContextError, services::context::ContentRef};
 
 use super::super::{ResolveContext, ResolvedBlock, SourceResolver};
 
@@ -35,6 +35,7 @@ impl SourceResolver for ChatHistoryResolver {
             .map(|m| ResolvedBlock {
                 role: m.role.clone().into(),
                 content: m.content.clone(),
+                content_ref: ContentRef::Message(m.id)
             })
             .collect();
 

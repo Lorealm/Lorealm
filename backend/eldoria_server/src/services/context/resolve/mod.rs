@@ -16,12 +16,44 @@ mod convert;
 
 pub use convert::to_weaver_lorebook;
 
+#[derive(Debug, Clone, Serialize)]
+pub enum ContentRef {
+    /// Non-recoverable; the text must be stored verbatim. Used for unpredictable/dynamic sources
+    /// that can't be reconstructed reliably
+    Verbatim,
+    Message(Snowflake),
+    Character(CharacterPart),
+    /// Recoverable reference defined by a plugin source.
+    /// The frontend dispatches on source_id to interpret `data`.
+    Plugin {
+        source_id: String,
+        data: serde_json::Value,
+    },
+}
+
+impl ContentRef {
+    /// Whether the live content can be dropped before persisting.
+    pub fn is_recoverable(&self) -> bool {
+        !matches!(self, ContentRef::Verbatim)
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub enum CharacterPart {
+    Definition,
+    Personality,
+    Scenario,
+    Greeting { order: i64 },   // the *chosen* greeting, by its stable key
+    Example { order: i64 },    // each *included* example, by its stable key
+}
+
 /// One resolved piece of context, tagged with the role it occupies.
 /// Tree order is preserved by the walk.
 #[derive(Debug, Clone, Serialize)]
 pub struct ResolvedBlock {
     pub role: PromptRole,
     pub content: String,
+    pub content_ref: ContentRef,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -54,7 +86,7 @@ pub enum OriginKind {
 pub struct ResolveContext<'a> {
     pub character: &'a Character,
     pub messages: &'a [ConversationMessage],
-    pub user_id: Snowflake
+    pub user_id: Snowflake,
 }
 
 #[async_trait]
@@ -118,6 +150,7 @@ fn resolve_nodes<'a>(
                     block: ResolvedBlock {
                         role: role.clone(),
                         content: content.clone(),
+                        content_ref: ContentRef::Verbatim,
                     },
                     origin: BlockOrigin {
                         node_id: node.id,
@@ -182,7 +215,11 @@ fn wrapper_block(
     content: String,
 ) -> TracedBlock {
     TracedBlock {
-        block: ResolvedBlock { role, content },
+        block: ResolvedBlock {
+            role,
+            content,
+            content_ref: ContentRef::Verbatim,
+        },
         origin: BlockOrigin {
             node_id: node.id,
             node_title: node.title.clone(),

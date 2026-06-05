@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use async_trait::async_trait;
 use eldoria_storage::models::{Character, ExampleDialogue};
 
-use crate::errors::ContextError;
+use crate::{errors::ContextError, services::context::{CharacterPart, ContentRef}};
 
 use super::super::{PromptRole, ResolveContext, ResolvedBlock, SourceResolver};
 
@@ -24,20 +24,35 @@ impl SourceResolver for CharacterResolver {
         let character = ctx.character;
 
         let blocks = match node_id {
-            "definition" => text_block(PromptRole::System, &character.definition.description),
-            "personality" => text_block(PromptRole::System, &character.definition.personality),
-            "scenario" => text_block(PromptRole::System, &character.definition.scenario),
+            "definition" => text_block(
+                PromptRole::System,
+                &character.definition.description,
+                ContentRef::Character(CharacterPart::Definition),
+            ),
+            "personality" => text_block(
+                PromptRole::System,
+                &character.definition.personality,
+                ContentRef::Character(CharacterPart::Personality),
+            ),
+            "scenario" => text_block(
+                PromptRole::System,
+                &character.definition.scenario,
+                ContentRef::Character(CharacterPart::Scenario),
+            ),
 
             "first_message" => {
-                // Greetings carry an explicit `order`; the Vec isn't guaranteed sorted,
-                // so pick the lowest-order one as the primary. (See note on active greeting.)
                 match character
                     .definition
                     .greetings
                     .iter()
                     .min_by_key(|g| g.order)
                 {
-                    Some(g) => text_block(PromptRole::Assistant, &g.text),
+                    // store the chosen greeting's key, not "re-run min later"
+                    Some(g) => text_block(
+                        PromptRole::Assistant,
+                        &g.text,
+                        ContentRef::Character(CharacterPart::Greeting { order: g.order as i64 }),
+                    ),
                     None => Vec::new(),
                 }
             }
@@ -63,13 +78,14 @@ impl SourceResolver for CharacterResolver {
     }
 }
 
-fn text_block(role: PromptRole, content: &str) -> Vec<ResolvedBlock> {
+fn text_block(role: PromptRole, content: &str, content_ref: ContentRef) -> Vec<ResolvedBlock> {
     if content.is_empty() {
         Vec::new()
     } else {
         vec![ResolvedBlock {
             role,
             content: content.to_string(),
+            content_ref,
         }]
     }
 }
@@ -86,8 +102,9 @@ fn resolve_examples(character: &Character, max: Option<usize>) -> Vec<ResolvedBl
         .into_iter()
         .filter(|e| !e.content.is_empty())
         .map(|e| ResolvedBlock {
-            role: PromptRole::System, // FLAG: role choice — see below
+            role: PromptRole::System,
             content: e.content.clone(),
+            content_ref: ContentRef::Character(CharacterPart::Example { order: e.order as i64 }),
         })
         .collect()
 }

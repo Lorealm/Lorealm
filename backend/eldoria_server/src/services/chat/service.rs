@@ -410,7 +410,19 @@ impl ChatService {
                 yield ChatStreamEvent::Delta { content: delta };
             }
 
-            let meta = json!({ "context": trace });
+            let stored: Vec<TracedBlock> = trace
+                .into_iter()
+                .map(|mut t| {
+                    if t.block.content_ref.is_recoverable() {
+                        t.block.content.clear();
+                    }
+                    t
+                })
+                .collect();
+            let meta = json!({
+                "context": stored,
+            });
+            
             let message = match persist {
                 Persist::Child(parent) =>
                     conversations.branch_from(convo_id, parent, ChatRole::Assistant, acc, meta).await?,

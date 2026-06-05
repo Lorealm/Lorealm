@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { contextInspector } from '$lib/stores/contextInspector.svelte.js';
-	import { parseContextBlocks } from '$lib/types/context.js';
-	import { X } from '@lucide/svelte';
+	import { parseContextBlocks, groupAdjacentBlocks, type TracedBlock } from '$lib/types/context.js';
+	import { resolveBlockContent } from '$lib/types/content.js';
+	import { ChevronDown, X } from '@lucide/svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	// Re-parse whenever the inspected message changes. `null` => this message has
 	// no trace (handled in the body); the inspector should only be opened for
@@ -9,7 +11,24 @@
 	let blocks = $derived(
 		contextInspector.message ? parseContextBlocks(contextInspector.message.metadata) : null
 	);
-	let totalChars = $derived(blocks?.reduce((n, b) => n + b.content.length, 0) ?? 0);
+	// Resolve each block to its display text once; reused for the count and body.
+	let resolved = $derived(
+		blocks?.map((b) => ({ block: b, content: resolveBlockContent(b) })) ?? null
+	);
+	let totalChars = $derived(resolved?.reduce((n, r) => n + r.content.text.length, 0) ?? 0);
+
+	// Fold runs of same-source blocks under a collapsible header. Default expanded
+	// (this is the read view); the set tracks which groups the user has collapsed.
+	let groups = $derived(blocks ? groupAdjacentBlocks(blocks) : null);
+	let collapsedGroups = new SvelteSet<number>();
+	$effect(() => {
+		void contextInspector.message?.id;
+		collapsedGroups.clear();
+	});
+	function toggleGroup(gi: number) {
+		if (collapsedGroups.has(gi)) collapsedGroups.delete(gi);
+		else collapsedGroups.add(gi);
+	}
 
 	function roleClass(role: string): 'system' | 'user' | 'assistant' | 'unknown' {
 		return role === 'system' || role === 'user' || role === 'assistant' ? role : 'unknown';
@@ -47,40 +66,67 @@
 				</button>
 			</div>
 
+			{#snippet blockCard(block: TracedBlock)}
+				{@const content = resolveBlockContent(block)}
+				<div
+					class="block accent-{roleClass(block.role)}"
+					style="--depth: {block.origin.path.length}"
+				>
+					<div class="block-head">
+						<span class="role role-{roleClass(block.role)}">{block.role}</span>
+						<span class="kind kind-{block.origin.kind.kind}">
+							{block.origin.kind.kind.replace('_', ' ')}
+						</span>
+						<span class="node-title">{block.origin.node_title || '(untitled node)'}</span>
+					</div>
+
+					<div class="meta">
+						{#if content.label}<span class="ref">{content.label}</span>{/if}
+						<span>node {block.origin.node_id || '—'}</span>
+						{#if block.origin.kind.kind === 'source'}
+							<span>source {block.origin.kind.source_id || '—'}</span>
+						{/if}
+						{#if block.origin.path.length > 0}
+							<span class="path">{block.origin.path.join(' › ')}</span>
+						{/if}
+					</div>
+
+					{#if content.text}
+						<pre class="content">{content.text}</pre>
+					{:else}
+						<div class="unresolved">content not reconstructed</div>
+					{/if}
+				</div>
+			{/snippet}
+
 			<div class="body">
-				{#if blocks === null}
+				{#if groups === null}
 					<div class="empty">
 						This message carries no context trace. Only turns generated through the weaver pipeline
 						record one.
 					</div>
-				{:else if blocks.length === 0}
+				{:else if groups.length === 0}
 					<div class="empty">The pipeline produced no context blocks for this turn.</div>
 				{:else}
-					{#each blocks as block, i (i)}
-						<div
-							class="block accent-{roleClass(block.role)}"
-							style="--depth: {block.origin.path.length}"
-						>
-							<div class="block-head">
-								<span class="role role-{roleClass(block.role)}">{block.role}</span>
-								<span class="kind kind-{block.origin.kind.kind}">
-									{block.origin.kind.kind.replace('_', ' ')}
-								</span>
-								<span class="node-title">{block.origin.node_title || '(untitled node)'}</span>
-							</div>
-
-							<div class="meta">
-								<span>node {block.origin.node_id || '—'}</span>
-								{#if block.origin.kind.kind === 'source'}
-									<span>source {block.origin.kind.source_id || '—'}</span>
-								{/if}
-								{#if block.origin.path.length > 0}
-									<span class="path">{block.origin.path.join(' › ')}</span>
-								{/if}
-							</div>
-
-							<pre class="content">{block.content}</pre>
-						</div>
+					{#each groups as group, gi (gi)}
+						{#if group.blocks.length > 1}
+							<button
+								class="group-head"
+								aria-expanded={!collapsedGroups.has(gi)}
+								onclick={() => toggleGroup(gi)}
+							>
+								<span class="chev" class:open={!collapsedGroups.has(gi)}><ChevronDown /></span>
+								<span class="group-title">{group.title || '(untitled node)'}</span>
+								<span class="group-count">{group.blocks.length} blocks</span>
+							</button>
+							{#if !collapsedGroups.has(gi)}
+								{#each group.blocks as block, bi (bi)}
+									{@render blockCard(block)}
+								{/each}
+							{/if}
+						{:else}
+							{@render blockCard(group.blocks[0])}
+						{/if}
 					{/each}
 				{/if}
 			</div>
@@ -148,6 +194,50 @@
 	.empty {
 		color: var(--color-text-muted);
 		line-height: var(--line-height-normal);
+	}
+
+	/* Header for a folded run of same-source blocks. Flat full-width toggle; the
+	   global `button:hover` supplies the wash. */
+	.group-head {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: var(--spacing-sm);
+		width: 100%;
+		background-color: var(--color-bg-elevated);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius-md);
+		padding: var(--spacing-sm) var(--spacing-md);
+		text-align: left;
+		cursor: pointer;
+	}
+	.group-title {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		color: var(--color-text-primary);
+		font-weight: var(--font-weight-semibold);
+	}
+	.group-count {
+		flex: 0 0 auto;
+		color: var(--color-text-muted);
+		font-family: var(--font-family-mono);
+		font-size: var(--font-size-xs);
+	}
+	.chev {
+		flex: 0 0 auto;
+		display: inline-flex;
+		color: var(--color-text-muted);
+		transition: transform var(--transition-fast) var(--easing-default);
+	}
+	.chev.open {
+		transform: rotate(180deg);
+	}
+	.chev :global(svg) {
+		width: 16px;
+		height: 16px;
 	}
 
 	/* Each block indents by its group depth so nesting reads at a glance, and
@@ -244,6 +334,18 @@
 	.path {
 		color: var(--color-text-secondary);
 		overflow-wrap: anywhere;
+	}
+	.ref {
+		color: var(--color-text-accent);
+	}
+
+	.unresolved {
+		padding: var(--spacing-sm) var(--spacing-md);
+		background: var(--color-bg-base);
+		border-radius: var(--radius-sm);
+		color: var(--color-text-muted);
+		font-size: var(--font-size-xs);
+		font-style: italic;
 	}
 
 	.content {
