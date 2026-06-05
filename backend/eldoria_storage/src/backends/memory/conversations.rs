@@ -11,8 +11,6 @@ use crate::{
 
 #[async_trait]
 impl ConversationStorage for MemoryStorage {
-    // ----- conversation rows -----
-
     async fn list_conversations(
         &self,
         user_id: Snowflake,
@@ -64,7 +62,6 @@ impl ConversationStorage for MemoryStorage {
             .get_mut(&id)
             .ok_or_else(|| StorageError::NotFound(format!("Conversation {id} not found")))?;
 
-        // Direct set (NULL when None), matching the Postgres impl.
         conv.title = title.map(|s| s.to_string());
         conv.active_leaf_id = active_leaf_id;
         conv.updated_at = Utc::now();
@@ -74,7 +71,6 @@ impl ConversationStorage for MemoryStorage {
     async fn delete_conversation(&self, id: Snowflake) -> Result<bool, StorageError> {
         let removed = self.conversations.write().await.remove(&id).is_some();
         if removed {
-            // Cascade: drop every message in this conversation.
             self.messages
                 .write()
                 .await
@@ -82,8 +78,6 @@ impl ConversationStorage for MemoryStorage {
         }
         Ok(removed)
     }
-
-    // ----- messages -----
 
     async fn add_message(&self, message: &ConversationMessage) -> Result<Snowflake, StorageError> {
         {
@@ -217,7 +211,35 @@ impl ConversationStorage for MemoryStorage {
             }
         }
 
-        path.reverse(); // collected leaf -> root; return root -> leaf
+        path.reverse();
+        Ok(path)
+    }
+
+    async fn get_path_to(
+        &self,
+        conversation_id: Snowflake,
+        message_id: Snowflake,
+    ) -> Result<Vec<ConversationMessage>, StorageError> {
+        let messages = self.messages.read().await;
+
+        let seed = match messages.get(&message_id) {
+            Some(m) if m.conversation_id == conversation_id => m,
+            _ => return Ok(Vec::new()),
+        };
+
+        let mut path = vec![seed.clone()];
+        let mut current = seed.parent;
+        while let Some(id) = current {
+            match messages.get(&id) {
+                Some(m) => {
+                    current = m.parent;
+                    path.push(m.clone());
+                }
+                None => break,
+            }
+        }
+
+        path.reverse();
         Ok(path)
     }
 
@@ -254,7 +276,6 @@ impl ConversationStorage for MemoryStorage {
             deleted = subtree.into_iter().collect();
         }
 
-        // SET NULL: if the active leaf was inside the deleted subtree, clear it.
         let mut conversations = self.conversations.write().await;
         if let Some(conv) = conversations.get_mut(&conversation_id) {
             if conv

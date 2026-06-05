@@ -8,10 +8,6 @@
 	import NumberInput from '$lib/components/NumberInput.svelte';
 	import WeaverEditor from '$lib/weaver/editor/WeaverEditor.svelte';
 
-	// Pure view: edits mutate the draft entry (reactive) and call `requestSave`,
-	// which the shell debounces into `lorebookStore.saveEntry`. `config` supplies
-	// inherited defaults shown as PLACEHOLDERS only — they are never written into
-	// `meta` unless the author types, so the serializer keeps the source minimal.
 	let {
 		entry,
 		config,
@@ -28,7 +24,7 @@
 		entry.meta[key] = value;
 		requestSave();
 	}
-	/** Optional string: empty clears the key (serializer drops it → inherits). */
+
 	function setOptStr<K extends keyof EntryMeta>(key: K, v: string) {
 		set(key, (v === '' ? undefined : v) as EntryMeta[K]);
 	}
@@ -37,7 +33,6 @@
 		requestSave();
 	}
 
-	// fallback chain (explicit slots, no inherit)
 	const fallback = $derived(entry.meta.fallback ?? []);
 	function setFallback(i: number, v: Slot | undefined) {
 		const next = [...fallback];

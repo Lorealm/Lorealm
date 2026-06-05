@@ -22,7 +22,7 @@ use crate::{
     }
 };
 
-const SESSION_LENGTH: u64 = 60;
+const SESSION_LENGTH: u64 = 60 * 5; // 5 minutes
 
 struct EditingSession {
     version_id: Snowflake,
@@ -33,8 +33,6 @@ pub struct CharacterService {
     storage: Arc<dyn Storage>,
     blob: Arc<dyn BlobStore>,
     snowflake: Arc<SnowflakeService>,
-    /// Stores character_id -> version_id
-    ///
     /// The purpose of this is to map any edits on this character to a certain version number
     /// if it exists in the map. If nothing exists, a new version should be created.
     editing_sessions: RwLock<HashMap<Snowflake, EditingSession>>,
@@ -309,7 +307,6 @@ impl CharacterService {
                 .unwrap_or(usize::MAX) // If not found, move to the end
         });
 
-        // Rewrite the .order property to match the new contiguous indices
         for (index, greeting) in char.character.definition.greetings.iter_mut().enumerate() {
             greeting.order = index as u32;
         }
@@ -417,7 +414,6 @@ impl CharacterService {
                     .unwrap_or(usize::MAX) // If not found, move to the end
             });
 
-        // Rewrite the .order property to match the new contiguous indices
         for (index, example) in char
             .character
             .definition

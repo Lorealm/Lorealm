@@ -40,7 +40,6 @@
 		pos = { x: nx, y: ny };
 	});
 
-	// Close on outside pointerdown / Escape.
 	$effect(() => {
 		const onDown = (e: PointerEvent) => {
 			const t = e.target as Node | null;

@@ -25,7 +25,6 @@ impl TemplateStorage for CachedStorage {
         id: Snowflake,
         owner_id: Snowflake,
     ) -> Result<Option<Template>, StorageError> {
-        // Reuse the by-id cache, then filter by owner in-memory.
         Ok(self
             .get_template(id)
             .await?
@@ -69,7 +68,6 @@ impl TemplateStorage for CachedStorage {
         &self,
         user_id: Snowflake,
     ) -> Result<Option<Snowflake>, StorageError> {
-        // Fits get_through exactly: T = Snowflake, returns Option<Snowflake>.
         let key = self.key("active_template", &user_id.to_string());
         self.get_through(&key, self.backend.get_active_template(user_id))
             .await

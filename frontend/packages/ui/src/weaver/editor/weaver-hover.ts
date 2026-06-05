@@ -1,9 +1,7 @@
 import { hoverTooltip, type Tooltip } from '@codemirror/view';
-import { commands, keywords, processors, variablePreviews } from './weaver-meta.js';
+import { commands, keywords, processors } from './weaver-meta.js';
+import { messageStateStore } from '$lib/stores/messageState.svelte.js';
 
-// Which construct, if any, encloses `pos` on its line. Operates on the line
-// text before the hovered word. Good enough for a testbed: weaver-lang body
-// constructs are effectively single-line, so we don't track multi-line nesting.
 type Construct = 'var' | 'proc' | 'cmd' | 'tag' | 'doc' | null;
 
 const OPENERS: { k: Exclude<Construct, null>; open: string; close: string }[] = [
@@ -29,7 +27,6 @@ function activeConstruct(before: string): Construct {
 	return best;
 }
 
-// Tiny markdown: escape, then `code` -> <code>, blank lines -> paragraphs.
 function renderDoc(md: string): string {
 	const esc = md.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 	const withCode = esc.replace(/`([^`]+)`/g, '<code>$1</code>');
@@ -57,7 +54,6 @@ export const weaverHover = hoverTooltip((view, pos): Tooltip | null => {
 	const text = line.text;
 	const col = pos - line.from;
 
-	// Word under cursor (allow dots for dotted processor names).
 	const wordRe = /[A-Za-z_][\w.]*/g;
 	let word = '';
 	let wordStart = -1;
@@ -97,7 +93,7 @@ export const weaverHover = hoverTooltip((view, pos): Tooltip | null => {
 		const inner = text.slice(open + 2, close === -1 ? text.length : close).trim();
 		const [scope, name] = inner.split(':').map((s) => s.trim());
 		const sig = name ? `{{${scope}:${name}}}` : `{{${scope}}}`;
-		const preview = name ? variablePreviews[scope]?.[name] : undefined;
+		const preview = name ? messageStateStore.previewVariable(`${scope}:${name}`) : undefined;
 		const doc =
 			preview !== undefined
 				? `Resolves to \`${preview}\` for the loaded context.`

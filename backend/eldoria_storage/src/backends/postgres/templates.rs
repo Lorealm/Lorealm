@@ -106,7 +106,6 @@ impl TemplateStorage for PostgresStorage {
         &self,
         owner_id: Snowflake,
     ) -> Result<Vec<TemplateMetadata>, StorageError> {
-        // Compute node_count in SQL so we don't drag full nodes_json over the wire.
         let rows = sqlx::query(
             r#"
             SELECT id, owner_id, name, description,
@@ -202,8 +201,6 @@ impl TemplateStorage for PostgresStorage {
                 .await
                 .map_err(db_err)?;
 
-        // Outer None: no settings row. Inner None: row exists, pointer unset.
-        // Both collapse to "no active template".
         Ok(active.flatten())
     }
 
@@ -212,8 +209,6 @@ impl TemplateStorage for PostgresStorage {
         user_id: Snowflake,
         template_id: Option<Snowflake>,
     ) -> Result<(), StorageError> {
-        // UPSERT: the migration creates no user_settings rows, so the first write
-        // for a user is an INSERT and every later one an UPDATE.
         sqlx::query(
             "INSERT INTO user_settings (user_id, active_template_id) VALUES ($1, $2) \
              ON CONFLICT (user_id) DO UPDATE SET active_template_id = EXCLUDED.active_template_id",

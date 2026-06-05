@@ -65,7 +65,7 @@ impl SessionMiddlewareState {
     //     self
     // }
 
-    /// Build a session cookie (HttpOnly, not accessible to JS)
+    /// Build a session cookie
     fn build_session_cookie(&self, value: &str, max_age_secs: i64) -> Cookie<'static> {
         let mut cookie = Cookie::build((self.session_cookie_name.clone(), value.to_string()))
             .path("/")
@@ -125,8 +125,6 @@ fn extract_session_token(
     Err(AuthError::MissingToken)
 }
 
-// ─── Session-only middleware (GET routes) ────────────────────
-
 pub async fn session_auth_middleware(
     State(state): State<SessionMiddlewareState>,
     cookies: Cookies,
@@ -169,8 +167,6 @@ pub async fn session_auth_middleware(
 
     Ok(response)
 }
-
-// ─── Session + CSRF middleware (state-changing routes) ───────
 
 pub async fn session_csrf_middleware(
     State(state): State<SessionMiddlewareState>,
@@ -222,8 +218,6 @@ pub async fn session_csrf_middleware(
 
     Ok(next.run(request).await)
 }
-
-// ─── Helpers ─────────────────────────────────────────────────
 
 fn remaining_seconds(validated: &ValidatedSession) -> i64 {
     (validated.session.expires_at - chrono::Utc::now())

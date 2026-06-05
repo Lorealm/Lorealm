@@ -15,7 +15,6 @@
 
 	const draft = $derived(lorebookStore.editingLorebook);
 
-	// Selection: the book settings ('config') or a specific entry by storage id.
 	let selected = $state<Snowflake | 'config'>('config');
 	const selectedEntry = $derived(
 		selected !== 'config' && draft
@@ -23,8 +22,6 @@
 			: null
 	);
 
-	// (Re)open the editing session whenever the routed id changes. Untracked so
-	// the synchronous store reads inside startEditing don't subscribe this effect.
 	$effect(() => {
 		const lid = id;
 		untrack(() => {
@@ -34,7 +31,6 @@
 	});
 	onDestroy(() => lorebookStore.stopEditing());
 
-	// --- debounced autosave -------------------------------------------------
 	const entryTimers = new SvelteMap<Snowflake, ReturnType<typeof setTimeout>>();
 	let bookTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -54,7 +50,6 @@
 		clearTimeout(bookTimer);
 	});
 
-	// --- actions ------------------------------------------------------------
 	async function addEntry() {
 		const eid = await lorebookStore.addEntry();
 		if (eid) selected = eid;
@@ -63,7 +58,7 @@
 		const entry = draft?.entries.find((e) => e.snowflake === eid);
 		if (!entry) return;
 		entry.meta.enabled = !(entry.meta.enabled ?? true);
-		void lorebookStore.saveEntry(eid); // discrete action → save now, no debounce
+		void lorebookStore.saveEntry(eid); // save immediately. no debounce
 	}
 	async function deleteEntry(eid: Snowflake) {
 		if (selected === eid) selected = 'config';

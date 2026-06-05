@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { chatStore } from '$lib/stores/chat.svelte.js';
+	import { messageStateStore } from '$lib/stores/messageState.svelte.js';
 	import { Paperclip, Send } from '@lucide/svelte';
 
 	chatStore.ensureApi();
+	messageStateStore.ensureApi();
 
 	let inputText = $state('');
 	let textareaEl: HTMLTextAreaElement;
@@ -17,7 +19,11 @@
 		if (!text || chatStore.isStreaming) return;
 		inputText = '';
 		textareaEl.style.height = 'auto';
-		chatStore.sendMessage(text);
+		chatStore.sendMessage(text).then(() => {
+			const lastMsg = chatStore.activePath[-1];
+			console.log('last message: ', lastMsg);
+			messageStateStore.inspect(lastMsg.id, lastMsg.conversation_id);
+		});
 	}
 
 	function handleMessageSend(event: KeyboardEvent) {

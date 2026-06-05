@@ -1,15 +1,3 @@
-//! Conversation + message storage for Postgres.
-//!
-//! Mirrors the `UserStorage` impl style: `sqlx` without macros, `query_as`
-//! against `FromRow`-deriving models. The message tree's structural invariants
-//! (`parent`, `"order"`, `active_leaf_id`) are maintained here; subtree deletes
-//! ride on the schema's ON DELETE CASCADE, and a cleared active leaf rides on
-//! the ON DELETE SET NULL on `fk_conversations_active_leaf`.
-//!
-//! `"order"` is a SQL reserved word and is quoted in every query that touches
-//! it. `MessageRole` is assumed to encode/decode as TEXT to match the column's
-//! CHECK constraint.
-
 use crate::ConversationStorage;
 use crate::error::StorageError;
 use crate::models::{
@@ -27,10 +15,6 @@ impl ConversationStorage for PostgresStorage {
         &self,
         user_id: Snowflake,
     ) -> Result<Vec<ConversationMetadata>, StorageError> {
-        // `length` = number of messages on each conversation's active path
-        // (root -> active_leaf_id), computed by walking `parent` up from the
-        // leaf. Conversations with a NULL active leaf never seed the CTE and
-        // fall through the LEFT JOIN to COALESCE(0).
         let rows = sqlx::query_as::<_, ConversationMetadata>(
             r#"
             WITH RECURSIVE active_paths AS (
@@ -84,7 +68,6 @@ impl ConversationStorage for PostgresStorage {
         &self,
         conversation: &Conversation,
     ) -> Result<Snowflake, StorageError> {
-        // `active_leaf_id` is expected to be None at creation. Caller owns the id.
         sqlx::query(
             "INSERT INTO conversations
                  (id, user_id, character_id, char_version_id, active_leaf_id, title)
@@ -108,9 +91,6 @@ impl ConversationStorage for PostgresStorage {
         title: Option<&str>,
         active_leaf_id: Option<Snowflake>,
     ) -> Result<(), StorageError> {
-        // Both fields are set directly (NULL when None) rather than
-        // "update-if-Some". The common leaf-only move goes through
-        // `append_and_advance`; this method is for explicit metadata writes.
         let result = sqlx::query(
             "UPDATE conversations
                  SET title = $2, active_leaf_id = $3, updated_at = now()
@@ -132,7 +112,6 @@ impl ConversationStorage for PostgresStorage {
     }
 
     async fn delete_conversation(&self, id: Snowflake) -> Result<bool, StorageError> {
-        // Cascades to conversation_messages via ON DELETE CASCADE.
         let result = sqlx::query("DELETE FROM conversations WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -141,10 +120,7 @@ impl ConversationStorage for PostgresStorage {
         Ok(result.rows_affected() > 0)
     }
 
-    // ----- messages -----
-
     async fn add_message(&self, message: &ConversationMessage) -> Result<Snowflake, StorageError> {
-        // Insert + bump the parent conversation's updated_at, atomically.
         let mut tx = self.pool.begin().await?;
 
         sqlx::query(
@@ -199,8 +175,6 @@ impl ConversationStorage for PostgresStorage {
         &self,
         message: &ConversationMessage,
     ) -> Result<Snowflake, StorageError> {
-        // The normal-turn path: insert the message AND make it the active leaf
-        // in one transaction so the two can never tear apart.
         let mut tx = self.pool.begin().await?;
 
         sqlx::query(
@@ -253,8 +227,6 @@ impl ConversationStorage for PostgresStorage {
         &self,
         conversation_id: Snowflake,
     ) -> Result<Vec<ConversationMessage>, StorageError> {
-        // Full tree, unordered across branches; caller rebuilds structure from
-        // parent / "order". Backed by idx_messages_conversation.
         let messages = sqlx::query_as::<_, ConversationMessage>(
             "SELECT * FROM conversation_messages WHERE conversation_id = $1",
         )
@@ -270,10 +242,6 @@ impl ConversationStorage for PostgresStorage {
         conversation_id: Snowflake,
         parent: Option<Snowflake>,
     ) -> Result<Vec<ConversationMessage>, StorageError> {
-        // `IS NOT DISTINCT FROM` so a None parent matches the conversation's
-        // roots (parent IS NULL) instead of matching nothing. conversation_id
-        // scopes the roots; for non-NULL parents idx_messages_parent_order
-        // carries the lookup + sort.
         let children = sqlx::query_as::<_, ConversationMessage>(
             r#"
             SELECT * FROM conversation_messages
@@ -293,8 +261,6 @@ impl ConversationStorage for PostgresStorage {
         &self,
         conversation_id: Snowflake,
     ) -> Result<Vec<ConversationMessage>, StorageError> {
-        // Walk parent up from the active leaf, then return root -> leaf by
-        // ordering on the depth counter descending (seed = leaf = depth 0).
         let path = sqlx::query_as::<_, ConversationMessage>(
             r#"
             WITH RECURSIVE active_path AS (
@@ -322,9 +288,39 @@ impl ConversationStorage for PostgresStorage {
         Ok(path)
     }
 
+    async fn get_path_to(
+        &self,
+        conversation_id: Snowflake,
+        message_id: Snowflake,
+    ) -> Result<Vec<ConversationMessage>, StorageError> {
+        let path = sqlx::query_as::<_, ConversationMessage>(
+            r#"
+            WITH RECURSIVE message_path AS (
+                SELECT m.*, 0 AS depth
+                FROM conversation_messages m
+                WHERE m.id = $2 AND m.conversation_id = $1
+
+                UNION ALL
+
+                SELECT m.*, mp.depth + 1
+                FROM conversation_messages m
+                JOIN message_path mp ON m.id = mp.parent
+            )
+            SELECT id, conversation_id, parent, role, content, "order",
+                   metadata, created_at, updated_at
+            FROM message_path
+            ORDER BY depth DESC
+            "#,
+        )
+        .bind(conversation_id)
+        .bind(message_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(path)
+    }
+
     async fn update_message(&self, id: Snowflake, edit: &MessageEdit) -> Result<(), StorageError> {
-        // COALESCE applies only the fields the caller supplied; None leaves the
-        // existing value untouched. In-place edit, no branching.
         let result = sqlx::query(
             "UPDATE conversation_messages
                  SET content = COALESCE($2, content),
@@ -346,9 +342,6 @@ impl ConversationStorage for PostgresStorage {
     }
 
     async fn delete_message(&self, id: Snowflake) -> Result<bool, StorageError> {
-        // Cascades to the subtree via ON DELETE CASCADE on parent. If the
-        // active leaf was inside it, fk_conversations_active_leaf sets
-        // active_leaf_id to NULL; the caller should then pick a new leaf.
         let result = sqlx::query("DELETE FROM conversation_messages WHERE id = $1")
             .bind(id)
             .execute(&self.pool)

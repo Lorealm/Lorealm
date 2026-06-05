@@ -1,10 +1,3 @@
-//! Postgres implementation of `CharacterStorage`.
-//!
-//! All multi-table writes run in a single transaction. The head row and
-//! version row are written together; child tables (tags, greetings,
-//! example messages) are rewritten from scratch on every save — simpler
-//! than diffing and correct by construction.
-
 use crate::backends::PostgresStorage;
 use crate::error::StorageError;
 use crate::models::{
@@ -215,8 +208,6 @@ impl CharacterStorage for PostgresStorage {
             }
         }
 
-        // Rewrite child tables from scratch. Correct regardless of
-        // whether this was an insert or update.
         sqlx::query("DELETE FROM character_tags WHERE character_id = $1")
             .bind(character.id)
             .execute(&mut *tx)
@@ -339,11 +330,6 @@ impl CharacterStorage for PostgresStorage {
     }
 }
 
-// -----------------------------------------------------------------------------
-// Row types
-// -----------------------------------------------------------------------------
-
-/// Row from `characters` joined with the current `character_versions.snapshot`.
 #[derive(FromRow)]
 struct CharacterHeadRow {
     id: Snowflake,
@@ -367,8 +353,6 @@ impl CharacterHeadRow {
     ) -> Result<Character, StorageError> {
         let snap: PersistedSnapshot = serde_json::from_value(self.snapshot)?;
 
-        // Child tables are authoritative for the current view; they override
-        // whatever the snapshot carried.
         let mut metadata = snap.metadata;
         metadata.tags = tags;
 
@@ -388,8 +372,6 @@ impl CharacterHeadRow {
     }
 }
 
-/// Row from `character_versions` joined with a subset of `characters`, used
-/// to reconstruct a historical version.
 #[derive(FromRow)]
 struct CharacterVersionRow {
     version_id: Snowflake,
@@ -435,12 +417,6 @@ impl From<VersionInfoRow> for CharacterVersionInfo {
     }
 }
 
-// -----------------------------------------------------------------------------
-// Snapshot serde shapes
-// -----------------------------------------------------------------------------
-
-/// Written into `character_versions.snapshot`. Borrowed on write; see
-/// `PersistedSnapshot` for the owned read counterpart.
 #[derive(serde::Serialize)]
 struct CharacterSnapshot<'a> {
     metadata: &'a CharacterMetadata,
@@ -452,10 +428,6 @@ struct PersistedSnapshot {
     metadata: CharacterMetadata,
     definition: CharacterDefinition,
 }
-
-// -----------------------------------------------------------------------------
-// Child-table fetches
-// -----------------------------------------------------------------------------
 
 async fn fetch_tags(
     pool: &sqlx::PgPool,

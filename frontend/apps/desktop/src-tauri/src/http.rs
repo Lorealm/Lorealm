@@ -47,8 +47,7 @@ pub async fn http_post(
     if let Some(t) = token {
         req = req.bearer_auth(t);
     }
-    // Attach CSRF if you have it stored
-    // req = req.header("x-csrf-token", csrf);
+    // TODO: Attach CSRF
 
     send_request(&handle, req).await
 }
@@ -64,8 +63,7 @@ pub async fn http_put(
     if let Some(t) = token {
         req = req.bearer_auth(t);
     }
-    // Attach CSRF if you have it stored
-    // req = req.header("x-csrf-token", csrf);
+    // TODO: Attach CSRF
 
     send_request(&handle, req).await
 }
@@ -77,8 +75,7 @@ pub async fn http_delete(handle: AppHandle, path: String) -> AppResult<HttpRespo
     if let Some(t) = token {
         req = req.bearer_auth(t);
     }
-    // Attach CSRF if you have it stored
-    // req = req.header("x-csrf-token", csrf);
+    // TODO: Attach CSRF
 
     send_request(&handle, req).await
 }
@@ -114,8 +111,6 @@ pub async fn http_stream(
 
     handle_token_rotation(&handle, &response).await?;
 
-    // Pre-flight error (the handler's `?` path): small JSON body, route through
-    // Err so the frontend rebuilds ApiError just like getBlob does.
     if status >= 400 {
         let text = response.text().await.unwrap_or_default();
         let body = serde_json::from_str::<serde_json::Value>(&text)
@@ -131,7 +126,6 @@ pub async fn http_stream(
                 let data = serde_json::from_str::<serde_json::Value>(&ev.data)
                     .unwrap_or(serde_json::Value::String(ev.data));
 
-                // Your axum handler tags failures with `.event("error")`.
                 if ev.event == "error" {
                     let message = data
                         .get("message")
@@ -145,7 +139,7 @@ pub async fn http_stream(
                 let _ = on_event.send(StreamEvent::Message { data });
             }
             Err(e) => {
-                // Transport-level break mid-stream (connection dropped, etc.)
+                // Transport-level break mid-stream
                 let _ = on_event.send(StreamEvent::Error {
                     message: e.to_string(),
                 });
@@ -187,10 +181,6 @@ async fn send_request(handle: &AppHandle, req: reqwest::RequestBuilder) -> AppRe
     let body =
         serde_json::from_str::<serde_json::Value>(&text).unwrap_or(serde_json::Value::String(text));
 
-    /*     if status >= 400 {
-        return Err(Error::Http(format!("HTTP {status}: {body}")));
-    } */
-
     Ok(HttpResponse { status, body })
 }
 
@@ -203,7 +193,6 @@ async fn send_blob_request(
 
     handle_token_rotation(handle, &response).await?;
 
-    // Errors are small JSON — route them through Err so getBlob can rebuild ApiError.
     if status >= 400 {
         let text = response.text().await.unwrap_or_default();
         let body = serde_json::from_str::<serde_json::Value>(&text)

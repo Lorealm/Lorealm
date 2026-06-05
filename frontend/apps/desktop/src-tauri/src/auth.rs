@@ -24,8 +24,6 @@ pub struct ServerError {
     pub message: String,
 }
 
-/// Parse a reqwest::Response, checking status before deserializing.
-/// On non-2xx, attempts to read the body as a ServerError.
 async fn parse_response<T: serde::de::DeserializeOwned>(
     response: reqwest::Response,
 ) -> AppResult<T> {
@@ -112,7 +110,6 @@ pub async fn validate_token(handle: AppHandle) -> AppResult<MeResponse> {
         .get("X-New-Session-Token")
         .and_then(|v| v.to_str().ok())
     {
-        println!("New token found... Persisting...");
         if let Some(state) = handle.try_state::<Mutex<AppState>>() {
             let mut state = state.lock().await;
             state.config.auth.session_token = Some(new_token.to_string());

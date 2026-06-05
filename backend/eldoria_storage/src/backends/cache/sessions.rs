@@ -31,7 +31,7 @@ impl SessionStorage for CachedStorage {
 
     async fn delete_user_sessions(&self, user_id: Snowflake) -> Result<u64, StorageError> {
         // Can't efficiently invalidate all session keys for a user without scanning,
-        // so just let them expire naturally. Backend is the source of truth.
+        // so we just let them expire naturally. Backend is the source of truth.
         self.backend.delete_user_sessions(user_id).await
     }
 
@@ -57,8 +57,6 @@ impl SessionStorage for CachedStorage {
             )
             .await?;
 
-        // Invalidate the old token cache entry; don't cache the new one yet —
-        // it'll be populated on the next lookup via get_through.
         self.cache_del(&self.key("session", old_token_hash)).await;
         Ok(())
     }
@@ -71,21 +69,15 @@ impl SessionStorage for CachedStorage {
         self.backend
             .extend_session(session_id, new_expires_at)
             .await?;
-        // We don't have the token here to invalidate by key, so this is a
-        // best-effort situation — the cached entry will serve stale expiry
-        // until its TTL lapses. Backend remains source of truth.
         Ok(())
     }
 
     async fn revoke_session(&self, id: Snowflake) -> Result<(), StorageError> {
         self.backend.revoke_session(id).await?;
-        // Same as extend — no token available to build the cache key.
         Ok(())
     }
 
     async fn revoke_all_user_sessions(&self, user_id: Snowflake) -> Result<u64, StorageError> {
-        // Same rationale as delete_user_sessions: can't efficiently
-        // invalidate all session keys for a user without scanning.
         self.backend.revoke_all_user_sessions(user_id).await
     }
 
@@ -101,8 +93,6 @@ impl SessionStorage for CachedStorage {
     }
 
     async fn increment_request_count(&self, session_id: Snowflake) -> Result<i32, StorageError> {
-        // Always pass through to backend — this is a counter that
-        // shouldn't serve stale values from cache.
         self.backend.increment_request_count(session_id).await
     }
 }

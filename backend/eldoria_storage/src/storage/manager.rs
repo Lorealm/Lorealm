@@ -1,7 +1,5 @@
 #[cfg(feature = "redis")]
 use crate::CacheConfig;
-// #[cfg(feature = "surrealdb")]
-// use crate::backends::surrealdb::SurrealDbStorage;
 use crate::{BlobStore, backends::{blob::FsBlobStore, memory::MemoryStorage, postgres::PostgresStorage}};
 #[cfg(feature = "redis")]
 use crate::storage::Storage;
@@ -11,7 +9,7 @@ use tracing::{error, info, warn};
 
 #[derive(Debug, Clone)]
 pub struct StorageManager {
-    /// The active storage backend (possibly wrapped with cache)
+    /// The active storage backend
     active_backend: Arc<dyn Storage>,
     blob_store: Arc<dyn BlobStore>,
     /// Name of the active backend for logging
@@ -25,7 +23,6 @@ impl StorageManager {
     pub async fn new(config: StorageConfig) -> Result<Self, StorageError> {
         let mut last_error = None;
 
-        // Try each backend in order
         for backend_config in &config.backends {
             info!(
                 "Attempting to initialize storage backend: {:?}",
@@ -34,14 +31,12 @@ impl StorageManager {
 
             match Self::create_backend(backend_config).await {
                 Ok(mut backend) => {
-                    // Check if backend is available and initialize
                     if backend.is_available().await {
                         match backend.initialize().await {
                             Ok(_) => {
                                 let backend_name = backend.backend_type().to_string();
                                 info!("Successfully initialized {} storage backend", backend_name);
 
-                                // Convert to Arc early
                                 let backend_arc: Arc<dyn Storage> = Arc::from(backend);
 
                                 // Optionally wrap with cache
@@ -159,7 +154,6 @@ impl StorageManager {
     }
 }
 
-// Implement Deref for convenience - allows calling storage methods directly
 impl std::ops::Deref for StorageManager {
     type Target = dyn Storage;
 

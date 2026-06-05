@@ -1,18 +1,3 @@
-//! Postgres implementation of `LorebookStorage` and `LorebookSessionStorage`.
-//!
-//! Uses sqlx's runtime query API (not the compile-checked `query!` macros) so
-//! it builds without a live `DATABASE_URL`. Swap to the macros later if you
-//! want compile-time verification.
-//!
-//! Assumptions (see the chat review):
-//!   - `book_version` is derived from the config YAML via `extract_book_version`.
-//!   - `lorebook_versions` has a `snapshot JSONB` column holding the serialized
-//!     aggregate; `lorebook_entries` and `lorebook_versions` cascade on
-//!     `DELETE FROM lorebooks`.
-//!   - `Snowflake` implements sqlx `Type`/`Encode`/`Decode` for Postgres BIGINT.
-//!
-//! Adjust the `use` paths to match your module layout.
-
 use async_trait::async_trait;
 
 use crate::error::StorageError;
@@ -76,7 +61,6 @@ impl LorebookStorage for PostgresStorage {
             None => Ok(None),
             Some(v) => {
                 let mut book: Lorebook = serde_json::from_value(v).map_err(ser_err)?;
-                // Pinned read: head reflects the requested version, not the entity head.
                 book.current_version_id = version_id;
                 Ok(Some(book))
             }
@@ -87,7 +71,6 @@ impl LorebookStorage for PostgresStorage {
         &self,
         user_id: Snowflake,
     ) -> Result<Vec<LorebookMetadata>, StorageError> {
-        // Heads only — entries are left empty to keep list payloads light.
         let books = sqlx::query_as::<_, Lorebook>(
             "SELECT id, owner_id, current_version_id, name, description, config_yaml,
                     schema_version, created_at, updated_at
@@ -103,14 +86,6 @@ impl LorebookStorage for PostgresStorage {
 
     async fn save_lorebook(&self, lorebook: &Lorebook) -> Result<Snowflake, StorageError> {
         let mut tx = self.pool.begin().await.map_err(db_err)?;
-
-        /* let next_num: i64 = sqlx::query_scalar(
-            "SELECT COALESCE(MAX(version_num), 0) + 1 FROM lorebook_versions WHERE lorebook_id = $1",
-        )
-        .bind(lorebook.id)
-        .fetch_one(&mut *tx)
-        .await
-        .map_err(db_err)?; */
 
         sqlx::query(
             "INSERT INTO lorebooks
@@ -137,7 +112,6 @@ impl LorebookStorage for PostgresStorage {
         .await
         .map_err(db_err)?;
 
-        // Children are replaced wholesale — the aggregate is the source of truth.
         sqlx::query("DELETE FROM lorebook_entries WHERE lorebook_id = $1")
             .bind(lorebook.id)
             .execute(&mut *tx)
@@ -157,23 +131,6 @@ impl LorebookStorage for PostgresStorage {
             .await
             .map_err(db_err)?;
         }
-        // TODO: Re-review and add a debounce-based system for saving lorebooks.
-        // let snapshot = serde_json::to_value(lorebook).map_err(ser_err)?;
-        // let book_version = extract_book_version(&lorebook.config_yaml);
-
-        // sqlx::query(
-        //     "INSERT INTO lorebook_versions
-        //         (id, lorebook_id, version_num, book_version, snapshot, created_at)
-        //      VALUES ($1, $2, $3, $4, $5, now())",
-        // )
-        // .bind(lorebook.current_version_id)
-        // .bind(lorebook.id)
-        // .bind(next_num as i32)
-        // .bind(&book_version)
-        // .bind(&snapshot)
-        // .execute(&mut *tx)
-        // .await
-        // .map_err(db_err)?;
 
         tx.commit().await.map_err(db_err)?;
         Ok(lorebook.current_version_id)
@@ -219,7 +176,6 @@ impl LorebookStorage for PostgresStorage {
                 ))
             })?;
 
-        // Re-save as a fresh version that mirrors the old snapshot.
         restored.current_version_id = new_version_id;
         self.save_lorebook(&restored).await
     }
@@ -244,8 +200,6 @@ impl LorebookStorage for PostgresStorage {
         user_id: Snowflake,
         ordered: &[Snowflake],
     ) -> Result<(), StorageError> {
-        // Replace-the-whole-list, atomically: positions are rewritten 0..n so there
-        // is no gap management and the writer fully owns ordering.
         let mut tx = self.pool.begin().await.map_err(db_err)?;
 
         sqlx::query("DELETE FROM enabled_lorebooks WHERE user_id = $1")

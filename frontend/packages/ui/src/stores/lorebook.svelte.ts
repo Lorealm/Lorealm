@@ -17,47 +17,20 @@ import {
 } from '$lib/weaver/weaverFile.js';
 import { SvelteMap } from 'svelte/reactivity';
 
-// ---------------------------------------------------------------------------
-// Lorebooks differ from templates in three ways that shape this store:
-//
-//  1. Flat, not a tree. No move/toggle endpoints — ordering is derived from
-//     fields (the list sorts), and a toggle is just an `enabled` edit. So none
-//     of the path/tree machinery from the template store carries over.
-//  2. The wire entry is a raw `.weaver` source string; `UpdateEntryRequest` is
-//     the whole source. The store parses at load (so the form binds to a
-//     structured view) and serializes on save, via the tested weaverFile
-//     boundary. The book config is parsed for the form but sent back whole as
-//     a structured object — the server re-serializes it.
-//  3. Autosave must not destroy in-progress work. A failed entry save is
-//     almost always a weaver-syntax error in the body, and rolling the draft
-//     back would wipe what the author was typing. So entry/config saves do NOT
-//     roll back on failure: the draft stands and a per-entry indicator reports
-//     "unsaved — invalid" with the server's diagnostic. Because the patch is
-//     the full source, an entry with a broken body cannot persist ANY field
-//     (an `enabled` toggle included) until the syntax is fixed — that falls
-//     out naturally. The only rollback left is a failed delete.
-// ---------------------------------------------------------------------------
-
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 export interface SaveState {
 	status: SaveStatus;
-	/** Server diagnostic, surfaced verbatim on `error` (weaver parse errors are
-	 *  multi-line with carets, so render in a <pre>). */
 	message?: string;
 	code?: string;
 }
 
-/** An entry in the editable draft: a stable storage id plus the parsed view the
- *  form binds to. `doc` is the fidelity anchor for serialize; `meta.id` is the
- *  ContextWeaver id shown in the list. */
+/** An entry in the editable draft */
 export interface DraftEntry extends ParsedEntry {
 	snowflake: Snowflake;
 }
 
-/** The editable, parsed form of the active lorebook. Edits land here first
- *  (the UI binds to it); the baseline in `loadedLorebooks` is the rollback /
- *  last-confirmed reference. */
+/** The editable, parsed form of the active lorebook. */
 export interface LorebookDraft {
 	id: Snowflake;
 	name: string;
@@ -68,29 +41,21 @@ export interface LorebookDraft {
 
 class LorebookStore {
 	private _api = $state<ApiClient>();
-	/** Listing-only metadata. Does not carry entries or config. */
+	/** Listing-only metadata */
 	metadataList = $state<Array<LorebookMetadata>>();
 
 	get #api() {
-		if (!this._api) this._api = useApi(); // accessed once during page init
+		if (!this._api) this._api = useApi(); // NOTE: This assumes it's accessed once during page init. Dirty workaround.
 		return this._api;
 	}
 
-	/** Server-confirmed lorebooks (raw wire shape) — the rollback baseline. */
-	private loadedLorebooks = new SvelteMap<Snowflake, Lorebook>();
+	private loadedLorebooks = new SvelteMap<Snowflake, Lorebook>(new SvelteMap());
 	private activeLorebooks = $state<Snowflake[]>([]);
 
 	/** The editable proxy. */
 	private _draft = $state<LorebookDraft | null>(null);
-
-	/** Per-entry save/validity, keyed by storage id. The open editor reads its
-	 *  entry's state; the list can badge entries left in `error`. */
 	saveStates = new SvelteMap<Snowflake, SaveState>();
-
-	/** Book-level (config + name/description) save state. */
 	bookSaveState = $state<SaveState>({ status: 'idle' });
-
-	/* --- accessors -------------------------------------------------------- */
 
 	get editingLorebook(): LorebookDraft | null {
 		return this._draft;
@@ -111,12 +76,14 @@ class LorebookStore {
 		return this.saveStates.get(snowflake) ?? { status: 'idle' };
 	}
 
-	/* --- loading ---------------------------------------------------------- */
-
 	async loadList() {
 		this.metadataList = await this.#api.lorebooks.list();
 	}
 
+	async getLorebook(id: Snowflake): Promise<Lorebook | undefined> {
+		await this.loadLorebook(id);
+		return this.loadedLorebooks.get(id);
+	}
 	async loadLorebook(id: Snowflake) {
 		if (this.loadedLorebooks.has(id)) return;
 		const book = await this.#api.lorebooks.get(id);
@@ -142,12 +109,6 @@ class LorebookStore {
 		this.activeLorebooks = (await this._api?.lorebooks.active.get()) ?? [];
 	}
 
-	/* --- editing session -------------------------------------------------- */
-
-	/** Open `id` for editing: parse the config and every entry up front (the
-	 *  list needs each entry's meta to sort and label). Throws if an entry's
-	 *  stored source fails to parse — that should not happen, since the server
-	 *  validates on write, but we surface it rather than silently dropping. */
 	async startEditing(id: Snowflake) {
 		await this.loadLorebook(id);
 		const base = this.loadedLorebooks.get(id);
@@ -182,13 +143,6 @@ class LorebookStore {
 		};
 	}
 
-	/* --- entry writes (operate on the current draft) ---------------------- */
-
-	/** Serialize the draft entry and persist it. Optimistic field edits already
-	 *  live on the draft (the form binds to `meta`/`body`); this only confirms
-	 *  with the server. On failure the draft is left untouched and the error is
-	 *  recorded for the indicator. Used for every entry mutation, toggles
-	 *  included (flip `meta.enabled`, then call this). */
 	async saveEntry(snowflake: Snowflake) {
 		const draft = this._draft;
 		if (!draft) return;
@@ -213,14 +167,11 @@ class LorebookStore {
 			this.#advanceBaselineEntry(draft.id, saved);
 			this.saveStates.set(snowflake, { status: 'saved' });
 		} catch (e) {
-			// keep the draft as-is; the author may still be typing
 			this.saveStates.set(snowflake, { status: 'error', ...extractError(e) });
 		}
 	}
 
-	/** Add a blank entry. Pessimistic — the server mints the id and the initial
-	 *  (unique) ContextWeaver id. Returns the new storage id so the caller can
-	 *  select it. */
+	/** Add a blank entry. */
 	async addEntry(): Promise<Snowflake | undefined> {
 		const draft = this._draft;
 		if (!draft) return;
@@ -230,7 +181,7 @@ class LorebookStore {
 		return created.id;
 	}
 
-	/** Delete an entry. Optimistic; restores on failure. */
+	/** Delete an entry. */
 	async deleteEntry(snowflake: Snowflake) {
 		const draft = this._draft;
 		if (!draft) return;
@@ -260,11 +211,6 @@ class LorebookStore {
 		if (base && i !== -1) base.entries[i] = saved;
 	}
 
-	/* --- book-level writes ------------------------------------------------ */
-
-	/** Persist name/description/config from the draft. The config goes back as a
-	 *  structured object (server re-serializes); extension keys survive because
-	 *  the whole parsed object is passed through. No rollback on failure. */
 	async saveLorebook() {
 		const draft = this._draft;
 		if (!draft) return;
@@ -294,7 +240,7 @@ class LorebookStore {
 		return book;
 	}
 
-	/** Delete a lorebook. Optimistic across caches + list. */
+	/** Delete a lorebook. */
 	async deleteLorebook(id: Snowflake) {
 		const prevLoaded = this.loadedLorebooks.get(id);
 		const prevList = this.metadataList ? [...this.metadataList] : undefined;
@@ -314,10 +260,6 @@ class LorebookStore {
 	}
 }
 
-/** Unwrap an http rejection into the server's `{ error_code, message }`. The
- *  transport throws an `ApiError` (extends Error) carrying a clean `message` and
- *  optional `code`; the object/string branches are a fallback for raw
- *  network-layer rejections that don't go through that path. */
 function extractError(e: unknown): { message: string; code?: string } {
 	console.log(e);
 	if (e instanceof Error) {

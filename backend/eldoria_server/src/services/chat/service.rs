@@ -26,8 +26,8 @@ use crate::{
 };
 
 enum Persist {
-    Child(Snowflake),   // assistant attaches as a child (normal turn / continue)
-    Sibling(Snowflake), // assistant attaches as a sibling (assistant swipe)
+    Child(Snowflake),
+    Sibling(Snowflake),
 }
 
 pub struct ChatService {
@@ -80,6 +80,32 @@ impl ChatService {
         Ok(convos)
     }
 
+    pub async fn get_message(
+        &self,
+        conversation_id: Snowflake,
+        message_id: Snowflake,
+        user_id: Snowflake
+    ) -> Result<ConversationMessage, ChatError> {
+        let _convo = self.get_conversation(conversation_id, user_id).await?;
+        let message = self.storage.get_message(message_id).await?.ok_or(ChatError::NotFound(TargetType::Message, message_id))?;
+        if message.conversation_id != conversation_id {
+            return Err(ChatError::NotFound(TargetType::Message, message_id));
+        }
+        Ok(message)
+    }
+
+    pub async fn get_path_to(
+        &self,
+        conversation_id: Snowflake,
+        message_id: Snowflake,
+        user_id: Snowflake
+    ) -> Result<Vec<ConversationMessage>, ChatError> {
+        let _convo = self.get_conversation(conversation_id, user_id).await?;
+        let messages = self.storage.get_path_to(conversation_id, message_id).await?;
+
+        Ok(messages)
+    }
+
     async fn get_conversation(
         &self,
         convo_id: Snowflake,
@@ -116,6 +142,8 @@ impl ChatService {
         })
     }
 
+    // TODO: There exists a bug where the lorebook state is not produced for the first turn
+    // it should reside here, but I haven't looked into it
     pub async fn start_new(
         &self,
         character_id: Snowflake,
@@ -176,31 +204,6 @@ impl ChatService {
         })
     }
 
-    pub async fn send_message(
-        &self,
-        convo_id: Snowflake,
-        user_id: Snowflake,
-        content: String,
-    ) -> Result<ConversationMessage, ChatError> {
-        // Verify ownership
-        let mut _convo = self.get_conversation(convo_id, user_id).await?;
-
-        self.conversations
-            .append_message(convo_id, ChatRole::User, content, json!({}))
-            .await?;
-
-        // TODO: replace with actual context handling and LLM responses
-        Ok(self
-            .conversations
-            .append_message(
-                convo_id,
-                ChatRole::Assistant,
-                assistant_placeholder(),
-                json!({}),
-            )
-            .await?)
-    }
-
     /// Edit a message in place. No new branch; the continuation below it stays.
     pub async fn edit_message(
         &self,
@@ -218,8 +221,7 @@ impl ChatService {
     }
 
     /// Swipe/branch a *user* message: create a sibling with new content that
-    /// becomes the active leaf. Does NOT trigger inference — the client follows
-    /// up with a /completions call to generate the assistant reply.
+    /// becomes the active leaf. Does NOT trigger inference.
     pub async fn branch_user_message(
         &self,
         convo_id: Snowflake,
@@ -227,7 +229,6 @@ impl ChatService {
         user_id: Snowflake,
         content: String,
     ) -> Result<ConversationMessage, ChatError> {
-        // `branch` already resolves the role from the target and verifies ownership.
         self.branch(convo_id, msg_id, user_id, content, json!({}))
             .await
     }
@@ -254,7 +255,7 @@ impl ChatService {
             .await?)
     }
 
-    /// Move the active path so it runs through `msg_id` (chevron navigation).
+    /// Move the active path so it runs through `msg_id`
     pub async fn activate_message(
         &self,
         convo_id: Snowflake,
@@ -267,7 +268,7 @@ impl ChatService {
     }
 
     /// Delete a message and its entire subtree. If the active leaf was inside it,
-    /// the leaf is repointed to the fork (handled by ConversationService).
+    /// the leaf is repointed to the fork
     pub async fn delete_message(
         &self,
         convo_id: Snowflake,
@@ -279,7 +280,7 @@ impl ChatService {
         Ok(self.conversations.delete_subtree(convo_id, msg_id).await?)
     }
 
-    /// Delete a whole conversation (cascades to all messages in storage).
+    /// Delete an entire conversation
     pub async fn delete_conversation(
         &self,
         convo_id: Snowflake,
@@ -291,8 +292,7 @@ impl ChatService {
         Ok(())
     }
 
-    /// Message exists AND belongs to this conversation. Closes the cross-
-    /// conversation hole from before.
+    /// Message exists AND belongs to this conversation.
     async fn owned_message(
         &self,
         msg_id: Snowflake,
@@ -319,8 +319,6 @@ impl ChatService {
     {
         let convo = self.get_conversation(convo_id, user_id).await?;
 
-        // Synchronous resolution: maybe create the user message, decide where the
-        // assistant attaches, and which leaf the prompt thread ends at.
         let assembly_leaf: Option<Snowflake>;
         let created_user: Option<ConversationMessage>;
         let persist: Persist;
@@ -384,7 +382,7 @@ impl ChatService {
                 lorebook_state: Mutex::new(None),
             };
             let trace = assemble(&template, &self.resolvers, &ctx).await?;
-            // ctx still alive here — take ownership of whatever the resolver wrote.
+
             captured = ctx.lorebook_state.lock().await.take();
             trace
         };
@@ -400,8 +398,7 @@ impl ChatService {
 
         let token_stream = self.infer(ephemeral_prompt).await?;
 
-        // Forward deltas, accumulate, persist on completion. Buffer-then-persist:
-        // the assistant row exists exactly when the leaf advances.
+        // Forward deltas, accumulate, persist on completion.
         let conversations = self.conversations.clone();
         let stream = async_stream::try_stream! {
             let mut acc = String::new();
@@ -447,8 +444,6 @@ impl ChatService {
         Ok(Box::pin(stream))
     }
 
-    /// Root..=leaf as a chat thread. The thread is correct; the assembly on top
-    /// of it is the open work.
     async fn build_prompt(
         &self,
         convo_id: Snowflake,
@@ -480,7 +475,7 @@ impl ChatService {
         Ok(path)
     }
 
-    /// Token stream from the model. Stub for now.
+    /// Token stream from the model.
     async fn infer(
         &self,
         prompt: Vec<super::PromptMessage>,
@@ -508,13 +503,6 @@ impl ChatService {
 
         Ok(Box::pin(mapped))
     }
-}
-
-fn assistant_placeholder() -> String {
-    format!(
-        "This is an emulated response for the character. Have a random number for some extra flare: {}",
-        rand::random::<u8>()
-    )
 }
 
 fn prompt_role_to_provider_role(role: PromptRole) -> eldoria_providers::Role {

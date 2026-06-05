@@ -46,7 +46,7 @@ impl AppConfig {
     }
 
     /// Load the config from disk. Returns the default config if the file
-    /// doesn't exist yet (e.g. on first launch), writing it out in the process.
+    /// doesn't exist yet
     pub fn load(app: &AppHandle) -> Result<Self, String> {
         let path = Self::path(app)?;
 

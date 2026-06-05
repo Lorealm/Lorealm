@@ -7,14 +7,13 @@
 		onpick
 	}: {
 		sources: SourceDefinition[] | undefined;
-		/** Set of `${source_id}\u0000${node_id}` pairs already in the template. */
 		existing: Set<string>;
 		onpick: (sel: { source_id: string; node_id: string; def: SourceNodeDefinition }) => void;
 	} = $props();
 
 	const key = (sourceId: string, nodeId: string) => `${sourceId}\u0000${nodeId}`;
 
-	// Each source paired with its not-yet-used nodes. Fully-consumed sources drop out.
+	// Each source paired with its not-yet-used nodes.
 	const available = $derived.by(() => {
 		const list = sources ?? [];
 		return list

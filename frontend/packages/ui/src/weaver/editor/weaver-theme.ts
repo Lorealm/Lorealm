@@ -1,12 +1,5 @@
 import { EditorView } from '@codemirror/view';
 
-// Shared chrome for every weaver editor/field: colors, fonts, gutter, cursor,
-// selection, tooltip. Deliberately NO sizing (height/padding) — that's
-// layout-specific and lives in each component. Token colors are separate
-// again, in weaver-lang.ts (HighlightStyle).
-//
-// Colors/fonts now resolve from variables.css (the shared design tokens),
-// so this editor stays in sync with the rest of the UI.
 export const weaverTheme = EditorView.theme(
 	{
 		'&': {

@@ -1,10 +1,12 @@
 <script>
-	import ContextWidget from "./widgets/ContextWidget.svelte";
-
+	import ContextWidget from './widgets/ContextWidget.svelte';
+	import StateWidget from './widgets/StateWidget.svelte';
 </script>
+
 <div class="container">
 	<div class="topBar"></div>
 	<ContextWidget />
+	<StateWidget />
 </div>
 
 <style>

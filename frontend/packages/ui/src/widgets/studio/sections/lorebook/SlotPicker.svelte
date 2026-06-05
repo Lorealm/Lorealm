@@ -9,9 +9,6 @@
 	import type { Slot } from '$lib/types/lorebook.js';
 	import NumberInput from '$lib/components/NumberInput.svelte';
 
-	// Picks a slot. `allowInherit` controls whether the "inherit default" option
-	// (which maps to `undefined`, leaving the key unwritten) is offered — the
-	// primary slot allows it; explicit fallback slots do not.
 	let {
 		value,
 		onchange,

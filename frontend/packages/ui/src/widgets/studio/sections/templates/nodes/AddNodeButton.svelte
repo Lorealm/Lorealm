@@ -6,7 +6,7 @@
 	let open = $state(false);
 	let hovered = $state<Kind | null>(null);
 
-	// gesture bookkeeping (non-reactive: read inside handlers only)
+	// gesture bookkeeping
 	let dragging = false;
 	let moved = false;
 	let startX = 0;
@@ -18,7 +18,7 @@
 
 	const MOVE_THRESHOLD = 4;
 
-	/** Which option (if any) sits under these client coords. */
+	/** Which option sits under these client coords. */
 	function optionAt(x: number, y: number): Kind | null {
 		const el = document.elementFromPoint(x, y);
 		const opt = el?.closest<HTMLElement>('[data-kind]');
@@ -27,7 +27,7 @@
 	}
 
 	function onPointerDown(e: PointerEvent) {
-		if (e.button !== 0) return; // primary only
+		if (e.button !== 0) return;
 		e.preventDefault();
 		open = true;
 		dragging = true;
@@ -36,12 +36,11 @@
 		startX = e.clientX;
 		startY = e.clientY;
 		pointerId = e.pointerId;
-		// Capture so we keep getting moves/up even off the button; coords + hit-test
-		// drive the highlight (native :hover doesn't fire on captured elements).
 		try {
 			triggerEl.setPointerCapture(e.pointerId);
 		} catch {
-			/* not fatal */
+			// Stubbed for now, not sure if it's even needed
+			return;
 		}
 	}
 
@@ -74,11 +73,11 @@
 		const overTrigger = !!el && (el === triggerEl || triggerEl.contains(el));
 
 		if (overOption && moved) {
-			pick(overOption); // press-drag-release onto an option
+			pick(overOption);
 		} else if (overTrigger || (overOption && !moved)) {
-			open = true; // quick click / no real drag → stay open so they can click an option
+			open = true;
 		} else {
-			open = false; // released on empty space → cancel
+			open = false;
 		}
 		hovered = null;
 	}
@@ -105,7 +104,6 @@
 		}
 	}
 
-	// While open (and not mid-gesture), a pointerdown outside closes it.
 	$effect(() => {
 		if (!open) return;
 		const onDocDown = (ev: PointerEvent) => {
@@ -190,7 +188,7 @@
 		font-size: var(--font-size-sm);
 		padding: var(--spacing-xs) var(--spacing-sm);
 		white-space: nowrap;
-		touch-action: none; /* let us own the press-drag gesture */
+		touch-action: none;
 	}
 	.chev {
 		flex: 0 0 auto;

@@ -1,16 +1,9 @@
-// Static documentation used by the hover tooltip.
-//
-// This is a stand-in for the WASM `weaver-lang` analysis layer discussed for
-// the real editor. The shape (signature + markdown-ish doc) is deliberately
-// close to what a `CommandSignature` enriched with doc strings would expose,
-// so swapping the data source later is a localized change.
-
 export interface DocEntry {
 	signature: string;
-	doc: string; // simple markdown (paragraphs + `inline code`)
+	doc: string;
 }
 
-// Processors: @[namespace.name(...)]  — addressed by dotted name.
+// Processors: @[namespace.name(...)] .
 export const processors: Record<string, DocEntry> = {
 	'text.upper': { signature: 'text.upper(text: String) -> String', doc: 'Uppercase `text`.' },
 	'text.lower': { signature: 'text.lower(text: String) -> String', doc: 'Lowercase `text`.' },
@@ -46,7 +39,7 @@ export const processors: Record<string, DocEntry> = {
 	}
 };
 
-// Commands: $[name(...)]  — addressed by name.
+// Commands: $[name(...)].
 export const commands: Record<string, DocEntry> = {
 	set_var: {
 		signature: 'set_var(key: String, value: Value)',
@@ -89,12 +82,4 @@ export const keywords: Record<string, DocEntry> = {
 		signature: 'foreach <name> in <array>',
 		doc: 'Separates the loop binding from the iterable.'
 	}
-};
-
-// Mocked host-provided variables, used to preview `{{scope:name}}` on hover.
-// In the real editor these come from the loaded character / ContextWeaver state.
-export const variablePreviews: Record<string, Record<string, string>> = {
-	char: { name: 'Aria', class: 'Mage', level: '7' },
-	user: { name: 'Player' },
-	state: { location: '"forest"', visited_forest: 'true' }
 };

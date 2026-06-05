@@ -21,7 +21,6 @@
 	let host: HTMLDivElement;
 	let view: EditorView;
 
-	// Multi-line sizing only; colors/fonts come from the shared weaverTheme.
 	const editorSizing = EditorView.theme({
 		'&': { height: '100%' },
 		'.cm-content': { padding: '12px 0' }
@@ -49,10 +48,10 @@
 					highlightActiveLine(),
 					drawSelection(),
 					history(),
-					keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]), // Tab reindents
-					indentUnit.of('  '), // two spaces; matches your examples
-					indentOnInput(), // snap closers left as they're typed
-					EditorView.lineWrapping, // wrap + line numbers coexist
+					keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+					indentUnit.of('  '),
+					indentOnInput(),
+					EditorView.lineWrapping,
 					weaverSyntax,
 					weaverHover,
 					weaverTheme,

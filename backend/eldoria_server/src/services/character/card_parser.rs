@@ -7,10 +7,6 @@
 //!   1. The `Vec<PngChunk<'a>>` spine (~10 entries, a few hundred bytes).
 //!   2. The base64-decoded JSON bytes (unavoidable — decoding allocates).
 //!   3. The final stripped/embedded PNG buffer (the return value).
-//!
-//! The parser is deliberately decoupled from the domain types. It returns
-//! raw JSON bytes plus a detected-spec tag; conversion into
-//! `Character`/`EldoriaCard`/etc. happens in the service layer.
 
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use serde::Deserialize;
@@ -21,10 +17,6 @@ const PNG_SIGNATURE: [u8; 8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
 pub type Result<T> = std::result::Result<T, CardParseError>;
 
-// -----------------------------------------------------------------------------
-// Public types
-// -----------------------------------------------------------------------------
-
 /// Result of parsing a character card PNG.
 #[derive(Debug)]
 pub struct ParsedCharacterCard {
@@ -32,8 +24,7 @@ pub struct ParsedCharacterCard {
     /// target based on `detected_spec`.
     pub json_bytes: Vec<u8>,
 
-    /// The original PNG with the card's tEXt chunk removed. Persist this
-    /// if you want to store a clean image alongside the parsed character.
+    /// The original PNG with the card's tEXt chunk removed.
     pub stripped_image: Vec<u8>,
 
     /// What the card's top-level `spec` field reported.
@@ -49,14 +40,10 @@ pub enum DetectedSpec {
     Unknown(String),
 }
 
-// -----------------------------------------------------------------------------
-// Public API — read
-// -----------------------------------------------------------------------------
-
 /// Parse a character card PNG and return the decoded JSON, a stripped
 /// image, and a detected-spec tag.
 ///
-/// `identifier` is the tEXt keyword to search for. CCv2 cards use `"chara"`.
+/// `identifier` is the tEXt keyword to search for.
 pub fn parse_character_card_png(png_data: &[u8], identifier: &str) -> Result<ParsedCharacterCard> {
     let chunks = parse_png_chunks(png_data)?;
 
@@ -73,10 +60,6 @@ pub fn parse_character_card_png(png_data: &[u8], identifier: &str) -> Result<Par
         detected_spec,
     })
 }
-
-// -----------------------------------------------------------------------------
-// Public API — write
-// -----------------------------------------------------------------------------
 
 /// Embed character JSON into a PNG as a tEXt chunk, inserted just before IEND.
 ///
@@ -138,12 +121,8 @@ pub fn embed_character_card_png(
     Ok(output)
 }
 
-// -----------------------------------------------------------------------------
-// Internals
-// -----------------------------------------------------------------------------
-
 /// Borrowed view of a PNG chunk. All payload data points into the original
-/// input buffer — no copies.
+/// input buffer.
 struct PngChunk<'a> {
     chunk_type: [u8; 4],
     data: &'a [u8],
@@ -218,7 +197,7 @@ fn find_card_chunk<'a>(chunks: &'a [PngChunk<'a>], identifier: &[u8]) -> Option<
 }
 
 /// Cheap peek at the `spec` field. Uses a minimal struct that borrows
-/// the string from the input buffer — no full JSON deserialization.
+/// the string from the input buffer.
 fn peek_spec(json_bytes: &[u8]) -> Result<DetectedSpec> {
     #[derive(Deserialize)]
     struct SpecPeek<'a> {
@@ -270,10 +249,6 @@ fn write_chunk(output: &mut Vec<u8>, chunk: &PngChunk<'_>) {
     output.extend_from_slice(chunk.data);
     output.extend_from_slice(chunk.crc_bytes);
 }
-
-// -----------------------------------------------------------------------------
-// Tests
-// -----------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

@@ -1,23 +1,3 @@
-//! In-memory implementation of `LorebookStorage` and `LorebookSessionStorage`.
-//!
-//! ASSUMPTION: `MemoryStorage` uses `std::sync::RwLock` (hence `.read().unwrap()`
-//! / `.write().unwrap()`). If you're on `parking_lot`, drop the `.unwrap()`s; on
-//! `tokio::sync::RwLock`, add `.await` and adjust. No guard is ever held across
-//! an `.await`, so a sync lock is correct here.
-//!
-//! Two additions are required elsewhere:
-//!
-//! 1. Add these fields to `MemoryStorage` (it keeps deriving `Default`):
-//!
-//! ```ignore
-//! pub(crate) lorebooks: RwLock<HashMap<Snowflake, Lorebook>>,
-//! pub(crate) lorebook_versions: RwLock<HashMap<Snowflake, StoredLorebookVersion>>, // key: version_id
-//! pub(crate) lorebook_sessions: RwLock<HashMap<Snowflake, LorebookSession>>,        // key: conversation_id
-//! ```
-//!
-//! 2. The `StoredLorebookVersion` type below (place it wherever `StoredVersion`
-//!    lives).
-
 use async_trait::async_trait;
 use chrono::Utc;
 
@@ -29,8 +9,6 @@ use crate::storage::LorebookStorage;
 
 use super::MemoryStorage;
 
-/// A stored snapshot of a lorebook aggregate at save time. The in-memory
-/// analogue of the Postgres `lorebook_versions.snapshot` column.
 #[derive(Debug, Clone)]
 pub struct StoredLorebookVersion {
     pub lorebook_id: Snowflake,
@@ -73,7 +51,6 @@ impl LorebookStorage for MemoryStorage {
             .values()
             .filter(|b| b.owner_id == user_id)
             .map(|b| {
-                // Heads only — match the Postgres backend's light list payload.
                 let mut light = b.clone();
                 light.entries.clear();
                 light
@@ -135,7 +112,7 @@ impl LorebookStorage for MemoryStorage {
                 created_at: v.created_at,
             })
             .collect();
-        out.sort_by(|a, b| b.version_num.cmp(&a.version_num)); // newest first
+        out.sort_by(|a, b| b.version_num.cmp(&a.version_num));
         Ok(out)
     }
 
@@ -145,7 +122,6 @@ impl LorebookStorage for MemoryStorage {
         version_id: Snowflake,
         new_version_id: Snowflake,
     ) -> Result<Snowflake, StorageError> {
-        // Scope the read lock so it drops before save_lorebook takes write locks.
         let snapshot = {
             let versions = self.lorebook_versions.read().await;
             match versions.get(&version_id) {

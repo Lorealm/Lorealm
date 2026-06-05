@@ -8,7 +8,6 @@ pub(super) struct EditableCharacter{
 }
 
 /// Partial patch over `CharacterDefinition`'s scalar fields.
-/// `None` = field absent from this patch, leave it as-is.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EditDefinition {
     pub name: Option<String>,
@@ -20,9 +19,6 @@ pub struct EditDefinition {
 }
 
 /// Partial patch over `CharacterMetadata`'s editable scalar fields.
-///
-/// `avatar_uri` is intentionally absent — it's owned by the image endpoint.
-/// `created_at` / `updated_at` are server-managed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EditMetadata {
     pub creator: Option<String>,
@@ -34,8 +30,6 @@ pub struct EditMetadata {
     pub display_name: Option<Option<String>>,
 }
 
-/// Lets a nullable field distinguish "absent" from "explicit null".
-/// Without this, `Option<String>` collapses both to `None`.
 fn double_option<'de, T, D>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
 where
     T: Deserialize<'de>,

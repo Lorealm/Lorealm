@@ -1,19 +1,3 @@
-//! Redis cache wrapper for `LorebookStorage` and `LorebookSessionStorage`.
-//!
-//! Caches point reads and invalidates on writes. List queries pass straight
-//! through — list invalidation is not worth the complexity here.
-//!
-//! REQUIRED: the `Storage` supertrait must include `LorebookStorage` and
-//! `LorebookSessionStorage` so `self.backend` exposes these methods, e.g.:
-//!
-//! ```ignore
-//! pub trait Storage:
-//!     CharacterStorage + LorebookStorage + LorebookSessionStorage + Send + Sync
-//! {}
-//! ```
-//!
-//! ASSUMPTION: `Snowflake` implements `Display` (used for cache keys).
-
 use async_trait::async_trait;
 
 use crate::error::StorageError;
@@ -34,7 +18,6 @@ impl LorebookStorage for CachedStorage {
         id: Snowflake,
         version_id: Snowflake,
     ) -> Result<Option<Lorebook>, StorageError> {
-        // Snapshots are immutable, so this is safe to cache under a compound key.
         let key = self.key("lorebook_ver", &format!("{id}:{version_id}"));
         self.get_through(&key, self.backend.get_lorebook_at_version(id, version_id))
             .await
@@ -87,8 +70,6 @@ impl LorebookStorage for CachedStorage {
         &self,
         user_id: Snowflake,
     ) -> Result<Vec<Snowflake>, StorageError> {
-        // Not routed through get_through: a Vec doesn't fit its Option<T> shape, and
-        // an empty enabled-list is a real value we *want* cached, not a miss.
         let key = self.key("enabled_lorebooks", &user_id.to_string());
 
         if let Some(cached) = self.cache_get::<Vec<Snowflake>>(&key).await {
@@ -106,7 +87,6 @@ impl LorebookStorage for CachedStorage {
         ordered: &[Snowflake],
     ) -> Result<(), StorageError> {
         self.backend.set_enabled_lorebooks(user_id, ordered).await?;
-        // Invalidate after the source of truth commits, not before.
         self.cache_del(&self.key("enabled_lorebooks", &user_id.to_string()))
             .await;
         Ok(())

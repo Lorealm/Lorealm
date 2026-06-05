@@ -18,10 +18,6 @@ use serde::Deserialize;
 
 use crate::services::snowflake::SnowflakeService;
 
-// -----------------------------------------------------------------------------
-// CCv2 wire format (private)
-// -----------------------------------------------------------------------------
-
 #[derive(Deserialize)]
 pub(super) struct CharaV2 {
     #[allow(dead_code)]
@@ -48,32 +44,20 @@ pub(super) struct CharaV2Data {
     pub character_version: String,
     pub extensions: HashMap<String, serde_json::Value>,
     // TODO(lorebook): pub character_book: Option<CharaV2Lorebook>
-    // Round-trip requires stashing Eldoria's richer lorebook form in
-    // extensions.eldoria.lorebook and keeping a degraded copy here.
-    // Implement when lorebooks are tackled.
 }
-
-// -----------------------------------------------------------------------------
-// Eldoria extension namespace (private)
-// -----------------------------------------------------------------------------
 
 /// Fields Eldoria writes into CCv2's `extensions.eldoria` object on export
 /// and reads back on import. All fields are optional — cards missing this
 /// namespace, or missing individual fields, must import cleanly.
 ///
-/// NEVER rename or remove fields on this struct. Breaking changes require
-/// a new `EldoriaExtensionV2` living alongside; try new first, fall back.
+/// NEVER rename or remove fields on this struct.
 #[derive(Deserialize, Default)]
 pub(super) struct EldoriaExtension {
     pub display_name: Option<String>,
     pub alt_names: Option<Vec<String>>,
 }
 
-// -----------------------------------------------------------------------------
-// Conversion
-// -----------------------------------------------------------------------------
-
-/// Convert a parsed CCv2 card into a fresh Eldoria `Character`.
+/// Convert a parsed CCv2 card into a fresh `Character`.
 pub(super) fn convert_from_ccv2(
     card: CharaV2,
     owner: Snowflake,
@@ -81,8 +65,6 @@ pub(super) fn convert_from_ccv2(
 ) -> Character {
     let data = card.data;
 
-    // Pull the Eldoria extension namespace out before we move `extensions`
-    // into the domain type. Tolerant of missing/malformed data.
     let eldoria_ext: EldoriaExtension = data
         .extensions
         .get("eldoria")
@@ -142,7 +124,7 @@ pub(super) fn convert_from_ccv2(
             } else {
                 data.character_version
             },
-            avatar_uri: None, // TODO: persist stripped_image and set this
+            avatar_uri: None, // This is persisted seperately
             created_at: now,
             updated_at: now,
         },

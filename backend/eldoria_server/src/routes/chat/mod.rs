@@ -21,6 +21,14 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         .route("/", get(handlers::list_conversations))
         .route("/{conversation_id}", get(handlers::get_conversation))
         .route("/{conversation_id}/messages", get(handlers::list_messages))
+        .route(
+            "/{conversation_id}/messages/{message_id}",
+            get(handlers::get_message),
+        )
+        .route(
+            "/{conversation_id}/messages/{message_id}/state",
+            get(handlers::get_message_state),
+        )
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
             session_auth_middleware,
@@ -28,7 +36,6 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
 
     let csrf_routes = Router::new()
         .route("/", post(handlers::start_chat))
-        .route("/{conversation_id}", post(handlers::send_message))
         .route("/{conversation_id}", delete(handlers::delete_conversation))
         .route("/{conversation_id}/messages", put(handlers::edit_message))
         .route(

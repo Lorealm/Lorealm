@@ -30,8 +30,8 @@
 	}
 	#mainView {
 		display: flex;
-		flex-direction: column; /* topBar, StudioNav, editor stack vertically */
-		min-height: 0; /* ← the key line: lets it shrink so children scroll */
+		flex-direction: column;
+		min-height: 0;
 		min-width: 0;
 	}
 	.topBar {

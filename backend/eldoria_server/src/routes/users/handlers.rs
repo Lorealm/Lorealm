@@ -19,7 +19,7 @@ use crate::{
     extract::{AuthenticatedSession, UserDevice},
 };
 
-const REGISTER_DISABLED_REASON: &str = "Registration is disabled on this server.";
+const REGISTER_DISABLED_REASON: &str = "Registrations are disabled on this server.";
 
 pub async fn register(
     State(state): State<Arc<AppState>>,

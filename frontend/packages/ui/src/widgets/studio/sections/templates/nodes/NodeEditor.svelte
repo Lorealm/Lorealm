@@ -15,19 +15,18 @@
 		saveState?: SaveState;
 	} = $props();
 
-	// Local buffer for the text body. Re-synced only when the selected node
-	// changes, so a server reconcile mid-edit can't move the cursor.
+	// Local buffer for the text body
 	let text = $state('');
 	let lastId: Snowflake | null = null;
 	let timer: ReturnType<typeof setTimeout> | null = null;
 	let pending: { id: Snowflake; content: NodeContent } | null = null;
 
 	$effect(() => {
-		const n = node; // the only dependency we want: which node is selected
+		const n = node;
 		const nid = n?.id ?? null;
 		if (nid === lastId) return;
 		untrack(() => {
-			void flush(); // don't lose unsaved edits from the node we're leaving
+			void flush();
 			lastId = nid;
 			saveState = 'idle';
 			text = n && n.content.type === 'text' ? n.content.content : '';
@@ -72,8 +71,7 @@
 		{#if node.content.type === 'text'}
 			<div class="content-region">
 				<span class="content-label">Content</span>
-				<!-- Swap this <textarea> for the syntax-highlighting editor later;
-				     keep the value / onInput / onblur contract so autosave still fires. -->
+				<!-- TODO: weaver editor (?) -->
 				<textarea
 					class="content-input"
 					value={text}

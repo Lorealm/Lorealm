@@ -1,3 +1,5 @@
+//! TODO: replace/integrate with [woothee](https://woothee.github.io/)?
+
 use std::net::IpAddr;
 
 use axum::{
@@ -54,12 +56,11 @@ where
 }
 
 fn extract_ip(parts: &Parts) -> Option<IpAddr> {
-    // 1. Check proxy headers (order by trust preference)
     let proxy_headers = ["x-forwarded-for", "x-real-ip", "cf-connecting-ip"];
 
     for header in proxy_headers {
         if let Some(value) = parts.headers.get(header).and_then(|v| v.to_str().ok()) {
-            // X-Forwarded-For can be a comma-separated list; take the first (client) IP
+            // X-Forwarded-For can be a comma-separated list; take the first IP
             let candidate = value.split(',').next().unwrap_or(value).trim();
             if let Ok(ip) = candidate.parse::<IpAddr>() {
                 return Some(ip);
@@ -67,7 +68,6 @@ fn extract_ip(parts: &Parts) -> Option<IpAddr> {
         }
     }
 
-    // 2. Fall back to the connected peer address
     parts
         .extensions
         .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()

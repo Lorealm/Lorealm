@@ -1,22 +1,11 @@
-// Mirror of the backend `TracedBlock` (the outermost layer), with `ResolvedBlock`
-// flattened in. These shapes only arrive as plain JSON, so ids stay `string`.
-//
-// Content is now stored by *reference* where it can be deterministically rebuilt
-// (messages, character parts), and only inlined verbatim where it can't. So
-// `content` is often empty here — see `$lib/inspector/content.ts` for turning a
-// block back into display text.
-
-/** Normalised form of the backend `ContentRef` (externally-tagged) enum.
- *  Rust `Verbatim` -> `"Verbatim"`, `Message(id)` -> `{ Message: id }`, etc. */
 export type ContentRef =
 	| { kind: 'verbatim' }
 	| { kind: 'message'; id: string }
 	| { kind: 'character'; part: CharacterPart }
 	| { kind: 'plugin'; source_id: string; data: unknown }
-	/** Forward-compat: a ref shape this build doesn't know about. */
+	/** Future-proofing so deserialization doesn't break */
 	| { kind: 'unknown' };
 
-/** Normalised form of the backend `CharacterPart` enum. */
 export type CharacterPart =
 	| { part: 'definition' }
 	| { part: 'personality' }
@@ -25,7 +14,6 @@ export type CharacterPart =
 	| { part: 'example'; order: number }
 	| { part: 'unknown' };
 
-/** Matches the `#[serde(tag = "kind", rename_all = "snake_case")]` enum. */
 export type OriginKind =
 	| { kind: 'text' }
 	| { kind: 'source'; source_id: string; node_id: string }
@@ -34,14 +22,12 @@ export type OriginKind =
 export interface BlockOrigin {
 	node_id: string;
 	node_title: string;
-	/** Enclosing group ids, outermost first. Empty = root-level. */
 	path: string[];
 	kind: OriginKind;
 }
 
 export interface TracedBlock {
 	role: string;
-	/** Inline text. Empty for recoverable refs; populated for `verbatim`. */
 	content: string;
 	content_ref: ContentRef;
 	origin: BlockOrigin;
@@ -114,13 +100,6 @@ function parseBlock(v: unknown): TracedBlock | null {
 	};
 }
 
-/**
- * Pull the traced context blocks out of a message's `metadata`.
- *
- * - `null`  -> no `context` trace at all (user turns, or pre-trace history).
- * - `[]`    -> a trace is present but the pipeline emitted nothing.
- * - blocks  -> in tree order, exactly as the backend walk produced them.
- */
 export function parseContextBlocks(metadata: unknown): TracedBlock[] | null {
 	if (!isRecord(metadata) || !Array.isArray(metadata.context)) return null;
 	return metadata.context.map(parseBlock).filter((b): b is TracedBlock => b !== null);
@@ -128,19 +107,11 @@ export function parseContextBlocks(metadata: unknown): TracedBlock[] | null {
 
 /** A run of consecutive blocks that were emitted by the same context node. */
 export interface BlockGroup {
-	/** `origin.node_id` shared by every member. */
 	node_id: string;
 	title: string;
 	blocks: TracedBlock[];
 }
-
-/**
- * Collapse runs of adjacent blocks from the same source node into groups, so a
- * long stretch (chat history especially) reads as one foldable unit instead of
- * dozens of rows. Only *adjacent* same-node blocks merge — order is untouched,
- * and a node that appears in two separate runs yields two groups. Blocks with
- * no node id never merge into each other.
- */
+/** Groups adjacent blocks of the same type */
 export function groupAdjacentBlocks(blocks: TracedBlock[]): BlockGroup[] {
 	const groups: BlockGroup[] = [];
 	for (const block of blocks) {

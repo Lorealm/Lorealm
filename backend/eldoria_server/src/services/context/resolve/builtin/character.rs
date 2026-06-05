@@ -47,7 +47,6 @@ impl SourceResolver for CharacterResolver {
                     .iter()
                     .min_by_key(|g| g.order)
                 {
-                    // store the chosen greeting's key, not "re-run min later"
                     Some(g) => text_block(
                         PromptRole::Assistant,
                         &g.text,
@@ -90,7 +89,6 @@ fn text_block(role: PromptRole, content: &str, content_ref: ContentRef) -> Vec<R
     }
 }
 
-/// Examples sorted by `order`, capped by `max_examples`, empties dropped.
 fn resolve_examples(character: &Character, max: Option<usize>) -> Vec<ResolvedBlock> {
     let mut examples: Vec<&ExampleDialogue> =
         character.definition.example_messages.iter().collect();
