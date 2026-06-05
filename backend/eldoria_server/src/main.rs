@@ -25,7 +25,13 @@ async fn main() -> anyhow::Result<()> {
 
     tracing_subscriber::registry()
         .with(fmt::layer())
-        .with(EnvFilter::new("DEBUG").add_directive("sqlx=warn".parse().unwrap()))
+        .with(
+            EnvFilter::new("DEBUG")
+                .add_directive("sqlx=warn".parse().unwrap())
+                .add_directive("h2=warn".parse().unwrap())
+                .add_directive("hyper_util=warn".parse().unwrap())
+                .add_directive("reqwest=warn".parse().unwrap()),
+        )
         .init();
 
     let storage_config = StorageConfig::server_default();

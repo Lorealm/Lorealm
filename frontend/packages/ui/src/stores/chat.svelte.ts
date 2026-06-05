@@ -220,6 +220,12 @@ class ChatStore {
 		this.#ingestFull(full);
 	}
 
+	/** Look up any message in the loaded tree by id (read-only). Used by the
+	 *  context inspector to reconstruct `Message` content refs. */
+	messageById(id: Snowflake): ConversationMessage | undefined {
+		return this._messages.get(id);
+	}
+
 	/** Open this character's most recent conversation. Returns `true` if one
 	 *  existed (and was loaded), `false` if the character has no chats yet — the
 	 *  caller decides how to begin a fresh one. ISO timestamps sort lexically. */

@@ -8,7 +8,10 @@ use eldoria_storage::models::{ChatRole, ConversationMessage, Snowflake};
 
 use crate::{
     errors::ContextError,
-    services::{context::to_weaver_lorebook, state::StateService},
+    services::{
+        context::{ContentRef, to_weaver_lorebook},
+        state::StateService,
+    },
 };
 
 use super::super::{PromptRole, ResolveContext, ResolvedBlock, SourceResolver};
@@ -37,7 +40,6 @@ impl SourceResolver for WorldInfoResolver {
     ) -> Result<Vec<ResolvedBlock>, ContextError> {
         let slot = slot_for_node(node_id)?;
 
-        // Single pipeline run, shared across all six world_info nodes this turn.
         let blocks = self.run_pipeline(ctx.user_id, ctx.messages).await?;
 
         let separator = settings
@@ -57,7 +59,7 @@ impl SourceResolver for WorldInfoResolver {
 
         if let Some(n) = max_entries {
             if n > 0 {
-                entries.truncate(n); // 0 = unlimited, per the SettingDefinition
+                entries.truncate(n); // 0 = unlimited
             }
         }
 
@@ -66,8 +68,9 @@ impl SourceResolver for WorldInfoResolver {
         }
 
         Ok(vec![ResolvedBlock {
-            role: PromptRole::System, // lorebooks have no role concept
+            role: PromptRole::System,
             content: entries.join(separator),
+            content_ref: ContentRef::Verbatim,
         }])
     }
 }
