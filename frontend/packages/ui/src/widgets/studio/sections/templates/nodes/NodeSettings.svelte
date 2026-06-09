@@ -4,6 +4,7 @@
 	import type {
 		ContextNode,
 		GroupMode,
+		GroupWrapMode,
 		NodeContent,
 		SourceNodeDefinition
 	} from '$lib/types/node.js';
@@ -30,6 +31,7 @@
 	let description = $state('');
 	let role = $state<PromptRole>('system');
 	let mode = $state<GroupMode>('collection');
+	let wrap = $state<GroupWrapMode>('no_mixed');
 	let prefix = $state('');
 	let suffix = $state('');
 	let alwaysIncludeWrappers = $state(false);
@@ -53,6 +55,7 @@
 			if (c.type === 'text') role = c.role;
 			if (c.type === 'group') {
 				mode = c.mode;
+				wrap = c.wrap_mode ?? 'no_mixed';
 				prefix = c.prefix ?? '';
 				suffix = c.suffix ?? '';
 				alwaysIncludeWrappers = c.always_include_wrappers;
@@ -78,7 +81,8 @@
 				prefix: prefix.trim() ? prefix : null,
 				suffix: suffix.trim() ? suffix : null,
 				always_include_wrappers: alwaysIncludeWrappers,
-				mode
+				mode,
+				wrap_mode: wrap
 			};
 		}
 		return {
@@ -185,6 +189,38 @@
 				<option value="collection">Collection</option>
 				<option value="invariant">Invariant (one active child)</option>
 			</select>
+		</label>
+		<label class="field">
+			<span>Wrap Behavior</span>
+			<div class="inline-row">
+				<select
+					value={typeof wrap === 'string' ? wrap : 'only'}
+					onchange={(e) => {
+						const t = e.currentTarget.value;
+						wrap = t === 'only' ? { only: 'user' } : (t as 'no_mixed' | 'majority' | 'all');
+						scheduleSave('content', true);
+					}}
+				>
+					<option value="no_mixed">No mixed (same role only)</option>
+					<option value="majority">Majority (most common role)</option>
+					<option value="all">All (one group per role)</option>
+					<option value="only">Only (specific role)</option>
+				</select>
+
+				{#if typeof wrap === 'object'}
+					<select
+						value={wrap.only}
+						onchange={(e) => {
+							wrap = { only: e.currentTarget.value as PromptRole };
+							scheduleSave('content', true);
+						}}
+					>
+						<option value="system">System</option>
+						<option value="user">User</option>
+						<option value="assistant">Assistant</option>
+					</select>
+				{/if}
+			</div>
 		</label>
 		<label class="field">
 			<span>Prefix</span>
@@ -359,5 +395,9 @@
 		margin: 0;
 		color: var(--color-text-muted);
 		font-size: var(--font-size-sm);
+	}
+	.inline-row {
+		display: flex;
+		gap: var(--spacing-sm);
 	}
 </style>
