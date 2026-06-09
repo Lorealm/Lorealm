@@ -98,7 +98,7 @@
 		{#if editing}
 			<textarea class="editor" rows="3" bind:value={editText}></textarea>
 			<div class="edit-actions">
-				<button onclick={saveEdit}>{editMode === 'edit' ? 'Save' : 'Swipe'}</button>
+				<button disabled={busy} onclick={saveEdit}>{editMode === 'edit' ? 'Save' : 'Swipe'}</button>
 				<button onclick={() => (editing = false)}>Cancel</button>
 			</div>
 		{:else if typing}
@@ -293,6 +293,9 @@
 		}
 		.quoted {
 			color: var(--color-primary-light);
+		}
+		.quoted > em {
+			color: var(--color-primary-dark);
 		}
 		p {
 			margin: 0;

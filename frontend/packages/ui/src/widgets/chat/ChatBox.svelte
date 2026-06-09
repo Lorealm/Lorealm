@@ -5,16 +5,24 @@
 	import { tick } from 'svelte';
 
 	let scrollEl: HTMLDivElement;
+	let pinned = $state(true);
+	const THRESHOLD = 32; // px from bottom that still counts as "at bottom"
+
+	function onScroll() {
+		if (!scrollEl) return;
+		pinned = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight < THRESHOLD;
+	}
 
 	$effect(() => {
 		const path = chatStore.activePath;
 		void path.length;
 		void path.at(-1)?.content;
+		if (!pinned) return;
 		tick().then(() => scrollEl?.scrollTo({ top: scrollEl.scrollHeight }));
 	});
 </script>
 
-<div class="container" bind:this={scrollEl}>
+<div class="container" bind:this={scrollEl} onscroll={onScroll}>
 	{#if chatStore.activePath.length === 0}
 		<div class="empty">Pick a character and send a message to begin.</div>
 	{:else}

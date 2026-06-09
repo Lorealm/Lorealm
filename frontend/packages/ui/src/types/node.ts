@@ -1,4 +1,4 @@
-import type { JsonValue, PromptRole, Snowflake } from "./core.ts";
+import type { JsonValue, PromptRole, Snowflake } from './core.ts';
 
 /**
  * The mode for a certain group node. Changes the behavior when updating.
@@ -9,12 +9,14 @@ export type GroupMode =
 	/** Acts as a "toggle-group": only one item within the group may be selected. */
 	| 'invariant';
 
+export type GroupWrapMode = 'no_mixed' | 'majority' | 'all' | { only: PromptRole };
+
 export type NodeContent = NodeContentText | NodeContentSource | NodeContentGroup;
 
 /** User-editable text prompt. */
 export interface NodeContentText {
 	type: 'text';
-  content: string;
+	content: string;
 	role: PromptRole;
 }
 
@@ -36,6 +38,7 @@ export interface NodeContentGroup {
 	/** Whether prefix/suffix should be included even if all children are disabled. */
 	always_include_wrappers: boolean;
 	mode: GroupMode;
+	wrap_mode: GroupWrapMode;
 }
 
 /** A single node in the context template. */

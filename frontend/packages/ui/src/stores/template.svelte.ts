@@ -190,7 +190,6 @@ class TemplateStore {
 		}
 	}
 
-
 	/** Update name/description */
 	async updateTemplate(id: Snowflake, req: UpdateTemplateRequest) {
 		const editingThis = this._draft?.id === id;
@@ -257,6 +256,7 @@ class TemplateStore {
 		if (update.content !== undefined) node.content = update.content;
 
 		try {
+			console.log('saving: ', JSON.stringify(update));
 			const res: NodeResponse = await this.#api.templates.nodes.update(draft.id, nodeId, update);
 			// reconcile with the authoritative node (update doesn't move it)
 			const parent = childrenAt(draft.nodes, res.path.slice(0, -1));

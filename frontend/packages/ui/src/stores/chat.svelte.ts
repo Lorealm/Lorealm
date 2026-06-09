@@ -244,8 +244,8 @@ class ChatStore {
 	async commitUserSwipe(target: Snowflake, content: string) {
 		if (this.isStreaming) return;
 		await this.#runCompletion(content, target);
-  }
-	
+	}
+
 	async swipeNext(id: Snowflake) {
 		if (this._pending && id === this._pendingGreetingId) {
 			this.#showGreeting(this._pending.selected + 1);
