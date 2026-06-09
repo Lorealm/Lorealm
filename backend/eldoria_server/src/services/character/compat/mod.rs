@@ -16,7 +16,7 @@ use eldoria_storage::models::{
 };
 use serde::Deserialize;
 
-use crate::services::snowflake::SnowflakeService;
+use crate::{services::snowflake::SnowflakeService, util::BulkReplace};
 
 #[derive(Deserialize)]
 pub(super) struct CharaV2 {
@@ -73,8 +73,8 @@ pub(super) fn convert_from_ccv2(
 
     // Merge first_mes + alternate_greetings into a single ordered list.
     let mut greeting_texts = Vec::with_capacity(1 + data.alternate_greetings.len());
-    greeting_texts.push(data.first_mes);
-    greeting_texts.extend(data.alternate_greetings);
+    greeting_texts.push(convert_variables(&data.first_mes));
+    greeting_texts.extend(data.alternate_greetings.iter().map(convert_variables));
 
     let greetings = greeting_texts
         .into_iter()
@@ -82,7 +82,7 @@ pub(super) fn convert_from_ccv2(
         .map(|(i, text)| Greeting {
             id: snowflake.generate(),
             order: i as u32,
-            text,
+            text: convert_variables(&text),
         })
         .collect();
 
@@ -96,7 +96,7 @@ pub(super) fn convert_from_ccv2(
         .map(|(i, content)| ExampleDialogue {
             id: snowflake.generate(),
             order: i as u32,
-            content: content.to_string(),
+            content: convert_variables(&content.to_string()),
         })
         .collect();
 
@@ -130,13 +130,22 @@ pub(super) fn convert_from_ccv2(
         },
         definition: CharacterDefinition {
             name: data.name,
-            description: data.description,
-            personality: data.personality,
-            scenario: data.scenario,
-            system_prompt: data.system_prompt,
-            post_history_instructions: data.post_history_instructions,
+            description: convert_variables(&data.description),
+            personality: convert_variables(&data.personality),
+            scenario: convert_variables(&data.scenario),
+            system_prompt: convert_variables(&data.system_prompt),
+            post_history_instructions: convert_variables(&data.post_history_instructions),
             example_messages,
             greetings,
         },
     }
+}
+
+fn convert_variables(content: &String) -> String {
+    // TODO: consider extending with more common macros:
+    // https://docs.sillytavern.app/usage/core-concepts/macros/#common-macros-by-category
+    BulkReplace::new(content)
+        .register("{{user}}", "{{user:name}}")
+        .register("{{char}}", "{{char:name}}")
+        .execute()
 }

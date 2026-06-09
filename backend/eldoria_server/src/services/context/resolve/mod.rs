@@ -3,7 +3,7 @@ use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc};
 use async_trait::async_trait;
 use eldoria_storage::models::Snowflake;
 
-use crate::{errors::ContextError, services::context::GroupWrapMode};
+use crate::{errors::ContextError, services::context::GroupWrapMode, util::BulkReplace};
 
 use super::{
     PromptRole,
@@ -151,8 +151,10 @@ fn apply_variables(content: &mut String, ctx: &ResolveContext) {
 
     let user_name = ctx.persona.display_name.clone();
 
-    *content = content.replace("{{char:name}}", &character_name);
-    *content = content.replace("{{user:name}}", &user_name);
+    *content = BulkReplace::new(content.clone())
+        .register("{{char:name}}", character_name)
+        .register("{{user:name}}", user_name)
+        .execute();
 }
 
 fn wrapper_block(
