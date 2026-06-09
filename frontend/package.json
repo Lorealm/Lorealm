@@ -9,16 +9,18 @@
     "@tauri-apps/cli": "^2.10.1"
   },
   "dependencies": {
-    "@lucide/svelte": "^1.7.0",
-    "@types/luxon": "^3.7.1",
-    "http-status-codes": "^2.3.0",
-    "luxon": "^3.7.2",
-    "svelte-dnd-action": "^0.9.69",
-    "yaml": "^2.9.0",
     "@codemirror/commands": "^6.6.0",
     "@codemirror/language": "^6.10.2",
     "@codemirror/state": "^6.4.1",
     "@codemirror/view": "^6.28.0",
-    "@lezer/highlight": "^1.2.0"
+    "@lezer/highlight": "^1.2.0",
+    "@lucide/svelte": "^1.7.0",
+    "@types/luxon": "^3.7.1",
+    "dompurify": "^3.4.8",
+    "http-status-codes": "^2.3.0",
+    "luxon": "^3.7.2",
+    "marked": "^18.0.5",
+    "svelte-dnd-action": "^0.9.69",
+    "yaml": "^2.9.0"
   }
 }

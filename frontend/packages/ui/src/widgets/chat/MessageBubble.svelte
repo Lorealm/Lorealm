@@ -6,6 +6,8 @@
 	import { ChevronLeft, ChevronRight, Layers, Pencil, Trash2 } from '@lucide/svelte';
 	import { contextInspector } from '$lib/stores/contextInspector.svelte.js';
 	import { parseContextBlocks } from '$lib/types/context.js';
+	import { marked } from '$lib/assets/scripts/marked-rp.js';
+	import DOMPurify from 'dompurify';
 
 	let { message, last = false }: { message: ConversationMessage; last?: boolean } = $props();
 
@@ -25,6 +27,9 @@
 	let editing = $state(false);
 	let editMode = $state<'edit' | 'branch'>('edit');
 	let editText = $state('');
+
+	let rawHtml = $derived(marked.parse(message.content));
+	let safeHtml = $derived(DOMPurify.sanitize(rawHtml.toString()));
 
 	let hasContext = $derived(parseContextBlocks(message.metadata) !== null);
 
@@ -98,11 +103,12 @@
 			</div>
 		{:else if typing}
 			<div class="body">
-			    <!-- YUMMYYYYYY (this is a trick for the animated message indicator btw. `<span />` is apparently illegal) -->
+				<!-- YUMMYYYYYY (this is a trick for the animated message indicator btw. `<span />` is apparently illegal) -->
 				<span class="typing"><span></span><span></span><span></span></span>
 			</div>
 		{:else}
-			<div class="body">{message.content}</div>
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+			<div class="body md">{@html safeHtml}</div>
 		{/if}
 
 		<div class="slides">
@@ -271,5 +277,28 @@
 		40% {
 			opacity: 1;
 		}
+	}
+
+	.md :global {
+		img {
+			max-width: 100%;
+			height: auto;
+		}
+		em {
+			font-style: italic;
+			color: var(--color-text-muted);
+		}
+		em .quoted {
+			color: var(--color-primary-dark);
+		}
+		.quoted {
+			color: var(--color-primary-light);
+		}
+		p {
+			margin: 0;
+			padding: 0;
+		}
+		font-family: var(--font-family-nunito);
+		font-size: var(--font-size-md);
 	}
 </style>
