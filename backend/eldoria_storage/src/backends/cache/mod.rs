@@ -2,6 +2,7 @@ pub mod characters;
 pub mod conversation;
 pub mod lorebook;
 pub mod permissions;
+pub mod persona;
 pub mod sessions;
 pub mod state;
 pub mod templates;

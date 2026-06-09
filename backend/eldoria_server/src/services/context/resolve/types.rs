@@ -1,4 +1,4 @@
-use eldoria_storage::models::{Character, ConversationMessage, Snowflake};
+use eldoria_storage::models::{Character, ConversationMessage, Snowflake, UserPersona};
 use serde::Serialize;
 use tokio::sync::Mutex;
 
@@ -74,4 +74,5 @@ pub struct ResolveContext<'a> {
     pub messages: &'a [ConversationMessage],
     pub user_id: Snowflake,
     pub lorebook_state: Mutex<Option<CapturedState>>,
+    pub persona: &'a UserPersona
 }

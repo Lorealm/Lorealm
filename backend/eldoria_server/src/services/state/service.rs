@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use eldoria_storage::{
     Storage,
-    models::{ActivationState, Lorebook, MessageState, Snowflake, StateDelta},
+    models::{ActivationState, Lorebook, MessageState, Snowflake, StateDelta, UserPersona},
 };
 
 use crate::{
@@ -60,7 +60,8 @@ impl StateService {
         }
 
         let mut lorebooks: Vec<Lorebook> = Vec::new();
-        for lorebook_id in lorebook_ids.unwrap() { // unwrap: invariant check above
+        for lorebook_id in lorebook_ids.unwrap() {
+            // unwrap: invariant check above
             let maybe_lorebook = self.storage.get_lorebook(lorebook_id).await?;
             if let Some(lorebook) = maybe_lorebook {
                 if lorebook.owner_id != user_id {
@@ -210,6 +211,31 @@ impl StateService {
             persistent: captured.persistent,
         };
         self.storage.put_message_state(&state).await?;
+        Ok(())
+    }
+
+    pub async fn get_active_persona(&self, user_id: Snowflake) -> Result<UserPersona, StateError> {
+        let persona_id = self
+            .storage
+            .get_active_persona(user_id)
+            .await?
+            .ok_or(StateError::NoActivePersona)?;
+
+        let persona = self
+            .storage
+            .get_persona(persona_id)
+            .await?
+            .ok_or(StateError::NotFound(TargetType::Persona, persona_id))?;
+
+        Ok(persona)
+    }
+
+    pub async fn set_active_persona(
+        &self,
+        user_id: Snowflake,
+        persona_id: Snowflake,
+    ) -> Result<(), StateError> {
+        self.storage.set_active_persona(user_id, persona_id).await?;
         Ok(())
     }
 }

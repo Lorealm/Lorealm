@@ -99,7 +99,6 @@ impl UserService {
         let create_user = CreateUser {
             id: self.snowflake.generate(),
             username: username.clone(),
-            display_name: username,
             email: email,
             password_hash: pw_hash,
         };

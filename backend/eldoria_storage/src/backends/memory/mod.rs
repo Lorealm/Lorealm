@@ -2,6 +2,7 @@ pub mod characters;
 pub mod conversations;
 pub mod lorebook;
 pub mod permissions;
+pub mod persona;
 pub mod sessions;
 pub mod state;
 pub mod templates;
@@ -30,8 +31,10 @@ pub struct MemoryStorage {
     pub(crate) enabled_lorebooks: RwLock<HashMap<Snowflake, Vec<Snowflake>>>,
     pub(crate) conversations: RwLock<HashMap<Snowflake, Conversation>>,
     pub(crate) messages: RwLock<HashMap<Snowflake, ConversationMessage>>,
-    pub(crate) user_state: RwLock<HashMap<Snowflake, Option<Snowflake>>>, // only one item in state for now
+    pub(crate) user_state: RwLock<HashMap<Snowflake, UserSettings>>,
     pub(crate) message_states: RwLock<HashMap<Snowflake, MessageState>>,
+    pub(crate) personas: RwLock<HashMap<Snowflake, UserPersona>>,
+    pub(crate) persona_overrides: RwLock<HashMap<Snowflake, PersonaOverride>>,
 }
 
 impl MemoryStorage {

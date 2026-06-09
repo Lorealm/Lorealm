@@ -5,6 +5,7 @@ mod context;
 mod conversation;
 mod lorebook;
 mod permission;
+mod persona;
 mod state;
 
 pub use auth::*;
@@ -14,14 +15,12 @@ pub use context::*;
 pub use conversation::*;
 pub use lorebook::*;
 pub use permission::*;
+pub use persona::*;
 pub use state::*;
 
 use axum::{Json, http::StatusCode, response::IntoResponse};
 use serde_json::json;
-use std::{
-    borrow::Cow,
-    fmt::Display,
-};
+use std::{borrow::Cow, fmt::Display};
 
 use crate::services::character::CharacterServiceError;
 
@@ -34,6 +33,7 @@ pub enum TargetType {
     Message,
     ExampleMessage,
     ContextTemplate,
+    Persona,
 }
 
 impl Display for TargetType {
@@ -46,6 +46,7 @@ impl Display for TargetType {
             TargetType::Message => write!(f, "message"),
             TargetType::ExampleMessage => write!(f, "example_message"),
             TargetType::ContextTemplate => write!(f, "context_template"),
+            TargetType::Persona => write!(f, "persona"),
         }
     }
 }
@@ -242,10 +243,20 @@ impl From<ChatError> for AppError {
 impl From<StateError> for AppError {
     fn from(err: StateError) -> Self {
         match err {
-            StateError::NoActiveTemplate | StateError::NotFound(_, _ ) => AppError::BadRequest {
+            StateError::NoActiveTemplate | StateError::NotFound(_, _) => AppError::BadRequest {
                 code: "NOT_FOUND",
                 message: Cow::Owned(err.client_message()),
             },
+            _ => AppError::Internal {
+                internal: Cow::Owned(err.client_message()),
+            },
+        }
+    }
+}
+
+impl From<PersonaError> for AppError {
+    fn from(err: PersonaError) -> Self {
+        match err {
             _ => AppError::Internal {
                 internal: Cow::Owned(err.client_message()),
             },

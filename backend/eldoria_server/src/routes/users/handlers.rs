@@ -6,7 +6,7 @@ use axum::{
     http::StatusCode,
 };
 use chrono::Utc;
-use eldoria_storage::models::Snowflake;
+use eldoria_storage::models::{Snowflake, User};
 use tower_cookies::{
     Cookie, Cookies,
     cookie::{SameSite, time},
@@ -20,6 +20,37 @@ use crate::{
 };
 
 const REGISTER_DISABLED_REASON: &str = "Registrations are disabled on this server.";
+
+pub async fn scaffold_user(state: &Arc<AppState>, user: &User) -> Result<(), AppError> {
+    // Create the default persona
+    let persona_id = state
+        .services()
+        .persona()
+        .create_default(user.id, user.username.clone())
+        .await?;
+
+    state
+        .services()
+        .state()
+        .set_active_persona(user.id, persona_id)
+        .await?;
+
+    // Create the default context template
+    let template_id = state
+        .services()
+        .context()
+        .create_template(user.id, None, None, true)
+        .await?
+        .id;
+
+    state
+        .services()
+        .state()
+        .set_active_template(user.id, Some(template_id))
+        .await?;
+
+    Ok(())
+}
 
 pub async fn register(
     State(state): State<Arc<AppState>>,
@@ -39,12 +70,7 @@ pub async fn register(
         .register(payload.username, payload.email, payload.password)
         .await?;
 
-    // Create the default context template
-    state
-        .services()
-        .context()
-        .create_template(user.id, None, None, true)
-        .await?;
+    scaffold_user(&state, &user).await?;
 
     Ok(StatusCode::OK)
 }

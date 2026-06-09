@@ -8,7 +8,7 @@ use crate::{
     services::{
         character::CharacterService, chat::ChatService, context::ContextService,
         conversation::ConversationService, lorebook::LorebookService,
-        permission::service::PermissionService, session::SessionService,
+        permission::service::PermissionService, persona::PersonaService, session::SessionService,
         snowflake::SnowflakeService, state::StateService, users::UserService,
     },
 };
@@ -25,6 +25,7 @@ pub struct ServiceManager {
     state: Arc<StateService>,
     conversation: Arc<ConversationService>,
     chat: Arc<ChatService>,
+    persona: Arc<PersonaService>,
 }
 
 impl ServiceManager {
@@ -69,6 +70,11 @@ impl ServiceManager {
             Arc::clone(&snowflake),
         ));
 
+        let persona = Arc::new(PersonaService::new(
+            Arc::clone(&storage),
+            Arc::clone(&snowflake),
+        ));
+
         let state = Arc::new(StateService::new(Arc::clone(&storage)));
 
         let conversation = Arc::new(ConversationService::new(
@@ -100,6 +106,7 @@ impl ServiceManager {
             state,
             conversation,
             chat,
+            persona,
         }
     }
 
@@ -133,6 +140,10 @@ impl ServiceManager {
 
     pub fn state(&self) -> &Arc<StateService> {
         &self.state
+    }
+
+    pub fn persona(&self) -> &Arc<PersonaService> {
+        &self.persona
     }
 }
 

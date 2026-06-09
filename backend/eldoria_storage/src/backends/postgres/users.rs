@@ -9,13 +9,12 @@ use super::PostgresStorage;
 impl UserStorage for PostgresStorage {
     async fn create_user(&self, input: &CreateUser) -> Result<User, StorageError> {
         let user = sqlx::query_as::<_, User>(
-            "INSERT INTO users (id, username, display_name, email, password_hash)
-             VALUES ($1, $2, $3, $4, $5)
+            "INSERT INTO users (id, username, email, password_hash)
+             VALUES ($1, $2, $3, $4)
              RETURNING *",
         )
         .bind(input.id)
         .bind(&input.username)
-        .bind(&input.display_name)
         .bind(&input.email)
         .bind(&input.password_hash)
         .fetch_one(&self.pool)
@@ -59,17 +58,11 @@ impl UserStorage for PostgresStorage {
 
         let user = sqlx::query_as::<_, User>(
             "UPDATE users
-                         SET display_name = $2, email = $3, password_hash = $4, updated_at = now()
+                         email = $2, password_hash = $3, updated_at = now()
                          WHERE id = $1
                          RETURNING *",
         )
         .bind(id)
-        .bind(
-            input
-                .display_name
-                .as_deref()
-                .unwrap_or(&current.display_name),
-        )
         .bind(input.email.as_deref().or(current.email.as_deref()))
         .bind(
             input
