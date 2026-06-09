@@ -64,7 +64,7 @@ impl ConversationStorage for CachedStorage {
         conversation_id: Snowflake,
         leaf: Option<Snowflake>,
     ) -> Result<(), StorageError> {
-        self.set_active_leaf(conversation_id, leaf).await
+        self.backend.set_active_leaf(conversation_id, leaf).await
     }
 
     async fn append_and_advance(
