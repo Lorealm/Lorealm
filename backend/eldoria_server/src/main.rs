@@ -18,6 +18,7 @@ mod extract;
 mod middleware;
 mod routes;
 mod services;
+mod util;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
