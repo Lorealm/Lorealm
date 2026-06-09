@@ -2,7 +2,11 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 
-use crate::{StorageError, WeaverStateStorage, backends::MemoryStorage, models::{MessageState, Snowflake}};
+use crate::{
+    StorageError, WeaverStateStorage,
+    backends::MemoryStorage,
+    models::{MessageState, Snowflake},
+};
 
 #[async_trait]
 impl WeaverStateStorage for MemoryStorage {

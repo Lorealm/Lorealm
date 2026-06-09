@@ -3,10 +3,7 @@ use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc};
 use async_trait::async_trait;
 use eldoria_storage::models::Snowflake;
 
-use crate::{
-    errors::ContextError,
-    services::context::GroupWrapMode,
-};
+use crate::{errors::ContextError, services::context::GroupWrapMode};
 
 use super::{
     PromptRole,
@@ -135,8 +132,27 @@ fn resolve_nodes<'a>(
                 }
             }
         }
+
+        for block in out.iter_mut() {
+            apply_variables(&mut block.block.content, ctx);
+        }
+
         Ok(out)
     })
+}
+
+fn apply_variables(content: &mut String, ctx: &ResolveContext) {
+    let character_name = ctx
+        .character
+        .metadata
+        .display_name
+        .clone()
+        .unwrap_or(ctx.character.definition.name.clone());
+
+    let user_name = ctx.persona.display_name.clone();
+
+    *content = content.replace("{{char:name}}", &character_name);
+    *content = content.replace("{{user:name}}", &user_name);
 }
 
 fn wrapper_block(

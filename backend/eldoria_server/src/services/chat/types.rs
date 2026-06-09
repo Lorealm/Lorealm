@@ -1,12 +1,29 @@
-use eldoria_storage::models::{Conversation, ConversationMessage};
+use eldoria_storage::models::{Conversation, ConversationMessage, Snowflake};
 use serde::Serialize;
 
-use crate::services::context::PromptRole;
+use crate::services::{context::{PromptRole, TracedBlock}, state::CapturedState};
 
 #[derive(Debug, Clone)]
 pub struct PromptMessage {
     pub role: PromptRole,
     pub content: String,
+}
+
+pub(super) enum Persist {
+    Child(Snowflake),
+    Sibling(Snowflake),
+}
+
+pub(super) struct TurnPlan {
+    pub assembly_leaf: Option<Snowflake>,
+    pub created_user: Option<ConversationMessage>,
+    pub persist: Persist,
+}
+
+pub(super) struct Prepared {
+    pub prompt: Vec<PromptMessage>,
+    pub trace: Vec<TracedBlock>,
+    pub captured: Option<CapturedState>,
 }
 
 #[derive(Serialize)]

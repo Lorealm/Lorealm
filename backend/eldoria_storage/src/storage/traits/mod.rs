@@ -4,6 +4,7 @@ mod conversations;
 mod core;
 mod lorebook;
 mod permissions;
+mod persona;
 mod sessions;
 mod state;
 mod templates;
@@ -15,6 +16,7 @@ pub use conversations::ConversationStorage;
 pub use core::StorageCore;
 pub use lorebook::LorebookStorage;
 pub use permissions::PermissionStorage;
+pub use persona::PersonaStorage;
 pub use sessions::SessionStorage;
 pub use state::WeaverStateStorage;
 pub use templates::TemplateStorage;
@@ -30,6 +32,7 @@ pub trait Storage:
     + LorebookStorage
     + ConversationStorage
     + WeaverStateStorage
+    + PersonaStorage
 {
 }
 
@@ -43,5 +46,6 @@ impl<T> Storage for T where
         + LorebookStorage
         + ConversationStorage
         + WeaverStateStorage
+        + PersonaStorage
 {
 }

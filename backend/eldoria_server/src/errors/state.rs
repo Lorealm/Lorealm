@@ -13,6 +13,8 @@ pub enum StateError {
     NotFound(TargetType, Snowflake),
     #[error("template conversion: {0}")]
     TemplateConversion(String),
+    #[error("no active persona")]
+    NoActivePersona,
 }
 
 impl StateError {
@@ -24,6 +26,7 @@ impl StateError {
                 format!("{target_type} not found: {snowflake}")
             }
             StateError::TemplateConversion(msg) => msg.to_string(),
+            StateError::NoActivePersona => "no active persona".to_string(),
         }
     }
 }

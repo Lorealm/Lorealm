@@ -36,6 +36,12 @@ pub struct StateDelta {
     pub deletes: HashMap<String, Vec<String>>,
 }
 
+#[derive(Debug)]
+pub struct UserSettings {
+    pub active_template_id: Option<Snowflake>,
+    pub active_persona_id: Option<Snowflake>
+}
+
 // Postgres-only
 #[derive(sqlx::FromRow)]
 pub(crate) struct MessageStateRow {

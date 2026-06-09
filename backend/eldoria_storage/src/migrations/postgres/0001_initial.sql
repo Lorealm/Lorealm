@@ -2,7 +2,6 @@
 CREATE TABLE IF NOT EXISTS users (
     id         BIGINT PRIMARY KEY,
     username   TEXT NOT NULL UNIQUE,
-    display_name TEXT NOT NULL,
     email      TEXT UNIQUE,
     password_hash TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

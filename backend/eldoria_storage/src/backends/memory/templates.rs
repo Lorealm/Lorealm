@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use crate::{
     StorageError, TemplateStorage,
     backends::MemoryStorage,
-    models::{Snowflake, Template, TemplateMetadata},
+    models::{Snowflake, Template, TemplateMetadata, UserSettings},
 };
 
 fn template_to_metadata(t: &Template) -> TemplateMetadata {
@@ -99,6 +99,7 @@ impl TemplateStorage for MemoryStorage {
             .ok_or(StorageError::NotFound(format!(
                 "no state for user: {user_id}"
             )))?
+            .active_template_id
             .to_owned();
 
         Ok(template)
@@ -109,7 +110,15 @@ impl TemplateStorage for MemoryStorage {
         user_id: Snowflake,
         template_id: Option<Snowflake>,
     ) -> Result<(), StorageError> {
-        self.user_state.write().await.insert(user_id, template_id);
+        self.user_state
+            .write()
+            .await
+            .entry(user_id)
+            .and_modify(|e| e.active_template_id = template_id)
+            .or_insert(UserSettings {
+                active_template_id: template_id,
+                active_persona_id: None,
+            });
 
         Ok(())
     }

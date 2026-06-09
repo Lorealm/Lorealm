@@ -30,7 +30,6 @@ impl UserStorage for MemoryStorage {
         let user = User {
             id: input.id,
             username: input.username.clone(),
-            display_name: input.display_name.clone(),
             email: input.email.clone(),
             password_hash: input.password_hash.clone(),
             created_at: now,
@@ -72,9 +71,6 @@ impl UserStorage for MemoryStorage {
             .get_mut(&id)
             .ok_or_else(|| StorageError::NotFound(format!("User {id} not found")))?;
 
-        if let Some(ref name) = input.display_name {
-            user.display_name = name.clone();
-        }
         if let Some(ref email) = input.email {
             user.email = Some(email.clone());
         }

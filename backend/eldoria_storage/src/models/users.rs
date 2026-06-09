@@ -7,7 +7,6 @@ use crate::prelude::Snowflake;
 pub struct User {
     pub id: Snowflake,
     pub username: String,
-    pub display_name: String,
     pub email: Option<String>,
     pub password_hash: String,
     pub created_at: DateTime<Utc>,
@@ -18,14 +17,12 @@ pub struct User {
 pub struct CreateUser {
     pub id: Snowflake,
     pub username: String,
-    pub display_name: String,
     pub email: Option<String>,
     pub password_hash: String,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct UpdateUser {
-    pub display_name: Option<String>,
     pub email: Option<String>,
     pub password_hash: Option<String>,
 }

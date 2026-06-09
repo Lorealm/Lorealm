@@ -14,21 +14,17 @@ use crate::{
     errors::{ChatError, TargetType},
     services::{
         character::CharacterService,
-        chat::{ChatStreamEvent, FullConversation},
+        chat::{ChatStreamEvent, FullConversation, Persist, Prepared, PromptMessage, TurnPlan},
         context::{
             PromptRole, ResolveContext, ResolverRegistry, TracedBlock, assemble,
             builtin::register_builtin_resolvers,
         },
         conversation::{ConversationService, EditMode},
+        schedule::{Schedule, StageCx, stages::PrivacyStage},
         snowflake::SnowflakeService,
-        state::{CapturedState, StateService},
+        state::StateService,
     },
 };
-
-enum Persist {
-    Child(Snowflake),
-    Sibling(Snowflake),
-}
 
 pub struct ChatService {
     storage: Arc<dyn Storage>,
@@ -37,6 +33,7 @@ pub struct ChatService {
     characters: Arc<CharacterService>,
     state: Arc<StateService>,
     resolvers: Arc<ResolverRegistry>,
+    schedule: Arc<Schedule>,
 }
 
 impl ChatService {
@@ -57,6 +54,9 @@ impl ChatService {
             characters,
             state,
             resolvers: Arc::new(registry),
+            schedule: Arc::new(Schedule::new(vec![
+                Box::new(PrivacyStage)
+            ])),
         }
     }
 
@@ -84,10 +84,14 @@ impl ChatService {
         &self,
         conversation_id: Snowflake,
         message_id: Snowflake,
-        user_id: Snowflake
+        user_id: Snowflake,
     ) -> Result<ConversationMessage, ChatError> {
         let _convo = self.get_conversation(conversation_id, user_id).await?;
-        let message = self.storage.get_message(message_id).await?.ok_or(ChatError::NotFound(TargetType::Message, message_id))?;
+        let message = self
+            .storage
+            .get_message(message_id)
+            .await?
+            .ok_or(ChatError::NotFound(TargetType::Message, message_id))?;
         if message.conversation_id != conversation_id {
             return Err(ChatError::NotFound(TargetType::Message, message_id));
         }
@@ -98,10 +102,13 @@ impl ChatService {
         &self,
         conversation_id: Snowflake,
         message_id: Snowflake,
-        user_id: Snowflake
+        user_id: Snowflake,
     ) -> Result<Vec<ConversationMessage>, ChatError> {
         let _convo = self.get_conversation(conversation_id, user_id).await?;
-        let messages = self.storage.get_path_to(conversation_id, message_id).await?;
+        let messages = self
+            .storage
+            .get_path_to(conversation_id, message_id)
+            .await?;
 
         Ok(messages)
     }
@@ -309,6 +316,105 @@ impl ChatService {
         Ok(msg)
     }
 
+    async fn resolve_turn(
+        &self,
+        convo: &Conversation,
+        content: Option<String>,
+        target: Option<Snowflake>,
+    ) -> Result<TurnPlan, ChatError> {
+        Ok(match (content, target) {
+            (Some(text), None) => {
+                let user = self
+                    .conversations
+                    .append_message(convo.id, ChatRole::User, text, json!({}))
+                    .await?;
+                TurnPlan {
+                    assembly_leaf: Some(user.id),
+                    persist: Persist::Child(user.id),
+                    created_user: Some(user),
+                }
+            }
+            (Some(text), Some(t)) => {
+                self.owned_message(t, convo.id).await?;
+                let user = self
+                    .conversations
+                    .create_alternate(convo.id, t, ChatRole::User, text, json!({}))
+                    .await?;
+                TurnPlan {
+                    assembly_leaf: Some(user.id),
+                    persist: Persist::Child(user.id),
+                    created_user: Some(user),
+                }
+            }
+            (None, Some(t)) => {
+                let msg = self.owned_message(t, convo.id).await?;
+                TurnPlan {
+                    assembly_leaf: msg.parent,
+                    persist: Persist::Sibling(t),
+                    created_user: None,
+                }
+            }
+            (None, None) => {
+                let leaf = convo
+                    .active_leaf_id
+                    .ok_or(ChatError::NotFound(TargetType::Message, convo.id))?;
+                TurnPlan {
+                    assembly_leaf: Some(leaf),
+                    persist: Persist::Child(leaf),
+                    created_user: None,
+                }
+            }
+        })
+    }
+
+    async fn prepare_prompt(
+        &self,
+        convo: &Conversation,
+        user_id: Snowflake,
+        assembly_leaf: Option<Snowflake>,
+    ) -> Result<Prepared, ChatError> {
+        let thread = self.build_prompt(convo.id, assembly_leaf).await?;
+        let character = self
+            .characters
+            .load_version(convo.character_id, convo.char_version_id, user_id)
+            .await?;
+        let persona = self.state.get_active_persona(user_id).await?;
+        let template = self.state.get_active_template(user_id).await?;
+
+        let captured;
+        let trace = {
+            let ctx = ResolveContext {
+                character: &character,
+                messages: &thread,
+                user_id,
+                lorebook_state: Mutex::new(None),
+                persona: &persona
+            };
+            let trace = assemble(&template, &self.resolvers, &ctx).await?;
+            captured = ctx.lorebook_state.lock().await.take();
+            trace
+        };
+
+        let prompt = trace
+            .iter()
+            .map(|t| PromptMessage {
+                role: t.block.role.clone(),
+                content: t.block.content.clone(),
+            })
+            .collect();
+
+        Ok(Prepared {
+            prompt,
+            trace,
+            captured,
+        })
+    }
+
+    async fn stage_cx(&self, user_id: Snowflake, _convo: &Conversation) -> Result<StageCx, ChatError> {
+        // TODO: read display name + alias from user settings once that model lands.
+        Ok(StageCx { user_display: "Crux".into(), user_alias: None })
+    }
+
     pub async fn generate(
         &self,
         convo_id: Snowflake,
@@ -319,87 +425,26 @@ impl ChatService {
     {
         let convo = self.get_conversation(convo_id, user_id).await?;
 
-        let assembly_leaf: Option<Snowflake>;
-        let created_user: Option<ConversationMessage>;
-        let persist: Persist;
+        let TurnPlan {
+            assembly_leaf,
+            created_user,
+            persist,
+        } = self.resolve_turn(&convo, content, target).await?;
 
-        match (content, target) {
-            // Normal turn.
-            (Some(text), None) => {
-                let user = self
-                    .conversations
-                    .append_message(convo_id, ChatRole::User, text, json!({}))
-                    .await?;
-                assembly_leaf = Some(user.id);
-                persist = Persist::Child(user.id);
-                created_user = Some(user);
-            }
-            // User-message swipe commit: user sibling of `target`, then reply.
-            (Some(text), Some(t)) => {
-                self.owned_message(t, convo_id).await?;
-                let user = self
-                    .conversations
-                    .create_alternate(convo_id, t, ChatRole::User, text, json!({}))
-                    .await?;
-                assembly_leaf = Some(user.id);
-                persist = Persist::Child(user.id);
-                created_user = Some(user);
-            }
-            // Assistant-message swipe.
-            (None, Some(t)) => {
-                let msg = self.owned_message(t, convo_id).await?;
-                assembly_leaf = msg.parent;
-                persist = Persist::Sibling(t);
-                created_user = None;
-            }
-            // Continue / regenerate from the leaf.
-            (None, None) => {
-                let leaf = convo
-                    .active_leaf_id
-                    // TODO: a ChatError::EmptyConversation variant reads better.
-                    .ok_or(ChatError::NotFound(TargetType::Message, convo_id))?;
-                assembly_leaf = Some(leaf);
-                persist = Persist::Child(leaf);
-                created_user = None;
-            }
-        }
+        let Prepared {
+            mut prompt,
+            trace,
+            captured,
+        } = self.prepare_prompt(&convo, user_id, assembly_leaf).await?;
 
-        let thread = self.build_prompt(convo_id, assembly_leaf).await?;
+        // Outbound transform pass; hands back the inbound chain (reverse order).
+        let cx = self.stage_cx(user_id, &convo).await?;
+        let mut chain = self.schedule.outbound(&mut prompt, &cx);
 
-        let character = self
-            .characters
-            .load_version(convo.character_id, convo.char_version_id, user_id)
-            .await?;
-        let template = self.state.get_active_template(user_id).await?;
+        let token_stream = self.infer(prompt).await?;
 
-        let captured: Option<CapturedState>;
-        let state_service = self.state.clone();
-        let trace: Vec<TracedBlock> = {
-            let ctx = ResolveContext {
-                character: &character,
-                messages: &thread,
-                user_id,
-                lorebook_state: Mutex::new(None),
-            };
-            let trace = assemble(&template, &self.resolvers, &ctx).await?;
-
-            captured = ctx.lorebook_state.lock().await.take();
-            trace
-        };
-
-        let mut ephemeral_prompt: Vec<super::PromptMessage> = Vec::with_capacity(trace.len());
-
-        for traced in &trace {
-            ephemeral_prompt.push(super::PromptMessage {
-                role: traced.block.role.clone(),
-                content: traced.block.content.clone(),
-            });
-        }
-
-        let token_stream = self.infer(ephemeral_prompt).await?;
-
-        // Forward deltas, accumulate, persist on completion.
         let conversations = self.conversations.clone();
+        let state_service = self.state.clone();
         let stream = async_stream::try_stream! {
             let mut acc = String::new();
             futures_util::pin_mut!(token_stream);
@@ -409,9 +454,16 @@ impl ChatService {
             }
 
             while let Some(delta) = token_stream.next().await {
-                let delta = delta?;
-                acc.push_str(&delta);
-                yield ChatStreamEvent::Delta { content: delta };
+                let emitted = chain.push(&delta?);
+                if !emitted.is_empty() {
+                    acc.push_str(&emitted);
+                    yield ChatStreamEvent::Delta { content: emitted };
+                }
+            }
+            let tail = chain.finish();
+            if !tail.is_empty() {
+                acc.push_str(&tail);
+                yield ChatStreamEvent::Delta { content: tail };
             }
 
             let stored: Vec<TracedBlock> = trace
@@ -423,9 +475,7 @@ impl ChatService {
                     t
                 })
                 .collect();
-            let meta = json!({
-                "context": stored,
-            });
+            let meta = json!({ "context": stored });
 
             let message = match persist {
                 Persist::Child(parent) =>
