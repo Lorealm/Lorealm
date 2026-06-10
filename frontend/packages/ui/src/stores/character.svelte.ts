@@ -181,9 +181,9 @@ class CharacterStore {
 		if (this.#baseline) this.#baseline.metadata.avatar_uri = avatar_uri;
 	}
 
-	async import(card: Blob) {
+	async import(card: Blob, reloadList: boolean = false) {
 		await this.#api.characters.import(card);
-		await this.loadList();
+		if (reloadList) await this.loadList();
 	}
 
 	addGreeting() {

@@ -61,16 +61,20 @@
 
 	async function onPick(e: Event) {
 		const input = e.currentTarget as HTMLInputElement;
-		const file = input.files?.[0];
-		if (!file) return;
+		const files = input.files;
+		if (!files) return;
+		for (var file of files) {
+			if (!file) return;
 
-		busy = true;
-		try {
-			await characterStore.import(file);
-		} finally {
-			busy = false;
-			input.value = '';
+			busy = true;
+			try {
+				await characterStore.import(file);
+			} finally {
+				busy = false;
+			}
 		}
+		input.value = '';
+		await characterStore.loadList();
 	}
 </script>
 
