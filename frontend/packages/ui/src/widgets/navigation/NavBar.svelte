@@ -61,9 +61,11 @@
 		height: var(--height-header);
 		margin-bottom: 0.5em;
 		border-bottom: 1px solid var(--color-border-subtle);
+		background: var(--gradient-bg);
 	}
 	.collapse-button {
 		flex-shrink: 1;
+		background-color: transparent;
 	}
 	.branding {
 		display: flex;
