@@ -35,7 +35,7 @@
 	<TransportImage src={imageEndpoint} alt={summary.name} />
 
 	<div class="overlay">
-		<h3 class="name">{summary.display_name ?? summary.name}</h3>
+		<h6 class="name">{summary.display_name ?? summary.name}</h6>
 
 		<div class="actions">
 			<button class="btn btn-chat" type="button" onclick={startChat}>
@@ -113,7 +113,7 @@
 		margin: 0;
 		font-family: var(--font-family-heading);
 		font-weight: var(--font-weight-heading-quicksand);
-		font-size: var(--font-size-h4);
+		font-size: var(--font-size-h6);
 		line-height: var(--line-height-tight);
 	}
 
