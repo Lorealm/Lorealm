@@ -1,5 +1,5 @@
 {
-  "name": "eldoria-hub",
+  "name": "lorealm",
   "private": true,
   "workspaces": [
     "packages/*",

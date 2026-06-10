@@ -1,5 +1,5 @@
 import { mount } from 'svelte';
-import { App } from "@eldoria-hub/ui";
+import { App } from "@lorealm/ui";
 import { tauriPlatform } from './platform.js';
 
 console.log("Setting up app...");

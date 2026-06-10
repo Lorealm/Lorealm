@@ -1,5 +1,5 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
-import type { AuthApi, HttpTransport, PlatformAPI, Session, User } from "@eldoria-hub/ui";
+import type { AuthApi, HttpTransport, PlatformAPI, Session, User } from "@lorealm/ui";
 import { SvelteSet } from "svelte/reactivity";
 
 const tauriAuth: AuthApi = {

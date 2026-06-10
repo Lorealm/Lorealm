@@ -13,7 +13,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@eldoria-hub/ui": "workspace:*",
+    "@lorealm/ui": "workspace:*",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2"
   },
