@@ -11,10 +11,13 @@
 	let imageEndpoint = $derived(`/api/v1/characters/${summary.id}/image`);
 
 	async function startChat() {
-		characterStore.setActive(summary.id);
 		navigationStore.setSidebarView(SidebarView.Write);
 
-		const opened = await chatStore.openLatestForCharacter(summary.id);
+		const [, opened] = await Promise.all([
+			characterStore.setActive(summary.id),
+			chatStore.openLatestForCharacter(summary.id)
+		]);
+
 		if (!opened) {
 			const character = characterStore.activeCharacter;
 			if (character) {

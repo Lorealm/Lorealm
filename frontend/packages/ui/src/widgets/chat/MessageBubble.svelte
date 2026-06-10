@@ -319,6 +319,15 @@
 			margin: 0;
 			line-height: 1em;
 		}
+		code {
+			display: flex;
+			background-color: var(--color-bg-base);
+			padding: var(--spacing-md);
+			width: 100%;
+			border-radius: var(--radius-md);
+			font-family: var(--font-family-mono);
+			font-size: var(--font-size-base);
+		}
 		font-family: var(--font-family-nunito);
 		font-size: var(--font-size-md);
 	}

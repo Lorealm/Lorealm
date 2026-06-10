@@ -1,12 +1,16 @@
 <script>
+	import CharacterImageWidget from './widgets/CharacterImageWidget.svelte';
 	import ContextWidget from './widgets/ContextWidget.svelte';
 	import StateWidget from './widgets/StateWidget.svelte';
 </script>
 
 <div class="container">
 	<div class="topBar"></div>
-	<ContextWidget />
-	<StateWidget />
+	<div class="content">
+		<CharacterImageWidget />
+		<ContextWidget />
+		<StateWidget />
+	</div>
 </div>
 
 <style>
@@ -20,9 +24,15 @@
 	}
 	.topBar {
 		display: flex;
+		flex-shrink: 0;
 		width: 100%;
 		height: var(--height-header);
 		background-color: var(--color-bg-elevated);
 		border-bottom: 1px solid var(--color-border-subtle);
+	}
+	.content {
+		display: flex;
+		flex-direction: column;
+		overflow-y: auto;
 	}
 </style>

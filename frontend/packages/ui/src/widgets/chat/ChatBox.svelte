@@ -6,7 +6,7 @@
 
 	let scrollEl: HTMLDivElement;
 	let pinned = $state(true);
-	const THRESHOLD = 32; // px from bottom that still counts as "at bottom"
+	const THRESHOLD = 10; // px from bottom that still counts as "at bottom"
 
 	function onScroll() {
 		if (!scrollEl) return;
