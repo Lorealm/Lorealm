@@ -150,6 +150,8 @@
 		display: flex;
 		padding: var(--spacing-lg);
 		overflow-y: auto;
+		flex-direction: column;
+		gap: var(--spacing-sm);
 	}
 
 	.empty {
