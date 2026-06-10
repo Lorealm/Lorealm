@@ -1,13 +1,17 @@
 <script lang="ts">
+	import PopupMenu from '$lib/components/PopupMenu.svelte';
+	import { characterStore } from '$lib/stores/character.svelte.js';
 	import { chatStore } from '$lib/stores/chat.svelte.js';
 	import { messageStateStore } from '$lib/stores/messageState.svelte.js';
-	import { Paperclip, Send } from '@lucide/svelte';
+	import { FilePlus, ListStart, Paperclip, Send, Sparkles } from '@lucide/svelte';
 
 	chatStore.ensureApi();
 	messageStateStore.ensureApi();
 
 	let inputText = $state('');
 	let textareaEl: HTMLTextAreaElement;
+
+	let activeCharacter = $derived(chatStore.characterId);
 
 	function resize() {
 		textareaEl.style.height = 'auto';
@@ -32,11 +36,38 @@
 			send();
 		}
 	}
+
+	async function startNewChat() {
+		if (activeCharacter) {
+			const character = characterStore.activeCharacter;
+			if (character) {
+				chatStore.beginNewConversation({
+					characterId: character.id,
+					versionId: character.current_version_id,
+					greetings: character.definition.greetings
+				});
+			}
+		}
+	}
 </script>
 
 <div class="container">
 	<div class="control-container">
-		<button class="attachement-button"><Paperclip /></button>
+		<PopupMenu
+			title="Functions"
+			items={[
+				{ label: 'Run function', icon: ListStart, onSelect: () => console.log('function') },
+				{
+					label: 'Start new chat',
+					icon: FilePlus,
+					onSelect: async () => await startNewChat(),
+					disabled: activeCharacter === null
+				}
+			]}
+		>
+			{#snippet icon()}<Sparkles />{/snippet}
+		</PopupMenu>
+		<button class="attachement-button" title="Attachments"><Paperclip /></button>
 		<textarea
 			class="text-input"
 			placeholder="Send a message..."
@@ -46,7 +77,7 @@
 			onkeydown={handleMessageSend}
 			oninput={resize}
 		></textarea>
-		<button class="emoji-button" disabled={chatStore.isStreaming} onclick={send}><Send /></button>
+		<button class="send-button" disabled={chatStore.isStreaming} onclick={send}><Send /></button>
 	</div>
 </div>
 
@@ -69,7 +100,7 @@
 		border: 1px solid var(--color-border-subtle);
 	}
 	.attachement-button,
-	.emoji-button {
+	.send-button {
 		justify-content: center;
 		align-items: center;
 	}

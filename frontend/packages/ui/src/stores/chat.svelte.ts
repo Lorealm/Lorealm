@@ -161,6 +161,9 @@ class ChatStore {
 		if (chats.length === 0) return false;
 		const latest = chats.reduce((a, b) => (a.updated_at >= b.updated_at ? a : b));
 		await this.loadConversation(latest.id);
+
+		const leafId = this._activeLeafId;
+		if (leafId) messageStateStore.inspect(leafId, latest.id);
 		return true;
 	}
 

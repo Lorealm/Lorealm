@@ -183,6 +183,8 @@
 	--height-header: 56px;
 	--height-input: 36px;
 	--height-input-lg: 44px;
+	--inspector-widget-normal: 280px;
+	--inspector-widget-large: 340px;
 
 	/* TRANSITIONS */
 	--transition-fast: 0.2s;
