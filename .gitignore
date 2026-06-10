@@ -20,7 +20,7 @@
 !/data/users/.gitkeep
 ## Make sure data folders created from default config values don't get tracked
 /backend/data
-/backend/eldoria_server/data
+/backend/server/data
 
 # IDE
 .idea/
