@@ -3,7 +3,7 @@
 	import { characterStore } from '$lib/stores/character.svelte.js';
 	import { chatStore } from '$lib/stores/chat.svelte.js';
 	import { navigationStore, SidebarView } from '$lib/stores/navigation.svelte.js';
-	import { studioStore } from '$lib/stores/studio.svelte.js';
+	import { StudioSection, studioStore } from '$lib/stores/studio.svelte.js';
 	import type { CharacterSummary } from '$lib/types/character.js';
 	import { MessageCircle, Pencil } from '@lucide/svelte';
 
@@ -44,6 +44,7 @@
 				type="button"
 				aria-label="Edit"
 				onclick={() => {
+					studioStore.setSection(StudioSection.Characters);
 					studioStore.open(summary.id);
 					navigationStore.setSidebarView(SidebarView.Studio);
 				}}
@@ -101,7 +102,7 @@
 		background: var(--color-overlay-bg);
 		backdrop-filter: var(--backdrop-blur-sm);
 		-webkit-backdrop-filter: var(--backdrop-blur-sm);
-		
+
 		-webkit-mask-image: linear-gradient(to top, #000 97%, transparent);
 		mask-image: linear-gradient(to top, #000 97%, transparent);
 	}
