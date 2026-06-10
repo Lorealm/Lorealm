@@ -42,6 +42,7 @@ pub fn run() {
             http::http_put,
             http::http_delete,
             http::http_get_blob,
+            http::http_put_blob,
             http::http_stream,
             auth::login,
             auth::validate_token,

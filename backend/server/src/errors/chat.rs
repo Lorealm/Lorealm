@@ -1,15 +1,14 @@
 use lorealm_storage::{StorageError, models::Snowflake};
 use thiserror::Error;
 
-use crate::{
-    errors::{ContextError, ConversationError, StateError, TargetType},
-    services::character::CharacterServiceError,
+use crate::errors::{
+    CharacterError, ContextError, ConversationError, StateError, TargetType,
 };
 
 #[derive(Debug, Error)]
 pub enum ChatError {
     #[error("character error: {0}")]
-    Character(#[from] CharacterServiceError),
+    Character(#[from] CharacterError),
     #[error("{0} not found: {1}")]
     NotFound(TargetType, Snowflake),
     #[error("conversation not owned: {0}")]
@@ -25,7 +24,7 @@ pub enum ChatError {
     #[error("connection profile error: {0}")]
     ConnectionProfile(String),
     #[error("provider error: {0}")]
-    Provider(#[from] lorealm_providers::Error)
+    Provider(#[from] lorealm_providers::Error),
 }
 
 impl ChatError {

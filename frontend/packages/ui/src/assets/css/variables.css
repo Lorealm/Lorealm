@@ -222,7 +222,9 @@
 	--grid-card-min-md: 180px;
 	--grid-card-min-lg: 240px;
 
-	/* active knob — swap to -sm / -lg, or override on a container */
+	/* active knob */
 	--grid-card-min: var(--grid-card-min-sm);
 	--grid-gap: var(--spacing-lg);
+
+	--avatar-aspect-ratio: 3 / 4;
 }

@@ -1,11 +1,14 @@
 use lorealm_storage::models::Snowflake;
 use serde::{Deserialize, Serialize};
 
-use crate::{routes::characters::types::ImportResult, services::character::{EditDefinition, EditMetadata}};
+use crate::{
+    routes::characters::types::ImportResult,
+    services::character::{EditDefinition, EditMetadata},
+};
 
 #[derive(Deserialize)]
 pub struct CreateCharacterRequest {
-    pub name: String
+    pub name: String,
 }
 
 #[derive(Serialize)]
@@ -22,36 +25,19 @@ pub struct ImportCharResponse {
 pub enum CharacterEdit {
     Definition(EditDefinition),
     Metadata(EditMetadata),
-    AddGreeting {
-        text: String,
-    },
-    UpdateGreeting {
-        id: Snowflake,
-        text: String,
-    },
-    RemoveGreeting {
-        id: Snowflake,
-    },
-    ReorderGreetings {
-        ids: Vec<Snowflake>,
-    },
-    AddExample {
-        content: String,
-    },
-    UpdateExample {
-        id: Snowflake,
-        content: String,
-    },
-    RemoveExample {
-        id: Snowflake,
-    },
-    ReorderExamples {
-        ids: Vec<Snowflake>,
-    },
-    SetTags {
-        tags: Vec<String>,
-    },
-    SetAltNames {
-        alt_names: Vec<String>,
-    },
+    AddGreeting { text: String },
+    UpdateGreeting { id: Snowflake, text: String },
+    RemoveGreeting { id: Snowflake },
+    ReorderGreetings { ids: Vec<Snowflake> },
+    AddExample { content: String },
+    UpdateExample { id: Snowflake, content: String },
+    RemoveExample { id: Snowflake },
+    ReorderExamples { ids: Vec<Snowflake> },
+    SetTags { tags: Vec<String> },
+    SetAltNames { alt_names: Vec<String> },
+}
+
+#[derive(Serialize)]
+pub struct AvatarUpdateResponse {
+    pub avatar_uri: String,
 }

@@ -7,6 +7,7 @@ mod lorebook;
 mod permission;
 mod persona;
 mod state;
+mod character;
 
 pub use auth::*;
 pub use card::*;
@@ -17,12 +18,12 @@ pub use lorebook::*;
 pub use permission::*;
 pub use persona::*;
 pub use state::*;
+pub use character::*;
 
 use axum::{Json, http::StatusCode, response::IntoResponse};
 use serde_json::json;
 use std::{borrow::Cow, fmt::Display};
 
-use crate::services::character::CharacterServiceError;
 
 #[derive(Debug)]
 pub enum TargetType {
@@ -181,8 +182,8 @@ impl From<PermissionError> for AppError {
     }
 }
 
-impl From<CharacterServiceError> for AppError {
-    fn from(err: CharacterServiceError) -> Self {
+impl From<CharacterError> for AppError {
+    fn from(err: CharacterError) -> Self {
         tracing::error!("[ERROR] character service: {err}");
 
         match err {

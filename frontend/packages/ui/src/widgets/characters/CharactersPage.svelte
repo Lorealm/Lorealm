@@ -7,7 +7,7 @@
 	type SortKey = 'name-asc' | 'name-desc' | 'updated' | 'created';
 
 	let {
-		oncreate,
+		oncreate
 	}: {
 		oncreate?: () => void;
 	} = $props();
@@ -22,6 +22,9 @@
 	let sortBy = $state<SortKey>('name-asc');
 
 	const characters = $derived(characterStore.metadataList);
+
+	let inputEl: HTMLInputElement;
+	let busy = $state(false);
 
 	const ts = (v: unknown): number => {
 		if (!v) return 0;
@@ -48,14 +51,38 @@
 		return list as unknown as typeof characters;
 	});
 
-	function openImport() {
-	    return; // TODO: link to PlatformApi file picker
-	}
-
 	onMount(async () => {
 		await characterStore.loadList();
 	});
+
+	function openPicker() {
+		inputEl.click();
+	}
+
+	async function onPick(e: Event) {
+		const input = e.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+
+		busy = true;
+		try {
+			await characterStore.import(file);
+		} finally {
+			busy = false;
+			input.value = '';
+		}
+	}
 </script>
+
+<input
+	bind:this={inputEl}
+	type="file"
+	accept="image/*"
+	onchange={onPick}
+	hidden
+	style="display:none"
+	multiple
+/>
 
 <div class="page">
 	<div class="topbar">
@@ -70,9 +97,9 @@
 		</div>
 
 		<div class="actions">
-			<button type="button" onclick={openImport}>
+			<button type="button" onclick={openPicker} disabled={busy}>
 				<Upload size={16} />
-				Import
+				{busy ? 'Uploading…' : 'Import'}
 			</button>
 			<button type="button" class="primary" onclick={() => oncreate?.()}>
 				<Plus size={16} />
@@ -160,6 +187,7 @@
 		gap: var(--grid-gap);
 		padding: var(--spacing-lg);
 		overflow-y: auto;
+		align-content: start;
 	}
 
 	.empty {

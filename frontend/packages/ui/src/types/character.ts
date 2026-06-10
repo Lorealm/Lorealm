@@ -123,3 +123,7 @@ export interface EditMetadata {
 export interface CreateCharacterRequest {
 	name?: string;
 }
+
+export interface AvatarUpdateResponse {
+  avatar_uri: string;
+}

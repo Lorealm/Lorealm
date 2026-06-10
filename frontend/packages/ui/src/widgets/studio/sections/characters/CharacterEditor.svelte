@@ -13,6 +13,9 @@
 	const draft = $derived(characterStore.editingCharacter);
 	const save = $derived(characterStore.saveState);
 
+	let inputEl: HTMLInputElement;
+	let busy = $state(false);
+
 	type Section =
 		| 'identity'
 		| 'persona'
@@ -83,6 +86,23 @@
 		characterStore.removeExample(i);
 		requestSave();
 	}
+	function openPicker() {
+		inputEl.click();
+	}
+
+	async function onPick(e: Event) {
+		const input = e.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+
+		busy = true;
+		try {
+			await characterStore.changeImage(file);
+		} finally {
+			busy = false;
+			input.value = '';
+		}
+	}
 
 	let maximizedValue = $state('');
 	let maximized = $state<{ title: string; set: (v: string) => void } | null>(null);
@@ -110,6 +130,15 @@
 						: 'Saved'
 	);
 </script>
+
+<input
+	bind:this={inputEl}
+	type="file"
+	accept="image/*"
+	onchange={onPick}
+	hidden
+	style="display:none"
+/>
 
 {#snippet maxBtn(title: string, get: () => string, set: (v: string) => void)}
 	<button
@@ -178,7 +207,9 @@
 							{:else}
 								<div class="avatar-placeholder" aria-hidden="true"></div>
 							{/if}
-							<p class="hint">Avatar manipulation pending... Limited by a severe case of laziness</p>
+							<button onclick={openPicker} disabled={busy} class="pickFile">
+								{busy ? 'Uploading…' : 'Change avatar'}</button
+							>
 						</div>
 						<div class="identity-fields">
 							<label for="f-name">Name <span class="req">in-chat, {`{{char:name}}`}</span></label>
@@ -436,6 +467,7 @@
 		display: flex;
 		flex-direction: column;
 		min-height: 0;
+		min-width: 0;
 		border-right: 1px solid var(--color-border-subtle);
 	}
 	.col-content {
@@ -454,6 +486,7 @@
 	}
 	.header-row {
 		display: flex;
+		flex: 0 1 auto;
 		align-items: center;
 		gap: var(--spacing-sm);
 	}
@@ -462,7 +495,7 @@
 		padding: var(--spacing-xs) var(--spacing-sm);
 	}
 	.char-name {
-		flex: 1 1 auto;
+		flex: 0 1 auto;
 		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -637,13 +670,18 @@
 	.avatar img,
 	.avatar-placeholder {
 		width: 120px;
-		height: 120px;
+		aspect-ratio: var(--avatar-aspect-ratio);
 		border-radius: var(--radius-lg);
 		object-fit: cover;
 		box-shadow: var(--shadow-md);
 	}
 	.avatar-placeholder {
 		background: var(--gradient-portrait);
+	}
+	.pickFile {
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 	.identity-fields {
 		flex: 1 1 auto;

@@ -24,6 +24,7 @@ export interface HttpTransport {
 
 	/* Bytes */
 	getBlob(path: string): Promise<Blob>;
+	putBlob<T>(path: string, blob: Blob): Promise<T>;
 
 	/* SSE stream */
 	stream<T>(path: string, body?: unknown): AsyncIterable<T>;

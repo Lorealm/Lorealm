@@ -62,7 +62,7 @@
 	.card {
 		position: relative;
 		width: 100%;
-		aspect-ratio: 3 / 4;
+		aspect-ratio: var(--avatar-aspect-ratio);
 		border-radius: var(--radius-xl);
 		overflow: hidden;
 		box-shadow: var(--shadow-md);
