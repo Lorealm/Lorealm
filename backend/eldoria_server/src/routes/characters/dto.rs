@@ -3,6 +3,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{routes::characters::types::ImportResult, services::character::{EditDefinition, EditMetadata}};
 
+#[derive(Deserialize)]
+pub struct CreateCharacterRequest {
+    pub name: String
+}
+
 #[derive(Serialize)]
 pub struct ImportCharResponse {
     pub results: Vec<ImportResult>,

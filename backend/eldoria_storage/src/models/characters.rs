@@ -27,7 +27,7 @@ pub struct CharacterVersionInfo {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+#[derive(Debug, Serialize, Deserialize, FromRow, Default, Clone)]
 pub struct CharacterMetadata {
     pub display_name: Option<String>, // defaults to definition.name
     pub alt_names: Vec<String>,       // for search/sort
@@ -40,7 +40,7 @@ pub struct CharacterMetadata {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+#[derive(Debug, Serialize, Deserialize, Default, FromRow, Clone)]
 pub struct CharacterDefinition {
     pub name: String, // in-chat name, {{char}} substitution target
     pub description: String,

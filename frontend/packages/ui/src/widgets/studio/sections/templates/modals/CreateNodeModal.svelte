@@ -1,9 +1,10 @@
 <script lang="ts">
 	import type { CreateNodeRequest } from '$lib/types/template.js';
-	import type {
-		GroupMode,
-		SourceDefinition,
-		SourceNodeDefinition
+	import {
+		type GroupWrapMode,
+		type GroupMode,
+		type SourceDefinition,
+		type SourceNodeDefinition
 	} from '$lib/types/node.js';
 	import SourcePicker from './SourcePicker.svelte';
 	import type { JsonValue, PromptRole } from '$lib/types/core.js';
@@ -38,6 +39,7 @@
 
 	// group
 	let mode = $state<GroupMode>('collection');
+	let wrap = $state<GroupWrapMode>('no_mixed');
 	let prefix = $state('');
 	let suffix = $state('');
 	let alwaysIncludeWrappers = $state(false);
@@ -73,7 +75,8 @@
 					prefix: prefix.trim() ? prefix : null,
 					suffix: suffix.trim() ? suffix : null,
 					always_include_wrappers: alwaysIncludeWrappers,
-					mode
+					mode,
+					wrap_mode: wrap
 				}
 			};
 		}
@@ -173,6 +176,29 @@
 							<option value="collection">Collection</option>
 							<option value="invariant">Invariant</option>
 						</select>
+					</label>
+					<label class="field">
+						<span>Wrap Behavior</span>
+						<div class="inline-row">
+							<select
+								bind:value={wrap}
+							>
+								<option value="no_mixed">No mixed (same role only)</option>
+								<option value="majority">Majority (most common role)</option>
+								<option value="all">All (one group per role)</option>
+								<option value="only">Only (specific role)</option>
+							</select>
+
+							{#if typeof wrap === 'object'}
+								<select
+									value={wrap.only}
+								>
+									<option value="system">System</option>
+									<option value="user">User</option>
+									<option value="assistant">Assistant</option>
+								</select>
+							{/if}
+						</div>
 					</label>
 					<label class="field">
 						<span>Prefix</span>

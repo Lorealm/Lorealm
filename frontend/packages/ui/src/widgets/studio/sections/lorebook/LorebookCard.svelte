@@ -16,7 +16,7 @@
 	<div class="controls" class:active>
 		<button
 			class="btn-primary"
-			disabled={!entry || active}
+			disabled={!entry}
 			onclick={() => {
 				lorebookStore.setActive(entry!.id);
 			}}><Check />Select</button

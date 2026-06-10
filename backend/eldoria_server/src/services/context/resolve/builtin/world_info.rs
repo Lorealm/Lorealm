@@ -6,7 +6,7 @@ use context_weaver::{
     ContextWeaver, EngineConfig, NamespaceAccess, Slot,
 };
 use eldoria_storage::models::{
-    ActivationState, Character, ChatRole, ConversationMessage, Snowflake,
+    ActivationState, ChatRole, ConversationMessage, Snowflake,
 };
 use serde_json::Value as JsonValue;
 use weaver_lang::Value as WeaverValue;
@@ -14,7 +14,7 @@ use weaver_lang::Value as WeaverValue;
 use crate::{
     errors::ContextError,
     services::{
-        context::{ContentRef, to_weaver_lorebook},
+        context::{ContentRef, to_weaver_lorebook, weaver::EldoriaWeaverPlugin},
         state::{CapturedState, StatePool, StateService},
     },
 };
@@ -46,7 +46,7 @@ impl SourceResolver for WorldInfoResolver {
         let slot = slot_for_node(node_id)?;
 
         let (blocks, persistent) = self
-            .run_pipeline(ctx.user_id, ctx.messages, ctx.character)
+            .run_pipeline(ctx)
             .await?;
 
         let separator = settings
@@ -87,13 +87,11 @@ impl SourceResolver for WorldInfoResolver {
 impl WorldInfoResolver {
     async fn run_pipeline(
         &self,
-        user_id: Snowflake,
-        messages: &[ConversationMessage],
-        character: &Character,
+        ctx: &ResolveContext<'_>,
     ) -> Result<(Vec<AssembledBlock>, Option<CapturedState>), ContextError> {
         let lorebooks = self
             .state
-            .get_active_lorebooks(user_id)
+            .get_active_lorebooks(ctx.user_id)
             .await?
             .unwrap_or_default();
 
@@ -107,9 +105,11 @@ impl WorldInfoResolver {
 
         let first_sf = first.id;
         let mut weaver = ContextWeaver::new(to_weaver_lorebook(first)?).with_config(EngineConfig {
-            lenient: true,
+            lenient: false,
             ..Default::default()
         });
+
+        weaver.register_plugin(EldoriaWeaverPlugin)?;
 
         book_ids.insert(first_sf, BookId(0)); // The first BookId is always 0
 
@@ -119,7 +119,7 @@ impl WorldInfoResolver {
             book_ids.insert(sf, bid);
         }
 
-        let ids: Vec<Snowflake> = messages.iter().map(|m| m.id).collect();
+        let ids: Vec<Snowflake> = ctx.messages.iter().map(|m| m.id).collect();
         let state = self.state.reconstruct(&ids).await?;
 
         weaver.reserve_namespace("char", NamespaceAccess::ReadOnly);
@@ -134,10 +134,10 @@ impl WorldInfoResolver {
             }
         }
 
-        weaver.set_variable("char", "name", character.definition.name.clone());
-        weaver.set_variable("user", "name", "Player"); // TODO: implement
+        weaver.set_variable("char", "name", ctx.character.definition.name.clone());
+        weaver.set_variable("user", "name", ctx.persona.display_name.clone());
 
-        let cw_messages = convert_messages(messages);
+        let cw_messages = convert_messages(ctx.messages);
         let blocks = weaver.assemble(&cw_messages)?;
 
         let exported = weaver.export_persistent();

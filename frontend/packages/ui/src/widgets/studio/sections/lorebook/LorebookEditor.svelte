@@ -106,12 +106,14 @@
 
 	<section class="col-content">
 		{#if selectedEntry && draft}
-			<EntryEditor
-				entry={selectedEntry}
-				config={draft.config}
-				saveState={lorebookStore.entrySaveState(selectedEntry.snowflake)}
-				requestSave={() => scheduleEntrySave(selectedEntry.snowflake)}
-			/>
+			{#key selectedEntry.snowflake}
+				<EntryEditor
+					entry={selectedEntry}
+					config={draft.config}
+					saveState={lorebookStore.entrySaveState(selectedEntry.snowflake)}
+					requestSave={() => scheduleEntrySave(selectedEntry.snowflake)}
+				/>
+			{/key}
 		{:else if draft}
 			<LorebookConfigEditor
 				{draft}

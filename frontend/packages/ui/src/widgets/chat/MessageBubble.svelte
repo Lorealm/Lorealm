@@ -301,6 +301,24 @@
 			margin: 0;
 			padding: 0;
 		}
+		ol {
+			gap: 0;
+			margin: 0;
+			padding-top: 0;
+			padding-bottom: 0;
+			line-height: 1em;
+		}
+		li {
+			margin: 0;
+			padding: 0;
+		}
+		details {
+			margin: 0;
+		}
+		summary {
+			margin: 0;
+			line-height: 1em;
+		}
 		font-family: var(--font-family-nunito);
 		font-size: var(--font-size-md);
 	}

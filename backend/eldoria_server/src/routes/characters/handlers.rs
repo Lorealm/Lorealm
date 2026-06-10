@@ -14,7 +14,10 @@ use crate::{
     core::AppState,
     errors::AppError,
     extract::{AuthenticatedSession, ResolvedPermissions},
-    routes::characters::{dto::CharacterEdit, types::ImportResult},
+    routes::characters::{
+        dto::{CharacterEdit, CreateCharacterRequest},
+        types::ImportResult,
+    },
     services::permission::Permissions,
 };
 
@@ -44,6 +47,20 @@ async fn get_character(
         .await?;
 
     return Ok(Json(char));
+}
+
+pub async fn create_character(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Json(request): Json<CreateCharacterRequest>,
+) -> Result<Json<Character>, AppError> {
+    let char = state
+        .services()
+        .characters()
+        .create_character(session.user_id, request.name)
+        .await?;
+
+    Ok(Json(char))
 }
 
 pub async fn list_character_versions(

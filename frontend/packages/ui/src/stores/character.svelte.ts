@@ -52,8 +52,8 @@ class CharacterStore {
 	private _api = $state<ApiClient>();
 	metadataList = $state<Array<CharacterSummary>>([]);
 
-  activeCharacter = $state<Character | null>(null);
-	
+	activeCharacter = $state<Character | null>(null);
+
 	get #api() {
 		if (!this._api) this._api = useApi(); // NOTE: This assumes it's accessed once during page init. Dirty workaround.
 		return this._api;
@@ -96,11 +96,17 @@ class CharacterStore {
 
 	async loadList() {
 		this.metadataList = await this.#api.characters.list();
-  }
+	}
 
-  async setActive(charId: Snowflake) {
-    this.activeCharacter = await this.#api.characters.get(charId);
-  }
+	async setActive(charId: Snowflake) {
+		this.activeCharacter = await this.#api.characters.get(charId);
+	}
+
+	async create(name?: string): Promise<Snowflake> {
+		const created = await this.#api.characters.create({name});
+		await this.loadList();
+		return created.id;
+	}
 
 	async startEditing(id: Snowflake) {
 		this.#resetSession();
