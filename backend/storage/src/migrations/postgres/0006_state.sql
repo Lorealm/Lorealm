@@ -9,7 +9,8 @@ CREATE INDEX idx_enabled_lorebooks_order ON enabled_lorebooks (user_id, position
 CREATE TABLE user_personas (
     id              BIGINT PRIMARY KEY,
     user_id         BIGINT REFERENCES users(id) ON DELETE CASCADE,
-    display_name    TEXT NOT NULL DEFAULT '',
+    name            TEXT NOT NULL DEFAULT '',
+    display_name    TEXT,
     pseudonym       TEXT,
     avatar_uri      TEXT,
     description     TEXT,

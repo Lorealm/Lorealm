@@ -11,7 +11,7 @@ impl PersonaStorage for PostgresStorage {
     async fn save_persona(&self, create: UserPersona) -> Result<(), StorageError> {
         sqlx::query(
             r#"INSERT INTO user_personas
-                (id, user_id, display_name, pseudonym, avatar_uri, description, updated_at)
+                (id, user_id, name, display_name, pseudonym, avatar_uri, description, updated_at)
             VALUES ($1, $2, $3, $4, $5, $6, now())
             ON CONFLICT (id) DO UPDATE SET
                 display_name = EXCLUDED.display_name,
@@ -22,6 +22,7 @@ impl PersonaStorage for PostgresStorage {
         )
         .bind(create.id)
         .bind(create.user_id)
+        .bind(create.name)
         .bind(create.display_name)
         .bind(create.pseudonym)
         .bind(create.avatar_uri)
