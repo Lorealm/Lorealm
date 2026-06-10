@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Elerealm",
+  "productName": "Lorealm",
   "version": "0.1.0",
-  "identifier": "com.crux.elerealm",
+  "identifier": "com.crux.lorealm",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "desktop",
+        "title": "Lorealm Desktop",
         "width": 1300,
         "height": 800
       }

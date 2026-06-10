@@ -23,7 +23,7 @@
 <div class="container" bind:this={sidebarElement}>
 	<div class="top-container">
 		{#if !collapsed}
-			<div class="branding">Eldoria</div>
+			<div class="branding">Lorealm</div>
 		{/if}
 		<button class="collapse-button" onclick={toggleCollapse}>
 			{#if collapsed}
