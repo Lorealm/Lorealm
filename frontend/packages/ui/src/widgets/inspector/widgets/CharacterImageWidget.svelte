@@ -15,7 +15,9 @@
 	</button>
 	{#if !collapsed}
 		{#if activeCharacter}
-			<TransportImage src={imageEndpoint} />
+			<div class="image-container">
+				<TransportImage src={imageEndpoint} />
+			</div>
 		{:else}
 			<div class="empty">No active character.</div>
 		{/if}
@@ -28,6 +30,7 @@
 		flex-direction: column;
 		flex: 0 0 auto;
 		width: 100%;
+		overflow: hidden;
 		height: var(--inspector-widget-large, 280px);
 		border-bottom: 1px solid var(--color-border-subtle);
 	}
@@ -81,10 +84,18 @@
 		font-size: var(--font-size-sm);
 		text-align: center;
 	}
-	.widget :global(.transport-image) {
+	.image-container {
+		position: relative;
 		flex: 1 1 auto;
 		min-height: 0;
-		width: 100%;
+		min-width: 0;
 		overflow: hidden;
+	}
+
+	.image-container :global(.transport-image) {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
 	}
 </style>
