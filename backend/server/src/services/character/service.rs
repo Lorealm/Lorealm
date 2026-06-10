@@ -13,14 +13,14 @@ use tokio::{sync::RwLock, time::Instant};
 
 use crate::{
     core::CleanableService,
-    errors::TargetType,
+    errors::{CharacterError, TargetType},
     services::{
         character::{
-            CharacterServiceError, EditDefinition, EditMetadata, EditableCharacter,
+            EditDefinition, EditMetadata, EditableCharacter,
             card_parser::{DetectedSpec, parse_character_card_png},
             compat::{CharaV2, convert_from_ccv2},
         },
-        snowflake::{self, SnowflakeService},
+        snowflake::SnowflakeService,
     },
 };
 
@@ -58,7 +58,7 @@ impl CharacterService {
         &self,
         user_id: Snowflake,
         name: String,
-    ) -> Result<Character, CharacterServiceError> {
+    ) -> Result<Character, CharacterError> {
         let char = Character {
             id: self.snowflake.generate(),
             user_id,
@@ -82,7 +82,7 @@ impl CharacterService {
     pub async fn list_characters(
         &self,
         user_id: Snowflake,
-    ) -> Result<Vec<CharacterSummary>, CharacterServiceError> {
+    ) -> Result<Vec<CharacterSummary>, CharacterError> {
         Ok(self.storage.list_characters(user_id).await?)
     }
 
@@ -91,18 +91,18 @@ impl CharacterService {
         character_id: Snowflake,
         version_id: Snowflake,
         user_id: Snowflake,
-    ) -> Result<Character, CharacterServiceError> {
+    ) -> Result<Character, CharacterError> {
         let character = self
             .storage
             .get_character_at_version(character_id, version_id)
             .await?
-            .ok_or(CharacterServiceError::NotFound(
+            .ok_or(CharacterError::NotFound(
                 TargetType::CharacterVersion,
                 character_id,
             ))?;
 
         if character.user_id != user_id {
-            return Err(CharacterServiceError::PermissionDenied);
+            return Err(CharacterError::PermissionDenied);
         }
 
         Ok(character)
@@ -114,7 +114,7 @@ impl CharacterService {
     pub async fn get_latest_version_id(
         &self,
         character_id: Snowflake,
-    ) -> Result<Snowflake, CharacterServiceError> {
+    ) -> Result<Snowflake, CharacterError> {
         Ok(self.storage.get_latest_version(character_id).await?)
     }
 
@@ -122,7 +122,7 @@ impl CharacterService {
         &self,
         character_id: Snowflake,
         _user_id: Snowflake,
-    ) -> Result<Vec<CharacterVersionInfo>, CharacterServiceError> {
+    ) -> Result<Vec<CharacterVersionInfo>, CharacterError> {
         Ok(self.storage.list_character_versions(character_id).await?)
     }
 
@@ -132,7 +132,7 @@ impl CharacterService {
     pub async fn avatar_from_uri(
         &self,
         avatar_uri: Option<String>,
-    ) -> Result<Bytes, CharacterServiceError> {
+    ) -> Result<Bytes, CharacterError> {
         let blob_id =
             avatar_uri
                 .as_deref()
@@ -153,11 +153,19 @@ impl CharacterService {
     async fn get_character_for_edit(
         &self,
         character_id: Snowflake,
-    ) -> Result<EditableCharacter, CharacterServiceError> {
-        let mut character = self.storage.get_character(character_id).await?.ok_or(
-            CharacterServiceError::NotFound(TargetType::Character, character_id),
-        )?;
-
+        user_id: Snowflake,
+    ) -> Result<EditableCharacter, CharacterError> {
+        let mut character =
+            self.storage
+                .get_character(character_id)
+                .await?
+                .ok_or(CharacterError::NotFound(
+                    TargetType::Character,
+                    character_id,
+                ))?;
+        if character.user_id != user_id {
+            return Err(CharacterError::NotOwned(character_id));
+        }
         let window = Duration::from_secs(SESSION_LENGTH); // TODO: config
         let (mode, target) = {
             let mut sessions = self.editing_sessions.write().await;
@@ -190,9 +198,10 @@ impl CharacterService {
     pub async fn patch_definition(
         &self,
         character_id: Snowflake,
+        user_id: Snowflake,
         edit: EditDefinition,
-    ) -> Result<Character, CharacterServiceError> {
-        let mut char = self.get_character_for_edit(character_id).await?;
+    ) -> Result<Character, CharacterError> {
+        let mut char = self.get_character_for_edit(character_id, user_id).await?;
 
         if let Some(name) = edit.name {
             char.character.definition.name = name
@@ -223,9 +232,10 @@ impl CharacterService {
     pub async fn patch_metadata(
         &self,
         character_id: Snowflake,
+        user_id: Snowflake,
         edit: EditMetadata,
-    ) -> Result<Character, CharacterServiceError> {
-        let mut char = self.get_character_for_edit(character_id).await?;
+    ) -> Result<Character, CharacterError> {
+        let mut char = self.get_character_for_edit(character_id, user_id).await?;
 
         if let Some(creator) = edit.creator {
             char.character.metadata.creator = creator;
@@ -250,9 +260,10 @@ impl CharacterService {
     pub async fn add_greeting(
         &self,
         character_id: Snowflake,
+        user_id: Snowflake,
         greeting: String,
-    ) -> Result<Character, CharacterServiceError> {
-        let mut char = self.get_character_for_edit(character_id).await?;
+    ) -> Result<Character, CharacterError> {
+        let mut char = self.get_character_for_edit(character_id, user_id).await?;
 
         let new_greeting = Greeting {
             id: self.snowflake.generate(),
@@ -272,10 +283,11 @@ impl CharacterService {
     pub async fn update_greeting(
         &self,
         character_id: Snowflake,
+        user_id: Snowflake,
         greeting_id: Snowflake,
         text: String,
-    ) -> Result<Character, CharacterServiceError> {
-        let mut char = self.get_character_for_edit(character_id).await?;
+    ) -> Result<Character, CharacterError> {
+        let mut char = self.get_character_for_edit(character_id, user_id).await?;
 
         let greeting = char
             .character
@@ -283,10 +295,7 @@ impl CharacterService {
             .greetings
             .iter_mut()
             .find(|g| g.id == greeting_id)
-            .ok_or(CharacterServiceError::NotFound(
-                TargetType::Greeting,
-                greeting_id,
-            ))?;
+            .ok_or(CharacterError::NotFound(TargetType::Greeting, greeting_id))?;
 
         greeting.text = text;
 
@@ -300,9 +309,10 @@ impl CharacterService {
     pub async fn remove_greeting(
         &self,
         character_id: Snowflake,
+        user_id: Snowflake,
         greeting_id: Snowflake,
-    ) -> Result<Character, CharacterServiceError> {
-        let mut char = self.get_character_for_edit(character_id).await?;
+    ) -> Result<Character, CharacterError> {
+        let mut char = self.get_character_for_edit(character_id, user_id).await?;
 
         char.character
             .definition
@@ -323,9 +333,10 @@ impl CharacterService {
     pub async fn reorder_greetings(
         &self,
         character_id: Snowflake,
+        user_id: Snowflake,
         greeting_ids: Vec<Snowflake>,
-    ) -> Result<Character, CharacterServiceError> {
-        let mut char = self.get_character_for_edit(character_id).await?;
+    ) -> Result<Character, CharacterError> {
+        let mut char = self.get_character_for_edit(character_id, user_id).await?;
 
         char.character.definition.greetings.sort_by_key(|greeting| {
             greeting_ids
@@ -348,9 +359,10 @@ impl CharacterService {
     pub async fn add_example(
         &self,
         character_id: Snowflake,
+        user_id: Snowflake,
         content: String,
-    ) -> Result<Character, CharacterServiceError> {
-        let mut char = self.get_character_for_edit(character_id).await?;
+    ) -> Result<Character, CharacterError> {
+        let mut char = self.get_character_for_edit(character_id, user_id).await?;
 
         let new_example = ExampleDialogue {
             id: self.snowflake.generate(),
@@ -370,10 +382,11 @@ impl CharacterService {
     pub async fn update_example(
         &self,
         character_id: Snowflake,
+        user_id: Snowflake,
         example_id: Snowflake,
         content: String,
-    ) -> Result<Character, CharacterServiceError> {
-        let mut char = self.get_character_for_edit(character_id).await?;
+    ) -> Result<Character, CharacterError> {
+        let mut char = self.get_character_for_edit(character_id, user_id).await?;
 
         let example = char
             .character
@@ -381,7 +394,7 @@ impl CharacterService {
             .example_messages
             .iter_mut()
             .find(|g| g.id == example_id)
-            .ok_or(CharacterServiceError::NotFound(
+            .ok_or(CharacterError::NotFound(
                 TargetType::ExampleMessage,
                 example_id,
             ))?;
@@ -398,9 +411,10 @@ impl CharacterService {
     pub async fn remove_example(
         &self,
         character_id: Snowflake,
+        user_id: Snowflake,
         example_id: Snowflake,
-    ) -> Result<Character, CharacterServiceError> {
-        let mut char = self.get_character_for_edit(character_id).await?;
+    ) -> Result<Character, CharacterError> {
+        let mut char = self.get_character_for_edit(character_id, user_id).await?;
 
         char.character
             .definition
@@ -427,9 +441,10 @@ impl CharacterService {
     pub async fn reorder_example(
         &self,
         character_id: Snowflake,
+        user_id: Snowflake,
         example_ids: Vec<Snowflake>,
-    ) -> Result<Character, CharacterServiceError> {
-        let mut char = self.get_character_for_edit(character_id).await?;
+    ) -> Result<Character, CharacterError> {
+        let mut char = self.get_character_for_edit(character_id, user_id).await?;
 
         char.character
             .definition
@@ -461,9 +476,10 @@ impl CharacterService {
     pub async fn set_tags(
         &self,
         character_id: Snowflake,
+        user_id: Snowflake,
         tags: Vec<String>,
-    ) -> Result<Character, CharacterServiceError> {
-        let mut char = self.get_character_for_edit(character_id).await?;
+    ) -> Result<Character, CharacterError> {
+        let mut char = self.get_character_for_edit(character_id, user_id).await?;
         char.character.metadata.tags = tags;
 
         self.storage
@@ -476,9 +492,10 @@ impl CharacterService {
     pub async fn set_alt_names(
         &self,
         character_id: Snowflake,
+        user_id: Snowflake,
         alt_names: Vec<String>,
-    ) -> Result<Character, CharacterServiceError> {
-        let mut char = self.get_character_for_edit(character_id).await?;
+    ) -> Result<Character, CharacterError> {
+        let mut char = self.get_character_for_edit(character_id, user_id).await?;
         char.character.metadata.alt_names = alt_names;
 
         self.storage
@@ -486,6 +503,23 @@ impl CharacterService {
             .await?;
 
         Ok(char.character)
+    }
+
+    pub async fn update_image(
+        &self,
+        character_id: Snowflake,
+        user_id: Snowflake,
+        image_bytes: Bytes,
+    ) -> Result<String, CharacterError> {
+        let mut edit = self.get_character_for_edit(character_id, user_id).await?;
+        let blob_id = self.blob.put(&image_bytes).await?;
+        let image_uri = blob_id.to_uri();
+        edit.character.metadata.avatar_uri = Some(image_uri.clone());
+        self.storage
+            .save_character(&edit.character, edit.save_mode)
+            .await?;
+
+        Ok(image_uri)
     }
 
     /// Import a character card from a PNG. Parses the embedded tEXt chunk,
@@ -496,7 +530,7 @@ impl CharacterService {
         &self,
         png_bytes: &[u8],
         user_id: Snowflake,
-    ) -> Result<Snowflake, CharacterServiceError> {
+    ) -> Result<Snowflake, CharacterError> {
         let parsed = parse_character_card_png(png_bytes, "chara")?;
 
         let mut character = match parsed.detected_spec {
@@ -505,7 +539,7 @@ impl CharacterService {
                 convert_from_ccv2(card, user_id, &self.snowflake)
             }
             DetectedSpec::Unknown(spec) => {
-                return Err(CharacterServiceError::UnsupportedFormat(spec));
+                return Err(CharacterError::UnsupportedFormat(spec));
             }
         };
 

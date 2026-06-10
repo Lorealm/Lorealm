@@ -154,7 +154,17 @@ const http: HttpTransport = {
       		if (err) return check<never>({ status: err.status, body: err.body }); // always throws
       		throw e;
         }
-  },
+    },
+    async putBlob<T>(path: string, blob: Blob): Promise<T> {
+     	const buf = await blob.arrayBuffer();
+     	const res = await invoke<HttpResponse>("http_put_blob", new Uint8Array(buf), {
+      		headers: {
+     			"x-path": path,
+     			"x-content-type": blob.type || "application/octet-stream",
+      		},
+     	});
+     	return check<T>(res);
+    },
     stream
 };
 

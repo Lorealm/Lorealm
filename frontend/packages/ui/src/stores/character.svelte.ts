@@ -103,7 +103,7 @@ class CharacterStore {
 	}
 
 	async create(name?: string): Promise<Snowflake> {
-		const created = await this.#api.characters.create({name});
+		const created = await this.#api.characters.create({ name });
 		await this.loadList();
 		return created.id;
 	}
@@ -160,6 +160,30 @@ class CharacterStore {
 		} catch {
 			// no avatar / fetch failed.
 		}
+	}
+
+	async changeImage(image: Blob) {
+		const draft = this._draft;
+		if (!draft) return;
+		const id = draft.id;
+
+		const { avatar_uri } = await this.#api.characters.updateAvatar(id, image);
+		if (this.editingId !== id) return; // session moved on mid-upload
+
+		// Swap the preview to the local bytes — the image is already in hand,
+		// so there's no reason to refetch it from the server.
+		const previous = this.avatarUrl;
+		this.avatarUrl = URL.createObjectURL(image);
+		if (previous) URL.revokeObjectURL(previous);
+
+		// Keep the in-memory snapshot truthful. avatar_uri isn't part of the
+		// diff, but leaving a stale value on the baseline is a latent trap.
+		if (this.#baseline) this.#baseline.metadata.avatar_uri = avatar_uri;
+	}
+
+	async import(card: Blob) {
+		await this.#api.characters.import(card);
+		await this.loadList();
 	}
 
 	addGreeting() {

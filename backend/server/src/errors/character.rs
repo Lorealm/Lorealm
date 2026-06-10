@@ -4,7 +4,7 @@ use thiserror::Error;
 use crate::errors::{CardParseError, TargetType};
 
 #[derive(Error, Debug)]
-pub enum CharacterServiceError {
+pub enum CharacterError {
     #[error("failed to parse character card: {0}")]
     Parse(#[from] CardParseError),
 
@@ -18,22 +18,27 @@ pub enum CharacterServiceError {
     UnsupportedFormat(String),
     #[error("{0} {1} does not exist")]
     NotFound(TargetType, Snowflake),
+    #[error("character not owned: {0}")]
+    NotOwned(Snowflake),
     #[error("permission denied")]
     PermissionDenied,
+    #[error("unsupported media type")]
+    UnsupportedMediaType,
 }
 
-impl CharacterServiceError {
+impl CharacterError {
     pub fn client_message(&self) -> &'static str {
         match self {
-            CharacterServiceError::Parse(_) => "Failed parsing character card.",
-            CharacterServiceError::Storage(_) => "Unknown error.",
-            CharacterServiceError::Deserialization(_error) => {
-                "Failed to deserialize character card."
-            }
-            CharacterServiceError::UnsupportedFormat(_) => "Unsupported character card format.",
-            CharacterServiceError::NotFound(_, _) | CharacterServiceError::PermissionDenied => {
+            CharacterError::Parse(_) => "Failed parsing character card.",
+            CharacterError::Storage(_) => "Unknown error.",
+            CharacterError::Deserialization(_error) => "Failed to deserialize character card.",
+            CharacterError::UnsupportedFormat(_) => "Unsupported character card format.",
+            CharacterError::NotFound(_, _)
+            | CharacterError::PermissionDenied
+            | CharacterError::NotOwned(_) => {
                 "Character either doesn't exist or you lack permission to access it."
             }
+            CharacterError::UnsupportedMediaType => "unsupported media type",
         }
     }
 }

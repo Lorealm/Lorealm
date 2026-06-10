@@ -1,6 +1,7 @@
 import type { PlatformAPI } from '$lib/core/api.js';
 import type { LoginRequest, Session } from '$lib/types/auth.js';
 import type {
+	AvatarUpdateResponse,
 	Character,
 	CharacterEdit,
 	CharacterSummary,
@@ -121,10 +122,9 @@ export function createApiClient(platform: PlatformAPI) {
 			update: (characterId: Snowflake, edit: CharacterEdit[]) =>
 				http.put<Character>(`/api/v1/characters/${characterId}`, edit),
 			avatar: (characterId: Snowflake) => http.getBlob(`/api/v1/characters/${characterId}/image`),
-			import: () =>
-				http.post<ImportResult>(`/api/v1/characters/import`, {
-					placeholder: 'this endpoint is not valid yet'
-				}),
+			updateAvatar: (characterId: Snowflake, update: Blob) =>
+				http.putBlob<AvatarUpdateResponse>(`/api/v1/characters/${characterId}/image`, update),
+			import: (card: Blob) => http.putBlob<ImportResult>(`/api/v1/characters/import`, card),
 			chats: (characterId: Snowflake) =>
 				http.get<Array<ConversationMetadata>>(`/api/v1/characters/${characterId}/chats`),
 			versions: {

@@ -92,6 +92,45 @@ pub async fn http_get_blob(handle: AppHandle, path: String) -> AppResult<tauri::
     send_blob_request(&handle, req).await
 }
 
+use tauri::ipc::{InvokeBody, Request};
+
+#[tauri::command]
+pub fn http_put_blob(handle: AppHandle, request: Request<'_>) -> AppResult<HttpResponse> {
+    let path = request
+        .headers()
+        .get("x-path")
+        .and_then(|v| v.to_str().ok())
+        .ok_or_else(|| Error::Http("missing x-path header".into()))?
+        .to_string();
+
+    let content_type = request
+        .headers()
+        .get("x-content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream")
+        .to_string();
+
+    let body: Vec<u8> = match request.body() {
+        InvokeBody::Raw(bytes) => bytes.clone(),
+        InvokeBody::Json(_) => return Err(Error::Http("expected raw image bytes".into())),
+    };
+
+    tauri::async_runtime::block_on(async move {
+        let (base_url, client, token) = extract_request_deps(&handle).await?;
+
+        let mut req = client
+            .put(format!("{base_url}{path}"))
+            .header(reqwest::header::CONTENT_TYPE, content_type)
+            .body(body);
+        if let Some(t) = token {
+            req = req.bearer_auth(t);
+        }
+        // TODO: Attach CSRF
+
+        send_request(&handle, req).await
+    })
+}
+
 #[tauri::command]
 pub async fn http_stream(
     handle: AppHandle,
