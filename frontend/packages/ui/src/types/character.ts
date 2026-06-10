@@ -116,3 +116,10 @@ export interface EditMetadata {
 	 */
 	display_name?: string | null;
 }
+
+/**
+ * Request body for creating a new character.
+ */
+export interface CreateCharacterRequest {
+	name?: string;
+}

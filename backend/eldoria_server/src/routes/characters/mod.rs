@@ -26,12 +26,10 @@ pub(super) fn router(
 ) -> Router {
     let session_only_routes = Router::new()
         .route("/", get(handlers::list_characters))
+        .route("/", post(handlers::create_character))
         .route("/{character_id}", get(handlers::get_character_latest))
         .route("/{character_id}/image", get(handlers::get_image_for_latest))
-        .route(
-            "/{character_id}/chats",
-            get(handlers::list_character_chats),
-        )
+        .route("/{character_id}/chats", get(handlers::list_character_chats))
         .route(
             "/{character_id}/versions",
             get(handlers::list_character_versions),

@@ -5,6 +5,7 @@ import type {
 	CharacterEdit,
 	CharacterSummary,
 	CharacterVersionInfo,
+	CreateCharacterRequest,
 	ImportResult
 } from '$lib/types/character.js';
 import type {
@@ -110,6 +111,8 @@ export function createApiClient(platform: PlatformAPI) {
 		characters: {
 			list: () => http.get<Array<CharacterSummary>>('/api/v1/characters'),
 			get: (characterId: Snowflake) => http.get<Character>(`/api/v1/characters/${characterId}`),
+			create: (create: CreateCharacterRequest) =>
+				http.post<Character>('/api/v1/characters', create),
 			/** __Note on edit:__ Edits are applied in the same order the array is constructed
 			 *
 			 * The request will fail if any given edits fail, but preceeding edits will still apply.

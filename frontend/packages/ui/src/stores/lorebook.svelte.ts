@@ -91,10 +91,22 @@ class LorebookStore {
 	}
 
 	async setActive(id: Snowflake) {
-		await this.loadLorebook(id);
-		this.activeLorebooks.push(id);
+		const index = this.activeLorebooks.indexOf(id);
+		const wasActive = index !== -1;
+
+		if (wasActive) {
+			this.activeLorebooks.splice(index, 1);
+		} else {
+			await this.loadLorebook(id);
+			this.activeLorebooks.push(id);
+		}
+
 		await this.#api.lorebooks.active.set({ ids: this.activeLorebooks }).catch(() => {
-			this.activeLorebooks.pop();
+			if (wasActive) {
+				this.activeLorebooks.splice(index, 0, id); // restore at original position
+			} else {
+				this.activeLorebooks.pop();
+			}
 		});
 	}
 

@@ -42,6 +42,8 @@ pub enum ContextError {
     State(#[from] StateError),
     #[error("ContextWeaver error: {0}")]
     ContextWeaver(#[from] ContextWeaverError),
+    #[error("ContextWeaver error (plugin): {0}")]
+    ContextWeaverPlugin(#[from] context_weaver::plugin::PluginError),
     #[error("{0} not found: {1}")]
     NotFound(ContextType, Snowflake),
     #[error("Resolver not found: {0}")]
@@ -73,6 +75,9 @@ impl ContextError {
             }
             ContextError::ContextWeaver(context_weaver_error) => {
                 format!("ContextWeaver: {context_weaver_error}")
+            }
+            ContextError::ContextWeaverPlugin(context_weaver_error) => {
+                format!("ContextWeaver (plugin): {context_weaver_error}")
             }
             ContextError::StateConversion(e) => {
                 format!("State conversion: {e}")

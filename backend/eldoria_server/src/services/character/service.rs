@@ -5,21 +5,23 @@ use bytes::Bytes;
 use eldoria_storage::{
     BlobStore, Storage, StorageError,
     models::{
-        BlobId, Character, CharacterSummary, CharacterVersionInfo, ExampleDialogue, Greeting,
-        Snowflake, VersionedSaveMode,
+        BlobId, Character, CharacterDefinition, CharacterMetadata, CharacterSummary,
+        CharacterVersionInfo, ExampleDialogue, Greeting, Snowflake, VersionedSaveMode,
     },
 };
 use tokio::{sync::RwLock, time::Instant};
 
 use crate::{
-    core::CleanableService, errors::TargetType, services::{
+    core::CleanableService,
+    errors::TargetType,
+    services::{
         character::{
             CharacterServiceError, EditDefinition, EditMetadata, EditableCharacter,
             card_parser::{DetectedSpec, parse_character_card_png},
             compat::{CharaV2, convert_from_ccv2},
         },
-        snowflake::SnowflakeService,
-    }
+        snowflake::{self, SnowflakeService},
+    },
 };
 
 const SESSION_LENGTH: u64 = 60 * 5; // 5 minutes
@@ -50,6 +52,31 @@ impl CharacterService {
             snowflake,
             editing_sessions: RwLock::new(HashMap::new()),
         }
+    }
+
+    pub async fn create_character(
+        &self,
+        user_id: Snowflake,
+        name: String,
+    ) -> Result<Character, CharacterServiceError> {
+        let char = Character {
+            id: self.snowflake.generate(),
+            user_id,
+            current_version_id: self.snowflake.generate(),
+            metadata: CharacterMetadata::default(),
+            definition: CharacterDefinition {
+                name,
+                ..Default::default()
+            },
+            lorebook_id: None,
+            extensions: serde_json::Value::Null,
+        };
+
+        self.storage
+            .save_character(&char, VersionedSaveMode::NewVersion)
+            .await?;
+
+        Ok(char)
     }
 
     pub async fn list_characters(
@@ -94,7 +121,7 @@ impl CharacterService {
     pub async fn list_versions(
         &self,
         character_id: Snowflake,
-        _user_id: Snowflake
+        _user_id: Snowflake,
     ) -> Result<Vec<CharacterVersionInfo>, CharacterServiceError> {
         Ok(self.storage.list_character_versions(character_id).await?)
     }

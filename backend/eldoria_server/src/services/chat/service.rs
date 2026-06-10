@@ -54,9 +54,7 @@ impl ChatService {
             characters,
             state,
             resolvers: Arc::new(registry),
-            schedule: Arc::new(Schedule::new(vec![
-                Box::new(PrivacyStage)
-            ])),
+            schedule: Arc::new(Schedule::new(vec![Box::new(PrivacyStage)])),
         }
     }
 
@@ -388,7 +386,7 @@ impl ChatService {
                 messages: &thread,
                 user_id,
                 lorebook_state: Mutex::new(None),
-                persona: &persona
+                persona: &persona,
             };
             let trace = assemble(&template, &self.resolvers, &ctx).await?;
             captured = ctx.lorebook_state.lock().await.take();
@@ -410,9 +408,16 @@ impl ChatService {
         })
     }
 
-    async fn stage_cx(&self, user_id: Snowflake, _convo: &Conversation) -> Result<StageCx, ChatError> {
+    async fn stage_cx(
+        &self,
+        user_id: Snowflake,
+        _convo: &Conversation,
+    ) -> Result<StageCx, ChatError> {
         // TODO: read display name + alias from user settings once that model lands.
-        Ok(StageCx { user_display: "Crux".into(), user_alias: None })
+        Ok(StageCx {
+            user_display: "Crux".into(),
+            user_alias: None,
+        })
     }
 
     pub async fn generate(
@@ -536,7 +541,11 @@ impl ChatService {
             .map_err(|_| ChatError::ConnectionProfile("missing model".to_string()))?;
 
         let http_client = Arc::new(reqwest::Client::new());
-        let provider = OpenRouterProvider::new(http_client, api_key, model);
+        let provider = OpenRouterProvider::new(http_client, api_key, model)
+            .with_request_modifier(|b| {
+                b.header("HTTP-Referer", "https://github.com/crux-03/Lorealm")
+            })
+            .with_request_modifier(|b| b.header("X-OpenRouter-Title", "Lorealm"));
         let client = Client::new(provider);
 
         // Map your custom payload directly to what the provider client expects
