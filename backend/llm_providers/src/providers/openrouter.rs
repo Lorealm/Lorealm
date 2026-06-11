@@ -27,7 +27,11 @@ pub struct OpenRouterProviderPreference {
 }
 
 impl OpenRouterProvider {
-    pub fn new(client: Arc<HttpClient>, api_key: impl Into<String>, model: impl Into<String>) -> Self {
+    pub fn new(
+        client: Arc<HttpClient>,
+        api_key: impl Into<String>,
+        model: impl Into<String>,
+    ) -> Self {
         Self {
             client,
             api_key: api_key.into(),
@@ -226,7 +230,7 @@ impl super::LlmProvider for OpenRouterProvider {
             }
 
             let chunk: OpenRouterStreamResponse = serde_json::from_str(data)?;
-            
+
             if let Some(choice) = chunk.choices.first() {
                 Ok(Some(Delta {
                     content: choice.delta.content.clone().unwrap_or_default(),

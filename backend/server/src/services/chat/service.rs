@@ -1,12 +1,12 @@
 use std::{pin::Pin, sync::Arc};
 
 use chrono::Utc;
+use futures_util::{Stream, StreamExt};
 use lorealm_providers::{Client, OpenRouterProvider};
 use lorealm_storage::{
     Storage,
     models::{ChatRole, Conversation, ConversationMessage, ConversationMetadata, Snowflake},
 };
-use futures_util::{Stream, StreamExt};
 use serde_json::json;
 use tokio::sync::Mutex;
 
@@ -20,6 +20,7 @@ use crate::{
             builtin::register_builtin_resolvers,
         },
         conversation::{ConversationService, EditMode},
+        persona::PersonaService,
         schedule::{Schedule, StageCx, stages::PrivacyStage},
         snowflake::SnowflakeService,
         state::StateService,
@@ -31,6 +32,7 @@ pub struct ChatService {
     snowflake: Arc<SnowflakeService>,
     conversations: Arc<ConversationService>,
     characters: Arc<CharacterService>,
+    personas: Arc<PersonaService>,
     state: Arc<StateService>,
     resolvers: Arc<ResolverRegistry>,
     schedule: Arc<Schedule>,
@@ -43,6 +45,7 @@ impl ChatService {
         conversations: Arc<ConversationService>,
         characters: Arc<CharacterService>,
         state: Arc<StateService>,
+        personas: Arc<PersonaService>,
     ) -> Self {
         let mut registry = ResolverRegistry::new();
         register_builtin_resolvers(&mut registry, Arc::clone(&state));
@@ -53,6 +56,7 @@ impl ChatService {
             conversations,
             characters,
             state,
+            personas,
             resolvers: Arc::new(registry),
             schedule: Arc::new(Schedule::new(vec![Box::new(PrivacyStage)])),
         }
@@ -411,12 +415,16 @@ impl ChatService {
     async fn stage_cx(
         &self,
         user_id: Snowflake,
-        _convo: &Conversation,
+        convo: &Conversation,
     ) -> Result<StageCx, ChatError> {
-        // TODO: read display name + alias from user settings once that model lands.
+        let active_persona = self.state.get_active_persona(user_id).await?;
+        let actual_persona = self
+            .personas
+            .get_persona_for_character(user_id, convo.character_id, active_persona.id)
+            .await?;
+
         Ok(StageCx {
-            user_display: "Crux".into(),
-            user_alias: None,
+            persona: actual_persona,
         })
     }
 

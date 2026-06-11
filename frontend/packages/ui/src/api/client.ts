@@ -29,6 +29,7 @@ import type {
 	SetActiveLorebooksRequest
 } from '$lib/types/lorebook.js';
 import type { SourceDefinition } from '$lib/types/node.js';
+import type { UserPersona, UpdatePersona } from '$lib/types/persona.js';
 import type { ReconstructedState } from '$lib/types/state.js';
 import type {
 	ContextTemplate,
@@ -37,6 +38,7 @@ import type {
 	MoveNodeRequest,
 	MoveNodeResponse,
 	NodeResponse,
+	SetActiveRequest,
 	SetActiveRequest as SetActiveTemplateRequest,
 	TemplateMetadata,
 	ToggleNodeResponse,
@@ -158,6 +160,17 @@ export function createApiClient(platform: PlatformAPI) {
 						`/api/v1/chat/${conversation_id}/messages/${message_id}/state`
 					)
 			}
+		},
+		personas: {
+			list: () => http.get<Array<UserPersona>>('/api/v1/persona'),
+			create: () => http.post('/api/v1/persona'),
+			update: (persona_id: Snowflake, update: UpdatePersona) =>
+        http.put<UserPersona>(`/api/v1/persona/${persona_id}`, update),
+      setAvatar: (persona_id: Snowflake, avatar: Blob) => http.putBlob(`/api/v1/persona/${persona_id}/avatar`, avatar),
+      active: {
+				get: () => http.get<Snowflake | null>('/api/v1/persona/active'),
+				set: (request: SetActiveRequest) => http.put('/api/v1/persona/active', request)
+			},
 		}
 	};
 }

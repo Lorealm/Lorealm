@@ -1,9 +1,16 @@
 use async_trait::async_trait;
 
-use crate::{PersonaStorage, StorageError, backends::CachedStorage, models::{PersonaOverride, Snowflake, UserPersona}};
+use crate::{
+    PersonaStorage, StorageError,
+    backends::CachedStorage,
+    models::{PersonaOverride, Snowflake, UserPersona},
+};
 
 #[async_trait]
 impl PersonaStorage for CachedStorage {
+    async fn list_personas(&self, user_id: Snowflake) -> Result<Vec<UserPersona>, StorageError> {
+        self.backend.list_personas(user_id).await
+    }
     async fn save_persona(&self, create: UserPersona) -> Result<(), StorageError> {
         self.backend.save_persona(create.clone()).await?;
         self.cache_del(&self.key("persona", &create.id.to_string()))
@@ -26,7 +33,7 @@ impl PersonaStorage for CachedStorage {
     async fn set_active_persona(
         &self,
         user_id: Snowflake,
-        persona_id: Snowflake
+        persona_id: Snowflake,
     ) -> Result<(), StorageError> {
         self.backend.set_active_persona(user_id, persona_id).await
     }
@@ -37,12 +44,13 @@ impl PersonaStorage for CachedStorage {
         self.cache_del(&key).await;
         Ok(())
     }
-    
+
     async fn get_override(
         &self,
         character_id: Snowflake,
     ) -> Result<Option<PersonaOverride>, StorageError> {
         let key = self.key("persona_override", &character_id.to_string());
-        self.get_through(&key, self.backend.get_override(character_id)).await
+        self.get_through(&key, self.backend.get_override(character_id))
+            .await
     }
 }

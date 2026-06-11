@@ -209,7 +209,6 @@ pub async fn set_active_template(
     session: AuthenticatedSession,
     Json(request): Json<SetActiveRequest>,
 ) -> Result<(), AppError> {
-    tracing::info!("setting active template");
     set_active(state, session, Some(request.id)).await
 }
 

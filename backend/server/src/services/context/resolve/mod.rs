@@ -149,7 +149,11 @@ fn apply_variables(content: &mut String, ctx: &ResolveContext) {
         .clone()
         .unwrap_or(ctx.character.definition.name.clone());
 
-    let user_name = ctx.persona.display_name.clone();
+    let user_name = ctx
+        .persona
+        .display_name
+        .clone()
+        .unwrap_or(ctx.persona.name.clone());
 
     *content = BulkReplace::new(content.clone())
         .register("{{char:name}}", character_name)

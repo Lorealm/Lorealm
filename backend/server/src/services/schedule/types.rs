@@ -1,8 +1,9 @@
+use lorealm_storage::models::UserPersona;
+
 use crate::services::chat::PromptMessage;
 
 pub struct StageCx {
-    pub user_display: String,       // "Bob" — what's in storage
-    pub user_alias: Option<String>, // "Alex" — what goes on the wire
+    pub persona: UserPersona
 }
 
 /// One bidirectional stage. The outbound half runs once, may mutate the

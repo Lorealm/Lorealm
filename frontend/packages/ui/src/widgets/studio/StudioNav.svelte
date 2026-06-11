@@ -16,7 +16,8 @@
 		{ id: StudioSection.Characters, label: 'Characters' },
 		{ id: StudioSection.Lorebooks, label: 'Lorebooks' },
 		{ id: StudioSection.Templates, label: 'Templates' },
-		{ id: StudioSection.Commands, label: 'Commands' }
+		{ id: StudioSection.Commands, label: 'Commands' },
+		{ id: StudioSection.Personas, label: 'Personas' }
 	];
 </script>
 
