@@ -8,11 +8,20 @@ use crate::{
 
 #[async_trait]
 impl PersonaStorage for PostgresStorage {
+    async fn list_personas(&self, user_id: Snowflake) -> Result<Vec<UserPersona>, StorageError> {
+        let personas =
+            sqlx::query_as::<_, UserPersona>(r#"SELECT * FROM user_personas WHERE user_id = $1"#)
+                .bind(user_id)
+                .fetch_all(&self.pool)
+                .await?;
+
+        Ok(personas)
+    }
     async fn save_persona(&self, create: UserPersona) -> Result<(), StorageError> {
         sqlx::query(
             r#"INSERT INTO user_personas
                 (id, user_id, name, display_name, pseudonym, avatar_uri, description, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, now())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, now())
             ON CONFLICT (id) DO UPDATE SET
                 display_name = EXCLUDED.display_name,
                 pseudonym = EXCLUDED.pseudonym,
@@ -56,10 +65,15 @@ impl PersonaStorage for PostgresStorage {
         Ok(active.flatten())
     }
 
-    async fn set_active_persona(&self, user_id: Snowflake, persona_id: Snowflake) -> Result<(), StorageError> {
+    async fn set_active_persona(
+        &self,
+        user_id: Snowflake,
+        persona_id: Snowflake,
+    ) -> Result<(), StorageError> {
         sqlx::query(
             r#"INSERT INTO user_settings (user_id, active_persona_id) VALUES ($1, $2)
-            ON CONFLICT (user_id) DO UPDATE SET active_persona_id = EXCLUDED.active_persona_id"#)
+            ON CONFLICT (user_id) DO UPDATE SET active_persona_id = EXCLUDED.active_persona_id"#,
+        )
         .bind(user_id)
         .bind(persona_id)
         .execute(&self.pool)

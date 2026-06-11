@@ -7,6 +7,7 @@ use crate::{
 
 #[async_trait]
 pub trait PersonaStorage: Send + Sync {
+    async fn list_personas(&self, user_id: Snowflake) -> Result<Vec<UserPersona>, StorageError>;
     async fn save_persona(&self, create: UserPersona) -> Result<(), StorageError>;
     async fn get_persona(&self, id: Snowflake) -> Result<Option<UserPersona>, StorageError>;
     async fn set_active_persona(

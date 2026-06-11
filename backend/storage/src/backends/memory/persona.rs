@@ -1,10 +1,26 @@
 use async_trait::async_trait;
 use chrono::Utc;
 
-use crate::{PersonaStorage, StorageError, backends::MemoryStorage, models::{PersonaOverride, Snowflake, UserPersona, UserSettings}};
+use crate::{
+    PersonaStorage, StorageError,
+    backends::MemoryStorage,
+    models::{PersonaOverride, Snowflake, UserPersona, UserSettings},
+};
 
 #[async_trait]
 impl PersonaStorage for MemoryStorage {
+    async fn list_personas(&self, user_id: Snowflake) -> Result<Vec<UserPersona>, StorageError> {
+        let personas: Vec<UserPersona> = self
+            .personas
+            .read()
+            .await
+            .values()
+            .filter(|b| b.user_id == user_id)
+            .cloned()
+            .collect();
+
+        Ok(personas)
+    }
     async fn save_persona(&self, create: UserPersona) -> Result<(), StorageError> {
         let mut personas = self.personas.write().await;
         match personas.get_mut(&create.id) {
@@ -68,7 +84,7 @@ impl PersonaStorage for MemoryStorage {
         overrides.insert(r#override.character_id, r#override);
         Ok(())
     }
-    
+
     async fn get_override(
         &self,
         character_id: Snowflake,

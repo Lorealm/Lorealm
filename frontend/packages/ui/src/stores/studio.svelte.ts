@@ -3,7 +3,8 @@ export enum StudioSection {
 	Lorebooks,
 	Templates,
 	Characters,
-	Commands
+	Commands,
+	Personas
 }
 
 class StudioStore {

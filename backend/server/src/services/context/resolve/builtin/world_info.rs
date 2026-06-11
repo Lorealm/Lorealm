@@ -5,9 +5,7 @@ use context_weaver::{
     ActivationState as CwActivationState, AssembledBlock, BookId, ChatMessage as CwMessage,
     ContextWeaver, EngineConfig, NamespaceAccess, Slot,
 };
-use lorealm_storage::models::{
-    ActivationState, ChatRole, ConversationMessage, Snowflake,
-};
+use lorealm_storage::models::{ActivationState, ChatRole, ConversationMessage, Snowflake};
 use serde_json::Value as JsonValue;
 use weaver_lang::Value as WeaverValue;
 
@@ -45,9 +43,7 @@ impl SourceResolver for WorldInfoResolver {
     ) -> Result<Vec<ResolvedBlock>, ContextError> {
         let slot = slot_for_node(node_id)?;
 
-        let (blocks, persistent) = self
-            .run_pipeline(ctx)
-            .await?;
+        let (blocks, persistent) = self.run_pipeline(ctx).await?;
 
         let separator = settings
             .get("separator")
@@ -134,8 +130,21 @@ impl WorldInfoResolver {
             }
         }
 
-        weaver.set_variable("char", "name", ctx.character.definition.name.clone());
-        weaver.set_variable("user", "name", ctx.persona.display_name.clone());
+        let character_name = ctx
+            .character
+            .metadata
+            .display_name
+            .clone()
+            .unwrap_or(ctx.character.definition.name.clone());
+
+        let user_name = ctx
+            .persona
+            .display_name
+            .clone()
+            .unwrap_or(ctx.persona.name.clone());
+
+        weaver.set_variable("char", "name", character_name);
+        weaver.set_variable("user", "name", user_name);
 
         let cw_messages = convert_messages(ctx.messages);
         let blocks = weaver.assemble(&cw_messages)?;

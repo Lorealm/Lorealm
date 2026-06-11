@@ -72,6 +72,7 @@ impl ServiceManager {
 
         let persona = Arc::new(PersonaService::new(
             Arc::clone(&storage),
+            Arc::clone(&blob),
             Arc::clone(&snowflake),
         ));
 
@@ -88,6 +89,7 @@ impl ServiceManager {
             Arc::clone(&conversation),
             Arc::clone(&characters),
             Arc::clone(&state),
+            Arc::clone(&persona)
         ));
 
         let cleanable: Vec<Arc<dyn CleanableService>> = vec![

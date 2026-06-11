@@ -14,20 +14,27 @@ impl Stage for PrivacyStage {
     }
 
     fn outbound(&self, prompt: &mut Vec<PromptMessage>, cx: &StageCx) -> Box<dyn ResponseFilter> {
-        let Some(alias) = cx.user_alias.as_deref() else {
+        let Some(alias) = cx.persona.pseudonym.as_deref() else {
             return Box::new(Identity);
         };
-        if alias == cx.user_display {
+
+        let display = cx
+            .persona
+            .display_name
+            .as_deref()
+            .unwrap_or(&cx.persona.name);
+
+        if alias == display {
             return Box::new(Identity);
         }
 
         // Outbound: whole prompt in hand, so a plain full-string swap.
         for msg in prompt.iter_mut() {
-            msg.content = replace_word(&msg.content, &cx.user_display, alias);
+            msg.content = replace_word(&msg.content, display, alias);
         }
 
         // Inbound: undo it on the streamed response, boundary-safe across deltas.
-        Box::new(Replace::new(alias, cx.user_display.clone()))
+        Box::new(Replace::new(alias, display.to_owned()))
     }
 }
 

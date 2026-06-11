@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-
+use crate::util::double_option;
 use lorealm_storage::models::{Character, VersionedSaveMode};
 
 pub(super) struct EditableCharacter{
@@ -28,12 +28,4 @@ pub struct EditMetadata {
     /// Three-state: absent => leave; null => clear to None; "x" => Some("x").
     #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "double_option")]
     pub display_name: Option<Option<String>>,
-}
-
-fn double_option<'de, T, D>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
-where
-    T: Deserialize<'de>,
-    D: serde::Deserializer<'de>,
-{
-    Ok(Some(Option::deserialize(deserializer)?))
 }
