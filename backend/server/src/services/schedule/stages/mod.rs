@@ -1,3 +1,3 @@
 mod privacy;
 
-pub use privacy::PrivacyStage;
+pub use privacy::{PrivacyStage, replace_word};

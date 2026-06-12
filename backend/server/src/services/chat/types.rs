@@ -1,7 +1,7 @@
 use lorealm_storage::models::{Conversation, ConversationMessage, Snowflake};
 use serde::Serialize;
 
-use crate::services::{context::{PromptRole, TracedBlock}, state::CapturedState};
+use crate::services::{chat::widgets::WidgetInstance, context::{PromptRole, TracedBlock}, state::CapturedState};
 
 #[derive(Debug, Clone)]
 pub struct PromptMessage {
@@ -42,6 +42,8 @@ pub enum ChatStreamEvent {
     Delta {
         content: String,
     },
+    Reasoning { content: String },
+    Widget { widget: WidgetInstance },
     /// Terminal: the persisted assistant message, carrying its real id so the
     /// client can reconcile the provisional bubble and fetch branch_info.
     Done {

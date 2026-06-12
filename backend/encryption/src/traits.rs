@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use thiserror::Error;
+use zeroize::Zeroizing;
 
 use crate::models::{EncryptedData, EncryptionContext};
 
@@ -48,9 +49,7 @@ pub enum EncryptionError {
     #[error("Unsupported encryption version: {0}")]
     UnsupportedVersion(u32),
 
-    #[error(
-        "Version mismatch: encrypted with v{encrypted}, attempting to decrypt with v{current}"
-    )]
+    #[error("Version mismatch: encrypted with v{encrypted}, attempting to decrypt with v{current}")]
     VersionMismatch { encrypted: u32, current: u32 },
 
     // Data validation errors
@@ -73,26 +72,28 @@ pub trait Hashable {
 }
 
 #[async_trait]
-pub trait Encryptable {
-    /// Encrypt the value, returning an EncryptedData struct (as discussed previously).
+pub trait Encryptable: Sized {
     async fn encrypt(
         &self,
         key_manager: &dyn KeyManager,
         context: EncryptionContext,
+        binding: &[u8],
     ) -> Result<EncryptedData, EncryptionError>;
 
-    /// Decrypt from EncryptedData back to Self.
     async fn decrypt(
         encrypted: &EncryptedData,
         key_manager: &dyn KeyManager,
-    ) -> Result<Self, EncryptionError>
-    where
-        Self: Sized;
+        binding: &[u8],
+    ) -> Result<Self, EncryptionError>;
 }
 
 /// Optional: A manager trait for key handling (local or AWS KMS).
 #[async_trait]
 pub trait KeyManager: Send + Sync {
-    async fn get_master_key(&self) -> Result<Vec<u8>, EncryptionError>;
+    async fn get_master_key(&self) -> Result<Zeroizing<Vec<u8>>, EncryptionError>;
+    async fn get_master_key_version(
+        &self,
+        version: u32,
+    ) -> Result<Zeroizing<Vec<u8>>, EncryptionError>;
     fn current_version(&self) -> u32;
 }
