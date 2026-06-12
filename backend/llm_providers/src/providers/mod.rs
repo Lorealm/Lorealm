@@ -27,10 +27,8 @@ pub trait LlmProvider: Send + Sync {
     }
 }
 
-mod openai;
-mod anthropic;
 mod openrouter;
 
-pub use openai::{OpenAIProvider, OpenAIOptions};
-pub use anthropic::{AnthropicProvider, AnthropicOptions};
-pub use openrouter::{OpenRouterProvider, OpenRouterOptions};
+pub use openrouter::{
+    OpenRouterOptions, OpenRouterProvider, OpenRouterProviderPreference, OpenRouterReasoning,
+};

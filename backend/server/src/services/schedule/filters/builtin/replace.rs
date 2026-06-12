@@ -1,4 +1,4 @@
-use crate::services::schedule::ResponseFilter;
+use crate::services::schedule::{ResponseFilter, stages::replace_word};
 
 pub struct Replace {
     from: String,
@@ -71,6 +71,10 @@ impl ResponseFilter for Replace {
         self.pending.clear();
         self.prev = None;
         out
+    }
+
+    fn apply(&self, text: &str) -> String {
+        replace_word(text, &self.from, &self.to)
     }
 }
 

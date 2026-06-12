@@ -51,4 +51,15 @@ impl FilterChain {
         }
         out
     }
+
+    pub fn apply(&self, text: &str) -> String {
+        let mut buf = text.to_owned();
+        for f in &self.filters {
+            buf = f.apply(&buf);
+            if buf.is_empty() {
+                break;
+            }
+        }
+        buf
+    }
 }

@@ -18,6 +18,9 @@ pub trait Stage: Send + Sync {
 pub trait ResponseFilter: Send {
     fn push(&mut self, delta: &str) -> String;
     fn finish(&mut self) -> String;
+    /// One-shot transform of a detached string (e.g. tool-call output that
+    /// bypasses the token stream). Must not touch streaming state.
+    fn apply(&self, text: &str) -> String;
 }
 
 /// Inbound no-op. Passes deltas straight through. Returned by stages that
@@ -30,5 +33,8 @@ impl ResponseFilter for Identity {
     }
     fn finish(&mut self) -> String {
         String::new()
+    }
+    fn apply(&self, text: &str) -> String {
+        text.to_owned()
     }
 }

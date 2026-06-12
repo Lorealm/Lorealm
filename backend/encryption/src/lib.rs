@@ -25,3 +25,4 @@ pub use traits::{Encryptable, EncryptionError, Hashable, KeyManager};
 pub use backends::LocalKeyManager;
 
 pub use impls::{verify_password, verify_session_token, hash_session_token};
+use impls::{decrypt_bytes, encrypt_bytes};

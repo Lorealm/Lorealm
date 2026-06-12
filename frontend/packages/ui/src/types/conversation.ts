@@ -1,4 +1,5 @@
 import type { JsonValue, PromptRole, Snowflake } from './core.ts';
+import type { WidgetInstance } from './widgets.ts';
 
 export interface Conversation {
 	id: Snowflake;
@@ -64,4 +65,6 @@ export type ChatStreamEvent =
 	| { type: 'user_message'; message: ConversationMessage }
 	/** A chunk of generated text */
 	| { type: 'delta'; content: string }
+	| { type: 'widget'; widget: WidgetInstance }
+	| { type: 'reasoning'; content: string }
 	| { type: 'done'; message: ConversationMessage };

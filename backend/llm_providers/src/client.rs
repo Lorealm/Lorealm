@@ -1,4 +1,4 @@
-use crate::{error::Result, providers::LlmProvider, types::*};
+use crate::{error::*, providers::LlmProvider, tools::ToolRegistry, types::*};
 use futures::Stream;
 
 pub struct Client<P: LlmProvider> {
@@ -33,11 +33,15 @@ pub struct RequestBuilder<'a, P: LlmProvider> {
 }
 
 impl<'a, P: LlmProvider> RequestBuilder<'a, P> {
+    /// Append a plain-text message.
     pub fn message(mut self, role: Role, content: impl Into<String>) -> Self {
-        self.messages.push(Message {
-            role,
-            content: content.into(),
-        });
+        self.messages.push(Message::text(role, content));
+        self
+    }
+
+    /// Append a message with arbitrary content blocks (images, tool results, ...).
+    pub fn message_blocks(mut self, role: Role, content: Vec<ContentBlock>) -> Self {
+        self.messages.push(Message { role, content });
         self
     }
 
@@ -78,6 +82,14 @@ impl<'a, P: LlmProvider> RequestBuilder<'a, P> {
         self
     }
 
+    /// Advertise tool definitions to the model without executing them
+    /// automatically. Use this when you want to handle `ToolUse` blocks
+    /// yourself; use `send_with_tools` for the automatic loop.
+    pub fn tools(mut self, tools: Vec<ToolDef>) -> Self {
+        self.common_params.tools = Some(tools);
+        self
+    }
+
     pub fn configure<F>(mut self, f: F) -> Self
     where
         F: FnOnce(&mut P::ProviderParams),
@@ -92,9 +104,81 @@ impl<'a, P: LlmProvider> RequestBuilder<'a, P> {
             .await
     }
 
-    pub async fn stream(
-        self,
-    ) -> Result<Box<dyn Stream<Item = Result<Delta>> + Unpin + Send>> {
+    /// Send the request and automatically execute any tool calls the model
+    /// makes, feeding results back until the model produces a response with
+    /// no tool calls (or `max_rounds` is exceeded).
+    ///
+    /// Tool definitions are taken from the registry unless already set via
+    /// `tools()`. Tool execution errors are reported back to the model as
+    /// error results rather than aborting the loop.
+    pub async fn send_with_tools(
+        mut self,
+        registry: &ToolRegistry,
+        max_rounds: usize,
+    ) -> Result<Response> {
+        if self.common_params.tools.is_none() {
+            self.common_params.tools = Some(registry.defs());
+        }
+
+        for _ in 0..max_rounds {
+            let response = self
+                .provider
+                .complete(
+                    self.messages.clone(),
+                    &self.common_params,
+                    &self.provider_params,
+                )
+                .await?;
+
+            let tool_uses: Vec<(String, String, serde_json::Value)> = response
+                .content
+                .iter()
+                .filter_map(|block| match block {
+                    ContentBlock::ToolUse { id, name, input } => {
+                        Some((id.clone(), name.clone(), input.clone()))
+                    }
+                    _ => None,
+                })
+                .collect();
+
+            if tool_uses.is_empty() {
+                return Ok(response);
+            }
+
+            self.messages.push(Message {
+                role: Role::Assistant,
+                content: response.content,
+            });
+
+            let mut results = Vec::with_capacity(tool_uses.len());
+            for (id, name, input) in tool_uses {
+                let block = match registry.call(&name, input).await {
+                    Ok(value) => ContentBlock::ToolResult {
+                        tool_use_id: id,
+                        content: value.to_string(),
+                        is_error: false,
+                    },
+                    Err(e) => ContentBlock::ToolResult {
+                        tool_use_id: id,
+                        content: e.to_string(),
+                        is_error: true,
+                    },
+                };
+                results.push(block);
+            }
+            self.messages.push(Message {
+                role: Role::User,
+                content: results,
+            });
+        }
+
+        Err(Error::Tool(format!(
+            "tool loop did not finish within {} rounds",
+            max_rounds
+        )))
+    }
+
+    pub async fn stream(self) -> Result<Box<dyn Stream<Item = Result<Delta>> + Unpin + Send>> {
         self.provider
             .stream(self.messages, &self.common_params, &self.provider_params)
             .await

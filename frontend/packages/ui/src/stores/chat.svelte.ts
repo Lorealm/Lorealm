@@ -9,6 +9,7 @@ import type {
 	FullConversation
 } from '$lib/types/conversation.js';
 import type { Greeting } from '$lib/types/character.js';
+import type { WidgetInstance } from '$lib/types/widgets.js';
 import { SvelteMap } from 'svelte/reactivity';
 import { messageStateStore } from './messageState.svelte.ts';
 
@@ -59,6 +60,8 @@ class ChatStore {
 
 	private _streamingId = $state<Snowflake | null>(null);
 	private _streamBuffer = $state('');
+	private _streamReasoning = $state('');
+	private _streamWidgets = $state<WidgetInstance[]>([]);
 
 	streamState = $state<StreamState>({ status: 'idle' });
 
@@ -85,7 +88,17 @@ class ChatStore {
 		const path: ConversationMessage[] = [];
 		let cur = this._activeLeafId ? this._messages.get(this._activeLeafId) : undefined;
 		while (cur) {
-			const msg = cur.id === this._streamingId ? { ...cur, content: this._streamBuffer } : cur;
+			const msg =
+				cur.id === this._streamingId
+					? {
+							...cur,
+							content: this._streamBuffer,
+							metadata: {
+								widgets: this._streamWidgets,
+								reasoning: this._streamReasoning
+							} as unknown as ConversationMessage['metadata']
+						}
+					: cur;
 			path.unshift(msg);
 			cur = cur.parent ? this._messages.get(cur.parent) : undefined;
 		}
@@ -212,6 +225,8 @@ class ChatStore {
 		this._pendingGreetingId = null;
 		this._streamingId = null;
 		this._streamBuffer = '';
+		this._streamReasoning = '';
+		this._streamWidgets = [];
 		this.streamState = { status: 'idle' };
 	}
 
@@ -335,6 +350,8 @@ class ChatStore {
 		this._activeLeafId = assistantId;
 		this._streamingId = assistantId;
 		this._streamBuffer = '';
+		this._streamReasoning = '';
+		this._streamWidgets = [];
 		this.streamState = { status: 'streaming' };
 
 		try {
@@ -350,6 +367,13 @@ class ChatStore {
 					case 'delta':
 						this._streamBuffer += event.content;
 						console.log('delta');
+						break;
+					case 'reasoning':
+						this._streamReasoning += event.content;
+						break;
+					case 'widget':
+						this._streamWidgets = [...this._streamWidgets, event.widget];
+						console.log('widget', event.widget.widget_id);
 						break;
 					case 'user_message':
 						committedUser = event.message;
@@ -370,6 +394,8 @@ class ChatStore {
 			this._activeLeafId = committedAssistant?.id ?? this.#deriveLeaf();
 			this._streamingId = null;
 			this._streamBuffer = '';
+			this._streamReasoning = '';
+			this._streamWidgets = [];
 			this.streamState = { status: 'idle' };
 
 			// TODO: think of alternative approachs
@@ -383,6 +409,8 @@ class ChatStore {
 			this._activeLeafId = prevLeaf;
 			this._streamingId = null;
 			this._streamBuffer = '';
+			this._streamReasoning = '';
+			this._streamWidgets = [];
 			this.streamState = { status: 'error', ...extractError(e) };
 			console.log(e);
 		}

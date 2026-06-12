@@ -3,9 +3,11 @@
 	import { characterStore } from '$lib/stores/character.svelte.js';
 	import type { ConversationMessage } from '$lib/types/conversation.js';
 	import TransportImage from '$lib/components/TransportImage.svelte';
+	import ChatWidget from '$lib/components/ChatWidget.svelte';
 	import { ChevronLeft, ChevronRight, Layers, Pencil, Trash2 } from '@lucide/svelte';
 	import { contextInspector } from '$lib/stores/contextInspector.svelte.js';
 	import { parseContextBlocks } from '$lib/types/context.js';
+	import { parseReasoning, parseWidgets, splitWidgetMarkers } from '$lib/types/widgets.js';
 	import { marked } from '$lib/assets/scripts/marked-rp.js';
 	import DOMPurify from 'dompurify';
 
@@ -28,10 +30,17 @@
 	let editMode = $state<'edit' | 'branch'>('edit');
 	let editText = $state('');
 
-	let rawHtml = $derived(marked.parse(message.content));
-	let safeHtml = $derived(DOMPurify.sanitize(rawHtml.toString()));
-
 	let hasContext = $derived(parseContextBlocks(message.metadata) !== null);
+	let reasoning = $derived(parseReasoning(message.metadata));
+	let widgets = $derived(parseWidgets(message.metadata));
+	let segments = $derived(splitWidgetMarkers(message.content));
+	// Widgets never referenced by a marker (e.g. messages from before markers
+	// existed) still render, appended after the body.
+	let trailing = $derived(
+		widgets.filter((_, i) => !segments.some((s) => s.type === 'widget' && s.index === i))
+	);
+
+	const renderMd = (text: string) => DOMPurify.sanitize(marked.parse(text).toString().trim());
 
 	function startEdit(mode: 'edit' | 'branch') {
 		editMode = mode;
@@ -95,6 +104,13 @@
 			{/if}
 		</div>
 
+		{#if !editing && reasoning.length > 0}
+			<details class="reasoning" open={!committed}>
+				<summary>{committed ? 'Thoughts' : 'Thinking…'}</summary>
+				<div class="reasoning-body">{reasoning}</div>
+			</details>
+		{/if}
+
 		{#if editing}
 			<textarea class="editor" rows="3" bind:value={editText}></textarea>
 			<div class="edit-actions">
@@ -107,8 +123,26 @@
 				<span class="typing"><span></span><span></span><span></span></span>
 			</div>
 		{:else}
-			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-			<div class="body md">{@html safeHtml}</div>
+			<div class="body md">
+				{#each segments as seg, i (i)}
+					{#if seg.type === 'text'}
+						<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+						{@html renderMd(seg.text)}
+					{:else if widgets[seg.index]}
+						<div class="inline-widget">
+							<ChatWidget widget={widgets[seg.index]} />
+						</div>
+					{/if}
+				{/each}
+			</div>
+		{/if}
+
+		{#if !editing && trailing.length > 0}
+			<div class="widgets">
+				{#each trailing as widget, i (i)}
+					<ChatWidget {widget} />
+				{/each}
+			</div>
 		{/if}
 
 		<div class="slides">
@@ -210,6 +244,36 @@
 		line-height: var(--line-height-normal);
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;
+	}
+
+	.widgets {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-sm);
+	}
+
+	.reasoning {
+		border-left: 2px solid var(--color-border-medium);
+		padding-left: var(--spacing-sm);
+	}
+	.reasoning summary {
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
+		cursor: pointer;
+		user-select: none;
+	}
+	.reasoning-body {
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
+		font-style: italic;
+		line-height: var(--line-height-normal);
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+		padding-top: var(--spacing-xs);
+	}
+
+	.inline-widget {
+		margin: var(--spacing-sm) 0;
 	}
 
 	.editor {

@@ -9,6 +9,8 @@ pub enum Error {
     ApiError { status: u16, message: String },
     InvalidParameter(String),
     StreamError(String),
+    Provider(String),
+    Tool(String),
 }
 
 impl fmt::Display for Error {
@@ -21,6 +23,8 @@ impl fmt::Display for Error {
             }
             Error::InvalidParameter(msg) => write!(f, "Invalid parameter: {}", msg),
             Error::StreamError(msg) => write!(f, "Stream error: {}", msg),
+            Error::Provider(msg) => write!(f, "Provider error: {}", msg),
+            Error::Tool(msg) => write!(f, "Tool error: {}", msg),
         }
     }
 }
