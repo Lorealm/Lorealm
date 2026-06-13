@@ -199,41 +199,41 @@
 						<p class="empty params-empty">No parameters. The tool takes no input.</p>
 					{/if}
 
-					<div class="param-rows">
+					<div class="param-cards">
 						{#each draft.params as param, i (i)}
 							{@const flat = flatten(param.ty)}
-							<div class="param-row">
-								<input
-									class="param-name mono"
-									placeholder="name"
-									bind:value={param.name}
-									oninput={requestSave}
-								/>
-
-								<select
-									class="param-type"
-									value={flat.base}
-									onchange={(e) => setBase(param, e.currentTarget.value as Base)}
-								>
-									<option value="string">string</option>
-									<option value="number">number</option>
-									<option value="bool">bool</option>
-								</select>
-
-								<div class="depth" title="Array nesting">
-									<button
-										type="button"
-										onclick={() => setDepth(param, flat.depth - 1)}
-										disabled={flat.depth === 0}
-										aria-label="Remove array layer">−</button
+							<div class="param-card">
+								<div class="param-card-top">
+									<input
+										class="param-name mono"
+										placeholder="name"
+										bind:value={param.name}
+										oninput={requestSave}
+									/>
+									<select
+										class="param-type"
+										value={flat.base}
+										onchange={(e) => setBase(param, e.currentTarget.value as Base)}
 									>
-									<span class="depth-label mono">{'[]'.repeat(flat.depth) || '·'}</span>
-									<button
-										type="button"
-										onclick={() => setDepth(param, flat.depth + 1)}
-										disabled={flat.depth >= MAX_DEPTH}
-										aria-label="Add array layer">+</button
-									>
+										<option value="string">string</option>
+										<option value="number">number</option>
+										<option value="bool">bool</option>
+									</select>
+									<div class="depth" title="Array nesting">
+										<button
+											type="button"
+											onclick={() => setDepth(param, flat.depth - 1)}
+											disabled={flat.depth === 0}
+											aria-label="Remove array layer">−</button
+										>
+										<span class="depth-label mono">{'[]'.repeat(flat.depth) || '·'}</span>
+										<button
+											type="button"
+											onclick={() => setDepth(param, flat.depth + 1)}
+											disabled={flat.depth >= MAX_DEPTH}
+											aria-label="Add array layer">+</button
+										>
+									</div>
 								</div>
 
 								<input
@@ -243,17 +243,15 @@
 									oninput={requestSave}
 								/>
 
-								<label class="param-required" title="Required">
-									<input type="checkbox" bind:checked={param.required} onchange={requestSave} />
-									<span>req</span>
-								</label>
-
-								<button
-									type="button"
-									class="param-remove"
-									onclick={() => removeParam(i)}
-									aria-label="Remove parameter">✕</button
-								>
+								<div class="param-card-foot">
+									<label class="param-required">
+										<input type="checkbox" bind:checked={param.required} onchange={requestSave} />
+										<span>Required</span>
+									</label>
+									<button type="button" class="param-remove" onclick={() => removeParam(i)}>
+										Remove
+									</button>
+								</div>
 							</div>
 						{/each}
 					</div>
@@ -578,22 +576,34 @@
 	.params-empty {
 		margin: 0 0 var(--spacing-sm);
 	}
-	.param-rows {
+	.param-cards {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
+		gap: var(--spacing-sm);
 	}
-	.param-row {
+	.param-card {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-sm);
+		padding: var(--spacing-sm);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius-md);
+	}
+	.param-card-top {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--spacing-sm);
+		min-width: 0;
 	}
 	.param-name {
-		flex: 0 0 140px;
-		min-width: 0;
+		flex: 1 1 auto;
+		width: auto; /* override global input width:100% so flex controls the size */
+		min-width: 0; /* allow shrink below intrinsic input width */
 	}
 	.param-type {
 		flex: 0 0 auto;
+		width: auto; /* override global select width:100% */
+		min-width: 7rem;
 	}
 	.depth {
 		flex: 0 0 auto;
@@ -620,26 +630,23 @@
 		color: var(--color-text-muted);
 		font-size: var(--font-size-xs);
 	}
-	.param-desc {
-		flex: 1 1 auto;
-		min-width: 0;
+	.param-card-foot {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
 	}
 	.param-required {
-		flex: 0 0 auto;
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
 		margin: 0;
-		gap: 4px;
-		color: var(--color-text-muted);
-		font-size: var(--font-size-xs);
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-sm);
 	}
 	.param-remove {
 		flex: 0 0 auto;
-		width: 24px;
-		height: 24px;
-		padding: 0;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		background: transparent;
+		padding: var(--spacing-xs) var(--spacing-sm);
+		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
 	}
 	.param-remove:hover {

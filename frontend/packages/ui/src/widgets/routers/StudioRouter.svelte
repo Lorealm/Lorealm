@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { studioStore, StudioSection } from '$lib/stores/studio.svelte';
-	import Placeholder from '../Placeholder.svelte';
 	import StudioNav from '../studio/StudioNav.svelte';
 	import LorebooksSection from '../studio/sections/lorebook/LorebooksSection.svelte';
 	import TemplateSection from '../studio/sections/templates/TemplateSection.svelte';
