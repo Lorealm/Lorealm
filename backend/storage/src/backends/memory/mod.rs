@@ -1,4 +1,5 @@
 pub mod characters;
+pub mod connection;
 pub mod conversations;
 pub mod lorebook;
 pub mod permissions;
@@ -6,6 +7,7 @@ pub mod persona;
 pub mod sessions;
 pub mod state;
 pub mod templates;
+pub mod tools;
 pub mod users;
 
 use crate::StorageCore;
@@ -35,6 +37,9 @@ pub struct MemoryStorage {
     pub(crate) message_states: RwLock<HashMap<Snowflake, MessageState>>,
     pub(crate) personas: RwLock<HashMap<Snowflake, UserPersona>>,
     pub(crate) persona_overrides: RwLock<HashMap<Snowflake, PersonaOverride>>,
+    pub(crate) secrets: RwLock<HashMap<Snowflake, Secret>>,
+    pub(crate) connection_profiles: RwLock<HashMap<Snowflake, ConnectionProfile>>,
+    pub(crate) user_tools: RwLock<HashMap<Snowflake, UserTool>>,
 }
 
 impl MemoryStorage {

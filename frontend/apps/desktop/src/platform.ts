@@ -140,7 +140,10 @@ const http: HttpTransport = {
   	},
   	async put<T>(path: string, body?: unknown): Promise<T> {
   		return check<T>(await invoke<HttpResponse>("http_put", { path, body: body ?? null }));
-  	},
+    },
+    async patch<T>(path: string, body?: unknown): Promise<T> {
+  		return check<T>(await invoke<HttpResponse>("http_patch", { path, body: body ?? null }));
+   	},
   	async delete<T>(path: string): Promise<T> {
   		return check<T>(await invoke<HttpResponse>("http_delete", { path }));
     },

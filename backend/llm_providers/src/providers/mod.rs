@@ -4,7 +4,7 @@ use futures::Stream;
 
 #[async_trait]
 pub trait LlmProvider: Send + Sync {
-    type ProviderParams: Default + Send + Sync;
+    type ProviderParams: Default + Send + Sync + Serialize;
 
     async fn complete(
         &self,
@@ -32,3 +32,4 @@ mod openrouter;
 pub use openrouter::{
     OpenRouterOptions, OpenRouterProvider, OpenRouterProviderPreference, OpenRouterReasoning,
 };
+use serde::Serialize;

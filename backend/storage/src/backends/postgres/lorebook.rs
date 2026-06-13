@@ -6,14 +6,6 @@ use crate::storage::LorebookStorage;
 
 use super::PostgresStorage;
 
-fn db_err(e: sqlx::Error) -> StorageError {
-    StorageError::Database(e.to_string())
-}
-
-fn ser_err(e: serde_json::Error) -> StorageError {
-    StorageError::InvalidInput(e.to_string())
-}
-
 #[async_trait]
 impl LorebookStorage for PostgresStorage {
     async fn get_lorebook(&self, id: Snowflake) -> Result<Option<Lorebook>, StorageError> {
@@ -24,8 +16,7 @@ impl LorebookStorage for PostgresStorage {
         )
         .bind(id)
         .fetch_optional(&self.pool)
-        .await
-        .map_err(db_err)?
+        .await?
         {
             Some(b) => b,
             None => return Ok(None),
@@ -37,8 +28,7 @@ impl LorebookStorage for PostgresStorage {
         )
         .bind(id)
         .fetch_all(&self.pool)
-        .await
-        .map_err(db_err)?;
+        .await?;
 
         Ok(Some(book))
     }
@@ -54,13 +44,12 @@ impl LorebookStorage for PostgresStorage {
         .bind(id)
         .bind(version_id)
         .fetch_optional(&self.pool)
-        .await
-        .map_err(db_err)?;
+        .await?;
 
         match snapshot {
             None => Ok(None),
             Some(v) => {
-                let mut book: Lorebook = serde_json::from_value(v).map_err(ser_err)?;
+                let mut book: Lorebook = serde_json::from_value(v)?;
                 book.current_version_id = version_id;
                 Ok(Some(book))
             }
@@ -78,14 +67,13 @@ impl LorebookStorage for PostgresStorage {
         )
         .bind(user_id)
         .fetch_all(&self.pool)
-        .await
-        .map_err(db_err)?;
+        .await?;
 
         Ok(books.iter().map(LorebookMetadata::from).collect())
     }
 
     async fn save_lorebook(&self, lorebook: &Lorebook) -> Result<Snowflake, StorageError> {
-        let mut tx = self.pool.begin().await.map_err(db_err)?;
+        let mut tx = self.pool.begin().await?;
 
         sqlx::query(
             "INSERT INTO lorebooks
@@ -109,14 +97,12 @@ impl LorebookStorage for PostgresStorage {
         .bind(&lorebook.config_yaml)
         .bind(lorebook.schema_version)
         .execute(&mut *tx)
-        .await
-        .map_err(db_err)?;
+        .await?;
 
         sqlx::query("DELETE FROM lorebook_entries WHERE lorebook_id = $1")
             .bind(lorebook.id)
             .execute(&mut *tx)
-            .await
-            .map_err(db_err)?;
+            .await?;
 
         for entry in &lorebook.entries {
             sqlx::query(
@@ -128,11 +114,10 @@ impl LorebookStorage for PostgresStorage {
             .bind(&entry.entry_id)
             .bind(&entry.source)
             .execute(&mut *tx)
-            .await
-            .map_err(db_err)?;
+            .await?;
         }
 
-        tx.commit().await.map_err(db_err)?;
+        tx.commit().await?;
         Ok(lorebook.current_version_id)
     }
 
@@ -141,8 +126,7 @@ impl LorebookStorage for PostgresStorage {
         let res = sqlx::query("DELETE FROM lorebooks WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
-            .await
-            .map_err(db_err)?;
+            .await?;
         Ok(res.rows_affected() > 0)
     }
 
@@ -156,8 +140,7 @@ impl LorebookStorage for PostgresStorage {
         )
         .bind(id)
         .fetch_all(&self.pool)
-        .await
-        .map_err(db_err)?;
+        .await?;
         Ok(versions)
     }
 
@@ -189,8 +172,7 @@ impl LorebookStorage for PostgresStorage {
         )
         .bind(user_id)
         .fetch_all(&self.pool)
-        .await
-        .map_err(db_err)?;
+        .await?;
 
         Ok(ids)
     }
@@ -200,13 +182,12 @@ impl LorebookStorage for PostgresStorage {
         user_id: Snowflake,
         ordered: &[Snowflake],
     ) -> Result<(), StorageError> {
-        let mut tx = self.pool.begin().await.map_err(db_err)?;
+        let mut tx = self.pool.begin().await?;
 
         sqlx::query("DELETE FROM enabled_lorebooks WHERE user_id = $1")
             .bind(user_id)
             .execute(&mut *tx)
-            .await
-            .map_err(db_err)?;
+            .await?;
 
         for (position, lorebook_id) in ordered.iter().enumerate() {
             sqlx::query(
@@ -217,11 +198,10 @@ impl LorebookStorage for PostgresStorage {
             .bind(*lorebook_id)
             .bind(position as i32)
             .execute(&mut *tx)
-            .await
-            .map_err(db_err)?;
+            .await?;
         }
 
-        tx.commit().await.map_err(db_err)?;
+        tx.commit().await?;
         Ok(())
     }
 }

@@ -4,7 +4,7 @@
 	import WeaverInput from './WeaverInput.svelte';
 	import StringListField from './StringListField.svelte';
 	import SlotPicker from '../SlotPicker.svelte';
-	import SaveIndicator from '../SaveIndicator.svelte';
+	import SaveIndicator from '$lib/components/SaveIndicator.svelte';
 	import NumberInput from '$lib/components/NumberInput.svelte';
 	import WeaverEditor from '$lib/weaver/editor/WeaverEditor.svelte';
 

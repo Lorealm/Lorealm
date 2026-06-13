@@ -69,6 +69,22 @@ pub async fn http_put(
 }
 
 #[tauri::command]
+pub async fn http_patch(
+    handle: AppHandle,
+    path: String,
+    body: serde_json::Value,
+) -> AppResult<HttpResponse> {
+    let (base_url, client, token) = extract_request_deps(&handle).await?;
+    let mut req = client.patch(format!("{base_url}{path}")).json(&body);
+    if let Some(t) = token {
+        req = req.bearer_auth(t);
+    }
+    // TODO: Attach CSRF
+
+    send_request(&handle, req).await
+}
+
+#[tauri::command]
 pub async fn http_delete(handle: AppHandle, path: String) -> AppResult<HttpResponse> {
     let (base_url, client, token) = extract_request_deps(&handle).await?;
     let mut req = client.delete(format!("{base_url}{path}"));

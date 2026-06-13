@@ -15,6 +15,8 @@ pub enum StateError {
     TemplateConversion(String),
     #[error("no active persona")]
     NoActivePersona,
+    #[error("no active connection profile")]
+    NoActiveConnectionProfile,
 }
 
 impl StateError {
@@ -27,6 +29,7 @@ impl StateError {
             }
             StateError::TemplateConversion(msg) => msg.to_string(),
             StateError::NoActivePersona => "no active persona".to_string(),
+            StateError::NoActiveConnectionProfile => "no active connection template".to_string(),
         }
     }
 }

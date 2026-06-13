@@ -14,7 +14,7 @@ pub struct OpenRouterProvider {
     request_modifier: Option<Arc<dyn Fn(RequestBuilder) -> RequestBuilder + Send + Sync>>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct OpenRouterOptions {
     pub provider: Option<OpenRouterProviderPreference>,
     pub transforms: Option<Vec<String>>,
@@ -23,7 +23,7 @@ pub struct OpenRouterOptions {
 
 /// OpenRouter's normalized reasoning configuration. Effort is one of
 /// "low" / "medium" / "high"; some models take a token budget instead.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenRouterReasoning {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub effort: Option<String>,
@@ -33,7 +33,7 @@ pub struct OpenRouterReasoning {
     pub enabled: Option<bool>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct OpenRouterProviderPreference {
     pub order: Vec<String>,
     pub allow_fallbacks: Option<bool>,

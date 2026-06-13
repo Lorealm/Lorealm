@@ -34,8 +34,6 @@
 	let reasoning = $derived(parseReasoning(message.metadata));
 	let widgets = $derived(parseWidgets(message.metadata));
 	let segments = $derived(splitWidgetMarkers(message.content));
-	// Widgets never referenced by a marker (e.g. messages from before markers
-	// existed) still render, appended after the body.
 	let trailing = $derived(
 		widgets.filter((_, i) => !segments.some((s) => s.type === 'widget' && s.index === i))
 	);
@@ -105,7 +103,7 @@
 		</div>
 
 		{#if !editing && reasoning.length > 0}
-			<details class="reasoning" open={!committed}>
+			<details class="reasoning" open={false}>
 				<summary>{committed ? 'Thoughts' : 'Thinking…'}</summary>
 				<div class="reasoning-body">{reasoning}</div>
 			</details>

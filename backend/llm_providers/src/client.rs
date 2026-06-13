@@ -82,6 +82,11 @@ impl<'a, P: LlmProvider> RequestBuilder<'a, P> {
         self
     }
 
+    pub fn common_params(mut self, params: CommonParams) -> Self {
+        self.common_params = params;
+        self
+    }
+
     /// Advertise tool definitions to the model without executing them
     /// automatically. Use this when you want to handle `ToolUse` blocks
     /// yourself; use `send_with_tools` for the automatic loop.

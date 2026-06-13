@@ -67,7 +67,7 @@ pub fn verify_session_token(user_token: &str, server_token: &str) -> Result<bool
 /// Encrypt `data`, cryptographically bound to `binding` (e.g. the row's
 /// snowflake id as big-endian bytes). Decryption fails unless the same
 /// binding is supplied, so a ciphertext copied into another row is useless.
-pub(crate) async fn encrypt_bytes(
+pub async fn encrypt_bytes(
     data: &[u8],
     key_manager: &dyn KeyManager,
     context: EncryptionContext,
@@ -128,7 +128,7 @@ pub(crate) async fn encrypt_bytes(
 /// ones — so rows encrypted before a key rotation stay readable.
 ///
 /// Returns the plaintext zeroized-on-drop, since it's a secret.
-pub(crate) async fn decrypt_bytes(
+pub async fn decrypt_bytes(
     encrypted: &EncryptedData,
     key_manager: &dyn KeyManager,
     binding: &[u8],

@@ -9,9 +9,11 @@ use crate::{
 
 mod characters;
 mod chat;
+mod connection;
 mod lorebooks;
 mod persona;
 mod templates;
+mod tools;
 mod users;
 
 pub async fn api_routes(
@@ -47,5 +49,13 @@ pub async fn api_routes(
         .nest(
             "/persona",
             persona::router(Arc::clone(&app_state), session_state.clone()),
+        )
+        .nest(
+            "/connections",
+            connection::router(Arc::clone(&app_state), session_state.clone()),
+        )
+        .nest(
+            "/tools",
+            tools::router(Arc::clone(&app_state), session_state.clone()),
         )
 }

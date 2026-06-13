@@ -118,6 +118,7 @@ impl TemplateStorage for MemoryStorage {
             .or_insert(UserSettings {
                 active_template_id: template_id,
                 active_persona_id: None,
+                active_connection_profile_id: None
             });
 
         Ok(())

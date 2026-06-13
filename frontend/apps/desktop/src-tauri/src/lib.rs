@@ -40,6 +40,7 @@ pub fn run() {
             http::http_get,
             http::http_post,
             http::http_put,
+            http::http_patch,
             http::http_delete,
             http::http_get_blob,
             http::http_put_blob,

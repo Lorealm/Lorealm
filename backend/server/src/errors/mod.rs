@@ -1,29 +1,32 @@
 mod auth;
 mod card;
+mod character;
 mod chat;
+mod connection;
 mod context;
 mod conversation;
 mod lorebook;
 mod permission;
 mod persona;
 mod state;
-mod character;
+mod tools;
 
 pub use auth::*;
 pub use card::*;
+pub use character::*;
 pub use chat::*;
+pub use connection::*;
 pub use context::*;
 pub use conversation::*;
 pub use lorebook::*;
 pub use permission::*;
 pub use persona::*;
 pub use state::*;
-pub use character::*;
+pub use tools::*;
 
 use axum::{Json, http::StatusCode, response::IntoResponse};
 use serde_json::json;
 use std::{borrow::Cow, fmt::Display};
-
 
 #[derive(Debug)]
 pub enum TargetType {
@@ -35,6 +38,9 @@ pub enum TargetType {
     ExampleMessage,
     ContextTemplate,
     Persona,
+    ConnectionProfile,
+    Secret,
+    UserTool,
 }
 
 impl Display for TargetType {
@@ -48,6 +54,9 @@ impl Display for TargetType {
             TargetType::ExampleMessage => write!(f, "example_message"),
             TargetType::ContextTemplate => write!(f, "context_template"),
             TargetType::Persona => write!(f, "persona"),
+            TargetType::ConnectionProfile => write!(f, "connection_profile"),
+            TargetType::Secret => write!(f, "secret"),
+            TargetType::UserTool => write!(f, "user_tool"),
         }
     }
 }
@@ -234,6 +243,11 @@ impl From<ChatError> for AppError {
                 message: Cow::Owned(err.client_message()),
             },
             ChatError::Character(character_service_error) => character_service_error.into(),
+            ChatError::State(state_error) => state_error.into(),
+            ChatError::Connection(err) => AppError::BadRequest {
+                code: "CONNECTION",
+                message: Cow::Owned(format!("connection error: {err}")),
+            },
             _ => AppError::Internal {
                 internal: Cow::Owned(err.client_message()),
             },
@@ -244,7 +258,10 @@ impl From<ChatError> for AppError {
 impl From<StateError> for AppError {
     fn from(err: StateError) -> Self {
         match err {
-            StateError::NoActiveTemplate | StateError::NotFound(_, _) => AppError::BadRequest {
+            StateError::NoActiveTemplate
+            | StateError::NoActiveConnectionProfile
+            | StateError::NoActivePersona
+            | StateError::NotFound(_, _) => AppError::BadRequest {
                 code: "NOT_FOUND",
                 message: Cow::Owned(err.client_message()),
             },
@@ -259,6 +276,46 @@ impl From<PersonaError> for AppError {
     fn from(err: PersonaError) -> Self {
         match err {
             _ => AppError::Internal {
+                internal: Cow::Owned(err.client_message()),
+            },
+        }
+    }
+}
+
+impl From<ConnectionError> for AppError {
+    fn from(err: ConnectionError) -> Self {
+        match err {
+            ConnectionError::NotFound(_, _) | ConnectionError::NotOwned(_, _) => {
+                AppError::BadRequest {
+                    code: "NOT_FOUND",
+                    message: Cow::Owned(err.client_message()),
+                }
+            }
+            ConnectionError::Validation(_) | ConnectionError::Corrupted(_) => {
+                AppError::BadRequest {
+                    code: "INVALID_DATA",
+                    message: Cow::Owned(err.client_message()),
+                }
+            }
+            ConnectionError::Encryption(_) | ConnectionError::Storage(_) => AppError::Internal {
+                internal: Cow::Owned(err.client_message()),
+            },
+        }
+    }
+}
+
+impl From<UserToolError> for AppError {
+    fn from(err: UserToolError) -> Self {
+        match err {
+            UserToolError::NotFound(_, _) | UserToolError::NotOwned => AppError::BadRequest {
+                code: "NOT_FOUND",
+                message: Cow::Owned(err.client_message()),
+            },
+            UserToolError::InvalidName(_) | UserToolError::InvalidBody(_) => AppError::BadRequest {
+                code: "INVALID_DATA",
+                message: Cow::Owned(err.client_message()),
+            },
+            UserToolError::Storage(_) => AppError::Internal {
                 internal: Cow::Owned(err.client_message()),
             },
         }

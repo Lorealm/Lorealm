@@ -2,7 +2,10 @@ use std::{collections::HashMap, sync::Arc};
 
 use lorealm_storage::{
     Storage,
-    models::{ActivationState, Lorebook, MessageState, Snowflake, StateDelta, UserPersona},
+    models::{
+        ActivationState, ConnectionProfile, Lorebook, MessageState, Snowflake, StateDelta,
+        UserPersona,
+    },
 };
 
 use crate::{
@@ -236,6 +239,38 @@ impl StateService {
         persona_id: Snowflake,
     ) -> Result<(), StateError> {
         self.storage.set_active_persona(user_id, persona_id).await?;
+        Ok(())
+    }
+
+    pub async fn get_active_profile(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<ConnectionProfile, StateError> {
+        let profile_id = self
+            .storage
+            .get_active_profile(user_id)
+            .await?
+            .ok_or(StateError::NoActiveConnectionProfile)?;
+
+        let profile = self
+            .storage
+            .get_profile(profile_id)
+            .await?
+            .ok_or(StateError::NotFound(
+                TargetType::ConnectionProfile,
+                profile_id,
+            ))?;
+
+        Ok(profile)
+    }
+
+    pub async fn set_active_profile(
+        &self,
+        user_id: Snowflake,
+        profile_id: Option<Snowflake>,
+    ) -> Result<(), StateError> {
+        self.storage.set_active_profile(user_id, profile_id).await?;
+
         Ok(())
     }
 }

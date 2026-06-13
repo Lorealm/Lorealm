@@ -10,6 +10,15 @@ import type {
 	ImportResult
 } from '$lib/types/character.js';
 import type {
+	ConnectionProfile,
+	CreateSecretRequest,
+	DeleteSecretResponse,
+	ProfileRequest,
+	RenameSecretRequest,
+	SecretMetadata,
+	SetActiveProfileRequest
+} from '$lib/types/connection.js';
+import type {
 	ConversationMetadata,
 	ChatEdit,
 	ChatStreamEvent,
@@ -45,6 +54,12 @@ import type {
 	UpdateNodeRequest,
 	UpdateTemplateRequest
 } from '$lib/types/template.js';
+import type {
+	CreateUserTool,
+	ToolEnabledRequest,
+	UpdateUserTool,
+	UserTool
+} from '$lib/types/tools.js';
 import type { User } from '$lib/types/user.js';
 import type { StatusCodes } from 'http-status-codes';
 import { getContext, setContext } from 'svelte';
@@ -165,12 +180,50 @@ export function createApiClient(platform: PlatformAPI) {
 			list: () => http.get<Array<UserPersona>>('/api/v1/persona'),
 			create: () => http.post('/api/v1/persona'),
 			update: (persona_id: Snowflake, update: UpdatePersona) =>
-        http.put<UserPersona>(`/api/v1/persona/${persona_id}`, update),
-      setAvatar: (persona_id: Snowflake, avatar: Blob) => http.putBlob(`/api/v1/persona/${persona_id}/avatar`, avatar),
-      active: {
+				http.put<UserPersona>(`/api/v1/persona/${persona_id}`, update),
+			setAvatar: (persona_id: Snowflake, avatar: Blob) =>
+				http.putBlob(`/api/v1/persona/${persona_id}/avatar`, avatar),
+			active: {
 				get: () => http.get<Snowflake | null>('/api/v1/persona/active'),
 				set: (request: SetActiveRequest) => http.put('/api/v1/persona/active', request)
+			}
+		},
+		connection: {
+			secrets: {
+				list: () => http.get<Array<SecretMetadata>>('/api/v1/connections/secrets'),
+				create: (create: CreateSecretRequest) =>
+					http.post<SecretMetadata>('/api/v1/connections/secrets', create),
+				rename: (secret_id: Snowflake, rename: RenameSecretRequest) =>
+					http.put<SecretMetadata>(`/api/v1/connections/secrets/${secret_id}`, rename),
+				delete: (secret_id: Snowflake) =>
+					http.delete<DeleteSecretResponse>(`/api/v1/connections/secrets/${secret_id}`)
 			},
+			profiles: {
+				list: () => http.get<Array<ConnectionProfile>>('/api/v1/connections/profiles'),
+				create: (create: ProfileRequest) =>
+					http.post<ConnectionProfile>('/api/v1/connections/profiles', create),
+				get: (profile_id: Snowflake) =>
+					http.get<ConnectionProfile>(`/api/v1/connections/profiles/${profile_id}`),
+				update: (profile_id: Snowflake, update: ProfileRequest) =>
+					http.put<ConnectionProfile>(`/api/v1/connections/profiles/${profile_id}`, update),
+				delete: (profile_id: Snowflake) =>
+					http.delete(`/api/v1/connections/profiles/${profile_id}`),
+				active: {
+					get: () => http.get<Snowflake>('/api/v1/connections/profiles/active'),
+					set: (request: SetActiveProfileRequest) =>
+						http.post('/api/v1/connections/profiles/active', request)
+				}
+			}
+		},
+		tools: {
+			list: () => http.get<Array<UserTool>>('/api/v1/tools'),
+			get: (tool_id: Snowflake) => http.get<UserTool>(`/api/v1/tools/${tool_id}`),
+			create: (create: CreateUserTool) => http.post<Snowflake>('/api/v1/tools', create),
+			update: (tool_id: Snowflake, update: UpdateUserTool) =>
+				http.put<UserTool>(`/api/v1/tools/${tool_id}`, update),
+			toggle: (tool_id: Snowflake, enable: ToolEnabledRequest) =>
+				http.patch(`/api/v1/tools/${tool_id}`, enable),
+			delete: (tool_id: Snowflake) => http.delete(`/api/v1/tools/${tool_id}`)
 		}
 	};
 }

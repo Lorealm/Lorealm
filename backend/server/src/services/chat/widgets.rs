@@ -6,6 +6,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+pub type WidgetSink = Arc<Mutex<Vec<WidgetInstance>>>;
+
 /// Event produced by the inference tool loop.
 pub enum InferEvent {
     Text(String),
@@ -22,10 +24,6 @@ pub struct WidgetInstance {
 }
 
 impl WidgetInstance {
-    /// Run every string value in the props (recursively, through arrays and
-    /// nested objects) through `f`. Widget props originate from tool-call
-    /// arguments, which bypass the response filter chain that token deltas
-    /// pass through — this routes them through the same transforms.
     pub fn filtered(mut self, f: impl Fn(&str) -> String) -> Self {
         fn walk(value: &mut serde_json::Value, f: &impl Fn(&str) -> String) {
             match value {
@@ -42,8 +40,6 @@ impl WidgetInstance {
     }
 }
 
-/// A widget definition in the catalog. `keywords` is search-only and not
-/// shown to the model.
 #[derive(Debug, Clone, Serialize)]
 pub struct WidgetSpec {
     pub id: &'static str,
@@ -85,7 +81,6 @@ pub const WIDGET_CATALOG: &[WidgetSpec] = &[
 
 #[derive(Deserialize, JsonSchema)]
 pub struct SearchWidgetsInput {
-    /// Keywords describing the kind of widget to look for, e.g. ["sms", "phone"].
     pub keywords: Vec<String>,
 }
 
@@ -196,10 +191,7 @@ pub fn widget_marker(index: usize) -> String {
     format!("\u{E000}widget:{index}\u{E001}")
 }
 
-/// Build a per-request tool registry plus the sink that `start_widget`
-/// deposits widget instances into. The inference loop drains the sink after
-/// each tool execution and forwards the widgets to the client.
-pub fn widget_registry() -> (ToolRegistry, Arc<Mutex<Vec<WidgetInstance>>>) {
+pub fn widget_registry() -> (ToolRegistry, WidgetSink) {
     let sink = Arc::new(Mutex::new(Vec::new()));
     let mut registry = ToolRegistry::new();
     registry.register_typed(SearchWidgets);

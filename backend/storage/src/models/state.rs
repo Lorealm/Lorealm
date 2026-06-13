@@ -39,7 +39,8 @@ pub struct StateDelta {
 #[derive(Debug)]
 pub struct UserSettings {
     pub active_template_id: Option<Snowflake>,
-    pub active_persona_id: Option<Snowflake>
+    pub active_persona_id: Option<Snowflake>,
+    pub active_connection_profile_id: Option<Snowflake>
 }
 
 // Postgres-only

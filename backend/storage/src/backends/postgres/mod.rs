@@ -1,4 +1,5 @@
 pub mod characters;
+pub mod connection;
 pub mod conversations;
 pub mod lorebook;
 pub mod permissions;
@@ -6,6 +7,7 @@ pub mod persona;
 pub mod sessions;
 pub mod state;
 pub mod templates;
+pub mod tools;
 pub mod users;
 
 use crate::StorageCore;

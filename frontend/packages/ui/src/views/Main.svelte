@@ -5,6 +5,7 @@
 
 	import { provideApiClient } from '$lib/api/client.js';
 	import { getPlatformApi } from '$lib/core/context.js';
+	import ErrorToast from '$lib/components/ErrorToast.svelte';
 
 	const platform = getPlatformApi();
 	provideApiClient(platform);
@@ -18,7 +19,7 @@
 	</div>
 	<Inspector />
 </div>
-
+<ErrorToast />
 <style>
 	.container {
 		display: flex;
