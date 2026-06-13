@@ -6,7 +6,7 @@
 	import EntryList from './entries/EntryList.svelte';
 	import EntryEditor from './entries/EntryEditor.svelte';
 	import LorebookConfigEditor from './config/LorebookConfigEditor.svelte';
-	import SaveIndicator from './SaveIndicator.svelte';
+	import SaveIndicator from '$lib/components/SaveIndicator.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 
 	const SAVE_MS = 500;

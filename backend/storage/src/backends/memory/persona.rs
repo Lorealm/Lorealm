@@ -74,6 +74,7 @@ impl PersonaStorage for MemoryStorage {
             .or_insert(UserSettings {
                 active_template_id: None,
                 active_persona_id: Some(persona_id),
+                active_connection_profile_id: None
             });
 
         Ok(())

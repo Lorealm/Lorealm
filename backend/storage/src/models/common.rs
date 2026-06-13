@@ -13,6 +13,18 @@ use sha2::{Digest, Sha256};
 #[sqlx(transparent)]
 pub struct Snowflake(pub i64);
 
+impl Snowflake {
+    /// Big-endian byte representation of the underlying id.
+    ///
+    /// Used as the AAD binding for row-bound encryption — which makes this
+    /// representation a PERMANENT contract: if it ever changes (endianness,
+    /// width, encoding), every stored secret fails authentication. Treat
+    /// this function as frozen.
+    pub fn to_be_bytes(self) -> [u8; 8] {
+        self.0.to_be_bytes()
+    }
+}
+
 impl std::fmt::Display for Snowflake {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
@@ -92,7 +104,7 @@ impl Display for BlobId {
 }
 
 /// Specifies how functions requiring versioning should be saved.
-/// 
+///
 /// This is used for providing transaction-based behavior so every minute change
 /// don't result in a new version.
 pub enum VersionedSaveMode {

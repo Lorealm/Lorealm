@@ -9,8 +9,6 @@ use super::PostgresStorage;
 
 #[async_trait]
 impl ConversationStorage for PostgresStorage {
-    // ----- conversation rows -----
-
     async fn list_conversations(
         &self,
         user_id: Snowflake,

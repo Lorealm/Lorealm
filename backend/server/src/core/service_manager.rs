@@ -1,15 +1,17 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use lorealm_encryption::LocalKeyManager;
 use lorealm_storage::StorageManager;
 
 use crate::{
     config::{ConfigProvider, SessionConfig, UserConfig},
     services::{
-        character::CharacterService, chat::ChatService, context::ContextService,
-        conversation::ConversationService, lorebook::LorebookService,
+        character::CharacterService, chat::ChatService, connection::ConnectionService,
+        context::ContextService, conversation::ConversationService, lorebook::LorebookService,
         permission::service::PermissionService, persona::PersonaService, session::SessionService,
-        snowflake::SnowflakeService, state::StateService, users::UserService,
+        snowflake::SnowflakeService, state::StateService, tools::UserToolService,
+        users::UserService,
     },
 };
 
@@ -26,6 +28,8 @@ pub struct ServiceManager {
     conversation: Arc<ConversationService>,
     chat: Arc<ChatService>,
     persona: Arc<PersonaService>,
+    connection: Arc<ConnectionService>,
+    tools: Arc<UserToolService>,
 }
 
 impl ServiceManager {
@@ -83,13 +87,28 @@ impl ServiceManager {
             Arc::clone(&snowflake),
         ));
 
+        let tools = Arc::new(UserToolService::new(
+            Arc::clone(&storage),
+            Arc::clone(&snowflake),
+        ));
+
+        let connection = Arc::new(ConnectionService::new(
+            Arc::clone(&storage),
+            Arc::clone(&snowflake),
+            Arc::new(
+                LocalKeyManager::from_env_with_history("LOREALM_MASTER_KEY")
+                    .expect("Should be able to create key manager"),
+            ),
+        ));
+
         let chat = Arc::new(ChatService::new(
             Arc::clone(&storage),
             Arc::clone(&snowflake),
             Arc::clone(&conversation),
             Arc::clone(&characters),
             Arc::clone(&state),
-            Arc::clone(&persona)
+            Arc::clone(&persona),
+            Arc::clone(&connection),
         ));
 
         let cleanable: Vec<Arc<dyn CleanableService>> = vec![
@@ -109,6 +128,8 @@ impl ServiceManager {
             conversation,
             chat,
             persona,
+            connection,
+            tools,
         }
     }
 
@@ -146,6 +167,14 @@ impl ServiceManager {
 
     pub fn persona(&self) -> &Arc<PersonaService> {
         &self.persona
+    }
+
+    pub fn connections(&self) -> &Arc<ConnectionService> {
+        &self.connection
+    }
+
+    pub fn tools(&self) -> &Arc<UserToolService> {
+        &self.tools
     }
 }
 

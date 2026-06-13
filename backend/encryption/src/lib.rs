@@ -14,7 +14,6 @@ pub mod constants {
     pub const MAX_CIPHERTEXT_SIZE: usize = 10 * 1024 * 1024; // 10MB
 }
 
-
 pub mod backends;
 
 // Re-export commonly used items for convenience
@@ -24,5 +23,6 @@ pub use traits::{Encryptable, EncryptionError, Hashable, KeyManager};
 #[cfg(feature = "local")]
 pub use backends::LocalKeyManager;
 
-pub use impls::{verify_password, verify_session_token, hash_session_token};
-use impls::{decrypt_bytes, encrypt_bytes};
+pub use impls::{
+    decrypt_bytes, encrypt_bytes, hash_session_token, verify_password, verify_session_token,
+};

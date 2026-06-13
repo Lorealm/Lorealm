@@ -9,6 +9,7 @@ export enum SidebarView {
 	Write = 'Write',
 	Characters = 'Characters',
 	Realm = 'Realm',
+	Connections = 'Connections',
 	Studio = 'Studio',
 	Settings = 'Settings'
 }

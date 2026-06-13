@@ -3,10 +3,12 @@
 	import { characterStore } from '$lib/stores/character.svelte.js';
 	import { chatStore } from '$lib/stores/chat.svelte.js';
 	import { messageStateStore } from '$lib/stores/messageState.svelte.js';
-	import { FilePlus, ListStart, Paperclip, Send, Sparkles } from '@lucide/svelte';
+	import { FilePlus, ListStart, Paperclip, Send, Sparkles, Square } from '@lucide/svelte';
 
 	chatStore.ensureApi();
 	messageStateStore.ensureApi();
+
+	let busy = $derived(chatStore.isStreaming);
 
 	let inputText = $state('');
 	let textareaEl: HTMLTextAreaElement;
@@ -77,7 +79,11 @@
 			onkeydown={handleMessageSend}
 			oninput={resize}
 		></textarea>
-		<button class="send-button" disabled={chatStore.isStreaming} onclick={send}><Send /></button>
+		{#if !busy}
+			<button class="send-button" onclick={send}><Send /></button>
+		{:else}
+			<button class="send-button"><Square /></button>
+		{/if}
 	</div>
 </div>
 

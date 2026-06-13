@@ -19,13 +19,6 @@ CREATE TABLE user_personas (
 
 CREATE INDEX idx_user_persona_user_id ON user_personas(user_id);
 
-CREATE TABLE user_settings (
-    user_id              BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    active_template_id   BIGINT REFERENCES templates(id) ON DELETE SET NULL,
-    active_persona_id    BIGINT REFERENCES user_personas(id) ON DELETE SET NULL
-    -- TODO: active_connection_profile_id
-);
-
 -- Per-message save state
 CREATE TABLE weaver_message_state (
     message_id       BIGINT PRIMARY KEY REFERENCES conversation_messages(id) ON DELETE CASCADE,

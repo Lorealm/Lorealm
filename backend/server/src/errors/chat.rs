@@ -2,7 +2,8 @@ use lorealm_storage::{StorageError, models::Snowflake};
 use thiserror::Error;
 
 use crate::errors::{
-    CharacterError, ContextError, ConversationError, PersonaError, StateError, TargetType,
+    CharacterError, ConnectionError, ContextError, ConversationError, PersonaError, StateError,
+    TargetType,
 };
 
 #[derive(Debug, Error)]
@@ -24,9 +25,11 @@ pub enum ChatError {
     #[error("persona error: {0}")]
     Persona(#[from] PersonaError),
     #[error("connection profile error: {0}")]
-    ConnectionProfile(String),
+    ConnectionProfile(#[from] ConnectionError),
     #[error("provider error: {0}")]
     Provider(#[from] lorealm_providers::Error),
+    #[error("connection error: {0}")]
+    Connection(String),
 }
 
 impl ChatError {
@@ -46,8 +49,9 @@ impl ChatError {
             ChatError::Context(context_error) => context_error.client_message(),
             ChatError::State(state_error) => state_error.client_message(),
             ChatError::Persona(persona_error) => persona_error.client_message(),
-            ChatError::ConnectionProfile(msg) => format!("connection profile error: {msg}"),
+            ChatError::ConnectionProfile(connection_error) => connection_error.client_message(),
             ChatError::Provider(error) => error.to_string(),
+            ChatError::Connection(msg) => msg.to_owned(),
         }
     }
 }

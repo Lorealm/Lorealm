@@ -12,6 +12,7 @@ import type { Greeting } from '$lib/types/character.js';
 import type { WidgetInstance } from '$lib/types/widgets.js';
 import { SvelteMap } from 'svelte/reactivity';
 import { messageStateStore } from './messageState.svelte.ts';
+import { showError, type ToastAction } from './errorToast.svelte.ts';
 
 export type StreamStatus = 'idle' | 'streaming' | 'error';
 
@@ -411,8 +412,7 @@ class ChatStore {
 			this._streamBuffer = '';
 			this._streamReasoning = '';
 			this._streamWidgets = [];
-			this.streamState = { status: 'error', ...extractError(e) };
-			console.log(e);
+			this.#handleError(e, {}, 5000);
 		}
 	}
 
@@ -428,7 +428,13 @@ class ChatStore {
 			await this.#api.chat.messages.edit(convId, { op: 'edit', id, content } satisfies ChatEdit);
 		} catch (e) {
 			this._messages.set(id, { ...msg, content: prev });
-			this.streamState = { status: 'error', ...extractError(e) };
+			this.#handleError(
+				e,
+				{
+					title: 'Failed to edit message'
+				},
+				5000
+			);
 		}
 	}
 
@@ -444,7 +450,13 @@ class ChatStore {
 			await this.#api.chat.messages.edit(convId, { op: 'activate', id } satisfies ChatEdit);
 		} catch (e) {
 			this._activeLeafId = prevLeaf;
-			this.streamState = { status: 'error', ...extractError(e) };
+			this.#handleError(
+				e,
+				{
+					title: 'Failed to switch message'
+				},
+				5000
+			);
 		}
 	}
 
@@ -477,7 +489,15 @@ class ChatStore {
 		} catch (e) {
 			for (const m of removed) this._messages.set(m.id, m);
 			this._activeLeafId = prevLeaf;
-			this.streamState = { status: 'error', ...extractError(e) };
+
+			this.#handleError(
+				e,
+				{
+					title: 'Failed to delete message'
+				},
+				5000
+			);
+
 			throw e;
 		}
 	}
@@ -494,10 +514,39 @@ class ChatStore {
 			await this.#api.chat.delete(id);
 		} catch (e) {
 			if (prevList) this.metadataList = prevList;
+
+			this.#handleError(
+				e,
+				{
+					title: 'Failed to delete conversation'
+				},
+				5000
+			);
+
 			throw e;
 		}
 	}
+
+	#handleError(e: unknown, opts?: HandleErrorOptions, timeoutMs?: number) {
+		const err = extractError(e);
+
+		this.streamState = {
+			status: 'error',
+			message: err.message
+		};
+
+		showError(err.message, {
+			title: opts?.title ?? 'Something went wrong',
+			durationMs: timeoutMs ?? 0,
+			action: opts?.action
+		});
+	}
 }
+
+type HandleErrorOptions = {
+	title?: string;
+	action?: ToastAction;
+};
 
 function extractError(e: unknown): { message: string } {
 	if (e instanceof Error) return { message: e.message };

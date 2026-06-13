@@ -123,11 +123,17 @@ pub struct ToolDef {
     pub input_schema: serde_json::Value,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CommonParams {
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
     pub top_p: Option<f32>,
+    pub top_k: Option<u32>,
+    pub min_p: Option<f32>,
+    pub frequency_penalty: Option<f32>,
+    pub presence_penalty: Option<f32>,
+    pub repetition_penalty: Option<f32>,
+    pub seed: Option<u64>,
     pub stop: Option<Vec<String>>,
     pub tools: Option<Vec<ToolDef>>,
 }

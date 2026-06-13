@@ -2,7 +2,7 @@ use std::{pin::Pin, sync::Arc};
 
 use chrono::Utc;
 use futures_util::{Stream, StreamExt};
-use lorealm_providers::{Client, ContentBlock, OpenRouterProvider};
+use lorealm_providers::{Client, ContentBlock, LlmProvider, OpenRouterOptions, OpenRouterProvider};
 use lorealm_storage::{
     Storage,
     models::{ChatRole, Conversation, ConversationMessage, ConversationMetadata, Snowflake},
@@ -16,8 +16,9 @@ use crate::{
         character::CharacterService,
         chat::{
             ChatStreamEvent, FullConversation, Persist, Prepared, PromptMessage, TurnPlan,
-            widgets::{InferEvent, WidgetInstance, widget_marker, widget_registry},
+            widgets::{InferEvent, WidgetInstance, WidgetSink, widget_marker, widget_registry},
         },
+        connection::ConnectionService,
         context::{
             PromptRole, ResolveContext, ResolverRegistry, TracedBlock, assemble,
             builtin::register_builtin_resolvers,
@@ -37,6 +38,7 @@ pub struct ChatService {
     characters: Arc<CharacterService>,
     personas: Arc<PersonaService>,
     state: Arc<StateService>,
+    connection: Arc<ConnectionService>,
     resolvers: Arc<ResolverRegistry>,
     schedule: Arc<Schedule>,
 }
@@ -49,6 +51,7 @@ impl ChatService {
         characters: Arc<CharacterService>,
         state: Arc<StateService>,
         personas: Arc<PersonaService>,
+        connection: Arc<ConnectionService>,
     ) -> Self {
         let mut registry = ResolverRegistry::new();
         register_builtin_resolvers(&mut registry, Arc::clone(&state));
@@ -60,6 +63,7 @@ impl ChatService {
             characters,
             state,
             personas,
+            connection,
             resolvers: Arc::new(registry),
             schedule: Arc::new(Schedule::new(vec![Box::new(PrivacyStage)])),
         }
@@ -457,7 +461,7 @@ impl ChatService {
         let cx = self.stage_cx(user_id, &convo).await?;
         let mut chain = self.schedule.outbound(&mut prompt, &cx);
 
-        let token_stream = self.infer(prompt).await?;
+        let token_stream = self.infer(user_id, prompt).await?;
 
         let conversations = self.conversations.clone();
         let state_service = self.state.clone();
@@ -481,9 +485,6 @@ impl ChatService {
                         }
                     }
                     InferEvent::Reasoning(delta) => {
-                        // Reasoning bypasses the streaming filters (pushing it
-                        // through chain.push would corrupt the text stream's
-                        // buffer state), so use the one-shot path per delta.
                         let filtered = chain.apply(&delta);
                         if !filtered.is_empty() {
                             reasoning_acc.push_str(&filtered);
@@ -491,16 +492,10 @@ impl ChatService {
                         }
                     }
                     InferEvent::Widget(widget) => {
-                        // Tool arguments bypass the streaming filters; run the
-                        // props through the chain's one-shot path so they get
-                        // the same transforms (e.g. privacy de-aliasing) as
-                        // the token stream — both live and persisted.
                         let widget = widget.filtered(|s| chain.apply(s));
                         yield ChatStreamEvent::Widget { widget: widget.clone() };
                         // Record the widget's position in the text: the marker
-                        // goes into the persisted content AND out as a normal
-                        // delta, so the client's stream buffer matches what's
-                        // stored. References widgets[len] about to be pushed.
+                        // goes into the persisted content AND out as a normal delta
                         let marker = widget_marker(widgets.len());
                         acc.push_str(&marker);
                         yield ChatStreamEvent::Delta { content: marker };
@@ -578,23 +573,29 @@ impl ChatService {
     /// calls, they are executed, fed back, and another round is streamed.
     async fn infer(
         &self,
+        user_id: Snowflake,
         prompt: Vec<super::PromptMessage>,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<InferEvent, ChatError>> + Send>>, ChatError> {
-        let api_key = std::env::var("OPENROUTER_API_KEY")
-            .map_err(|_| ChatError::ConnectionProfile("missing api key".to_string()))?;
-        let model = std::env::var("OPENROUTER_MODEL")
-            .map_err(|_| ChatError::ConnectionProfile("missing model".to_string()))?;
+        let profile = self.state.get_active_profile(user_id).await?;
+        let connection = self
+            .connection
+            .resolve_connection(user_id, profile.id)
+            .await?;
 
-        let http_client = Arc::new(reqwest::Client::new());
-        let provider = OpenRouterProvider::new(http_client, api_key, model)
-            .with_request_modifier(|b| {
-                b.header("HTTP-Referer", "https://github.com/crux-03/Lorealm")
-            })
-            .with_request_modifier(|b| b.header("X-OpenRouter-Title", "Lorealm"));
-        let client = Client::new(provider);
+        let Some(api_key) = connection.api_key else {
+            return Err(ChatError::Connection("no api key".into()));
+        };
+        let Some(model) = connection.profile.model else {
+            return Err(ChatError::Connection("no model".into()));
+        };
+
+        let common: lorealm_providers::CommonParams =
+            serde_json::from_value(connection.profile.common_params).map_err(|e| {
+                ChatError::Connection(format!("Failed to deserialize common params: {e}"))
+            })?;
 
         // Map your custom payload directly to what the provider client expects
-        let mut messages: Vec<lorealm_providers::Message> = prompt
+        let messages: Vec<lorealm_providers::Message> = prompt
             .into_iter()
             .map(|m| lorealm_providers::Message {
                 role: prompt_role_to_provider_role(m.role),
@@ -603,121 +604,21 @@ impl ChatService {
             .collect();
 
         let (registry, widget_sink) = widget_registry();
-        let tool_defs = registry.defs();
 
-        const MAX_TOOL_ROUNDS: usize = 4;
-
-        let stream = async_stream::try_stream! {
-            for _ in 0..MAX_TOOL_ROUNDS {
-                let mut upstream = client
-                    .request()
-                    .messages(messages.clone())
-                    .tools(tool_defs.clone())
-                    // Surface the model's reasoning. Tune or remove freely;
-                    // models without reasoning support ignore this.
-                    .configure(|o| {
-                        o.reasoning = Some(lorealm_providers::OpenRouterReasoning {
-                            effort: Some("medium".to_string()),
-                            max_tokens: None,
-                            enabled: None,
-                        })
-                    })
-                    .stream()
-                    .await
-                    .map_err(ChatError::from)?;
-
-                let mut text = String::new();
-                // (id, name, accumulated argument fragments) per tool call index
-                let mut calls: Vec<(Option<String>, Option<String>, String)> = Vec::new();
-
-                while let Some(delta) = upstream.next().await {
-                    let delta = delta.map_err(ChatError::from)?;
-                    if !delta.reasoning.is_empty() {
-                        yield InferEvent::Reasoning(delta.reasoning);
-                    }
-                    if !delta.content.is_empty() {
-                        text.push_str(&delta.content);
-                        yield InferEvent::Text(delta.content);
-                    }
-                    for tc in delta.tool_calls {
-                        if calls.len() <= tc.index {
-                            calls.resize(tc.index + 1, (None, None, String::new()));
-                        }
-                        let slot = &mut calls[tc.index];
-                        if tc.id.is_some() {
-                            slot.0 = tc.id;
-                        }
-                        if tc.name.is_some() {
-                            slot.1 = tc.name;
-                        }
-                        slot.2.push_str(&tc.arguments);
-                    }
-                }
-
-                if calls.is_empty() {
-                    break; // plain reply; no commands this round
-                }
-
-                // Record the assistant turn (text + tool uses) in the history.
-                let mut blocks = Vec::new();
-                if !text.is_empty() {
-                    blocks.push(ContentBlock::Text { text });
-                }
-                let mut uses = Vec::new();
-                for (id, name, args) in calls {
-                    let input = if args.is_empty() {
-                        serde_json::Value::Null
-                    } else {
-                        serde_json::from_str(&args)
-                            .map_err(|e| ChatError::from(lorealm_providers::Error::from(e)))?
-                    };
-                    let id = id.unwrap_or_default();
-                    let name = name.unwrap_or_default();
-                    blocks.push(ContentBlock::ToolUse {
-                        id: id.clone(),
-                        name: name.clone(),
-                        input: input.clone(),
-                    });
-                    uses.push((id, name, input));
-                }
-                messages.push(lorealm_providers::Message {
-                    role: lorealm_providers::Role::Assistant,
-                    content: blocks,
-                });
-
-                // Execute and feed results back; surface widgets immediately.
-                let mut results = Vec::new();
-                for (id, name, input) in uses {
-                    let block = match registry.call(&name, input).await {
-                        Ok(value) => ContentBlock::ToolResult {
-                            tool_use_id: id,
-                            content: value.to_string(),
-                            is_error: false,
-                        },
-                        Err(e) => ContentBlock::ToolResult {
-                            tool_use_id: id,
-                            content: e.to_string(),
-                            is_error: true,
-                        },
-                    };
-                    results.push(block);
-
-                    // Drain into a Vec before yielding: holding the guard
-                    // across a yield point would make the stream !Send.
-                    let attached: Vec<WidgetInstance> =
-                        widget_sink.lock().unwrap().drain(..).collect();
-                    for widget in attached {
-                        yield InferEvent::Widget(widget);
-                    }
-                }
-                messages.push(lorealm_providers::Message {
-                    role: lorealm_providers::Role::User,
-                    content: results,
-                });
+        let http_client = Arc::new(reqwest::Client::new());
+        match connection.profile.provider.as_str() {
+            "openrouter" => {
+                let pp: OpenRouterOptions =
+                    serde_json::from_value(connection.profile.provider_params.clone())
+                        .map_err(|e| ChatError::Connection(format!("bad provider params: {e}")))?;
+                let provider = OpenRouterProvider::new(http_client, api_key.as_str(), model)
+                    .with_request_modifier(|b| b.header("X-OpenRouter-Title", "Lorealm"));
+                run_inference(provider, messages, common, pp, registry, widget_sink).await
             }
-        };
-
-        Ok(Box::pin(stream))
+            other => Err(ChatError::Connection(format!(
+                "unsupported provider: {other}"
+            ))),
+        }
     }
 }
 
@@ -727,4 +628,124 @@ fn prompt_role_to_provider_role(role: PromptRole) -> lorealm_providers::Role {
         PromptRole::User => lorealm_providers::Role::User,
         PromptRole::Assistant => lorealm_providers::Role::Assistant,
     }
+}
+
+async fn run_inference<P>(
+    provider: P,
+    mut messages: Vec<lorealm_providers::Message>,
+    common: lorealm_providers::CommonParams,
+    provider_params: P::ProviderParams,
+    registry: lorealm_providers::ToolRegistry,
+    widget_sink: WidgetSink,
+) -> Result<Pin<Box<dyn Stream<Item = Result<InferEvent, ChatError>> + Send>>, ChatError>
+where
+    P: LlmProvider + 'static,
+    P::ProviderParams: Clone + Send + Sync + 'static,
+{
+    let client = Client::new(provider);
+    let tool_defs = registry.defs();
+
+    const MAX_TOOL_ROUNDS: usize = 8;
+
+    let stream = async_stream::try_stream! {
+        for _ in 0..MAX_TOOL_ROUNDS {
+            let mut upstream = client
+                .request()
+                .messages(messages.clone())
+                .common_params(common.clone())
+                .tools(tool_defs.clone())
+                .configure(|p| *p = provider_params.clone())
+                .stream()
+                .await
+                .map_err(ChatError::from)?;
+
+            let mut text = String::new();
+            let mut calls: Vec<(Option<String>, Option<String>, String)> = Vec::new();
+
+            while let Some(delta) = upstream.next().await {
+                let delta = delta.map_err(ChatError::from)?;
+                if !delta.reasoning.is_empty() {
+                    yield InferEvent::Reasoning(delta.reasoning);
+                }
+                if !delta.content.is_empty() {
+                    text.push_str(&delta.content);
+                    yield InferEvent::Text(delta.content);
+                }
+                for tc in delta.tool_calls {
+                    if calls.len() <= tc.index {
+                        calls.resize(tc.index + 1, (None, None, String::new()));
+                    }
+                    let slot = &mut calls[tc.index];
+                    if tc.id.is_some() {
+                        slot.0 = tc.id;
+                    }
+                    if tc.name.is_some() {
+                        slot.1 = tc.name;
+                    }
+                    slot.2.push_str(&tc.arguments);
+                }
+            }
+
+            if calls.is_empty() {
+                break;
+            }
+
+            // Record the assistant turn (text + tool uses) in the history.
+            let mut blocks = Vec::new();
+            if !text.is_empty() {
+                blocks.push(ContentBlock::Text { text });
+            }
+            let mut uses = Vec::new();
+            for (id, name, args) in calls {
+                let input = if args.is_empty() {
+                    serde_json::Value::Null
+                } else {
+                    serde_json::from_str(&args)
+                        .map_err(|e| ChatError::from(lorealm_providers::Error::from(e)))?
+                };
+                let id = id.unwrap_or_default();
+                let name = name.unwrap_or_default();
+                blocks.push(ContentBlock::ToolUse {
+                    id: id.clone(),
+                    name: name.clone(),
+                    input: input.clone(),
+                });
+                uses.push((id, name, input));
+            }
+            messages.push(lorealm_providers::Message {
+                role: lorealm_providers::Role::Assistant,
+                content: blocks,
+            });
+
+            // Execute and feed results back; surface widgets immediately.
+            let mut results = Vec::new();
+            for (id, name, input) in uses {
+                let block = match registry.call(&name, input).await {
+                    Ok(value) => ContentBlock::ToolResult {
+                        tool_use_id: id,
+                        content: value.to_string(),
+                        is_error: false,
+                    },
+                    Err(e) => ContentBlock::ToolResult {
+                        tool_use_id: id,
+                        content: e.to_string(),
+                        is_error: true,
+                    },
+                };
+                results.push(block);
+
+                let attached: Vec<WidgetInstance> =
+                    widget_sink.lock().unwrap().drain(..).collect();
+                for widget in attached {
+                    yield InferEvent::Widget(widget);
+                }
+            }
+            messages.push(lorealm_providers::Message {
+                role: lorealm_providers::Role::User,
+                content: results,
+            });
+        }
+    };
+
+    Ok(Box::pin(stream))
 }

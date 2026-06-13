@@ -5,6 +5,7 @@
 		MenuIcon,
 		Palette,
 		PencilIcon,
+		Plug2,
 		Settings,
 		User
 	} from '@lucide/svelte';
@@ -36,6 +37,7 @@
 	<NavButton label="Write" Icon={PencilIcon} {collapsed} view={SidebarView.Write} />
 	<NavButton label="Characters" Icon={User} {collapsed} view={SidebarView.Characters} />
 	<NavButton label="Realms" Icon={Earth} {collapsed} view={SidebarView.Realm} />
+	<NavButton label="Connections" Icon={Plug2} {collapsed} view={SidebarView.Connections} />
 	<NavButton label="Studio" Icon={Palette} {collapsed} view={SidebarView.Studio} />
 
 	<div style="margin-top: auto; margin-bottom: 0.33em;">
