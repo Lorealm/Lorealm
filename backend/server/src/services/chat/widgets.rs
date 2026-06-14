@@ -77,6 +77,84 @@ pub const WIDGET_CATALOG: &[WidgetSpec] = &[
             "written",
         ],
     },
+    WidgetSpec {
+        id: "sign-medieval",
+        desc: "A carved wooden tavern sign with engraved text and iron studs",
+        props: &["title", "subtitle"],
+        keywords: &[
+            "sign", "medieval", "tavern", "wood", "wooden", "inn", "fantasy", "shingle", "placard",
+        ],
+    },
+    WidgetSpec {
+        id: "note-parchment",
+        desc: "An aged parchment note sealed with wax, for proclamations and quests",
+        props: &["title", "content"],
+        keywords: &[
+            "note",
+            "parchment",
+            "scroll",
+            "medieval",
+            "letter",
+            "proclamation",
+            "quest",
+            "notice",
+            "aged",
+            "wax",
+            "fantasy",
+        ],
+    },
+    WidgetSpec {
+        id: "sign-steampunk",
+        desc: "A polished brass plaque with riveted corners and embossed lettering",
+        props: &["title", "subtitle"],
+        keywords: &[
+            "sign",
+            "steampunk",
+            "brass",
+            "plaque",
+            "metal",
+            "rivets",
+            "industrial",
+            "engraved",
+            "victorian",
+            "placard",
+        ],
+    },
+    WidgetSpec {
+        id: "sign-neon",
+        desc: "A glowing neon sign with a configurable tube color",
+        props: &["text", "color"],
+        keywords: &[
+            "sign",
+            "neon",
+            "glow",
+            "glowing",
+            "light",
+            "cyberpunk",
+            "bar",
+            "city",
+            "night",
+            "storefront",
+        ],
+    },
+    WidgetSpec {
+        id: "note-arcane",
+        desc: "A glowing arcane note with a pulsing sigil, for spells and incantations",
+        props: &["title", "content"],
+        keywords: &[
+            "note",
+            "arcane",
+            "magic",
+            "magical",
+            "spell",
+            "rune",
+            "sigil",
+            "incantation",
+            "mystic",
+            "enchanted",
+            "fantasy",
+        ],
+    },
 ];
 
 #[derive(Deserialize, JsonSchema)]
@@ -103,6 +181,7 @@ impl TypedTool for SearchWidgets {
 
     async fn call(&self, input: SearchWidgetsInput) -> Result<Vec<WidgetSpec>> {
         let needles: Vec<String> = input.keywords.iter().map(|k| k.to_lowercase()).collect();
+        tracing::info!("The model searched for: {needles:?}");
         let hits: Vec<WidgetSpec> = WIDGET_CATALOG
             .iter()
             .filter(|spec| {
@@ -173,6 +252,8 @@ impl TypedTool for StartWidget {
                     input.id
                 ))
             })?;
+
+        tracing::info!("The model attached a widget: {}", input.id);
 
         self.sink.lock().unwrap().push(WidgetInstance {
             widget_id: spec.id.to_string(),
