@@ -3,7 +3,7 @@ use thiserror::Error;
 
 use crate::errors::{
     CharacterError, ConnectionError, ContextError, ConversationError, PersonaError, StateError,
-    TargetType,
+    TargetType, UserToolError,
 };
 
 #[derive(Debug, Error)]
@@ -30,6 +30,8 @@ pub enum ChatError {
     Provider(#[from] lorealm_providers::Error),
     #[error("connection error: {0}")]
     Connection(String),
+    #[error("tool error: {0}")]
+    UserTool(#[from] UserToolError),
 }
 
 impl ChatError {
@@ -52,6 +54,7 @@ impl ChatError {
             ChatError::ConnectionProfile(connection_error) => connection_error.client_message(),
             ChatError::Provider(error) => error.to_string(),
             ChatError::Connection(msg) => msg.to_owned(),
+            ChatError::UserTool(user_tool_error) => user_tool_error.client_message(),
         }
     }
 }

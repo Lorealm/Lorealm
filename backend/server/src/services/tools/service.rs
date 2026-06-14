@@ -47,6 +47,10 @@ impl UserToolService {
         Ok(self.storage.list_tools(user_id).await?)
     }
 
+    pub async fn list_enabled(&self, user_id: Snowflake) -> Result<Vec<UserTool>, UserToolError> {
+        Ok(self.storage.list_enabled_tools(user_id).await?)
+    }
+
     pub async fn create_tool(
         &self,
         user_id: Snowflake,

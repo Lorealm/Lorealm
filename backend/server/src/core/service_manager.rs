@@ -109,6 +109,7 @@ impl ServiceManager {
             Arc::clone(&state),
             Arc::clone(&persona),
             Arc::clone(&connection),
+            Arc::clone(&tools),
         ));
 
         let cleanable: Vec<Arc<dyn CleanableService>> = vec![

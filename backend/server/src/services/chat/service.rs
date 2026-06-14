@@ -1,13 +1,16 @@
-use std::{pin::Pin, sync::Arc};
+use std::{collections::HashMap, pin::Pin, sync::Arc};
 
 use chrono::Utc;
 use futures_util::{Stream, StreamExt};
 use lorealm_providers::{Client, ContentBlock, LlmProvider, OpenRouterOptions, OpenRouterProvider};
 use lorealm_storage::{
     Storage,
-    models::{ChatRole, Conversation, ConversationMessage, ConversationMetadata, Snowflake},
+    models::{
+        ChatRole, Conversation, ConversationMessage, ConversationMetadata, Snowflake, StateDelta,
+    },
 };
 use serde_json::json;
+use std::sync::Mutex as StdMutex;
 use tokio::sync::Mutex;
 
 use crate::{
@@ -27,7 +30,8 @@ use crate::{
         persona::PersonaService,
         schedule::{Schedule, StageCx, stages::PrivacyStage},
         snowflake::SnowflakeService,
-        state::StateService,
+        state::{CapturedState, StatePool, StateService},
+        tools::{CompiledUserTool, ToolSignature, UserToolService, build_tool_registry},
     },
 };
 
@@ -39,6 +43,7 @@ pub struct ChatService {
     personas: Arc<PersonaService>,
     state: Arc<StateService>,
     connection: Arc<ConnectionService>,
+    tools: Arc<UserToolService>,
     resolvers: Arc<ResolverRegistry>,
     schedule: Arc<Schedule>,
 }
@@ -52,6 +57,7 @@ impl ChatService {
         state: Arc<StateService>,
         personas: Arc<PersonaService>,
         connection: Arc<ConnectionService>,
+        tools: Arc<UserToolService>,
     ) -> Self {
         let mut registry = ResolverRegistry::new();
         register_builtin_resolvers(&mut registry, Arc::clone(&state));
@@ -64,6 +70,7 @@ impl ChatService {
             state,
             personas,
             connection,
+            tools,
             resolvers: Arc::new(registry),
             schedule: Arc::new(Schedule::new(vec![Box::new(PrivacyStage)])),
         }
@@ -457,11 +464,25 @@ impl ChatService {
             captured,
         } = self.prepare_prompt(&convo, user_id, assembly_leaf).await?;
 
-        // Outbound transform pass; hands back the inbound chain (reverse order).
-        let cx = self.stage_cx(user_id, &convo).await?;
-        let mut chain = self.schedule.outbound(&mut prompt, &cx);
+        let chain = self.build_prompt(convo_id, assembly_leaf).await?;
+        let ids: Vec<Snowflake> = chain.iter().map(|m| m.id).collect();
+        let baseline = self.state.reconstruct(&ids).await?.persistent;
 
-        let token_stream = self.infer(user_id, prompt).await?;
+        // Live pool the tools mutate = baseline + assembly's writes.
+        let mut working = baseline.clone();
+        let (activation, had_assembly) = match captured {
+            Some(c) => {
+                apply_delta(&mut working, &c.persistent);
+                (c.activation, true)
+            }
+            None => (HashMap::new(), false),
+        };
+        let state_pool = Arc::new(StdMutex::new(working));
+
+        let cx = self.stage_cx(user_id, &convo).await?;
+        let mut chain_tf = self.schedule.outbound(&mut prompt, &cx);
+
+        let token_stream = self.infer(user_id, prompt, Arc::clone(&state_pool)).await?;
 
         let conversations = self.conversations.clone();
         let state_service = self.state.clone();
@@ -478,21 +499,21 @@ impl ChatService {
             while let Some(event) = token_stream.next().await {
                 match event? {
                     InferEvent::Text(delta) => {
-                        let emitted = chain.push(&delta);
+                        let emitted = chain_tf.push(&delta);
                         if !emitted.is_empty() {
                             acc.push_str(&emitted);
                             yield ChatStreamEvent::Delta { content: emitted };
                         }
                     }
                     InferEvent::Reasoning(delta) => {
-                        let filtered = chain.apply(&delta);
+                        let filtered = chain_tf.apply(&delta);
                         if !filtered.is_empty() {
                             reasoning_acc.push_str(&filtered);
                             yield ChatStreamEvent::Reasoning { content: filtered };
                         }
                     }
                     InferEvent::Widget(widget) => {
-                        let widget = widget.filtered(|s| chain.apply(s));
+                        let widget = widget.filtered(|s| chain_tf.apply(s));
                         yield ChatStreamEvent::Widget { widget: widget.clone() };
                         // Record the widget's position in the text: the marker
                         // goes into the persisted content AND out as a normal delta
@@ -503,7 +524,7 @@ impl ChatService {
                     }
                 }
             }
-            let tail = chain.finish();
+            let tail = chain_tf.finish();
             if !tail.is_empty() {
                 acc.push_str(&tail);
                 yield ChatStreamEvent::Delta { content: tail };
@@ -527,7 +548,13 @@ impl ChatService {
                     conversations.create_alternate(convo_id, sibling, ChatRole::Assistant, acc, meta).await?,
             };
 
-            if let Some(captured) = captured {
+            let delta = {
+                let pool = state_pool.lock().unwrap();
+                state_service.diff(&baseline, &pool)
+            };
+
+            if had_assembly || !delta.writes.is_empty() || !delta.deletes.is_empty() {
+                let captured = CapturedState { activation, persistent: delta };
                 state_service.persist(message.id, captured).await?;
             }
 
@@ -575,6 +602,7 @@ impl ChatService {
         &self,
         user_id: Snowflake,
         prompt: Vec<super::PromptMessage>,
+        state: Arc<StdMutex<StatePool>>,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<InferEvent, ChatError>> + Send>>, ChatError> {
         let profile = self.state.get_active_profile(user_id).await?;
         let connection = self
@@ -603,7 +631,24 @@ impl ChatService {
             })
             .collect();
 
-        let (registry, widget_sink) = widget_registry();
+        let (mut registry, widget_sink) = widget_registry();
+
+        let weaver_registry = Arc::new(build_tool_registry());
+
+        for row in self.tools.list_enabled(user_id).await? {
+            let sig = ToolSignature::from(row.clone());
+            match CompiledUserTool::build(
+                ToolSignature::from(row),
+                Arc::clone(&weaver_registry),
+                Arc::clone(&state),
+            ) {
+                Ok(tool) => {
+                    tracing::info!("Registering tool: {}", sig.name);
+                    registry.register(tool)
+                }
+                Err(e) => tracing::warn!(%user_id, "skipping uncompilable user tool: {e}"),
+            }
+        }
 
         let http_client = Arc::new(reqwest::Client::new());
         match connection.profile.provider.as_str() {
@@ -748,4 +793,23 @@ where
     };
 
     Ok(Box::pin(stream))
+}
+
+fn apply_delta(pool: &mut StatePool, d: &StateDelta) {
+    for (ns, vars) in &d.writes {
+        let t = pool.entry(ns.clone()).or_default();
+        for (n, v) in vars {
+            t.insert(n.clone(), v.clone());
+        }
+    }
+    for (ns, names) in &d.deletes {
+        if let Some(t) = pool.get_mut(ns) {
+            for n in names {
+                t.remove(n);
+            }
+            if t.is_empty() {
+                pool.remove(ns);
+            }
+        }
+    }
 }

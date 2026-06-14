@@ -1,4 +1,5 @@
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use lorealm_providers::Error as ProviderError;
@@ -6,8 +7,9 @@ use lorealm_providers::{Tool, ToolDef};
 use lorealm_storage::models::Param;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use weaver_lang::{CompiledTemplate, Registry, SimpleContext};
+use weaver_lang::{CompiledTemplate, Registry, Value as WeaverValue};
 
+use crate::services::tools::{ToolContext, ToolStatePool};
 use crate::util::weaver::json_to_weaver;
 
 #[derive(Deserialize)]
@@ -38,8 +40,9 @@ pub struct ToolSignature {
 
 pub struct CompiledUserTool {
     sig: ToolSignature,
-    body: CompiledTemplate,  // compiled once, at registration
-    registry: Arc<Registry>, // weaver-lang registry w/ host commands
+    body: CompiledTemplate,
+    registry: Arc<Registry>,
+    state: Arc<Mutex<ToolStatePool>>,
 }
 
 impl From<lorealm_storage::models::UserTool> for ToolSignature {
@@ -54,7 +57,11 @@ impl From<lorealm_storage::models::UserTool> for ToolSignature {
 }
 
 impl CompiledUserTool {
-    pub fn build(sig: ToolSignature, registry: Arc<Registry>) -> Result<Self, ProviderError> {
+    pub fn build(
+        sig: ToolSignature,
+        registry: Arc<Registry>,
+        state: Arc<Mutex<ToolStatePool>>,
+    ) -> Result<Self, ProviderError> {
         let body = CompiledTemplate::compile(&sig.body).map_err(|e| {
             ProviderError::Tool(format!("'{}' body failed to compile: {e:?}", sig.name))
         })?;
@@ -62,6 +69,7 @@ impl CompiledUserTool {
             sig,
             body,
             registry,
+            state,
         })
     }
 }
@@ -79,25 +87,33 @@ impl Tool for CompiledUserTool {
     async fn call(&self, input: serde_json::Value) -> Result<serde_json::Value, ProviderError> {
         let args = input.as_object().cloned().unwrap_or_default();
 
-        let mut ctx = SimpleContext::new();
+        let mut cmd = HashMap::new();
         for p in &self.sig.params {
             match args.get(&p.name) {
-                Some(v) => ctx.set("cmd", &p.name, json_to_weaver(v)),
+                Some(v) => {
+                    cmd.insert(p.name.clone(), json_to_weaver(v));
+                }
                 None if p.required => {
                     return Err(ProviderError::Tool(format!(
                         "missing required parameter '{}'",
                         p.name
                     )));
                 }
-                None => {} // optional + absent → {{cmd:x}} resolves to None
+                // Changed from your `None => {}`: insert None so an absent optional
+                // resolves to a value instead of an "undefined variable" error under
+                // strict eval — `{# if {{cmd:x}} #}` guards now work. Drop this line
+                // (and run eval lenient) if you'd rather absent vars render as raw syntax.
+                None => {
+                    cmd.insert(p.name.clone(), WeaverValue::None);
+                }
             }
         }
 
+        let mut ctx = ToolContext::new(cmd, Arc::clone(&self.state));
         let out = self
             .body
             .evaluate(&mut ctx, &self.registry)
             .map_err(|e| ProviderError::Tool(format!("tool '{}' failed: {e}", self.sig.name)))?;
-
         Ok(serde_json::Value::String(out))
     }
 }
