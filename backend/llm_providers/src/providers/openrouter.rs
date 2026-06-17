@@ -84,6 +84,7 @@ impl OpenRouterProvider {
     ) -> OpenRouterRequest {
         OpenRouterRequest {
             model: self.model.clone(),
+            cache_control: CacheControl::ephemeral(),
             messages: to_wire_messages(&messages),
             temperature: params.temperature,
             max_tokens: params.max_tokens,
@@ -260,8 +261,28 @@ struct WireFunctionDef {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CacheType {
+    Ephemeral,
+}
+
+#[derive(Serialize)]
+pub struct CacheControl {
+    r#type: CacheType,
+}
+
+impl CacheControl {
+    pub fn ephemeral() -> Self {
+        Self {
+            r#type: CacheType::Ephemeral,
+        }
+    }
+}
+
+#[derive(Serialize)]
 struct OpenRouterRequest {
     model: String,
+    cache_control: CacheControl,
     messages: Vec<WireMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     temperature: Option<f32>,
