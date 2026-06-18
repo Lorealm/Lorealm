@@ -1,6 +1,11 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import type { AuthApi, HttpTransport, PlatformAPI, Session, User } from "@lorealm/ui";
 import { SvelteSet } from "svelte/reactivity";
+import { platform } from "@tauri-apps/plugin-os";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+
+const isMac = platform() === "macos";
+const w = getCurrentWindow();
 
 const tauriAuth: AuthApi = {
 	async hydrate() {
@@ -172,7 +177,14 @@ const http: HttpTransport = {
 };
 
 export const tauriPlatform: PlatformAPI = {
-  auth: tauriAuth,
-  http,
-  capabilities: new SvelteSet([])
-}
+	auth: tauriAuth,
+	http,
+	window: isMac
+		? undefined
+		: {
+				minimize: () => w.minimize(),
+				toggleMaximize: () => w.toggleMaximize(),
+				close: () => w.close(),
+			},
+	capabilities: new SvelteSet([isMac ? "titlebar-overlay" : "window-controls"]),
+};

@@ -8,6 +8,7 @@
 	import { createApiClient } from './api/client.ts';
 	import { setAuthState } from './stores/auth.svelte.ts';
 	import { ActiveView, navigationStore } from './stores/navigation.svelte.ts';
+	import Titlebar from './widgets/Titlebar.svelte';
 
 	let { api }: { api: PlatformAPI } = $props();
 
@@ -33,4 +34,22 @@
 	});
 </script>
 
-<Router />
+<div class="app">
+	<Titlebar {api} />
+	<div class="app-body">
+		<Router />
+	</div>
+</div>
+
+<style>
+	.app {
+		display: flex;
+		flex-direction: column;
+		height: 100vh;
+		background-color: var(--color-bg-base);
+	}
+	.app-body {
+		flex: 1 1 auto;
+		min-height: 0;
+	}
+</style>

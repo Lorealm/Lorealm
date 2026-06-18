@@ -6,6 +6,7 @@ export interface PlatformAPI {
 	auth: AuthApi;
 	http: HttpTransport;
 	capabilities: Set<KnownCapability | (string & {})>;
+	window?: WindowControls;
 }
 
 export interface AuthApi {
@@ -29,4 +30,10 @@ export interface HttpTransport {
 
 	/* SSE stream */
 	stream<T>(path: string, body?: unknown): AsyncIterable<T>;
+}
+
+export interface WindowControls {
+	minimize(): Promise<void>;
+	toggleMaximize(): Promise<void>;
+	close(): Promise<void>;
 }
