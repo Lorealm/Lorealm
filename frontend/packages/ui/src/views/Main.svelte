@@ -20,12 +20,13 @@
 	<Inspector />
 </div>
 <ErrorToast />
+
 <style>
 	.container {
 		display: flex;
 		flex-direction: row;
-		width: 100vw;
-		height: 100vh;
+		width: 100%;
+		height: 100%;
 		min-height: 0;
 		background-color: var(--color-bg-base);
 	}

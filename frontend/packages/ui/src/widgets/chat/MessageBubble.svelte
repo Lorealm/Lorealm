@@ -62,6 +62,20 @@
 			startEdit('branch');
 		}
 	}
+
+	function autosize(node: HTMLTextAreaElement) {
+		const resize = () => {
+			node.style.height = 'auto';
+			node.style.height = `${node.scrollHeight + node.offsetHeight - node.clientHeight}px`;
+		};
+		resize();
+		node.addEventListener('input', resize);
+		return {
+			destroy() {
+				node.removeEventListener('input', resize);
+			}
+		};
+	}
 </script>
 
 <div class="message" data-role={message.role}>
@@ -110,7 +124,7 @@
 		{/if}
 
 		{#if editing}
-			<textarea class="editor" rows="3" bind:value={editText}></textarea>
+			<textarea class="editor" bind:value={editText} use:autosize></textarea>
 			<div class="edit-actions">
 				<button disabled={busy} onclick={saveEdit}>{editMode === 'edit' ? 'Save' : 'Swipe'}</button>
 				<button onclick={() => (editing = false)}>Cancel</button>
@@ -275,7 +289,19 @@
 	}
 
 	.editor {
-		resize: vertical;
+		width: 100%;
+		box-sizing: border-box;
+		min-height: 4.5em;
+		padding: var(--spacing-sm);
+		color: var(--color-text-primary);
+		background-color: var(--color-bg-base);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius-md);
+		font-family: var(--font-family-nunito);
+		font-size: var(--font-size-md);
+		line-height: var(--line-height-normal);
+		resize: none;
+		overflow-y: hidden;
 	}
 	.edit-actions {
 		display: flex;

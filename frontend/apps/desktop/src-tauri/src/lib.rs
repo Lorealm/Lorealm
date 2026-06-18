@@ -35,6 +35,7 @@ pub enum Error {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             http::http_get,
@@ -58,6 +59,12 @@ pub fn run() {
                     return Err(e.into());
                 }
             };
+
+            let win = app.get_webview_window("main").unwrap();
+            #[cfg(not(target_os = "macos"))]
+            win.set_decorations(false).unwrap();
+            win.show().unwrap();
+
             Ok(())
         })
         .run(tauri::generate_context!())
