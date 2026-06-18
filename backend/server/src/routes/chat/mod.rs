@@ -44,7 +44,7 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         )
         .route(
             "/{conversation_id}/completions",
-            post(handlers::completions),
+            post(handlers::completions).delete(handlers::cancel_completion),
         )
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),

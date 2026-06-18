@@ -1,6 +1,7 @@
 use std::{collections::HashMap, pin::Pin, sync::Arc};
 
 use chrono::Utc;
+use dashmap::DashMap;
 use futures_util::{Stream, StreamExt};
 use lorealm_providers::{Client, ContentBlock, LlmProvider, OpenRouterOptions, OpenRouterProvider};
 use lorealm_storage::{
@@ -12,13 +13,15 @@ use lorealm_storage::{
 use serde_json::json;
 use std::sync::Mutex as StdMutex;
 use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
 
 use crate::{
     errors::{ChatError, TargetType},
     services::{
         character::CharacterService,
         chat::{
-            ChatStreamEvent, FullConversation, Persist, Prepared, PromptMessage, TurnPlan,
+            CancelGuard, ChatStreamEvent, FullConversation, Persist, Prepared, PromptMessage,
+            TurnPlan,
             widgets::{InferEvent, WidgetInstance, WidgetSink, widget_marker, widget_registry},
         },
         connection::ConnectionService,
@@ -46,6 +49,7 @@ pub struct ChatService {
     tools: Arc<UserToolService>,
     resolvers: Arc<ResolverRegistry>,
     schedule: Arc<Schedule>,
+    cancellations: Arc<DashMap<Snowflake, CancellationToken>>,
 }
 
 impl ChatService {
@@ -73,6 +77,7 @@ impl ChatService {
             tools,
             resolvers: Arc::new(registry),
             schedule: Arc::new(Schedule::new(vec![Box::new(PrivacyStage)])),
+            cancellations: Arc::new(DashMap::new()),
         }
     }
 
@@ -451,6 +456,12 @@ impl ChatService {
     ) -> Result<Pin<Box<dyn Stream<Item = Result<ChatStreamEvent, ChatError>> + Send>>, ChatError>
     {
         let convo = self.get_conversation(convo_id, user_id).await?;
+        let cancel = CancellationToken::new();
+        self.cancellations.insert(convo_id, cancel.clone());
+        let cancel_guard = CancelGuard {
+            map: Arc::clone(&self.cancellations),
+            key: convo_id,
+        };
 
         let TurnPlan {
             assembly_leaf,
@@ -487,6 +498,7 @@ impl ChatService {
         let conversations = self.conversations.clone();
         let state_service = self.state.clone();
         let stream = async_stream::try_stream! {
+            let _cancel_guard = cancel_guard;   // give the stream ownership
             let mut acc = String::new();
             let mut reasoning_acc = String::new();
             let mut widgets: Vec<WidgetInstance> = Vec::new();
@@ -496,31 +508,36 @@ impl ChatService {
                 yield ChatStreamEvent::UserMessage { message: user };
             }
 
-            while let Some(event) = token_stream.next().await {
-                match event? {
-                    InferEvent::Text(delta) => {
-                        let emitted = chain_tf.push(&delta);
-                        if !emitted.is_empty() {
-                            acc.push_str(&emitted);
-                            yield ChatStreamEvent::Delta { content: emitted };
+            loop {
+                tokio::select! {
+                    biased;
+                    _ = cancel.cancelled() => break,
+                    next = token_stream.next() => {
+                        let Some(Ok(event)) = next else { break };
+                        match event {
+                            InferEvent::Text(delta) => {
+                                let emitted = chain_tf.push(&delta);
+                                if !emitted.is_empty() {
+                                    acc.push_str(&emitted);
+                                    yield ChatStreamEvent::Delta { content: emitted };
+                                }
+                            }
+                            InferEvent::Reasoning(delta) => {
+                                let filtered = chain_tf.apply(&delta);
+                                if !filtered.is_empty() {
+                                    reasoning_acc.push_str(&filtered);
+                                    yield ChatStreamEvent::Reasoning { content: filtered };
+                                }
+                            }
+                            InferEvent::Widget(widget) => {
+                                let widget = widget.filtered(|s| chain_tf.apply(s));
+                                yield ChatStreamEvent::Widget { widget: widget.clone() };
+                                let marker = widget_marker(widgets.len());
+                                acc.push_str(&marker);
+                                yield ChatStreamEvent::Delta { content: marker };
+                                widgets.push(widget);
+                            }
                         }
-                    }
-                    InferEvent::Reasoning(delta) => {
-                        let filtered = chain_tf.apply(&delta);
-                        if !filtered.is_empty() {
-                            reasoning_acc.push_str(&filtered);
-                            yield ChatStreamEvent::Reasoning { content: filtered };
-                        }
-                    }
-                    InferEvent::Widget(widget) => {
-                        let widget = widget.filtered(|s| chain_tf.apply(s));
-                        yield ChatStreamEvent::Widget { widget: widget.clone() };
-                        // Record the widget's position in the text: the marker
-                        // goes into the persisted content AND out as a normal delta
-                        let marker = widget_marker(widgets.len());
-                        acc.push_str(&marker);
-                        yield ChatStreamEvent::Delta { content: marker };
-                        widgets.push(widget);
                     }
                 }
             }
@@ -562,6 +579,17 @@ impl ChatService {
         };
 
         Ok(Box::pin(stream))
+    }
+
+    pub async fn cancel(&self, convo_id: Snowflake, user_id: Snowflake) -> Result<bool, ChatError> {
+        self.get_conversation(convo_id, user_id).await?;
+        Ok(match self.cancellations.get(&convo_id) {
+            Some(tok) => {
+                tok.cancel();
+                true
+            }
+            None => false,
+        })
     }
 
     async fn build_prompt(

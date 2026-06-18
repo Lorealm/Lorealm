@@ -51,6 +51,12 @@
 			}
 		}
 	}
+
+	async function cancelGeneration() {
+		if (chatStore.isStreaming && !chatStore.isCancelling) {
+			await chatStore.cancelStream();
+		}
+	}
 </script>
 
 <div class="container">
@@ -82,7 +88,7 @@
 		{#if !busy}
 			<button class="send-button" onclick={send}><Send /></button>
 		{:else}
-			<button class="send-button"><Square /></button>
+			<button class="send-button" onclick={cancelGeneration}><Square /></button>
 		{/if}
 	</div>
 </div>
