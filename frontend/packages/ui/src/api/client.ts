@@ -161,6 +161,8 @@ export function createApiClient(platform: PlatformAPI) {
 			delete: (conversation_id: Snowflake) => http.delete(`/api/v1/chat/${conversation_id}`),
 			completions: (conversation_id: Snowflake, request: CompletionsRequest) =>
 				http.stream<ChatStreamEvent>(`/api/v1/chat/${conversation_id}/completions`, request),
+			cancel: (conversation_id: Snowflake) =>
+				http.delete(`/api/v1/chat/${conversation_id}/completions`),
 			messages: {
 				list: (conversation_id: Snowflake) =>
 					http.get<Array<ConversationMessage>>(`/api/v1/chat/${conversation_id}/messages`),

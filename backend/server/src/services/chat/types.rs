@@ -1,7 +1,15 @@
+use std::sync::Arc;
+
+use dashmap::DashMap;
 use lorealm_storage::models::{Conversation, ConversationMessage, Snowflake};
 use serde::Serialize;
+use tokio_util::sync::CancellationToken;
 
-use crate::services::{chat::widgets::WidgetInstance, context::{PromptRole, TracedBlock}, state::CapturedState};
+use crate::services::{
+    chat::widgets::WidgetInstance,
+    context::{PromptRole, TracedBlock},
+    state::CapturedState,
+};
 
 #[derive(Debug, Clone)]
 pub struct PromptMessage {
@@ -42,11 +50,25 @@ pub enum ChatStreamEvent {
     Delta {
         content: String,
     },
-    Reasoning { content: String },
-    Widget { widget: WidgetInstance },
+    Reasoning {
+        content: String,
+    },
+    Widget {
+        widget: WidgetInstance,
+    },
     /// Terminal: the persisted assistant message, carrying its real id so the
     /// client can reconcile the provisional bubble and fetch branch_info.
     Done {
         message: ConversationMessage,
     },
+}
+
+pub struct CancelGuard {
+    pub map: Arc<DashMap<Snowflake, CancellationToken>>,
+    pub key: Snowflake,
+}
+impl Drop for CancelGuard {
+    fn drop(&mut self) {
+        self.map.remove(&self.key);
+    }
 }

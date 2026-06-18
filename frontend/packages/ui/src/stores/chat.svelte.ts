@@ -63,6 +63,8 @@ class ChatStore {
 	private _streamBuffer = $state('');
 	private _streamReasoning = $state('');
 	private _streamWidgets = $state<WidgetInstance[]>([]);
+	private _streamingConvId: Snowflake | null = null;
+	private _cancelling = $state(false);
 
 	streamState = $state<StreamState>({ status: 'idle' });
 
@@ -83,6 +85,9 @@ class ChatStore {
 	}
 	get isStreaming(): boolean {
 		return this.streamState.status === 'streaming';
+	}
+	get isCancelling(): boolean {
+		return this._cancelling;
 	}
 
 	get activePath(): ConversationMessage[] {
@@ -225,6 +230,8 @@ class ChatStore {
 		this._pending = null;
 		this._pendingGreetingId = null;
 		this._streamingId = null;
+		this._streamingConvId = null;
+		this._cancelling = false;
 		this._streamBuffer = '';
 		this._streamReasoning = '';
 		this._streamWidgets = [];
@@ -258,6 +265,21 @@ class ChatStore {
 	async regenerate() {
 		if (this.isStreaming) return;
 		await this.#runCompletion(null, null);
+	}
+
+	/** Stop the in-flight generation. */
+	async cancelStream() {
+		if (!this.isStreaming || this._cancelling) return;
+		const convId = this._streamingConvId;
+		if (!convId) return;
+
+		this._cancelling = true;
+		try {
+			await this.#api.chat.cancel(convId);
+		} catch (e) {
+			this._cancelling = false;
+			console.warn('Failed to cancel generation', e);
+		}
 	}
 
 	async commitUserSwipe(target: Snowflake, content: string) {
@@ -350,9 +372,11 @@ class ChatStore {
 
 		this._activeLeafId = assistantId;
 		this._streamingId = assistantId;
+		this._streamingConvId = convId;
 		this._streamBuffer = '';
 		this._streamReasoning = '';
 		this._streamWidgets = [];
+		this._cancelling = false;
 		this.streamState = { status: 'streaming' };
 
 		try {
@@ -394,6 +418,8 @@ class ChatStore {
 
 			this._activeLeafId = committedAssistant?.id ?? this.#deriveLeaf();
 			this._streamingId = null;
+			this._streamingConvId = null;
+			this._cancelling = false;
 			this._streamBuffer = '';
 			this._streamReasoning = '';
 			this._streamWidgets = [];
@@ -409,6 +435,8 @@ class ChatStore {
 			this._messages.delete(assistantId);
 			this._activeLeafId = prevLeaf;
 			this._streamingId = null;
+			this._streamingConvId = null;
+			this._cancelling = false;
 			this._streamBuffer = '';
 			this._streamReasoning = '';
 			this._streamWidgets = [];

@@ -8,8 +8,9 @@ use axum::{
         sse::{Event, KeepAlive},
     },
 };
-use lorealm_storage::models::{ConversationMessage, ConversationMetadata, Snowflake};
 use futures_util::StreamExt;
+use lorealm_storage::models::{ConversationMessage, ConversationMetadata, Snowflake};
+use reqwest::StatusCode;
 
 use crate::{
     core::AppState,
@@ -203,4 +204,21 @@ pub async fn completions(
     });
 
     Ok(Sse::new(sse).keep_alive(KeepAlive::default()))
+}
+
+pub async fn cancel_completion(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(conversation_id): Path<Snowflake>,
+) -> Result<StatusCode, AppError> {
+    let cancelled = state
+        .services()
+        .chat()
+        .cancel(conversation_id, session.user_id)
+        .await?;
+    Ok(if cancelled {
+        StatusCode::ACCEPTED
+    } else {
+        StatusCode::NOT_FOUND
+    })
 }

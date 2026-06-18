@@ -19,7 +19,7 @@
 	</span>
 	<div class="titleSection">
 		<div class="headerRow">
-			<h2 class="header">{summary.name}</h2>
+			<h4 class="header">{summary.name}</h4>
 
 			{#if summary.tags && summary.tags.length > 0}
 				<div class="tagContainer">
