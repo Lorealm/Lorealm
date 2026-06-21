@@ -58,6 +58,15 @@ export interface ProviderModel {
 	pricing?: { prompt?: number | null; completion?: number | null } | null;
 }
 
+// Mirror OPENROUTER_REASONING_BUDGET's exact shape; these values are placeholders.
+export const TOKEN_BUDGET: NumberSpec = {
+	kind: 'number',
+	min: 256,
+	max: 1_024_000,
+	step: 256,
+	default: 8192
+};
+
 /** Constraints for OpenRouter's reasoning token budget (provider section control). */
 export const OPENROUTER_REASONING_BUDGET: NumberSpec = {
 	kind: 'number',

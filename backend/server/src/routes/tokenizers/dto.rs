@@ -30,17 +30,22 @@ pub struct ShareRequest {
 
 #[derive(Deserialize)]
 pub struct TokenizeRequest {
-    pub content: String
+    pub content: String,
 }
 
 #[derive(Deserialize)]
 pub struct BatchTokenizeRequest {
-    pub batch: HashMap<String, String>
+    pub batch: HashMap<String, String>,
 }
 
 #[derive(Serialize)]
 pub struct BatchTokenizeResponse {
     pub tokenizer_id: Snowflake,
     pub counts: HashMap<String, usize>,
-    pub total_tokens: usize
+    pub total_tokens: usize,
+}
+
+#[derive(Deserialize)]
+pub(super) struct SetActiveRequest {
+    pub id: Snowflake,
 }

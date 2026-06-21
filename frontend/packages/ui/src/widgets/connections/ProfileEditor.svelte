@@ -3,7 +3,8 @@
 	import {
 		PROVIDER_SCHEMAS,
 		getProviderSchema,
-		OPENROUTER_REASONING_BUDGET
+		OPENROUTER_REASONING_BUDGET,
+		TOKEN_BUDGET
 	} from '$lib/types/schema.js';
 	import type { JsonValue, Snowflake } from '$lib/types/core.js';
 	import NumberParam from './NumberParam.svelte';
@@ -198,6 +199,15 @@
 				{/if}
 			</p>
 		{/if}
+		<NumberParam
+			label="Token Budget"
+			spec={TOKEN_BUDGET}
+			value={draft.token_budget}
+			onChange={(v) => {
+				draft.token_budget = v ?? TOKEN_BUDGET.default;
+				requestSave();
+			}}
+		/>
 	</section>
 
 	{#if !schema}
@@ -337,13 +347,12 @@
 <style>
 	.profile-editor {
 		flex: 1 1 auto;
-		min-width: 0;
+		width: 100%;
 		overflow-y: auto;
 		padding: var(--spacing-md);
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-md);
-		max-width: 560px;
 	}
 	.group {
 		display: flex;

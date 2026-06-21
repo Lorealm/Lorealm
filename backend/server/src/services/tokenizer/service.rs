@@ -241,7 +241,7 @@ impl TokenizerService {
         Ok(bytes)
     }
 
-    async fn load_kitoken_tokenizer(
+    pub async fn load_kitoken_tokenizer(
         &self,
         tok_id: Snowflake,
         user_id: Snowflake,

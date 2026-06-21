@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::{
     Router,
     extract::DefaultBodyLimit,
-    routing::{delete, get, post},
+    routing::{delete, get, post, put},
 };
 use tower_cookies::CookieManagerLayer;
 
@@ -25,6 +25,7 @@ pub(super) fn router(
 ) -> Router {
     let session_only_routes = Router::new()
         .route("/", get(handlers::list_tokenizers))
+        .route("/active", get(handlers::get_active_tokenizer))
         .route("/{tokenizer_id}", get(handlers::get_tokenizer))
         .route("/{tokenizer_id}/count", get(handlers::count))
         .route("/{tokenizer_id}/batchCount", get(handlers::batch_count))
@@ -35,6 +36,8 @@ pub(super) fn router(
         ));
 
     let session_permission_routes = Router::new()
+        .route("/active", put(handlers::set_active_tokenizer))
+        .route("/active", delete(handlers::unset_active_tokenizer))
         .route("/import", post(handlers::import_tokenizer))
         .route("/network", post(handlers::create_from_network))
         .route("/{tokenizer_id}", delete(handlers::delete_tokenizer))

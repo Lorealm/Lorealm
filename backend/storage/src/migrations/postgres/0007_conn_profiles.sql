@@ -23,6 +23,7 @@ CREATE TABLE connection_profiles (
     name            TEXT NOT NULL,
     provider        TEXT NOT NULL,
     model           TEXT,
+    token_budget    INTEGER NOT NULL DEFAULT 0,
     common_params   JSONB NOT NULL DEFAULT '{}',
     provider_params JSONB NOT NULL DEFAULT '{}',
     created_at      TIMESTAMPTZ NOT NULL,

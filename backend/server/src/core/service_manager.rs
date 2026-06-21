@@ -105,6 +105,13 @@ impl ServiceManager {
             ),
         ));
 
+        let tokenizers = Arc::new(TokenizerService::new(
+            Arc::clone(&storage),
+            Arc::clone(&snowflake),
+            Arc::clone(&blob),
+            http_client.clone(),
+        ));
+
         let chat = Arc::new(ChatService::new(
             Arc::clone(&storage),
             Arc::clone(&snowflake),
@@ -114,13 +121,7 @@ impl ServiceManager {
             Arc::clone(&persona),
             Arc::clone(&connection),
             Arc::clone(&tools),
-        ));
-
-        let tokenizers = Arc::new(TokenizerService::new(
-            Arc::clone(&storage),
-            Arc::clone(&snowflake),
-            Arc::clone(&blob),
-            http_client.clone(),
+            Arc::clone(&tokenizers),
         ));
 
         let cleanable: Vec<Arc<dyn CleanableService>> = vec![

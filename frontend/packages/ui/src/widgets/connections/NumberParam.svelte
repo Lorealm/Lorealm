@@ -42,7 +42,7 @@
 			min={spec.min}
 			max={spec.max}
 			step={spec.step}
-			width="5.5em"
+			width="7.5em"
 			ariaLabel={label}
 		/>
 	</div>

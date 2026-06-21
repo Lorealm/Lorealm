@@ -28,7 +28,8 @@ export interface DeleteSecretResponse {
 export interface ProfileRequest {
 	secret_id?: Snowflake | null;
 	name: string;
-	provider: string;
+  provider: string;
+  token_budget: number;
 	model: string;
 	common_params?: JsonValue;
 	provider_params?: JsonValue;
@@ -40,7 +41,8 @@ export interface ConnectionProfile {
 	secret_id: Snowflake | null;
 	name: string;
 	provider: string;
-	model: string;
+  model: string;
+  token_budget: number;
 	common_params: JsonValue;
 	provider_params: JsonValue;
 	created_at: string;

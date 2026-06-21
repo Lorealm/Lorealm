@@ -85,7 +85,7 @@ impl SecretStorage for PostgresStorage {
 impl ConnectionStorage for PostgresStorage {
     async fn get_profile(&self, id: Snowflake) -> Result<Option<ConnectionProfile>, StorageError> {
         let profile = sqlx::query_as::<_, ConnectionProfile>(
-            "SELECT id, user_id, secret_id, name, provider, model,
+            "SELECT id, user_id, secret_id, name, provider, model, token_budget,
                     common_params, provider_params, created_at, updated_at
              FROM connection_profiles WHERE id = $1",
         )
@@ -101,7 +101,7 @@ impl ConnectionStorage for PostgresStorage {
         user_id: Snowflake,
     ) -> Result<Vec<ConnectionProfile>, StorageError> {
         let profiles = sqlx::query_as::<_, ConnectionProfile>(
-            "SELECT id, user_id, secret_id, name, provider, model,
+            "SELECT id, user_id, secret_id, name, provider, model, token_budget,
                     common_params, provider_params, created_at, updated_at
              FROM connection_profiles WHERE user_id = $1 ORDER BY updated_at DESC",
         )
@@ -115,14 +115,15 @@ impl ConnectionStorage for PostgresStorage {
     async fn save_profile(&self, profile: &ConnectionProfile) -> Result<(), StorageError> {
         sqlx::query(
             "INSERT INTO connection_profiles
-                (id, user_id, secret_id, name, provider, model,
+                (id, user_id, secret_id, name, provider, model, token_budget,
                  common_params, provider_params, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), now())
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now(), now())
              ON CONFLICT (id) DO UPDATE SET
                 secret_id       = EXCLUDED.secret_id,
                 name            = EXCLUDED.name,
                 provider        = EXCLUDED.provider,
                 model           = EXCLUDED.model,
+                token_budget    = EXCLUDED.token_budget,
                 common_params   = EXCLUDED.common_params,
                 provider_params = EXCLUDED.provider_params,
                 updated_at      = now()",
@@ -133,6 +134,7 @@ impl ConnectionStorage for PostgresStorage {
         .bind(&profile.name)
         .bind(&profile.provider)
         .bind(&profile.model)
+        .bind(&profile.token_budget)
         .bind(&profile.common_params)
         .bind(&profile.provider_params)
         .execute(&self.pool)

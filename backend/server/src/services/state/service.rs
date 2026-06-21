@@ -4,7 +4,7 @@ use lorealm_storage::{
     Storage,
     models::{
         ActivationState, ConnectionProfile, Lorebook, MessageState, Snowflake, StateDelta,
-        UserPersona,
+        Tokenizer, UserPersona,
     },
 };
 
@@ -270,6 +270,46 @@ impl StateService {
         profile_id: Option<Snowflake>,
     ) -> Result<(), StateError> {
         self.storage.set_active_profile(user_id, profile_id).await?;
+
+        Ok(())
+    }
+
+    pub async fn get_active_tokenizer_id(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Option<Snowflake>, StateError> {
+        let tokenizer_id = self.storage.get_active_tokenizer(user_id).await?;
+
+        Ok(tokenizer_id)
+    }
+
+    pub async fn get_active_tokenizer(&self, user_id: Snowflake) -> Result<Tokenizer, StateError> {
+        let tokenizer_id = self
+            .storage
+            .get_active_tokenizer(user_id)
+            .await?
+            .ok_or(StateError::NoActiveTokenizer)?;
+
+        let tokenizer =
+            self.storage
+                .get_tokenizer(tokenizer_id)
+                .await?
+                .ok_or(StateError::NotFound(
+                    TargetType::ConnectionProfile,
+                    tokenizer_id,
+                ))?;
+
+        Ok(tokenizer)
+    }
+
+    pub async fn set_active_tokenizer(
+        &self,
+        user_id: Snowflake,
+        tokenizer_id: Option<Snowflake>,
+    ) -> Result<(), StateError> {
+        self.storage
+            .set_active_tokenizer(user_id, tokenizer_id)
+            .await?;
 
         Ok(())
     }
