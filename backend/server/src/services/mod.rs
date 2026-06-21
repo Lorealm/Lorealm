@@ -1,6 +1,5 @@
 pub mod character;
 pub mod chat;
-pub mod tools;
 pub mod connection;
 pub mod context;
 pub mod conversation;
@@ -11,4 +10,6 @@ pub mod schedule;
 pub mod session;
 pub mod snowflake;
 pub mod state;
+pub mod tokenizer;
+pub mod tools;
 pub mod users;

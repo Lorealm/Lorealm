@@ -7,6 +7,7 @@ pub mod persona;
 pub mod sessions;
 pub mod state;
 pub mod templates;
+pub mod tokenizer;
 pub mod tools;
 pub mod users;
 

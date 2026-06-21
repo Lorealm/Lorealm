@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use axum::Router;
 use lorealm_storage::StorageConfig;
@@ -58,6 +58,8 @@ async fn main() -> anyhow::Result<()> {
         .layer(cors);
 
     let cfg_host = state.config().get::<HostingConfig>();
+
+    let _cleanup = state.services().start_cleanup_task(Duration::from_secs(60));
 
     let addr = SocketAddr::from((cfg_host.ip, cfg_host.port));
     tracing::info!("Server starting on {}", addr);

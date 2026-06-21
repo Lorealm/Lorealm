@@ -7,6 +7,7 @@ pub mod persona;
 pub mod sessions;
 pub mod state;
 pub mod templates;
+pub mod tokenizer;
 pub mod tools;
 pub mod users;
 
@@ -40,6 +41,8 @@ pub struct MemoryStorage {
     pub(crate) secrets: RwLock<HashMap<Snowflake, Secret>>,
     pub(crate) connection_profiles: RwLock<HashMap<Snowflake, ConnectionProfile>>,
     pub(crate) user_tools: RwLock<HashMap<Snowflake, UserTool>>,
+    pub(crate) tokenizers: RwLock<HashMap<Snowflake, Tokenizer>>,
+    pub(crate) tokenizer_shares: RwLock<Vec<TokenizerShare>>,
 }
 
 impl MemoryStorage {

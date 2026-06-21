@@ -28,14 +28,23 @@ impl SourceResolver for ChatHistoryResolver {
             .and_then(|v| v.as_bool())
             .unwrap_or(true);
 
-        let blocks = ctx
+        // Temporary: cap history by message count until token-based truncation lands.
+        const MAX_MESSAGES: usize = 20;
+
+        let kept: Vec<_> = ctx
             .messages
             .iter()
             .filter(|m| include_system || m.role != ChatRole::System)
+            .collect();
+
+        let start = kept.len().saturating_sub(MAX_MESSAGES);
+
+        let blocks = kept[start..]
+            .iter()
             .map(|m| ResolvedBlock {
                 role: m.role.clone().into(),
                 content: m.content.clone(),
-                content_ref: ContentRef::Message(m.id)
+                content_ref: ContentRef::Message(m.id),
             })
             .collect();
 

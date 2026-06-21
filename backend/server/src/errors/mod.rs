@@ -2,6 +2,7 @@ mod auth;
 mod card;
 mod character;
 mod chat;
+mod config;
 mod connection;
 mod context;
 mod conversation;
@@ -9,12 +10,14 @@ mod lorebook;
 mod permission;
 mod persona;
 mod state;
+mod tokenizer;
 mod tools;
 
 pub use auth::*;
 pub use card::*;
 pub use character::*;
 pub use chat::*;
+pub use config::*;
 pub use connection::*;
 pub use context::*;
 pub use conversation::*;
@@ -22,6 +25,7 @@ pub use lorebook::*;
 pub use permission::*;
 pub use persona::*;
 pub use state::*;
+pub use tokenizer::*;
 pub use tools::*;
 
 use axum::{Json, http::StatusCode, response::IntoResponse};
@@ -316,6 +320,41 @@ impl From<UserToolError> for AppError {
                 message: Cow::Owned(err.client_message()),
             },
             UserToolError::Storage(_) => AppError::Internal {
+                internal: Cow::Owned(err.client_message()),
+            },
+        }
+    }
+}
+
+impl From<TokenizerError> for AppError {
+    fn from(err: TokenizerError) -> Self {
+        match err {
+            TokenizerError::NotFound(_) | TokenizerError::Forbidden(_) => AppError::BadRequest {
+                code: "NOT_FOUND",
+                message: Cow::Owned(err.client_message()),
+            },
+            TokenizerError::InvalidData(_)
+            | TokenizerError::InvalidSource(_)
+            | TokenizerError::Fetch(_)
+            | TokenizerError::Tokenize(_) => AppError::BadRequest {
+                code: "INVALID_DATA",
+                message: Cow::Owned(err.client_message()),
+            },
+            TokenizerError::Storage(_) => AppError::Internal {
+                internal: Cow::Owned(err.client_message()),
+            },
+        }
+    }
+}
+
+impl From<ConfigError> for AppError {
+    fn from(err: ConfigError) -> Self {
+        match err {
+            ConfigError::UnknownKey => AppError::BadRequest {
+                code: "INVALID_DATA",
+                message: Cow::Owned(err.client_message()),
+            },
+            ConfigError::Invalid(_) | ConfigError::Io(_) => AppError::Internal {
                 internal: Cow::Owned(err.client_message()),
             },
         }

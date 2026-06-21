@@ -31,12 +31,3 @@ CREATE TABLE connection_profiles (
 
 CREATE INDEX idx_connection_profiles_user ON connection_profiles (user_id);
 CREATE INDEX idx_connection_profiles_secret ON connection_profiles (secret_id);
-
-CREATE TABLE user_settings (
-    user_id                      BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    active_template_id           BIGINT REFERENCES templates(id) ON DELETE SET NULL,
-    active_persona_id            BIGINT REFERENCES user_personas(id) ON DELETE SET NULL,
-    active_connection_profile_id BIGINT REFERENCES connection_profiles(id) ON DELETE SET NULL
-);
-
-CREATE INDEX idx_user_settings_user ON user_settings (user_id);

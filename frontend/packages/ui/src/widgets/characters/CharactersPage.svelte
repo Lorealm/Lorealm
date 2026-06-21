@@ -188,6 +188,7 @@
 		min-height: 0;
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(var(--grid-card-min), 1fr));
+		grid-auto-rows: max-content;
 		gap: var(--grid-gap);
 		padding: var(--spacing-lg);
 		overflow-y: auto;

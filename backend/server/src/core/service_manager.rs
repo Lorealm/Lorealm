@@ -1,8 +1,9 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use lorealm_encryption::LocalKeyManager;
 use lorealm_storage::StorageManager;
+use tokio::task::JoinHandle;
 
 use crate::{
     config::{ConfigProvider, SessionConfig, UserConfig},
@@ -10,8 +11,8 @@ use crate::{
         character::CharacterService, chat::ChatService, connection::ConnectionService,
         context::ContextService, conversation::ConversationService, lorebook::LorebookService,
         permission::service::PermissionService, persona::PersonaService, session::SessionService,
-        snowflake::SnowflakeService, state::StateService, tools::UserToolService,
-        users::UserService,
+        snowflake::SnowflakeService, state::StateService, tokenizer::TokenizerService,
+        tools::UserToolService, users::UserService,
     },
 };
 
@@ -30,6 +31,7 @@ pub struct ServiceManager {
     persona: Arc<PersonaService>,
     connection: Arc<ConnectionService>,
     tools: Arc<UserToolService>,
+    tokenizers: Arc<TokenizerService>,
 }
 
 impl ServiceManager {
@@ -38,6 +40,8 @@ impl ServiceManager {
         let storage = storage_manager.storage();
         let blob = storage_manager.blob();
         let snowflake = Arc::new(SnowflakeService::new(0)); // TODO: Change or derive from config
+
+        let http_client = reqwest::Client::new();
 
         // Session Service
         let sessions = Arc::new(SessionService::new(
@@ -112,9 +116,17 @@ impl ServiceManager {
             Arc::clone(&tools),
         ));
 
+        let tokenizers = Arc::new(TokenizerService::new(
+            Arc::clone(&storage),
+            Arc::clone(&snowflake),
+            Arc::clone(&blob),
+            http_client.clone(),
+        ));
+
         let cleanable: Vec<Arc<dyn CleanableService>> = vec![
             Arc::clone(&characters) as Arc<dyn CleanableService>,
             Arc::clone(&lorebook) as Arc<dyn CleanableService>,
+            Arc::clone(&tokenizers) as Arc<dyn CleanableService>,
         ];
 
         Self {
@@ -131,7 +143,60 @@ impl ServiceManager {
             persona,
             connection,
             tools,
+            tokenizers,
         }
+    }
+
+    /// Spawns a background task that sweeps every cleanable service on `interval`.
+    ///
+    /// The first sweep runs after one `interval` has elapsed. Returns the
+    /// [`JoinHandle`] so the caller can keep it alive or abort it on shutdown.
+    pub fn start_cleanup_task(&self, interval: Duration) -> JoinHandle<()> {
+        let cleanable = Arc::clone(&self.cleanable);
+
+        tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(interval);
+            ticker.tick().await;
+
+            tracing::info!(
+                interval_secs = interval.as_secs(),
+                services = cleanable.len(),
+                "cleanup task started"
+            );
+
+            loop {
+                ticker.tick().await;
+
+                let started = std::time::Instant::now();
+                let mut total = 0;
+
+                for service in cleanable.iter() {
+                    let cleaned = service.clean().await;
+                    total += cleaned;
+
+                    if cleaned > 0 {
+                        tracing::debug!(
+                            service = service.name(),
+                            cleaned,
+                            "swept cleanable service"
+                        );
+                    }
+                }
+
+                if total > 0 {
+                    tracing::info!(
+                        total,
+                        elapsed_ms = started.elapsed().as_millis(),
+                        "cleanup sweep complete"
+                    );
+                } else {
+                    tracing::trace!(
+                        elapsed_ms = started.elapsed().as_millis(),
+                        "cleanup sweep idle"
+                    );
+                }
+            }
+        })
     }
 
     pub fn sessions(&self) -> &Arc<SessionService> {
@@ -177,10 +242,16 @@ impl ServiceManager {
     pub fn tools(&self) -> &Arc<UserToolService> {
         &self.tools
     }
+
+    pub fn tokenizers(&self) -> &Arc<TokenizerService> {
+        &self.tokenizers
+    }
 }
 
 #[async_trait]
 pub trait CleanableService: Send + Sync {
+    /// The name of the service, used for logging
+    fn name(&self) -> &'static str;
     /// Cleans the service.
     ///
     /// Returns amount of items cleaned.

@@ -4,8 +4,10 @@
 	let { api }: { api: PlatformAPI } = $props();
 
 	// macOS: native traffic lights live in a transparent overlay strip.
+	// svelte-ignore state_referenced_locally
 	const overlay = api.capabilities.has('titlebar-overlay');
 	// Windows/Linux: frameless window, we render our own controls.
+	// svelte-ignore state_referenced_locally
 	const controls = api.capabilities.has('window-controls');
 	const show = overlay || controls;
 </script>

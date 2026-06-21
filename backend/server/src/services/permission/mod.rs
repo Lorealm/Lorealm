@@ -29,6 +29,9 @@ bitflags! {
         const VIEW_METRICS                       = 1 << 15;
         const EDIT_OWN_USER                      = 1 << 16;
 
+        const IMPORT_TOKENIZER                   = 1 << 17;
+        const EDIT_SERVER                        = 1 << 18;
+
         const ADMINISTRATOR                      = 1 << 62;
     }
 }

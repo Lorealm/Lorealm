@@ -9,10 +9,12 @@ use crate::{
 
 mod characters;
 mod chat;
+mod config;
 mod connection;
 mod lorebooks;
 mod persona;
 mod templates;
+mod tokenizers;
 mod tools;
 mod users;
 
@@ -57,5 +59,21 @@ pub async fn api_routes(
         .nest(
             "/tools",
             tools::router(Arc::clone(&app_state), session_state.clone()),
+        )
+        .nest(
+            "/tokenizers",
+            tokenizers::router(
+                Arc::clone(&app_state),
+                session_state.clone(),
+                permission_state.clone(),
+            ),
+        )
+        .nest(
+            "/config",
+            config::router(
+                Arc::clone(&app_state),
+                session_state.clone(),
+                permission_state.clone(),
+            ),
         )
 }

@@ -173,6 +173,7 @@ impl ConnectionStorage for MemoryStorage {
                 active_template_id: None,
                 active_persona_id: None,
                 active_connection_profile_id: profile_id,
+                active_tokenizer_id: None
             });
 
         Ok(())
