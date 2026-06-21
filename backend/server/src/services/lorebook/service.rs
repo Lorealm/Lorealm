@@ -268,6 +268,9 @@ fn weaver_entry_to_storage(
 
 #[async_trait]
 impl CleanableService for LorebookService {
+    fn name(&self) -> &'static str {
+        "LorebookService"
+    }
     async fn clean(&self) -> usize {
         0 // TODO: Implement
     }

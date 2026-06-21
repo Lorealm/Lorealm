@@ -558,6 +558,9 @@ impl CharacterService {
 
 #[async_trait]
 impl CleanableService for CharacterService {
+    fn name(&self) -> &'static str {
+        "CharacterService"
+    }
     async fn clean(&self) -> usize {
         let mut sessions = self.editing_sessions.write().await;
         let before = sessions.len();

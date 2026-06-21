@@ -8,6 +8,7 @@ mod persona;
 mod sessions;
 mod state;
 mod templates;
+mod tokenizers;
 mod tools;
 mod users;
 
@@ -21,5 +22,6 @@ pub use persona::*;
 pub use sessions::*;
 pub use state::*;
 pub use templates::*;
+pub use tokenizers::*;
 pub use tools::*;
 pub use users::*;

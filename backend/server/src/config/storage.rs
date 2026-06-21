@@ -24,6 +24,6 @@ impl Default for StorageConfig {
 
 impl Config for StorageConfig {
     fn key() -> &'static str {
-        "hosting"
+        "storage"
     }
 }

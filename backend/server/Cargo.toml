@@ -44,4 +44,4 @@ weaver_macros = "0.2.0"
 schemars = "1.2.1"
 tokio-util = "0.7.18"
 dashmap = "6.2.1"
-
+kitoken = { version = "0.11.0", features = ["convert-detect"] }

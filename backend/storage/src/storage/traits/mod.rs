@@ -9,6 +9,7 @@ mod persona;
 mod sessions;
 mod state;
 mod templates;
+mod tokenizer;
 mod tools;
 mod users;
 
@@ -23,6 +24,7 @@ pub use persona::PersonaStorage;
 pub use sessions::SessionStorage;
 pub use state::WeaverStateStorage;
 pub use templates::TemplateStorage;
+pub use tokenizer::TokenizerStorage;
 pub use tools::UserToolStorage;
 pub use users::UserStorage;
 
@@ -40,6 +42,7 @@ pub trait Storage:
     + SecretStorage
     + ConnectionStorage
     + UserToolStorage
+    + TokenizerStorage
 {
 }
 
@@ -57,5 +60,6 @@ impl<T> Storage for T where
         + SecretStorage
         + ConnectionStorage
         + UserToolStorage
+        + TokenizerStorage
 {
 }
