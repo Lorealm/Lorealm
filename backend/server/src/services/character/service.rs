@@ -12,6 +12,7 @@ use lorealm_storage::{
 use tokio::{sync::RwLock, time::Instant};
 
 use crate::{
+    config::CharacterConfig,
     core::CleanableService,
     errors::{CharacterError, TargetType},
     services::{
@@ -24,8 +25,6 @@ use crate::{
     },
 };
 
-const SESSION_LENGTH: u64 = 60 * 5; // 5 minutes
-
 struct EditingSession {
     version_id: Snowflake,
     last_touched: Instant,
@@ -35,6 +34,7 @@ pub struct CharacterService {
     storage: Arc<dyn Storage>,
     blob: Arc<dyn BlobStore>,
     snowflake: Arc<SnowflakeService>,
+    config: CharacterConfig,
     /// The purpose of this is to map any edits on this character to a certain version number
     /// if it exists in the map. If nothing exists, a new version should be created.
     editing_sessions: RwLock<HashMap<Snowflake, EditingSession>>,
@@ -45,11 +45,13 @@ impl CharacterService {
         storage: Arc<dyn Storage>,
         blob: Arc<dyn BlobStore>,
         snowflake: Arc<SnowflakeService>,
+        config: CharacterConfig,
     ) -> Self {
         Self {
             storage,
             blob,
             snowflake,
+            config,
             editing_sessions: RwLock::new(HashMap::new()),
         }
     }
@@ -166,7 +168,7 @@ impl CharacterService {
         if character.user_id != user_id {
             return Err(CharacterError::NotOwned(character_id));
         }
-        let window = Duration::from_secs(SESSION_LENGTH); // TODO: config
+        let window = Duration::from_secs(self.config.edit_session_ttl);
         let (mode, target) = {
             let mut sessions = self.editing_sessions.write().await;
             match sessions.get_mut(&character.id) {
@@ -564,7 +566,9 @@ impl CleanableService for CharacterService {
     async fn clean(&self) -> usize {
         let mut sessions = self.editing_sessions.write().await;
         let before = sessions.len();
-        sessions.retain(|_, s| s.last_touched.elapsed() < Duration::from_secs(SESSION_LENGTH)); // TODO: sync with config
+        sessions.retain(|_, s| {
+            s.last_touched.elapsed() < Duration::from_secs(self.config.edit_session_ttl)
+        });
         before - sessions.len()
     }
 }

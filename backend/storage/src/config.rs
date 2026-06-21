@@ -10,13 +10,20 @@ pub struct StorageConfig {
     // TODO: Improve. We might not always want a filesystem path
     /// The filesystem path to use for blob-storage
     pub data_directory: PathBuf,
-    
+
     /// Whether to require postgres as fallback
     pub require_postgres_fallback: bool,
 
     #[cfg(feature = "redis")]
     /// Optional caching configuration
     pub cache: Option<CacheConfig>,
+}
+
+impl Default for StorageConfig {
+    fn default() -> Self {
+        // TODO: When SQLite/Turso support is added, swap to `Self::local_default()`
+        Self::server_default()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,7 +53,8 @@ impl Default for CacheConfig {
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum BackendConfig {
     Postgres {
-        connection_string: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        connection_string: Option<String>,
         max_connections: u32,
     },
     Memory {
@@ -74,15 +82,17 @@ impl StorageConfig {
     pub fn server_default() -> Self {
         Self {
             backends: vec![BackendConfig::Postgres {
-                connection_string: std::env::var("POSTGRES_URL")
-                    .unwrap_or_else(|_| "postgresql://localhost/lorealm".to_string()),
+                connection_string: Some(
+                    std::env::var("LOREALM_POSTGRES_URL")
+                        .unwrap_or_else(|_| "postgresql://localhost/lorealm".to_string()),
+                ),
                 max_connections: 10,
             }],
             data_directory: PathBuf::from("data"),
             require_postgres_fallback: true,
             #[cfg(feature = "redis")]
             cache: Some(CacheConfig {
-                redis_url: std::env::var("REDIS_URL")
+                redis_url: std::env::var("LOREALM_REDIS_URL")
                     .unwrap_or_else(|_| "redis://localhost:6379".to_string()),
                 ttl_seconds: 600, // 10 minutes for production
                 key_prefix: "lorealm".to_string(),

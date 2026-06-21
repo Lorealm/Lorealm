@@ -70,7 +70,11 @@ pub async fn register(
         .register(payload.username, payload.email, payload.password)
         .await?;
 
-    scaffold_user(&state, &user).await?;
+    let config = state.config().get::<UserConfig>();
+
+    if config.create_default_resources {
+        scaffold_user(&state, &user).await?;
+    }
 
     Ok(StatusCode::OK)
 }

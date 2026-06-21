@@ -11,12 +11,9 @@ use lorealm_storage::{
 use tokio::{sync::RwLock, time::Instant};
 
 use crate::{
-    core::CleanableService, errors::TokenizerError, services::snowflake::SnowflakeService,
+    config::TokenizerConfig, core::CleanableService, errors::TokenizerError,
+    services::snowflake::SnowflakeService,
 };
-
-const MAX_TOKENIZER_BYTES: u64 = 32 * 1024 * 1024;
-
-const TOKENIZER_TTL: i64 = 60 * 5;
 
 struct TokenizerSession {
     encoder: Arc<kitoken::Kitoken>,
@@ -29,6 +26,7 @@ pub struct TokenizerService {
     snowflake: Arc<SnowflakeService>,
     blob: Arc<dyn BlobStore>,
     http: reqwest::Client,
+    config: TokenizerConfig,
     sessions: Arc<RwLock<HashMap<Snowflake, TokenizerSession>>>,
 }
 
@@ -38,12 +36,14 @@ impl TokenizerService {
         snowflake: Arc<SnowflakeService>,
         blob: Arc<dyn BlobStore>,
         http: reqwest::Client,
+        config: TokenizerConfig,
     ) -> Self {
         Self {
             storage,
             snowflake,
             blob,
             http,
+            config,
             sessions: Arc::new(RwLock::new(HashMap::new())),
         }
     }
@@ -58,7 +58,7 @@ impl TokenizerService {
         raw: Bytes,
         is_public: bool,
     ) -> Result<Tokenizer, TokenizerError> {
-        if raw.len() as u64 > MAX_TOKENIZER_BYTES {
+        if raw.len() as u64 > self.config.max_tokenizer_size_mb * 1024 * 1024 {
             return Err(TokenizerError::InvalidData(
                 "tokenizer exceeds size limit".into(),
             ));
@@ -137,11 +137,6 @@ impl TokenizerService {
             .await?)
     }
 
-    /// Tokenizers owned by the caller.
-    pub async fn list_owned(&self, owner_id: Snowflake) -> Result<Vec<Tokenizer>, TokenizerError> {
-        Ok(self.storage.list_tokenizers_by_owner(owner_id).await?)
-    }
-
     /// Delete a tokenizer the caller owns. Share rows cascade in storage.
     pub async fn delete_tokenizer(
         &self,
@@ -213,6 +208,8 @@ impl TokenizerService {
     async fn fetch_hf(&self, repo: &str) -> Result<Bytes, TokenizerError> {
         let url = format!("https://huggingface.co/{repo}/resolve/main/tokenizer.json");
 
+        let max_bytes = self.config.max_tokenizer_size_mb * 1024 * 1024;
+
         let resp = self
             .http
             .get(&url)
@@ -222,7 +219,7 @@ impl TokenizerService {
             .map_err(|e| TokenizerError::Fetch(e.to_string()))?;
 
         if let Some(len) = resp.content_length()
-            && len > MAX_TOKENIZER_BYTES
+            && len > max_bytes
         {
             return Err(TokenizerError::Fetch(format!(
                 "tokenizer too large ({len} bytes)"
@@ -234,7 +231,7 @@ impl TokenizerService {
             .await
             .map_err(|e| TokenizerError::Fetch(e.to_string()))?;
 
-        if bytes.len() as u64 > MAX_TOKENIZER_BYTES {
+        if bytes.len() as u64 > max_bytes {
             return Err(TokenizerError::Fetch("tokenizer too large".into()));
         }
 
@@ -253,7 +250,7 @@ impl TokenizerService {
         {
             let mut sessions = self.sessions.write().await;
             if let Some(session) = sessions.get_mut(&tok_id) {
-                session.expires_at = Utc::now() + Duration::seconds(TOKENIZER_TTL);
+                session.expires_at = Utc::now() + Duration::seconds(self.config.tokenizer_ttl);
                 return Ok(Arc::clone(&session.encoder));
             }
         }
@@ -287,7 +284,7 @@ impl TokenizerService {
         let mut sessions = self.sessions.write().await;
         let session = sessions.entry(tok_id).or_insert_with(|| TokenizerSession {
             encoder: Arc::clone(&tokenizer),
-            expires_at: Utc::now() + Duration::seconds(TOKENIZER_TTL),
+            expires_at: Utc::now() + Duration::seconds(self.config.tokenizer_ttl),
         });
         Ok(Arc::clone(&session.encoder))
     }

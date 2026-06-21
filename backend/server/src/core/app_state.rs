@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use lorealm_storage::{StorageConfig, StorageManager};
+use lorealm_storage::StorageManager;
 use secrecy::SecretString;
 
 use crate::{config::ConfigProvider, core::ServiceManager};
@@ -13,13 +13,16 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub(crate) async fn new(config: StorageConfig) -> anyhow::Result<Self> {
+    pub(crate) async fn new() -> anyhow::Result<Self> {
         let path = std::env::var("CONFIG_PATH")
             .unwrap_or_else(|_| "config.yaml".into())
             .into();
 
-        let manager = StorageManager::new(config).await?;
         let config = Arc::new(ConfigProvider::load(path)?);
+
+        let storage_config = config.get::<lorealm_storage::StorageConfig>();
+
+        let manager = StorageManager::new(storage_config).await?;
         let service_manager = Arc::new(ServiceManager::new(&manager, Arc::clone(&config)));
 
         Ok(Self {
