@@ -14,8 +14,8 @@ use crate::{
     errors::AppError,
     extract::{AuthenticatedSession, ResolvedPermissions},
     routes::tokenizers::dto::{
-        BatchTokenizeRequest, BatchTokenizeResponse, ImportQuery, NetworkCreate, ShareRequest,
-        TokenizeRequest,
+        BatchTokenizeRequest, BatchTokenizeResponse, ImportQuery, NetworkCreate, SetActiveRequest,
+        ShareRequest, TokenizeRequest,
     },
     services::permission::Permissions,
 };
@@ -197,4 +197,44 @@ pub async fn batch_count(
         counts,
         total_tokens: total_tokens,
     }))
+}
+
+pub async fn get_active_tokenizer(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+) -> Result<Json<Option<Snowflake>>, AppError> {
+    let tok = state
+        .services()
+        .state()
+        .get_active_tokenizer_id(session.user_id)
+        .await?;
+
+    Ok(Json(tok))
+}
+
+pub async fn set_active_tokenizer(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Json(request): Json<SetActiveRequest>,
+) -> Result<(), AppError> {
+    state
+        .services()
+        .state()
+        .set_active_tokenizer(session.user_id, Some(request.id))
+        .await?;
+
+    Ok(())
+}
+
+pub async fn unset_active_tokenizer(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession
+) -> Result<(), AppError> {
+    state
+        .services()
+        .state()
+        .set_active_tokenizer(session.user_id, None)
+        .await?;
+
+    Ok(())
 }

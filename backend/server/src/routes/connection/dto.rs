@@ -29,6 +29,7 @@ pub struct ProfileRequest {
     pub name: String,
     pub provider: String,
     pub model: Option<String>,
+    pub token_budget: i32,
     #[serde(default)]
     pub common_params: serde_json::Value,
     #[serde(default)]
@@ -47,6 +48,7 @@ impl From<ProfileRequest> for ProfileInput {
             name: r.name,
             provider: r.provider,
             model: r.model,
+            token_budget: r.token_budget,
             common_params: r.common_params,
             provider_params: r.provider_params,
         }

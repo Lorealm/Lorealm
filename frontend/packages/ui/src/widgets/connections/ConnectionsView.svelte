@@ -194,7 +194,7 @@
 	}
 	.col-content {
 		flex: 1 1 auto;
-		min-width: 0;
+		width: 100%;
 		display: flex;
 		min-height: 0;
 	}

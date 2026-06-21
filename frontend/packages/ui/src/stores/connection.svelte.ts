@@ -8,7 +8,7 @@ import type {
 	SecretMetadata
 } from '$lib/types/connection.js';
 import type { SaveState } from './lorebook.svelte.js';
-import type { ProviderModel } from '$lib/types/schema.js';
+import { TOKEN_BUDGET, type ProviderModel } from '$lib/types/schema.js';
 import { SvelteMap } from 'svelte/reactivity';
 
 export interface ProfileDraft {
@@ -16,6 +16,7 @@ export interface ProfileDraft {
 	name: string;
 	provider: string;
 	model: string;
+	token_budget: number;
 	secret_id: Snowflake | null;
 	common_params: Record<string, JsonValue>;
 	provider_params: Record<string, JsonValue>;
@@ -25,7 +26,7 @@ class ConnectionStore {
 	private _api = $state<ApiClient>();
 
 	get #api() {
-    if (!this._api) this._api = useApi();
+		if (!this._api) this._api = useApi();
 		return this._api;
 	}
 
@@ -109,6 +110,7 @@ class ConnectionStore {
 				name: draft.name,
 				provider: draft.provider,
 				model: draft.model,
+				token_budget: draft.token_budget,
 				common_params: $state.snapshot(draft.common_params) as unknown as JsonValue,
 				provider_params: $state.snapshot(draft.provider_params) as unknown as JsonValue
 			};
@@ -127,6 +129,7 @@ class ConnectionStore {
 			name,
 			provider,
 			model: '',
+			token_budget: TOKEN_BUDGET.default,
 			common_params: {},
 			provider_params: {}
 		});
@@ -189,6 +192,7 @@ function buildDraft(base: ConnectionProfile): ProfileDraft {
 		name: base.name,
 		provider: base.provider,
 		model: base.model,
+		token_budget: base.token_budget,
 		secret_id: base.secret_id,
 		common_params: asParams(base.common_params),
 		provider_params: asParams(base.provider_params)

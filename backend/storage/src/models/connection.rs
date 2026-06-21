@@ -54,6 +54,7 @@ pub struct ConnectionProfile {
     pub name: String,
     pub provider: String,
     pub model: Option<String>,
+    pub token_budget: i32,
     pub common_params: serde_json::Value,
     pub provider_params: serde_json::Value,
     pub created_at: DateTime<Utc>,

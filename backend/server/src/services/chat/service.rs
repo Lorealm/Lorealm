@@ -34,6 +34,7 @@ use crate::{
         schedule::{Schedule, StageCx, stages::PrivacyStage},
         snowflake::SnowflakeService,
         state::{CapturedState, StatePool, StateService},
+        tokenizer::TokenizerService,
         tools::{CompiledUserTool, ToolSignature, UserToolService, build_tool_registry},
     },
 };
@@ -47,6 +48,7 @@ pub struct ChatService {
     state: Arc<StateService>,
     connection: Arc<ConnectionService>,
     tools: Arc<UserToolService>,
+    tokenizers: Arc<TokenizerService>,
     resolvers: Arc<ResolverRegistry>,
     schedule: Arc<Schedule>,
     cancellations: Arc<DashMap<Snowflake, CancellationToken>>,
@@ -62,6 +64,7 @@ impl ChatService {
         personas: Arc<PersonaService>,
         connection: Arc<ConnectionService>,
         tools: Arc<UserToolService>,
+        tokenizers: Arc<TokenizerService>,
     ) -> Self {
         let mut registry = ResolverRegistry::new();
         register_builtin_resolvers(&mut registry, Arc::clone(&state));
@@ -75,6 +78,7 @@ impl ChatService {
             personas,
             connection,
             tools,
+            tokenizers,
             resolvers: Arc::new(registry),
             schedule: Arc::new(Schedule::new(vec![Box::new(PrivacyStage)])),
             cancellations: Arc::new(DashMap::new()),
@@ -401,6 +405,12 @@ impl ChatService {
             .await?;
         let persona = self.state.get_active_persona(user_id).await?;
         let template = self.state.get_active_template(user_id).await?;
+        let tok_def = self.state.get_active_tokenizer(user_id).await?;
+
+        let tokenizer = self
+            .tokenizers
+            .load_kitoken_tokenizer(tok_def.id, user_id)
+            .await?;
 
         let captured;
         let trace = {
@@ -410,6 +420,7 @@ impl ChatService {
                 user_id,
                 lorebook_state: Mutex::new(None),
                 persona: &persona,
+                tokenizer: &tokenizer,
             };
             let trace = assemble(&template, &self.resolvers, &ctx).await?;
             captured = ctx.lorebook_state.lock().await.take();

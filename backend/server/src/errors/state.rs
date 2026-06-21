@@ -17,6 +17,8 @@ pub enum StateError {
     NoActivePersona,
     #[error("no active connection profile")]
     NoActiveConnectionProfile,
+    #[error("no active tokenizer")]
+    NoActiveTokenizer,
 }
 
 impl StateError {
@@ -30,6 +32,7 @@ impl StateError {
             StateError::TemplateConversion(msg) => msg.to_string(),
             StateError::NoActivePersona => "no active persona".to_string(),
             StateError::NoActiveConnectionProfile => "no active connection template".to_string(),
+            StateError::NoActiveTokenizer => "no active tokenizer".to_string(),
         }
     }
 }

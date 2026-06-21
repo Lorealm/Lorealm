@@ -3,8 +3,9 @@ use std::{collections::HashMap, sync::Arc};
 use async_trait::async_trait;
 use context_weaver::{
     ActivationState as CwActivationState, AssembledBlock, BookId, ChatMessage as CwMessage,
-    ContextWeaver, EngineConfig, NamespaceAccess, Slot,
+    ContextWeaver, EngineConfig, GuesstimationTokenizer, NamespaceAccess, Slot,
 };
+use kitoken::Kitoken;
 use lorealm_storage::models::{ActivationState, ChatRole, ConversationMessage, Snowflake};
 use serde_json::Value as JsonValue;
 use weaver_lang::Value as WeaverValue;
@@ -97,6 +98,10 @@ impl WorldInfoResolver {
             return Ok((Vec::new(), None));
         };
 
+        let tokenizer = WeaverTokenizer {
+            inner: Arc::clone(ctx.tokenizer),
+        };
+
         let mut book_ids: HashMap<Snowflake, BookId> = HashMap::new();
 
         let first_sf = first.id;
@@ -105,6 +110,7 @@ impl WorldInfoResolver {
             ..Default::default()
         });
 
+        weaver.set_tokenizer(Box::new(tokenizer));
         weaver.register_plugin(LorealmWeaverPlugin)?;
 
         book_ids.insert(first_sf, BookId(0)); // The first BookId is always 0
@@ -166,6 +172,19 @@ impl WorldInfoResolver {
         };
 
         Ok((blocks, Some(captured)))
+    }
+}
+
+pub struct WeaverTokenizer {
+    inner: Arc<Kitoken>,
+}
+
+impl context_weaver::Tokenizer for WeaverTokenizer {
+    fn estimate_tokens(&self, text: &str) -> usize {
+        match self.inner.encode(text, true) {
+            Ok(tokens) => tokens.len(),
+            Err(_) => GuesstimationTokenizer.estimate_tokens(text),
+        }
     }
 }
 

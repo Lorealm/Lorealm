@@ -4,10 +4,10 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 pub struct ProfileInput {
-    /// None for keyless endpoints (e.g. self-hosted).
     pub secret_id: Option<Snowflake>,
     pub name: String,
     pub model: Option<String>,
+    pub token_budget: i32,
     pub provider: String,
     pub common_params: serde_json::Value,
     pub provider_params: serde_json::Value,

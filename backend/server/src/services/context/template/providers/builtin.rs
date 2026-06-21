@@ -28,20 +28,18 @@ fn chat_history_source() -> SourceDefinition {
                     label: "Truncation Strategy".into(),
                     description: "How to handle truncation when limit is reached".into(),
                     setting_type: SettingType::Select {
-                        options: vec![SelectOption {
-                            value: "oldest_first".into(),
-                            label: "Remove oldest messages".into(),
-                        }],
+                        options: vec![
+                            SelectOption {
+                                value: "oldest_first".into(),
+                                label: "Remove oldest messages".into(),
+                            },
+                            SelectOption {
+                                value: "middle_out".into(),
+                                label: "Remove messages from the middle".into(),
+                            },
+                        ],
                     },
                     default_value: serde_json::json!("oldest_first"),
-                    required: false,
-                },
-                SettingDefinition {
-                    key: "include_system".into(),
-                    label: "Include System Messages".into(),
-                    description: "Whether to include system messages in history".into(),
-                    setting_type: SettingType::Boolean,
-                    default_value: serde_json::json!(true),
                     required: false,
                 },
             ],

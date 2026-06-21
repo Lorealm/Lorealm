@@ -3,7 +3,7 @@ use thiserror::Error;
 
 use crate::errors::{
     CharacterError, ConnectionError, ContextError, ConversationError, PersonaError, StateError,
-    TargetType, UserToolError,
+    TargetType, TokenizerError, UserToolError,
 };
 
 #[derive(Debug, Error)]
@@ -32,6 +32,8 @@ pub enum ChatError {
     Connection(String),
     #[error("tool error: {0}")]
     UserTool(#[from] UserToolError),
+    #[error("tokenizer error: {0}")]
+    Tokenizer(#[from] TokenizerError),
 }
 
 impl ChatError {
@@ -55,6 +57,7 @@ impl ChatError {
             ChatError::Provider(error) => error.to_string(),
             ChatError::Connection(msg) => msg.to_owned(),
             ChatError::UserTool(user_tool_error) => user_tool_error.client_message(),
+            ChatError::Tokenizer(tokenizer_error) => tokenizer_error.client_message(),
         }
     }
 }

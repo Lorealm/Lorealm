@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use lorealm_storage::models::ChatRole;
 
-use crate::{errors::ContextError, services::context::ContentRef};
+use crate::{
+    errors::{ContextError, TokenizerError},
+    services::context::ContentRef,
+};
 
 use super::super::{ResolveContext, ResolvedBlock, SourceResolver};
 
@@ -23,32 +25,91 @@ impl SourceResolver for ChatHistoryResolver {
     ) -> Result<Vec<ResolvedBlock>, ContextError> {
         debug_assert_eq!(node_id, "main");
 
-        let include_system = settings
-            .get("include_system")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(true);
+        let max_tokens = settings
+            .get("max_tokens")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as usize;
 
-        // Temporary: cap history by message count until token-based truncation lands.
-        const MAX_MESSAGES: usize = 20;
+        let strategy = settings
+            .get("truncation_strategy")
+            .and_then(|v| v.as_str())
+            .unwrap_or("oldest_first");
 
-        let kept: Vec<_> = ctx
-            .messages
-            .iter()
-            .filter(|m| include_system || m.role != ChatRole::System)
-            .collect();
+        let kept: Vec<_> = ctx.messages.iter().collect();
 
-        let start = kept.len().saturating_sub(MAX_MESSAGES);
+        // Decide which of `kept` to retain. max_tokens == 0 means unlimited.
+        let keep: Vec<usize> = if max_tokens == 0 || kept.is_empty() {
+            (0..kept.len()).collect()
+        } else {
+            let cost: Vec<usize> = kept
+                .iter()
+                .map(|m| {
+                    Ok(ctx
+                        .tokenizer
+                        .encode(m.content.as_str(), false)
+                        .map_err(|e| TokenizerError::Tokenize(e.to_string()))?
+                        .len())
+                })
+                .collect::<Result<_, ContextError>>()?;
 
-        let blocks = kept[start..]
-            .iter()
-            .map(|m| ResolvedBlock {
-                role: m.role.clone().into(),
-                content: m.content.clone(),
-                content_ref: ContentRef::Message(m.id),
+            match strategy {
+                "middle_out" => {
+                    let mut remaining = max_tokens;
+                    let (mut lo, mut hi) = (0usize, kept.len());
+                    let mut front = Vec::new();
+                    let mut back = Vec::new();
+                    let mut prefer_front = true;
+                    while lo < hi {
+                        let front_fits = cost[lo] <= remaining;
+                        let back_fits = cost[hi - 1] <= remaining;
+                        if !front_fits && !back_fits {
+                            break;
+                        }
+                        let take_front = if prefer_front { front_fits } else { !back_fits };
+                        if take_front {
+                            remaining -= cost[lo];
+                            front.push(lo);
+                            lo += 1;
+                        } else {
+                            remaining -= cost[hi - 1];
+                            back.push(hi - 1);
+                            hi -= 1;
+                        }
+                        prefer_front = !prefer_front;
+                    }
+                    back.reverse();
+                    front.extend(back);
+                    front
+                }
+                // "oldest_first" (default)
+                _ => {
+                    let mut remaining = max_tokens;
+                    let mut rev = Vec::new();
+                    for idx in (0..kept.len()).rev() {
+                        if cost[idx] > remaining {
+                            break;
+                        }
+                        remaining -= cost[idx];
+                        rev.push(idx);
+                    }
+                    rev.reverse();
+                    rev
+                }
+            }
+        };
+
+        let blocks = keep
+            .into_iter()
+            .map(|i| {
+                let m = kept[i];
+                ResolvedBlock {
+                    role: m.role.clone().into(),
+                    content: m.content.clone(),
+                    content_ref: ContentRef::Message(m.id),
+                }
             })
             .collect();
 
-        // TODO(max_tokens / truncation_strategy): needs a tokenizer
         Ok(blocks)
     }
 }

@@ -5,7 +5,7 @@ use lorealm_storage::{StorageError, models::Snowflake};
 use thiserror::Error;
 
 use crate::{
-    errors::{LorebookError, StateError},
+    errors::{LorebookError, StateError, TokenizerError},
     services::context::NodePath,
 };
 
@@ -54,6 +54,8 @@ pub enum ContextError {
     UnknownSourceNode { source_id: String, node_id: String },
     #[error("State conversion: {0}")]
     StateConversion(String),
+    #[error("Tokenizer: {0}")]
+    Tokenizer(#[from] TokenizerError),
 }
 
 impl ContextError {
@@ -82,6 +84,7 @@ impl ContextError {
             ContextError::StateConversion(e) => {
                 format!("State conversion: {e}")
             }
+            ContextError::Tokenizer(tokenizer_error) => tokenizer_error.client_message(),
         }
     }
 }
