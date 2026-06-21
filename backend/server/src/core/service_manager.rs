@@ -6,7 +6,7 @@ use lorealm_storage::StorageManager;
 use tokio::task::JoinHandle;
 
 use crate::{
-    config::{ConfigProvider, SessionConfig, UserConfig},
+    config::{CharacterConfig, ConfigProvider, SessionConfig, TokenizerConfig, UserConfig},
     services::{
         character::CharacterService, chat::ChatService, connection::ConnectionService,
         context::ContextService, conversation::ConversationService, lorebook::LorebookService,
@@ -66,6 +66,7 @@ impl ServiceManager {
             Arc::clone(&storage),
             Arc::clone(&blob),
             Arc::clone(&snowflake),
+            config.get::<CharacterConfig>(),
         ));
 
         let context = Arc::new(ContextService::new(
@@ -110,6 +111,7 @@ impl ServiceManager {
             Arc::clone(&snowflake),
             Arc::clone(&blob),
             http_client.clone(),
+            config.get::<TokenizerConfig>(),
         ));
 
         let chat = Arc::new(ChatService::new(

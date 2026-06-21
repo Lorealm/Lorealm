@@ -1,9 +1,12 @@
 #[cfg(feature = "redis")]
 use crate::CacheConfig;
-use crate::{BlobStore, backends::{blob::FsBlobStore, memory::MemoryStorage, postgres::PostgresStorage}};
 #[cfg(feature = "redis")]
 use crate::storage::Storage;
 use crate::{BackendConfig, StorageConfig, StorageError};
+use crate::{
+    BlobStore,
+    backends::{blob::FsBlobStore, memory::MemoryStorage, postgres::PostgresStorage},
+};
 use std::sync::Arc;
 use tracing::{error, info, warn};
 
@@ -65,7 +68,9 @@ impl StorageManager {
 
                                 return Ok(Self {
                                     active_backend: final_backend,
-                                    blob_store: Arc::new(FsBlobStore::scaffold(config.data_directory).await?),
+                                    blob_store: Arc::new(
+                                        FsBlobStore::scaffold(config.data_directory).await?,
+                                    ),
                                     backend_name,
                                     cache_enabled,
                                 });
@@ -99,10 +104,18 @@ impl StorageManager {
             BackendConfig::Postgres {
                 connection_string,
                 max_connections,
-            } => Ok(
-                Box::new(PostgresStorage::new(connection_string, *max_connections).await?)
-                    as Box<dyn Storage>,
-            ),
+            } => {
+                let url = connection_string
+                    .clone()
+                    .or_else(|| std::env::var("LOREALM_POSTGRES_URL").ok())
+                    .ok_or(StorageError::ConnectionError(
+                        "missing postgres url".to_string(),
+                    ))?;
+                Ok(
+                    Box::new(PostgresStorage::new(&url, *max_connections).await?)
+                        as Box<dyn Storage>,
+                )
+            }
             BackendConfig::Memory { max_size: _ } => {
                 Ok(Box::new(MemoryStorage::new()) as Box<dyn Storage>)
             }

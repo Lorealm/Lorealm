@@ -1,12 +1,15 @@
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+    time::Duration,
+};
 
 use axum::Router;
-use lorealm_storage::StorageConfig;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::{
-    config::HostingConfig,
+    config::{HostingConfig, TaskConfig},
     core::AppState,
     middleware::{PermissionMiddlewareState, SessionMiddlewareState},
 };
@@ -35,8 +38,7 @@ async fn main() -> anyhow::Result<()> {
         )
         .init();
 
-    let storage_config = StorageConfig::server_default();
-    let state = Arc::new(AppState::new(storage_config).await?);
+    let state = Arc::new(AppState::new().await?);
 
     let session_service = Arc::clone(state.services().sessions());
     let permission_service = Arc::clone(state.services().permissions());
@@ -58,10 +60,14 @@ async fn main() -> anyhow::Result<()> {
         .layer(cors);
 
     let cfg_host = state.config().get::<HostingConfig>();
+    let cfg_task = state.config().get::<TaskConfig>();
 
-    let _cleanup = state.services().start_cleanup_task(Duration::from_secs(60));
+    let _cleanup = state
+        .services()
+        .start_cleanup_task(Duration::from_secs(cfg_task.cleanup_interval));
 
-    let addr = SocketAddr::from((cfg_host.ip, cfg_host.port));
+    let ip: IpAddr = cfg_host.ip.parse()?;
+    let addr = SocketAddr::from((ip, cfg_host.port));
     tracing::info!("Server starting on {}", addr);
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(

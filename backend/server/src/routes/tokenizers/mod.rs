@@ -8,6 +8,7 @@ use axum::{
 use tower_cookies::CookieManagerLayer;
 
 use crate::{
+    config::TokenizerConfig,
     core::AppState,
     middleware::{
         PermissionMiddlewareState, SessionMiddlewareState, server_permission_middleware,
@@ -23,6 +24,7 @@ pub(super) fn router(
     middleware_state: SessionMiddlewareState,
     permission_state: PermissionMiddlewareState,
 ) -> Router {
+    let config = app_state.config().get::<TokenizerConfig>();
     let session_only_routes = Router::new()
         .route("/", get(handlers::list_tokenizers))
         .route("/active", get(handlers::get_active_tokenizer))
@@ -54,7 +56,9 @@ pub(super) fn router(
             middleware_state.clone(),
             session_csrf_middleware,
         ))
-        .layer(DefaultBodyLimit::max(32 * 1024 * 1024));
+        .layer(DefaultBodyLimit::max(
+            (config.max_tokenizer_size_mb * 1024 * 1024) as usize,
+        ));
 
     Router::new()
         .merge(session_only_routes)

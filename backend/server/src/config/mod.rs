@@ -1,6 +1,9 @@
+mod characters;
 mod hosting;
 mod session;
 mod storage;
+mod task;
+mod tokenizers;
 mod user;
 
 use std::{
@@ -9,9 +12,12 @@ use std::{
     sync::RwLock,
 };
 
+pub use characters::*;
 pub use hosting::HostingConfig;
+use indexmap::IndexMap;
 pub use session::*;
-pub use storage::*;
+pub use task::*;
+pub use tokenizers::TokenizerConfig;
 pub use user::*;
 
 use serde::{Serialize, de::DeserializeOwned};
@@ -59,13 +65,13 @@ type Patcher = Box<
 
 pub struct ConfigProvider {
     path: PathBuf,
-    store: RwLock<HashMap<String, serde_json::Value>>,
+    store: RwLock<IndexMap<String, serde_json::Value>>, // BTree to presserve serialization order
     patchers: HashMap<String, Patcher>,
 }
 
 impl ConfigProvider {
     pub fn load(path: PathBuf) -> std::io::Result<Self> {
-        let mut store = HashMap::new();
+        let mut store = IndexMap::new();
         let mut existed = false;
 
         match std::fs::read(&path) {
@@ -76,8 +82,8 @@ impl ConfigProvider {
                     Err(e) => eprintln!("config: ignoring unreadable {path:?}: {e}"),
                 }
             }
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {} // first boot → write below
-            Err(e) => return Err(e), // permission denied etc. — fail loud, don't silently default
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e),
         }
 
         let mut provider = Self {
@@ -86,9 +92,12 @@ impl ConfigProvider {
             patchers: HashMap::new(),
         };
         provider.register::<HostingConfig>();
-        provider.register::<StorageConfig>();
+        provider.register::<lorealm_storage::StorageConfig>();
         provider.register::<SessionConfig>();
         provider.register::<UserConfig>();
+        provider.register::<CharacterConfig>();
+        provider.register::<TokenizerConfig>();
+        provider.register::<TaskConfig>();
 
         if !existed {
             let store = provider.store.read().unwrap();
@@ -99,7 +108,6 @@ impl ConfigProvider {
     }
 
     fn register<C: Config>(&mut self) {
-        // &mut self during load → get_mut avoids locking and can't panic on poison.
         self.store
             .get_mut()
             .unwrap()
@@ -148,8 +156,6 @@ impl ConfigProvider {
     ) -> Result<serde_json::Value, ConfigError> {
         let patcher = self.patchers.get(key).ok_or(ConfigError::UnknownKey)?;
 
-        // Hold the write guard across the whole read-modify-write-persist so
-        // concurrent patches serialize and disk always matches memory.
         let mut store = self.store.write().unwrap();
         let base = store.get(key).cloned().unwrap_or(serde_json::Value::Null);
         let new_value = patcher(&base, partial).map_err(ConfigError::Invalid)?;
@@ -160,7 +166,7 @@ impl ConfigProvider {
             match previous {
                 // roll memory back to match disk
                 Some(prev) => store.insert(key.to_owned(), prev),
-                None => store.remove(key),
+                None => store.swap_remove(key),
             };
             return Err(ConfigError::Io(e));
         }
@@ -168,7 +174,7 @@ impl ConfigProvider {
     }
 }
 
-fn persist(path: &Path, store: &HashMap<String, serde_json::Value>) -> std::io::Result<()> {
+fn persist(path: &Path, store: &IndexMap<String, serde_json::Value>) -> std::io::Result<()> {
     let yaml = serde_yaml::to_string(store).expect("config values are serializable");
     let tmp = path.with_extension("tmp");
     std::fs::write(&tmp, yaml.as_bytes())?;
