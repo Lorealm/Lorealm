@@ -1,32 +1,57 @@
 <script lang="ts">
-	import SettingsRouter from '../routers/SettingsRouter.svelte';
+	import { onMount } from 'svelte';
+	import { configStore, SettingsSection } from '$lib/stores/serverConfig.svelte';
+	import SettingsNav from './SettingsNav.svelte';
+	import HostingSection from './sections/HostingSection.svelte';
+	import StorageSection from './sections/StorageSection.svelte';
+	import SessionsSection from './sections/SessionsSection.svelte';
+	import UsersSection from './sections/UsersSection.svelte';
+	import CharactersSection from './sections/CharactersSection.svelte';
+	import TokenizersSection from './sections/TokenizersSection.svelte';
+	import TasksSection from './sections/TasksSection.svelte';
 
-	let view = $state('none');
-
-	function setView(newView: string) {
-		view = newView;
-	}
+	onMount(() => {
+		if (!configStore.loaded) configStore.load();
+	});
 </script>
 
-<div class="container">
-	<div class="settings-nav">
-		<button onclick={() => setView('roles')}>Roles</button>
-	</div>
-	<SettingsRouter {view} />
+<div class="settings">
+	{#if !configStore.loaded}
+		<div class="status">Loading settings…</div>
+	{:else}
+		<SettingsNav />
+
+		{#if configStore.section === SettingsSection.Hosting}
+			<HostingSection />
+		{:else if configStore.section === SettingsSection.Storage}
+			<StorageSection />
+		{:else if configStore.section === SettingsSection.Sessions}
+			<SessionsSection />
+		{:else if configStore.section === SettingsSection.Users}
+			<UsersSection />
+		{:else if configStore.section === SettingsSection.Characters}
+			<CharactersSection />
+		{:else if configStore.section === SettingsSection.Tokenizers}
+			<TokenizersSection />
+		{:else if configStore.section === SettingsSection.Tasks}
+			<TasksSection />
+		{/if}
+	{/if}
 </div>
 
 <style>
-	.container {
-		display: flex;
-		flex: 1;
-		flex-direction: row;
-	}
-	.settings-nav {
+	.settings {
 		display: flex;
 		flex-direction: column;
-		width: 10em;
-		height: 100%;
-		background-color: var(--color-bg-elevated);
-		border-right: 1px solid var(--color-border-subtle);
+		flex: 1;
+		min-height: 0;
+		padding: var(--spacing-sm);
+	}
+	.status {
+		display: flex;
+		flex: 1;
+		align-items: center;
+		justify-content: center;
+		color: var(--color-text-muted);
 	}
 </style>
