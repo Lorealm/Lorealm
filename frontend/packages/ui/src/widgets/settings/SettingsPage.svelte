@@ -1,41 +1,34 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { configStore, SettingsSection } from '$lib/stores/serverConfig.svelte';
-	import SettingsNav from './SettingsNav.svelte';
-	import HostingSection from './sections/HostingSection.svelte';
-	import StorageSection from './sections/StorageSection.svelte';
-	import SessionsSection from './sections/SessionsSection.svelte';
-	import UsersSection from './sections/UsersSection.svelte';
-	import CharactersSection from './sections/CharactersSection.svelte';
-	import TokenizersSection from './sections/TokenizersSection.svelte';
-	import TasksSection from './sections/TasksSection.svelte';
-
-	onMount(() => {
-		if (!configStore.loaded) configStore.load();
-	});
+	import { settingsNav, SettingsScope } from '$lib/stores/settings.svelte';
+	import { configStore } from '$lib/stores/serverConfig.svelte';
+	import UserSettings from './UserSettings.svelte';
+	import ServerSettings from './ServerSettings.svelte';
 </script>
 
 <div class="settings">
-	{#if !configStore.loaded}
-		<div class="status">Loading settings…</div>
-	{:else}
-		<SettingsNav />
-
-		{#if configStore.section === SettingsSection.Hosting}
-			<HostingSection />
-		{:else if configStore.section === SettingsSection.Storage}
-			<StorageSection />
-		{:else if configStore.section === SettingsSection.Sessions}
-			<SessionsSection />
-		{:else if configStore.section === SettingsSection.Users}
-			<UsersSection />
-		{:else if configStore.section === SettingsSection.Characters}
-			<CharactersSection />
-		{:else if configStore.section === SettingsSection.Tokenizers}
-			<TokenizersSection />
-		{:else if configStore.section === SettingsSection.Tasks}
-			<TasksSection />
+	<nav class="scopeNav">
+		<button
+			class="tab"
+			class:active={settingsNav.scope === SettingsScope.User}
+			onclick={() => settingsNav.setScope(SettingsScope.User)}
+		>
+			User
+		</button>
+		{#if configStore.canEditServer}
+			<button
+				class="tab"
+				class:active={settingsNav.scope === SettingsScope.Server}
+				onclick={() => settingsNav.setScope(SettingsScope.Server)}
+			>
+				Server
+			</button>
 		{/if}
+	</nav>
+
+	{#if settingsNav.scope === SettingsScope.Server && configStore.canEditServer}
+		<ServerSettings />
+	{:else}
+		<UserSettings />
 	{/if}
 </div>
 
@@ -47,11 +40,22 @@
 		min-height: 0;
 		padding: var(--spacing-sm);
 	}
-	.status {
+	.scopeNav {
 		display: flex;
-		flex: 1;
-		align-items: center;
-		justify-content: center;
-		color: var(--color-text-muted);
+		gap: var(--spacing-sm);
+		flex-shrink: 0;
+		padding-bottom: var(--spacing-sm);
+		margin-bottom: var(--spacing-sm);
+		border-bottom: 1px solid var(--color-border-subtle);
+	}
+	.tab {
+		padding: 6px 14px;
+		border-radius: var(--radius-full);
+		border: 1px solid transparent;
+		background: none;
+		cursor: pointer;
+	}
+	.tab.active {
+		border-color: currentColor;
 	}
 </style>

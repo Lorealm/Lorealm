@@ -56,6 +56,15 @@ import type {
 	UpdateTemplateRequest
 } from '$lib/types/template.js';
 import type {
+	BatchTokenizeRequest,
+	BatchTokenizeResponse,
+	NetworkCreate,
+	ShareRequest,
+	Tokenizer,
+	TokenizeRequest,
+	TokenizerShare
+} from '$lib/types/tokenizer.js';
+import type {
 	CreateUserTool,
 	ToolEnabledRequest,
 	UpdateUserTool,
@@ -227,14 +236,41 @@ export function createApiClient(platform: PlatformAPI) {
 			toggle: (tool_id: Snowflake, enable: ToolEnabledRequest) =>
 				http.patch(`/api/v1/tools/${tool_id}`, enable),
 			delete: (tool_id: Snowflake) => http.delete(`/api/v1/tools/${tool_id}`)
-    },
-    config: {
+		},
+		tokenizers: {
+			list: () => http.get<Array<Tokenizer>>('/api/v1/tokenizers'),
+			get: (tok_id: Snowflake) => http.get<Tokenizer>(`/api/v1/tokenizers/${tok_id}`),
+			delete: (tok_id: Snowflake) => http.delete(`/api/v1/tokenizers/${tok_id}`),
+			count: {
+				single: (tok_id: Snowflake, req: TokenizeRequest) =>
+					http.post<number>(`/api/v1/tokenizers/${tok_id}/count`, req),
+				batch: (tok_id: Snowflake, req: BatchTokenizeRequest) =>
+					http.post<BatchTokenizeResponse>(`/api/v1/tokenizers/${tok_id}/batchCount`, req)
+			},
+			shares: {
+				list: (tok_id: Snowflake) =>
+					http.get<Array<TokenizerShare>>(`/api/v1/tokenizers/${tok_id}/shares`),
+				share: (tok_id: Snowflake, share: ShareRequest) =>
+					http.post(`/api/v1/tokenizers/${tok_id}/shares`, share),
+				unshare: (tok_id: Snowflake, user_id: Snowflake) =>
+					http.delete(`/api/v1/tokenizers/${tok_id}/shares/${user_id}`)
+			},
+			imports: {
+				file: (blob: Blob) => http.putBlob<Tokenizer>('/api/v1/tokenizers/import', blob),
+				network: (res: NetworkCreate) => http.post<Tokenizer>('/api/v1/tokenizers/network', res)
+			},
+			active: {
+				get: () => http.get<Snowflake | null>('/api/v1/tokenizers/active'),
+				set: (active: SetActiveRequest) => http.put('/api/v1/tokenizers/active', active),
+				unset: () => http.delete('/api/v1/tokenizers/active')
+			}
+		},
+		config: {
 			getAll: () => http.get<ServerConfig>('/api/v1/config'),
-			get: <K extends ConfigKey>(key: K) =>
-				http.get<ServerConfig[K]>(`/api/v1/config/${key}`),
+			get: <K extends ConfigKey>(key: K) => http.get<ServerConfig[K]>(`/api/v1/config/${key}`),
 			patch: <K extends ConfigKey>(key: K, partial: ServerConfig[K]) =>
 				http.patch<ServerConfig[K]>(`/api/v1/config/${key}`, partial)
-		},
+		}
 	};
 }
 

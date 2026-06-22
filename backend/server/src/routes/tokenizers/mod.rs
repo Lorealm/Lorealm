@@ -29,8 +29,6 @@ pub(super) fn router(
         .route("/", get(handlers::list_tokenizers))
         .route("/active", get(handlers::get_active_tokenizer))
         .route("/{tokenizer_id}", get(handlers::get_tokenizer))
-        .route("/{tokenizer_id}/count", get(handlers::count))
-        .route("/{tokenizer_id}/batchCount", get(handlers::batch_count))
         .route("/{tokenizer_id}/shares", get(handlers::list_shares))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
@@ -42,6 +40,8 @@ pub(super) fn router(
         .route("/active", delete(handlers::unset_active_tokenizer))
         .route("/import", post(handlers::import_tokenizer))
         .route("/network", post(handlers::create_from_network))
+        .route("/{tokenizer_id}/count", get(handlers::count))
+        .route("/{tokenizer_id}/batchCount", get(handlers::batch_count))
         .route("/{tokenizer_id}", delete(handlers::delete_tokenizer))
         .route("/{tokenizer_id}/shares", post(handlers::share_tokenizer))
         .route(
