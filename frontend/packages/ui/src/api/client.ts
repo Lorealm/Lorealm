@@ -9,6 +9,7 @@ import type {
 	CreateCharacterRequest,
 	ImportResult
 } from '$lib/types/character.js';
+import type { ConfigKey, ServerConfig } from '$lib/types/config.js';
 import type {
 	ConnectionProfile,
 	CreateSecretRequest,
@@ -226,7 +227,14 @@ export function createApiClient(platform: PlatformAPI) {
 			toggle: (tool_id: Snowflake, enable: ToolEnabledRequest) =>
 				http.patch(`/api/v1/tools/${tool_id}`, enable),
 			delete: (tool_id: Snowflake) => http.delete(`/api/v1/tools/${tool_id}`)
-		}
+    },
+    config: {
+			getAll: () => http.get<ServerConfig>('/api/v1/config'),
+			get: <K extends ConfigKey>(key: K) =>
+				http.get<ServerConfig[K]>(`/api/v1/config/${key}`),
+			patch: <K extends ConfigKey>(key: K, partial: ServerConfig[K]) =>
+				http.patch<ServerConfig[K]>(`/api/v1/config/${key}`, partial)
+		},
 	};
 }
 
