@@ -22,7 +22,10 @@ use crate::{
         chat::{
             CancelGuard, ChatStreamEvent, FullConversation, Persist, Prepared, PromptMessage,
             TurnPlan,
-            widgets::{InferEvent, WidgetInstance, WidgetSink, widget_marker, widget_registry},
+            widgets::{
+                InferEvent, ToolCallRecord, WidgetInstance, WidgetSink, widget_marker,
+                widget_registry,
+            },
         },
         connection::ConnectionService,
         context::{
@@ -508,6 +511,12 @@ impl ChatService {
 
         let conversations = self.conversations.clone();
         let state_service = self.state.clone();
+
+        let tokenizer_id = state_service.get_active_tokenizer_id(user_id).await?;
+        let template_id = state_service.get_active_template_id(user_id).await?;
+        let profile_id = state_service.get_active_profile(user_id).await?.id;
+        let mut tool_calls: Vec<ToolCallRecord> = Vec::new();
+
         let stream = async_stream::try_stream! {
             let _cancel_guard = cancel_guard;   // give the stream ownership
             let mut acc = String::new();
@@ -548,6 +557,7 @@ impl ChatService {
                                 yield ChatStreamEvent::Delta { content: marker };
                                 widgets.push(widget);
                             }
+                            InferEvent::ToolCall(rec) => { tool_calls.push(rec); }
                         }
                     }
                 }
@@ -567,7 +577,15 @@ impl ChatService {
                     t
                 })
                 .collect();
-            let meta = json!({ "context": stored, "widgets": widgets, "reasoning": reasoning_acc });
+            let meta = json!({
+                "context": stored,
+                "reasoning": reasoning_acc,
+                "tool_calls": tool_calls,
+                "widgets": widgets,
+                "conn_profile": profile_id,
+                "tok_id": tokenizer_id,
+                "template_id": template_id
+            });
 
             let message = match persist {
                 Persist::Child(parent) =>
@@ -732,7 +750,7 @@ where
     const MAX_TOOL_ROUNDS: usize = 8;
 
     let stream = async_stream::try_stream! {
-        for _ in 0..MAX_TOOL_ROUNDS {
+        for round in 0..MAX_TOOL_ROUNDS {
             let mut upstream = client
                 .request()
                 .messages(messages.clone())
@@ -804,19 +822,23 @@ where
             // Execute and feed results back; surface widgets immediately.
             let mut results = Vec::new();
             for (id, name, input) in uses {
-                let block = match registry.call(&name, input).await {
-                    Ok(value) => ContentBlock::ToolResult {
-                        tool_use_id: id,
-                        content: value.to_string(),
-                        is_error: false,
-                    },
-                    Err(e) => ContentBlock::ToolResult {
-                        tool_use_id: id,
-                        content: e.to_string(),
-                        is_error: true,
-                    },
-                };
+                let t0 = tokio::time::Instant::now();
+                let (block, output, is_error) = match registry.call(&name, input.clone()).await {
+                        Ok(value) => (
+                            ContentBlock::ToolResult { tool_use_id: id.clone(), content: value.to_string(), is_error: false },
+                            value, false,
+                        ),
+                        Err(e) => (
+                            ContentBlock::ToolResult { tool_use_id: id.clone(), content: e.to_string(), is_error: true },
+                            serde_json::Value::String(e.to_string()), true,
+                        ),
+                    };
                 results.push(block);
+
+                yield InferEvent::ToolCall(ToolCallRecord {
+                        round, id, name, input, output, is_error,
+                        duration_ms: t0.elapsed().as_millis() as u64,
+                    });
 
                 let attached: Vec<WidgetInstance> =
                     widget_sink.lock().unwrap().drain(..).collect();
