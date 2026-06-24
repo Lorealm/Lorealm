@@ -8,11 +8,23 @@ use serde_json::json;
 
 pub type WidgetSink = Arc<Mutex<Vec<WidgetInstance>>>;
 
+#[derive(Serialize)]
+pub struct ToolCallRecord {
+    pub round: usize,
+    pub id: String,
+    pub name: String,
+    pub input: serde_json::Value,
+    pub output: serde_json::Value,
+    pub is_error: bool,
+    pub duration_ms: u64,
+}
+
 /// Event produced by the inference tool loop.
 pub enum InferEvent {
     Text(String),
     Reasoning(String),
     Widget(WidgetInstance),
+    ToolCall(ToolCallRecord)
 }
 
 /// A widget the model attached to its reply. Streamed to the client as a
