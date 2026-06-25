@@ -104,6 +104,7 @@ impl StorageManager {
             BackendConfig::Postgres {
                 connection_string,
                 max_connections,
+                create_automatically
             } => {
                 let url = connection_string
                     .clone()
@@ -112,7 +113,7 @@ impl StorageManager {
                         "missing postgres url".to_string(),
                     ))?;
                 Ok(
-                    Box::new(PostgresStorage::new(&url, *max_connections).await?)
+                    Box::new(PostgresStorage::new(&url, *max_connections, *create_automatically).await?)
                         as Box<dyn Storage>,
                 )
             }

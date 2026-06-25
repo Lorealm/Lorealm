@@ -25,6 +25,7 @@ pub use lorebook::*;
 pub use permission::*;
 pub use persona::*;
 pub use state::*;
+use thiserror::Error;
 pub use tokenizer::*;
 pub use tools::*;
 
@@ -69,23 +70,29 @@ impl Display for TargetType {
 ///
 /// Each variant maps to a specific HTTP status code and a client-safe message.
 /// Internal details are logged server-side but never leaked to the client.
+#[derive(Debug, Error)]
 pub enum AppError {
+    #[error("FORBIDDEN ({code}): {message}")]
     Forbidden {
         code: &'static str,
         message: Cow<'static, str>,
     },
+    #[error("UNAUTHORIZED ({code}): {message}")]
     Unauthorized {
         code: &'static str,
         message: Cow<'static, str>,
     },
+    #[error("BAD_REQUEST ({code}): {message}")]
     BadRequest {
         code: &'static str,
         message: Cow<'static, str>,
     },
+    #[error("CONFLICT ({code}): {message}")]
     Conflict {
         code: &'static str,
         message: Cow<'static, str>,
     },
+    #[error("INTERNAL: {internal}")]
     Internal {
         internal: Cow<'static, str>,
     },
