@@ -14,8 +14,9 @@ pub mod users;
 use crate::StorageCore;
 use crate::error::StorageError;
 use async_trait::async_trait;
-use sqlx::PgPool;
+use sqlx::migrate::MigrateDatabase;
 use sqlx::postgres::PgPoolOptions;
+use sqlx::{PgPool, Postgres};
 
 #[derive(Debug, Clone)]
 pub struct PostgresStorage {
@@ -23,7 +24,10 @@ pub struct PostgresStorage {
 }
 
 impl PostgresStorage {
-    pub async fn new(database_url: &str, max_connections: u32) -> Result<Self, StorageError> {
+    pub async fn new(database_url: &str, max_connections: u32, auto_create: bool) -> Result<Self, StorageError> {
+        if !Postgres::database_exists(database_url).await? && auto_create {
+            Postgres::create_database(database_url).await?
+        };
         let pool = PgPoolOptions::new()
             .max_connections(max_connections)
             .connect(database_url)

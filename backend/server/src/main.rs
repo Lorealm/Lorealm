@@ -12,6 +12,7 @@ use crate::{
     config::{HostingConfig, TaskConfig},
     core::AppState,
     middleware::{PermissionMiddlewareState, SessionMiddlewareState},
+    setup::run_setup,
 };
 
 mod config;
@@ -21,6 +22,7 @@ mod extract;
 mod middleware;
 mod routes;
 mod services;
+mod setup;
 mod util;
 
 #[tokio::main]
@@ -39,6 +41,8 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let state = Arc::new(AppState::new().await?);
+
+    run_setup(Arc::clone(&state)).await?;
 
     let session_service = Arc::clone(state.services().sessions());
     let permission_service = Arc::clone(state.services().permissions());

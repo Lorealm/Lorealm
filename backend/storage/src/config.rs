@@ -56,6 +56,7 @@ pub enum BackendConfig {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         connection_string: Option<String>,
         max_connections: u32,
+        create_automatically: bool
     },
     Memory {
         max_size: usize,
@@ -87,6 +88,7 @@ impl StorageConfig {
                         .unwrap_or_else(|_| "postgresql://localhost/lorealm".to_string()),
                 ),
                 max_connections: 10,
+                create_automatically: true
             }],
             data_directory: PathBuf::from("data"),
             require_postgres_fallback: true,
