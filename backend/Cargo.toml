@@ -1,11 +1,10 @@
 [workspace]
 resolver = "2"
-members = ["eldoria-server", "storage-system", "encryption-service", "llm-providers"]
-
-rust-version = "1.88.0"
+members = ["storage", "llm_providers", "encryption", "server"]
 
 [workspace.dependencies]
 
 # Errors
 thiserror = "1"
 anyhow = "1"
+reqwest = { version = "0.13.4", features = ["json", "native-tls", "stream"] }

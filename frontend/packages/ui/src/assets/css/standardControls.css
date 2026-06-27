@@ -1,0 +1,278 @@
+button {
+	display: flex;
+	background-color: var(--color-bg-elevated);
+	color: var(--color-text-primary);
+	border-color: transparent;
+	border-radius: var(--radius-md);
+	padding: var(--spacing-sm);
+	font-family: var(--font-family-body);
+	font-size: var(--font-size-base);
+}
+button:hover {
+	background-color: var(--color-hover);
+	color: var(--color-text-accent);
+}
+
+body {
+	color: var(--color-text-primary);
+	font-family: var(--font-family-body);
+	font-size: var(--font-size-base);
+	margin: 0;
+}
+
+input,
+textarea {
+	display: flex;
+	width: 100%;
+	box-sizing: border-box;
+	background-color: var(--color-bg-elevated);
+	color: var(--color-text-primary);
+	border-color: transparent;
+	border-radius: var(--radius-md);
+	padding: var(--spacing-sm);
+	font-family: var(--font-family-body);
+	font-size: var(--font-size-base);
+}
+
+input:focus {
+	outline: none;
+}
+
+textarea:focus {
+	outline: none;
+}
+
+h1 {
+	color: var(--color-primary);
+	font-family: var(--font-family-heading);
+	font-size: var(--font-size-h1);
+}
+h2,
+h3,
+h4,
+h5,
+h6 {
+	margin: 0;
+	color: var(--color-text-primary);
+	font-family: var(--font-family-heading);
+	line-height: var(--line-height-tight);
+}
+h2 {
+	font-size: var(--font-size-h2);
+}
+h4 {
+	font-size: var(--font-size-h4);
+}
+h5 {
+	font-size: var(--font-size-h5);
+}
+h6 {
+	font-size: var(--font-size-h6);
+}
+
+/* Section labels in grouped/settings panels */
+h3 {
+	font-size: var(--font-size-xs);
+	font-weight: var(--font-weight-semibold);
+	letter-spacing: var(--letter-spacing-uppercase);
+	text-transform: uppercase;
+	color: var(--color-text-secondary);
+}
+label {
+	color: var(--color-text-secondary);
+	font-family: var(--font-family-body);
+	font-size: var(--font-size-base);
+}
+
+select {
+	display: flex;
+	width: 100%;
+	box-sizing: border-box;
+	appearance: none;
+	-webkit-appearance: none;
+	background-color: var(--color-bg-elevated);
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right var(--spacing-sm) center;
+	color: var(--color-text-primary);
+	border: 1px solid transparent;
+	border-radius: var(--radius-md);
+	padding: var(--spacing-sm) calc(var(--spacing-sm) + 1.25rem) var(--spacing-sm) var(--spacing-sm);
+	font-family: var(--font-family-body);
+	font-size: var(--font-size-base);
+	cursor: pointer;
+}
+
+select:focus {
+	outline: none;
+}
+
+select:hover {
+	background-color: var(--color-hover);
+	color: var(--color-text-accent);
+}
+
+option {
+	background-color: var(--color-bg-elevated);
+	color: var(--color-text-primary);
+	font-family: var(--font-family-body);
+	font-size: var(--font-size-base);
+}
+
+select hr {
+	border: none;
+	border-top: 1px solid currentColor;
+	opacity: 0.2;
+	margin: var(--spacing-sm) 0;
+}
+
+input[type='checkbox'] {
+	appearance: none;
+	-webkit-appearance: none;
+	display: inline-block;
+	flex: 0 0 auto;
+	box-sizing: border-box;
+	width: 18px;
+	height: 18px;
+	padding: 0;
+	margin: 0;
+	vertical-align: middle;
+	background-color: var(--color-bg-elevated);
+	background-repeat: no-repeat;
+	background-position: center;
+	border: 1px solid var(--color-border-medium);
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	transition:
+		background-color var(--transition-fast) var(--easing-default),
+		border-color var(--transition-fast) var(--easing-default);
+}
+
+input[type='checkbox']:hover {
+	border-color: var(--color-border-active);
+}
+
+input[type='checkbox']:checked {
+	background-color: var(--color-primary);
+	border-color: var(--color-primary);
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M2.5 6.5l2.5 2.5 4.5-5'/%3E%3C/svg%3E");
+}
+
+input[type='checkbox']:focus-visible {
+	box-shadow: 0 0 0 2px var(--color-focus);
+}
+
+input[type='checkbox']:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+input[type='checkbox'].switch {
+	width: 36px;
+	height: 20px;
+	border-radius: var(--radius-full);
+	background-color: var(--color-bg-elevated-3);
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%23fff'/%3E%3C/svg%3E");
+	background-position: 2px center;
+	transition:
+		background-color var(--transition-fast) var(--easing-default),
+		border-color var(--transition-fast) var(--easing-default),
+		background-position var(--transition-fast) var(--easing-spring);
+}
+
+input[type='checkbox'].switch:checked {
+	background-color: var(--color-primary);
+	border-color: var(--color-primary);
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%23fff'/%3E%3C/svg%3E");
+	background-position: calc(100% - 2px) center;
+}
+
+/* RANGE / SLIDERS */
+input[type='range'] {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 100%;
+	height: 18px; /* hit area, keeps the visible track thin */
+	padding: 0;
+	margin: 0;
+	background: transparent; /* override generic input bg */
+	border: none;
+	cursor: pointer;
+}
+
+/* Track */
+input[type='range']::-webkit-slider-runnable-track {
+	height: 4px;
+	border-radius: var(--radius-full);
+	background: var(--color-bg-elevated-3);
+}
+input[type='range']::-moz-range-track {
+	height: 4px;
+	border-radius: var(--radius-full);
+	background: var(--color-bg-elevated-3);
+}
+/* Filled portion — Firefox can do this with no JS */
+input[type='range']::-moz-range-progress {
+	height: 4px;
+	border-radius: var(--radius-full);
+	background: var(--color-primary);
+}
+
+/* Thumb */
+input[type='range']::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 14px;
+	height: 14px;
+	margin-top: -5px; /* center on 4px track: (4 - 14) / 2 */
+	border-radius: var(--radius-full);
+	background: var(--color-primary);
+	border: 2px solid var(--color-bg-base);
+	box-shadow: var(--shadow-sm);
+	transition: background-color var(--transition-fast) var(--easing-default);
+}
+input[type='range']::-moz-range-thumb {
+	width: 14px;
+	height: 14px;
+	border-radius: var(--radius-full);
+	background: var(--color-primary);
+	border: 2px solid var(--color-bg-base);
+	box-shadow: var(--shadow-sm);
+	transition: background-color var(--transition-fast) var(--easing-default);
+}
+
+input[type='range']:hover::-webkit-slider-thumb {
+	background: var(--color-primary-light);
+}
+input[type='range']:hover::-moz-range-thumb {
+	background: var(--color-primary-light);
+}
+input[type='range']:focus {
+	outline: none;
+}
+input[type='range']:focus-visible::-webkit-slider-thumb {
+	box-shadow: 0 0 0 4px var(--color-focus);
+}
+input[type='range']:focus-visible::-moz-range-thumb {
+	box-shadow: 0 0 0 4px var(--color-focus);
+}
+
+html {
+	scrollbar-width: thin;
+	scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+	width: var(--scrollbar-width);
+	height: var(--scrollbar-width);
+}
+*::-webkit-scrollbar-track {
+	background: var(--scrollbar-track);
+}
+*::-webkit-scrollbar-thumb {
+	background: var(--scrollbar-thumb);
+	border-radius: var(--radius-full);
+}
+*::-webkit-scrollbar-thumb:hover {
+	background: var(--scrollbar-thumb-hover);
+}

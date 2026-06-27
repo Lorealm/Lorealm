@@ -18,6 +18,11 @@
 # User data
 /data/users/*
 !/data/users/.gitkeep
+## Make sure data folders created from default config values don't get tracked
+/backend/data
+/backend/config.yaml
+/backend/server/data
+/backend/server/config.yaml
 
 # IDE
 .idea/
