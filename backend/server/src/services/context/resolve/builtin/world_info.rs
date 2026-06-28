@@ -13,7 +13,10 @@ use weaver_lang::Value as WeaverValue;
 use crate::{
     errors::ContextError,
     services::{
-        context::{ContentRef, to_weaver_lorebook, weaver::LorealmWeaverPlugin},
+        context::{
+            ContentRef, to_weaver_lorebook,
+            weaver::{LorealmWeaverPlugin, stdlib::StdlibPlugin},
+        },
         state::{CapturedState, StatePool, StateService},
     },
 };
@@ -111,6 +114,7 @@ impl WorldInfoResolver {
         });
 
         weaver.set_tokenizer(Box::new(tokenizer));
+        weaver.register_plugin(StdlibPlugin)?;
         weaver.register_plugin(LorealmWeaverPlugin)?;
 
         book_ids.insert(first_sf, BookId(0)); // The first BookId is always 0

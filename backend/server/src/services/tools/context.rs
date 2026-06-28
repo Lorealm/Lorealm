@@ -5,7 +5,10 @@ use std::{
 
 use weaver_lang::{EvalContext, EvalError, Registry, Value as WeaverValue};
 
-use crate::util::weaver::{json_to_weaver, weaver_to_json};
+use crate::{
+    services::context::weaver::stdlib,
+    util::weaver::{json_to_weaver, weaver_to_json},
+};
 
 pub type ToolStatePool =
     std::collections::HashMap<String, std::collections::HashMap<String, serde_json::Value>>;
@@ -82,9 +85,7 @@ impl EvalContext for ToolContext {
 }
 
 pub fn build_tool_registry() -> Registry {
-    let r = Registry::new();
-    // SEAM — confirm the actual entry points:
-    //   context_weaver::stdlib::register(&mut r);   // set_var, inc_var, push_var, text.*, math.*, ...
-    //   LorealmWeaverPlugin.register(&mut r);        // Plugin::register takes &mut weaver_lang::Registry
+    let mut r = Registry::new();
+    stdlib::register_all(&mut r);
     r
 }
