@@ -52,23 +52,22 @@ impl EvalContext for ToolContext {
         value: WeaverValue,
     ) -> Result<(), EvalError> {
         match scope {
-            "state" => {
-                self.state
-                    .lock()
-                    .unwrap()
-                    .entry("state".into())
-                    .or_default()
-                    .insert(name.into(), weaver_to_json(&value));
-                Ok(())
-            }
             "local" => {
                 self.local.insert(name.into(), value);
                 Ok(())
             }
-            // Fail loudly rather than silently drop a write the author expected to persist.
-            other => Err(EvalError::host_error(format!(
-                "namespace '{other}' is read-only in tool bodies"
+            "user" | "char" => Err(EvalError::host_error(format!(
+                "namespace '{scope}' is a reserved namespace"
             ))),
+            other => {
+                self.state
+                    .lock()
+                    .unwrap()
+                    .entry(other.into())
+                    .or_default()
+                    .insert(name.into(), weaver_to_json(&value));
+                Ok(())
+            }
         }
     }
 

@@ -40,6 +40,7 @@ pub fn register_processors(registry: &mut Registry) {
     register_text(registry);
     register_math(registry);
     register_array(registry);
+    register_random(registry);
 }
 
 /// Splits a `"scope:name"` key into its scope and name. Returns an error when
@@ -467,6 +468,31 @@ fn array_concat(a: Vec<Value>, b: Vec<Value>) -> Result<Value, EvalError> {
     let mut result = a;
     result.extend(b);
     Ok(Value::Array(result))
+}
+
+fn register_random(registry: &mut Registry) {
+    registry.register_processor(GenerateRandomProcessor);
+    registry.register_processor(PickRandomProcessor);
+}
+
+#[weaver_processor(namespace = "random", name = "gen")]
+pub fn generate_random(min: f64, max: f64) -> Result<Value, EvalError> {
+    let min = min as i32;
+    let max = max as i32;
+    tracing::debug!("Generating random between {min} and {max}");
+    Ok(Value::Number(rand::random_range(min..max) as f64))
+}
+
+#[weaver_processor(namespace = "random", name = "pick")]
+pub fn pick_random(items: Vec<Value>) -> Result<Value, EvalError> {
+    let min = 0;
+    let max = items.len();
+
+    let idx = rand::random_range(min..max);
+    let item = items[idx].clone();
+    tracing::debug!("Picked random item: {item}");
+
+    Ok(item)
 }
 
 #[cfg(test)]
