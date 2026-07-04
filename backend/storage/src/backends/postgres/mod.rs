@@ -4,6 +4,7 @@ pub mod conversations;
 pub mod lorebook;
 pub mod permissions;
 pub mod persona;
+pub mod realms;
 pub mod sessions;
 pub mod state;
 pub mod templates;
@@ -24,7 +25,11 @@ pub struct PostgresStorage {
 }
 
 impl PostgresStorage {
-    pub async fn new(database_url: &str, max_connections: u32, auto_create: bool) -> Result<Self, StorageError> {
+    pub async fn new(
+        database_url: &str,
+        max_connections: u32,
+        auto_create: bool,
+    ) -> Result<Self, StorageError> {
         if !Postgres::database_exists(database_url).await? && auto_create {
             Postgres::create_database(database_url).await?
         };

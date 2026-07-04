@@ -6,6 +6,7 @@ pub mod conversation;
 pub mod lorebook;
 pub mod permission;
 pub mod persona;
+pub mod realm;
 pub mod schedule;
 pub mod session;
 pub mod snowflake;

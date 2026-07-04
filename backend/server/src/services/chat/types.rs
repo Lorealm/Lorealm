@@ -6,9 +6,9 @@ use serde::Serialize;
 use tokio_util::sync::CancellationToken;
 
 use crate::services::{
-    chat::widgets::WidgetInstance,
+    chat::widgets::{ToolCallRecord, WidgetInstance, widget_marker},
     context::{PromptRole, TracedBlock},
-    state::CapturedState,
+    state::{CapturedState, StatePool},
 };
 
 #[derive(Debug, Clone)]
@@ -71,4 +71,68 @@ impl Drop for CancelGuard {
     fn drop(&mut self) {
         self.map.remove(&self.key);
     }
+}
+
+#[derive(Default)]
+pub struct TurnAccumulator {
+    spoken: String,
+    reasoning: String,
+    widgets: Vec<WidgetInstance>,
+    tool_calls: Vec<ToolCallRecord>,
+}
+
+impl TurnAccumulator {
+    pub fn text(&mut self, s: &str) {
+        self.spoken.push_str(s);
+    }
+    pub fn reasoning(&mut self, s: &str) {
+        self.reasoning.push_str(s);
+    }
+    pub fn tool_call(&mut self, r: ToolCallRecord) {
+        self.tool_calls.push(r);
+    }
+
+    /// Inserts the placeholder marker into the spoken text and stores the
+    /// widget. Returns the marker so the caller can forward it as a Delta.
+    pub fn widget(&mut self, w: WidgetInstance) -> String {
+        let marker = widget_marker(self.widgets.len());
+        self.spoken.push_str(&marker);
+        self.widgets.push(w);
+        marker
+    }
+
+    pub fn finish(self) -> AgentOutcome {
+        AgentOutcome {
+            spoken: self.spoken,
+            reasoning: self.reasoning,
+            widgets: self.widgets,
+            tool_calls: self.tool_calls,
+        }
+    }
+}
+
+pub struct AgentOutcome {
+    pub spoken: String,
+    pub reasoning: String,
+    pub widgets: Vec<WidgetInstance>,
+    pub tool_calls: Vec<ToolCallRecord>,
+}
+
+pub struct Agent {
+    pub id: Snowflake,
+    pub kind: AgentKindConcrete,
+    pub persona_id: Snowflake,   // see caveat below
+}
+
+pub enum AgentKindConcrete {
+    Llm    { character_id: Snowflake, char_version_id: Snowflake,
+             template_id: Snowflake, profile_id: Snowflake },
+    Player { user_id: Snowflake },
+}
+
+pub struct AgentView {
+    pub realm_owner: Snowflake,
+    pub tokenizer_id: Snowflake,
+    pub thread: Vec<ConversationMessage>,
+    pub state_slice: StatePool,
 }

@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::models::Snowflake;
+
 #[derive(Error, Debug)]
 pub enum StorageError {
     #[error("Configuration error: {0}")]
@@ -41,4 +43,6 @@ pub enum StorageError {
     Connection(String),
     #[error("Storage Conflict: {0}")]
     Conflict(String),
+    #[error("tick conflict: realm {0} was advanced by another writer")]
+    TickConflict(Snowflake),
 }
