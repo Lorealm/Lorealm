@@ -10,6 +10,7 @@ pub mod templates;
 pub mod tokenizer;
 pub mod tools;
 pub mod users;
+pub mod realms;
 
 use crate::error::StorageError;
 use crate::{Storage, StorageCore};

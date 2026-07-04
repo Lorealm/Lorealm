@@ -9,6 +9,7 @@ mod conversation;
 mod lorebook;
 mod permission;
 mod persona;
+mod realm;
 mod state;
 mod tokenizer;
 mod tools;
@@ -24,14 +25,15 @@ pub use conversation::*;
 pub use lorebook::*;
 pub use permission::*;
 pub use persona::*;
+pub use realm::*;
 pub use state::*;
-use thiserror::Error;
 pub use tokenizer::*;
 pub use tools::*;
 
 use axum::{Json, http::StatusCode, response::IntoResponse};
 use serde_json::json;
 use std::{borrow::Cow, fmt::Display};
+use thiserror::Error;
 
 #[derive(Debug)]
 pub enum TargetType {
@@ -46,6 +48,7 @@ pub enum TargetType {
     ConnectionProfile,
     Secret,
     UserTool,
+    Realm,
 }
 
 impl Display for TargetType {
@@ -62,6 +65,7 @@ impl Display for TargetType {
             TargetType::ConnectionProfile => write!(f, "connection_profile"),
             TargetType::Secret => write!(f, "secret"),
             TargetType::UserTool => write!(f, "user_tool"),
+            TargetType::Realm => write!(f, "realm"),
         }
     }
 }
@@ -93,9 +97,7 @@ pub enum AppError {
         message: Cow<'static, str>,
     },
     #[error("INTERNAL: {internal}")]
-    Internal {
-        internal: Cow<'static, str>,
-    },
+    Internal { internal: Cow<'static, str> },
 }
 
 impl AppError {

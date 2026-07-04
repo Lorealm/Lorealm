@@ -1,10 +1,12 @@
 use std::sync::Arc;
 
-use lorealm_storage::models::{Character, ConversationMessage, Snowflake, UserPersona};
+use lorealm_storage::models::{
+    AgentObservation, Character, ConversationMessage, Snowflake, UserPersona,
+};
 use serde::Serialize;
 use tokio::sync::Mutex;
 
-use crate::services::{context::PromptRole, state::CapturedState};
+use crate::services::{context::PromptRole, state::{CapturedState, ReconstructedState}};
 
 #[derive(Debug, Clone, Serialize)]
 pub enum ContentRef {
@@ -73,9 +75,45 @@ pub enum OriginKind {
 
 pub struct ResolveContext<'a> {
     pub character: &'a Character,
-    pub messages: &'a [ConversationMessage],
+    pub messages: &'a [PromptTurn],
     pub user_id: Snowflake,
+    pub state: &'a ReconstructedState,
     pub lorebook_state: Mutex<Option<CapturedState>>,
     pub persona: &'a UserPersona,
     pub tokenizer: &'a Arc<kitoken::Kitoken>,
+}
+
+/// A single prompt-visible turn, source-agnostic. Both conversation
+/// messages and agent observations map into this before assembly.
+pub struct PromptTurn {
+    pub role: PromptRole,
+    pub content: String,
+    /// How this turn's content can be recovered when the trace is persisted.
+    pub content_ref: ContentRef,
+}
+
+impl PromptTurn {
+    pub fn from_message(m: &ConversationMessage) -> Self {
+        Self {
+            role: chat_role_to_prompt_role(&m.role), // reuse whatever the chat resolver uses today
+            content: m.content.clone(),
+            content_ref: ContentRef::Message(m.id),
+        }
+    }
+
+    pub fn from_observation(o: &AgentObservation) -> Self {
+        Self {
+            role: chat_role_to_prompt_role(&o.role),
+            content: o.content.clone(),
+            content_ref: ContentRef::Verbatim, // see note below
+        }
+    }
+}
+
+fn chat_role_to_prompt_role(role: &lorealm_storage::prelude::ChatRole) -> PromptRole {
+    match role {
+        lorealm_storage::models::ChatRole::System => PromptRole::System,
+        lorealm_storage::models::ChatRole::User => PromptRole::User,
+        lorealm_storage::models::ChatRole::Assistant => PromptRole::Assistant,
+    }
 }
