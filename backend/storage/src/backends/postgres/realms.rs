@@ -1,0 +1,205 @@
+use async_trait::async_trait;
+
+use crate::{
+    RealmStorage, StorageError,
+    backends::PostgresStorage,
+    models::{AgentGrant, AgentObservation, Realm, RealmAgent, Snowflake, TickCommit},
+};
+
+#[async_trait]
+impl RealmStorage for PostgresStorage {
+    async fn get_realm(&self, id: Snowflake) -> Result<Option<Realm>, StorageError> {
+        Ok(sqlx::query_as::<_, Realm>(
+            "SELECT id, owner_id, name, tick, state, tokenizer_id, status
+             FROM realms WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?)
+    }
+
+    async fn create_realm(&self, realm: &Realm) -> Result<(), StorageError> {
+        sqlx::query(
+            "INSERT INTO realms (id, owner_id, name, tick, state, tokenizer_id, status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        )
+        .bind(realm.id)
+        .bind(realm.owner_id)
+        .bind(&realm.name)
+        .bind(realm.tick)
+        .bind(&realm.state)
+        .bind(realm.tokenizer_id)
+        .bind(&realm.status)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    async fn list_realm_agents(
+        &self,
+        realm_id: Snowflake,
+    ) -> Result<Vec<RealmAgent>, StorageError> {
+        Ok(sqlx::query_as::<_, RealmAgent>(
+            "SELECT id, realm_id, name, kind, character_id, char_version_id,
+                    template_id, profile_id, user_id, persona_id, turn_order,
+                    extensions, created_at, updated_at
+             FROM realm_agents WHERE realm_id = $1
+             ORDER BY turn_order, id",
+        )
+        .bind(realm_id)
+        .fetch_all(&self.pool)
+        .await?)
+    }
+
+    async fn create_realm_agent(&self, agent: &RealmAgent) -> Result<(), StorageError> {
+        sqlx::query(
+            "INSERT INTO realm_agents (id, realm_id, name, kind, character_id,
+                 char_version_id, template_id, profile_id, user_id, persona_id,
+                 turn_order, extensions)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+        )
+        .bind(agent.id)
+        .bind(agent.realm_id)
+        .bind(&agent.name)
+        .bind(&agent.kind)
+        .bind(agent.character_id)
+        .bind(agent.char_version_id)
+        .bind(agent.template_id)
+        .bind(agent.profile_id)
+        .bind(agent.user_id)
+        .bind(agent.persona_id)
+        .bind(agent.turn_order)
+        .bind(&agent.extensions)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    async fn list_agent_grants(
+        &self,
+        agent_id: Snowflake,
+    ) -> Result<Vec<AgentGrant>, StorageError> {
+        Ok(sqlx::query_as::<_, AgentGrant>(
+            "SELECT agent_id, scope, access
+             FROM agent_grants WHERE agent_id = $1 ORDER BY scope",
+        )
+        .bind(agent_id)
+        .fetch_all(&self.pool)
+        .await?)
+    }
+
+    async fn set_agent_grants(
+        &self,
+        agent_id: Snowflake,
+        grants: &[AgentGrant],
+    ) -> Result<(), StorageError> {
+        let mut tx = self.pool.begin().await?;
+        sqlx::query("DELETE FROM agent_grants WHERE agent_id = $1")
+            .bind(agent_id)
+            .execute(&mut *tx)
+            .await?;
+        for g in grants {
+            sqlx::query("INSERT INTO agent_grants (agent_id, scope, access) VALUES ($1, $2, $3)")
+                .bind(agent_id)
+                .bind(&g.scope)
+                .bind(&g.access)
+                .execute(&mut *tx)
+                .await?;
+        }
+        tx.commit().await?;
+        Ok(())
+    }
+
+    async fn list_observations(
+        &self,
+        agent_id: Snowflake,
+        before: Option<Snowflake>,
+        limit: i64,
+    ) -> Result<Vec<AgentObservation>, StorageError> {
+        let mut rows = sqlx::query_as::<_, AgentObservation>(
+            "SELECT id, agent_id, event_id, tick, role, content
+             FROM agent_observations
+             WHERE agent_id = $1 AND ($2::BIGINT IS NULL OR id < $2)
+             ORDER BY id DESC
+             LIMIT $3",
+        )
+        .bind(agent_id)
+        .bind(before)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.reverse();
+        Ok(rows)
+    }
+
+    async fn commit_tick(&self, commit: TickCommit) -> Result<(), StorageError> {
+        let mut tx = self.pool.begin().await?;
+
+        let advanced = sqlx::query(
+            "UPDATE realms
+             SET state = $1, tick = tick + 1, updated_at = now()
+             WHERE id = $2 AND tick = $3",
+        )
+        .bind(&commit.new_state)
+        .bind(commit.realm_id)
+        .bind(commit.expected_tick)
+        .execute(&mut *tx)
+        .await?;
+
+        if advanced.rows_affected() == 0 {
+            tx.rollback().await?;
+            return Err(StorageError::TickConflict(commit.realm_id));
+        }
+
+        sqlx::query(
+            "INSERT INTO realm_ticks (realm_id, tick, agent_id, state_delta, snapshot, outcome)
+             VALUES ($1, $2, $3, $4, $5, $6)",
+        )
+        .bind(commit.realm_id)
+        .bind(commit.expected_tick)
+        .bind(commit.agent_id)
+        .bind(&commit.delta)
+        .bind(&commit.snapshot)
+        .bind(&commit.outcome)
+        .execute(&mut *tx)
+        .await?;
+
+        for e in &commit.events {
+            sqlx::query(
+                "INSERT INTO realm_events
+                     (id, realm_id, tick, seq, source, scope, kind, content, payload)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+            )
+            .bind(e.id)
+            .bind(e.realm_id)
+            .bind(e.tick)
+            .bind(e.seq)
+            .bind(e.source)
+            .bind(&e.scope)
+            .bind(&e.kind)
+            .bind(&e.content)
+            .bind(&e.payload)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        for o in &commit.observations {
+            sqlx::query(
+                "INSERT INTO agent_observations
+                     (id, agent_id, event_id, tick, role, content)
+                 VALUES ($1, $2, $3, $4, $5, $6)",
+            )
+            .bind(o.id)
+            .bind(o.agent_id)
+            .bind(o.event_id)
+            .bind(o.tick)
+            .bind(&o.role)
+            .bind(&o.content)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        tx.commit().await?;
+        Ok(())
+    }
+}

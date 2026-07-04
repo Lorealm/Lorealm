@@ -4,6 +4,7 @@ pub mod conversations;
 pub mod lorebook;
 pub mod permissions;
 pub mod persona;
+pub mod realms;
 pub mod sessions;
 pub mod state;
 pub mod templates;
@@ -43,6 +44,12 @@ pub struct MemoryStorage {
     pub(crate) user_tools: RwLock<HashMap<Snowflake, UserTool>>,
     pub(crate) tokenizers: RwLock<HashMap<Snowflake, Tokenizer>>,
     pub(crate) tokenizer_shares: RwLock<Vec<TokenizerShare>>,
+    pub(crate) realms: RwLock<HashMap<Snowflake, Realm>>,
+    pub(crate) realm_agents: RwLock<HashMap<Snowflake, RealmAgent>>,
+    pub(crate) agent_grants: RwLock<HashMap<Snowflake, Vec<AgentGrant>>>,
+    pub(crate) realm_ticks: RwLock<Vec<RealmTick>>,
+    pub(crate) realm_events: RwLock<HashMap<Snowflake, RealmEvent>>,
+    pub(crate) agent_observations: RwLock<HashMap<Snowflake, AgentObservation>>,
 }
 
 impl MemoryStorage {
@@ -89,6 +96,37 @@ impl MemoryStorage {
             }
         }
         found
+    }
+
+    async fn commit_tick(&self, commit: TickCommit) -> Result<(), StorageError> {
+        let mut realms = self.realms.write().await;
+        let realm = realms
+            .get_mut(&commit.realm_id)
+            .ok_or(StorageError::NotFound(commit.realm_id.to_string()))?;
+
+        if realm.tick != commit.expected_tick {
+            return Err(StorageError::TickConflict(commit.realm_id));
+        }
+
+        realm.state = commit.new_state;
+        realm.tick += 1;
+
+        self.realm_ticks.write().await.push(RealmTick {
+            realm_id: commit.realm_id,
+            tick: commit.expected_tick,
+            agent_id: commit.agent_id,
+            delta: commit.delta,
+            snapshot: commit.snapshot,
+        });
+        let mut events = self.realm_events.write().await;
+        for e in commit.events {
+            events.insert(e.id, e);
+        }
+        let mut obs = self.agent_observations.write().await;
+        for o in commit.observations {
+            obs.insert(o.id, o);
+        }
+        Ok(())
     }
 }
 

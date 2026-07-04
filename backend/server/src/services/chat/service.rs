@@ -7,7 +7,8 @@ use lorealm_providers::{Client, ContentBlock, LlmProvider, OpenRouterOptions, Op
 use lorealm_storage::{
     Storage,
     models::{
-        ChatRole, Conversation, ConversationMessage, ConversationMetadata, Snowflake, StateDelta,
+        AgentSpec, ChatRole, Conversation, ConversationMessage, ConversationMetadata, Snowflake,
+        StateDelta,
     },
 };
 use serde_json::json;
@@ -20,8 +21,8 @@ use crate::{
     services::{
         character::CharacterService,
         chat::{
-            CancelGuard, ChatStreamEvent, FullConversation, Persist, Prepared, PromptMessage,
-            TurnPlan,
+            Agent, AgentKindConcrete, AgentOutcome, AgentView, CancelGuard, ChatStreamEvent,
+            FullConversation, Persist, Prepared, PromptMessage, TurnAccumulator, TurnPlan,
             widgets::{
                 InferEvent, ToolCallRecord, WidgetInstance, WidgetSink, widget_marker,
                 widget_registry,
@@ -29,14 +30,14 @@ use crate::{
         },
         connection::ConnectionService,
         context::{
-            PromptRole, ResolveContext, ResolverRegistry, TracedBlock, assemble,
+            PromptRole, PromptTurn, ResolveContext, ResolverRegistry, TracedBlock, assemble,
             builtin::register_builtin_resolvers,
         },
         conversation::{ConversationService, EditMode},
         persona::PersonaService,
         schedule::{Schedule, StageCx, stages::PrivacyStage},
         snowflake::SnowflakeService,
-        state::{CapturedState, StatePool, StateService},
+        state::{CapturedState, ReconstructedState, StatePool, StateService},
         tokenizer::TokenizerService,
         tools::{CompiledUserTool, ToolSignature, UserToolService, build_tool_registry},
     },
@@ -395,6 +396,58 @@ impl ChatService {
         })
     }
 
+    async fn assemble_context(
+        &self,
+        spec: &AgentSpec,
+        thread: &[PromptTurn],
+        baseline: &ReconstructedState,
+    ) -> Result<Prepared, ChatError> {
+        let character = self
+            .characters
+            .load_version(spec.character_id, spec.char_version_id, spec.owner)
+            .await?;
+        let persona = self
+            .personas
+            .get_persona(spec.persona_id, spec.owner)
+            .await?; // by id, not "active"
+        let template = self.state.get_active_template(spec.owner).await?; // by id
+        let tok_def = self.state.get_active_tokenizer(spec.owner).await?;
+        let tokenizer = self
+            .tokenizers
+            .load_kitoken_tokenizer(tok_def.id, spec.owner)
+            .await?;
+
+        let captured;
+        let trace = {
+            let ctx = ResolveContext {
+                character: &character,
+                messages: &thread,
+                user_id: spec.owner,
+                state: baseline,
+                lorebook_state: Mutex::new(None),
+                persona: &persona,
+                tokenizer: &tokenizer,
+            };
+            let trace = assemble(&template, &self.resolvers, &ctx).await?;
+            captured = ctx.lorebook_state.lock().await.take();
+            trace
+        };
+
+        let prompt = trace
+            .iter()
+            .map(|t| PromptMessage {
+                role: t.block.role.clone(),
+                content: t.block.content.clone(),
+            })
+            .collect();
+
+        Ok(Prepared {
+            prompt,
+            trace,
+            captured,
+        })
+    }
+
     async fn prepare_prompt(
         &self,
         convo: &Conversation,
@@ -415,12 +468,17 @@ impl ChatService {
             .load_kitoken_tokenizer(tok_def.id, user_id)
             .await?;
 
+        let ids: Vec<Snowflake> = thread.iter().map(|m| m.id).collect();
+        let baseline = self.state.reconstruct(&ids).await?;
+
         let captured;
         let trace = {
+            let turns: Vec<PromptTurn> = thread.iter().map(PromptTurn::from_message).collect();
             let ctx = ResolveContext {
                 character: &character,
-                messages: &thread,
+                messages: &turns,
                 user_id,
+                state: &baseline,
                 lorebook_state: Mutex::new(None),
                 persona: &persona,
                 tokenizer: &tokenizer,
@@ -461,6 +519,27 @@ impl ChatService {
         })
     }
 
+    async fn active_spec(
+        &self,
+        user_id: Snowflake,
+        convo: &Conversation,
+    ) -> Result<AgentSpec, ChatError> {
+        tracing::info!("evaluating spec");
+        Ok(AgentSpec {
+            owner: user_id,
+            character_id: convo.character_id,
+            char_version_id: convo.char_version_id,
+            template_id: self.state.get_active_template_id(user_id).await?.ok_or(
+                ChatError::State(crate::errors::StateError::NoActiveTemplate),
+            )?,
+            persona_id: self.state.get_active_persona(user_id).await?.id,
+            tokenizer_id: self.state.get_active_tokenizer_id(user_id).await?.ok_or(
+                ChatError::State(crate::errors::StateError::NoActiveTokenizer),
+            )?,
+            profile_id: self.state.get_active_profile(user_id).await?.id,
+        })
+    }
+
     pub async fn generate(
         &self,
         convo_id: Snowflake,
@@ -483,17 +562,23 @@ impl ChatService {
             persist,
         } = self.resolve_turn(&convo, content, target).await?;
 
+        let thread = self.build_prompt(convo_id, assembly_leaf).await?;
+        let turns: Vec<PromptTurn> = thread.iter().map(PromptTurn::from_message).collect();
+        let ids: Vec<Snowflake> = thread.iter().map(|m| m.id).collect();
+        let baseline = self.state.reconstruct(&ids).await?;
+
+        // "Use this user's active selections." A Realm agent supplies its own spec.
+        let spec = self.active_spec(user_id, &convo).await?;
+        tracing::info!("got spec");
+
         let Prepared {
             mut prompt,
             trace,
             captured,
-        } = self.prepare_prompt(&convo, user_id, assembly_leaf).await?;
+        } = self.assemble_context(&spec, &turns, &baseline).await?;
 
-        let chain = self.build_prompt(convo_id, assembly_leaf).await?;
-        let ids: Vec<Snowflake> = chain.iter().map(|m| m.id).collect();
+        let ids: Vec<Snowflake> = thread.iter().map(|m| m.id).collect();
         let baseline = self.state.reconstruct(&ids).await?.persistent;
-
-        // Live pool the tools mutate = baseline + assembly's writes.
         let mut working = baseline.clone();
         let (activation, had_assembly) = match captured {
             Some(c) => {
@@ -506,8 +591,7 @@ impl ChatService {
 
         let cx = self.stage_cx(user_id, &convo).await?;
         let mut chain_tf = self.schedule.outbound(&mut prompt, &cx);
-
-        let token_stream = self.infer(user_id, prompt, Arc::clone(&state_pool)).await?;
+        let token_stream = self.infer(&spec, prompt, Arc::clone(&state_pool)).await?;
 
         let conversations = self.conversations.clone();
         let state_service = self.state.clone();
@@ -515,13 +599,10 @@ impl ChatService {
         let tokenizer_id = state_service.get_active_tokenizer_id(user_id).await?;
         let template_id = state_service.get_active_template_id(user_id).await?;
         let profile_id = state_service.get_active_profile(user_id).await?.id;
-        let mut tool_calls: Vec<ToolCallRecord> = Vec::new();
 
         let stream = async_stream::try_stream! {
             let _cancel_guard = cancel_guard;   // give the stream ownership
-            let mut acc = String::new();
-            let mut reasoning_acc = String::new();
-            let mut widgets: Vec<WidgetInstance> = Vec::new();
+            let mut acc = TurnAccumulator::default();
             futures_util::pin_mut!(token_stream);
 
             if let Some(user) = created_user {
@@ -538,33 +619,31 @@ impl ChatService {
                             InferEvent::Text(delta) => {
                                 let emitted = chain_tf.push(&delta);
                                 if !emitted.is_empty() {
-                                    acc.push_str(&emitted);
+                                    acc.text(&emitted);
                                     yield ChatStreamEvent::Delta { content: emitted };
                                 }
                             }
                             InferEvent::Reasoning(delta) => {
                                 let filtered = chain_tf.apply(&delta);
                                 if !filtered.is_empty() {
-                                    reasoning_acc.push_str(&filtered);
+                                    acc.reasoning(&filtered);
                                     yield ChatStreamEvent::Reasoning { content: filtered };
                                 }
                             }
                             InferEvent::Widget(widget) => {
                                 let widget = widget.filtered(|s| chain_tf.apply(s));
                                 yield ChatStreamEvent::Widget { widget: widget.clone() };
-                                let marker = widget_marker(widgets.len());
-                                acc.push_str(&marker);
+                                let marker = acc.widget(widget);
                                 yield ChatStreamEvent::Delta { content: marker };
-                                widgets.push(widget);
                             }
-                            InferEvent::ToolCall(rec) => { tool_calls.push(rec); }
+                            InferEvent::ToolCall(rec) => acc.tool_call(rec),
                         }
                     }
                 }
             }
             let tail = chain_tf.finish();
             if !tail.is_empty() {
-                acc.push_str(&tail);
+                acc.text(&tail);
                 yield ChatStreamEvent::Delta { content: tail };
             }
 
@@ -577,21 +656,22 @@ impl ChatService {
                     t
                 })
                 .collect();
+
+            let outcome = acc.finish();
+            // meta/persist now read from `outcome`:
             let meta = json!({
                 "context": stored,
-                "reasoning": reasoning_acc,
-                "tool_calls": tool_calls,
-                "widgets": widgets,
+                "reasoning": outcome.reasoning,
+                "tool_calls": outcome.tool_calls,
+                "widgets": outcome.widgets,
                 "conn_profile": profile_id,
                 "tok_id": tokenizer_id,
-                "template_id": template_id
+                "template_id": template_id,
             });
 
             let message = match persist {
-                Persist::Child(parent) =>
-                    conversations.branch_from(convo_id, parent, ChatRole::Assistant, acc, meta).await?,
-                Persist::Sibling(sibling) =>
-                    conversations.create_alternate(convo_id, sibling, ChatRole::Assistant, acc, meta).await?,
+                Persist::Child(parent)    => conversations.branch_from(convo_id, parent, ChatRole::Assistant, outcome.spoken, meta).await?,
+                Persist::Sibling(sibling) => conversations.create_alternate(convo_id, sibling, ChatRole::Assistant, outcome.spoken, meta).await?,
             };
 
             let delta = {
@@ -657,14 +737,17 @@ impl ChatService {
     /// calls, they are executed, fed back, and another round is streamed.
     async fn infer(
         &self,
-        user_id: Snowflake,
+        spec: &AgentSpec,
         prompt: Vec<super::PromptMessage>,
         state: Arc<StdMutex<StatePool>>,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<InferEvent, ChatError>> + Send>>, ChatError> {
-        let profile = self.state.get_active_profile(user_id).await?;
+        let profile = self
+            .connection
+            .get_profile(spec.owner, spec.profile_id)
+            .await?;
         let connection = self
             .connection
-            .resolve_connection(user_id, profile.id)
+            .resolve_connection(spec.owner, profile.id)
             .await?;
 
         let Some(api_key) = connection.api_key else {
@@ -692,7 +775,7 @@ impl ChatService {
 
         let weaver_registry = Arc::new(build_tool_registry());
 
-        for row in self.tools.list_enabled(user_id).await? {
+        for row in self.tools.list_enabled(spec.owner).await? {
             let sig = ToolSignature::from(row.clone());
             match CompiledUserTool::build(
                 ToolSignature::from(row),
@@ -703,7 +786,7 @@ impl ChatService {
                     tracing::info!("Registering tool: {}", sig.name);
                     registry.register(tool)
                 }
-                Err(e) => tracing::warn!(%user_id, "skipping uncompilable user tool: {e}"),
+                Err(e) => tracing::warn!(%spec.owner, "skipping uncompilable user tool: {e}"),
             }
         }
 
@@ -721,6 +804,45 @@ impl ChatService {
                 "unsupported provider: {other}"
             ))),
         }
+    }
+
+    pub async fn run_agent_turn(
+        &self,
+        spec: &AgentSpec,
+        turns: &[PromptTurn],
+        baseline: &ReconstructedState,
+        cancel: &CancellationToken,
+    ) -> Result<AgentOutcome, ChatError> {
+        let Prepared {
+            prompt, captured, ..
+        } = self.assemble_context(spec, turns, baseline).await?;
+
+        let mut working = baseline.persistent.clone();
+        if let Some(c) = &captured {
+            apply_delta(&mut working, &c.persistent);
+        }
+        let state_pool = Arc::new(StdMutex::new(working));
+
+        let token_stream = self.infer(spec, prompt, state_pool).await?;
+
+        let mut acc = TurnAccumulator::default();
+        futures_util::pin_mut!(token_stream);
+        loop {
+            tokio::select! {
+                biased;
+                _ = cancel.cancelled() => break,
+                next = token_stream.next() => {
+                    let Some(Ok(event)) = next else { break };
+                    match event {
+                        InferEvent::Text(d)      => acc.text(&d),
+                        InferEvent::Reasoning(d) => acc.reasoning(&d),
+                        InferEvent::Widget(w)    => { acc.widget(w); }
+                        InferEvent::ToolCall(r)  => acc.tool_call(r),
+                    }
+                }
+            }
+        }
+        Ok(acc.finish())
     }
 }
 

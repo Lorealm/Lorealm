@@ -407,14 +407,24 @@
 			margin: 0;
 			line-height: 1em;
 		}
+
 		code {
-			display: flex;
+			display: inline-block;
 			background-color: var(--color-bg-base);
+			padding: var(--spacing-xs) var(--spacing-sm);
+			border-radius: var(--radius-sm);
+			font-family: var(--font-family-mono);
+			font-size: var(--font-size-sm);
+		}
+
+		pre code {
+			display: block;
 			padding: var(--spacing-md);
 			width: 100%;
 			border-radius: var(--radius-md);
-			font-family: var(--font-family-mono);
 			font-size: var(--font-size-base);
+			white-space: pre;
+			overflow-x: auto;
 		}
 		font-family: var(--font-family-nunito);
 		font-size: var(--font-size-md);
