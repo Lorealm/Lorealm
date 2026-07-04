@@ -34,6 +34,8 @@ pub enum ChatError {
     UserTool(#[from] UserToolError),
     #[error("tokenizer error: {0}")]
     Tokenizer(#[from] TokenizerError),
+    #[error("invalid agent: {0}")]
+    InvalidAgent(String),
 }
 
 impl ChatError {
@@ -58,6 +60,7 @@ impl ChatError {
             ChatError::Connection(msg) => msg.to_owned(),
             ChatError::UserTool(user_tool_error) => user_tool_error.client_message(),
             ChatError::Tokenizer(tokenizer_error) => tokenizer_error.client_message(),
+            ChatError::InvalidAgent(hint) => format!("error when evaluating RealmAgent: {hint}"),
         }
     }
 }

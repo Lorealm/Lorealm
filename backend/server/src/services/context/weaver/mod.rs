@@ -1,4 +1,5 @@
 mod std;
+pub mod stdlib;
 
 pub struct LorealmWeaverPlugin;
 

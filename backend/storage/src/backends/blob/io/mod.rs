@@ -10,6 +10,7 @@ use tokio::io::AsyncWriteExt;
 use crate::{BlobStore, StorageError, models::BlobId};
 
 static TMP_COUNTER: AtomicU64 = AtomicU64::new(0);
+static SHARD_DEPTH: usize = 2;
 
 #[derive(Debug)]
 pub struct FsBlobStore {
@@ -42,8 +43,13 @@ impl FsBlobStore {
 
     fn path_for(&self, id: &BlobId) -> PathBuf {
         let hex = id.as_hex();
-        // sha256 hex is always 64 chars, so the 2-char shard prefix is safe.
-        self.blobs_dir.join(&hex[..2]).join(hex)
+        let mut path = self.blobs_dir.clone();
+        for level in 0..SHARD_DEPTH {
+            let start = level * 2;
+            path.push(&hex[start..start + 2]);
+        }
+        path.push(hex);
+        path
     }
 
     async fn clean_tmp(tmp_dir: &PathBuf) -> Result<usize, StorageError> {

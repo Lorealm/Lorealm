@@ -101,11 +101,11 @@ impl SourceResolver for ChatHistoryResolver {
         let blocks = keep
             .into_iter()
             .map(|i| {
-                let m = kept[i];
+                let t = kept[i];
                 ResolvedBlock {
-                    role: m.role.clone().into(),
-                    content: m.content.clone(),
-                    content_ref: ContentRef::Message(m.id),
+                    role: t.role.clone(),
+                    content: t.content.clone(),
+                    content_ref: t.content_ref.clone(),
                 }
             })
             .collect();

@@ -293,7 +293,13 @@
 						{/if}
 						<div class="body-editor">
 							{#key draft.id}
-								<WeaverEditor doc={draft.body} onChange={(v) => (draft.body = v)} />
+								<WeaverEditor
+									doc={draft.body}
+									onChange={(v) => {
+										draft.body = v;
+										requestSave();
+									}}
+								/>
 							{/key}
 						</div>
 					</div>

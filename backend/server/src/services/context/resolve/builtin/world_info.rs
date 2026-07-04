@@ -6,14 +6,16 @@ use context_weaver::{
     ContextWeaver, EngineConfig, GuesstimationTokenizer, NamespaceAccess, Slot,
 };
 use kitoken::Kitoken;
-use lorealm_storage::models::{ActivationState, ChatRole, ConversationMessage, Snowflake};
+use lorealm_storage::models::{ActivationState, Snowflake};
 use serde_json::Value as JsonValue;
 use weaver_lang::Value as WeaverValue;
 
 use crate::{
     errors::ContextError,
     services::{
-        context::{ContentRef, to_weaver_lorebook, weaver::LorealmWeaverPlugin},
+        context::{
+            ContentRef, PromptTurn, to_weaver_lorebook, weaver::{LorealmWeaverPlugin, stdlib::StdlibPlugin}
+        },
         state::{CapturedState, StatePool, StateService},
     },
 };
@@ -111,6 +113,7 @@ impl WorldInfoResolver {
         });
 
         weaver.set_tokenizer(Box::new(tokenizer));
+        weaver.register_plugin(StdlibPlugin)?;
         weaver.register_plugin(LorealmWeaverPlugin)?;
 
         book_ids.insert(first_sf, BookId(0)); // The first BookId is always 0
@@ -121,8 +124,7 @@ impl WorldInfoResolver {
             book_ids.insert(sf, bid);
         }
 
-        let ids: Vec<Snowflake> = ctx.messages.iter().map(|m| m.id).collect();
-        let state = self.state.reconstruct(&ids).await?;
+        let state = ctx.state;
 
         weaver.reserve_namespace("char", NamespaceAccess::ReadOnly);
         weaver.reserve_namespace("user", NamespaceAccess::ReadOnly);
@@ -206,13 +208,13 @@ fn slot_for_node(node_id: &str) -> Result<Slot, ContextError> {
     Ok(slot)
 }
 
-fn convert_messages(messages: &[ConversationMessage]) -> Vec<CwMessage> {
+fn convert_messages(messages: &[PromptTurn]) -> Vec<CwMessage> {
     messages
         .iter()
-        .map(|m| match m.role {
-            ChatRole::User => CwMessage::user(&m.content),
-            ChatRole::Assistant => CwMessage::assistant(&m.content),
-            ChatRole::System => CwMessage::system(&m.content),
+        .map(|t| match t.role {
+            PromptRole::User => CwMessage::user(&t.content),
+            PromptRole::Assistant => CwMessage::assistant(&t.content),
+            PromptRole::System => CwMessage::system(&t.content),
         })
         .collect()
 }
