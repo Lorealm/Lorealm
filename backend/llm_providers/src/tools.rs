@@ -4,7 +4,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use schemars::JsonSchema;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::collections::HashMap;
 
 /// An executable tool the model can invoke. This is the untyped core that the
@@ -146,13 +146,9 @@ mod tests {
             def.input_schema["properties"]["a"]["description"],
             "The first number."
         );
-        assert_eq!(
-            def.input_schema["required"],
-            serde_json::json!(["a", "b"])
-        );
+        assert_eq!(def.input_schema["required"], serde_json::json!(["a", "b"]));
 
-        let result =
-            block_on(registry.call("add", serde_json::json!({"a": 2, "b": 3}))).unwrap();
+        let result = block_on(registry.call("add", serde_json::json!({"a": 2, "b": 3}))).unwrap();
         assert_eq!(result, serde_json::json!(5.0));
 
         // Malformed input becomes a Tool error (which send_with_tools feeds

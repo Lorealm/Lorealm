@@ -77,7 +77,7 @@ pub trait ConversationStorage: Send + Sync {
     async fn get_path_to(
         &self,
         conversation_id: Snowflake,
-        message_id: Snowflake
+        message_id: Snowflake,
     ) -> Result<Vec<ConversationMessage>, StorageError>;
 
     /// Edit a message's mutable fields

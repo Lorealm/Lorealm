@@ -119,7 +119,7 @@ impl TemplateStorage for MemoryStorage {
                 active_template_id: template_id,
                 active_persona_id: None,
                 active_connection_profile_id: None,
-                active_tokenizer_id: None
+                active_tokenizer_id: None,
             });
 
         Ok(())

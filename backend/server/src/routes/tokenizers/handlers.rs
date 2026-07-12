@@ -228,7 +228,7 @@ pub async fn set_active_tokenizer(
 
 pub async fn unset_active_tokenizer(
     State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession
+    session: AuthenticatedSession,
 ) -> Result<(), AppError> {
     state
         .services()

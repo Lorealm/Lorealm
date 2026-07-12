@@ -13,7 +13,15 @@ pub trait PermissionStorage: Send + Sync {
     async fn delete_role(&self, id: Snowflake) -> Result<bool, StorageError>;
 
     // User ↔ Role assignment
-    async fn assign_role(&self, user_id: Snowflake, role_id: Snowflake) -> Result<UserRole, StorageError>;
-    async fn revoke_role(&self, user_id: Snowflake, role_id: Snowflake) -> Result<bool, StorageError>;
+    async fn assign_role(
+        &self,
+        user_id: Snowflake,
+        role_id: Snowflake,
+    ) -> Result<UserRole, StorageError>;
+    async fn revoke_role(
+        &self,
+        user_id: Snowflake,
+        role_id: Snowflake,
+    ) -> Result<bool, StorageError>;
     async fn get_user_roles(&self, user_id: Snowflake) -> Result<Vec<Role>, StorageError>;
 }

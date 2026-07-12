@@ -1,10 +1,15 @@
 use crate::error::StorageError;
-use crate::models::{Character, CharacterSummary, CharacterVersionInfo, Snowflake, VersionedSaveMode};
+use crate::models::{
+    Character, CharacterSummary, CharacterVersionInfo, Snowflake, VersionedSaveMode,
+};
 use async_trait::async_trait;
 
 #[async_trait]
 pub trait CharacterStorage: Send + Sync {
-    async fn list_characters(&self, user_id: Snowflake) -> Result<Vec<CharacterSummary>, StorageError>;
+    async fn list_characters(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Vec<CharacterSummary>, StorageError>;
     /// Load the current version of a character
     async fn get_character(&self, id: Snowflake) -> Result<Option<Character>, StorageError>;
 
@@ -24,7 +29,11 @@ pub trait CharacterStorage: Send + Sync {
 
     /// Create or update a character. Always creates a new version row and
     /// atomically updates the head + child tables to match.
-    async fn save_character(&self, character: &Character, mode: VersionedSaveMode) -> Result<Snowflake, StorageError>;
+    async fn save_character(
+        &self,
+        character: &Character,
+        mode: VersionedSaveMode,
+    ) -> Result<Snowflake, StorageError>;
 
     /// Hard-delete a character and all its versions/child rows.
     /// Returns `true` if a row was deleted.
@@ -46,8 +55,5 @@ pub trait CharacterStorage: Send + Sync {
         new_version_id: Snowflake,
     ) -> Result<Snowflake, StorageError>;
 
-    async fn get_latest_version(
-        &self,
-        id: Snowflake
-    ) -> Result<Snowflake, StorageError>;
+    async fn get_latest_version(&self, id: Snowflake) -> Result<Snowflake, StorageError>;
 }

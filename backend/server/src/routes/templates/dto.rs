@@ -16,7 +16,7 @@ pub(super) struct CreateTemplateRequest {
 
 #[derive(Deserialize)]
 pub(super) struct SetActiveRequest {
-    pub id: Snowflake
+    pub id: Snowflake,
 }
 
 #[derive(Deserialize)]

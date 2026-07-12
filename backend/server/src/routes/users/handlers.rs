@@ -16,7 +16,8 @@ use crate::{
     config::UserConfig,
     core::AppState,
     errors::{AppError, AuthError},
-    extract::{AuthenticatedSession, UserDevice}, util::scaffold_user,
+    extract::{AuthenticatedSession, UserDevice},
+    util::scaffold_user,
 };
 
 const REGISTER_DISABLED_REASON: &str = "Registrations are disabled on this server.";

@@ -3,7 +3,7 @@ use lorealm_storage::models::UserPersona;
 use crate::services::chat::PromptMessage;
 
 pub struct StageCx {
-    pub persona: UserPersona
+    pub persona: UserPersona,
 }
 
 /// One bidirectional stage. The outbound half runs once, may mutate the

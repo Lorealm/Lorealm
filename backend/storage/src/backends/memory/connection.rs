@@ -145,7 +145,10 @@ impl ConnectionStorage for MemoryStorage {
         Ok(refs.into_iter().map(|(id, _)| id).collect())
     }
 
-    async fn get_active_profile(&self, user_id: Snowflake) -> Result<Option<Snowflake>, StorageError> {
+    async fn get_active_profile(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Option<Snowflake>, StorageError> {
         let profile = self
             .user_state
             .read()
@@ -173,7 +176,7 @@ impl ConnectionStorage for MemoryStorage {
                 active_template_id: None,
                 active_persona_id: None,
                 active_connection_profile_id: profile_id,
-                active_tokenizer_id: None
+                active_tokenizer_id: None,
             });
 
         Ok(())

@@ -93,7 +93,10 @@ impl RealmStorage for MemoryStorage {
         Ok(agents)
     }
 
-    async fn get_realm_agent(&self, agent_id: Snowflake) -> Result<Option<RealmAgent>, StorageError> {
+    async fn get_realm_agent(
+        &self,
+        agent_id: Snowflake,
+    ) -> Result<Option<RealmAgent>, StorageError> {
         Ok(self.realm_agents.read().await.get(&agent_id).cloned())
     }
     async fn create_realm_agent(&self, agent: &RealmAgent) -> Result<(), StorageError> {

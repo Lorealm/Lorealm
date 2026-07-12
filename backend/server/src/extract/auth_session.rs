@@ -1,4 +1,7 @@
-use axum::{extract::FromRequestParts, http::{StatusCode, request::Parts}};
+use axum::{
+    extract::FromRequestParts,
+    http::{StatusCode, request::Parts},
+};
 use lorealm_storage::models::Snowflake;
 
 /// Extracted in handlers via `AuthenticatedSession` argument

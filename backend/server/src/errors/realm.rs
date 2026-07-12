@@ -1,6 +1,8 @@
 use lorealm_storage::{StorageError, models::Snowflake};
 
-use crate::errors::{CharacterError, ChatError, ConnectionError, ContextError, PersonaError, StateError, TargetType};
+use crate::errors::{
+    CharacterError, ChatError, ConnectionError, ContextError, PersonaError, StateError, TargetType,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum RealmError {

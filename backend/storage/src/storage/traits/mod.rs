@@ -6,13 +6,13 @@ mod core;
 mod lorebook;
 mod permissions;
 mod persona;
+mod realms;
 mod sessions;
 mod state;
 mod templates;
 mod tokenizer;
 mod tools;
 mod users;
-mod realms;
 
 pub use blob::BlobStore;
 pub use characters::CharacterStorage;
@@ -22,13 +22,13 @@ pub use core::StorageCore;
 pub use lorebook::LorebookStorage;
 pub use permissions::PermissionStorage;
 pub use persona::PersonaStorage;
+pub use realms::RealmStorage;
 pub use sessions::SessionStorage;
 pub use state::WeaverStateStorage;
 pub use templates::TemplateStorage;
 pub use tokenizer::TokenizerStorage;
 pub use tools::UserToolStorage;
 pub use users::UserStorage;
-pub use realms::RealmStorage;
 
 pub trait Storage:
     StorageCore

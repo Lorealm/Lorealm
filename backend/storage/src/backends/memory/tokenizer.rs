@@ -143,7 +143,10 @@ impl TokenizerStorage for MemoryStorage {
         Ok(out)
     }
 
-    async fn get_active_tokenizer(&self, user_id: Snowflake) -> Result<Option<Snowflake>, StorageError> {
+    async fn get_active_tokenizer(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Option<Snowflake>, StorageError> {
         let profile = self
             .user_state
             .read()
@@ -171,7 +174,7 @@ impl TokenizerStorage for MemoryStorage {
                 active_template_id: None,
                 active_persona_id: None,
                 active_connection_profile_id: None,
-                active_tokenizer_id: tokenizer_id
+                active_tokenizer_id: tokenizer_id,
             });
 
         Ok(())

@@ -1,6 +1,8 @@
 // ---- tests for the binding / rotation / versioning work -----------------
 
-use lorealm_encryption::{Encryptable, EncryptionContext, EncryptionError, KeyManager, LocalKeyManager};
+use lorealm_encryption::{
+    Encryptable, EncryptionContext, EncryptionError, KeyManager, LocalKeyManager,
+};
 
 #[tokio::test]
 async fn test_decrypt_with_wrong_binding_fails() {

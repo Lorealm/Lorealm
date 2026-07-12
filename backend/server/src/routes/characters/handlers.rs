@@ -265,7 +265,7 @@ pub async fn import_card_blob(
     State(state): State<Arc<AppState>>,
     auth: AuthenticatedSession,
     perms: ResolvedPermissions,
-    body: Bytes
+    body: Bytes,
 ) -> Result<Json<ImportCharResponse>, AppError> {
     perms.require(Permissions::IMPORT_3RD_PARTY_CHARACTER)?;
     let kind = infer::get(&body).ok_or(CharacterError::UnsupportedMediaType)?;
@@ -277,7 +277,7 @@ pub async fn import_card_blob(
     }
 
     let mut results: Vec<ImportResult> = Vec::new();
-    
+
     if body.is_empty() {
         results.push(ImportResult::failed("File is empty."));
     }

@@ -37,7 +37,7 @@ pub struct RealmSummary {
     pub id: Snowflake,
     pub owner_id: Snowflake,
     pub name: String,
-    pub status: RealmStatus
+    pub status: RealmStatus,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]

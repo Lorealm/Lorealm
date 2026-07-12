@@ -30,7 +30,10 @@ impl RealmStorage for CachedStorage {
     ) -> Result<Vec<RealmAgent>, StorageError> {
         self.backend.list_realm_agents(realm_id).await
     }
-    async fn get_realm_agent(&self, agent_id: Snowflake) -> Result<Option<RealmAgent>, StorageError> {
+    async fn get_realm_agent(
+        &self,
+        agent_id: Snowflake,
+    ) -> Result<Option<RealmAgent>, StorageError> {
         self.backend.get_realm_agent(agent_id).await
     }
     async fn create_realm_agent(&self, agent: &RealmAgent) -> Result<(), StorageError> {

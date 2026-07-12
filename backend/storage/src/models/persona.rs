@@ -12,11 +12,11 @@ pub struct UserPersona {
     pub pseudonym: Option<String>,
     pub avatar_uri: Option<String>,
     pub description: Option<String>,
-    pub updated_at: DateTime<Utc>
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct PersonaOverride {
     pub character_id: Snowflake,
-    pub persona_id: Snowflake
+    pub persona_id: Snowflake,
 }

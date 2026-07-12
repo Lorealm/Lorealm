@@ -151,13 +151,19 @@ impl OpenAgentTurn {
 pub struct Agent {
     pub id: Snowflake,
     pub kind: AgentKindConcrete,
-    pub persona_id: Snowflake,   // see caveat below
+    pub persona_id: Snowflake, // see caveat below
 }
 
 pub enum AgentKindConcrete {
-    Llm    { character_id: Snowflake, char_version_id: Snowflake,
-             template_id: Snowflake, profile_id: Snowflake },
-    Player { user_id: Snowflake },
+    Llm {
+        character_id: Snowflake,
+        char_version_id: Snowflake,
+        template_id: Snowflake,
+        profile_id: Snowflake,
+    },
+    Player {
+        user_id: Snowflake,
+    },
 }
 
 pub struct AgentView {

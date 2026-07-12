@@ -1,9 +1,15 @@
 use std::sync::Arc;
 
-use axum::{Router, routing::{delete, get, post, put}};
+use axum::{
+    Router,
+    routing::{delete, get, post, put},
+};
 use tower_cookies::CookieManagerLayer;
 
-use crate::{core::AppState, middleware::{SessionMiddlewareState, session_auth_middleware, session_csrf_middleware}};
+use crate::{
+    core::AppState,
+    middleware::{SessionMiddlewareState, session_auth_middleware, session_csrf_middleware},
+};
 
 pub mod dto;
 mod handlers;
