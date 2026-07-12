@@ -10,9 +10,9 @@ use crate::{
     services::{
         character::CharacterService, chat::ChatService, connection::ConnectionService,
         context::ContextService, conversation::ConversationService, lorebook::LorebookService,
-        permission::service::PermissionService, persona::PersonaService, session::SessionService,
-        snowflake::SnowflakeService, state::StateService, tokenizer::TokenizerService,
-        tools::UserToolService, users::UserService,
+        permission::service::PermissionService, persona::PersonaService, realm::RealmService,
+        session::SessionService, snowflake::SnowflakeService, state::StateService,
+        tokenizer::TokenizerService, tools::UserToolService, users::UserService,
     },
 };
 
@@ -26,12 +26,12 @@ pub struct ServiceManager {
     context: Arc<ContextService>,
     lorebook: Arc<LorebookService>,
     state: Arc<StateService>,
-    conversation: Arc<ConversationService>,
     chat: Arc<ChatService>,
     persona: Arc<PersonaService>,
     connection: Arc<ConnectionService>,
     tools: Arc<UserToolService>,
     tokenizers: Arc<TokenizerService>,
+    realms: Arc<RealmService>,
 }
 
 impl ServiceManager {
@@ -126,6 +126,17 @@ impl ServiceManager {
             Arc::clone(&tokenizers),
         ));
 
+        let realms = Arc::new(RealmService::new(
+            Arc::clone(&storage),
+            Arc::clone(&snowflake),
+            Arc::clone(&chat),
+            Arc::clone(&characters),
+            Arc::clone(&context),
+            Arc::clone(&connection),
+            Arc::clone(&persona),
+            Arc::clone(&state),
+        ));
+
         let cleanable: Vec<Arc<dyn CleanableService>> = vec![
             Arc::clone(&characters) as Arc<dyn CleanableService>,
             Arc::clone(&lorebook) as Arc<dyn CleanableService>,
@@ -141,12 +152,12 @@ impl ServiceManager {
             context,
             lorebook,
             state,
-            conversation,
             chat,
             persona,
             connection,
             tools,
             tokenizers,
+            realms,
         }
     }
 
@@ -248,6 +259,10 @@ impl ServiceManager {
 
     pub fn tokenizers(&self) -> &Arc<TokenizerService> {
         &self.tokenizers
+    }
+
+    pub fn realm(&self) -> &Arc<RealmService> {
+        &self.realms
     }
 }
 

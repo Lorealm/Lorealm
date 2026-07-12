@@ -14,7 +14,8 @@ use crate::{
     errors::ContextError,
     services::{
         context::{
-            ContentRef, PromptTurn, to_weaver_lorebook, weaver::{LorealmWeaverPlugin, stdlib::StdlibPlugin}
+            ContentRef, PromptTurn, to_weaver_lorebook,
+            weaver::{LorealmWeaverPlugin, stdlib::StdlibPlugin},
         },
         state::{CapturedState, StatePool, StateService},
     },
@@ -138,21 +139,19 @@ impl WorldInfoResolver {
             }
         }
 
-        let character_name = ctx
-            .character
-            .metadata
-            .display_name
-            .clone()
-            .unwrap_or(ctx.character.definition.name.clone());
+        if let Some(ch) = ctx.character {
+            let name = ch
+                .metadata
+                .display_name
+                .clone()
+                .unwrap_or_else(|| ch.definition.name.clone());
+            weaver.set_variable("char", "name", name);
+        }
 
-        let user_name = ctx
-            .persona
-            .display_name
-            .clone()
-            .unwrap_or(ctx.persona.name.clone());
-
-        weaver.set_variable("char", "name", character_name);
-        weaver.set_variable("user", "name", user_name);
+        if let Some(p) = ctx.persona {
+            let name = p.display_name.clone().unwrap_or_else(|| p.name.clone());
+            weaver.set_variable("user", "name", name);
+        }
 
         let cw_messages = convert_messages(ctx.messages);
         let blocks = weaver.assemble(&cw_messages)?;

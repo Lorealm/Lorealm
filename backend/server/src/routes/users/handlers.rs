@@ -6,7 +6,7 @@ use axum::{
     http::StatusCode,
 };
 use chrono::Utc;
-use lorealm_storage::models::{Snowflake, User};
+use lorealm_storage::models::Snowflake;
 use tower_cookies::{
     Cookie, Cookies,
     cookie::{SameSite, time},

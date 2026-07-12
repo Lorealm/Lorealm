@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use async_trait::async_trait;
 use lorealm_storage::models::{Character, ExampleDialogue};
 
-use crate::{errors::ContextError, services::context::{CharacterPart, ContentRef}};
+use crate::{
+    errors::ContextError,
+    services::context::{CharacterPart, ContentRef},
+};
 
 use super::super::{PromptRole, ResolveContext, ResolvedBlock, SourceResolver};
 
@@ -21,7 +24,9 @@ impl SourceResolver for CharacterResolver {
         settings: &HashMap<String, serde_json::Value>,
         ctx: &ResolveContext<'_>,
     ) -> Result<Vec<ResolvedBlock>, ContextError> {
-        let character = ctx.character;
+        let Some(character) = ctx.character else {
+            return Ok(Vec::new());
+        };
 
         let blocks = match node_id {
             "definition" => text_block(
@@ -50,7 +55,9 @@ impl SourceResolver for CharacterResolver {
                     Some(g) => text_block(
                         PromptRole::Assistant,
                         &g.text,
-                        ContentRef::Character(CharacterPart::Greeting { order: g.order as i64 }),
+                        ContentRef::Character(CharacterPart::Greeting {
+                            order: g.order as i64,
+                        }),
                     ),
                     None => Vec::new(),
                 }
@@ -102,7 +109,9 @@ fn resolve_examples(character: &Character, max: Option<usize>) -> Vec<ResolvedBl
         .map(|e| ResolvedBlock {
             role: PromptRole::System,
             content: e.content.clone(),
-            content_ref: ContentRef::Character(CharacterPart::Example { order: e.order as i64 }),
+            content_ref: ContentRef::Character(CharacterPart::Example {
+                order: e.order as i64,
+            }),
         })
         .collect()
 }

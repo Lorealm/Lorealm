@@ -49,6 +49,7 @@ pub enum TargetType {
     Secret,
     UserTool,
     Realm,
+    RealmAgent,
 }
 
 impl Display for TargetType {
@@ -66,6 +67,7 @@ impl Display for TargetType {
             TargetType::Secret => write!(f, "secret"),
             TargetType::UserTool => write!(f, "user_tool"),
             TargetType::Realm => write!(f, "realm"),
+            TargetType::RealmAgent => write!(f, "realm_agent"),
         }
     }
 }
@@ -137,8 +139,7 @@ impl AppError {
 impl IntoResponse for AppError {
     fn into_response(self) -> axum::response::Response {
         if let Self::Internal { ref internal } = self {
-            // TODO: replace with your preferred logger (tracing, log, etc.)
-            eprintln!("[ERROR] internal: {internal}");
+            tracing::error!("[ERROR] internal: {internal}");
         }
 
         let body = json!({
@@ -366,6 +367,54 @@ impl From<ConfigError> for AppError {
             ConfigError::Invalid(_) | ConfigError::Io(_) => AppError::Internal {
                 internal: Cow::Owned(err.client_message()),
             },
+        }
+    }
+}
+
+impl From<RealmError> for AppError {
+    fn from(err: RealmError) -> Self {
+        match err {
+            RealmError::NotYourTurn(_) | RealmError::TickConflict(_) => AppError::Conflict {
+                code: "CONFLICT",
+                message: Cow::Owned(err.client_message()),
+            },
+            RealmError::NotActive(_) | RealmError::NoAgents(_) | RealmError::Create(_) => {
+                AppError::BadRequest {
+                    code: "INVALID_REALM",
+                    message: Cow::Owned(err.client_message()),
+                }
+            }
+            RealmError::MalformedAgent(_, _) | RealmError::InvalidAgent(_) => AppError::BadRequest {
+                code: "INVALID_REALM_AGENT",
+                message: Cow::Owned(err.client_message()),
+            },
+            RealmError::NotFound(_, _) | RealmError::NotOwned(_, _) => AppError::BadRequest {
+                code: "INVALID_RESOURCE",
+                message: Cow::Owned(err.client_message()),
+            },
+            RealmError::InvalidTurn(_) | RealmError::ToolNotBound(_) => AppError::BadRequest {
+                code: "INVALID_TURN",
+                message: Cow::Owned(err.client_message()),
+            },
+            RealmError::ActionFailed(_) => AppError::BadRequest {
+                code: "ACTION_FAILED",
+                message: Cow::Owned(err.client_message()),
+            },
+            RealmError::StateCorrupt(_) => AppError::Internal {
+                internal: Cow::Owned(err.client_message()),
+            },
+            RealmError::Chat(chat_error) => chat_error.into(),
+            RealmError::Storage(error) => AppError::Internal {
+                internal: Cow::Owned(error.to_string()),
+            },
+            RealmError::Serialization(error) => AppError::Internal {
+                internal: Cow::Owned(error.to_string()),
+            },
+            RealmError::State(error) => error.into(),
+            RealmError::Character(character_error) => character_error.into(),
+            RealmError::Context(context_error) => context_error.into(),
+            RealmError::Persona(persona_error) => persona_error.into(),
+            RealmError::Connection(connection_error) => connection_error.into(),
         }
     }
 }

@@ -13,10 +13,13 @@ mod config;
 mod connection;
 mod lorebooks;
 mod persona;
+mod realm;
 mod templates;
 mod tokenizers;
 mod tools;
 mod users;
+
+pub use realm::{CreateAgentRequest, PlayerTurnRequest};
 
 pub async fn api_routes(
     app_state: Arc<AppState>,
@@ -75,5 +78,9 @@ pub async fn api_routes(
                 session_state.clone(),
                 permission_state.clone(),
             ),
+        )
+        .nest(
+            "/realms",
+            realm::router(Arc::clone(&app_state), session_state.clone()),
         )
 }

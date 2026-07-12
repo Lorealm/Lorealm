@@ -5,10 +5,9 @@ use crate::models::{ChatRole, Snowflake};
 
 pub struct AgentSpec {
     pub owner: Snowflake,
-    pub character_id: Snowflake,
-    pub char_version_id: Snowflake,
+    pub character: Option<(Snowflake, Snowflake)>,
     pub template_id: Snowflake,
-    pub persona_id: Snowflake,
+    pub persona_id: Option<Snowflake>,
     pub tokenizer_id: Snowflake,
     pub profile_id: Snowflake,
 }
@@ -31,6 +30,14 @@ pub struct Realm {
     pub state: serde_json::Value,
     pub tokenizer_id: Snowflake,
     pub status: RealmStatus,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct RealmSummary {
+    pub id: Snowflake,
+    pub owner_id: Snowflake,
+    pub name: String,
+    pub status: RealmStatus
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
@@ -67,6 +74,15 @@ pub struct AgentGrant {
     pub agent_id: Snowflake,
     pub scope: String,
     pub access: AgentAccess,
+}
+
+/// A tool bound to a realm agent: its action space, one entry per tool.
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
+pub struct AgentToolBinding {
+    pub tool_id: Snowflake,
+    /// Scope of the `Acted` event emitted when this tool runs. `None` =
+    /// private — only the acting agent observes its own action.
+    pub event_scope: Option<String>,
 }
 
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
@@ -136,6 +152,7 @@ pub struct Grant {
     pub access: AgentAccess,
 }
 
+#[derive(Debug, Clone)]
 pub enum ScopePattern {
     Exact(String),
     Prefix(String),

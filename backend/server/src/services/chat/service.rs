@@ -8,7 +8,6 @@ use lorealm_storage::{
     Storage,
     models::{
         AgentSpec, ChatRole, Conversation, ConversationMessage, ConversationMetadata, Snowflake,
-        StateDelta,
     },
 };
 use serde_json::json;
@@ -21,25 +20,25 @@ use crate::{
     services::{
         character::CharacterService,
         chat::{
-            Agent, AgentKindConcrete, AgentOutcome, AgentView, CancelGuard, ChatStreamEvent,
+            AgentTurn, CancelGuard, ChatStreamEvent,
             FullConversation, Persist, Prepared, PromptMessage, TurnAccumulator, TurnPlan,
             widgets::{
-                InferEvent, ToolCallRecord, WidgetInstance, WidgetSink, widget_marker,
+                InferEvent, ToolCallRecord, WidgetInstance, WidgetSink,
                 widget_registry,
             },
         },
         connection::ConnectionService,
         context::{
             PromptRole, PromptTurn, ResolveContext, ResolverRegistry, TracedBlock, assemble,
-            builtin::register_builtin_resolvers,
+            builtin::register_builtin_resolvers, ContextTemplate,
         },
         conversation::{ConversationService, EditMode},
         persona::PersonaService,
         schedule::{Schedule, StageCx, stages::PrivacyStage},
         snowflake::SnowflakeService,
-        state::{CapturedState, ReconstructedState, StatePool, StateService},
+        state::{CapturedState, ReconstructedState, StatePool, StateService, apply_delta},
         tokenizer::TokenizerService,
-        tools::{CompiledUserTool, ToolSignature, UserToolService, build_tool_registry},
+        tools::{CompiledUserTool, ToolPolicy, ToolSignature, UserToolService, build_tool_registry},
     },
 };
 
@@ -402,30 +401,39 @@ impl ChatService {
         thread: &[PromptTurn],
         baseline: &ReconstructedState,
     ) -> Result<Prepared, ChatError> {
-        let character = self
-            .characters
-            .load_version(spec.character_id, spec.char_version_id, spec.owner)
-            .await?;
-        let persona = self
-            .personas
-            .get_persona(spec.persona_id, spec.owner)
-            .await?; // by id, not "active"
-        let template = self.state.get_active_template(spec.owner).await?; // by id
-        let tok_def = self.state.get_active_tokenizer(spec.owner).await?;
+        let character = match spec.character {
+            Some((cid, cvid)) => Some(self.characters.load_version(cid, cvid, spec.owner).await?),
+            None => None,
+        };
+        let persona = match spec.persona_id {
+            Some(id) => Some(self.personas.get_persona(id, spec.owner).await?),
+            None => None,
+        };
+        let template = {
+            let db = self
+                .storage
+                .get_template_owned(spec.template_id, spec.owner)
+                .await?
+                .ok_or(ChatError::NotFound(
+                    TargetType::ContextTemplate,
+                    spec.template_id,
+                ))?;
+            ContextTemplate::from_db(db)?
+        };
         let tokenizer = self
             .tokenizers
-            .load_kitoken_tokenizer(tok_def.id, spec.owner)
+            .load_kitoken_tokenizer(spec.tokenizer_id, spec.owner)
             .await?;
 
         let captured;
         let trace = {
             let ctx = ResolveContext {
-                character: &character,
+                character: character.as_ref(),
                 messages: &thread,
                 user_id: spec.owner,
                 state: baseline,
                 lorebook_state: Mutex::new(None),
-                persona: &persona,
+                persona: persona.as_ref(),
                 tokenizer: &tokenizer,
             };
             let trace = assemble(&template, &self.resolvers, &ctx).await?;
@@ -475,12 +483,12 @@ impl ChatService {
         let trace = {
             let turns: Vec<PromptTurn> = thread.iter().map(PromptTurn::from_message).collect();
             let ctx = ResolveContext {
-                character: &character,
+                character: Some(&character),
                 messages: &turns,
                 user_id,
                 state: &baseline,
                 lorebook_state: Mutex::new(None),
-                persona: &persona,
+                persona: Some(&persona),
                 tokenizer: &tokenizer,
             };
             let trace = assemble(&template, &self.resolvers, &ctx).await?;
@@ -527,12 +535,11 @@ impl ChatService {
         tracing::info!("evaluating spec");
         Ok(AgentSpec {
             owner: user_id,
-            character_id: convo.character_id,
-            char_version_id: convo.char_version_id,
+            character: Some((convo.character_id, convo.char_version_id)),
             template_id: self.state.get_active_template_id(user_id).await?.ok_or(
                 ChatError::State(crate::errors::StateError::NoActiveTemplate),
             )?,
-            persona_id: self.state.get_active_persona(user_id).await?.id,
+            persona_id: Some(self.state.get_active_persona(user_id).await?.id),
             tokenizer_id: self.state.get_active_tokenizer_id(user_id).await?.ok_or(
                 ChatError::State(crate::errors::StateError::NoActiveTokenizer),
             )?,
@@ -591,7 +598,9 @@ impl ChatService {
 
         let cx = self.stage_cx(user_id, &convo).await?;
         let mut chain_tf = self.schedule.outbound(&mut prompt, &cx);
-        let token_stream = self.infer(&spec, prompt, Arc::clone(&state_pool)).await?;
+        let token_stream = self
+            .infer(&spec, prompt, Arc::clone(&state_pool), &ToolPolicy::default())
+            .await?;
 
         let conversations = self.conversations.clone();
         let state_service = self.state.clone();
@@ -740,6 +749,7 @@ impl ChatService {
         spec: &AgentSpec,
         prompt: Vec<super::PromptMessage>,
         state: Arc<StdMutex<StatePool>>,
+        policy: &ToolPolicy,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<InferEvent, ChatError>> + Send>>, ChatError> {
         let profile = self
             .connection
@@ -775,12 +785,23 @@ impl ChatService {
 
         let weaver_registry = Arc::new(build_tool_registry());
 
-        for row in self.tools.list_enabled(spec.owner).await? {
+        let rows = match &policy.tool_ids {
+            None => self.tools.list_enabled(spec.owner).await?,
+            Some(ids) => {
+                let mut rows = Vec::with_capacity(ids.len());
+                for id in ids {
+                    rows.push(self.tools.get_tool(*id, spec.owner).await?);
+                }
+                rows
+            }
+        };
+        for row in rows {
             let sig = ToolSignature::from(row.clone());
             match CompiledUserTool::build(
                 ToolSignature::from(row),
                 Arc::clone(&weaver_registry),
                 Arc::clone(&state),
+                policy.write_scopes.clone(),
             ) {
                 Ok(tool) => {
                     tracing::info!("Registering tool: {}", sig.name);
@@ -811,8 +832,9 @@ impl ChatService {
         spec: &AgentSpec,
         turns: &[PromptTurn],
         baseline: &ReconstructedState,
+        policy: &ToolPolicy,
         cancel: &CancellationToken,
-    ) -> Result<AgentOutcome, ChatError> {
+    ) -> Result<AgentTurn, ChatError> {
         let Prepared {
             prompt, captured, ..
         } = self.assemble_context(spec, turns, baseline).await?;
@@ -821,9 +843,14 @@ impl ChatService {
         if let Some(c) = &captured {
             apply_delta(&mut working, &c.persistent);
         }
+        // Diff against the post-assembly pool so the returned delta contains
+        // exactly what this turn's tools wrote.
+        let diff_base = working.clone();
         let state_pool = Arc::new(StdMutex::new(working));
 
-        let token_stream = self.infer(spec, prompt, state_pool).await?;
+        let token_stream = self
+            .infer(spec, prompt, Arc::clone(&state_pool), policy)
+            .await?;
 
         let mut acc = TurnAccumulator::default();
         futures_util::pin_mut!(token_stream);
@@ -832,17 +859,29 @@ impl ChatService {
                 biased;
                 _ = cancel.cancelled() => break,
                 next = token_stream.next() => {
-                    let Some(Ok(event)) = next else { break };
-                    match event {
-                        InferEvent::Text(d)      => acc.text(&d),
-                        InferEvent::Reasoning(d) => acc.reasoning(&d),
-                        InferEvent::Widget(w)    => { acc.widget(w); }
-                        InferEvent::ToolCall(r)  => acc.tool_call(r),
+                    match next {
+                        None => break,
+                        Some(Ok(event)) => match event {
+                            InferEvent::Text(d)      => acc.text(&d),
+                            InferEvent::Reasoning(d) => acc.reasoning(&d),
+                            InferEvent::Widget(w)    => { acc.widget(w); }
+                            InferEvent::ToolCall(r)  => acc.tool_call(r),
+                        },
+                        Some(Err(e)) => return Err(e),
                     }
                 }
             }
         }
-        Ok(acc.finish())
+
+        let delta = {
+            let pool = state_pool.lock().unwrap();
+            self.state.diff(&diff_base, &pool)
+        };
+
+        Ok(AgentTurn {
+            outcome: acc.finish(),
+            delta,
+        })
     }
 }
 
@@ -978,21 +1017,3 @@ where
     Ok(Box::pin(stream))
 }
 
-fn apply_delta(pool: &mut StatePool, d: &StateDelta) {
-    for (ns, vars) in &d.writes {
-        let t = pool.entry(ns.clone()).or_default();
-        for (n, v) in vars {
-            t.insert(n.clone(), v.clone());
-        }
-    }
-    for (ns, names) in &d.deletes {
-        if let Some(t) = pool.get_mut(ns) {
-            for n in names {
-                t.remove(n);
-            }
-            if t.is_empty() {
-                pool.remove(ns);
-            }
-        }
-    }
-}

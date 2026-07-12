@@ -6,7 +6,10 @@ use lorealm_storage::models::{
 use serde::Serialize;
 use tokio::sync::Mutex;
 
-use crate::services::{context::PromptRole, state::{CapturedState, ReconstructedState}};
+use crate::services::{
+    context::PromptRole,
+    state::{CapturedState, ReconstructedState},
+};
 
 #[derive(Debug, Clone, Serialize)]
 pub enum ContentRef {
@@ -74,12 +77,12 @@ pub enum OriginKind {
 }
 
 pub struct ResolveContext<'a> {
-    pub character: &'a Character,
+    pub character: Option<&'a Character>,
     pub messages: &'a [PromptTurn],
     pub user_id: Snowflake,
     pub state: &'a ReconstructedState,
     pub lorebook_state: Mutex<Option<CapturedState>>,
-    pub persona: &'a UserPersona,
+    pub persona: Option<&'a UserPersona>,
     pub tokenizer: &'a Arc<kitoken::Kitoken>,
 }
 
