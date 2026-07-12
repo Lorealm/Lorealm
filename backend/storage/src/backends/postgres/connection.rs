@@ -165,7 +165,10 @@ impl ConnectionStorage for PostgresStorage {
         Ok(ids)
     }
 
-    async fn get_active_profile(&self, user_id: Snowflake) -> Result<Option<Snowflake>, StorageError> {
+    async fn get_active_profile(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Option<Snowflake>, StorageError> {
         let id: Option<Snowflake> = sqlx::query_scalar(
             "SELECT active_connection_profile_id FROM user_settings WHERE user_id = $1",
         )

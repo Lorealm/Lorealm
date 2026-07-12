@@ -14,7 +14,9 @@ pub enum LorebookError {
 impl LorebookError {
     pub fn client_message(&self) -> String {
         match self {
-            LorebookError::NotOwned(_, lorebook_id) => format!("{lorebook_id} doesn't exist, or you don't have permission to access it."),
+            LorebookError::NotOwned(_, lorebook_id) => {
+                format!("{lorebook_id} doesn't exist, or you don't have permission to access it.")
+            }
             LorebookError::ContextWeaver(context_weaver_error) => context_weaver_error.to_string(),
             LorebookError::Yaml(error) => error.to_string(),
         }

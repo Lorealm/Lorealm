@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 
-use crate::{StorageError, models::{MessageState, Snowflake}};
+use crate::{
+    StorageError,
+    models::{MessageState, Snowflake},
+};
 
 #[async_trait]
 pub trait WeaverStateStorage: Send + Sync {

@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use lorealm_storage::models::Snowflake;
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
 pub struct LoginRequest {

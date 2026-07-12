@@ -183,7 +183,7 @@ pub async fn tick(
 pub async fn cancel_tick(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
-    Path(realm_id): Path<Snowflake>
+    Path(realm_id): Path<Snowflake>,
 ) -> Result<(), AppError> {
     state
         .services()

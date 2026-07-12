@@ -24,7 +24,7 @@ pub enum InferEvent {
     Text(String),
     Reasoning(String),
     Widget(WidgetInstance),
-    ToolCall(ToolCallRecord)
+    ToolCall(ToolCallRecord),
 }
 
 /// A widget the model attached to its reply. Streamed to the client as a

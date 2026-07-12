@@ -1,10 +1,10 @@
-use serde::{Deserialize, Serialize};
 use crate::util::double_option;
 use lorealm_storage::models::{Character, VersionedSaveMode};
+use serde::{Deserialize, Serialize};
 
-pub(super) struct EditableCharacter{
+pub(super) struct EditableCharacter {
     pub character: Character,
-    pub save_mode: VersionedSaveMode
+    pub save_mode: VersionedSaveMode,
 }
 
 /// Partial patch over `CharacterDefinition`'s scalar fields.
@@ -26,6 +26,10 @@ pub struct EditMetadata {
     pub card_version: Option<String>,
 
     /// Three-state: absent => leave; null => clear to None; "x" => Some("x").
-    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "double_option")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "double_option"
+    )]
     pub display_name: Option<Option<String>>,
 }

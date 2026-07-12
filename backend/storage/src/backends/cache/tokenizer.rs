@@ -71,7 +71,10 @@ impl TokenizerStorage for CachedStorage {
         self.backend.list_tokenizer_shares(tok_id).await
     }
 
-    async fn get_active_tokenizer(&self, user_id: Snowflake) -> Result<Option<Snowflake>, StorageError> {
+    async fn get_active_tokenizer(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Option<Snowflake>, StorageError> {
         self.backend.get_active_tokenizer(user_id).await
     }
     async fn set_active_tokenizer(

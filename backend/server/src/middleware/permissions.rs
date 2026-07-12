@@ -79,7 +79,5 @@ async fn resolve_server_permissions(
         .iter()
         .fold(Permissions::empty(), |acc, role| acc | role.permissions);
 
-    Ok(ResolvedPermissions {
-        permissions,
-    })
+    Ok(ResolvedPermissions { permissions })
 }

@@ -20,17 +20,14 @@ use crate::{
     services::{
         character::CharacterService,
         chat::{
-            AgentTurn, CancelGuard, ChatStreamEvent,
-            FullConversation, Persist, Prepared, PromptMessage, TurnAccumulator, TurnPlan,
-            widgets::{
-                InferEvent, ToolCallRecord, WidgetInstance, WidgetSink,
-                widget_registry,
-            },
+            AgentTurn, CancelGuard, ChatStreamEvent, FullConversation, Persist, Prepared,
+            PromptMessage, TurnAccumulator, TurnPlan,
+            widgets::{InferEvent, ToolCallRecord, WidgetInstance, WidgetSink, widget_registry},
         },
         connection::ConnectionService,
         context::{
-            PromptRole, PromptTurn, ResolveContext, ResolverRegistry, TracedBlock, assemble,
-            builtin::register_builtin_resolvers, ContextTemplate,
+            ContextTemplate, PromptRole, PromptTurn, ResolveContext, ResolverRegistry, TracedBlock,
+            assemble, builtin::register_builtin_resolvers,
         },
         conversation::{ConversationService, EditMode},
         persona::PersonaService,
@@ -38,7 +35,9 @@ use crate::{
         snowflake::SnowflakeService,
         state::{CapturedState, ReconstructedState, StatePool, StateService, apply_delta},
         tokenizer::TokenizerService,
-        tools::{CompiledUserTool, ToolPolicy, ToolSignature, UserToolService, build_tool_registry},
+        tools::{
+            CompiledUserTool, ToolPolicy, ToolSignature, UserToolService, build_tool_registry,
+        },
     },
 };
 
@@ -599,7 +598,12 @@ impl ChatService {
         let cx = self.stage_cx(user_id, &convo).await?;
         let mut chain_tf = self.schedule.outbound(&mut prompt, &cx);
         let token_stream = self
-            .infer(&spec, prompt, Arc::clone(&state_pool), &ToolPolicy::default())
+            .infer(
+                &spec,
+                prompt,
+                Arc::clone(&state_pool),
+                &ToolPolicy::default(),
+            )
             .await?;
 
         let conversations = self.conversations.clone();
@@ -818,7 +822,10 @@ impl ChatService {
                     serde_json::from_value(connection.profile.provider_params.clone())
                         .map_err(|e| ChatError::Connection(format!("bad provider params: {e}")))?;
                 let provider = OpenRouterProvider::new(http_client, api_key.as_str(), model)
-                    .with_request_modifier(|b| b.header("X-OpenRouter-Title", "Lorealm"));
+                    .with_request_modifier(|b| {
+                        b.header("X-OpenRouter-Title", "Lorealm")
+                            .header("HTTP-Referer", "https://github.com/Lorealm/Lorealm")
+                    });
                 run_inference(provider, messages, common, pp, registry, widget_sink).await
             }
             other => Err(ChatError::Connection(format!(
@@ -1016,4 +1023,3 @@ where
 
     Ok(Box::pin(stream))
 }
-

@@ -50,7 +50,10 @@ pub trait ConnectionStorage: Send + Sync {
         secret_id: Snowflake,
     ) -> Result<Vec<Snowflake>, StorageError>;
 
-    async fn get_active_profile(&self, user_id: Snowflake) -> Result<Option<Snowflake>, StorageError>;
+    async fn get_active_profile(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Option<Snowflake>, StorageError>;
     async fn set_active_profile(
         &self,
         user_id: Snowflake,

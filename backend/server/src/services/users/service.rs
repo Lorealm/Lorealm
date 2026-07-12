@@ -80,7 +80,9 @@ impl UserService {
         password: String,
     ) -> Result<User, AuthError> {
         let pw_length = password.len();
-        if pw_length < self.config.password_length.min || pw_length > self.config.password_length.max {
+        if pw_length < self.config.password_length.min
+            || pw_length > self.config.password_length.max
+        {
             return Err(AuthError::MalformedCredentials);
         }
 

@@ -8,11 +8,11 @@ pub struct Tokenizer {
     pub name: String,
     pub blob_uri: String,
     pub owner_id: Snowflake,
-    pub is_public: bool
+    pub is_public: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct TokenizerShare {
     pub tok_id: Snowflake,
-    pub user_id: Snowflake
+    pub user_id: Snowflake,
 }

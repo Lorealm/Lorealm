@@ -24,7 +24,7 @@ impl FsBlobStore {
         let root = data_directory.into();
         let blobs_dir = root.join("blobs");
         let tmp_dir = root.join("tmp");
-        
+
         if !tokio::fs::try_exists(&blobs_dir).await? || !tokio::fs::try_exists(&tmp_dir).await? {
             tracing::info!("Scaffolding data directories");
             tokio::fs::create_dir_all(&blobs_dir).await?;
@@ -37,7 +37,7 @@ impl FsBlobStore {
         }
 
         tracing::info!("Blob storage successfully initialized");
-        
+
         Ok(Self { blobs_dir, tmp_dir })
     }
 

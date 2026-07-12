@@ -19,7 +19,9 @@ pub enum UserToolError {
 impl UserToolError {
     pub fn client_message(&self) -> String {
         match self {
-            UserToolError::NotFound(target_type, snowflake) => format!("{target_type} not found: {snowflake}"),
+            UserToolError::NotFound(target_type, snowflake) => {
+                format!("{target_type} not found: {snowflake}")
+            }
             UserToolError::NotOwned => "you don't own this resource".to_string(),
             UserToolError::InvalidName(msg) => format!("failed to validate tool name: {msg}"),
             UserToolError::InvalidBody(msg) => format!("failed to validate tool body: {msg}"),

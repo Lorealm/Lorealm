@@ -8,5 +8,5 @@ pub struct AvatarUpdateResponse {
 
 #[derive(Deserialize)]
 pub(super) struct SetActiveRequest {
-    pub id: Snowflake
+    pub id: Snowflake,
 }

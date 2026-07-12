@@ -7,5 +7,5 @@ pub use service::TokenizerService;
 #[serde(tag = "type")]
 enum CreateTokenizer {
     Import(Vec<u8>),
-    Network(String)
+    Network(String),
 }

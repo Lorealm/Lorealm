@@ -477,7 +477,7 @@ mod tests {
 
         assert_eq!(edited.id, b.id);
         assert_eq!(edited.content, "B-edited");
-        
+
         assert_eq!(active_leaf(&_store, c).await, Some(leaf.id));
         assert_eq!(
             contents(&s.active_thread(c).await.unwrap()),

@@ -13,7 +13,11 @@ impl<'a> EncryptionService<'a> {
     }
 
     /// Encrypt an API key
-    pub async fn encrypt_api_key(&self, api_key: &str, binding: &[u8]) -> Result<EncryptedData, EncryptionError> {
+    pub async fn encrypt_api_key(
+        &self,
+        api_key: &str,
+        binding: &[u8],
+    ) -> Result<EncryptedData, EncryptionError> {
         api_key
             .to_string()
             .encrypt(self.key_manager, EncryptionContext::ApiKey, binding)
@@ -21,12 +25,20 @@ impl<'a> EncryptionService<'a> {
     }
 
     /// Encrypt file data
-    pub async fn encrypt_file(&self, data: Vec<u8>, binding: &[u8]) -> Result<EncryptedData, EncryptionError> {
+    pub async fn encrypt_file(
+        &self,
+        data: Vec<u8>,
+        binding: &[u8],
+    ) -> Result<EncryptedData, EncryptionError> {
         data.encrypt(self.key_manager, EncryptionContext::FileData, binding)
             .await
     }
 
-    pub async fn encrypt_session_token(&self, token: &str, binding: &[u8]) -> Result<EncryptedData, EncryptionError> {
+    pub async fn encrypt_session_token(
+        &self,
+        token: &str,
+        binding: &[u8],
+    ) -> Result<EncryptedData, EncryptionError> {
         token
             .to_string()
             .encrypt(self.key_manager, EncryptionContext::SessionData, binding)
@@ -38,16 +50,18 @@ impl<'a> EncryptionService<'a> {
         &self,
         data: &str,
         context: EncryptionContext,
-        binding: &[u8]
+        binding: &[u8],
     ) -> Result<EncryptedData, EncryptionError> {
-        data.to_string().encrypt(self.key_manager, context, binding).await
+        data.to_string()
+            .encrypt(self.key_manager, context, binding)
+            .await
     }
 
     /// Decrypt any encrypted data (context is embedded)
     pub async fn decrypt_string(
         &self,
         encrypted: &EncryptedData,
-        binding: &[u8]
+        binding: &[u8],
     ) -> Result<String, EncryptionError> {
         String::decrypt(encrypted, self.key_manager, binding).await
     }
@@ -56,7 +70,7 @@ impl<'a> EncryptionService<'a> {
     pub async fn decrypt_bytes(
         &self,
         encrypted: &EncryptedData,
-        binding: &[u8]
+        binding: &[u8],
     ) -> Result<Vec<u8>, EncryptionError> {
         Vec::<u8>::decrypt(encrypted, self.key_manager, binding).await
     }

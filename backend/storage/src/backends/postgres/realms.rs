@@ -16,7 +16,7 @@ impl RealmStorage for PostgresStorage {
             r#"
             SELECT id, owner_id, name, status
             FROM realms WHERE owner_id = $1
-            "#
+            "#,
         )
         .bind(user_id)
         .fetch_all(&self.pool)
@@ -24,7 +24,7 @@ impl RealmStorage for PostgresStorage {
 
         Ok(summaries)
     }
-    
+
     async fn get_realm(&self, id: Snowflake) -> Result<Option<Realm>, StorageError> {
         Ok(sqlx::query_as::<_, Realm>(
             "SELECT id, owner_id, name, tick, state, tokenizer_id, status
@@ -76,7 +76,10 @@ impl RealmStorage for PostgresStorage {
         .await?)
     }
 
-    async fn get_realm_agent(&self, agent_id: Snowflake) -> Result<Option<RealmAgent>, StorageError> {
+    async fn get_realm_agent(
+        &self,
+        agent_id: Snowflake,
+    ) -> Result<Option<RealmAgent>, StorageError> {
         Ok(sqlx::query_as::<_, RealmAgent>(
             "SELECT id, realm_id, name, kind, character_id, char_version_id,
                     template_id, profile_id, user_id, persona_id, turn_order,

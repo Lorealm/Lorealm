@@ -24,9 +24,9 @@ pub struct UpdateNode {
 
 pub struct MoveNode {
     pub new_parent_path: Option<NodePath>,
-    pub new_index: usize
+    pub new_index: usize,
 }
 
 pub struct MovedNode {
-    pub new_path: NodePath
+    pub new_path: NodePath,
 }

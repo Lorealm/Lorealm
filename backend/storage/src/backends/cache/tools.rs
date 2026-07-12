@@ -1,6 +1,10 @@
 use async_trait::async_trait;
 
-use crate::{StorageError, UserToolStorage, backends::CachedStorage, models::{Snowflake, UserTool}};
+use crate::{
+    StorageError, UserToolStorage,
+    backends::CachedStorage,
+    models::{Snowflake, UserTool},
+};
 
 #[async_trait]
 impl UserToolStorage for CachedStorage {
@@ -8,10 +12,7 @@ impl UserToolStorage for CachedStorage {
         self.backend.list_tools(user_id).await
     }
 
-    async fn list_enabled_tools(
-        &self,
-        user_id: Snowflake,
-    ) -> Result<Vec<UserTool>, StorageError> {
+    async fn list_enabled_tools(&self, user_id: Snowflake) -> Result<Vec<UserTool>, StorageError> {
         self.backend.list_enabled_tools(user_id).await
     }
 

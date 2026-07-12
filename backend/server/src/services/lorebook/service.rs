@@ -8,10 +8,12 @@ use lorealm_storage::{
 };
 
 use crate::{
-    core::CleanableService, errors::{ContextError, ContextType, LorebookError}, services::{
+    core::CleanableService,
+    errors::{ContextError, ContextType, LorebookError},
+    services::{
         lorebook::{CreateLorebook, UpdateLorebook},
         snowflake::SnowflakeService,
-    }
+    },
 };
 
 const DEFAULT_ENTRY_ID: &str = "new_entry";

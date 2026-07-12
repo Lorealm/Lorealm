@@ -208,7 +208,7 @@ impl ContextService {
     }
 
     /// Toggles a node while respecting the [`GroupMode`] of its parent
-    /// 
+    ///
     /// # Returns:
     /// A HashMap containing each modified entry along with it's new state
     pub async fn toggle_node(

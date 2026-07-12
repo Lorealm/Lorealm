@@ -1,6 +1,10 @@
 use async_trait::async_trait;
 
-use crate::{StorageError, UserToolStorage, backends::MemoryStorage, models::{Snowflake, UserTool}};
+use crate::{
+    StorageError, UserToolStorage,
+    backends::MemoryStorage,
+    models::{Snowflake, UserTool},
+};
 
 #[async_trait]
 impl UserToolStorage for MemoryStorage {
@@ -17,10 +21,7 @@ impl UserToolStorage for MemoryStorage {
         Ok(out)
     }
 
-    async fn list_enabled_tools(
-        &self,
-        user_id: Snowflake,
-    ) -> Result<Vec<UserTool>, StorageError> {
+    async fn list_enabled_tools(&self, user_id: Snowflake) -> Result<Vec<UserTool>, StorageError> {
         let mut out: Vec<UserTool> = self
             .user_tools
             .read()

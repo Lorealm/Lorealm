@@ -19,12 +19,12 @@ pub struct UpdateLorebookRequest {
 
 #[derive(Deserialize)]
 pub struct UpdateEntryRequest {
-    pub source: String
+    pub source: String,
 }
 
 #[derive(Deserialize)]
 pub struct SetActiveLorebooksRequest {
-    pub ids: Vec<Snowflake>
+    pub ids: Vec<Snowflake>,
 }
 
 impl Into<CreateLorebook> for CreateLorebookRequest {

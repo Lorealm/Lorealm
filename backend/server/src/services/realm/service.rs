@@ -490,7 +490,6 @@ impl RealmService {
                 json!({ "tool": call.name, "input": call.input }),
             ));
 
-
             // TODO: remove hard-coded formatting
             actor_notes.push(format!("[{} result: {}]", call.name, call.output));
         }

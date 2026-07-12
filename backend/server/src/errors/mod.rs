@@ -384,10 +384,12 @@ impl From<RealmError> for AppError {
                     message: Cow::Owned(err.client_message()),
                 }
             }
-            RealmError::MalformedAgent(_, _) | RealmError::InvalidAgent(_) => AppError::BadRequest {
-                code: "INVALID_REALM_AGENT",
-                message: Cow::Owned(err.client_message()),
-            },
+            RealmError::MalformedAgent(_, _) | RealmError::InvalidAgent(_) => {
+                AppError::BadRequest {
+                    code: "INVALID_REALM_AGENT",
+                    message: Cow::Owned(err.client_message()),
+                }
+            }
             RealmError::NotFound(_, _) | RealmError::NotOwned(_, _) => AppError::BadRequest {
                 code: "INVALID_RESOURCE",
                 message: Cow::Owned(err.client_message()),

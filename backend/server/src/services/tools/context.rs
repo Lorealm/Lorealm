@@ -119,21 +119,36 @@ mod tests {
     #[test]
     fn unrestricted_writes_anywhere() {
         let mut c = ctx(None);
-        assert!(c.set_variable("nation.a", "gold", WeaverValue::None).is_ok());
+        assert!(
+            c.set_variable("nation.a", "gold", WeaverValue::None)
+                .is_ok()
+        );
     }
 
     #[test]
     fn write_scope_enforced() {
         let mut c = ctx(Some(vec!["nation.a", "market.*"]));
-        assert!(c.set_variable("nation.a", "gold", WeaverValue::None).is_ok());
-        assert!(c.set_variable("market.ore", "price", WeaverValue::None).is_ok());
-        assert!(c.set_variable("nation.b", "gold", WeaverValue::None).is_err());
+        assert!(
+            c.set_variable("nation.a", "gold", WeaverValue::None)
+                .is_ok()
+        );
+        assert!(
+            c.set_variable("market.ore", "price", WeaverValue::None)
+                .is_ok()
+        );
+        assert!(
+            c.set_variable("nation.b", "gold", WeaverValue::None)
+                .is_err()
+        );
     }
 
     #[test]
     fn local_scope_bypasses_grants() {
         let mut c = ctx(Some(vec![]));
-        assert!(c.set_variable("local", "scratch", WeaverValue::None).is_ok());
+        assert!(
+            c.set_variable("local", "scratch", WeaverValue::None)
+                .is_ok()
+        );
         assert!(c.set_variable("anything", "x", WeaverValue::None).is_err());
     }
 }
