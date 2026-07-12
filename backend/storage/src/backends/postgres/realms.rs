@@ -3,11 +3,28 @@ use async_trait::async_trait;
 use crate::{
     RealmStorage, StorageError,
     backends::PostgresStorage,
-    models::{AgentGrant, AgentObservation, Realm, RealmAgent, Snowflake, TickCommit},
+    models::{
+        AgentGrant, AgentObservation, AgentToolBinding, Realm, RealmAgent, RealmEvent,
+        RealmSummary, Snowflake, TickCommit,
+    },
 };
 
 #[async_trait]
 impl RealmStorage for PostgresStorage {
+    async fn list_realms(&self, user_id: Snowflake) -> Result<Vec<RealmSummary>, StorageError> {
+        let summaries = sqlx::query_as::<_, RealmSummary>(
+            r#"
+            SELECT id, owner_id, name, status
+            FROM realms WHERE owner_id = $1
+            "#
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(summaries)
+    }
+    
     async fn get_realm(&self, id: Snowflake) -> Result<Option<Realm>, StorageError> {
         Ok(sqlx::query_as::<_, Realm>(
             "SELECT id, owner_id, name, tick, state, tokenizer_id, status
@@ -35,6 +52,14 @@ impl RealmStorage for PostgresStorage {
         Ok(())
     }
 
+    async fn delete_realm(&self, id: Snowflake) -> Result<(), StorageError> {
+        sqlx::query("DELETE FROM realms WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
     async fn list_realm_agents(
         &self,
         realm_id: Snowflake,
@@ -48,6 +73,18 @@ impl RealmStorage for PostgresStorage {
         )
         .bind(realm_id)
         .fetch_all(&self.pool)
+        .await?)
+    }
+
+    async fn get_realm_agent(&self, agent_id: Snowflake) -> Result<Option<RealmAgent>, StorageError> {
+        Ok(sqlx::query_as::<_, RealmAgent>(
+            "SELECT id, realm_id, name, kind, character_id, char_version_id,
+                    template_id, profile_id, user_id, persona_id, turn_order,
+                    extensions, created_at, updated_at
+             FROM realm_agents WHERE id = $1",
+        )
+        .bind(agent_id)
+        .fetch_optional(&self.pool)
         .await?)
     }
 
@@ -108,6 +145,64 @@ impl RealmStorage for PostgresStorage {
         }
         tx.commit().await?;
         Ok(())
+    }
+
+    async fn list_agent_tools(
+        &self,
+        agent_id: Snowflake,
+    ) -> Result<Vec<AgentToolBinding>, StorageError> {
+        Ok(sqlx::query_as::<_, AgentToolBinding>(
+            "SELECT tool_id, event_scope FROM agent_tools WHERE agent_id = $1 ORDER BY tool_id",
+        )
+        .bind(agent_id)
+        .fetch_all(&self.pool)
+        .await?)
+    }
+
+    async fn set_agent_tools(
+        &self,
+        agent_id: Snowflake,
+        bindings: &[AgentToolBinding],
+    ) -> Result<(), StorageError> {
+        let mut tx = self.pool.begin().await?;
+        sqlx::query("DELETE FROM agent_tools WHERE agent_id = $1")
+            .bind(agent_id)
+            .execute(&mut *tx)
+            .await?;
+        for b in bindings {
+            sqlx::query(
+                "INSERT INTO agent_tools (agent_id, tool_id, event_scope) VALUES ($1, $2, $3)",
+            )
+            .bind(agent_id)
+            .bind(b.tool_id)
+            .bind(&b.event_scope)
+            .execute(&mut *tx)
+            .await?;
+        }
+        tx.commit().await?;
+        Ok(())
+    }
+
+    async fn list_realm_events(
+        &self,
+        realm_id: Snowflake,
+        before_tick: Option<i64>,
+        limit: i64,
+    ) -> Result<Vec<RealmEvent>, StorageError> {
+        let mut rows = sqlx::query_as::<_, RealmEvent>(
+            "SELECT id, realm_id, tick, seq, source, scope, kind, content, payload
+             FROM realm_events
+             WHERE realm_id = $1 AND ($2::BIGINT IS NULL OR tick < $2)
+             ORDER BY tick DESC, seq DESC
+             LIMIT $3",
+        )
+        .bind(realm_id)
+        .bind(before_tick)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.reverse();
+        Ok(rows)
     }
 
     async fn list_observations(

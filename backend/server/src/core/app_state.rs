@@ -53,10 +53,6 @@ impl AppState {
             .expect("service manager should be available. has it been initialized?")
     }
 
-    pub(crate) fn is_ready(&self) -> bool {
-        self.service_manager.get().is_some()
-    }
-
     pub(crate) fn config(&self) -> &Arc<ConfigProvider> {
         &self.config_provider
     }

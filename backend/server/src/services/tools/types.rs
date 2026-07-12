@@ -4,13 +4,23 @@ use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use lorealm_providers::Error as ProviderError;
 use lorealm_providers::{Tool, ToolDef};
-use lorealm_storage::models::Param;
+use lorealm_storage::models::{Param, ScopePattern, Snowflake};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use weaver_lang::{CompiledTemplate, Registry, Value as WeaverValue};
 
 use crate::services::tools::{ToolContext, ToolStatePool};
 use crate::util::weaver::json_to_weaver;
+
+/// Constraints on what a turn's tools may see and do. The plain chat flow is
+/// unrestricted; realm agents get their grant-derived write scopes and their
+/// bound tool set.
+#[derive(Default)]
+pub struct ToolPolicy {
+    pub write_scopes: Option<Arc<Vec<ScopePattern>>>,
+    /// `None` = the owner's enabled tools; `Some` = exactly these tool ids.
+    pub tool_ids: Option<Vec<Snowflake>>,
+}
 
 #[derive(Deserialize)]
 pub struct CreateUserTool {
@@ -43,6 +53,7 @@ pub struct CompiledUserTool {
     body: CompiledTemplate,
     registry: Arc<Registry>,
     state: Arc<Mutex<ToolStatePool>>,
+    write_scopes: Option<Arc<Vec<ScopePattern>>>,
 }
 
 impl From<lorealm_storage::models::UserTool> for ToolSignature {
@@ -61,6 +72,7 @@ impl CompiledUserTool {
         sig: ToolSignature,
         registry: Arc<Registry>,
         state: Arc<Mutex<ToolStatePool>>,
+        write_scopes: Option<Arc<Vec<ScopePattern>>>,
     ) -> Result<Self, ProviderError> {
         let body = CompiledTemplate::compile(&sig.body).map_err(|e| {
             ProviderError::Tool(format!("'{}' body failed to compile: {e:?}", sig.name))
@@ -70,6 +82,7 @@ impl CompiledUserTool {
             body,
             registry,
             state,
+            write_scopes,
         })
     }
 }
@@ -99,17 +112,14 @@ impl Tool for CompiledUserTool {
                         p.name
                     )));
                 }
-                // Changed from your `None => {}`: insert None so an absent optional
-                // resolves to a value instead of an "undefined variable" error under
-                // strict eval — `{# if {{cmd:x}} #}` guards now work. Drop this line
-                // (and run eval lenient) if you'd rather absent vars render as raw syntax.
                 None => {
                     cmd.insert(p.name.clone(), WeaverValue::None);
                 }
             }
         }
 
-        let mut ctx = ToolContext::new(cmd, Arc::clone(&self.state));
+        let mut ctx = ToolContext::new(cmd, Arc::clone(&self.state))
+            .with_write_scopes(self.write_scopes.clone());
         let out = self
             .body
             .evaluate(&mut ctx, &self.registry)

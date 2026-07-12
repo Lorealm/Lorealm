@@ -142,23 +142,24 @@ fn resolve_nodes<'a>(
 }
 
 fn apply_variables(content: &mut String, ctx: &ResolveContext) {
-    let character_name = ctx
-        .character
-        .metadata
-        .display_name
-        .clone()
-        .unwrap_or(ctx.character.definition.name.clone());
+    let replace = BulkReplace::new(content.clone());
 
-    let user_name = ctx
-        .persona
-        .display_name
-        .clone()
-        .unwrap_or(ctx.persona.name.clone());
+    if let Some(ch) = ctx.character {
+        let name = ch
+            .metadata
+            .display_name
+            .clone()
+            .unwrap_or_else(|| ch.definition.name.clone());
 
-    *content = BulkReplace::new(content.clone())
-        .register("{{char:name}}", character_name)
-        .register("{{user:name}}", user_name)
-        .execute();
+        replace.register("{{char:name}}", name);
+    }
+
+    if let Some(p) = ctx.persona {
+        let name = p.display_name.clone().unwrap_or_else(|| p.name.clone());
+        replace.register("{{user:name}}", name);
+    }
+
+    *content = replace.execute();
 }
 
 fn wrapper_block(

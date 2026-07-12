@@ -1,14 +1,21 @@
-use std::sync::Arc;
+use std::{
+    pin::Pin,
+    sync::{Arc, Mutex as StdMutex},
+};
 
 use dashmap::DashMap;
-use lorealm_storage::models::{Conversation, ConversationMessage, Snowflake};
+use futures_util::Stream;
+use lorealm_storage::models::{Conversation, ConversationMessage, Snowflake, StateDelta};
 use serde::Serialize;
 use tokio_util::sync::CancellationToken;
 
-use crate::services::{
-    chat::widgets::{ToolCallRecord, WidgetInstance, widget_marker},
-    context::{PromptRole, TracedBlock},
-    state::{CapturedState, StatePool},
+use crate::{
+    errors::ChatError,
+    services::{
+        chat::widgets::{InferEvent, ToolCallRecord, WidgetInstance, widget_marker},
+        context::{PromptRole, TracedBlock},
+        state::{CapturedState, StatePool, StateService},
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -116,6 +123,29 @@ pub struct AgentOutcome {
     pub reasoning: String,
     pub widgets: Vec<WidgetInstance>,
     pub tool_calls: Vec<ToolCallRecord>,
+}
+
+/// A completed agent turn: what the agent said/did, plus the state writes its
+/// tools produced (already write-scope-enforced at the tool layer).
+pub struct AgentTurn {
+    pub outcome: AgentOutcome,
+    pub delta: StateDelta,
+}
+
+/// An agent turn with the inference stream still live, for callers that
+/// forward events to a client while accumulating. Exhaust (or abandon) the
+/// stream, then call [`Self::delta`] for what the turn's tools wrote.
+pub struct OpenAgentTurn {
+    pub stream: Pin<Box<dyn Stream<Item = Result<InferEvent, ChatError>> + Send>>,
+    pub(super) state_pool: Arc<StdMutex<StatePool>>,
+    pub(super) diff_base: StatePool,
+}
+
+impl OpenAgentTurn {
+    pub fn delta(&self, state: &StateService) -> StateDelta {
+        let pool = self.state_pool.lock().unwrap();
+        state.diff(&self.diff_base, &pool)
+    }
 }
 
 pub struct Agent {
