@@ -4,8 +4,8 @@ use crate::{
     RealmStorage, StorageError,
     backends::MemoryStorage,
     models::{
-        AgentGrant, AgentObservation, AgentToolBinding, Realm, RealmAgent, RealmEvent,
-        RealmSummary, RealmTick, Snowflake, TickCommit,
+        AgentGrant, AgentObservation, AgentToolBinding, Realm, RealmAgent, RealmCast, RealmEvent,
+        RealmSummary, Snowflake, TurnCommit,
     },
 };
 
@@ -37,6 +37,15 @@ impl RealmStorage for MemoryStorage {
         Ok(())
     }
 
+    async fn update_realm(&self, realm: &Realm) -> Result<(), StorageError> {
+        let mut realms = self.realms.write().await;
+        let row = realms
+            .get_mut(&realm.id)
+            .ok_or(StorageError::NotFound(format!("realm: {}", realm.id)))?;
+        *row = realm.clone();
+        Ok(())
+    }
+
     async fn delete_realm(&self, id: Snowflake) -> Result<(), StorageError> {
         self.realms.write().await.remove(&id);
 
@@ -59,15 +68,13 @@ impl RealmStorage for MemoryStorage {
                 tools.remove(agent_id);
             }
         }
-        self.realm_ticks.write().await.retain(|t| t.realm_id != id);
-        self.realm_events
+
+        self.conversations
             .write()
             .await
-            .retain(|_, e| e.realm_id != id);
-        self.agent_observations
-            .write()
-            .await
-            .retain(|_, o| !agent_ids.contains(&o.agent_id));
+            .values_mut()
+            .filter(|c| c.realm_id == Some(id))
+            .for_each(|c| c.realm_id = None);
 
         Ok(())
     }
@@ -106,6 +113,23 @@ impl RealmStorage for MemoryStorage {
             .insert(agent.id, agent.clone());
         Ok(())
     }
+
+    async fn update_realm_agent(&self, agent: &RealmAgent) -> Result<(), StorageError> {
+        let mut agents = self.realm_agents.write().await;
+        let row = agents
+            .get_mut(&agent.id)
+            .ok_or(StorageError::NotFound(format!("realm agent: {}", agent.id)))?;
+        *row = agent.clone();
+        Ok(())
+    }
+
+    async fn delete_realm_agent(&self, agent_id: Snowflake) -> Result<(), StorageError> {
+        self.realm_agents.write().await.remove(&agent_id);
+        self.agent_grants.write().await.remove(&agent_id);
+        self.agent_tools.write().await.remove(&agent_id);
+        Ok(())
+    }
+
     async fn list_agent_grants(
         &self,
         agent_id: Snowflake,
@@ -152,19 +176,43 @@ impl RealmStorage for MemoryStorage {
         Ok(())
     }
 
+    async fn get_cast(
+        &self,
+        conversation_id: Snowflake,
+    ) -> Result<Option<RealmCast>, StorageError> {
+        Ok(self
+            .conversation_casts
+            .read()
+            .await
+            .get(&conversation_id)
+            .cloned())
+    }
+
+    async fn put_cast(
+        &self,
+        conversation_id: Snowflake,
+        cast: &RealmCast,
+    ) -> Result<(), StorageError> {
+        self.conversation_casts
+            .write()
+            .await
+            .insert(conversation_id, cast.clone());
+        Ok(())
+    }
+
     async fn list_realm_events(
         &self,
-        realm_id: Snowflake,
-        before_tick: Option<i64>,
+        conversation_id: Snowflake,
+        before: Option<Snowflake>,
         limit: i64,
     ) -> Result<Vec<RealmEvent>, StorageError> {
         let events = self.realm_events.read().await;
         let mut rows: Vec<RealmEvent> = events
             .values()
-            .filter(|e| e.realm_id == realm_id && before_tick.is_none_or(|b| e.tick < b))
+            .filter(|e| e.conversation_id == conversation_id && before.is_none_or(|b| e.id < b))
             .cloned()
             .collect();
-        rows.sort_by_key(|e| (e.tick, e.seq));
+        rows.sort_by_key(|e| e.id);
         if rows.len() > limit as usize {
             rows.drain(..rows.len() - limit as usize); // keep the most recent `limit`, oldest-first
         }
@@ -173,6 +221,7 @@ impl RealmStorage for MemoryStorage {
 
     async fn list_observations(
         &self,
+        conversation_id: Snowflake,
         agent_id: Snowflake,
         before: Option<Snowflake>,
         limit: i64,
@@ -180,7 +229,11 @@ impl RealmStorage for MemoryStorage {
         let obs = self.agent_observations.read().await;
         let mut rows: Vec<AgentObservation> = obs
             .values()
-            .filter(|o| o.agent_id == agent_id && before.is_none_or(|b| o.id < b))
+            .filter(|o| {
+                o.conversation_id == conversation_id
+                    && o.agent_id == agent_id
+                    && before.is_none_or(|b| o.id < b)
+            })
             .cloned()
             .collect();
         rows.sort_by_key(|o| o.id);
@@ -190,29 +243,22 @@ impl RealmStorage for MemoryStorage {
         Ok(rows)
     }
 
-    async fn commit_tick(&self, commit: TickCommit) -> Result<(), StorageError> {
-        let mut realms = self.realms.write().await;
-        let realm = realms
-            .get_mut(&commit.realm_id)
-            .ok_or(StorageError::NotFound(format!(
-                "realm tick: {} ({})",
-                commit.expected_tick, commit.realm_id
-            )))?;
+    async fn list_observations_for_messages(
+        &self,
+        agent_id: Snowflake,
+        message_ids: &[Snowflake],
+    ) -> Result<Vec<AgentObservation>, StorageError> {
+        let obs = self.agent_observations.read().await;
+        let mut rows: Vec<AgentObservation> = obs
+            .values()
+            .filter(|o| o.agent_id == agent_id && message_ids.contains(&o.message_id))
+            .cloned()
+            .collect();
+        rows.sort_by_key(|o| o.id);
+        Ok(rows)
+    }
 
-        if realm.tick != commit.expected_tick {
-            return Err(StorageError::TickConflict(commit.realm_id));
-        }
-
-        realm.state = commit.new_state;
-        realm.tick += 1;
-
-        self.realm_ticks.write().await.push(RealmTick {
-            realm_id: commit.realm_id,
-            tick: commit.expected_tick,
-            agent_id: commit.agent_id,
-            delta: commit.delta,
-            snapshot: commit.snapshot,
-        });
+    async fn commit_turn(&self, commit: TurnCommit) -> Result<(), StorageError> {
         let mut events = self.realm_events.write().await;
         for e in commit.events {
             events.insert(e.id, e);

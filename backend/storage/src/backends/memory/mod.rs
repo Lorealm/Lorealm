@@ -48,7 +48,7 @@ pub struct MemoryStorage {
     pub(crate) realm_agents: RwLock<HashMap<Snowflake, RealmAgent>>,
     pub(crate) agent_grants: RwLock<HashMap<Snowflake, Vec<AgentGrant>>>,
     pub(crate) agent_tools: RwLock<HashMap<Snowflake, Vec<AgentToolBinding>>>,
-    pub(crate) realm_ticks: RwLock<Vec<RealmTick>>,
+    pub(crate) conversation_casts: RwLock<HashMap<Snowflake, RealmCast>>,
     pub(crate) realm_events: RwLock<HashMap<Snowflake, RealmEvent>>,
     pub(crate) agent_observations: RwLock<HashMap<Snowflake, AgentObservation>>,
 }

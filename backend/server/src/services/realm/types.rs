@@ -1,20 +1,23 @@
-use lorealm_storage::models::{Param, Realm, RealmAgent, RealmEvent, Snowflake};
+use lorealm_storage::models::{CastAgent, ConversationMessage, Param, RealmEvent, Snowflake};
 use serde::Serialize;
 
 use crate::services::chat::WidgetInstance;
 
+/// Picks whose turn it is. `turn_index` is the position along the active
+/// message path — one committed message per turn, so swipes/branches derive
+/// their own turn order from their own path.
 pub trait TurnPolicy: Send + Sync {
-    fn next<'a>(&self, realm: &Realm, agents: &'a [RealmAgent]) -> Option<&'a RealmAgent>;
+    fn next<'a>(&self, turn_index: usize, agents: &'a [CastAgent]) -> Option<&'a CastAgent>;
 }
 
 pub struct RoundRobin;
 
 impl TurnPolicy for RoundRobin {
-    fn next<'a>(&self, realm: &Realm, agents: &'a [RealmAgent]) -> Option<&'a RealmAgent> {
+    fn next<'a>(&self, turn_index: usize, agents: &'a [CastAgent]) -> Option<&'a CastAgent> {
         if agents.is_empty() {
             return None;
         }
-        agents.get((realm.tick % agents.len() as i64) as usize)
+        agents.get(turn_index % agents.len())
     }
 }
 
@@ -29,30 +32,39 @@ pub struct ActionSpec {
     pub event_scope: Option<String>,
 }
 
-pub enum TickResult {
-    /// An LLM agent acted and the tick committed.
-    Committed { tick: i64, events: Vec<RealmEvent> },
-    /// The policy selected a player; nothing committed. The client should
-    /// prompt that user and call submit_player_turn (`/api/v1/realms/{realm_id}/turn`).
-    AwaitingPlayer { agent_id: Snowflake },
+/// A committed turn: the message it anchored to and what fanned out of it.
+#[derive(Serialize)]
+pub struct TurnResult {
+    pub message: ConversationMessage,
+    pub events: Vec<RealmEvent>,
 }
 
-/// What a client watching a live tick receives over SSE.
+/// What a client watching a live turn receives over SSE.
 #[derive(Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum RealmStreamEvent {
-    /// The policy picked a player; nothing will stream. Prompt that user and
-    /// call submit_player_turn.
-    AwaitingPlayer { agent_id: Snowflake },
-    /// An LLM agent's turn began.
-    TurnStarted { agent_id: Snowflake, name: String },
-    /// A chunk of the agent's spoken text.
-    Delta { content: String },
-    Reasoning { content: String },
-    Widget { widget: WidgetInstance },
-    /// A tool ran. Deliberately thin: inputs/results stay actor-private;
-    /// the committed events carry whatever the realm may see.
-    Action { name: String, is_error: bool },
-    /// Terminal: the tick committed with these events.
-    Committed { tick: i64, events: Vec<RealmEvent> },
+    AwaitingPlayer {
+        agent_id: Snowflake,
+    },
+    TurnStarted {
+        agent_id: Snowflake,
+        name: String,
+    },
+    Delta {
+        content: String,
+    },
+    Reasoning {
+        content: String,
+    },
+    Widget {
+        widget: WidgetInstance,
+    },
+    Action {
+        name: String,
+        is_error: bool,
+    },
+    Committed {
+        message: ConversationMessage,
+        events: Vec<RealmEvent>,
+    },
 }

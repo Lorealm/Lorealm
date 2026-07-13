@@ -1,11 +1,17 @@
-use lorealm_storage::models::{AgentAccess, AgentKind, RealmEvent, Snowflake};
+use lorealm_storage::models::{AgentAccess, AgentKind, RealmStatus, Snowflake};
 use serde::{Deserialize, Serialize};
-
-use crate::services::realm::TickResult;
 
 #[derive(Deserialize)]
 pub struct CreateRealmRequest {
     pub name: String,
+    pub tokenizer_id: Option<Snowflake>,
+}
+
+/// Partial preset edit; omitted fields keep their value.
+#[derive(Deserialize)]
+pub struct UpdateRealmRequest {
+    pub name: Option<String>,
+    pub status: Option<RealmStatus>,
     pub tokenizer_id: Option<Snowflake>,
 }
 
@@ -46,20 +52,6 @@ pub struct GrantDto {
     pub access: AgentAccess,
 }
 
-/// Backward paging for the owner timeline: return events strictly before
-/// this tick.
-#[derive(Deserialize)]
-pub struct EventsQuery {
-    pub before_tick: Option<i64>,
-}
-
-/// Backward paging for an agent's observation feed: return observations
-/// strictly before this observation id.
-#[derive(Deserialize)]
-pub struct ObservationsQuery {
-    pub before: Option<Snowflake>,
-}
-
 /// A player turn: say something, perform one bound action, or both.
 #[derive(Deserialize)]
 pub struct PlayerTurnRequest {
@@ -77,18 +69,24 @@ pub struct PlayerAction {
     pub args: serde_json::Value,
 }
 
-#[derive(Serialize)]
-#[serde(tag = "status", rename_all = "snake_case")]
-pub enum TickResponse {
-    Committed { tick: i64, events: Vec<RealmEvent> },
-    AwaitingPlayer { agent_id: Snowflake },
+/// Regenerate a specific turn: the new message becomes a sibling of
+/// `target` (same agent, alternate world-line). Omitted = advance the path.
+#[derive(Deserialize, Default)]
+pub struct RunTurnRequest {
+    #[serde(default)]
+    pub target: Option<Snowflake>,
 }
 
-impl From<TickResult> for TickResponse {
-    fn from(value: TickResult) -> Self {
-        match value {
-            TickResult::Committed { tick, events } => TickResponse::Committed { tick, events },
-            TickResult::AwaitingPlayer { agent_id } => TickResponse::AwaitingPlayer { agent_id },
-        }
-    }
+/// Backward paging for the playthrough timeline: return events strictly
+/// before this event id.
+#[derive(Deserialize)]
+pub struct EventsQuery {
+    pub before: Option<Snowflake>,
+}
+
+/// Backward paging for an agent's observation feed: return observations
+/// strictly before this observation id.
+#[derive(Deserialize)]
+pub struct ObservationsQuery {
+    pub before: Option<Snowflake>,
 }

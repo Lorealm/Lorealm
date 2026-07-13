@@ -330,8 +330,9 @@ mod tests {
         let conv = Conversation {
             id: snow.generate(),
             user_id: snow.generate(),
-            character_id: snow.generate(),
-            char_version_id: snow.generate(),
+            character_id: Some(snow.generate()),
+            char_version_id: Some(snow.generate()),
+            realm_id: None,
             active_leaf_id: None,
             title: Some("Test".into()),
             created_at: now,

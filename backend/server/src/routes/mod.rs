@@ -19,7 +19,10 @@ mod tokenizers;
 mod tools;
 mod users;
 
-pub use realm::{CreateAgentRequest, PlayerTurnRequest};
+pub use realm::{
+    CreateAgentRequest, GrantDto, PlayerTurnRequest, RunTurnRequest, ToolBindingDto,
+    UpdateRealmRequest,
+};
 
 pub async fn api_routes(
     app_state: Arc<AppState>,

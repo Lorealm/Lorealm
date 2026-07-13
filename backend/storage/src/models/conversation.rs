@@ -29,8 +29,13 @@ impl Display for ChatRole {
 pub struct Conversation {
     pub id: Snowflake,
     pub user_id: Snowflake,
-    pub character_id: Snowflake,
-    pub char_version_id: Snowflake,
+    /// The character the conversation is bound to, if any.
+    /// 
+    /// Always `None` for realm conversations
+    pub character_id: Option<Snowflake>,
+    pub char_version_id: Option<Snowflake>,
+    /// The preset this playthrough was instantiated from, if any.
+    pub realm_id: Option<Snowflake>,
     pub active_leaf_id: Option<Snowflake>,
     pub title: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -53,8 +58,9 @@ pub struct ConversationMessage {
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct ConversationMetadata {
     pub id: Snowflake,
-    pub character_id: Snowflake,
-    pub char_version_id: Snowflake,
+    pub character_id: Option<Snowflake>,
+    pub char_version_id: Option<Snowflake>,
+    pub realm_id: Option<Snowflake>,
     pub title: Option<String>,
     pub length: i64,
     pub created_at: DateTime<Utc>,

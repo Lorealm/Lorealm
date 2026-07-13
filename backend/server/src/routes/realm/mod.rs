@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     Router,
-    routing::{delete, get, post, put},
+    routing::{get, patch, post, put},
 };
 use tower_cookies::CookieManagerLayer;
 
@@ -14,7 +14,10 @@ use crate::{
 pub mod dto;
 mod handlers;
 
-pub use dto::{CreateAgentRequest, PlayerTurnRequest};
+pub use dto::{
+    CreateAgentRequest, GrantDto, PlayerTurnRequest, RunTurnRequest, ToolBindingDto,
+    UpdateRealmRequest,
+};
 
 pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewareState) -> Router {
     let session_only_routes = Router::new()
@@ -26,18 +29,9 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
             get(handlers::get_grants),
         )
         .route(
-            "/{realm_id}/agents/{agent_id}/observations",
-            get(handlers::list_observations),
-        )
-        .route(
             "/{realm_id}/agents/{agent_id}/actions",
             get(handlers::list_actions),
         )
-        .route(
-            "/{realm_id}/agents/{agent_id}/state",
-            get(handlers::agent_state),
-        )
-        .route("/{realm_id}/events", get(handlers::list_events))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
             session_auth_middleware,
@@ -45,18 +39,19 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
 
     let csrf_routes = Router::new()
         .route("/", post(handlers::create_realm))
-        .route("/{realm_id}", delete(handlers::delete_realm))
+        .route(
+            "/{realm_id}",
+            patch(handlers::update_realm).delete(handlers::delete_realm),
+        )
         .route("/{realm_id}/agents", post(handlers::create_agent))
+        .route(
+            "/{realm_id}/agents/{agent_id}",
+            put(handlers::update_agent).delete(handlers::delete_agent),
+        )
         .route(
             "/{realm_id}/agents/{agent_id}/grants",
             put(handlers::set_grants),
         )
-        .route(
-            "/{realm_id}/tick",
-            post(handlers::tick).delete(handlers::cancel_tick),
-        )
-        .route("/{realm_id}/tick/stream", post(handlers::tick_stream))
-        .route("/{realm_id}/turn", post(handlers::player_turn))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
             session_csrf_middleware,

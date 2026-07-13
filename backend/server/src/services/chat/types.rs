@@ -1,11 +1,14 @@
 use std::{
+    collections::HashMap,
     pin::Pin,
     sync::{Arc, Mutex as StdMutex},
 };
 
 use dashmap::DashMap;
 use futures_util::Stream;
-use lorealm_storage::models::{Conversation, ConversationMessage, Snowflake, StateDelta};
+use lorealm_storage::models::{
+    ActivationState, Conversation, ConversationMessage, Snowflake, StateDelta,
+};
 use serde::Serialize;
 use tokio_util::sync::CancellationToken;
 
@@ -125,50 +128,27 @@ pub struct AgentOutcome {
     pub tool_calls: Vec<ToolCallRecord>,
 }
 
-/// A completed agent turn: what the agent said/did, plus the state writes its
-/// tools produced (already write-scope-enforced at the tool layer).
-pub struct AgentTurn {
-    pub outcome: AgentOutcome,
-    pub delta: StateDelta,
-}
-
 /// An agent turn with the inference stream still live, for callers that
 /// forward events to a client while accumulating. Exhaust (or abandon) the
-/// stream, then call [`Self::delta`] for what the turn's tools wrote.
+/// stream, then call [`Self::delta`] for the turn's state writes.
 pub struct OpenAgentTurn {
     pub stream: Pin<Box<dyn Stream<Item = Result<InferEvent, ChatError>> + Send>>,
     pub(super) state_pool: Arc<StdMutex<StatePool>>,
     pub(super) diff_base: StatePool,
+    /// Full activation snapshot captured by assembly, keyed by lorebook id.
+    pub activation: HashMap<Snowflake, ActivationState>,
+    /// Whether assembly captured weaver state. When true the turn persists a
+    /// MessageState row even if the pool delta is empty.
+    pub had_assembly: bool,
 }
 
 impl OpenAgentTurn {
+    /// Everything the turn wrote relative to the pre-assembly baseline:
+    /// assembly (lorebook weaver expressions) and tool writes both count —
+    /// with no stored seed, assembly writes ARE how a realm's opening state
+    /// materializes.
     pub fn delta(&self, state: &StateService) -> StateDelta {
         let pool = self.state_pool.lock().unwrap();
         state.diff(&self.diff_base, &pool)
     }
-}
-
-pub struct Agent {
-    pub id: Snowflake,
-    pub kind: AgentKindConcrete,
-    pub persona_id: Snowflake, // see caveat below
-}
-
-pub enum AgentKindConcrete {
-    Llm {
-        character_id: Snowflake,
-        char_version_id: Snowflake,
-        template_id: Snowflake,
-        profile_id: Snowflake,
-    },
-    Player {
-        user_id: Snowflake,
-    },
-}
-
-pub struct AgentView {
-    pub realm_owner: Snowflake,
-    pub tokenizer_id: Snowflake,
-    pub thread: Vec<ConversationMessage>,
-    pub state_slice: StatePool,
 }
