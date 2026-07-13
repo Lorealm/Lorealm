@@ -55,6 +55,7 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
             "/{realm_id}/tick",
             post(handlers::tick).delete(handlers::cancel_tick),
         )
+        .route("/{realm_id}/tick/stream", post(handlers::tick_stream))
         .route("/{realm_id}/turn", post(handlers::player_turn))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),

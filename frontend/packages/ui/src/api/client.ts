@@ -40,6 +40,22 @@ import type {
 } from '$lib/types/lorebook.js';
 import type { SourceDefinition } from '$lib/types/node.js';
 import type { UserPersona, UpdatePersona } from '$lib/types/persona.js';
+import type {
+	ActionSpec,
+	AgentGrant,
+	AgentObservation,
+	CreateAgentRequest,
+	CreateRealmRequest,
+	GrantRequest,
+	PlayerTurnRequest,
+	Realm,
+	RealmAgent,
+	RealmEvent,
+	RealmStreamEvent,
+	RealmSummary,
+	StateSlice,
+	TickResponse
+} from '$lib/types/realm.js';
 import type { ReconstructedState } from '$lib/types/state.js';
 import type {
 	ContextTemplate,
@@ -263,6 +279,42 @@ export function createApiClient(platform: PlatformAPI) {
 				get: () => http.get<Snowflake | null>('/api/v1/tokenizers/active'),
 				set: (active: SetActiveRequest) => http.put('/api/v1/tokenizers/active', active),
 				unset: () => http.delete('/api/v1/tokenizers/active')
+			}
+		},
+		realms: {
+			list: () => http.get<Array<RealmSummary>>('/api/v1/realms'),
+			get: (realm_id: Snowflake) => http.get<Realm>(`/api/v1/realms/${realm_id}`),
+			create: (create: CreateRealmRequest) => http.post<Realm>('/api/v1/realms', create),
+			delete: (realm_id: Snowflake) => http.delete(`/api/v1/realms/${realm_id}`),
+			events: (realm_id: Snowflake, before_tick?: number) =>
+				http.get<Array<RealmEvent>>(
+					`/api/v1/realms/${realm_id}/events${before_tick !== undefined ? `?before_tick=${before_tick}` : ''}`
+				),
+			tick: (realm_id: Snowflake) => http.post<TickResponse>(`/api/v1/realms/${realm_id}/tick`),
+			tickStream: (realm_id: Snowflake) =>
+				http.stream<RealmStreamEvent>(`/api/v1/realms/${realm_id}/tick/stream`),
+			cancelTick: (realm_id: Snowflake) => http.delete(`/api/v1/realms/${realm_id}/tick`),
+			playerTurn: (realm_id: Snowflake, turn: PlayerTurnRequest) =>
+				http.post<TickResponse>(`/api/v1/realms/${realm_id}/turn`, turn),
+			agents: {
+				list: (realm_id: Snowflake) =>
+					http.get<Array<RealmAgent>>(`/api/v1/realms/${realm_id}/agents`),
+				create: (realm_id: Snowflake, create: CreateAgentRequest) =>
+					http.post<RealmAgent>(`/api/v1/realms/${realm_id}/agents`, create),
+				grants: {
+					get: (realm_id: Snowflake, agent_id: Snowflake) =>
+						http.get<Array<AgentGrant>>(`/api/v1/realms/${realm_id}/agents/${agent_id}/grants`),
+					set: (realm_id: Snowflake, agent_id: Snowflake, grants: GrantRequest[]) =>
+						http.put(`/api/v1/realms/${realm_id}/agents/${agent_id}/grants`, grants)
+				},
+				observations: (realm_id: Snowflake, agent_id: Snowflake, before?: Snowflake) =>
+					http.get<Array<AgentObservation>>(
+						`/api/v1/realms/${realm_id}/agents/${agent_id}/observations${before !== undefined ? `?before=${before}` : ''}`
+					),
+				actions: (realm_id: Snowflake, agent_id: Snowflake) =>
+					http.get<Array<ActionSpec>>(`/api/v1/realms/${realm_id}/agents/${agent_id}/actions`),
+				state: (realm_id: Snowflake, agent_id: Snowflake) =>
+					http.get<StateSlice>(`/api/v1/realms/${realm_id}/agents/${agent_id}/state`)
 			}
 		},
 		config: {

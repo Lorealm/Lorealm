@@ -1,10 +1,12 @@
 use std::{
     collections::HashMap,
+    pin::Pin,
     sync::{Arc, Mutex as StdMutex},
 };
 
 use chrono::Utc;
 use dashmap::DashMap;
+use futures_util::{Stream, StreamExt};
 use lorealm_providers::Tool;
 use lorealm_storage::{
     Storage, StorageError,
@@ -22,11 +24,11 @@ use crate::{
     routes::{CreateAgentRequest, PlayerTurnRequest},
     services::{
         character::CharacterService,
-        chat::{AgentTurn, CancelGuard, ChatService},
+        chat::{AgentOutcome, AgentTurn, CancelGuard, ChatService, InferEvent, TurnAccumulator},
         connection::ConnectionService,
         context::{ContextService, PromptTurn},
         persona::PersonaService,
-        realm::{ActionSpec, RoundRobin, TickResult, TurnPolicy},
+        realm::{ActionSpec, RealmStreamEvent, RoundRobin, TickResult, TurnPolicy},
         snowflake::SnowflakeService,
         state::{ReconstructedState, StatePool, StateService, apply_delta},
         tools::{CompiledUserTool, ToolPolicy, ToolSignature, build_tool_registry},
@@ -386,6 +388,117 @@ impl RealmService {
         realm_id: Snowflake,
         user_id: Snowflake,
     ) -> Result<TickResult, RealmError> {
+        let prep = match self.prepare_tick(realm_id, user_id).await? {
+            TickPrep::Player { agent_id } => {
+                return Ok(TickResult::AwaitingPlayer { agent_id });
+            }
+            TickPrep::Llm(prep) => prep,
+        };
+
+        let cancel = CancellationToken::new();
+        self.cancellations.insert(realm_id, cancel.clone());
+        let _guard = CancelGuard {
+            map: Arc::clone(&self.cancellations),
+            key: realm_id,
+        };
+
+        let AgentTurn { outcome, delta } = self
+            .chat
+            .run_agent_turn(&prep.spec, &prep.turns, &prep.baseline, &prep.policy, &cancel)
+            .await?;
+
+        self.finalize_llm_turn(*prep, outcome, delta).await
+    }
+
+    /// Streaming variant of [`Self::run_tick`]: forwards inference events as
+    /// they happen, then commits and yields the terminal `Committed` event.
+    pub async fn run_tick_stream(
+        self: &Arc<Self>,
+        realm_id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<RealmStreamEvent, RealmError>> + Send>>, RealmError>
+    {
+        let prep = match self.prepare_tick(realm_id, user_id).await? {
+            TickPrep::Player { agent_id } => {
+                return Ok(Box::pin(futures_util::stream::once(async move {
+                    Ok(RealmStreamEvent::AwaitingPlayer { agent_id })
+                })));
+            }
+            TickPrep::Llm(prep) => prep,
+        };
+
+        let mut open = self
+            .chat
+            .open_agent_turn(&prep.spec, &prep.turns, &prep.baseline, &prep.policy)
+            .await?;
+
+        let cancel = CancellationToken::new();
+        self.cancellations.insert(realm_id, cancel.clone());
+        let guard = CancelGuard {
+            map: Arc::clone(&self.cancellations),
+            key: realm_id,
+        };
+
+        let service = Arc::clone(self);
+        let stream = async_stream::try_stream! {
+            let _guard = guard; // the stream owns the cancellation slot
+            let prep = *prep;
+            yield RealmStreamEvent::TurnStarted {
+                agent_id: prep.agent.id,
+                name: prep.agent.name.clone(),
+            };
+
+            let mut acc = TurnAccumulator::default();
+            loop {
+                // `?` can't live inside select! arms under try_stream!, so
+                // resolve the branch first and handle the result out here.
+                let next = tokio::select! {
+                    biased;
+                    _ = cancel.cancelled() => None,
+                    next = open.stream.next() => next,
+                };
+                let Some(event) = next else { break };
+                match event? {
+                    InferEvent::Text(d) => {
+                        acc.text(&d);
+                        yield RealmStreamEvent::Delta { content: d };
+                    }
+                    InferEvent::Reasoning(d) => {
+                        acc.reasoning(&d);
+                        yield RealmStreamEvent::Reasoning { content: d };
+                    }
+                    InferEvent::Widget(w) => {
+                        yield RealmStreamEvent::Widget { widget: w.clone() };
+                        let marker = acc.widget(w);
+                        yield RealmStreamEvent::Delta { content: marker };
+                    }
+                    InferEvent::ToolCall(r) => {
+                        yield RealmStreamEvent::Action {
+                            name: r.name.clone(),
+                            is_error: r.is_error,
+                        };
+                        acc.tool_call(r);
+                    }
+                }
+            }
+
+            let delta = open.delta(&service.state);
+            let result = service.finalize_llm_turn(prep, acc.finish(), delta).await?;
+            if let TickResult::Committed { tick, events } = result {
+                yield RealmStreamEvent::Committed { tick, events };
+            }
+        };
+
+        Ok(Box::pin(stream))
+    }
+
+    /// Everything up to (but excluding) inference: resolve whose turn it is
+    /// and project that agent's view of the world.
+    async fn prepare_tick(
+        &self,
+        realm_id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<TickPrep, RealmError> {
         let realm = self.owned_realm(realm_id, user_id).await?;
         if !matches!(realm.status, RealmStatus::Active) {
             return Err(RealmError::NotActive(realm_id));
@@ -397,10 +510,11 @@ impl RealmService {
         let agent = self
             .policy
             .next(&realm, &agents)
-            .ok_or(RealmError::NoAgents(realm_id))?;
+            .ok_or(RealmError::NoAgents(realm_id))?
+            .clone();
 
         if matches!(agent.kind, AgentKind::Player) {
-            return Ok(TickResult::AwaitingPlayer { agent_id: agent.id });
+            return Ok(TickPrep::Player { agent_id: agent.id });
         }
 
         let world: StatePool =
@@ -430,7 +544,7 @@ impl RealmService {
             .map(PromptTurn::from_observation)
             .collect();
 
-        let spec = self.spec_for(&realm, agent)?;
+        let spec = self.spec_for(&realm, &agent)?;
         let baseline = ReconstructedState {
             persistent: slice,
             activation: HashMap::new(),
@@ -441,17 +555,34 @@ impl RealmService {
             tool_ids: Some(bindings.iter().map(|b| b.tool_id).collect()),
         };
 
-        let cancel = CancellationToken::new();
-        self.cancellations.insert(realm_id, cancel.clone());
-        let _guard = CancelGuard {
-            map: Arc::clone(&self.cancellations),
-            key: realm_id,
-        };
+        Ok(TickPrep::Llm(Box::new(PreparedTick {
+            realm,
+            agents,
+            agent,
+            world,
+            spec,
+            baseline,
+            policy,
+            bindings,
+            turns,
+        })))
+    }
 
-        let AgentTurn { outcome, delta } = self
-            .chat
-            .run_agent_turn(&spec, &turns, &baseline, &policy, &cancel)
-            .await?;
+    /// Turn an LLM outcome into events + observations and commit the tick.
+    async fn finalize_llm_turn(
+        &self,
+        prep: PreparedTick,
+        outcome: AgentOutcome,
+        delta: StateDelta,
+    ) -> Result<TickResult, RealmError> {
+        let PreparedTick {
+            realm,
+            agents,
+            agent,
+            world,
+            bindings,
+            ..
+        } = prep;
 
         let mut new_world = world;
         apply_delta(&mut new_world, &delta);
@@ -957,4 +1088,25 @@ impl RealmService {
             profile_id,
         })
     }
+}
+
+/// The resolved turn before inference runs.
+enum TickPrep {
+    /// A player is up; nothing to run server-side.
+    Player { agent_id: Snowflake },
+    Llm(Box<PreparedTick>),
+}
+
+/// An LLM agent's turn, ready to run: its identity bundle, its projected
+/// slice of the world, and the policy constraining its tools.
+struct PreparedTick {
+    realm: Realm,
+    agents: Vec<RealmAgent>,
+    agent: RealmAgent,
+    world: StatePool,
+    spec: AgentSpec,
+    baseline: ReconstructedState,
+    policy: ToolPolicy,
+    bindings: Vec<AgentToolBinding>,
+    turns: Vec<PromptTurn>,
 }
