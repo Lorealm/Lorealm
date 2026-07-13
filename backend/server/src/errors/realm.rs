@@ -7,8 +7,6 @@ use crate::errors::{
 
 #[derive(Debug, thiserror::Error)]
 pub enum RealmError {
-    #[error("not playable: {0}")]
-    NotPlayable(Snowflake),
     #[error("conversation {0} was not started from a realm")]
     NotRealmConversation(Snowflake),
     #[error("no agents: {0}")]
@@ -21,8 +19,6 @@ pub enum RealmError {
     NotFound(TargetType, Snowflake),
     #[error("{0} not owned: {1}")]
     NotOwned(TargetType, Snowflake),
-    #[error("realm creation: {0}")]
-    Create(String),
     #[error("invalid agent: {0}")]
     InvalidAgent(String),
     #[error("invalid turn: {0}")]
@@ -54,7 +50,6 @@ pub enum RealmError {
 impl RealmError {
     pub fn client_message(&self) -> String {
         match self {
-            RealmError::NotPlayable(_) => "this realm is archived".to_string(),
             RealmError::NotRealmConversation(_) => {
                 "this conversation was not started from a realm".to_string()
             }
@@ -66,7 +61,6 @@ impl RealmError {
             RealmError::Conversation(conversation_error) => conversation_error.to_string(),
             RealmError::Storage(_) => format!("storage error"),
             RealmError::Serialization(error) => format!("serialization error: {error}"),
-            RealmError::Create(hint) => format!("creation error: {hint}"),
             RealmError::State(state_error) => state_error.client_message(),
             RealmError::InvalidAgent(hint) => format!("invalid agent: {hint}"),
             RealmError::InvalidTurn(hint) => format!("invalid turn: {hint}"),

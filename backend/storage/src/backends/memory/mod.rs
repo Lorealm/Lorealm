@@ -15,6 +15,7 @@ pub mod users;
 use crate::StorageCore;
 use crate::backends::memory::characters::StoredVersion;
 use crate::backends::memory::lorebook::StoredLorebookVersion;
+use crate::backends::memory::realms::{StoredRealm, StoredRealmVersion};
 use crate::error::StorageError;
 use crate::models::*;
 use async_trait::async_trait;
@@ -44,10 +45,8 @@ pub struct MemoryStorage {
     pub(crate) user_tools: RwLock<HashMap<Snowflake, UserTool>>,
     pub(crate) tokenizers: RwLock<HashMap<Snowflake, Tokenizer>>,
     pub(crate) tokenizer_shares: RwLock<Vec<TokenizerShare>>,
-    pub(crate) realms: RwLock<HashMap<Snowflake, Realm>>,
-    pub(crate) realm_agents: RwLock<HashMap<Snowflake, RealmAgent>>,
-    pub(crate) agent_grants: RwLock<HashMap<Snowflake, Vec<AgentGrant>>>,
-    pub(crate) agent_tools: RwLock<HashMap<Snowflake, Vec<AgentToolBinding>>>,
+    pub(crate) realms: RwLock<HashMap<Snowflake, StoredRealm>>,
+    pub(crate) realm_versions: RwLock<HashMap<Snowflake, StoredRealmVersion>>,
     pub(crate) conversation_casts: RwLock<HashMap<Snowflake, RealmCast>>,
     pub(crate) realm_events: RwLock<HashMap<Snowflake, RealmEvent>>,
     pub(crate) agent_observations: RwLock<HashMap<Snowflake, AgentObservation>>,

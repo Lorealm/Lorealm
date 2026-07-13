@@ -1,242 +1,219 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
+use sqlx::FromRow;
 
 use crate::{
     RealmStorage, StorageError,
     backends::PostgresStorage,
     models::{
-        AgentGrant, AgentObservation, AgentToolBinding, Realm, RealmAgent, RealmCast, RealmEvent,
-        RealmSummary, Snowflake, TurnCommit,
+        AgentObservation, Realm, RealmCast, RealmDefinition, RealmEvent, RealmSummary,
+        RealmVersionInfo, Snowflake, TurnCommit, VersionedSaveMode,
     },
 };
 
 #[async_trait]
 impl RealmStorage for PostgresStorage {
     async fn list_realms(&self, user_id: Snowflake) -> Result<Vec<RealmSummary>, StorageError> {
-        let summaries = sqlx::query_as::<_, RealmSummary>(
+        let rows: Vec<RealmSummaryRow> = sqlx::query_as(
             r#"
-            SELECT id, owner_id, name, status
-            FROM realms WHERE owner_id = $1
+            SELECT
+                r.id,
+                r.owner_id,
+                r.updated_at,
+                COALESCE(v.snapshot->>'name', '') AS name,
+                ARRAY(
+                    SELECT t.tag FROM realm_tags t
+                    WHERE t.realm_id = r.id
+                ) AS tags
+            FROM realms r
+            JOIN realm_versions v ON v.id = r.current_version_id
+            WHERE r.owner_id = $1
+            ORDER BY r.updated_at DESC
             "#,
         )
         .bind(user_id)
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(summaries)
+        Ok(rows.into_iter().map(Into::into).collect())
     }
 
     async fn get_realm(&self, id: Snowflake) -> Result<Option<Realm>, StorageError> {
-        Ok(sqlx::query_as::<_, Realm>(
-            "SELECT id, owner_id, name, tokenizer_id, status
-             FROM realms WHERE id = $1",
+        let head: Option<RealmHeadRow> = sqlx::query_as(
+            r#"
+            SELECT r.id, r.owner_id, r.current_version_id, v.snapshot
+            FROM realms r
+            JOIN realm_versions v ON v.id = r.current_version_id
+            WHERE r.id = $1
+            "#,
         )
         .bind(id)
         .fetch_optional(&self.pool)
-        .await?)
+        .await?;
+
+        let Some(row) = head else { return Ok(None) };
+
+        let tags = fetch_tags(&self.pool, id).await?;
+        Ok(Some(row.into_realm(tags)?))
     }
 
-    async fn create_realm(&self, realm: &Realm) -> Result<(), StorageError> {
+    async fn get_realm_at_version(
+        &self,
+        id: Snowflake,
+        version_id: Snowflake,
+    ) -> Result<Option<Realm>, StorageError> {
+        let row: Option<RealmVersionRow> = sqlx::query_as(
+            r#"
+            SELECT v.id AS version_id, v.realm_id, v.snapshot, r.owner_id
+            FROM realm_versions v
+            JOIN realms r ON r.id = v.realm_id
+            WHERE v.realm_id = $1 AND v.id = $2
+            "#,
+        )
+        .bind(id)
+        .bind(version_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        let Some(row) = row else { return Ok(None) };
+
+        let tags = fetch_tags(&self.pool, id).await?;
+        Ok(Some(row.into_realm(tags)?))
+    }
+
+    async fn save_realm(
+        &self,
+        realm: &Realm,
+        mode: VersionedSaveMode,
+    ) -> Result<Snowflake, StorageError> {
+        let mut tx = self.pool.begin().await?;
+
+        let snapshot = serde_json::to_value(&realm.definition)?;
+
         sqlx::query(
-            "INSERT INTO realms (id, owner_id, name, tokenizer_id, status)
-             VALUES ($1, $2, $3, $4, $5)",
+            r#"
+            INSERT INTO realms (id, owner_id, current_version_id, created_at, updated_at)
+            VALUES ($1, $2, $3, now(), now())
+            ON CONFLICT (id) DO UPDATE SET
+                current_version_id = EXCLUDED.current_version_id,
+                updated_at = now()
+            "#,
         )
         .bind(realm.id)
         .bind(realm.owner_id)
-        .bind(&realm.name)
-        .bind(realm.tokenizer_id)
-        .bind(&realm.status)
-        .execute(&self.pool)
-        .await?;
-        Ok(())
-    }
-
-    async fn update_realm(&self, realm: &Realm) -> Result<(), StorageError> {
-        let result = sqlx::query(
-            "UPDATE realms
-             SET name = $2, tokenizer_id = $3, status = $4, updated_at = now()
-             WHERE id = $1",
-        )
-        .bind(realm.id)
-        .bind(&realm.name)
-        .bind(realm.tokenizer_id)
-        .bind(&realm.status)
-        .execute(&self.pool)
+        .bind(realm.current_version_id)
+        .execute(&mut *tx)
         .await?;
 
-        if result.rows_affected() == 0 {
-            return Err(StorageError::NotFound(format!("realm: {}", realm.id)));
+        match mode {
+            VersionedSaveMode::NewVersion => {
+                let next_version_num: i32 = sqlx::query_scalar(
+                    r#"
+                    SELECT COALESCE(MAX(version_num), 0) + 1
+                    FROM realm_versions
+                    WHERE realm_id = $1
+                    "#,
+                )
+                .bind(realm.id)
+                .fetch_one(&mut *tx)
+                .await?;
+
+                sqlx::query(
+                    r#"
+                    INSERT INTO realm_versions (id, realm_id, version_num, snapshot)
+                    VALUES ($1, $2, $3, $4)
+                    "#,
+                )
+                .bind(realm.current_version_id)
+                .bind(realm.id)
+                .bind(next_version_num)
+                .bind(&snapshot)
+                .execute(&mut *tx)
+                .await?;
+            }
+            VersionedSaveMode::UpdateCurrent => {
+                let affected = sqlx::query(
+                    r#"
+                    UPDATE realm_versions SET snapshot = $2
+                    WHERE id = $1
+                    "#,
+                )
+                .bind(realm.current_version_id)
+                .bind(&snapshot)
+                .execute(&mut *tx)
+                .await?
+                .rows_affected();
+
+                if affected == 0 {
+                    return Err(StorageError::NotFound(format!(
+                        "save_realm: version '{}' not found for in-place update",
+                        realm.current_version_id
+                    )));
+                }
+            }
         }
-        Ok(())
-    }
 
-    async fn delete_realm(&self, id: Snowflake) -> Result<(), StorageError> {
-        sqlx::query("DELETE FROM realms WHERE id = $1")
-            .bind(id)
-            .execute(&self.pool)
-            .await?;
-        Ok(())
-    }
-
-    async fn list_realm_agents(
-        &self,
-        realm_id: Snowflake,
-    ) -> Result<Vec<RealmAgent>, StorageError> {
-        Ok(sqlx::query_as::<_, RealmAgent>(
-            "SELECT id, realm_id, name, kind, character_id, char_version_id,
-                    template_id, profile_id, user_id, persona_id, turn_order,
-                    extensions, created_at, updated_at
-             FROM realm_agents WHERE realm_id = $1
-             ORDER BY turn_order, id",
-        )
-        .bind(realm_id)
-        .fetch_all(&self.pool)
-        .await?)
-    }
-
-    async fn get_realm_agent(
-        &self,
-        agent_id: Snowflake,
-    ) -> Result<Option<RealmAgent>, StorageError> {
-        Ok(sqlx::query_as::<_, RealmAgent>(
-            "SELECT id, realm_id, name, kind, character_id, char_version_id,
-                    template_id, profile_id, user_id, persona_id, turn_order,
-                    extensions, created_at, updated_at
-             FROM realm_agents WHERE id = $1",
-        )
-        .bind(agent_id)
-        .fetch_optional(&self.pool)
-        .await?)
-    }
-
-    async fn create_realm_agent(&self, agent: &RealmAgent) -> Result<(), StorageError> {
-        sqlx::query(
-            "INSERT INTO realm_agents (id, realm_id, name, kind, character_id,
-                 char_version_id, template_id, profile_id, user_id, persona_id,
-                 turn_order, extensions)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
-        )
-        .bind(agent.id)
-        .bind(agent.realm_id)
-        .bind(&agent.name)
-        .bind(&agent.kind)
-        .bind(agent.character_id)
-        .bind(agent.char_version_id)
-        .bind(agent.template_id)
-        .bind(agent.profile_id)
-        .bind(agent.user_id)
-        .bind(agent.persona_id)
-        .bind(agent.turn_order)
-        .bind(&agent.extensions)
-        .execute(&self.pool)
-        .await?;
-        Ok(())
-    }
-
-    async fn update_realm_agent(&self, agent: &RealmAgent) -> Result<(), StorageError> {
-        let result = sqlx::query(
-            "UPDATE realm_agents
-             SET name = $2, kind = $3, character_id = $4, char_version_id = $5,
-                 template_id = $6, profile_id = $7, user_id = $8, persona_id = $9,
-                 turn_order = $10, extensions = $11, updated_at = now()
-             WHERE id = $1",
-        )
-        .bind(agent.id)
-        .bind(&agent.name)
-        .bind(&agent.kind)
-        .bind(agent.character_id)
-        .bind(agent.char_version_id)
-        .bind(agent.template_id)
-        .bind(agent.profile_id)
-        .bind(agent.user_id)
-        .bind(agent.persona_id)
-        .bind(agent.turn_order)
-        .bind(&agent.extensions)
-        .execute(&self.pool)
-        .await?;
-
-        if result.rows_affected() == 0 {
-            return Err(StorageError::NotFound(format!("realm agent: {}", agent.id)));
-        }
-        Ok(())
-    }
-
-    async fn delete_realm_agent(&self, agent_id: Snowflake) -> Result<(), StorageError> {
-        sqlx::query("DELETE FROM realm_agents WHERE id = $1")
-            .bind(agent_id)
-            .execute(&self.pool)
-            .await?;
-        Ok(())
-    }
-
-    async fn list_agent_grants(
-        &self,
-        agent_id: Snowflake,
-    ) -> Result<Vec<AgentGrant>, StorageError> {
-        Ok(sqlx::query_as::<_, AgentGrant>(
-            "SELECT agent_id, scope, access
-             FROM agent_grants WHERE agent_id = $1 ORDER BY scope",
-        )
-        .bind(agent_id)
-        .fetch_all(&self.pool)
-        .await?)
-    }
-
-    async fn set_agent_grants(
-        &self,
-        agent_id: Snowflake,
-        grants: &[AgentGrant],
-    ) -> Result<(), StorageError> {
-        let mut tx = self.pool.begin().await?;
-        sqlx::query("DELETE FROM agent_grants WHERE agent_id = $1")
-            .bind(agent_id)
+        sqlx::query("DELETE FROM realm_tags WHERE realm_id = $1")
+            .bind(realm.id)
             .execute(&mut *tx)
             .await?;
-        for g in grants {
-            sqlx::query("INSERT INTO agent_grants (agent_id, scope, access) VALUES ($1, $2, $3)")
-                .bind(agent_id)
-                .bind(&g.scope)
-                .bind(&g.access)
+
+        for tag in &realm.tags {
+            sqlx::query("INSERT INTO realm_tags (realm_id, tag) VALUES ($1, $2)")
+                .bind(realm.id)
+                .bind(tag)
                 .execute(&mut *tx)
                 .await?;
         }
+
         tx.commit().await?;
-        Ok(())
+
+        Ok(realm.current_version_id)
     }
 
-    async fn list_agent_tools(
+    async fn delete_realm(&self, id: Snowflake) -> Result<bool, StorageError> {
+        let result = sqlx::query("DELETE FROM realms WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    async fn list_realm_versions(
         &self,
-        agent_id: Snowflake,
-    ) -> Result<Vec<AgentToolBinding>, StorageError> {
-        Ok(sqlx::query_as::<_, AgentToolBinding>(
-            "SELECT tool_id, event_scope FROM agent_tools WHERE agent_id = $1 ORDER BY tool_id",
+        id: Snowflake,
+    ) -> Result<Vec<RealmVersionInfo>, StorageError> {
+        let rows: Vec<VersionInfoRow> = sqlx::query_as(
+            r#"
+            SELECT id, version_num, created_at
+            FROM realm_versions
+            WHERE realm_id = $1
+            ORDER BY version_num DESC
+            "#,
         )
-        .bind(agent_id)
+        .bind(id)
         .fetch_all(&self.pool)
-        .await?)
+        .await?;
+
+        Ok(rows.into_iter().map(Into::into).collect())
     }
 
-    async fn set_agent_tools(
+    async fn restore_realm_version(
         &self,
-        agent_id: Snowflake,
-        bindings: &[AgentToolBinding],
-    ) -> Result<(), StorageError> {
-        let mut tx = self.pool.begin().await?;
-        sqlx::query("DELETE FROM agent_tools WHERE agent_id = $1")
-            .bind(agent_id)
-            .execute(&mut *tx)
-            .await?;
-        for b in bindings {
-            sqlx::query(
-                "INSERT INTO agent_tools (agent_id, tool_id, event_scope) VALUES ($1, $2, $3)",
-            )
-            .bind(agent_id)
-            .bind(b.tool_id)
-            .bind(&b.event_scope)
-            .execute(&mut *tx)
-            .await?;
-        }
-        tx.commit().await?;
-        Ok(())
+        id: Snowflake,
+        version_id: Snowflake,
+        new_version_id: Snowflake,
+    ) -> Result<Snowflake, StorageError> {
+        let Some(realm) = self.get_realm_at_version(id, version_id).await? else {
+            return Err(StorageError::NotFound(format!(
+                "realm {id} version {version_id} not found"
+            )));
+        };
+
+        let mut to_save = realm;
+        to_save.current_version_id = new_version_id;
+        self.save_realm(&to_save, VersionedSaveMode::NewVersion)
+            .await
     }
 
     async fn get_cast(
@@ -376,4 +353,93 @@ impl RealmStorage for PostgresStorage {
         tx.commit().await?;
         Ok(())
     }
+}
+
+#[derive(FromRow)]
+struct RealmSummaryRow {
+    id: Snowflake,
+    owner_id: Snowflake,
+    name: String,
+    tags: Vec<String>,
+    updated_at: DateTime<Utc>,
+}
+
+impl From<RealmSummaryRow> for RealmSummary {
+    fn from(r: RealmSummaryRow) -> Self {
+        RealmSummary {
+            id: r.id,
+            owner_id: r.owner_id,
+            name: r.name,
+            tags: r.tags,
+            updated_at: r.updated_at,
+        }
+    }
+}
+
+#[derive(FromRow)]
+struct RealmHeadRow {
+    id: Snowflake,
+    owner_id: Snowflake,
+    current_version_id: Snowflake,
+    snapshot: serde_json::Value,
+}
+
+impl RealmHeadRow {
+    fn into_realm(self, tags: Vec<String>) -> Result<Realm, StorageError> {
+        let definition: RealmDefinition = serde_json::from_value(self.snapshot)?;
+        Ok(Realm {
+            id: self.id,
+            owner_id: self.owner_id,
+            current_version_id: self.current_version_id,
+            definition,
+            tags,
+        })
+    }
+}
+
+#[derive(FromRow)]
+struct RealmVersionRow {
+    version_id: Snowflake,
+    realm_id: Snowflake,
+    owner_id: Snowflake,
+    snapshot: serde_json::Value,
+}
+
+impl RealmVersionRow {
+    fn into_realm(self, tags: Vec<String>) -> Result<Realm, StorageError> {
+        let definition: RealmDefinition = serde_json::from_value(self.snapshot)?;
+        Ok(Realm {
+            id: self.realm_id,
+            owner_id: self.owner_id,
+            current_version_id: self.version_id,
+            definition,
+            tags,
+        })
+    }
+}
+
+#[derive(FromRow)]
+struct VersionInfoRow {
+    id: Snowflake,
+    version_num: i32,
+    created_at: DateTime<Utc>,
+}
+
+impl From<VersionInfoRow> for RealmVersionInfo {
+    fn from(row: VersionInfoRow) -> Self {
+        RealmVersionInfo {
+            id: row.id,
+            version_num: row.version_num as u32,
+            created_at: row.created_at,
+        }
+    }
+}
+
+async fn fetch_tags(pool: &sqlx::PgPool, realm_id: Snowflake) -> Result<Vec<String>, StorageError> {
+    Ok(
+        sqlx::query_scalar("SELECT tag FROM realm_tags WHERE realm_id = $1")
+            .bind(realm_id)
+            .fetch_all(pool)
+            .await?,
+    )
 }

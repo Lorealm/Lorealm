@@ -2,25 +2,28 @@ use std::{
     collections::HashMap,
     pin::Pin,
     sync::{Arc, Mutex as StdMutex},
+    time::Duration,
 };
 
-use chrono::Utc;
+use async_trait::async_trait;
 use futures_util::{Stream, StreamExt};
 use lorealm_providers::Tool;
 use lorealm_storage::{
     Storage,
     models::{
         ActivationState, AgentAccess, AgentGrant, AgentKind, AgentObservation, AgentSpec,
-        AgentToolBinding, CastAgent, CastGrant, ChatRole, Conversation, EventKind, Realm,
-        RealmAgent, RealmCast, RealmEvent, RealmStatus, RealmSummary, ScopePattern, Snowflake,
-        StateDelta, TurnCommit, UserTool,
+        AgentToolBinding, ChatRole, Conversation, EventKind, Realm, RealmAgent, RealmCast,
+        RealmDefinition, RealmEvent, RealmSummary, RealmVersionInfo, ScopePattern, Snowflake,
+        StateDelta, TurnCommit, UserTool, VersionedSaveMode,
     },
 };
 use serde_json::json;
+use tokio::{sync::RwLock, time::Instant};
 
 use crate::{
+    core::CleanableService,
     errors::{RealmError, TargetType},
-    routes::{CreateAgentRequest, GrantDto, PlayerTurnRequest, ToolBindingDto, UpdateRealmRequest},
+    routes::{CreateAgentRequest, PlayerTurnRequest, UpdateRealmRequest},
     services::{
         character::CharacterService,
         chat::{AgentOutcome, ChatService, FullConversation, InferEvent, TurnAccumulator},
@@ -40,6 +43,23 @@ const MAIN_SCOPE: &str = "main";
 const OBSERVATION_WINDOW: i64 = 200;
 const EVENT_WINDOW: i64 = 500;
 
+/// Edits within this window collapse into the same version (mirrors the
+/// character editing sessions and their default TTL).
+const EDIT_SESSION_TTL: Duration = Duration::from_secs(600);
+
+struct EditingSession {
+    version_id: Snowflake,
+    last_touched: Instant,
+}
+
+/// A realm loaded for mutation plus how to persist it: within an editing
+/// session the current version is updated in place, otherwise a new
+/// version row is appended.
+struct EditableRealm {
+    realm: Realm,
+    save_mode: VersionedSaveMode,
+}
+
 pub struct RealmService {
     storage: Arc<dyn Storage>,
     snowflake: Arc<SnowflakeService>,
@@ -51,6 +71,7 @@ pub struct RealmService {
     state: Arc<StateService>,
     conversations: Arc<ConversationService>,
     policy: Arc<dyn TurnPolicy>,
+    editing_sessions: RwLock<HashMap<Snowflake, EditingSession>>,
 }
 
 impl RealmService {
@@ -77,6 +98,7 @@ impl RealmService {
             state,
             conversations,
             policy: Arc::new(RoundRobin),
+            editing_sessions: RwLock::new(HashMap::new()),
         }
     }
 
@@ -101,28 +123,22 @@ impl RealmService {
     pub async fn create_realm(
         &self,
         name: impl Into<String>,
-        tok_id: Option<Snowflake>,
         user_id: Snowflake,
     ) -> Result<Realm, RealmError> {
-        let tokenizer_id = if let Some(id) = tok_id {
-            id
-        } else {
-            self.state
-                .get_active_tokenizer_id(user_id)
-                .await?
-                .ok_or(RealmError::Create(
-                    "could not create a realm due to missing tokenizers".to_string(),
-                ))?
-        };
         let realm = Realm {
             id: self.snowflake.generate(),
             owner_id: user_id,
-            name: name.into(),
-            tokenizer_id,
-            status: RealmStatus::Draft,
+            current_version_id: self.snowflake.generate(),
+            definition: RealmDefinition {
+                name: name.into(),
+                ..Default::default()
+            },
+            tags: Vec::new(),
         };
 
-        self.storage.create_realm(&realm).await?;
+        self.storage
+            .save_realm(&realm, VersionedSaveMode::NewVersion)
+            .await?;
 
         Ok(realm)
     }
@@ -133,21 +149,21 @@ impl RealmService {
         user_id: Snowflake,
         req: UpdateRealmRequest,
     ) -> Result<Realm, RealmError> {
-        let mut realm = self.owned_realm(realm_id, user_id).await?;
+        let mut edit = self.get_realm_for_edit(realm_id, user_id).await?;
 
         if let Some(name) = req.name {
-            realm.name = name;
+            edit.realm.definition.name = name;
         }
-        if let Some(status) = req.status {
-            realm.status = status;
+        if let Some(description) = req.description {
+            edit.realm.definition.description = description;
         }
-        if let Some(tokenizer_id) = req.tokenizer_id {
-            realm.tokenizer_id = tokenizer_id;
+        if let Some(tags) = req.tags {
+            edit.realm.tags = tags;
         }
 
-        self.storage.update_realm(&realm).await?;
+        self.storage.save_realm(&edit.realm, edit.save_mode).await?;
 
-        Ok(realm)
+        Ok(edit.realm)
     }
 
     pub async fn delete_realm(
@@ -157,8 +173,52 @@ impl RealmService {
     ) -> Result<(), RealmError> {
         self.owned_realm(realm_id, user_id).await?;
         self.storage.delete_realm(realm_id).await?;
+        self.editing_sessions.write().await.remove(&realm_id);
 
         Ok(())
+    }
+
+    pub async fn list_versions(
+        &self,
+        realm_id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<Vec<RealmVersionInfo>, RealmError> {
+        self.owned_realm(realm_id, user_id).await?;
+
+        Ok(self.storage.list_realm_versions(realm_id).await?)
+    }
+
+    pub async fn get_version(
+        &self,
+        realm_id: Snowflake,
+        version_id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<Realm, RealmError> {
+        self.owned_realm(realm_id, user_id).await?;
+
+        self.storage
+            .get_realm_at_version(realm_id, version_id)
+            .await?
+            .ok_or(RealmError::NotFound(TargetType::RealmVersion, version_id))
+    }
+
+    /// Roll the head back to a prior version (as a fresh version row, so
+    /// history stays linear and nothing is lost).
+    pub async fn restore_version(
+        &self,
+        realm_id: Snowflake,
+        version_id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<Realm, RealmError> {
+        self.owned_realm(realm_id, user_id).await?;
+
+        self.storage
+            .restore_realm_version(realm_id, version_id, self.snowflake.generate())
+            .await?;
+        // The next edit must not collapse into a pre-restore session.
+        self.editing_sessions.write().await.remove(&realm_id);
+
+        self.owned_realm(realm_id, user_id).await
     }
 
     pub async fn list_agents(
@@ -166,10 +226,9 @@ impl RealmService {
         realm_id: Snowflake,
         user_id: Snowflake,
     ) -> Result<Vec<RealmAgent>, RealmError> {
-        self.owned_realm(realm_id, user_id).await?;
-        let agents = self.storage.list_realm_agents(realm_id).await?;
+        let realm = self.owned_realm(realm_id, user_id).await?;
 
-        Ok(agents)
+        Ok(realm.definition.agents)
     }
 
     pub async fn list_agent_grants(
@@ -178,10 +237,10 @@ impl RealmService {
         agent_id: Snowflake,
         user_id: Snowflake,
     ) -> Result<Vec<AgentGrant>, RealmError> {
-        self.owned_agent(realm_id, agent_id, user_id).await?;
-        let grants = self.storage.list_agent_grants(agent_id).await?;
+        let realm = self.owned_realm(realm_id, user_id).await?;
+        let agent = Self::definition_agent(&realm.definition, agent_id)?;
 
-        Ok(grants)
+        Ok(agent.grants.clone())
     }
 
     /// The agent's action space as currently authored in the preset.
@@ -191,10 +250,10 @@ impl RealmService {
         agent_id: Snowflake,
         user_id: Snowflake,
     ) -> Result<Vec<ActionSpec>, RealmError> {
-        let agent = self.owned_agent(realm_id, agent_id, user_id).await?;
+        let realm = self.owned_realm(realm_id, user_id).await?;
+        let agent = Self::definition_agent(&realm.definition, agent_id)?;
 
-        let bindings = self.storage.list_agent_tools(agent.id).await?;
-        self.action_specs(&bindings).await
+        self.action_specs(&agent.tools).await
     }
 
     pub async fn create_agent(
@@ -203,14 +262,12 @@ impl RealmService {
         user_id: Snowflake,
         req: CreateAgentRequest,
     ) -> Result<RealmAgent, RealmError> {
-        self.owned_realm(realm_id, user_id).await?;
+        let mut edit = self.get_realm_for_edit(realm_id, user_id).await?;
 
         let parts = self.validate_agent(user_id, &req).await?;
-        let turn_order = self.storage.list_realm_agents(realm_id).await?.len() as i32;
 
         let agent = RealmAgent {
             id: self.snowflake.generate(),
-            realm_id,
             name: req.name,
             kind: req.kind,
             character_id: parts.character_id,
@@ -219,21 +276,20 @@ impl RealmService {
             profile_id: parts.profile_id,
             user_id: parts.user_id,
             persona_id: req.persona_id,
-            turn_order,
-            extensions: json!({}),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
+            turn_order: edit.realm.definition.agents.len() as i32,
+            grants: req.grants,
+            tools: req.tools,
         };
 
-        self.storage.create_realm_agent(&agent).await?;
-        self.apply_agent_bindings(agent.id, req.grants, req.tools)
-            .await?;
+        edit.realm.definition.agents.push(agent.clone());
+        self.storage.save_realm(&edit.realm, edit.save_mode).await?;
 
         Ok(agent)
     }
 
     /// Full-replace edit of a preset agent (grants and tools included).
-    /// In-flight playthroughs keep their snapshot; only new ones see this.
+    /// In-flight playthroughs keep their cast snapshot; only new ones see
+    /// this.
     pub async fn update_agent(
         &self,
         realm_id: Snowflake,
@@ -241,13 +297,20 @@ impl RealmService {
         user_id: Snowflake,
         req: CreateAgentRequest,
     ) -> Result<RealmAgent, RealmError> {
-        let existing = self.owned_agent(realm_id, agent_id, user_id).await?;
+        let mut edit = self.get_realm_for_edit(realm_id, user_id).await?;
 
         let parts = self.validate_agent(user_id, &req).await?;
 
+        let slot = edit
+            .realm
+            .definition
+            .agents
+            .iter_mut()
+            .find(|a| a.id == agent_id)
+            .ok_or(RealmError::NotFound(TargetType::RealmAgent, agent_id))?;
+
         let agent = RealmAgent {
-            id: existing.id,
-            realm_id,
+            id: slot.id,
             name: req.name,
             kind: req.kind,
             character_id: parts.character_id,
@@ -256,15 +319,13 @@ impl RealmService {
             profile_id: parts.profile_id,
             user_id: parts.user_id,
             persona_id: req.persona_id,
-            turn_order: existing.turn_order,
-            extensions: existing.extensions,
-            created_at: existing.created_at,
-            updated_at: Utc::now(),
+            turn_order: slot.turn_order,
+            grants: req.grants,
+            tools: req.tools,
         };
+        *slot = agent.clone();
 
-        self.storage.update_realm_agent(&agent).await?;
-        self.apply_agent_bindings(agent.id, req.grants, req.tools)
-            .await?;
+        self.storage.save_realm(&edit.realm, edit.save_mode).await?;
 
         Ok(agent)
     }
@@ -275,8 +336,19 @@ impl RealmService {
         agent_id: Snowflake,
         user_id: Snowflake,
     ) -> Result<(), RealmError> {
-        self.owned_agent(realm_id, agent_id, user_id).await?;
-        self.storage.delete_realm_agent(agent_id).await?;
+        let mut edit = self.get_realm_for_edit(realm_id, user_id).await?;
+
+        let agents = &mut edit.realm.definition.agents;
+        let before = agents.len();
+        agents.retain(|a| a.id != agent_id);
+        if agents.len() == before {
+            return Err(RealmError::NotFound(TargetType::RealmAgent, agent_id));
+        }
+        for (index, agent) in agents.iter_mut().enumerate() {
+            agent.turn_order = index as i32;
+        }
+
+        self.storage.save_realm(&edit.realm, edit.save_mode).await?;
 
         Ok(())
     }
@@ -288,8 +360,18 @@ impl RealmService {
         user_id: Snowflake,
         grants: Vec<AgentGrant>,
     ) -> Result<(), RealmError> {
-        self.owned_agent(realm_id, agent_id, user_id).await?;
-        self.storage.set_agent_grants(agent_id, &grants).await?;
+        let mut edit = self.get_realm_for_edit(realm_id, user_id).await?;
+
+        let agent = edit
+            .realm
+            .definition
+            .agents
+            .iter_mut()
+            .find(|a| a.id == agent_id)
+            .ok_or(RealmError::NotFound(TargetType::RealmAgent, agent_id))?;
+        agent.grants = grants;
+
+        self.storage.save_realm(&edit.realm, edit.save_mode).await?;
 
         Ok(())
     }
@@ -297,54 +379,21 @@ impl RealmService {
     // -------------------------------------------------------- playthroughs
 
     /// Instantiate a realm: create a conversation bound to it and pin the
-    /// cast snapshot. No seed state is copied — there is none; the opening
-    /// pool is emergent, written by the weaver expressions the realm's
-    /// lorebooks/tools run over the first turns.
+    /// cast snapshot from the current version. No seed state is copied —
+    /// there is none; the opening pool is emergent, written by the weaver
+    /// expressions the realm's lorebooks/tools run over the first turns.
     pub async fn start_conversation(
         &self,
         realm_id: Snowflake,
         user_id: Snowflake,
     ) -> Result<FullConversation, RealmError> {
         let realm = self.owned_realm(realm_id, user_id).await?;
-        if matches!(realm.status, RealmStatus::Archived) {
-            return Err(RealmError::NotPlayable(realm_id));
-        }
 
-        let agents = self.storage.list_realm_agents(realm_id).await?;
-        if agents.is_empty() {
+        if realm.definition.agents.is_empty() {
             return Err(RealmError::NoAgents(realm_id));
         }
-
-        let mut cast_agents = Vec::with_capacity(agents.len());
-        for a in &agents {
-            let grants = self
-                .storage
-                .list_agent_grants(a.id)
-                .await?
-                .into_iter()
-                .map(|g| CastGrant {
-                    scope: g.scope,
-                    access: g.access,
-                })
-                .collect();
-            let tools = self.storage.list_agent_tools(a.id).await?;
-            cast_agents.push(CastAgent {
-                id: a.id,
-                name: a.name.clone(),
-                kind: a.kind.clone(),
-                character_id: a.character_id,
-                char_version_id: a.char_version_id,
-                template_id: a.template_id,
-                profile_id: a.profile_id,
-                user_id: a.user_id,
-                persona_id: a.persona_id,
-                turn_order: a.turn_order,
-                grants,
-                tools,
-            });
-        }
-        // list_realm_agents returns (turn_order, id) order — the snapshot
-        // preserves it; the round-robin index runs over this vec.
+        let mut agents = realm.definition.agents;
+        agents.sort_by_key(|a| (a.turn_order, a.id));
 
         let convo = Conversation {
             id: self.snowflake.generate(),
@@ -353,9 +402,9 @@ impl RealmService {
             char_version_id: None,
             realm_id: Some(realm_id),
             active_leaf_id: None,
-            title: Some(realm.name.clone()),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
+            title: Some(realm.definition.name.clone()),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
         };
         self.storage.create_conversation(&convo).await?;
         self.storage
@@ -363,8 +412,8 @@ impl RealmService {
                 convo.id,
                 &RealmCast {
                     realm_id,
-                    tokenizer_id: realm.tokenizer_id,
-                    agents: cast_agents,
+                    version_id: Some(realm.current_version_id),
+                    agents,
                 },
             )
             .await?;
@@ -588,6 +637,9 @@ impl RealmService {
         Ok(TurnResult { message, events })
     }
 
+    // ------------------------------------------------- playthrough views
+
+    /// The cast snapshot of a playthrough (roster, turn order, bindings).
     pub async fn cast(
         &self,
         convo_id: Snowflake,
@@ -597,6 +649,7 @@ impl RealmService {
         Ok(cast)
     }
 
+    /// The playthrough's objective timeline (owner view).
     pub async fn list_events(
         &self,
         convo_id: Snowflake,
@@ -611,7 +664,8 @@ impl RealmService {
 
         Ok(events)
     }
-    
+
+    /// An agent's private feed within a playthrough.
     pub async fn list_observations(
         &self,
         convo_id: Snowflake,
@@ -629,6 +683,7 @@ impl RealmService {
         Ok(observations)
     }
 
+    /// The agent's grant-filtered view of the pool at the active leaf.
     pub async fn agent_state_slice(
         &self,
         convo_id: Snowflake,
@@ -654,6 +709,7 @@ impl RealmService {
             .collect())
     }
 
+    /// The agent's action space as pinned in the playthrough's snapshot.
     pub async fn conversation_actions(
         &self,
         convo_id: Snowflake,
@@ -667,7 +723,49 @@ impl RealmService {
     }
 }
 
+// ---------------------------------------------------------------- internals
+
 impl RealmService {
+    /// Load a realm for mutation, resolving the editing session: edits
+    /// within the TTL window collapse into the same version, otherwise a
+    /// fresh version id is allocated (mirrors character editing).
+    async fn get_realm_for_edit(
+        &self,
+        realm_id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<EditableRealm, RealmError> {
+        let mut realm = self.owned_realm(realm_id, user_id).await?;
+
+        let (mode, target) = {
+            let mut sessions = self.editing_sessions.write().await;
+            match sessions.get_mut(&realm.id) {
+                Some(s) if s.last_touched.elapsed() < EDIT_SESSION_TTL => {
+                    s.last_touched = Instant::now();
+                    (VersionedSaveMode::UpdateCurrent, s.version_id)
+                }
+                _ => {
+                    let v = self.snowflake.generate();
+                    sessions.insert(
+                        realm.id,
+                        EditingSession {
+                            version_id: v,
+                            last_touched: Instant::now(),
+                        },
+                    );
+                    (VersionedSaveMode::NewVersion, v)
+                }
+            }
+        };
+
+        realm.current_version_id = target;
+        Ok(EditableRealm {
+            realm,
+            save_mode: mode,
+        })
+    }
+
+    /// Everything up to (but excluding) inference: resolve whose turn it is
+    /// along the path and project that agent's view of the world.
     async fn prepare_turn(
         &self,
         convo: &Conversation,
@@ -694,6 +792,8 @@ impl RealmService {
             }
         };
 
+        // Turn ≈ message: the turn index is the position along the path, so
+        // a regenerated sibling re-runs the same agent's turn.
         let agent = self
             .policy
             .next(path.len(), &cast.agents)
@@ -729,7 +829,8 @@ impl RealmService {
             .storage
             .list_observations_for_messages(agent.id, &ids)
             .await?;
-
+        // Path order == id order: along one path every message commits after
+        // its ancestors, and observations are created with their message.
         if observations.len() > OBSERVATION_WINDOW as usize {
             observations.drain(..observations.len() - OBSERVATION_WINDOW as usize);
         }
@@ -738,7 +839,10 @@ impl RealmService {
             .map(PromptTurn::from_observation)
             .collect();
 
-        let spec = self.spec_for(convo.user_id, cast.tokenizer_id, &agent)?;
+        // Realms don't own a tokenizer; turns use the conversation owner's
+        // active one, exactly like plain chat.
+        let tokenizer_id = self.state.get_active_tokenizer(convo.user_id).await?.id;
+        let spec = self.spec_for(convo.user_id, tokenizer_id, &agent)?;
         let baseline = ReconstructedState {
             persistent: slice,
             activation: reconstructed.activation,
@@ -760,6 +864,7 @@ impl RealmService {
         })))
     }
 
+    /// Turn an LLM outcome into a committed message + state delta + events.
     async fn finalize_llm_turn(
         &self,
         prep: PreparedTurn,
@@ -796,6 +901,7 @@ impl RealmService {
                     )
                     .await?
             }
+            // First turn of the playthrough: the message becomes the root.
             PersistPlan::Append(None) => {
                 self.conversations
                     .append_message(convo.id, ChatRole::Assistant, outcome.spoken.clone(), meta)
@@ -881,6 +987,8 @@ impl RealmService {
         Ok(TurnResult { message, events })
     }
 
+    /// Load + authorize a realm playthrough: the caller must own the
+    /// conversation or drive one of its player agents.
     async fn realm_conversation(
         &self,
         convo_id: Snowflake,
@@ -914,8 +1022,19 @@ impl RealmService {
         &self,
         cast: &'a RealmCast,
         agent_id: Snowflake,
-    ) -> Result<&'a CastAgent, RealmError> {
+    ) -> Result<&'a RealmAgent, RealmError> {
         cast.agents
+            .iter()
+            .find(|a| a.id == agent_id)
+            .ok_or(RealmError::NotFound(TargetType::RealmAgent, agent_id))
+    }
+
+    fn definition_agent(
+        definition: &RealmDefinition,
+        agent_id: Snowflake,
+    ) -> Result<&RealmAgent, RealmError> {
+        definition
+            .agents
             .iter()
             .find(|a| a.id == agent_id)
             .ok_or(RealmError::NotFound(TargetType::RealmAgent, agent_id))
@@ -949,26 +1068,7 @@ impl RealmService {
         Ok(realm)
     }
 
-    async fn owned_agent(
-        &self,
-        realm_id: Snowflake,
-        agent_id: Snowflake,
-        user_id: Snowflake,
-    ) -> Result<RealmAgent, RealmError> {
-        self.owned_realm(realm_id, user_id).await?;
-
-        let agent = self
-            .storage
-            .get_realm_agent(agent_id)
-            .await?
-            .ok_or(RealmError::NotFound(TargetType::RealmAgent, agent_id))?;
-        if agent.realm_id != realm_id {
-            return Err(RealmError::NotFound(TargetType::RealmAgent, agent_id));
-        }
-
-        Ok(agent)
-    }
-
+    /// Validate the identity bundle of a create/update agent request.
     async fn validate_agent(
         &self,
         user_id: Snowflake,
@@ -994,6 +1094,7 @@ impl RealmService {
                 }
             }
             AgentKind::Llm => {
+                // both-or-neither, validated for ownership when present
                 let character = match (req.character_id, req.char_version_id) {
                     (Some(c), Some(v)) => {
                         self.characters.load_version(c, v, user_id).await?;
@@ -1048,37 +1149,12 @@ impl RealmService {
         Ok(parts)
     }
 
-    async fn apply_agent_bindings(
-        &self,
-        agent_id: Snowflake,
-        grants: Vec<GrantDto>,
-        tools: Vec<ToolBindingDto>,
-    ) -> Result<(), RealmError> {
-        let grants: Vec<AgentGrant> = grants
-            .into_iter()
-            .map(|g| AgentGrant {
-                agent_id,
-                scope: g.scope,
-                access: g.access,
-            })
-            .collect();
-        self.storage.set_agent_grants(agent_id, &grants).await?;
-
-        let bindings: Vec<AgentToolBinding> = tools
-            .iter()
-            .map(|t| AgentToolBinding {
-                tool_id: t.tool_id,
-                event_scope: t.event_scope.clone(),
-            })
-            .collect();
-        self.storage.set_agent_tools(agent_id, &bindings).await?;
-
-        Ok(())
-    }
-
+    /// Fan events out into per-agent observations, strictly through the
+    /// snapshot grants. This is the enforcement point for knowledge
+    /// asymmetry: no grant on the scope, no memory of the event.
     fn fan_out(
         &self,
-        agents: &[CastAgent],
+        agents: &[RealmAgent],
         events: &[RealmEvent],
         source_name: &str,
     ) -> Vec<AgentObservation> {
@@ -1242,7 +1318,7 @@ impl RealmService {
     async fn execute_action(
         &self,
         tool: &UserTool,
-        grants: &[CastGrant],
+        grants: &[AgentGrant],
         args: serde_json::Value,
         world: &StatePool,
     ) -> Result<(serde_json::Value, StateDelta), RealmError> {
@@ -1286,7 +1362,7 @@ impl RealmService {
         &self,
         owner: Snowflake,
         tokenizer_id: Snowflake,
-        agent: &CastAgent,
+        agent: &RealmAgent,
     ) -> Result<AgentSpec, RealmError> {
         let template_id = agent.template_id.ok_or(RealmError::MalformedAgent(
             agent.id,
@@ -1317,6 +1393,19 @@ impl RealmService {
     }
 }
 
+#[async_trait]
+impl CleanableService for RealmService {
+    fn name(&self) -> &'static str {
+        "RealmService"
+    }
+    async fn clean(&self) -> usize {
+        let mut sessions = self.editing_sessions.write().await;
+        let before = sessions.len();
+        sessions.retain(|_, s| s.last_touched.elapsed() < EDIT_SESSION_TTL);
+        before - sessions.len()
+    }
+}
+
 /// The identity bundle a validated create/update agent request resolves to.
 struct AgentParts {
     character_id: Option<Snowflake>,
@@ -1328,12 +1417,14 @@ struct AgentParts {
 
 /// The resolved turn before inference runs.
 enum TurnPrep {
+    /// A player is up; nothing to run server-side.
     Player {
         agent_id: Snowflake,
     },
     Llm(Box<PreparedTurn>),
 }
 
+/// Where the committed assistant message lands in the tree.
 enum PersistPlan {
     /// Continue the active path (None = the playthrough's first message).
     Append(Option<Snowflake>),
@@ -1341,10 +1432,12 @@ enum PersistPlan {
     Alternate(Snowflake),
 }
 
+/// An LLM agent's turn, ready to run: its identity bundle, its projected
+/// slice of the world, and the policy constraining its tools.
 struct PreparedTurn {
     convo: Conversation,
     cast: RealmCast,
-    agent: CastAgent,
+    agent: RealmAgent,
     spec: AgentSpec,
     baseline: ReconstructedState,
     policy: ToolPolicy,

@@ -1,18 +1,18 @@
-use lorealm_storage::models::{AgentAccess, AgentKind, RealmStatus, Snowflake};
-use serde::{Deserialize, Serialize};
+use lorealm_storage::models::{AgentGrant, AgentKind, AgentToolBinding, Snowflake};
+use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct CreateRealmRequest {
     pub name: String,
-    pub tokenizer_id: Option<Snowflake>,
 }
 
-/// Partial preset edit; omitted fields keep their value.
+/// Partial preset edit; omitted fields keep their value. Saves collapse
+/// into the active editing session's version like character edits.
 #[derive(Deserialize)]
 pub struct UpdateRealmRequest {
     pub name: Option<String>,
-    pub status: Option<RealmStatus>,
-    pub tokenizer_id: Option<Snowflake>,
+    pub description: Option<String>,
+    pub tags: Option<Vec<String>>,
 }
 
 #[derive(Deserialize)]
@@ -29,27 +29,13 @@ pub struct CreateAgentRequest {
 
     pub persona_id: Option<Snowflake>,
 
+    /// What the agent can know: scoped access to state namespaces.
     #[serde(default)]
-    pub grants: Vec<GrantDto>,
+    pub grants: Vec<AgentGrant>,
     /// The agent's action space: which of the owner's tools it may call,
     /// and what scope each tool's Acted event carries. Empty = speak-only.
     #[serde(default)]
-    pub tools: Vec<ToolBindingDto>,
-}
-
-#[derive(Deserialize)]
-pub struct ToolBindingDto {
-    pub tool_id: Snowflake,
-    /// Scope of the Acted event when this tool runs; omitted = private
-    /// (only the actor observes its own action).
-    #[serde(default)]
-    pub event_scope: Option<String>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct GrantDto {
-    pub scope: String,
-    pub access: AgentAccess,
+    pub tools: Vec<AgentToolBinding>,
 }
 
 /// A player turn: say something, perform one bound action, or both.

@@ -142,6 +142,7 @@ impl ServiceManager {
             Arc::clone(&characters) as Arc<dyn CleanableService>,
             Arc::clone(&lorebook) as Arc<dyn CleanableService>,
             Arc::clone(&tokenizers) as Arc<dyn CleanableService>,
+            Arc::clone(&realms) as Arc<dyn CleanableService>,
         ];
 
         Self {

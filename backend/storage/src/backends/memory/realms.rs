@@ -1,179 +1,176 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 
 use crate::{
     RealmStorage, StorageError,
     backends::MemoryStorage,
     models::{
-        AgentGrant, AgentObservation, AgentToolBinding, Realm, RealmAgent, RealmCast, RealmEvent,
-        RealmSummary, Snowflake, TurnCommit,
+        AgentObservation, Realm, RealmCast, RealmEvent, RealmSummary, RealmVersionInfo, Snowflake,
+        TurnCommit, VersionedSaveMode,
     },
 };
+
+/// Head row + the metadata postgres keeps on the realms table.
+#[derive(Debug, Clone)]
+pub(crate) struct StoredRealm {
+    pub(crate) realm: Realm,
+    pub(crate) updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct StoredRealmVersion {
+    pub(crate) version_id: Snowflake,
+    pub(crate) realm_id: Snowflake,
+    pub(crate) version_num: u32,
+    pub(crate) created_at: DateTime<Utc>,
+    pub(crate) realm: Realm,
+}
 
 #[async_trait]
 impl RealmStorage for MemoryStorage {
     async fn list_realms(&self, user_id: Snowflake) -> Result<Vec<RealmSummary>, StorageError> {
-        let summaries = self
-            .realms
-            .read()
-            .await
+        let realms = self.realms.read().await;
+        let mut summaries: Vec<RealmSummary> = realms
             .values()
-            .filter(|r| r.owner_id == user_id)
-            .map(|r| RealmSummary {
-                id: r.id,
-                owner_id: r.owner_id,
-                name: r.name.clone(),
-                status: r.status.clone(),
+            .filter(|s| s.realm.owner_id == user_id)
+            .map(|s| RealmSummary {
+                id: s.realm.id,
+                owner_id: s.realm.owner_id,
+                name: s.realm.definition.name.clone(),
+                tags: s.realm.tags.clone(),
+                updated_at: s.updated_at,
             })
             .collect();
+        summaries.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
 
         Ok(summaries)
     }
+
     async fn get_realm(&self, id: Snowflake) -> Result<Option<Realm>, StorageError> {
-        Ok(self.realms.read().await.get(&id).cloned())
-    }
-    async fn create_realm(&self, realm: &Realm) -> Result<(), StorageError> {
-        self.realms.write().await.insert(realm.id, realm.clone());
-
-        Ok(())
+        Ok(self.realms.read().await.get(&id).map(|s| s.realm.clone()))
     }
 
-    async fn update_realm(&self, realm: &Realm) -> Result<(), StorageError> {
-        let mut realms = self.realms.write().await;
-        let row = realms
-            .get_mut(&realm.id)
-            .ok_or(StorageError::NotFound(format!("realm: {}", realm.id)))?;
-        *row = realm.clone();
-        Ok(())
+    async fn get_realm_at_version(
+        &self,
+        _id: Snowflake,
+        version_id: Snowflake,
+    ) -> Result<Option<Realm>, StorageError> {
+        let versions = self.realm_versions.read().await;
+        Ok(versions.get(&version_id).map(|v| {
+            let mut r = v.realm.clone();
+            r.current_version_id = version_id;
+            r
+        }))
     }
 
-    async fn delete_realm(&self, id: Snowflake) -> Result<(), StorageError> {
-        self.realms.write().await.remove(&id);
+    async fn save_realm(
+        &self,
+        realm: &Realm,
+        mode: VersionedSaveMode,
+    ) -> Result<Snowflake, StorageError> {
+        match mode {
+            VersionedSaveMode::NewVersion => {
+                let next_version_num = {
+                    let versions = self.realm_versions.read().await;
+                    versions
+                        .values()
+                        .filter(|v| v.realm_id == realm.id)
+                        .map(|v| v.version_num)
+                        .max()
+                        .map(|n| n + 1)
+                        .unwrap_or(1)
+                };
 
-        // cascade, mirroring the FK behavior of the SQL backends
-        let agent_ids: Vec<Snowflake> = {
-            let mut agents = self.realm_agents.write().await;
-            let ids: Vec<Snowflake> = agents
-                .values()
-                .filter(|a| a.realm_id == id)
-                .map(|a| a.id)
-                .collect();
-            agents.retain(|_, a| a.realm_id != id);
-            ids
-        };
-        {
-            let mut grants = self.agent_grants.write().await;
-            let mut tools = self.agent_tools.write().await;
-            for agent_id in &agent_ids {
-                grants.remove(agent_id);
-                tools.remove(agent_id);
+                let stored = StoredRealmVersion {
+                    version_id: realm.current_version_id,
+                    realm_id: realm.id,
+                    version_num: next_version_num,
+                    created_at: Utc::now(),
+                    realm: realm.clone(),
+                };
+
+                let mut versions = self.realm_versions.write().await;
+                versions.insert(realm.current_version_id, stored);
+            }
+            VersionedSaveMode::UpdateCurrent => {
+                let mut versions = self.realm_versions.write().await;
+                let existing = versions.get_mut(&realm.current_version_id).ok_or_else(|| {
+                    StorageError::NotFound(format!(
+                        "save_realm: version '{}' not found for in-place update",
+                        realm.current_version_id
+                    ))
+                })?;
+
+                existing.realm = realm.clone();
             }
         }
 
-        self.conversations
-            .write()
-            .await
-            .values_mut()
-            .filter(|c| c.realm_id == Some(id))
-            .for_each(|c| c.realm_id = None);
-
-        Ok(())
-    }
-
-    async fn list_realm_agents(
-        &self,
-        realm_id: Snowflake,
-    ) -> Result<Vec<RealmAgent>, StorageError> {
-        let realm_agents = self.realm_agents.read();
-        let realms = self.realms.read().await;
-        if !realms.contains_key(&realm_id) {
-            return Err(StorageError::NotFound(format!("realm: {realm_id}")));
+        {
+            let mut realms = self.realms.write().await;
+            realms.insert(
+                realm.id,
+                StoredRealm {
+                    realm: realm.clone(),
+                    updated_at: Utc::now(),
+                },
+            );
         }
 
-        let mut agents: Vec<RealmAgent> = realm_agents
-            .await
+        Ok(realm.current_version_id)
+    }
+
+    async fn delete_realm(&self, id: Snowflake) -> Result<bool, StorageError> {
+        let removed = self.realms.write().await.remove(&id).is_some();
+        if removed {
+            self.realm_versions
+                .write()
+                .await
+                .retain(|_, v| v.realm_id != id);
+            // conversations.realm_id is ON DELETE SET NULL: playthroughs
+            // outlive their preset because turns read only the cast snapshot.
+            self.conversations
+                .write()
+                .await
+                .values_mut()
+                .filter(|c| c.realm_id == Some(id))
+                .for_each(|c| c.realm_id = None);
+        }
+        Ok(removed)
+    }
+
+    async fn list_realm_versions(
+        &self,
+        id: Snowflake,
+    ) -> Result<Vec<RealmVersionInfo>, StorageError> {
+        let versions = self.realm_versions.read().await;
+        let mut out: Vec<_> = versions
             .values()
-            .filter(|a| a.realm_id == realm_id)
-            .cloned()
+            .filter(|v| v.realm_id == id)
+            .map(|v| RealmVersionInfo {
+                id: v.version_id,
+                version_num: v.version_num,
+                created_at: v.created_at,
+            })
             .collect();
-        agents.sort_by_key(|a| (a.turn_order, a.id));
-
-        Ok(agents)
+        out.sort_by(|a, b| b.version_num.cmp(&a.version_num));
+        Ok(out)
     }
 
-    async fn get_realm_agent(
+    async fn restore_realm_version(
         &self,
-        agent_id: Snowflake,
-    ) -> Result<Option<RealmAgent>, StorageError> {
-        Ok(self.realm_agents.read().await.get(&agent_id).cloned())
-    }
-    async fn create_realm_agent(&self, agent: &RealmAgent) -> Result<(), StorageError> {
-        self.realm_agents
-            .write()
+        id: Snowflake,
+        version_id: Snowflake,
+        new_version_id: Snowflake,
+    ) -> Result<Snowflake, StorageError> {
+        let Some(realm) = self.get_realm_at_version(id, version_id).await? else {
+            return Err(StorageError::NotFound(format!(
+                "realm {id} version {version_id} not found"
+            )));
+        };
+        let mut to_save = realm;
+        to_save.current_version_id = new_version_id;
+        self.save_realm(&to_save, VersionedSaveMode::NewVersion)
             .await
-            .insert(agent.id, agent.clone());
-        Ok(())
-    }
-
-    async fn update_realm_agent(&self, agent: &RealmAgent) -> Result<(), StorageError> {
-        let mut agents = self.realm_agents.write().await;
-        let row = agents
-            .get_mut(&agent.id)
-            .ok_or(StorageError::NotFound(format!("realm agent: {}", agent.id)))?;
-        *row = agent.clone();
-        Ok(())
-    }
-
-    async fn delete_realm_agent(&self, agent_id: Snowflake) -> Result<(), StorageError> {
-        self.realm_agents.write().await.remove(&agent_id);
-        self.agent_grants.write().await.remove(&agent_id);
-        self.agent_tools.write().await.remove(&agent_id);
-        Ok(())
-    }
-
-    async fn list_agent_grants(
-        &self,
-        agent_id: Snowflake,
-    ) -> Result<Vec<AgentGrant>, StorageError> {
-        // no rows is a valid state, not an error — mirror the SQL backends
-        let grants = self.agent_grants.read().await;
-
-        Ok(grants.get(&agent_id).cloned().unwrap_or_default())
-    }
-    async fn set_agent_grants(
-        &self,
-        agent_id: Snowflake,
-        grants: &[AgentGrant],
-    ) -> Result<(), StorageError> {
-        let mut grant = self.agent_grants.write().await;
-        grant.insert(agent_id, grants.to_vec());
-        Ok(())
-    }
-
-    async fn list_agent_tools(
-        &self,
-        agent_id: Snowflake,
-    ) -> Result<Vec<AgentToolBinding>, StorageError> {
-        let mut bindings = self
-            .agent_tools
-            .read()
-            .await
-            .get(&agent_id)
-            .cloned()
-            .unwrap_or_default();
-        bindings.sort_by_key(|b| b.tool_id);
-        Ok(bindings)
-    }
-
-    async fn set_agent_tools(
-        &self,
-        agent_id: Snowflake,
-        bindings: &[AgentToolBinding],
-    ) -> Result<(), StorageError> {
-        self.agent_tools
-            .write()
-            .await
-            .insert(agent_id, bindings.to_vec());
-        Ok(())
     }
 
     async fn get_cast(
