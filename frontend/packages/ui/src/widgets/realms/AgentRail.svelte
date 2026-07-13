@@ -1,22 +1,30 @@
 <script lang="ts">
 	import { realmStore } from '$lib/stores/realm.svelte.js';
-	import { Bot, Plus, User } from '@lucide/svelte';
+	import { Bot, Plus, Trash2, User } from '@lucide/svelte';
 	import AgentForm from './AgentForm.svelte';
 
-	let { nextAgentId }: { nextAgentId: string | null } = $props();
-
 	let adding = $state(false);
+
+	const playing = $derived(realmStore.inPlaythrough);
+	const nextAgentId = $derived(realmStore.nextAgent?.id ?? null);
+
+	async function remove(e: MouseEvent, id: string) {
+		e.stopPropagation();
+		await realmStore.deleteAgent(id);
+	}
 </script>
 
 <aside class="rail">
 	<div class="railHeader">
-		<span>Agents</span>
-		<button type="button" title="Add agent" onclick={() => (adding = !adding)}>
-			<Plus size={14} />
-		</button>
+		<span>{playing ? 'Cast' : 'Agents'}</span>
+		{#if !playing}
+			<button type="button" title="Add agent" onclick={() => (adding = !adding)}>
+				<Plus size={14} />
+			</button>
+		{/if}
 	</div>
 
-	{#if adding}
+	{#if adding && !playing}
 		<AgentForm oncreated={() => (adding = false)} oncancel={() => (adding = false)} />
 	{/if}
 
@@ -38,6 +46,18 @@
 				<span class="agentName">{agent.name}</span>
 				{#if agent.id === nextAgentId}
 					<span class="turnDot" title="Next to act"></span>
+				{/if}
+				{#if !playing}
+					<span
+						class="delete"
+						role="button"
+						tabindex="-1"
+						title="Remove agent from the preset"
+						onclick={(e) => remove(e, agent.id)}
+						onkeydown={(e) => e.stopPropagation()}
+					>
+						<Trash2 size={14} />
+					</span>
 				{/if}
 			</button>
 		{:else}
@@ -119,6 +139,21 @@
 		border-radius: 50%;
 		background-color: var(--color-success, #4caf7d);
 		flex-shrink: 0;
+	}
+
+	.delete {
+		display: none;
+		align-items: center;
+		color: var(--color-text-muted);
+		flex-shrink: 0;
+	}
+
+	.agent:hover .delete {
+		display: flex;
+	}
+
+	.delete:hover {
+		color: var(--color-danger, #e5484d);
 	}
 
 	.hint {

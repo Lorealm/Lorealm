@@ -23,7 +23,11 @@
 	let kind = $state<AgentKind>('llm');
 	let characterId = $state<string>('');
 	let personaId = $state<string>('');
-	let grants = $state<Array<{ scope: string; access: AgentAccess }>>([]);
+	// Open speech carries the `main` scope — without this grant the agent
+	// never hears anyone. Prefilled; remove it to author a deaf agent.
+	let grants = $state<Array<{ scope: string; access: AgentAccess }>>([
+		{ scope: 'main', access: 'read' }
+	]);
 	/** tool_id -> event scope draft ('' = private) for each bound tool */
 	let bindings = $state<Array<{ tool_id: string; event_scope: string }>>([]);
 	let busy = $state(false);
@@ -155,7 +159,10 @@
 				</button>
 			</div>
 		{:else}
-			<div class="hint">No grants — the agent sees no world state.</div>
+			<div class="hint">
+				No grants — the agent sees no world state and hears no open speech
+				(speech carries the <code>main</code> scope).
+			</div>
 		{/each}
 	</fieldset>
 

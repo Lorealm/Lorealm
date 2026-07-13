@@ -10,6 +10,15 @@
 	const turn = $derived(realmStore.turn);
 	const awaiting = $derived(realmStore.awaitingAgent);
 
+	// One committed message = one turn; number the groups in arrival order.
+	const turnNumbers = $derived.by(() => {
+		const map = new Map<string, number>();
+		for (const e of events) {
+			if (!map.has(e.message_id)) map.set(e.message_id, map.size + 1);
+		}
+		return map;
+	});
+
 	// Stick to the bottom as events stream in.
 	$effect(() => {
 		void events.length;
@@ -45,8 +54,8 @@
 	{/if}
 
 	{#each events as event, i (event.id)}
-		{#if i === 0 || events[i - 1].tick !== event.tick}
-			<div class="tickMarker">tick {event.tick}</div>
+		{#if i === 0 || events[i - 1].message_id !== event.message_id}
+			<div class="tickMarker">turn {turnNumbers.get(event.message_id)}</div>
 		{/if}
 		<div class="event" data-kind={event.kind}>
 			{#if event.kind === 'spoke'}
@@ -62,7 +71,7 @@
 	{:else}
 		{#if !turn && !awaiting}
 			<div class="empty">
-				Nothing has happened yet. Add agents, then press <strong>Run</strong>.
+				A fresh timeline. Press <strong>Run</strong> to let the world take its first turn.
 			</div>
 		{/if}
 	{/each}

@@ -9,6 +9,7 @@
 
 	const agent = $derived(realmStore.agentById(inspection.agentId));
 	const namespaces = $derived(Object.entries(inspection.state));
+	const playing = $derived(realmStore.inPlaythrough);
 </script>
 
 <aside class="inspector">
@@ -38,16 +39,24 @@
 					<pre>{JSON.stringify(value, null, 2)}</pre>
 				</div>
 			{:else}
-				<div class="hint">This agent can see no world state.</div>
+				<div class="hint">
+					{playing
+						? 'This agent can see no world state.'
+						: 'State is emergent — start a conversation to watch this agent’s view of the pool.'}
+				</div>
 			{/each}
 		{:else if tab === 'observations'}
 			{#each inspection.observations as obs (obs.id)}
 				<div class="entry">
-					<span class="key">tick {obs.tick} · {obs.role}</span>
+					<span class="key">{obs.role}</span>
 					<p>{obs.content}</p>
 				</div>
 			{:else}
-				<div class="hint">No observations yet.</div>
+				<div class="hint">
+					{playing
+						? 'No observations yet.'
+						: 'Observations belong to a playthrough — start a conversation to see this agent’s feed.'}
+				</div>
 			{/each}
 		{:else if tab === 'actions'}
 			{#each inspection.actions as action (action.tool_id)}

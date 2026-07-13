@@ -46,15 +46,19 @@ import type {
 	AgentObservation,
 	CreateAgentRequest,
 	CreateRealmRequest,
-	GrantRequest,
 	PlayerTurnRequest,
 	Realm,
 	RealmAgent,
+	RealmCast,
 	RealmEvent,
 	RealmStreamEvent,
 	RealmSummary,
+	RealmVersionInfo,
+	RunTurnRequest,
+	StartRealmChatRequest,
 	StateSlice,
-	TickResponse
+	TurnResult,
+	UpdateRealmRequest
 } from '$lib/types/realm.js';
 import type { ReconstructedState } from '$lib/types/state.js';
 import type {
@@ -187,8 +191,41 @@ export function createApiClient(platform: PlatformAPI) {
 			delete: (conversation_id: Snowflake) => http.delete(`/api/v1/chat/${conversation_id}`),
 			completions: (conversation_id: Snowflake, request: CompletionsRequest) =>
 				http.stream<ChatStreamEvent>(`/api/v1/chat/${conversation_id}/completions`, request),
+			/** Cancels the in-flight generation — chat completion or realm turn alike. */
 			cancel: (conversation_id: Snowflake) =>
 				http.delete(`/api/v1/chat/${conversation_id}/completions`),
+			/** Realm playthrough surfaces of a conversation. */
+			realm: {
+				/** Instantiate a realm preset into a fresh playthrough conversation. */
+				start: (request: StartRealmChatRequest) =>
+					http.post<FullConversation>('/api/v1/chat/realm', request),
+				/** The cast snapshot pinned when this playthrough started. */
+				cast: (conversation_id: Snowflake) =>
+					http.get<RealmCast>(`/api/v1/chat/${conversation_id}/cast`),
+				/** The playthrough's objective timeline (id-paged backward). */
+				events: (conversation_id: Snowflake, before?: Snowflake) =>
+					http.get<Array<RealmEvent>>(
+						`/api/v1/chat/${conversation_id}/events${before !== undefined ? `?before=${before}` : ''}`
+					),
+				/** Run the next LLM turn (or regenerate `target`) and stream it. */
+				turnStream: (conversation_id: Snowflake, request: RunTurnRequest = {}) =>
+					http.stream<RealmStreamEvent>(`/api/v1/chat/${conversation_id}/turn/stream`, request),
+				/** Submit the current player's turn (text and/or one bound action). */
+				playerTurn: (conversation_id: Snowflake, turn: PlayerTurnRequest) =>
+					http.post<TurnResult>(`/api/v1/chat/${conversation_id}/turn`, turn),
+				agents: {
+					observations: (conversation_id: Snowflake, agent_id: Snowflake, before?: Snowflake) =>
+						http.get<Array<AgentObservation>>(
+							`/api/v1/chat/${conversation_id}/agents/${agent_id}/observations${before !== undefined ? `?before=${before}` : ''}`
+						),
+					actions: (conversation_id: Snowflake, agent_id: Snowflake) =>
+						http.get<Array<ActionSpec>>(
+							`/api/v1/chat/${conversation_id}/agents/${agent_id}/actions`
+						),
+					state: (conversation_id: Snowflake, agent_id: Snowflake) =>
+						http.get<StateSlice>(`/api/v1/chat/${conversation_id}/agents/${agent_id}/state`)
+				}
+			},
 			messages: {
 				list: (conversation_id: Snowflake) =>
 					http.get<Array<ConversationMessage>>(`/api/v1/chat/${conversation_id}/messages`),
@@ -285,36 +322,35 @@ export function createApiClient(platform: PlatformAPI) {
 			list: () => http.get<Array<RealmSummary>>('/api/v1/realms'),
 			get: (realm_id: Snowflake) => http.get<Realm>(`/api/v1/realms/${realm_id}`),
 			create: (create: CreateRealmRequest) => http.post<Realm>('/api/v1/realms', create),
+			update: (realm_id: Snowflake, update: UpdateRealmRequest) =>
+				http.patch<Realm>(`/api/v1/realms/${realm_id}`, update),
 			delete: (realm_id: Snowflake) => http.delete(`/api/v1/realms/${realm_id}`),
-			events: (realm_id: Snowflake, before_tick?: number) =>
-				http.get<Array<RealmEvent>>(
-					`/api/v1/realms/${realm_id}/events${before_tick !== undefined ? `?before_tick=${before_tick}` : ''}`
-				),
-			tick: (realm_id: Snowflake) => http.post<TickResponse>(`/api/v1/realms/${realm_id}/tick`),
-			tickStream: (realm_id: Snowflake) =>
-				http.stream<RealmStreamEvent>(`/api/v1/realms/${realm_id}/tick/stream`),
-			cancelTick: (realm_id: Snowflake) => http.delete(`/api/v1/realms/${realm_id}/tick`),
-			playerTurn: (realm_id: Snowflake, turn: PlayerTurnRequest) =>
-				http.post<TickResponse>(`/api/v1/realms/${realm_id}/turn`, turn),
+			versions: {
+				list: (realm_id: Snowflake) =>
+					http.get<Array<RealmVersionInfo>>(`/api/v1/realms/${realm_id}/versions`),
+				get: (realm_id: Snowflake, version_id: Snowflake) =>
+					http.get<Realm>(`/api/v1/realms/${realm_id}/versions/${version_id}`),
+				restore: (realm_id: Snowflake, version_id: Snowflake) =>
+					http.post<Realm>(`/api/v1/realms/${realm_id}/versions/${version_id}/restore`)
+			},
 			agents: {
 				list: (realm_id: Snowflake) =>
 					http.get<Array<RealmAgent>>(`/api/v1/realms/${realm_id}/agents`),
 				create: (realm_id: Snowflake, create: CreateAgentRequest) =>
 					http.post<RealmAgent>(`/api/v1/realms/${realm_id}/agents`, create),
+				update: (realm_id: Snowflake, agent_id: Snowflake, update: CreateAgentRequest) =>
+					http.put<RealmAgent>(`/api/v1/realms/${realm_id}/agents/${agent_id}`, update),
+				delete: (realm_id: Snowflake, agent_id: Snowflake) =>
+					http.delete(`/api/v1/realms/${realm_id}/agents/${agent_id}`),
 				grants: {
 					get: (realm_id: Snowflake, agent_id: Snowflake) =>
 						http.get<Array<AgentGrant>>(`/api/v1/realms/${realm_id}/agents/${agent_id}/grants`),
-					set: (realm_id: Snowflake, agent_id: Snowflake, grants: GrantRequest[]) =>
+					set: (realm_id: Snowflake, agent_id: Snowflake, grants: AgentGrant[]) =>
 						http.put(`/api/v1/realms/${realm_id}/agents/${agent_id}/grants`, grants)
 				},
-				observations: (realm_id: Snowflake, agent_id: Snowflake, before?: Snowflake) =>
-					http.get<Array<AgentObservation>>(
-						`/api/v1/realms/${realm_id}/agents/${agent_id}/observations${before !== undefined ? `?before=${before}` : ''}`
-					),
+				/** The agent's action space as currently authored in the preset. */
 				actions: (realm_id: Snowflake, agent_id: Snowflake) =>
-					http.get<Array<ActionSpec>>(`/api/v1/realms/${realm_id}/agents/${agent_id}/actions`),
-				state: (realm_id: Snowflake, agent_id: Snowflake) =>
-					http.get<StateSlice>(`/api/v1/realms/${realm_id}/agents/${agent_id}/state`)
+					http.get<Array<ActionSpec>>(`/api/v1/realms/${realm_id}/agents/${agent_id}/actions`)
 			}
 		},
 		config: {
