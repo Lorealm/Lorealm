@@ -4,8 +4,8 @@ use crate::{
     RealmStorage, StorageError,
     backends::CachedStorage,
     models::{
-        AgentGrant, AgentObservation, AgentToolBinding, Realm, RealmAgent, RealmCast, RealmEvent,
-        RealmSummary, Snowflake, TurnCommit,
+        AgentObservation, Realm, RealmCast, RealmEvent, RealmSummary, RealmVersionInfo, Snowflake,
+        TurnCommit, VersionedSaveMode,
     },
 };
 
@@ -17,62 +17,38 @@ impl RealmStorage for CachedStorage {
     async fn get_realm(&self, id: Snowflake) -> Result<Option<Realm>, StorageError> {
         self.backend.get_realm(id).await
     }
-    async fn create_realm(&self, realm: &Realm) -> Result<(), StorageError> {
-        self.backend.create_realm(realm).await
+    async fn get_realm_at_version(
+        &self,
+        id: Snowflake,
+        version_id: Snowflake,
+    ) -> Result<Option<Realm>, StorageError> {
+        self.backend.get_realm_at_version(id, version_id).await
     }
-    async fn update_realm(&self, realm: &Realm) -> Result<(), StorageError> {
-        self.backend.update_realm(realm).await
+    async fn save_realm(
+        &self,
+        realm: &Realm,
+        mode: VersionedSaveMode,
+    ) -> Result<Snowflake, StorageError> {
+        self.backend.save_realm(realm, mode).await
     }
-    async fn delete_realm(&self, id: Snowflake) -> Result<(), StorageError> {
+    async fn delete_realm(&self, id: Snowflake) -> Result<bool, StorageError> {
         self.backend.delete_realm(id).await
     }
-
-    async fn list_realm_agents(
+    async fn list_realm_versions(
         &self,
-        realm_id: Snowflake,
-    ) -> Result<Vec<RealmAgent>, StorageError> {
-        self.backend.list_realm_agents(realm_id).await
+        id: Snowflake,
+    ) -> Result<Vec<RealmVersionInfo>, StorageError> {
+        self.backend.list_realm_versions(id).await
     }
-    async fn get_realm_agent(
+    async fn restore_realm_version(
         &self,
-        agent_id: Snowflake,
-    ) -> Result<Option<RealmAgent>, StorageError> {
-        self.backend.get_realm_agent(agent_id).await
-    }
-    async fn create_realm_agent(&self, agent: &RealmAgent) -> Result<(), StorageError> {
-        self.backend.create_realm_agent(agent).await
-    }
-    async fn update_realm_agent(&self, agent: &RealmAgent) -> Result<(), StorageError> {
-        self.backend.update_realm_agent(agent).await
-    }
-    async fn delete_realm_agent(&self, agent_id: Snowflake) -> Result<(), StorageError> {
-        self.backend.delete_realm_agent(agent_id).await
-    }
-    async fn list_agent_tools(
-        &self,
-        agent_id: Snowflake,
-    ) -> Result<Vec<AgentToolBinding>, StorageError> {
-        self.backend.list_agent_tools(agent_id).await
-    }
-    async fn set_agent_tools(
-        &self,
-        agent_id: Snowflake,
-        bindings: &[AgentToolBinding],
-    ) -> Result<(), StorageError> {
-        self.backend.set_agent_tools(agent_id, bindings).await
-    }
-    async fn list_agent_grants(
-        &self,
-        agent_id: Snowflake,
-    ) -> Result<Vec<AgentGrant>, StorageError> {
-        self.backend.list_agent_grants(agent_id).await
-    }
-    async fn set_agent_grants(
-        &self,
-        agent_id: Snowflake,
-        grants: &[AgentGrant],
-    ) -> Result<(), StorageError> {
-        self.backend.set_agent_grants(agent_id, grants).await
+        id: Snowflake,
+        version_id: Snowflake,
+        new_version_id: Snowflake,
+    ) -> Result<Snowflake, StorageError> {
+        self.backend
+            .restore_realm_version(id, version_id, new_version_id)
+            .await
     }
 
     async fn get_cast(

@@ -4,13 +4,15 @@ use axum::{
     Json,
     extract::{Path, State},
 };
-use lorealm_storage::models::{AgentGrant, Realm, RealmAgent, RealmSummary, Snowflake};
+use lorealm_storage::models::{
+    AgentGrant, Realm, RealmAgent, RealmSummary, RealmVersionInfo, Snowflake,
+};
 
 use crate::{
     core::AppState,
     errors::AppError,
     extract::AuthenticatedSession,
-    routes::realm::dto::{CreateAgentRequest, CreateRealmRequest, GrantDto, UpdateRealmRequest},
+    routes::realm::dto::{CreateAgentRequest, CreateRealmRequest, UpdateRealmRequest},
     services::realm::ActionSpec,
 };
 
@@ -49,10 +51,52 @@ pub async fn create_realm(
     let created = state
         .services()
         .realm()
-        .create_realm(payload.name, payload.tokenizer_id, session.user_id)
+        .create_realm(payload.name, session.user_id)
         .await?;
 
     Ok(Json(created))
+}
+
+pub async fn list_versions(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(realm_id): Path<Snowflake>,
+) -> Result<Json<Vec<RealmVersionInfo>>, AppError> {
+    let versions = state
+        .services()
+        .realm()
+        .list_versions(realm_id, session.user_id)
+        .await?;
+
+    Ok(Json(versions))
+}
+
+pub async fn get_version(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path((realm_id, version_id)): Path<(Snowflake, Snowflake)>,
+) -> Result<Json<Realm>, AppError> {
+    let realm = state
+        .services()
+        .realm()
+        .get_version(realm_id, version_id, session.user_id)
+        .await?;
+
+    Ok(Json(realm))
+}
+
+pub async fn restore_version(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path((realm_id, version_id)): Path<(Snowflake, Snowflake)>,
+) -> Result<Json<Realm>, AppError> {
+    let realm = state
+        .services()
+        .realm()
+        .restore_version(realm_id, version_id, session.user_id)
+        .await?;
+
+    Ok(Json(realm))
 }
 
 pub async fn update_realm(
@@ -159,21 +203,12 @@ pub async fn set_grants(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
     Path((realm_id, agent_id)): Path<(Snowflake, Snowflake)>,
-    Json(payload): Json<Vec<GrantDto>>,
+    Json(payload): Json<Vec<AgentGrant>>,
 ) -> Result<(), AppError> {
-    let grants = payload
-        .iter()
-        .map(|g| AgentGrant {
-            agent_id,
-            scope: g.scope.clone(),
-            access: g.access.clone(),
-        })
-        .collect();
-
     state
         .services()
         .realm()
-        .set_grants(realm_id, agent_id, session.user_id, grants)
+        .set_grants(realm_id, agent_id, session.user_id, payload)
         .await?;
 
     Ok(())

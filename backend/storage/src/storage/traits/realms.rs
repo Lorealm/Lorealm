@@ -3,48 +3,55 @@ use async_trait::async_trait;
 use crate::{
     StorageError,
     models::{
-        AgentGrant, AgentObservation, AgentToolBinding, Realm, RealmAgent, RealmCast, RealmEvent,
-        RealmSummary, Snowflake, TurnCommit,
+        AgentObservation, Realm, RealmCast, RealmEvent, RealmSummary, RealmVersionInfo, Snowflake,
+        TurnCommit, VersionedSaveMode,
     },
 };
 
 #[async_trait]
 pub trait RealmStorage {
-    // ----- presets -----
+    // ----- presets (versioned, same machinery as characters) -----
 
     async fn list_realms(&self, user_id: Snowflake) -> Result<Vec<RealmSummary>, StorageError>;
+
+    /// Load the current version of a realm.
     async fn get_realm(&self, id: Snowflake) -> Result<Option<Realm>, StorageError>;
-    async fn create_realm(&self, realm: &Realm) -> Result<(), StorageError>;
-    /// Full-row write of the mutable preset fields (name, tokenizer, status).
-    async fn update_realm(&self, realm: &Realm) -> Result<(), StorageError>;
-    async fn delete_realm(&self, id: Snowflake) -> Result<(), StorageError>;
 
-    async fn list_realm_agents(&self, realm_id: Snowflake)
-    -> Result<Vec<RealmAgent>, StorageError>;
-    async fn get_realm_agent(
+    /// Load a specific pinned version of a realm from its snapshot.
+    async fn get_realm_at_version(
         &self,
-        agent_id: Snowflake,
-    ) -> Result<Option<RealmAgent>, StorageError>;
-    async fn create_realm_agent(&self, agent: &RealmAgent) -> Result<(), StorageError>;
-    async fn update_realm_agent(&self, agent: &RealmAgent) -> Result<(), StorageError>;
-    async fn delete_realm_agent(&self, agent_id: Snowflake) -> Result<(), StorageError>;
+        id: Snowflake,
+        version_id: Snowflake,
+    ) -> Result<Option<Realm>, StorageError>;
 
-    async fn list_agent_grants(&self, agent_id: Snowflake)
-    -> Result<Vec<AgentGrant>, StorageError>;
-    async fn set_agent_grants(
+    /// Create or update a realm. Writes the head and, per `mode`, either
+    /// appends a version row (caller has set a fresh `current_version_id`)
+    /// or updates the current one in place. Tags are resynced.
+    async fn save_realm(
         &self,
-        agent_id: Snowflake,
-        grants: &[AgentGrant],
-    ) -> Result<(), StorageError>;
-    async fn list_agent_tools(
+        realm: &Realm,
+        mode: VersionedSaveMode,
+    ) -> Result<Snowflake, StorageError>;
+
+    /// Hard-delete a realm and all its versions/tags.
+    /// Returns `true` if a row was deleted.
+    async fn delete_realm(&self, id: Snowflake) -> Result<bool, StorageError>;
+
+    /// List version metadata for a realm, newest first.
+    async fn list_realm_versions(
         &self,
-        agent_id: Snowflake,
-    ) -> Result<Vec<AgentToolBinding>, StorageError>;
-    async fn set_agent_tools(
+        id: Snowflake,
+    ) -> Result<Vec<RealmVersionInfo>, StorageError>;
+
+    /// Roll the head back to a prior version: load that snapshot, save it
+    /// as a fresh version row, and update the head. Returns the new
+    /// version id.
+    async fn restore_realm_version(
         &self,
-        agent_id: Snowflake,
-        bindings: &[AgentToolBinding],
-    ) -> Result<(), StorageError>;
+        id: Snowflake,
+        version_id: Snowflake,
+        new_version_id: Snowflake,
+    ) -> Result<Snowflake, StorageError>;
 
     // ----- playthroughs (conversation-owned) -----
 

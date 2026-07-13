@@ -14,15 +14,17 @@ use crate::{
 pub mod dto;
 mod handlers;
 
-pub use dto::{
-    CreateAgentRequest, GrantDto, PlayerTurnRequest, RunTurnRequest, ToolBindingDto,
-    UpdateRealmRequest,
-};
+pub use dto::{CreateAgentRequest, PlayerTurnRequest, RunTurnRequest, UpdateRealmRequest};
 
 pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewareState) -> Router {
     let session_only_routes = Router::new()
         .route("/", get(handlers::list_realms))
         .route("/{realm_id}", get(handlers::get_realm))
+        .route("/{realm_id}/versions", get(handlers::list_versions))
+        .route(
+            "/{realm_id}/versions/{version_id}",
+            get(handlers::get_version),
+        )
         .route("/{realm_id}/agents", get(handlers::list_agents))
         .route(
             "/{realm_id}/agents/{agent_id}/grants",
@@ -42,6 +44,10 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         .route(
             "/{realm_id}",
             patch(handlers::update_realm).delete(handlers::delete_realm),
+        )
+        .route(
+            "/{realm_id}/versions/{version_id}/restore",
+            post(handlers::restore_version),
         )
         .route("/{realm_id}/agents", post(handlers::create_agent))
         .route(

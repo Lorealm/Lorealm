@@ -50,6 +50,7 @@ pub enum TargetType {
     UserTool,
     Realm,
     RealmAgent,
+    RealmVersion,
 }
 
 impl Display for TargetType {
@@ -68,6 +69,7 @@ impl Display for TargetType {
             TargetType::UserTool => write!(f, "user_tool"),
             TargetType::Realm => write!(f, "realm"),
             TargetType::RealmAgent => write!(f, "realm_agent"),
+            TargetType::RealmVersion => write!(f, "realm_version"),
         }
     }
 }
@@ -382,10 +384,7 @@ impl From<RealmError> for AppError {
                 code: "CONFLICT",
                 message: Cow::Owned(err.client_message()),
             },
-            RealmError::NotPlayable(_)
-            | RealmError::NotRealmConversation(_)
-            | RealmError::NoAgents(_)
-            | RealmError::Create(_) => AppError::BadRequest {
+            RealmError::NotRealmConversation(_) | RealmError::NoAgents(_) => AppError::BadRequest {
                 code: "INVALID_REALM",
                 message: Cow::Owned(err.client_message()),
             },

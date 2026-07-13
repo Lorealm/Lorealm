@@ -30,7 +30,7 @@ pub struct Conversation {
     pub id: Snowflake,
     pub user_id: Snowflake,
     /// The character the conversation is bound to, if any.
-    /// 
+    ///
     /// Always `None` for realm conversations
     pub character_id: Option<Snowflake>,
     pub char_version_id: Option<Snowflake>,

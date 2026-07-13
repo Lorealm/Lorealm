@@ -1,4 +1,4 @@
-use lorealm_storage::models::{CastAgent, ConversationMessage, Param, RealmEvent, Snowflake};
+use lorealm_storage::models::{ConversationMessage, Param, RealmAgent, RealmEvent, Snowflake};
 use serde::Serialize;
 
 use crate::services::chat::WidgetInstance;
@@ -7,13 +7,13 @@ use crate::services::chat::WidgetInstance;
 /// message path — one committed message per turn, so swipes/branches derive
 /// their own turn order from their own path.
 pub trait TurnPolicy: Send + Sync {
-    fn next<'a>(&self, turn_index: usize, agents: &'a [CastAgent]) -> Option<&'a CastAgent>;
+    fn next<'a>(&self, turn_index: usize, agents: &'a [RealmAgent]) -> Option<&'a RealmAgent>;
 }
 
 pub struct RoundRobin;
 
 impl TurnPolicy for RoundRobin {
-    fn next<'a>(&self, turn_index: usize, agents: &'a [CastAgent]) -> Option<&'a CastAgent> {
+    fn next<'a>(&self, turn_index: usize, agents: &'a [RealmAgent]) -> Option<&'a RealmAgent> {
         if agents.is_empty() {
             return None;
         }
