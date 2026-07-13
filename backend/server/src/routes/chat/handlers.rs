@@ -12,15 +12,25 @@ use futures_util::StreamExt;
 use lorealm_storage::models::{ConversationMessage, ConversationMetadata, Snowflake};
 use reqwest::StatusCode;
 
+use lorealm_storage::models::{AgentObservation, RealmCast, RealmEvent};
+
 use crate::{
     core::AppState,
     errors::AppError,
     extract::AuthenticatedSession,
-    routes::chat::{
-        StartChatRequest,
-        dto::{ChatEdit, CompletionsRequest, GetConversationQuery},
+    routes::{
+        PlayerTurnRequest, RunTurnRequest,
+        chat::{
+            StartChatRequest,
+            dto::{ChatEdit, CompletionsRequest, GetConversationQuery, StartRealmChatRequest},
+        },
+        realm::dto::{EventsQuery, ObservationsQuery},
     },
-    services::{chat::FullConversation, state::ReconstructedState},
+    services::{
+        chat::FullConversation,
+        realm::{ActionSpec, TurnResult},
+        state::{ReconstructedState, StatePool},
+    },
 };
 
 pub async fn list_conversations(
@@ -221,4 +231,127 @@ pub async fn cancel_completion(
     } else {
         StatusCode::NOT_FOUND
     })
+}
+
+pub async fn start_realm_chat(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Json(request): Json<StartRealmChatRequest>,
+) -> Result<Json<FullConversation>, AppError> {
+    let chat = state
+        .services()
+        .realm()
+        .start_conversation(request.realm_id, session.user_id)
+        .await?;
+
+    Ok(Json(chat))
+}
+
+pub async fn run_turn(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(conversation_id): Path<Snowflake>,
+    Json(request): Json<RunTurnRequest>,
+) -> Result<Sse<impl futures_util::Stream<Item = Result<Event, axum::Error>>>, AppError> {
+    let events = state
+        .services()
+        .realm()
+        .run_turn_stream(conversation_id, session.user_id, request.target)
+        .await?;
+
+    let sse = events.map(|item| match item {
+        Ok(event) => Event::default().json_data(event),
+        Err(err) => Event::default()
+            .event("error")
+            .json_data(serde_json::json!({ "message": err.client_message() })),
+    });
+
+    Ok(Sse::new(sse).keep_alive(KeepAlive::default()))
+}
+
+pub async fn player_turn(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(conversation_id): Path<Snowflake>,
+    Json(request): Json<PlayerTurnRequest>,
+) -> Result<Json<TurnResult>, AppError> {
+    let result = state
+        .services()
+        .realm()
+        .submit_player_turn(conversation_id, session.user_id, request)
+        .await?;
+
+    Ok(Json(result))
+}
+
+pub async fn get_cast(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(conversation_id): Path<Snowflake>,
+) -> Result<Json<RealmCast>, AppError> {
+    let cast = state
+        .services()
+        .realm()
+        .cast(conversation_id, session.user_id)
+        .await?;
+
+    Ok(Json(cast))
+}
+
+pub async fn list_realm_events(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(conversation_id): Path<Snowflake>,
+    Query(query): Query<EventsQuery>,
+) -> Result<Json<Vec<RealmEvent>>, AppError> {
+    let events = state
+        .services()
+        .realm()
+        .list_events(conversation_id, session.user_id, query.before)
+        .await?;
+
+    Ok(Json(events))
+}
+
+pub async fn list_agent_observations(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path((conversation_id, agent_id)): Path<(Snowflake, Snowflake)>,
+    Query(query): Query<ObservationsQuery>,
+) -> Result<Json<Vec<AgentObservation>>, AppError> {
+    let observations = state
+        .services()
+        .realm()
+        .list_observations(conversation_id, agent_id, session.user_id, query.before)
+        .await?;
+
+    Ok(Json(observations))
+}
+
+pub async fn agent_state(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path((conversation_id, agent_id)): Path<(Snowflake, Snowflake)>,
+) -> Result<Json<StatePool>, AppError> {
+    let slice = state
+        .services()
+        .realm()
+        .agent_state_slice(conversation_id, agent_id, session.user_id)
+        .await?;
+
+    Ok(Json(slice))
+}
+
+pub async fn list_agent_actions(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path((conversation_id, agent_id)): Path<(Snowflake, Snowflake)>,
+) -> Result<Json<Vec<ActionSpec>>, AppError> {
+    let actions = state
+        .services()
+        .realm()
+        .conversation_actions(conversation_id, agent_id, session.user_id)
+        .await?;
+
+    Ok(Json(actions))
 }

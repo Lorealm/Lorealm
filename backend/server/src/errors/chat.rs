@@ -34,6 +34,8 @@ pub enum ChatError {
     UserTool(#[from] UserToolError),
     #[error("tokenizer error: {0}")]
     Tokenizer(#[from] TokenizerError),
+    #[error("conversation {0} is a realm playthrough")]
+    RealmConversation(Snowflake),
 }
 
 impl ChatError {
@@ -58,6 +60,9 @@ impl ChatError {
             ChatError::Connection(msg) => msg.to_owned(),
             ChatError::UserTool(user_tool_error) => user_tool_error.client_message(),
             ChatError::Tokenizer(tokenizer_error) => tokenizer_error.client_message(),
+            ChatError::RealmConversation(_) => {
+                "realm conversations advance through their turn endpoints".to_string()
+            }
         }
     }
 }

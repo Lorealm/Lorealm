@@ -25,6 +25,7 @@ impl ConversationStorage for MemoryStorage {
                 id: c.id,
                 character_id: c.character_id,
                 char_version_id: c.char_version_id,
+                realm_id: c.realm_id,
                 title: c.title.clone(),
                 length: Self::active_path_len(&messages, c.active_leaf_id),
                 created_at: c.created_at,
@@ -75,6 +76,16 @@ impl ConversationStorage for MemoryStorage {
                 .write()
                 .await
                 .retain(|_, m| m.conversation_id != id);
+            // cascade the realm rows, mirroring the SQL FKs
+            self.conversation_casts.write().await.remove(&id);
+            self.realm_events
+                .write()
+                .await
+                .retain(|_, e| e.conversation_id != id);
+            self.agent_observations
+                .write()
+                .await
+                .retain(|_, o| o.conversation_id != id);
         }
         Ok(removed)
     }
@@ -275,6 +286,16 @@ impl ConversationStorage for MemoryStorage {
             }
             deleted = subtree.into_iter().collect();
         }
+
+        // cascade message-anchored realm rows, mirroring the SQL FKs
+        self.realm_events
+            .write()
+            .await
+            .retain(|_, e| !deleted.contains(&e.message_id));
+        self.agent_observations
+            .write()
+            .await
+            .retain(|_, o| !deleted.contains(&o.message_id));
 
         let mut conversations = self.conversations.write().await;
         if let Some(conv) = conversations.get_mut(&conversation_id) {

@@ -4,8 +4,8 @@ use crate::{
     RealmStorage, StorageError,
     backends::PostgresStorage,
     models::{
-        AgentGrant, AgentObservation, AgentToolBinding, Realm, RealmAgent, RealmEvent,
-        RealmSummary, Snowflake, TickCommit,
+        AgentGrant, AgentObservation, AgentToolBinding, Realm, RealmAgent, RealmCast, RealmEvent,
+        RealmSummary, Snowflake, TurnCommit,
     },
 };
 
@@ -27,7 +27,7 @@ impl RealmStorage for PostgresStorage {
 
     async fn get_realm(&self, id: Snowflake) -> Result<Option<Realm>, StorageError> {
         Ok(sqlx::query_as::<_, Realm>(
-            "SELECT id, owner_id, name, tick, state, tokenizer_id, status
+            "SELECT id, owner_id, name, tokenizer_id, status
              FROM realms WHERE id = $1",
         )
         .bind(id)
@@ -37,18 +37,35 @@ impl RealmStorage for PostgresStorage {
 
     async fn create_realm(&self, realm: &Realm) -> Result<(), StorageError> {
         sqlx::query(
-            "INSERT INTO realms (id, owner_id, name, tick, state, tokenizer_id, status)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            "INSERT INTO realms (id, owner_id, name, tokenizer_id, status)
+             VALUES ($1, $2, $3, $4, $5)",
         )
         .bind(realm.id)
         .bind(realm.owner_id)
         .bind(&realm.name)
-        .bind(realm.tick)
-        .bind(&realm.state)
         .bind(realm.tokenizer_id)
         .bind(&realm.status)
         .execute(&self.pool)
         .await?;
+        Ok(())
+    }
+
+    async fn update_realm(&self, realm: &Realm) -> Result<(), StorageError> {
+        let result = sqlx::query(
+            "UPDATE realms
+             SET name = $2, tokenizer_id = $3, status = $4, updated_at = now()
+             WHERE id = $1",
+        )
+        .bind(realm.id)
+        .bind(&realm.name)
+        .bind(realm.tokenizer_id)
+        .bind(&realm.status)
+        .execute(&self.pool)
+        .await?;
+
+        if result.rows_affected() == 0 {
+            return Err(StorageError::NotFound(format!("realm: {}", realm.id)));
+        }
         Ok(())
     }
 
@@ -112,6 +129,42 @@ impl RealmStorage for PostgresStorage {
         .bind(&agent.extensions)
         .execute(&self.pool)
         .await?;
+        Ok(())
+    }
+
+    async fn update_realm_agent(&self, agent: &RealmAgent) -> Result<(), StorageError> {
+        let result = sqlx::query(
+            "UPDATE realm_agents
+             SET name = $2, kind = $3, character_id = $4, char_version_id = $5,
+                 template_id = $6, profile_id = $7, user_id = $8, persona_id = $9,
+                 turn_order = $10, extensions = $11, updated_at = now()
+             WHERE id = $1",
+        )
+        .bind(agent.id)
+        .bind(&agent.name)
+        .bind(&agent.kind)
+        .bind(agent.character_id)
+        .bind(agent.char_version_id)
+        .bind(agent.template_id)
+        .bind(agent.profile_id)
+        .bind(agent.user_id)
+        .bind(agent.persona_id)
+        .bind(agent.turn_order)
+        .bind(&agent.extensions)
+        .execute(&self.pool)
+        .await?;
+
+        if result.rows_affected() == 0 {
+            return Err(StorageError::NotFound(format!("realm agent: {}", agent.id)));
+        }
+        Ok(())
+    }
+
+    async fn delete_realm_agent(&self, agent_id: Snowflake) -> Result<(), StorageError> {
+        sqlx::query("DELETE FROM realm_agents WHERE id = $1")
+            .bind(agent_id)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
@@ -186,21 +239,52 @@ impl RealmStorage for PostgresStorage {
         Ok(())
     }
 
+    async fn get_cast(
+        &self,
+        conversation_id: Snowflake,
+    ) -> Result<Option<RealmCast>, StorageError> {
+        let row: Option<sqlx::types::Json<RealmCast>> = sqlx::query_scalar(
+            "SELECT snapshot FROM conversation_casts WHERE conversation_id = $1",
+        )
+        .bind(conversation_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|j| j.0))
+    }
+
+    async fn put_cast(
+        &self,
+        conversation_id: Snowflake,
+        cast: &RealmCast,
+    ) -> Result<(), StorageError> {
+        sqlx::query(
+            "INSERT INTO conversation_casts (conversation_id, snapshot)
+             VALUES ($1, $2)
+             ON CONFLICT (conversation_id) DO UPDATE SET snapshot = $2",
+        )
+        .bind(conversation_id)
+        .bind(sqlx::types::Json(cast))
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     async fn list_realm_events(
         &self,
-        realm_id: Snowflake,
-        before_tick: Option<i64>,
+        conversation_id: Snowflake,
+        before: Option<Snowflake>,
         limit: i64,
     ) -> Result<Vec<RealmEvent>, StorageError> {
         let mut rows = sqlx::query_as::<_, RealmEvent>(
-            "SELECT id, realm_id, tick, seq, source, scope, kind, content, payload
+            "SELECT id, conversation_id, message_id, seq, source, scope, kind, content, payload
              FROM realm_events
-             WHERE realm_id = $1 AND ($2::BIGINT IS NULL OR tick < $2)
-             ORDER BY tick DESC, seq DESC
+             WHERE conversation_id = $1 AND ($2::BIGINT IS NULL OR id < $2)
+             ORDER BY id DESC
              LIMIT $3",
         )
-        .bind(realm_id)
-        .bind(before_tick)
+        .bind(conversation_id)
+        .bind(before)
         .bind(limit)
         .fetch_all(&self.pool)
         .await?;
@@ -210,17 +294,20 @@ impl RealmStorage for PostgresStorage {
 
     async fn list_observations(
         &self,
+        conversation_id: Snowflake,
         agent_id: Snowflake,
         before: Option<Snowflake>,
         limit: i64,
     ) -> Result<Vec<AgentObservation>, StorageError> {
         let mut rows = sqlx::query_as::<_, AgentObservation>(
-            "SELECT id, agent_id, event_id, tick, role, content
+            "SELECT id, conversation_id, message_id, agent_id, event_id, role, content
              FROM agent_observations
-             WHERE agent_id = $1 AND ($2::BIGINT IS NULL OR id < $2)
+             WHERE conversation_id = $1 AND agent_id = $2
+               AND ($3::BIGINT IS NULL OR id < $3)
              ORDER BY id DESC
-             LIMIT $3",
+             LIMIT $4",
         )
+        .bind(conversation_id)
         .bind(agent_id)
         .bind(before)
         .bind(limit)
@@ -230,47 +317,35 @@ impl RealmStorage for PostgresStorage {
         Ok(rows)
     }
 
-    async fn commit_tick(&self, commit: TickCommit) -> Result<(), StorageError> {
+    async fn list_observations_for_messages(
+        &self,
+        agent_id: Snowflake,
+        message_ids: &[Snowflake],
+    ) -> Result<Vec<AgentObservation>, StorageError> {
+        Ok(sqlx::query_as::<_, AgentObservation>(
+            "SELECT id, conversation_id, message_id, agent_id, event_id, role, content
+             FROM agent_observations
+             WHERE agent_id = $1 AND message_id = ANY($2)
+             ORDER BY id",
+        )
+        .bind(agent_id)
+        .bind(message_ids)
+        .fetch_all(&self.pool)
+        .await?)
+    }
+
+    async fn commit_turn(&self, commit: TurnCommit) -> Result<(), StorageError> {
         let mut tx = self.pool.begin().await?;
-
-        let advanced = sqlx::query(
-            "UPDATE realms
-             SET state = $1, tick = tick + 1, updated_at = now()
-             WHERE id = $2 AND tick = $3",
-        )
-        .bind(&commit.new_state)
-        .bind(commit.realm_id)
-        .bind(commit.expected_tick)
-        .execute(&mut *tx)
-        .await?;
-
-        if advanced.rows_affected() == 0 {
-            tx.rollback().await?;
-            return Err(StorageError::TickConflict(commit.realm_id));
-        }
-
-        sqlx::query(
-            "INSERT INTO realm_ticks (realm_id, tick, agent_id, state_delta, snapshot, outcome)
-             VALUES ($1, $2, $3, $4, $5, $6)",
-        )
-        .bind(commit.realm_id)
-        .bind(commit.expected_tick)
-        .bind(commit.agent_id)
-        .bind(&commit.delta)
-        .bind(&commit.snapshot)
-        .bind(&commit.outcome)
-        .execute(&mut *tx)
-        .await?;
 
         for e in &commit.events {
             sqlx::query(
                 "INSERT INTO realm_events
-                     (id, realm_id, tick, seq, source, scope, kind, content, payload)
+                     (id, conversation_id, message_id, seq, source, scope, kind, content, payload)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
             )
             .bind(e.id)
-            .bind(e.realm_id)
-            .bind(e.tick)
+            .bind(e.conversation_id)
+            .bind(e.message_id)
             .bind(e.seq)
             .bind(e.source)
             .bind(&e.scope)
@@ -284,13 +359,14 @@ impl RealmStorage for PostgresStorage {
         for o in &commit.observations {
             sqlx::query(
                 "INSERT INTO agent_observations
-                     (id, agent_id, event_id, tick, role, content)
-                 VALUES ($1, $2, $3, $4, $5, $6)",
+                     (id, conversation_id, message_id, agent_id, event_id, role, content)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)",
             )
             .bind(o.id)
+            .bind(o.conversation_id)
+            .bind(o.message_id)
             .bind(o.agent_id)
             .bind(o.event_id)
-            .bind(o.tick)
             .bind(&o.role)
             .bind(&o.content)
             .execute(&mut *tx)

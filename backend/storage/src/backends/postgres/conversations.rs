@@ -31,6 +31,7 @@ impl ConversationStorage for PostgresStorage {
                 c.id,
                 c.character_id,
                 c.char_version_id,
+                c.realm_id,
                 c.title,
                 c.created_at,
                 c.updated_at,
@@ -68,13 +69,14 @@ impl ConversationStorage for PostgresStorage {
     ) -> Result<Snowflake, StorageError> {
         sqlx::query(
             "INSERT INTO conversations
-                 (id, user_id, character_id, char_version_id, active_leaf_id, title)
-             VALUES ($1, $2, $3, $4, $5, $6)",
+                 (id, user_id, character_id, char_version_id, realm_id, active_leaf_id, title)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)",
         )
         .bind(conversation.id)
         .bind(conversation.user_id)
         .bind(conversation.character_id)
         .bind(conversation.char_version_id)
+        .bind(conversation.realm_id)
         .bind(conversation.active_leaf_id)
         .bind(conversation.title.as_deref())
         .execute(&self.pool)

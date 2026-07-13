@@ -16,8 +16,8 @@ pub struct AgentSpec {
 #[sqlx(type_name = "TEXT", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum RealmStatus {
-    Active,
-    Paused,
+    Draft,
+    Published,
     Archived,
 }
 
@@ -26,8 +26,6 @@ pub struct Realm {
     pub id: Snowflake,
     pub owner_id: Snowflake,
     pub name: String,
-    pub tick: i64,
-    pub state: serde_json::Value,
     pub tokenizer_id: Snowflake,
     pub status: RealmStatus,
 }
@@ -80,30 +78,39 @@ pub struct AgentGrant {
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct AgentToolBinding {
     pub tool_id: Snowflake,
-    /// Scope of the `Acted` event emitted when this tool runs. `None` =
-    /// private — only the acting agent observes its own action.
     pub event_scope: Option<String>,
 }
 
-#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
-pub struct RealmTick {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RealmCast {
     pub realm_id: Snowflake,
-    pub tick: i64,
-    pub agent_id: Option<Snowflake>,
-    pub delta: serde_json::Value,
-    pub snapshot: Option<serde_json::Value>,
+    pub tokenizer_id: Snowflake,
+    pub agents: Vec<CastAgent>,
 }
 
-pub struct TickCommit {
-    pub realm_id: Snowflake,
-    pub expected_tick: i64,
-    pub agent_id: Option<Snowflake>,
-    pub delta: serde_json::Value,
-    pub snapshot: Option<serde_json::Value>,
-    pub outcome: serde_json::Value,
-    pub new_state: serde_json::Value,
-    pub events: Vec<RealmEvent>,
-    pub observations: Vec<AgentObservation>,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CastAgent {
+    pub id: Snowflake,
+    pub name: String,
+    pub kind: AgentKind,
+
+    pub character_id: Option<Snowflake>,
+    pub char_version_id: Option<Snowflake>,
+    pub template_id: Option<Snowflake>,
+    pub profile_id: Option<Snowflake>,
+
+    pub user_id: Option<Snowflake>,
+    pub persona_id: Option<Snowflake>,
+    pub turn_order: i32,
+
+    pub grants: Vec<CastGrant>,
+    pub tools: Vec<AgentToolBinding>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CastGrant {
+    pub scope: String,
+    pub access: AgentAccess,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
@@ -119,8 +126,8 @@ pub enum EventKind {
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct RealmEvent {
     pub id: Snowflake,
-    pub realm_id: Snowflake,
-    pub tick: i64,
+    pub conversation_id: Snowflake,
+    pub message_id: Snowflake,
     pub seq: i32,
     pub source: Option<Snowflake>,
     pub scope: String,
@@ -132,11 +139,17 @@ pub struct RealmEvent {
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct AgentObservation {
     pub id: Snowflake,
+    pub conversation_id: Snowflake,
+    pub message_id: Snowflake,
     pub agent_id: Snowflake,
     pub event_id: Option<Snowflake>,
-    pub tick: i64,
     pub role: ChatRole,
     pub content: String,
+}
+
+pub struct TurnCommit {
+    pub events: Vec<RealmEvent>,
+    pub observations: Vec<AgentObservation>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]

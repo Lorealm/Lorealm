@@ -262,6 +262,10 @@ impl From<ChatError> for AppError {
                 code: "CONNECTION",
                 message: Cow::Owned(format!("connection error: {err}")),
             },
+            ChatError::RealmConversation(_) => AppError::BadRequest {
+                code: "REALM_CONVERSATION",
+                message: Cow::Owned(err.client_message()),
+            },
             _ => AppError::Internal {
                 internal: Cow::Owned(err.client_message()),
             },
@@ -374,16 +378,17 @@ impl From<ConfigError> for AppError {
 impl From<RealmError> for AppError {
     fn from(err: RealmError) -> Self {
         match err {
-            RealmError::NotYourTurn(_) | RealmError::TickConflict(_) => AppError::Conflict {
+            RealmError::NotYourTurn(_) => AppError::Conflict {
                 code: "CONFLICT",
                 message: Cow::Owned(err.client_message()),
             },
-            RealmError::NotActive(_) | RealmError::NoAgents(_) | RealmError::Create(_) => {
-                AppError::BadRequest {
-                    code: "INVALID_REALM",
-                    message: Cow::Owned(err.client_message()),
-                }
-            }
+            RealmError::NotPlayable(_)
+            | RealmError::NotRealmConversation(_)
+            | RealmError::NoAgents(_)
+            | RealmError::Create(_) => AppError::BadRequest {
+                code: "INVALID_REALM",
+                message: Cow::Owned(err.client_message()),
+            },
             RealmError::MalformedAgent(_, _) | RealmError::InvalidAgent(_) => {
                 AppError::BadRequest {
                     code: "INVALID_REALM_AGENT",
@@ -402,10 +407,10 @@ impl From<RealmError> for AppError {
                 code: "ACTION_FAILED",
                 message: Cow::Owned(err.client_message()),
             },
-            RealmError::StateCorrupt(_) => AppError::Internal {
-                internal: Cow::Owned(err.client_message()),
-            },
             RealmError::Chat(chat_error) => chat_error.into(),
+            RealmError::Conversation(conversation_error) => {
+                ChatError::from(conversation_error).into()
+            }
             RealmError::Storage(error) => AppError::Internal {
                 internal: Cow::Owned(error.to_string()),
             },

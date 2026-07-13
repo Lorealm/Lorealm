@@ -15,15 +15,20 @@ pub struct StartChatRequest {
     pub content: String,
 }
 
+/// Instantiate a realm preset into a fresh playthrough conversation.
+#[derive(Deserialize)]
+pub struct StartRealmChatRequest {
+    pub realm_id: Snowflake,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
 pub enum ChatEdit {
     /// Edit a message in place
     Edit { id: Snowflake, content: String },
-    /// Swipe/branch a user message: new sibling, becomes active leaf.
-    /// Does not trigger inference
+    /// Swipe/branch a user message
     BranchUser { id: Snowflake, content: String },
-    /// Move the active path to run through this message.
+    /// Move the active path to run through this message
     Activate { id: Snowflake },
 }
 

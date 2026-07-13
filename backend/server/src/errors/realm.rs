@@ -1,19 +1,20 @@
 use lorealm_storage::{StorageError, models::Snowflake};
 
 use crate::errors::{
-    CharacterError, ChatError, ConnectionError, ContextError, PersonaError, StateError, TargetType,
+    CharacterError, ChatError, ConnectionError, ContextError, ConversationError, PersonaError,
+    StateError, TargetType,
 };
 
 #[derive(Debug, thiserror::Error)]
 pub enum RealmError {
-    #[error("not active: {0}")]
-    NotActive(Snowflake),
+    #[error("not playable: {0}")]
+    NotPlayable(Snowflake),
+    #[error("conversation {0} was not started from a realm")]
+    NotRealmConversation(Snowflake),
     #[error("no agents: {0}")]
     NoAgents(Snowflake),
     #[error("not your turn: {0}")]
     NotYourTurn(Snowflake),
-    #[error("tick conflict: {0}")]
-    TickConflict(Snowflake),
     #[error("malformed agent: {1} ({0})")]
     MalformedAgent(Snowflake, String),
     #[error("{0} not found: {1}")]
@@ -30,10 +31,10 @@ pub enum RealmError {
     ToolNotBound(Snowflake),
     #[error("action failed: {0}")]
     ActionFailed(String),
-    #[error("corrupt state: {0}")]
-    StateCorrupt(serde_json::Error),
     #[error(transparent)]
     Chat(#[from] ChatError),
+    #[error(transparent)]
+    Conversation(#[from] ConversationError),
     #[error(transparent)]
     State(#[from] StateError),
     #[error(transparent)]
@@ -53,14 +54,16 @@ pub enum RealmError {
 impl RealmError {
     pub fn client_message(&self) -> String {
         match self {
-            RealmError::NotActive(_) => format!("no active realm"),
+            RealmError::NotPlayable(_) => "this realm is archived".to_string(),
+            RealmError::NotRealmConversation(_) => {
+                "this conversation was not started from a realm".to_string()
+            }
             RealmError::NoAgents(_) => format!("realm contains no agents"),
             RealmError::NotYourTurn(_) => format!("it's not this agent's turn"),
-            RealmError::TickConflict(_) => format!("conflict when evaluating tick"),
             RealmError::MalformedAgent(_, hint) => format!("malformed agent: {hint}"),
             RealmError::NotFound(_, _) | RealmError::NotOwned(_, _) => self.to_string(),
-            RealmError::StateCorrupt(error) => format!("corrupt state: {error}"),
             RealmError::Chat(chat_error) => chat_error.to_string(),
+            RealmError::Conversation(conversation_error) => conversation_error.to_string(),
             RealmError::Storage(_) => format!("storage error"),
             RealmError::Serialization(error) => format!("serialization error: {error}"),
             RealmError::Create(hint) => format!("creation error: {hint}"),

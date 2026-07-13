@@ -364,7 +364,7 @@ pub async fn list_character_chats(
         .list_conversations(session.user_id)
         .await?;
 
-    convos.retain(|c| c.character_id == character_id);
+    convos.retain(|c| c.character_id == Some(character_id));
 
     Ok(Json(convos))
 }
