@@ -4,8 +4,11 @@ import type { WidgetInstance } from './widgets.ts';
 export interface Conversation {
 	id: Snowflake;
 	user_id: Snowflake;
-	character_id: Snowflake;
-	char_version_id: Snowflake;
+	/** Null for realm conversations — they have a cast, not one character. */
+	character_id: Snowflake | null;
+	char_version_id: Snowflake | null;
+	/** The realm preset this playthrough was instantiated from, if any. */
+	realm_id: Snowflake | null;
 	active_leaf_id: Snowflake | null;
 	title: string | null;
 	created_at: string;
@@ -26,6 +29,9 @@ export interface ConversationMessage {
 
 export interface ConversationMetadata {
 	id: Snowflake;
+	character_id: Snowflake | null;
+	char_version_id: Snowflake | null;
+	realm_id: Snowflake | null;
 	title: string | null;
 	length: number;
 	created_at: string;

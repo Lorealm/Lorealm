@@ -1,4 +1,5 @@
 import { useApi, type ApiClient } from '$lib/api/client.js';
+import type { Conversation } from '$lib/types/conversation.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type {
 	ActionSpec,
@@ -8,18 +9,18 @@ import type {
 	PlayerAction,
 	Realm,
 	RealmAgent,
+	RealmCast,
 	RealmEvent,
-	RealmStreamEvent,
 	RealmSummary,
 	StateSlice,
-	TickResponse
+	TurnResult
 } from '$lib/types/realm.js';
 import type { WidgetInstance } from '$lib/types/widgets.js';
 import { showError } from './errorToast.svelte.ts';
 
 export type RunStatus = 'idle' | 'streaming' | 'error';
 
-/** The in-flight LLM turn, accumulated from the tick stream. */
+/** The in-flight LLM turn, accumulated from the turn stream. */
 export interface LiveTurn {
 	agentId: Snowflake;
 	name: string;
@@ -34,10 +35,18 @@ export interface AgentInspection {
 	agentId: Snowflake;
 	grants: AgentGrant[];
 	actions: ActionSpec[];
+	/** Playthrough-only: the agent's grant-filtered pool at the active leaf. */
 	state: StateSlice;
+	/** Playthrough-only: the agent's private feed. */
 	observations: AgentObservation[];
 }
 
+/**
+ * A realm is authored as a versioned preset and *played* as a conversation.
+ * The store spans both: `realm` is the open preset (editor mode); starting
+ * a conversation instantiates it and moves the play state — cast snapshot,
+ * events, turns — onto that conversation (playthrough mode).
+ */
 class RealmStore {
 	private _api = $state<ApiClient>();
 
@@ -49,12 +58,19 @@ class RealmStore {
 	summaries = $state<Array<RealmSummary>>([]);
 
 	realm = $state<Realm | null>(null);
-	agents = $state<Array<RealmAgent>>([]);
-	/** Owner timeline, oldest-first, most recent window. */
+
+	// ----- playthrough state (bound to one conversation) -----
+
+	conversation = $state<Conversation | null>(null);
+	/** The cast pinned at instantiation — the playthrough's roster. */
+	cast = $state<RealmCast | null>(null);
+	/** Playthrough timeline, oldest-first, most recent window. */
 	events = $state<Array<RealmEvent>>([]);
+	/** Committed turns this session ≈ messages along the active path. */
+	turnCount = $state(0);
 
 	runStatus = $state<RunStatus>('idle');
-	/** Keep ticking until a player's turn comes up (or an error/pause). */
+	/** Keep running turns until a player's turn comes up (or an error/pause). */
 	autoRun = $state(true);
 	turn = $state<LiveTurn | null>(null);
 	/** Set when the policy picked a player agent and waits on their turn. */
@@ -66,8 +82,25 @@ class RealmStore {
 	/** Action space of the player agent whose turn it is. */
 	playerActions = $state<ActionSpec[]>([]);
 
+	get inPlaythrough(): boolean {
+		return this.conversation !== null;
+	}
+
 	get isStreaming(): boolean {
 		return this.runStatus === 'streaming';
+	}
+
+	/** The roster: pinned cast while playing, the live definition while editing. */
+	get agents(): RealmAgent[] {
+		return this.cast?.agents ?? this.realm?.definition.agents ?? [];
+	}
+
+	/** Whose turn the round-robin policy picks next (playthrough only). */
+	get nextAgent(): RealmAgent | null {
+		if (!this.inPlaythrough) return null;
+		const agents = this.agents;
+		if (agents.length === 0) return null;
+		return agents[this.turnCount % agents.length];
 	}
 
 	get awaitingAgent(): RealmAgent | null {
@@ -77,6 +110,8 @@ class RealmStore {
 	agentById(id: Snowflake | null): RealmAgent | undefined {
 		return id ? this.agents.find((a) => a.id === id) : undefined;
 	}
+
+	// ------------------------------------------------------------- presets
 
 	async loadList() {
 		this.summaries = await this.#api.realms.list();
@@ -102,54 +137,97 @@ class RealmStore {
 
 	async openRealm(id: Snowflake) {
 		this.closeRealm();
-		const [realm, agents, events] = await Promise.all([
-			this.#api.realms.get(id),
-			this.#api.realms.agents.list(id),
-			this.#api.realms.events(id)
-		]);
-		this.realm = realm;
-		this.agents = agents;
-		this.events = events;
+		this.realm = await this.#api.realms.get(id);
 	}
 
 	closeRealm() {
 		this.realm = null;
-		this.agents = [];
-		this.events = [];
-		this.turn = null;
-		this.awaitingAgentId = null;
-		this.runStatus = 'idle';
 		this.inspection = null;
-		this.playerActions = [];
-		this.#cancelling = false;
+		this.#resetPlaythrough();
 	}
 
-	async refreshAgents() {
+	async refreshRealm() {
 		if (!this.realm) return;
-		this.agents = await this.#api.realms.agents.list(this.realm.id);
+		this.realm = await this.#api.realms.get(this.realm.id);
 	}
 
 	async createAgent(req: CreateAgentRequest): Promise<RealmAgent | null> {
 		if (!this.realm) return null;
 		const agent = await this.#api.realms.agents.create(this.realm.id, req);
-		this.agents = [...this.agents, agent];
+		this.realm.definition.agents = [...this.realm.definition.agents, agent];
 		return agent;
+	}
+
+	async deleteAgent(agentId: Snowflake) {
+		const realm = this.realm;
+		if (!realm) return;
+		const prev = [...realm.definition.agents];
+		realm.definition.agents = realm.definition.agents.filter((a) => a.id !== agentId);
+		if (this.inspection?.agentId === agentId) this.inspection = null;
+		try {
+			await this.#api.realms.agents.delete(realm.id, agentId);
+			// turn_order was re-derived server-side; resync the document.
+			await this.refreshRealm();
+		} catch (e) {
+			realm.definition.agents = prev;
+			this.#handleError(e, 'Failed to delete agent');
+		}
+	}
+
+	// -------------------------------------------------------- playthroughs
+
+	/** Instantiate the open realm into a fresh conversation and enter play. */
+	async startPlaythrough(): Promise<boolean> {
+		const realm = this.realm;
+		if (!realm || this.isStreaming) return false;
+
+		try {
+			const full = await this.#api.chat.realm.start({ realm_id: realm.id });
+			const cast = await this.#api.chat.realm.cast(full.metadata.id);
+			this.#resetPlaythrough();
+			this.conversation = full.metadata;
+			this.cast = cast;
+			this.turnCount = full.messages.length;
+			this.inspection = null;
+			return true;
+		} catch (e) {
+			this.#handleError(e, 'Failed to start conversation');
+			return false;
+		}
+	}
+
+	/** Leave the playthrough and return to the preset editor. */
+	exitPlaythrough() {
+		this.#resetPlaythrough();
+		this.inspection = null;
+	}
+
+	#resetPlaythrough() {
+		this.conversation = null;
+		this.cast = null;
+		this.events = [];
+		this.turnCount = 0;
+		this.turn = null;
+		this.awaitingAgentId = null;
+		this.runStatus = 'idle';
+		this.playerActions = [];
+		this.#cancelling = false;
 	}
 
 	/** Load older events above the current window. Returns how many arrived. */
 	async loadOlderEvents(): Promise<number> {
-		const realm = this.realm;
+		const convo = this.conversation;
 		const oldest = this.events[0];
-		if (!realm || !oldest) return 0;
-		const older = await this.#api.realms.events(realm.id, oldest.tick);
+		if (!convo || !oldest) return 0;
+		const older = await this.#api.chat.realm.events(convo.id, oldest.id);
 		if (older.length > 0) this.events = [...older, ...this.events];
 		return older.length;
 	}
 
-	/** Run one tick. Returns true if it committed (so a loop may continue). */
+	/** Run one turn. Returns true if it committed (so a loop may continue). */
 	async step(): Promise<boolean> {
-		const realm = this.realm;
-		if (!realm || this.isStreaming) return false;
+		const convo = this.conversation;
+		if (!convo || this.isStreaming) return false;
 
 		this.awaitingAgentId = null;
 		this.runStatus = 'streaming';
@@ -157,7 +235,7 @@ class RealmStore {
 
 		try {
 			let committed = false;
-			const stream = this.#api.realms.tickStream(realm.id);
+			const stream = this.#api.chat.realm.turnStream(convo.id);
 			for await (const event of stream) {
 				switch (event.type) {
 					case 'awaiting_player':
@@ -190,7 +268,7 @@ class RealmStore {
 							];
 						break;
 					case 'committed':
-						this.#applyCommit(event.tick, event.events);
+						this.#applyCommit({ message: event.message, events: event.events });
 						committed = true;
 						break;
 				}
@@ -209,10 +287,10 @@ class RealmStore {
 		}
 	}
 
-	/** Keep ticking until a player's turn, a pause, or an error. */
+	/** Keep running turns until a player's turn, a pause, or an error. */
 	async play() {
 		this.autoRun = true;
-		while (this.autoRun && this.realm) {
+		while (this.autoRun && this.conversation) {
 			const committed = await this.step();
 			if (!committed) break;
 		}
@@ -224,76 +302,77 @@ class RealmStore {
 
 	/** Stop the in-flight generation; the abandoned turn never commits. */
 	async cancel() {
-		const realm = this.realm;
-		if (!realm || !this.isStreaming) return;
+		const convo = this.conversation;
+		if (!convo || !this.isStreaming) return;
 		this.autoRun = false;
 		this.#cancelling = true;
 		try {
-			await this.#api.realms.cancelTick(realm.id);
+			await this.#api.chat.cancel(convo.id);
 		} catch (e) {
 			this.#cancelling = false;
-			console.warn('Failed to cancel tick', e);
+			console.warn('Failed to cancel turn', e);
 		}
 	}
 
 	/** Say something, act, or both — then keep the loop going if auto-run is on. */
 	async submitPlayerTurn(content: string | null, action: PlayerAction | null): Promise<boolean> {
-		const realm = this.realm;
-		if (!realm || this.isStreaming) return false;
+		const convo = this.conversation;
+		if (!convo || this.isStreaming) return false;
 
-		let result: TickResponse;
+		let result: TurnResult;
 		try {
-			result = await this.#api.realms.playerTurn(realm.id, {
-				content,
-				action
-			});
+			result = await this.#api.chat.realm.playerTurn(convo.id, { content, action });
 		} catch (e) {
 			this.#handleError(e, 'Failed to submit turn');
 			return false;
 		}
 
-		if (result.status === 'committed') {
-			this.awaitingAgentId = null;
-			this.#applyCommit(result.tick, result.events);
-			if (this.autoRun) void this.play();
-			return true;
-		}
-		// awaiting_player: someone else's turn — surface whose.
-		this.awaitingAgentId = result.agent_id;
-		return false;
+		this.awaitingAgentId = null;
+		this.#applyCommit(result);
+		if (this.autoRun) void this.play();
+		return true;
 	}
 
 	async loadPlayerActions() {
-		const realm = this.realm;
+		const convo = this.conversation;
 		const agentId = this.awaitingAgentId;
-		if (!realm || !agentId) {
+		if (!convo || !agentId) {
 			this.playerActions = [];
 			return;
 		}
 		try {
-			this.playerActions = await this.#api.realms.agents.actions(realm.id, agentId);
+			this.playerActions = await this.#api.chat.realm.agents.actions(convo.id, agentId);
 		} catch (e) {
 			this.playerActions = [];
 			console.warn('Failed to load player actions', e);
 		}
 	}
 
+	// ---------------------------------------------------------- inspection
+
 	async inspectAgent(id: Snowflake) {
-		const realm = this.realm;
-		if (!realm) return;
 		if (this.inspection?.agentId === id) {
 			this.inspection = null; // toggle off
 			return;
 		}
-		const api = this.#api.realms.agents;
+		const agent = this.agentById(id);
+		if (!agent) return;
+
 		try {
-			const [grants, actions, state, observations] = await Promise.all([
-				api.grants.get(realm.id, id),
-				api.actions(realm.id, id),
-				api.state(realm.id, id),
-				api.observations(realm.id, id)
-			]);
-			this.inspection = { agentId: id, grants, actions, state, observations };
+			if (this.conversation) {
+				// Live playthrough: knowledge comes from the conversation.
+				const api = this.#api.chat.realm.agents;
+				const [actions, state, observations] = await Promise.all([
+					api.actions(this.conversation.id, id),
+					api.state(this.conversation.id, id),
+					api.observations(this.conversation.id, id)
+				]);
+				this.inspection = { agentId: id, grants: agent.grants, actions, state, observations };
+			} else if (this.realm) {
+				// Editor: only the authored shape exists — no world to know yet.
+				const actions = await this.#api.realms.agents.actions(this.realm.id, id);
+				this.inspection = { agentId: id, grants: agent.grants, actions, state: {}, observations: [] };
+			}
 		} catch (e) {
 			this.#handleError(e, 'Failed to inspect agent');
 		}
@@ -306,10 +385,9 @@ class RealmStore {
 		await this.inspectAgent(id);
 	}
 
-	#applyCommit(tick: number, events: RealmEvent[]) {
-		// `tick` is the tick that just committed; the realm now sits past it.
-		if (this.realm) this.realm.tick = tick + 1;
-		if (events.length > 0) this.events = [...this.events, ...events];
+	#applyCommit(result: TurnResult) {
+		this.turnCount += 1;
+		if (result.events.length > 0) this.events = [...this.events, ...result.events];
 	}
 
 	#handleError(e: unknown, title: string) {

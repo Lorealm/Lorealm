@@ -77,7 +77,13 @@
 					<Globe size={20} />
 					<div class="cardBody">
 						<span class="name">{realm.name}</span>
-						<span class="status" data-status={realm.status}>{realm.status}</span>
+						{#if realm.tags.length > 0}
+							<span class="tags">
+								{#each realm.tags as tag (tag)}
+									<span class="tag">{tag}</span>
+								{/each}
+							</span>
+						{/if}
 					</div>
 					<button
 						type="button"
@@ -193,14 +199,18 @@
 		white-space: nowrap;
 	}
 
-	.status {
-		font-size: 0.8rem;
-		color: var(--color-text-muted);
-		text-transform: capitalize;
+	.tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
 	}
 
-	.status[data-status='active'] {
-		color: var(--color-success, #4caf7d);
+	.tag {
+		font-size: 0.7rem;
+		color: var(--color-text-muted);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: 999px;
+		padding: 1px 8px;
 	}
 
 	.delete {
