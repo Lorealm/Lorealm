@@ -4,7 +4,7 @@
 	import CharactersPage from '../characters/CharactersPage.svelte';
 	import ChatControls from '../chat/ChatControls.svelte';
 	import ConnectionsView from '../connections/ConnectionsView.svelte';
-	import Placeholder from '../Placeholder.svelte';
+	import RealmsPage from '../realms/RealmsPage.svelte';
 	import SettingsPage from '../settings/SettingsPage.svelte';
 	import StudioRouter from './StudioRouter.svelte';
 </script>
@@ -15,7 +15,7 @@
 {:else if navigationStore.sidebarActive === SidebarView.Characters}
 	<CharactersPage />
 {:else if navigationStore.sidebarActive === SidebarView.Realm}
-	<Placeholder label="Realms" />
+	<RealmsPage />
 {:else if navigationStore.sidebarActive === SidebarView.Connections}
 	<ConnectionsView />
 {:else if navigationStore.sidebarActive === SidebarView.Studio}

@@ -20,7 +20,7 @@ use crate::{
     services::{
         character::CharacterService,
         chat::{
-            AgentTurn, CancelGuard, ChatStreamEvent, FullConversation, Persist, Prepared,
+            AgentTurn, CancelGuard, ChatStreamEvent, OpenAgentTurn, FullConversation, Persist, Prepared,
             PromptMessage, TurnAccumulator, TurnPlan,
             widgets::{InferEvent, ToolCallRecord, WidgetInstance, WidgetSink, widget_registry},
         },
@@ -834,14 +834,15 @@ impl ChatService {
         }
     }
 
-    pub async fn run_agent_turn(
+    /// Assemble context and start inference, handing the live event stream
+    /// to the caller (used by realm tick streaming).
+    pub async fn open_agent_turn(
         &self,
         spec: &AgentSpec,
         turns: &[PromptTurn],
         baseline: &ReconstructedState,
         policy: &ToolPolicy,
-        cancel: &CancellationToken,
-    ) -> Result<AgentTurn, ChatError> {
+    ) -> Result<OpenAgentTurn, ChatError> {
         let Prepared {
             prompt, captured, ..
         } = self.assemble_context(spec, turns, baseline).await?;
@@ -850,22 +851,38 @@ impl ChatService {
         if let Some(c) = &captured {
             apply_delta(&mut working, &c.persistent);
         }
-        // Diff against the post-assembly pool so the returned delta contains
-        // exactly what this turn's tools wrote.
+        // Diff against the post-assembly pool so the turn's delta contains
+        // exactly what its tools wrote.
         let diff_base = working.clone();
         let state_pool = Arc::new(StdMutex::new(working));
 
-        let token_stream = self
+        let stream = self
             .infer(spec, prompt, Arc::clone(&state_pool), policy)
             .await?;
 
+        Ok(OpenAgentTurn {
+            stream,
+            state_pool,
+            diff_base,
+        })
+    }
+
+    pub async fn run_agent_turn(
+        &self,
+        spec: &AgentSpec,
+        turns: &[PromptTurn],
+        baseline: &ReconstructedState,
+        policy: &ToolPolicy,
+        cancel: &CancellationToken,
+    ) -> Result<AgentTurn, ChatError> {
+        let mut open = self.open_agent_turn(spec, turns, baseline, policy).await?;
+
         let mut acc = TurnAccumulator::default();
-        futures_util::pin_mut!(token_stream);
         loop {
             tokio::select! {
                 biased;
                 _ = cancel.cancelled() => break,
-                next = token_stream.next() => {
+                next = open.stream.next() => {
                     match next {
                         None => break,
                         Some(Ok(event)) => match event {
@@ -880,10 +897,7 @@ impl ChatService {
             }
         }
 
-        let delta = {
-            let pool = state_pool.lock().unwrap();
-            self.state.diff(&diff_base, &pool)
-        };
+        let delta = open.delta(&self.state);
 
         Ok(AgentTurn {
             outcome: acc.finish(),

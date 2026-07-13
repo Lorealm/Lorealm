@@ -4,3 +4,4 @@ mod widgets;
 
 pub use service::ChatService;
 pub use types::*;
+pub use widgets::{InferEvent, WidgetInstance};

@@ -46,6 +46,20 @@ pub struct GrantDto {
     pub access: AgentAccess,
 }
 
+/// Backward paging for the owner timeline: return events strictly before
+/// this tick.
+#[derive(Deserialize)]
+pub struct EventsQuery {
+    pub before_tick: Option<i64>,
+}
+
+/// Backward paging for an agent's observation feed: return observations
+/// strictly before this observation id.
+#[derive(Deserialize)]
+pub struct ObservationsQuery {
+    pub before: Option<Snowflake>,
+}
+
 /// A player turn: say something, perform one bound action, or both.
 #[derive(Deserialize)]
 pub struct PlayerTurnRequest {

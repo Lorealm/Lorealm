@@ -2,8 +2,13 @@ use std::sync::Arc;
 
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::{Path, Query, State},
+    response::{
+        Sse,
+        sse::{Event, KeepAlive},
+    },
 };
+use futures_util::StreamExt;
 use lorealm_storage::models::{
     AgentGrant, AgentObservation, Realm, RealmAgent, RealmEvent, RealmSummary, Snowflake,
 };
@@ -13,7 +18,8 @@ use crate::{
     errors::AppError,
     extract::AuthenticatedSession,
     routes::realm::dto::{
-        CreateAgentRequest, CreateRealmRequest, GrantDto, PlayerTurnRequest, TickResponse,
+        CreateAgentRequest, CreateRealmRequest, EventsQuery, GrantDto, ObservationsQuery,
+        PlayerTurnRequest, TickResponse,
     },
     services::{realm::ActionSpec, state::StatePool},
 };
@@ -77,11 +83,12 @@ pub async fn list_observations(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
     Path((realm_id, agent_id)): Path<(Snowflake, Snowflake)>,
+    Query(query): Query<ObservationsQuery>,
 ) -> Result<Json<Vec<AgentObservation>>, AppError> {
     let observations = state
         .services()
         .realm()
-        .list_observations(realm_id, agent_id, session.user_id, None)
+        .list_observations(realm_id, agent_id, session.user_id, query.before)
         .await?;
 
     Ok(Json(observations))
@@ -91,11 +98,12 @@ pub async fn list_events(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
     Path(realm_id): Path<Snowflake>,
+    Query(query): Query<EventsQuery>,
 ) -> Result<Json<Vec<RealmEvent>>, AppError> {
     let events = state
         .services()
         .realm()
-        .list_events(realm_id, session.user_id, None)
+        .list_events(realm_id, session.user_id, query.before_tick)
         .await?;
 
     Ok(Json(events))
@@ -178,6 +186,27 @@ pub async fn tick(
         .run_tick(realm_id, session.user_id)
         .await?;
     Ok(Json(result.into()))
+}
+
+pub async fn tick_stream(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(realm_id): Path<Snowflake>,
+) -> Result<Sse<impl futures_util::Stream<Item = Result<Event, axum::Error>>>, AppError> {
+    let events = state
+        .services()
+        .realm()
+        .run_tick_stream(realm_id, session.user_id)
+        .await?;
+
+    let sse = events.map(|item| match item {
+        Ok(event) => Event::default().json_data(event),
+        Err(err) => Event::default()
+            .event("error")
+            .json_data(serde_json::json!({ "message": err.client_message() })),
+    });
+
+    Ok(Sse::new(sse).keep_alive(KeepAlive::default()))
 }
 
 pub async fn cancel_tick(
