@@ -330,38 +330,179 @@ pub struct Grant {
     pub access: AgentAccess,
 }
 
+/// A parsed grant in weaver `scope:name` syntax.
 #[derive(Debug, Clone)]
-pub enum ScopePattern {
+pub struct ScopePattern {
+    pub scope: String,
+    pub name: NamePattern,
+}
+
+/// The name half of a grant: `*` (every variable), an exact dotted path
+/// (`a.gold`), or a dotted path with a trailing `.*` (`a.*` — every variable
+/// under `a.`).
+#[derive(Debug, Clone)]
+pub enum NamePattern {
+    Any,
     Exact(String),
-    Prefix(String),
+    Under(String),
 }
 
 impl ScopePattern {
-    pub fn matches(&self, ns: &str) -> bool {
-        match self {
-            ScopePattern::Exact(s) => ns == s,
-            ScopePattern::Prefix(p) => ns.starts_with(p),
-        }
+    /// Whether this grant covers the variable `scope:name`.
+    pub fn matches_var(&self, scope: &str, name: &str) -> bool {
+        self.scope == scope
+            && match &self.name {
+                NamePattern::Any => true,
+                NamePattern::Exact(n) => name == n,
+                NamePattern::Under(prefix) => name.starts_with(prefix.as_str()),
+            }
+    }
+
+    /// Whether this grant observes events on `channel`: the grant's scope
+    /// half names the channel, whatever its name half.
+    pub fn matches_channel(&self, channel: &str) -> bool {
+        self.scope == channel
     }
 
     pub fn parse(s: &str) -> Self {
-        match s.strip_suffix('*') {
-            Some(p) => ScopePattern::Prefix(p.to_string()),
-            None => ScopePattern::Exact(s.to_string()),
+        let (scope, name) = match s.split_once(':') {
+            None => (s, None),
+            Some((scope, name)) => (scope, Some(name)),
+        };
+        let name = match name {
+            None | Some("*") => NamePattern::Any,
+            Some(n) => match n.strip_suffix(".*") {
+                Some(path) => NamePattern::Under(format!("{path}.")),
+                None => NamePattern::Exact(n.to_string()),
+            },
+        };
+        Self {
+            scope: scope.to_string(),
+            name,
+        }
+    }
+
+    /// Reject grant strings outside the weaver `scope[:name]` form. [`parse`]
+    /// itself stays lenient so grants stored before this rule keep matching
+    /// as opaque strings.
+    ///
+    /// [`parse`]: ScopePattern::parse
+    pub fn validate(s: &str) -> Result<(), String> {
+        let (scope, name) = match s.split_once(':') {
+            None => (s, None),
+            Some((scope, name)) => (scope, Some(name)),
+        };
+        if !is_identifier(scope) {
+            return Err(format!(
+                "grant scope '{scope}' must be a bare identifier ([A-Za-z_][A-Za-z0-9_]*)"
+            ));
+        }
+        match name {
+            None | Some("*") => Ok(()),
+            Some(n) => {
+                let path = n.strip_suffix(".*").unwrap_or(n);
+                if !path.is_empty() && path.split('.').all(is_identifier) {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "grant name '{n}' must be `*`, a dotted path, or a dotted path ending in `.*`"
+                    ))
+                }
+            }
         }
     }
 
     pub fn as_str(&self) -> String {
-        match self {
-            ScopePattern::Exact(s) => s.clone(),
-            ScopePattern::Prefix(p) => format!("{p}*"),
+        match &self.name {
+            NamePattern::Any => self.scope.clone(),
+            NamePattern::Exact(n) => format!("{}:{n}", self.scope),
+            NamePattern::Under(prefix) => format!("{}:{prefix}*", self.scope),
         }
     }
+}
+
+/// Whether `s` is a weaver identifier: `[A-Za-z_][A-Za-z0-9_]*`.
+pub fn is_identifier(s: &str) -> bool {
+    let mut chars = s.chars();
+    chars
+        .next()
+        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bare_scope_grants_every_var_in_the_pool() {
+        let g = ScopePattern::parse("nation");
+        assert!(g.matches_var("nation", "a.gold"));
+        assert!(g.matches_var("nation", "b"));
+        assert!(!g.matches_var("market", "a.gold"));
+    }
+
+    #[test]
+    fn star_name_equals_bare_scope() {
+        let g = ScopePattern::parse("nation:*");
+        assert!(g.matches_var("nation", "a.gold"));
+        assert!(!g.matches_var("market", "ore"));
+    }
+
+    #[test]
+    fn dotted_star_matches_only_under_the_path() {
+        let g = ScopePattern::parse("nation:a.*");
+        assert!(g.matches_var("nation", "a.gold"));
+        assert!(g.matches_var("nation", "a.army.size"));
+        assert!(!g.matches_var("nation", "a")); // the path itself needs `nation:a`
+        assert!(!g.matches_var("nation", "ab.gold")); // `.` bounds the prefix
+        assert!(!g.matches_var("nation", "b.gold"));
+    }
+
+    #[test]
+    fn exact_name_matches_one_var() {
+        let g = ScopePattern::parse("market:ore.price");
+        assert!(g.matches_var("market", "ore.price"));
+        assert!(!g.matches_var("market", "ore.price.high"));
+        assert!(!g.matches_var("market", "ore"));
+    }
+
+    #[test]
+    fn channels_match_on_the_scope_half() {
+        assert!(ScopePattern::parse("market").matches_channel("market"));
+        assert!(ScopePattern::parse("market:ore.*").matches_channel("market"));
+        assert!(!ScopePattern::parse("nation").matches_channel("market"));
+    }
+
+    #[test]
+    fn validate_accepts_weaver_grant_forms() {
+        for ok in ["nation", "nation:*", "nation:a", "nation:a.gold", "nation:a.*", "_x:y_2.z"] {
+            assert!(ScopePattern::validate(ok).is_ok(), "{ok}");
+        }
+    }
+
+    #[test]
+    fn validate_rejects_non_weaver_forms() {
+        for bad in [
+            "nation.a",    // dotted scope: pre-convergence form
+            "market.*",    // scope-half wildcard
+            "nation:",     // empty name
+            ":gold",       // empty scope
+            "nation:a..b", // empty path segment
+            "nation:*.a",  // wildcard must be trailing
+            "1nation",     // not an identifier
+            "nation:a.gold.", // trailing dot
+        ] {
+            assert!(ScopePattern::validate(bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn as_str_round_trips() {
+        for s in ["nation", "nation:a.gold", "nation:a.*"] {
+            assert_eq!(ScopePattern::parse(s).as_str(), s);
+        }
+    }
 
     #[test]
     fn resolve_overrides_over_defaults() {
