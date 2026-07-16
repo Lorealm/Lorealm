@@ -18,7 +18,13 @@ export interface RealmDefinition {
 	agents: RealmAgent[];
 }
 
-export type ImportKind = 'character' | 'lorebook' | 'template' | 'tool';
+export type ImportKind =
+	| 'character'
+	| 'lorebook'
+	| 'template'
+	| 'tool'
+	| 'persona'
+	| 'connection_profile';
 
 export interface ImportRule {
 	kind: ImportKind;
@@ -155,12 +161,15 @@ export interface CreateAgentRequest {
 	name: string;
 	kind: AgentKind;
 
-	// llm only
+	// character: llm only, both-or-neither
 	character_id?: Snowflake | null;
 	char_version_id?: Snowflake | null;
+	/** llm only — required, no fallback to the caller's active template. */
 	template_id?: Snowflake | null;
+	/** llm required, player optional — no fallback to the caller's active connection profile. */
 	profile_id?: Snowflake | null;
 
+	/** Any agent kind but script. */
 	persona_id?: Snowflake | null;
 
 	grants?: AgentGrant[];
@@ -192,6 +201,11 @@ export interface RunTurnRequest {
 export interface TurnResult {
 	message: ConversationMessage;
 	events: RealmEvent[];
+}
+
+export interface NextTurn {
+	/** Null when every agent is gated off at the active leaf. */
+	agent_id: Snowflake | null;
 }
 
 export type RealmStreamEvent =

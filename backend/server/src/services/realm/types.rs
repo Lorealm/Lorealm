@@ -3,21 +3,25 @@ use serde::Serialize;
 
 use crate::services::chat::WidgetInstance;
 
-/// Picks whose turn it is. `turn_index` is the position along the active
-/// message path (one committed message per turn).
 pub trait TurnPolicy: Send + Sync {
-    fn next<'a>(&self, turn_index: usize, agents: &'a [RealmAgent]) -> Option<&'a RealmAgent>;
+    fn next<'a>(&self, slot: usize, agents: &'a [RealmAgent]) -> Option<&'a RealmAgent>;
 }
 
 pub struct RoundRobin;
 
 impl TurnPolicy for RoundRobin {
-    fn next<'a>(&self, turn_index: usize, agents: &'a [RealmAgent]) -> Option<&'a RealmAgent> {
+    fn next<'a>(&self, slot: usize, agents: &'a [RealmAgent]) -> Option<&'a RealmAgent> {
         if agents.is_empty() {
             return None;
         }
-        agents.get(turn_index % agents.len())
+        agents.get(slot % agents.len())
     }
+}
+
+#[derive(Serialize)]
+pub struct NextTurn {
+    /// `None` when every agent is gated off at the active leaf.
+    pub agent_id: Option<Snowflake>,
 }
 
 /// A bound tool projected for display

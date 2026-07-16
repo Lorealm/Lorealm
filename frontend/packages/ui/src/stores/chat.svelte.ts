@@ -72,6 +72,7 @@ class ChatStore {
 	private _cancelling = $state(false);
 
 	private _realmCast = $state<RealmCast | null>(null);
+	private _nextAgentId = $state<Snowflake | null>(null);
 	private _streamAgentName = $state<string | null>(null);
 	private _streamAgentId = $state<Snowflake | null>(null);
 	realmAutoRun = $state(true);
@@ -107,11 +108,11 @@ class ChatStore {
 	get realmCast(): RealmCast | null {
 		return this._realmCast;
 	}
-	/** Whose turn is next: turn index = position along the active path. */
+	/** Whose turn is next, as resolved by the server. */
 	get nextRealmAgent(): RealmAgent | null {
-		const agents = this._realmCast?.agents;
-		if (!this.isRealm || !agents || agents.length === 0) return null;
-		return agents[this.activePath.length % agents.length];
+		const id = this._nextAgentId;
+		if (!this.isRealm || id === null) return null;
+		return this._realmCast?.agents.find((a) => a.id === id) ?? null;
 	}
 	/** Set when the next turn belongs to a player */
 	get awaitingRealmPlayer(): RealmAgent | null {
@@ -244,6 +245,18 @@ class ChatStore {
 			} catch (e) {
 				this.#handleError(e, { title: 'Failed to load the realm cast' }, 5000);
 			}
+			await this.#refreshNextRealmAgent();
+		}
+	}
+
+	/** Re-resolve whose turn it is */
+	async #refreshNextRealmAgent() {
+		const convId = this.conversationId;
+		if (!convId || !this.isRealm) return;
+		try {
+			this._nextAgentId = (await this.#api.chat.realm.nextTurn(convId)).agent_id;
+		} catch {
+			this._nextAgentId = null;
 		}
 	}
 
@@ -313,6 +326,7 @@ class ChatStore {
 		this._streamReasoning = '';
 		this._streamWidgets = [];
 		this._realmCast = null;
+		this._nextAgentId = null;
 		this._streamAgentName = null;
 		this._streamAgentId = null;
 		this.realmAutoRun = true;
@@ -599,6 +613,7 @@ class ChatStore {
 				switch (event.type) {
 					case 'awaiting_player':
 						awaiting = true;
+						this._nextAgentId = event.agent_id;
 						break;
 					case 'turn_started':
 						this._streamAgentName = event.name;
@@ -629,6 +644,7 @@ class ChatStore {
 			this.#clearStream();
 
 			if (committed) {
+				await this.#refreshNextRealmAgent();
 				messageStateStore.inspect(committed.id, committed.conversation_id);
 				return 'committed';
 			}
@@ -672,6 +688,7 @@ class ChatStore {
 
 		this._messages.set(result.message.id, result.message);
 		this._activeLeafId = result.message.id;
+		await this.#refreshNextRealmAgent();
 		if (this.realmAutoRun) await this.runRealmTurns();
 		return true;
 	}

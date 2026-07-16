@@ -47,6 +47,7 @@ import type {
 	CreateAgentRequest,
 	CreateRealmRequest,
 	ImportRule,
+	NextTurn,
 	PlayerTurnRequest,
 	Realm,
 	RealmAgent,
@@ -204,6 +205,11 @@ export function createApiClient(platform: PlatformAPI) {
 				/** The cast snapshot pinned when this playthrough started. */
 				cast: (conversation_id: Snowflake) =>
 					http.get<RealmCast>(`/api/v1/chat/${conversation_id}/cast`),
+				/** Whose turn it is, resolved server-side: run conditions read
+				 *  world state the client doesn't have, so the schedule can't be
+				 *  derived from the cast alone. */
+				nextTurn: (conversation_id: Snowflake) =>
+					http.get<NextTurn>(`/api/v1/chat/${conversation_id}/turn/next`),
 				/** The playthrough's objective timeline (id-paged backward). */
 				events: (conversation_id: Snowflake, before?: Snowflake) =>
 					http.get<Array<RealmEvent>>(

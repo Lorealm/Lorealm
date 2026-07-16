@@ -30,6 +30,7 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
             get(handlers::get_message_state),
         )
         .route("/{conversation_id}/cast", get(handlers::get_cast))
+        .route("/{conversation_id}/turn/next", get(handlers::next_turn))
         .route(
             "/{conversation_id}/events",
             get(handlers::list_realm_events),

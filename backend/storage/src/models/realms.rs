@@ -46,6 +46,8 @@ pub enum ImportKind {
     Lorebook,
     Template,
     Tool,
+    Persona,
+    ConnectionProfile,
 }
 
 impl ImportKind {
@@ -55,6 +57,8 @@ impl ImportKind {
             ImportKind::Lorebook => "lorebook",
             ImportKind::Template => "template",
             ImportKind::Tool => "tool",
+            ImportKind::Persona => "persona",
+            ImportKind::ConnectionProfile => "connection profile",
         }
     }
 }

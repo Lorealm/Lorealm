@@ -1,5 +1,7 @@
 import { characterStore } from '$lib/stores/character.svelte.js';
+import { connectionStore } from '$lib/stores/connection.svelte.js';
 import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
+import { personaStore } from '$lib/stores/persona.svelte.js';
 import { templateStore } from '$lib/stores/template.svelte.js';
 import { toolStore } from '$lib/stores/tools.svelte.js';
 import type { Snowflake } from '$lib/types/core.js';
@@ -24,13 +26,22 @@ export const EDITOR_TABS: Array<{ value: EditorTab; label: string }> = [
 	{ value: 'history', label: 'History' }
 ];
 
-export const IMPORT_KINDS: ImportKind[] = ['character', 'lorebook', 'tool', 'template'];
+export const IMPORT_KINDS: ImportKind[] = [
+	'character',
+	'lorebook',
+	'tool',
+	'template',
+	'persona',
+	'connection_profile'
+];
 
 export const IMPORT_LABEL: Record<ImportKind, string> = {
 	character: 'Characters',
 	lorebook: 'Lorebooks',
 	tool: 'Tools',
-	template: 'Templates'
+	template: 'Templates',
+	persona: 'Personas',
+	connection_profile: 'Connection Profiles'
 };
 
 /** A catalog resource projected to the shape the editor renders. */
@@ -67,6 +78,18 @@ export function catalogItems(kind: ImportKind): CatalogItem[] {
 				name: t.display_name ?? t.name,
 				description: t.description ?? ''
 			}));
+		case 'persona':
+			return (personaStore.loadedPersonas ?? []).map((p) => ({
+				id: p.id,
+				name: p.display_name ?? p.name,
+				description: p.description ?? ''
+			}));
+		case 'connection_profile':
+			return (connectionStore.profiles ?? []).map((p) => ({
+				id: p.id,
+				name: p.name,
+				description: p.provider
+			}));
 	}
 }
 
@@ -80,13 +103,13 @@ export async function loadCatalog(): Promise<void> {
 		characterStore.metadataList ? Promise.resolve() : characterStore.loadList(),
 		lorebookStore.metadataList ? Promise.resolve() : lorebookStore.loadList(),
 		templateStore.metadataList ? Promise.resolve() : templateStore.loadList(),
-		toolStore.loadedTools ? Promise.resolve() : toolStore.loadTools()
+		toolStore.loadedTools ? Promise.resolve() : toolStore.loadTools(),
+		personaStore.loadedPersonas ? Promise.resolve() : personaStore.loadPersonas(),
+		connectionStore.profiles ? Promise.resolve() : connectionStore.loadProfiles()
 	]);
 }
 
 export const scopeRoot = (scope: string): string => scope.split('.')[0];
-
-// --- Graph layout -----------------------------------------------------------
 
 export const GRAPH_W = 900;
 export const GRAPH_H = 620;
