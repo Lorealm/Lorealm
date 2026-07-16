@@ -89,11 +89,14 @@ impl WorldInfoResolver {
         &self,
         ctx: &ResolveContext<'_>,
     ) -> Result<(Vec<AssembledBlock>, Option<CapturedState>), ContextError> {
-        let lorebooks = self
-            .state
-            .get_active_lorebooks(ctx.user_id)
-            .await?
-            .unwrap_or_default();
+        let lorebooks = match ctx.lorebook_ids {
+            Some(ids) => self.state.get_lorebooks_by_ids(ctx.user_id, ids).await?,
+            None => self
+                .state
+                .get_active_lorebooks(ctx.user_id)
+                .await?
+                .unwrap_or_default(),
+        };
 
         // Init with the first book, stack the rest. No active books -> every slot empty.
         let mut iter = lorebooks.into_iter();

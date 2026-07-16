@@ -48,6 +48,7 @@ pub enum TargetType {
     ConnectionProfile,
     Secret,
     UserTool,
+    Lorebook,
     Realm,
     RealmAgent,
     RealmVersion,
@@ -67,6 +68,7 @@ impl Display for TargetType {
             TargetType::ConnectionProfile => write!(f, "connection_profile"),
             TargetType::Secret => write!(f, "secret"),
             TargetType::UserTool => write!(f, "user_tool"),
+            TargetType::Lorebook => write!(f, "lorebook"),
             TargetType::Realm => write!(f, "realm"),
             TargetType::RealmAgent => write!(f, "realm_agent"),
             TargetType::RealmVersion => write!(f, "realm_version"),
@@ -388,6 +390,10 @@ impl From<RealmError> for AppError {
                 code: "INVALID_REALM",
                 message: Cow::Owned(err.client_message()),
             },
+            RealmError::NoRunnableAgent => AppError::Conflict {
+                code: "NO_RUNNABLE_AGENT",
+                message: Cow::Owned(err.client_message()),
+            },
             RealmError::MalformedAgent(_, _) | RealmError::InvalidAgent(_) => {
                 AppError::BadRequest {
                     code: "INVALID_REALM_AGENT",
@@ -404,6 +410,14 @@ impl From<RealmError> for AppError {
             },
             RealmError::ActionFailed(_) => AppError::BadRequest {
                 code: "ACTION_FAILED",
+                message: Cow::Owned(err.client_message()),
+            },
+            RealmError::NotImported(_, _) => AppError::BadRequest {
+                code: "NOT_IMPORTED",
+                message: Cow::Owned(err.client_message()),
+            },
+            RealmError::ImportInUse(_, _, _) => AppError::Conflict {
+                code: "IMPORT_IN_USE",
                 message: Cow::Owned(err.client_message()),
             },
             RealmError::Chat(chat_error) => chat_error.into(),

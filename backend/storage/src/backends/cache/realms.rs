@@ -4,8 +4,8 @@ use crate::{
     RealmStorage, StorageError,
     backends::CachedStorage,
     models::{
-        AgentObservation, Realm, RealmCast, RealmEvent, RealmSummary, RealmVersionInfo, Snowflake,
-        TurnCommit, VersionedSaveMode,
+        AgentObservation, Realm, RealmCast, RealmConfig, RealmEvent, RealmSummary,
+        RealmVersionInfo, Snowflake, TurnCommit, VersionedSaveMode,
     },
 };
 
@@ -100,5 +100,17 @@ impl RealmStorage for CachedStorage {
 
     async fn commit_turn(&self, commit: TurnCommit) -> Result<(), StorageError> {
         self.backend.commit_turn(commit).await
+    }
+
+    async fn get_realm_config(&self, realm_id: Snowflake) -> Result<RealmConfig, StorageError> {
+        self.backend.get_realm_config(realm_id).await
+    }
+    async fn put_realm_config(
+        &self,
+        realm_id: Snowflake,
+        user_id: Snowflake,
+        config: &RealmConfig,
+    ) -> Result<(), StorageError> {
+        self.backend.put_realm_config(realm_id, user_id, config).await
     }
 }

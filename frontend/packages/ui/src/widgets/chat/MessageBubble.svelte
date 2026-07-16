@@ -14,12 +14,17 @@
 	let { message, last = false }: { message: ConversationMessage; last?: boolean } = $props();
 
 	let info = $derived(chatStore.siblingInfo(message.id));
+	/** Realm turns stamp the speaking agent into the message metadata. */
+	let agentName = $derived(
+		(message.metadata as { agent_name?: string } | null)?.agent_name ?? null
+	);
 	let name = $derived(
-		message.role === 'user'
-			? 'You'
-			: message.role === 'system'
-				? 'System'
-				: (characterStore.activeCharacter?.definition.name ?? 'Assistant')
+		agentName ??
+			(message.role === 'user'
+				? 'You'
+				: message.role === 'system'
+					? 'System'
+					: (characterStore.activeCharacter?.definition.name ?? 'Assistant'))
 	);
 
 	let committed = $derived(!message.id.startsWith('tmp_'));

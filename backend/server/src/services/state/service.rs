@@ -80,6 +80,32 @@ impl StateService {
         Ok(Some(lorebooks))
     }
 
+    /// Load exactly these lorebooks, in the given order. Books that vanished
+    /// or aren't owned by the user are dropped (same policy as the active
+    /// set): realm turns must not fail because a preset outlived a book.
+    pub async fn get_lorebooks_by_ids(
+        &self,
+        user_id: Snowflake,
+        ids: &[Snowflake],
+    ) -> Result<Vec<Lorebook>, StateError> {
+        let mut lorebooks = Vec::with_capacity(ids.len());
+        for &id in ids {
+            let Some(lorebook) = self.storage.get_lorebook(id).await? else {
+                tracing::warn!("lorebook {id} referenced but missing. Dropping silently.");
+                continue;
+            };
+            if lorebook.owner_id != user_id {
+                tracing::warn!(
+                    "User ({user_id}) tried requesting a lorebook they did not own. Dropping silently."
+                );
+                continue;
+            }
+            lorebooks.push(lorebook);
+        }
+
+        Ok(lorebooks)
+    }
+
     pub async fn set_active_template(
         &self,
         user_id: Snowflake,

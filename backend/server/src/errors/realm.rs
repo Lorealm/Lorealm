@@ -1,4 +1,7 @@
-use lorealm_storage::{StorageError, models::Snowflake};
+use lorealm_storage::{
+    StorageError,
+    models::{ImportKind, Snowflake},
+};
 
 use crate::errors::{
     CharacterError, ChatError, ConnectionError, ContextError, ConversationError, PersonaError,
@@ -11,6 +14,8 @@ pub enum RealmError {
     NotRealmConversation(Snowflake),
     #[error("no agents: {0}")]
     NoAgents(Snowflake),
+    #[error("no agent's run condition passed this turn")]
+    NoRunnableAgent,
     #[error("not your turn: {0}")]
     NotYourTurn(Snowflake),
     #[error("malformed agent: {1} ({0})")]
@@ -25,6 +30,10 @@ pub enum RealmError {
     InvalidTurn(String),
     #[error("tool not bound to agent: {0}")]
     ToolNotBound(Snowflake),
+    #[error("{} {1} is not imported into the realm", .0.as_str())]
+    NotImported(ImportKind, Snowflake),
+    #[error("{} {1} is still referenced by agent \"{2}\"", .0.as_str())]
+    ImportInUse(ImportKind, Snowflake, String),
     #[error("action failed: {0}")]
     ActionFailed(String),
     #[error(transparent)]
@@ -54,6 +63,9 @@ impl RealmError {
                 "this conversation was not started from a realm".to_string()
             }
             RealmError::NoAgents(_) => format!("realm contains no agents"),
+            RealmError::NoRunnableAgent => {
+                "no agent could run this turn — every run condition was false".to_string()
+            }
             RealmError::NotYourTurn(_) => format!("it's not this agent's turn"),
             RealmError::MalformedAgent(_, hint) => format!("malformed agent: {hint}"),
             RealmError::NotFound(_, _) | RealmError::NotOwned(_, _) => self.to_string(),
@@ -65,6 +77,16 @@ impl RealmError {
             RealmError::InvalidAgent(hint) => format!("invalid agent: {hint}"),
             RealmError::InvalidTurn(hint) => format!("invalid turn: {hint}"),
             RealmError::ToolNotBound(_) => "this action is not available to the agent".to_string(),
+            RealmError::NotImported(kind, _) => {
+                format!(
+                    "this {} is not imported into the realm — import it first",
+                    kind.as_str()
+                )
+            }
+            RealmError::ImportInUse(kind, _, agent) => format!(
+                "this {} is still used by agent \"{agent}\" — unbind it there first",
+                kind.as_str()
+            ),
             RealmError::ActionFailed(hint) => format!("action failed: {hint}"),
             RealmError::Character(character_error) => character_error.client_message().to_string(),
             RealmError::Context(context_error) => context_error.client_message(),

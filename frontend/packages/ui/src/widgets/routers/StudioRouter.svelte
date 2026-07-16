@@ -18,7 +18,7 @@
 		<TemplateSection />
 	{:else if studioStore.section === StudioSection.Characters}
 		<CharacterSection />
-	{:else if studioStore.section === StudioSection.Commands}
+	{:else if studioStore.section === StudioSection.Tools}
 		<ToolsSection />
 	{:else if studioStore.section === StudioSection.Personas}
 		<PersonaSection />

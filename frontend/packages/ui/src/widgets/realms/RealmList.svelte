@@ -44,7 +44,7 @@
 					autofocus
 					onkeydown={(e) => {
 						if (e.key === 'Enter') create();
-						if (e.key === 'Escape') (creating = false), (newName = '');
+						if (e.key === 'Escape') {creating = false; newName = ''};
 					}}
 				/>
 				<button type="button" class="primary" onclick={create} disabled={busy || !newName.trim()}>

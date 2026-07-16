@@ -1,20 +1,19 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     pin::Pin,
-    sync::{Arc, Mutex as StdMutex},
+    sync::Arc,
     time::Duration,
 };
 
 use async_trait::async_trait;
 use futures_util::{Stream, StreamExt};
-use lorealm_providers::Tool;
 use lorealm_storage::{
     Storage,
     models::{
-        ActivationState, AgentAccess, AgentGrant, AgentKind, AgentObservation, AgentSpec,
-        AgentToolBinding, ChatRole, Conversation, EventKind, Realm, RealmAgent, RealmCast,
-        RealmDefinition, RealmEvent, RealmSummary, RealmVersionInfo, ScopePattern, Snowflake,
-        StateDelta, TurnCommit, UserTool, VersionedSaveMode,
+        ActivationState, AgentGrant, AgentKind, AgentObservation, AgentSpec, AgentToolBinding,
+        ChatRole, Conversation, ConversationMessage, EventKind, ImportRule, Realm, RealmAgent,
+        RealmCast, RealmConfig, RealmDefinition, RealmEvent, RealmSummary, RealmVersionInfo,
+        ResolvedRealmConfig, Snowflake, StateDelta, TurnCommit, UserTool, VersionedSaveMode,
     },
 };
 use serde_json::json;
@@ -28,23 +27,27 @@ use crate::{
         character::CharacterService,
         chat::{AgentOutcome, ChatService, FullConversation, InferEvent, TurnAccumulator},
         connection::ConnectionService,
-        context::{ContextService, PromptTurn},
+        context::ContextService,
         conversation::ConversationService,
         persona::PersonaService,
         realm::{ActionSpec, RealmStreamEvent, RoundRobin, TurnPolicy, TurnResult},
         snowflake::SnowflakeService,
-        state::{CapturedState, ReconstructedState, StatePool, StateService},
-        tools::{CompiledUserTool, ToolPolicy, ToolSignature, build_tool_registry},
+        state::{CapturedState, StatePool, StateService},
     },
 };
 
-// TODO: consider moving out to a per-realm/per-agent config object
-const MAIN_SCOPE: &str = "main";
-const OBSERVATION_WINDOW: i64 = 200;
+use super::{
+    agent::{
+        AgentRegistry, EventDraft, PersistPlan, PlanCx, Production, ReadyTurn, TurnPlan, capture,
+        push_state_events, speech_scope,
+    },
+    validate::{agent_required_imports, apply_turn_order},
+    weaver,
+};
+
 const EVENT_WINDOW: i64 = 500;
 
-/// Edits within this window collapse into the same version (mirrors the
-/// character editing sessions and their default TTL).
+/// Edits within this window collapse into the same version.
 const EDIT_SESSION_TTL: Duration = Duration::from_secs(600);
 
 struct EditingSession {
@@ -53,24 +56,25 @@ struct EditingSession {
 }
 
 /// A realm loaded for mutation plus how to persist it: within an editing
-/// session the current version is updated in place, otherwise a new
-/// version row is appended.
+/// session the current version is updated in place, otherwise a new version
+/// row is appended.
 struct EditableRealm {
     realm: Realm,
     save_mode: VersionedSaveMode,
 }
 
 pub struct RealmService {
-    storage: Arc<dyn Storage>,
+    pub(super) storage: Arc<dyn Storage>,
     snowflake: Arc<SnowflakeService>,
     chat: Arc<ChatService>,
-    characters: Arc<CharacterService>,
-    templates: Arc<ContextService>,
-    connection: Arc<ConnectionService>,
-    personas: Arc<PersonaService>,
-    state: Arc<StateService>,
+    pub(super) characters: Arc<CharacterService>,
+    pub(super) templates: Arc<ContextService>,
+    pub(super) connection: Arc<ConnectionService>,
+    pub(super) personas: Arc<PersonaService>,
+    pub(super) state: Arc<StateService>,
     conversations: Arc<ConversationService>,
     policy: Arc<dyn TurnPolicy>,
+    agents: AgentRegistry,
     editing_sessions: RwLock<HashMap<Snowflake, EditingSession>>,
 }
 
@@ -98,16 +102,37 @@ impl RealmService {
             state,
             conversations,
             policy: Arc::new(RoundRobin),
+            agents: AgentRegistry::with_defaults(),
             editing_sessions: RwLock::new(HashMap::new()),
         }
     }
-
-    // ------------------------------------------------------------ presets
 
     pub async fn list_realms(&self, user_id: Snowflake) -> Result<Vec<RealmSummary>, RealmError> {
         let realms = self.storage.list_realms(user_id).await?;
 
         Ok(realms)
+    }
+
+    pub async fn get_config(
+        &self,
+        realm_id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<RealmConfig, RealmError> {
+        self.owned_realm(realm_id, user_id).await?;
+        Ok(self.storage.get_realm_config(realm_id).await?)
+    }
+
+    pub async fn set_config(
+        &self,
+        realm_id: Snowflake,
+        user_id: Snowflake,
+        config: RealmConfig,
+    ) -> Result<RealmConfig, RealmError> {
+        self.owned_realm(realm_id, user_id).await?;
+        self.storage
+            .put_realm_config(realm_id, user_id, &config)
+            .await?;
+        Ok(config)
     }
 
     pub async fn get_realm(
@@ -264,7 +289,9 @@ impl RealmService {
     ) -> Result<RealmAgent, RealmError> {
         let mut edit = self.get_realm_for_edit(realm_id, user_id).await?;
 
-        let parts = self.validate_agent(user_id, &req).await?;
+        let parts = self
+            .validate_agent(user_id, &req, &edit.realm.definition.imports)
+            .await?;
 
         let agent = RealmAgent {
             id: self.snowflake.generate(),
@@ -279,6 +306,10 @@ impl RealmService {
             turn_order: edit.realm.definition.agents.len() as i32,
             grants: req.grants,
             tools: req.tools,
+            speech_scope: req.speech_scope,
+            lorebooks: req.lorebooks,
+            script: req.script,
+            run_condition: req.run_condition,
         };
 
         edit.realm.definition.agents.push(agent.clone());
@@ -288,8 +319,6 @@ impl RealmService {
     }
 
     /// Full-replace edit of a preset agent (grants and tools included).
-    /// In-flight playthroughs keep their cast snapshot; only new ones see
-    /// this.
     pub async fn update_agent(
         &self,
         realm_id: Snowflake,
@@ -299,7 +328,9 @@ impl RealmService {
     ) -> Result<RealmAgent, RealmError> {
         let mut edit = self.get_realm_for_edit(realm_id, user_id).await?;
 
-        let parts = self.validate_agent(user_id, &req).await?;
+        let parts = self
+            .validate_agent(user_id, &req, &edit.realm.definition.imports)
+            .await?;
 
         let slot = edit
             .realm
@@ -322,6 +353,10 @@ impl RealmService {
             turn_order: slot.turn_order,
             grants: req.grants,
             tools: req.tools,
+            speech_scope: req.speech_scope,
+            lorebooks: req.lorebooks,
+            script: req.script,
+            run_condition: req.run_condition,
         };
         *slot = agent.clone();
 
@@ -376,12 +411,65 @@ impl RealmService {
         Ok(())
     }
 
+    /// Rewrite the cast's turn order. `order` must be a permutation of the
+    /// current agent ids; round-robin then runs in exactly this sequence.
+    pub async fn reorder_agents(
+        &self,
+        realm_id: Snowflake,
+        user_id: Snowflake,
+        order: Vec<Snowflake>,
+    ) -> Result<Vec<RealmAgent>, RealmError> {
+        let mut edit = self.get_realm_for_edit(realm_id, user_id).await?;
+
+        let agents = &mut edit.realm.definition.agents;
+        apply_turn_order(agents, &order)?;
+
+        self.storage.save_realm(&edit.realm, edit.save_mode).await?;
+
+        Ok(edit.realm.definition.agents)
+    }
+
+    /// Full-replace edit of the realm's import manifest. Every rule must
+    /// point at an existing resource the caller owns, and no agent may be
+    /// left referencing something the new list no longer covers.
+    pub async fn set_imports(
+        &self,
+        realm_id: Snowflake,
+        user_id: Snowflake,
+        imports: Vec<ImportRule>,
+    ) -> Result<Vec<ImportRule>, RealmError> {
+        let mut edit = self.get_realm_for_edit(realm_id, user_id).await?;
+
+        let mut seen = HashSet::new();
+        let imports: Vec<ImportRule> = imports
+            .into_iter()
+            .filter(|r| seen.insert((r.kind, r.resource_id)))
+            .collect();
+
+        for rule in &imports {
+            self.validate_import(user_id, rule).await?;
+        }
+
+        for agent in &edit.realm.definition.agents {
+            for (kind, id) in agent_required_imports(agent) {
+                if !seen.contains(&(kind, id)) {
+                    return Err(RealmError::ImportInUse(kind, id, agent.name.clone()));
+                }
+            }
+        }
+
+        edit.realm.definition.imports = imports.clone();
+        self.storage.save_realm(&edit.realm, edit.save_mode).await?;
+
+        Ok(imports)
+    }
+
     // -------------------------------------------------------- playthroughs
 
     /// Instantiate a realm: create a conversation bound to it and pin the
-    /// cast snapshot from the current version. No seed state is copied —
-    /// there is none; the opening pool is emergent, written by the weaver
-    /// expressions the realm's lorebooks/tools run over the first turns.
+    /// cast snapshot from the current version. No seed state is stored; the
+    /// opening pool is written by the weaver expressions its lorebooks/tools
+    /// run over the first turns.
     pub async fn start_conversation(
         &self,
         realm_id: Snowflake,
@@ -435,19 +523,37 @@ impl RealmService {
     ) -> Result<Pin<Box<dyn Stream<Item = Result<RealmStreamEvent, RealmError>> + Send>>, RealmError>
     {
         let (convo, cast) = self.realm_conversation(convo_id, user_id).await?;
+        let config = self.resolve_config(&convo).await?;
 
-        let prep = match self.prepare_turn(&convo, cast, target).await? {
-            TurnPrep::Player { agent_id } => {
+        let llm = match self.plan_turn(&convo, cast, target).await? {
+            TurnPlan::AwaitPlayer { agent_id } => {
                 return Ok(Box::pin(futures_util::stream::once(async move {
                     Ok(RealmStreamEvent::AwaitingPlayer { agent_id })
                 })));
             }
-            TurnPrep::Llm(prep) => prep,
+            TurnPlan::Ready(ready) => {
+                // A script turn is already resolved: no model, no stream to
+                // cancel. Announce it and commit.
+                let service = Arc::clone(self);
+                let config = config.clone();
+                let stream = async_stream::try_stream! {
+                    let ReadyTurn { convo, cast, production } = *ready;
+                    yield RealmStreamEvent::TurnStarted {
+                        agent_id: production.agent.id,
+                        name: production.agent.name.clone(),
+                    };
+                    let TurnResult { message, events } =
+                        service.commit(&convo, &cast, &config, production).await?;
+                    yield RealmStreamEvent::Committed { message, events };
+                };
+                return Ok(Box::pin(stream));
+            }
+            TurnPlan::Stream(llm) => llm,
         };
 
         let mut open = self
             .chat
-            .open_agent_turn(&prep.spec, &prep.turns, &prep.baseline, &prep.policy)
+            .open_agent_turn(&llm.spec, &llm.turns, &llm.baseline, &llm.policy)
             .await?;
 
         let (cancel, guard) = self.chat.begin_cancel(convo_id);
@@ -455,10 +561,10 @@ impl RealmService {
         let service = Arc::clone(self);
         let stream = async_stream::try_stream! {
             let _guard = guard; // the stream owns the cancellation slot
-            let prep = *prep;
+            let llm = *llm;
             yield RealmStreamEvent::TurnStarted {
-                agent_id: prep.agent.id,
-                name: prep.agent.name.clone(),
+                agent_id: llm.agent.id,
+                name: llm.agent.name.clone(),
             };
 
             let mut acc = TurnAccumulator::default();
@@ -497,9 +603,11 @@ impl RealmService {
 
             let delta = open.delta(&service.state);
             let activation = std::mem::take(&mut open.activation);
-            let TurnResult { message, events } = service
-                .finalize_llm_turn(prep, acc.finish(), delta, activation, open.had_assembly)
+            let production = service
+                .llm_production(&llm.agent, llm.persist, acc.finish(), delta, activation, open.had_assembly, &config)
                 .await?;
+            let TurnResult { message, events } =
+                service.commit(&llm.convo, &llm.cast, &config, production).await?;
             yield RealmStreamEvent::Committed { message, events };
         };
 
@@ -516,12 +624,17 @@ impl RealmService {
         req: PlayerTurnRequest,
     ) -> Result<TurnResult, RealmError> {
         let (convo, cast) = self.realm_conversation(convo_id, user_id).await?;
+        let config = self.resolve_config(&convo).await?;
 
         let path = self.active_path(&convo).await?;
+        let ids: Vec<Snowflake> = path.iter().map(|m| m.id).collect();
+        let reconstructed = self.state.reconstruct(&ids).await?;
+
+        // The player is only up if the run_condition skip-forward scan lands
+        // on them against this world.
         let agent = self
-            .policy
-            .next(path.len(), &cast.agents)
-            .ok_or(RealmError::NoAgents(cast.realm_id))?
+            .runnable_agent(path.len(), &cast.agents, &reconstructed.persistent)
+            .ok_or(RealmError::NoRunnableAgent)?
             .clone();
 
         if !matches!(agent.kind, AgentKind::Player) || agent.user_id != Some(user_id) {
@@ -535,11 +648,7 @@ impl RealmService {
             ));
         }
 
-        let ids: Vec<Snowflake> = path.iter().map(|m| m.id).collect();
-        let reconstructed = self.state.reconstruct(&ids).await?;
-
-        // A player action runs the exact same weaver pipeline
-        // an LLM agent's tool call goes through
+        // A player action runs the same weaver pipeline as an LLM tool call.
         let mut delta = StateDelta::default();
         let mut actor_notes = Vec::new();
         let mut action_meta = json!(null);
@@ -556,17 +665,17 @@ impl RealmService {
                 .get_tool(binding.tool_id)
                 .await?
                 .ok_or(RealmError::NotFound(TargetType::UserTool, binding.tool_id))?;
-            let (output, d) = self
-                .execute_action(
-                    &tool,
-                    &agent.grants,
-                    action.args.clone(),
-                    &reconstructed.persistent,
-                )
-                .await?;
+            let (output, d) = weaver::run_scoped(
+                &self.state,
+                &tool.body,
+                &tool.params,
+                action.args.clone(),
+                &agent.grants,
+                &reconstructed.persistent,
+            )
+            .await?;
 
-            // TODO: remove hard-coded formatting
-            actor_notes.push(format!("[{} result: {}]", tool.name, output));
+            actor_notes.push(config.tool_result(&tool.name, &output));
             action_meta = json!({ "tool": tool.name, "input": action.args, "output": output });
             delta = d;
             acted = Some((tool, binding, action.args));
@@ -577,64 +686,42 @@ impl RealmService {
             "agent_name": agent.name,
             "action": action_meta,
         });
-        let message = self
-            .conversations
-            .append_message(convo.id, ChatRole::User, content.clone(), meta)
-            .await?;
-
-        if !delta.writes.is_empty() || !delta.deletes.is_empty() {
-            // Carry the reconstructed activation forward so a player-turn
-            // state row never resets lorebook activation for later turns.
-            self.state
-                .persist(
-                    message.id,
-                    CapturedState {
-                        activation: reconstructed.activation.clone(),
-                        persistent: delta.clone(),
-                    },
-                )
-                .await?;
-        }
 
         let mut events = Vec::new();
         if !content.trim().is_empty() {
-            events.push(self.event(
-                &convo,
-                message.id,
-                agent.id,
-                events.len(),
-                MAIN_SCOPE.to_string(),
-                EventKind::Spoke,
-                content,
-                json!({}),
-            ));
+            events.push(EventDraft {
+                source: agent.id,
+                scope: speech_scope(&agent),
+                kind: EventKind::Spoke,
+                content: content.clone(),
+                payload: json!({}),
+            });
         }
         if let Some((tool, binding, args)) = acted {
-            events.push(self.event(
-                &convo,
-                message.id,
-                agent.id,
-                events.len(),
-                binding.event_scope.unwrap_or_default(),
-                EventKind::Acted,
-                // TODO: remove hard-coded formatting
-                format!("[{} used {}]", agent.name, tool.name),
-                json!({ "tool": tool.name, "input": args }),
-            ));
+            events.push(EventDraft {
+                source: agent.id,
+                scope: binding.event_scope.unwrap_or_default(),
+                kind: EventKind::Acted,
+                content: config.action(&agent.name, &tool.name),
+                payload: json!({ "tool": tool.name, "input": args }),
+            });
         }
-        self.push_state_events(&convo, message.id, agent.id, &delta, &mut events);
+        push_state_events(agent.id, &delta, &config, &mut events);
 
-        let mut observations = self.fan_out(&cast.agents, &events, &agent.name);
-        observations.extend(self.actor_notes(&convo, message.id, agent.id, actor_notes));
+        // Carry the reconstructed activation forward so a player-turn state
+        // row never resets lorebook activation for later turns.
+        let production = Production {
+            agent,
+            persist: PersistPlan::Append(convo.active_leaf_id),
+            role: ChatRole::User,
+            content,
+            meta,
+            state: capture(reconstructed.activation, delta),
+            events,
+            actor_notes,
+        };
 
-        self.storage
-            .commit_turn(TurnCommit {
-                events: events.clone(),
-                observations,
-            })
-            .await?;
-
-        Ok(TurnResult { message, events })
+        self.commit(&convo, &cast, &config, production).await
     }
 
     // ------------------------------------------------- playthrough views
@@ -677,7 +764,7 @@ impl RealmService {
         self.cast_agent(&cast, agent_id)?;
         let observations = self
             .storage
-            .list_observations(convo_id, agent_id, before, OBSERVATION_WINDOW)
+            .list_observations(convo_id, agent_id, before, super::OBSERVATION_WINDOW)
             .await?;
 
         Ok(observations)
@@ -697,16 +784,7 @@ impl RealmService {
         let ids: Vec<Snowflake> = path.iter().map(|m| m.id).collect();
         let world = self.state.reconstruct(&ids).await?.persistent;
 
-        let read_scopes: Vec<ScopePattern> = agent
-            .grants
-            .iter()
-            .map(|g| ScopePattern::parse(&g.scope))
-            .collect();
-
-        Ok(world
-            .into_iter()
-            .filter(|(ns, _)| read_scopes.iter().any(|g| g.matches(ns)))
-            .collect())
+        Ok(weaver::slice(&world, &weaver::read_scopes(&agent.grants)))
     }
 
     /// The agent's action space as pinned in the playthrough's snapshot.
@@ -764,15 +842,64 @@ impl RealmService {
         })
     }
 
-    /// Everything up to (but excluding) inference: resolve whose turn it is
-    /// along the path and project that agent's view of the world.
-    async fn prepare_turn(
+    /// Resolve whose turn it is along the path and project that agent's view
+    /// of the world into an executable plan (dispatched by kind).
+    async fn plan_turn(
         &self,
         convo: &Conversation,
         cast: RealmCast,
         target: Option<Snowflake>,
-    ) -> Result<TurnPrep, RealmError> {
-        let (path, persist) = match target {
+    ) -> Result<TurnPlan, RealmError> {
+        let (path, persist) = self.resolve_path(convo, target).await?;
+
+        let path_ids: Vec<Snowflake> = path.iter().map(|m| m.id).collect();
+        let world = self.state.reconstruct(&path_ids).await?;
+
+        // The turn index is the position along the path, so a regenerated
+        // sibling re-runs the same agent's turn.
+        let agent = self
+            .runnable_agent(path.len(), &cast.agents, &world.persistent)
+            .ok_or(RealmError::NoRunnableAgent)?
+            .clone();
+
+        self.agents
+            .get(&agent.kind)
+            .plan(PlanCx {
+                service: self,
+                convo,
+                cast,
+                agent,
+                path_ids,
+                world,
+                persist,
+            })
+            .await
+    }
+
+    /// Whose turn it is once run_conditions are honored: the first agent the
+    /// turn policy yields from `turn_index` forward whose `run_condition`
+    /// passes against `world`. `None` when every agent is gated off this turn.
+    fn runnable_agent<'a>(
+        &self,
+        turn_index: usize,
+        agents: &'a [RealmAgent],
+        world: &StatePool,
+    ) -> Option<&'a RealmAgent> {
+        (0..agents.len()).find_map(|k| {
+            let a = self.policy.next(turn_index + k, agents)?;
+            weaver::run_condition_passes(&a.run_condition, &a.grants, world).then_some(a)
+        })
+    }
+
+    /// The message path to assemble against and where a new message lands.
+    /// `target` regenerates: the message becomes a sibling of `target`, so
+    /// assembly runs against `target`'s parent path.
+    async fn resolve_path(
+        &self,
+        convo: &Conversation,
+        target: Option<Snowflake>,
+    ) -> Result<(Vec<ConversationMessage>, PersistPlan), RealmError> {
+        Ok(match target {
             None => {
                 let path = self.active_path(convo).await?;
                 (path, PersistPlan::Append(convo.active_leaf_id))
@@ -790,97 +917,21 @@ impl RealmService {
                 };
                 (path, PersistPlan::Alternate(t))
             }
-        };
-
-        // Turn ≈ message: the turn index is the position along the path, so
-        // a regenerated sibling re-runs the same agent's turn.
-        let agent = self
-            .policy
-            .next(path.len(), &cast.agents)
-            .ok_or(RealmError::NoAgents(cast.realm_id))?
-            .clone();
-
-        if matches!(agent.kind, AgentKind::Player) {
-            return Ok(TurnPrep::Player { agent_id: agent.id });
-        }
-
-        let ids: Vec<Snowflake> = path.iter().map(|m| m.id).collect();
-        let reconstructed = self.state.reconstruct(&ids).await?;
-
-        let read_scopes: Vec<ScopePattern> = agent
-            .grants
-            .iter()
-            .map(|g| ScopePattern::parse(&g.scope))
-            .collect();
-        let write_scopes: Vec<ScopePattern> = agent
-            .grants
-            .iter()
-            .filter(|g| matches!(g.access, AgentAccess::ReadWrite))
-            .map(|g| ScopePattern::parse(&g.scope))
-            .collect();
-        let slice: StatePool = reconstructed
-            .persistent
-            .iter()
-            .filter(|(ns, _)| read_scopes.iter().any(|g| g.matches(ns)))
-            .map(|(ns, vars)| (ns.clone(), vars.clone()))
-            .collect();
-
-        let mut observations = self
-            .storage
-            .list_observations_for_messages(agent.id, &ids)
-            .await?;
-        // Path order == id order: along one path every message commits after
-        // its ancestors, and observations are created with their message.
-        if observations.len() > OBSERVATION_WINDOW as usize {
-            observations.drain(..observations.len() - OBSERVATION_WINDOW as usize);
-        }
-        let turns: Vec<PromptTurn> = observations
-            .iter()
-            .map(PromptTurn::from_observation)
-            .collect();
-
-        // Realms don't own a tokenizer; turns use the conversation owner's
-        // active one, exactly like plain chat.
-        let tokenizer_id = self.state.get_active_tokenizer(convo.user_id).await?.id;
-        let spec = self.spec_for(convo.user_id, tokenizer_id, &agent)?;
-        let baseline = ReconstructedState {
-            persistent: slice,
-            activation: reconstructed.activation,
-        };
-        let policy = ToolPolicy {
-            write_scopes: Some(Arc::new(write_scopes)),
-            tool_ids: Some(agent.tools.iter().map(|b| b.tool_id).collect()),
-        };
-
-        Ok(TurnPrep::Llm(Box::new(PreparedTurn {
-            convo: convo.clone(),
-            cast,
-            agent,
-            spec,
-            baseline,
-            policy,
-            persist,
-            turns,
-        })))
+        })
     }
 
-    /// Turn an LLM outcome into a committed message + state delta + events.
-    async fn finalize_llm_turn(
+    /// Build the production for a finished LLM turn: its spoken message plus
+    /// the spoke/acted events and actor notes derived from the outcome.
+    async fn llm_production(
         &self,
-        prep: PreparedTurn,
+        agent: &RealmAgent,
+        persist: PersistPlan,
         outcome: AgentOutcome,
         delta: StateDelta,
         activation: HashMap<Snowflake, ActivationState>,
         had_assembly: bool,
-    ) -> Result<TurnResult, RealmError> {
-        let PreparedTurn {
-            convo,
-            cast,
-            agent,
-            persist,
-            ..
-        } = prep;
-
+        config: &ResolvedRealmConfig,
+    ) -> Result<Production, RealmError> {
         let meta = json!({
             "reasoning": outcome.reasoning,
             "tool_calls": outcome.tool_calls,
@@ -889,63 +940,17 @@ impl RealmService {
             "agent_name": agent.name,
         });
 
-        let message = match persist {
-            PersistPlan::Append(Some(parent)) => {
-                self.conversations
-                    .branch_from(
-                        convo.id,
-                        parent,
-                        ChatRole::Assistant,
-                        outcome.spoken.clone(),
-                        meta,
-                    )
-                    .await?
-            }
-            // First turn of the playthrough: the message becomes the root.
-            PersistPlan::Append(None) => {
-                self.conversations
-                    .append_message(convo.id, ChatRole::Assistant, outcome.spoken.clone(), meta)
-                    .await?
-            }
-            PersistPlan::Alternate(sibling) => {
-                self.conversations
-                    .create_alternate(
-                        convo.id,
-                        sibling,
-                        ChatRole::Assistant,
-                        outcome.spoken.clone(),
-                        meta,
-                    )
-                    .await?
-            }
-        };
-
-        if had_assembly || !delta.writes.is_empty() || !delta.deletes.is_empty() {
-            self.state
-                .persist(
-                    message.id,
-                    CapturedState {
-                        activation,
-                        persistent: delta.clone(),
-                    },
-                )
-                .await?;
-        }
-
         let action_scopes = self.action_scopes(&agent.tools).await?;
 
         let mut events = Vec::new();
         if !outcome.spoken.trim().is_empty() {
-            events.push(self.event(
-                &convo,
-                message.id,
-                agent.id,
-                events.len(),
-                MAIN_SCOPE.to_string(),
-                EventKind::Spoke,
-                outcome.spoken.clone(),
-                json!({}),
-            ));
+            events.push(EventDraft {
+                source: agent.id,
+                scope: speech_scope(agent),
+                kind: EventKind::Spoke,
+                content: outcome.spoken.clone(),
+                payload: json!({}),
+            });
         }
 
         let mut actor_notes = Vec::new();
@@ -956,26 +961,88 @@ impl RealmService {
             if call.is_error {
                 continue;
             }
-            events.push(self.event(
-                &convo,
-                message.id,
-                agent.id,
-                events.len(),
-                scope.clone().unwrap_or_default(),
-                EventKind::Acted,
-                // TODO: remove hard-coded formatting
-                format!("[{} used {}]", agent.name, call.name),
-                json!({ "tool": call.name, "input": call.input }),
-            ));
-
-            // TODO: remove hard-coded formatting
-            actor_notes.push(format!("[{} result: {}]", call.name, call.output));
+            events.push(EventDraft {
+                source: agent.id,
+                scope: scope.clone().unwrap_or_default(),
+                kind: EventKind::Acted,
+                content: config.action(&agent.name, &call.name),
+                payload: json!({ "tool": call.name, "input": call.input }),
+            });
+            actor_notes.push(config.tool_result(&call.name, &call.output.to_string()));
         }
 
-        self.push_state_events(&convo, message.id, agent.id, &delta, &mut events);
+        push_state_events(agent.id, &delta, config, &mut events);
 
-        let mut observations = self.fan_out(&cast.agents, &events, &agent.name);
-        observations.extend(self.actor_notes(&convo, message.id, agent.id, actor_notes));
+        // Assembly writes are how a realm's opening state materializes, so
+        // persist a row even on an empty delta when assembly captured state.
+        let state =
+            (had_assembly || !delta.writes.is_empty() || !delta.deletes.is_empty()).then(|| {
+                CapturedState {
+                    activation,
+                    persistent: delta,
+                }
+            });
+
+        Ok(Production {
+            agent: agent.clone(),
+            persist,
+            role: ChatRole::Assistant,
+            content: outcome.spoken,
+            meta,
+            state,
+            events,
+            actor_notes,
+        })
+    }
+
+    /// Persist a produced turn: the message, its optional state row, and the
+    /// events + observations that fan out of it. The single commit path for
+    /// LLM, script, and player turns.
+    async fn commit(
+        &self,
+        convo: &Conversation,
+        cast: &RealmCast,
+        config: &ResolvedRealmConfig,
+        production: Production,
+    ) -> Result<TurnResult, RealmError> {
+        let Production {
+            agent,
+            persist,
+            role,
+            content,
+            meta,
+            state,
+            events,
+            actor_notes,
+        } = production;
+
+        let message = self
+            .persist_message(convo, persist, role, content, meta)
+            .await?;
+
+        if let Some(captured) = state {
+            self.state.persist(message.id, captured).await?;
+        }
+
+        // Anchor the drafts to the committed message; seq follows push order.
+        let events: Vec<RealmEvent> = events
+            .into_iter()
+            .enumerate()
+            .map(|(seq, d)| RealmEvent {
+                id: self.snowflake.generate(),
+                conversation_id: convo.id,
+                message_id: message.id,
+                seq: seq as i32,
+                source: Some(d.source),
+                scope: d.scope,
+                kind: d.kind,
+                content: d.content,
+                payload: d.payload,
+            })
+            .collect();
+
+        let mut observations = self.fan_out(&cast.agents, &events, &agent.name, config);
+        observations.extend(self.actor_notes(convo, message.id, agent.id, actor_notes));
 
         self.storage
             .commit_turn(TurnCommit {
@@ -985,6 +1052,35 @@ impl RealmService {
             .await?;
 
         Ok(TurnResult { message, events })
+    }
+
+    /// Write the turn's message into the tree at the planned position.
+    async fn persist_message(
+        &self,
+        convo: &Conversation,
+        persist: PersistPlan,
+        role: ChatRole,
+        content: String,
+        meta: serde_json::Value,
+    ) -> Result<ConversationMessage, RealmError> {
+        Ok(match persist {
+            PersistPlan::Append(Some(parent)) => {
+                self.conversations
+                    .branch_from(convo.id, parent, role, content, meta)
+                    .await?
+            }
+            // First turn of the playthrough: the message becomes the root.
+            PersistPlan::Append(None) => {
+                self.conversations
+                    .append_message(convo.id, role, content, meta)
+                    .await?
+            }
+            PersistPlan::Alternate(sibling) => {
+                self.conversations
+                    .create_alternate(convo.id, sibling, role, content, meta)
+                    .await?
+            }
+        })
     }
 
     /// Load + authorize a realm playthrough: the caller must own the
@@ -1018,6 +1114,19 @@ impl RealmService {
         Ok((convo, cast))
     }
 
+    /// Resolve the settings in effect for a playthrough: the realm's overrides
+    /// over the built-in defaults.
+    pub(super) async fn resolve_config(
+        &self,
+        convo: &Conversation,
+    ) -> Result<ResolvedRealmConfig, RealmError> {
+        let config = match convo.realm_id {
+            Some(id) => self.storage.get_realm_config(id).await?,
+            None => RealmConfig::default(),
+        };
+        Ok(ResolvedRealmConfig::resolve(&config))
+    }
+
     fn cast_agent<'a>(
         &self,
         cast: &'a RealmCast,
@@ -1043,7 +1152,7 @@ impl RealmService {
     async fn active_path(
         &self,
         convo: &Conversation,
-    ) -> Result<Vec<lorealm_storage::models::ConversationMessage>, RealmError> {
+    ) -> Result<Vec<ConversationMessage>, RealmError> {
         Ok(match convo.active_leaf_id {
             Some(leaf) => self.storage.get_path_to(convo.id, leaf).await?,
             None => Vec::new(),
@@ -1068,103 +1177,18 @@ impl RealmService {
         Ok(realm)
     }
 
-    /// Validate the identity bundle of a create/update agent request.
-    async fn validate_agent(
-        &self,
-        user_id: Snowflake,
-        req: &CreateAgentRequest,
-    ) -> Result<AgentParts, RealmError> {
-        let parts = match req.kind {
-            AgentKind::Player => {
-                if req.character_id.is_some()
-                    || req.char_version_id.is_some()
-                    || req.template_id.is_some()
-                    || req.profile_id.is_some()
-                {
-                    return Err(RealmError::InvalidAgent(
-                        "player agents cannot have character/template/profile".into(),
-                    ));
-                }
-                AgentParts {
-                    character_id: None,
-                    char_version_id: None,
-                    template_id: None,
-                    profile_id: None,
-                    user_id: Some(user_id),
-                }
-            }
-            AgentKind::Llm => {
-                // both-or-neither, validated for ownership when present
-                let character = match (req.character_id, req.char_version_id) {
-                    (Some(c), Some(v)) => {
-                        self.characters.load_version(c, v, user_id).await?;
-                        (Some(c), Some(v))
-                    }
-                    (None, None) => (None, None),
-                    _ => {
-                        return Err(RealmError::InvalidAgent(
-                            "character_id and char_version_id must be set together".into(),
-                        ));
-                    }
-                };
-
-                let template_id = match req.template_id {
-                    Some(id) => self.templates.get_template(id, user_id).await?.id,
-                    None => self
-                        .state
-                        .get_active_template_id(user_id)
-                        .await?
-                        .ok_or(RealmError::NotFound(TargetType::ContextTemplate, user_id))?,
-                };
-                let profile_id = match req.profile_id {
-                    Some(id) => self.connection.get_profile(user_id, id).await?.id,
-                    None => self.state.get_active_profile(user_id).await?.id,
-                };
-
-                AgentParts {
-                    character_id: character.0,
-                    char_version_id: character.1,
-                    template_id: Some(template_id),
-                    profile_id: Some(profile_id),
-                    user_id: None,
-                }
-            }
-        };
-
-        if let Some(id) = req.persona_id {
-            self.personas.get_persona(id, user_id).await?;
-        }
-
-        for binding in &req.tools {
-            let tool = self
-                .storage
-                .get_tool(binding.tool_id)
-                .await?
-                .ok_or(RealmError::NotFound(TargetType::UserTool, binding.tool_id))?;
-            if tool.user_id != user_id {
-                return Err(RealmError::NotOwned(TargetType::UserTool, binding.tool_id));
-            }
-        }
-
-        Ok(parts)
-    }
-
-    /// Fan events out into per-agent observations, strictly through the
-    /// snapshot grants. This is the enforcement point for knowledge
-    /// asymmetry: no grant on the scope, no memory of the event.
+    /// Fan events out into per-agent observations, filtered by the snapshot
+    /// grants: no grant on the scope, no observation of the event.
     fn fan_out(
         &self,
         agents: &[RealmAgent],
         events: &[RealmEvent],
         source_name: &str,
+        config: &ResolvedRealmConfig,
     ) -> Vec<AgentObservation> {
         let mut out = Vec::new();
         for observer in agents {
-            let grants: Vec<ScopePattern> = observer
-                .grants
-                .iter()
-                .map(|g| ScopePattern::parse(&g.scope))
-                .collect();
+            let grants = weaver::read_scopes(&observer.grants);
 
             for event in events {
                 let own = event.source == Some(observer.id);
@@ -1174,8 +1198,7 @@ impl RealmService {
                 let (role, content) = match event.kind {
                     EventKind::Spoke if own => (ChatRole::Assistant, event.content.clone()),
                     EventKind::Spoke => {
-                        // TODO: remove hard-coded formatting
-                        (ChatRole::User, format!("{source_name}: {}", event.content))
+                        (ChatRole::User, config.speech(source_name, &event.content))
                     }
                     _ => (ChatRole::User, event.content.clone()),
                 };
@@ -1193,71 +1216,25 @@ impl RealmService {
         out
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn event(
+    fn actor_notes(
         &self,
         convo: &Conversation,
         message_id: Snowflake,
-        source: Snowflake,
-        seq: usize,
-        scope: String,
-        kind: EventKind,
-        content: String,
-        payload: serde_json::Value,
-    ) -> RealmEvent {
-        RealmEvent {
-            id: self.snowflake.generate(),
-            conversation_id: convo.id,
-            message_id,
-            seq: seq as i32,
-            source: Some(source),
-            scope,
-            kind,
-            content,
-            payload,
-        }
-    }
-
-    fn push_state_events(
-        &self,
-        convo: &Conversation,
-        message_id: Snowflake,
-        source: Snowflake,
-        delta: &StateDelta,
-        events: &mut Vec<RealmEvent>,
-    ) {
-        let mut namespaces: Vec<&String> =
-            delta.writes.keys().chain(delta.deletes.keys()).collect();
-        namespaces.sort();
-        namespaces.dedup();
-
-        for ns in namespaces {
-            let mut parts = Vec::new();
-            if let Some(vars) = delta.writes.get(ns) {
-                let mut keys: Vec<&String> = vars.keys().collect();
-                keys.sort();
-                for k in keys {
-                    // TODO: remove hard-coded formatting
-                    parts.push(format!("{k} = {}", vars[k]));
-                }
-            }
-            if let Some(names) = delta.deletes.get(ns) {
-                for n in names {
-                    parts.push(format!("-{n}"));
-                }
-            }
-            events.push(self.event(
-                convo,
+        agent_id: Snowflake,
+        notes: Vec<String>,
+    ) -> Vec<AgentObservation> {
+        notes
+            .into_iter()
+            .map(|content| AgentObservation {
+                id: self.snowflake.generate(),
+                conversation_id: convo.id,
                 message_id,
-                source,
-                events.len(),
-                ns.clone(),
-                EventKind::StateChanged,
-                // TODO: remove hard-coded formatting
-                format!("[state {ns} changed: {}]", parts.join(", ")),
-                json!({ "writes": delta.writes.get(ns), "deletes": delta.deletes.get(ns) }),
-            ));
-        }
+                agent_id,
+                event_id: None,
+                role: ChatRole::User,
+                content,
+            })
+            .collect()
     }
 
     async fn action_scopes(
@@ -1294,71 +1271,7 @@ impl RealmService {
         Ok(out)
     }
 
-    fn actor_notes(
-        &self,
-        convo: &Conversation,
-        message_id: Snowflake,
-        agent_id: Snowflake,
-        notes: Vec<String>,
-    ) -> Vec<AgentObservation> {
-        notes
-            .into_iter()
-            .map(|content| AgentObservation {
-                id: self.snowflake.generate(),
-                conversation_id: convo.id,
-                message_id,
-                agent_id,
-                event_id: None,
-                role: ChatRole::User,
-                content,
-            })
-            .collect()
-    }
-
-    async fn execute_action(
-        &self,
-        tool: &UserTool,
-        grants: &[AgentGrant],
-        args: serde_json::Value,
-        world: &StatePool,
-    ) -> Result<(serde_json::Value, StateDelta), RealmError> {
-        let read_scopes: Vec<ScopePattern> = grants
-            .iter()
-            .map(|g| ScopePattern::parse(&g.scope))
-            .collect();
-        let write_scopes: Vec<ScopePattern> = grants
-            .iter()
-            .filter(|g| matches!(g.access, AgentAccess::ReadWrite))
-            .map(|g| ScopePattern::parse(&g.scope))
-            .collect();
-        let slice: StatePool = world
-            .iter()
-            .filter(|(ns, _)| read_scopes.iter().any(|g| g.matches(ns)))
-            .map(|(ns, vars)| (ns.clone(), vars.clone()))
-            .collect();
-
-        let pool = Arc::new(StdMutex::new(slice.clone()));
-        let compiled = CompiledUserTool::build(
-            ToolSignature::from(tool.clone()),
-            Arc::new(build_tool_registry()),
-            Arc::clone(&pool),
-            Some(Arc::new(write_scopes)),
-        )
-        .map_err(|e| RealmError::ActionFailed(e.to_string()))?;
-
-        let output = compiled
-            .call(args)
-            .await
-            .map_err(|e| RealmError::ActionFailed(e.to_string()))?;
-
-        let delta = {
-            let after = pool.lock().unwrap();
-            self.state.diff(&slice, &after)
-        };
-        Ok((output, delta))
-    }
-
-    fn spec_for(
+    pub(super) fn spec_for(
         &self,
         owner: Snowflake,
         tokenizer_id: Snowflake,
@@ -1389,6 +1302,7 @@ impl RealmService {
             persona_id: agent.persona_id,
             tokenizer_id,
             profile_id,
+            lorebook_ids: Some(agent.lorebooks.clone()),
         })
     }
 }
@@ -1404,43 +1318,4 @@ impl CleanableService for RealmService {
         sessions.retain(|_, s| s.last_touched.elapsed() < EDIT_SESSION_TTL);
         before - sessions.len()
     }
-}
-
-/// The identity bundle a validated create/update agent request resolves to.
-struct AgentParts {
-    character_id: Option<Snowflake>,
-    char_version_id: Option<Snowflake>,
-    template_id: Option<Snowflake>,
-    profile_id: Option<Snowflake>,
-    user_id: Option<Snowflake>,
-}
-
-/// The resolved turn before inference runs.
-enum TurnPrep {
-    /// A player is up; nothing to run server-side.
-    Player {
-        agent_id: Snowflake,
-    },
-    Llm(Box<PreparedTurn>),
-}
-
-/// Where the committed assistant message lands in the tree.
-enum PersistPlan {
-    /// Continue the active path (None = the playthrough's first message).
-    Append(Option<Snowflake>),
-    /// Regenerate: a new sibling of this message.
-    Alternate(Snowflake),
-}
-
-/// An LLM agent's turn, ready to run: its identity bundle, its projected
-/// slice of the world, and the policy constraining its tools.
-struct PreparedTurn {
-    convo: Conversation,
-    cast: RealmCast,
-    agent: RealmAgent,
-    spec: AgentSpec,
-    baseline: ReconstructedState,
-    policy: ToolPolicy,
-    persist: PersistPlan,
-    turns: Vec<PromptTurn>,
 }

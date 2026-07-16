@@ -13,22 +13,35 @@
 		pinned = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight < THRESHOLD;
 	}
 
+	// In a realm, render the playthrough from the player's vantage
+	const path = $derived(chatStore.isRealm ? chatStore.visiblePath : chatStore.activePath);
+
 	$effect(() => {
-		const path = chatStore.activePath;
 		void path.length;
 		void path.at(-1)?.content;
+		void chatStore.hiddenTurnActive;
 		if (!pinned) return;
 		tick().then(() => scrollEl?.scrollTo({ top: scrollEl.scrollHeight }));
 	});
 </script>
 
 <div class="container" bind:this={scrollEl} onscroll={onScroll}>
-	{#if chatStore.activePath.length === 0}
-		<div class="empty">Pick a character and send a message to begin.</div>
+	{#if path.length === 0}
+		<div class="empty">
+			{#if chatStore.isRealm}
+				A fresh playthrough — run the first turn below.
+			{:else}
+				Pick a character and send a message to begin.
+			{/if}
+		</div>
 	{:else}
-		{#each chatStore.activePath as message, i (message.id)}
-			<MessageBubble {message} last={i === chatStore.activePath.length - 1} />
+		{#each path as message, i (message.id)}
+			<MessageBubble {message} last={i === path.length - 1} />
 		{/each}
+	{/if}
+
+	{#if chatStore.hiddenTurnActive}
+		<div class="stir">the world stirs…</div>
 	{/if}
 </div>
 
@@ -47,5 +60,12 @@
 	.empty {
 		margin: auto;
 		color: var(--color-text-muted);
+	}
+	.stir {
+		align-self: center;
+		color: var(--color-text-muted);
+		font-style: italic;
+		font-size: 0.9rem;
+		padding: var(--spacing-sm);
 	}
 </style>
