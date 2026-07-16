@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { JsonValue } from '$lib/types/core.js';
-	import type { ActionSpec, PlayerAction } from '$lib/types/realm.js';
-	import type { Param } from '$lib/types/tools.js';
+	import type { JsonValue } from '../../types/core.js';
+	import type { ActionSpec, PlayerAction } from '../../types/realm.js';
+	import type { Param } from '../../types/tools.js';
 	import { Send } from '@lucide/svelte';
 
 	let {

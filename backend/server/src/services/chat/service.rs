@@ -811,7 +811,9 @@ impl ChatService {
         policy: &ToolPolicy,
     ) -> Result<OpenAgentTurn, ChatError> {
         let Prepared {
-            prompt, captured, ..
+            prompt,
+            trace,
+            captured,
         } = self.assemble_context(spec, turns, baseline).await?;
 
         let diff_base = baseline.persistent.clone();
@@ -831,6 +833,7 @@ impl ChatService {
 
         Ok(OpenAgentTurn {
             stream,
+            trace,
             state_pool,
             diff_base,
             activation,

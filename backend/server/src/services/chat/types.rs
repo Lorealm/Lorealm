@@ -133,6 +133,8 @@ pub struct AgentOutcome {
 /// stream, then call [`Self::delta`] for the turn's state writes.
 pub struct OpenAgentTurn {
     pub stream: Pin<Box<dyn Stream<Item = Result<InferEvent, ChatError>> + Send>>,
+    /// The assembled context trace, for stamping into the turn's metadata.
+    pub trace: Vec<TracedBlock>,
     pub(super) state_pool: Arc<StdMutex<StatePool>>,
     pub(super) diff_base: StatePool,
     /// Full activation snapshot captured by assembly, keyed by lorebook id.

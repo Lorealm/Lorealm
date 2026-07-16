@@ -1,236 +1,164 @@
 <script lang="ts">
 	import { realmStore } from '$lib/stores/realm.svelte.js';
-	import { onMount } from 'svelte';
-	import { Globe, Plus, Trash2 } from '@lucide/svelte';
+	import type { Snowflake } from '$lib/types/core.js';
+	import { Plus, Trash2 } from '@lucide/svelte';
+	import Tag from './Tag.svelte';
 
-	let creating = $state(false);
-	let newName = $state('');
 	let busy = $state(false);
 
-	onMount(async () => {
-		await realmStore.loadList();
-	});
-
-	async function create() {
-		const name = newName.trim();
-		if (!name || busy) return;
+	async function createRealm() {
+		if (busy) return;
 		busy = true;
 		try {
-			const realm = await realmStore.createRealm(name);
-			creating = false;
-			newName = '';
+			const realm = await realmStore.createRealm('Untitled Realm');
 			await realmStore.openRealm(realm.id);
 		} finally {
 			busy = false;
 		}
 	}
 
-	async function remove(e: MouseEvent, id: string) {
+	async function remove(e: MouseEvent, id: Snowflake) {
 		e.stopPropagation();
 		await realmStore.deleteRealm(id);
 	}
 </script>
 
 <div class="page">
-	<div class="topbar">
+	<div class="head">
 		<h2>Realms</h2>
-		<div class="actions">
-			{#if creating}
-				<!-- svelte-ignore a11y_autofocus -->
-				<input
-					type="text"
-					placeholder="Realm name"
-					bind:value={newName}
-					autofocus
-					onkeydown={(e) => {
-						if (e.key === 'Enter') create();
-						if (e.key === 'Escape') {creating = false; newName = ''};
-					}}
-				/>
-				<button type="button" class="primary" onclick={create} disabled={busy || !newName.trim()}>
-					Create
-				</button>
-				<button type="button" onclick={() => ((creating = false), (newName = ''))}>Cancel</button>
-			{:else}
-				<button type="button" class="primary" onclick={() => (creating = true)}>
-					<Plus size={16} />
-					New
-				</button>
-			{/if}
-		</div>
 	</div>
-
-	{#if realmStore.summaries.length === 0}
-		<div class="empty">No realms yet — create one to get started.</div>
-	{:else}
-		<div class="list">
-			{#each realmStore.summaries as realm (realm.id)}
-				<div
-					class="card"
-					role="button"
-					tabindex="0"
-					onclick={() => realmStore.openRealm(realm.id)}
-					onkeydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') realmStore.openRealm(realm.id);
-					}}
-				>
-					<Globe size={20} />
-					<div class="cardBody">
-						<span class="name">{realm.name}</span>
-						{#if realm.tags.length > 0}
-							<span class="tags">
-								{#each realm.tags as tag (tag)}
-									<span class="tag">{tag}</span>
-								{/each}
-							</span>
-						{/if}
-					</div>
+	<div class="grid">
+		{#each realmStore.summaries as realm (realm.id)}
+			<div
+				class="card"
+				role="button"
+				tabindex="0"
+				onclick={() => realmStore.openRealm(realm.id)}
+				onkeydown={(e) => {
+					if (e.key === 'Enter' || e.key === ' ') realmStore.openRealm(realm.id);
+				}}
+			>
+				<div class="cardTop">
+					<div class="name">{realm.name}</div>
 					<button
 						type="button"
-						class="delete"
+						class="del"
 						title="Delete realm"
 						onclick={(e) => remove(e, realm.id)}
 					>
-						<Trash2 size={16} />
+						<Trash2 size={14} />
 					</button>
 				</div>
-			{/each}
-		</div>
-	{/if}
+				{#if realm.tags.length > 0}
+					<div class="tags">
+						{#each realm.tags as tag (tag)}
+							<Tag>{tag}</Tag>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{/each}
+		<button type="button" class="new" onclick={createRealm} disabled={busy}>
+			<Plus size={22} />
+			<div>New realm</div>
+		</button>
+	</div>
 </div>
 
 <style>
 	.page {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		padding: var(--spacing-2xl);
 		display: flex;
 		flex-direction: column;
-		height: 100%;
-		min-height: 0;
+		gap: var(--spacing-lg);
 	}
 
-	.topbar {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-md) var(--spacing-lg);
-		border-bottom: 1px solid var(--color-border-subtle);
-		background-color: var(--color-bg-panel);
-		backdrop-filter: var(--backdrop-blur);
-		position: sticky;
-		top: 0;
-		z-index: var(--z-index-sticky);
-	}
-
-	.topbar h2 {
+	h2 {
 		margin: 0;
-		font-size: var(--font-size-lg, 1.1rem);
 	}
 
-	.actions {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-		margin-left: auto;
-	}
-
-	.actions input {
-		width: 220px;
-	}
-
-	.topbar button {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--spacing-xs);
-		white-space: nowrap;
-	}
-
-	button.primary {
-		background: var(--gradient-primary);
-		color: var(--color-text-white);
-		box-shadow: var(--shadow-md);
-	}
-
-	button.primary:hover {
-		color: var(--color-text-white);
-		box-shadow: var(--shadow-glow);
-	}
-
-	.list {
-		flex: 1 1 auto;
-		min-height: 0;
+	.grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-		grid-auto-rows: max-content;
-		gap: var(--grid-gap, var(--spacing-md));
-		padding: var(--spacing-lg);
-		overflow-y: auto;
-		align-content: start;
+		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+		gap: var(--grid-gap);
 	}
 
 	.card {
 		display: flex;
-		align-items: center;
+		flex-direction: column;
 		gap: var(--spacing-md);
-		padding: var(--spacing-md) var(--spacing-lg);
+		min-height: 120px;
+		padding: var(--spacing-lg);
+		background: var(--color-bg-elevated);
 		border: 1px solid var(--color-border-subtle);
-		border-radius: var(--radius-md, 8px);
-		background-color: var(--color-bg-elevated);
+		border-radius: var(--radius-lg);
 		cursor: pointer;
 		text-align: left;
 	}
 
 	.card:hover {
-		border-color: var(--color-border-strong, var(--color-border-subtle));
+		border-color: var(--color-border-medium);
 		box-shadow: var(--shadow-md);
 	}
 
-	.cardBody {
+	.cardTop {
 		display: flex;
-		flex-direction: column;
-		gap: 2px;
-		min-width: 0;
-		flex: 1;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: var(--spacing-sm);
 	}
 
 	.name {
+		font-family: var(--font-family-heading);
 		font-weight: 600;
+		font-size: var(--font-size-md);
+		color: var(--color-text-primary);
 		overflow: hidden;
 		text-overflow: ellipsis;
-		white-space: nowrap;
+	}
+
+	.del {
+		display: flex;
+		background: none;
+		border: none;
+		color: var(--color-text-muted);
+		padding: 2px;
+		opacity: 0;
+	}
+
+	.card:hover .del {
+		opacity: 1;
+	}
+
+	.del:hover {
+		color: var(--color-danger, #e5484d);
 	}
 
 	.tags {
 		display: flex;
+		gap: 6px;
 		flex-wrap: wrap;
-		gap: 4px;
 	}
 
-	.tag {
-		font-size: 0.7rem;
-		color: var(--color-text-muted);
-		border: 1px solid var(--color-border-subtle);
-		border-radius: 999px;
-		padding: 1px 8px;
-	}
-
-	.delete {
-		background: none;
-		border: none;
-		color: var(--color-text-muted);
-		padding: var(--spacing-xs);
-	}
-
-	.delete:hover {
-		color: var(--color-danger, #e5484d);
-	}
-
-	.empty {
-		flex: 1 1 auto;
+	.new {
 		display: flex;
+		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		color: var(--color-text-muted);
-		padding: var(--spacing-4xl) var(--spacing-lg);
-		text-align: center;
+		gap: var(--spacing-sm);
+		min-height: 120px;
+		border: 1px dashed var(--color-border-medium);
+		border-radius: var(--radius-lg);
+		background: none;
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-base);
+	}
+
+	.new:hover:not(:disabled) {
+		border-color: var(--color-border-active);
+		color: var(--color-text-primary);
 	}
 </style>
