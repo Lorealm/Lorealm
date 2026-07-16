@@ -1,15 +1,21 @@
 <script>
+	import { navigationStore, SidebarView } from '$lib/stores/navigation.svelte';
 	import CharacterImageWidget from './widgets/CharacterImageWidget.svelte';
 	import ContextWidget from './widgets/ContextWidget.svelte';
+	import RealmAgentWidget from './widgets/RealmAgentWidget.svelte';
 	import StateWidget from './widgets/StateWidget.svelte';
 </script>
 
 <div class="container">
 	<div class="topBar"></div>
 	<div class="content">
-		<CharacterImageWidget />
-		<ContextWidget />
-		<StateWidget />
+		{#if navigationStore.sidebarActive === SidebarView.Realm}
+			<RealmAgentWidget />
+		{:else}
+			<CharacterImageWidget />
+			<ContextWidget />
+			<StateWidget />
+		{/if}
 	</div>
 </div>
 
@@ -33,6 +39,8 @@
 	.content {
 		display: flex;
 		flex-direction: column;
+		flex: 1;
+		min-height: 0;
 		overflow-y: auto;
 	}
 </style>

@@ -6,8 +6,7 @@ pub struct CreateRealmRequest {
     pub name: String,
 }
 
-/// Partial preset edit; omitted fields keep their value. Saves collapse
-/// into the active editing session's version like character edits.
+/// Partial preset edit; omitted fields keep their value.
 #[derive(Deserialize)]
 pub struct UpdateRealmRequest {
     pub name: Option<String>,
@@ -36,6 +35,21 @@ pub struct CreateAgentRequest {
     /// and what scope each tool's Acted event carries. Empty = speak-only.
     #[serde(default)]
     pub tools: Vec<AgentToolBinding>,
+    /// The scope this agent's speech carries — who hears it. Omitted = the
+    /// broadcast `main` channel.
+    #[serde(default)]
+    pub speech_scope: Option<String>,
+    /// Which imported lorebooks feed this agent's context assembly.
+    /// Empty = no lorebook context.
+    #[serde(default)]
+    pub lorebooks: Vec<Snowflake>,
+    /// Script agents only: the inline weaver source their turn runs.
+    #[serde(default)]
+    pub script: Option<String>,
+    /// Optional weaver expression gating whether the agent runs on its turn.
+    /// Omitted = always runs. Any agent kind may carry one.
+    #[serde(default)]
+    pub run_condition: Option<String>,
 }
 
 /// A player turn: say something, perform one bound action, or both.

@@ -46,10 +46,12 @@ import type {
 	AgentObservation,
 	CreateAgentRequest,
 	CreateRealmRequest,
+	ImportRule,
 	PlayerTurnRequest,
 	Realm,
 	RealmAgent,
 	RealmCast,
+	RealmConfig,
 	RealmEvent,
 	RealmStreamEvent,
 	RealmSummary,
@@ -325,6 +327,17 @@ export function createApiClient(platform: PlatformAPI) {
 			update: (realm_id: Snowflake, update: UpdateRealmRequest) =>
 				http.patch<Realm>(`/api/v1/realms/${realm_id}`, update),
 			delete: (realm_id: Snowflake) => http.delete(`/api/v1/realms/${realm_id}`),
+			imports: {
+				/** Full-replace of the realm's import manifest. */
+				set: (realm_id: Snowflake, imports: ImportRule[]) =>
+					http.put<Array<ImportRule>>(`/api/v1/realms/${realm_id}/imports`, imports)
+			},
+			/** A realm's formatting overrides. */
+			config: {
+				get: (realm_id: Snowflake) => http.get<RealmConfig>(`/api/v1/realms/${realm_id}/config`),
+				set: (realm_id: Snowflake, config: RealmConfig) =>
+					http.put<RealmConfig>(`/api/v1/realms/${realm_id}/config`, config)
+			},
 			versions: {
 				list: (realm_id: Snowflake) =>
 					http.get<Array<RealmVersionInfo>>(`/api/v1/realms/${realm_id}/versions`),
@@ -340,6 +353,9 @@ export function createApiClient(platform: PlatformAPI) {
 					http.post<RealmAgent>(`/api/v1/realms/${realm_id}/agents`, create),
 				update: (realm_id: Snowflake, agent_id: Snowflake, update: CreateAgentRequest) =>
 					http.put<RealmAgent>(`/api/v1/realms/${realm_id}/agents/${agent_id}`, update),
+				/** Rewrite the turn order; must be a permutation of the cast's ids. */
+				reorder: (realm_id: Snowflake, order: Snowflake[]) =>
+					http.put<Array<RealmAgent>>(`/api/v1/realms/${realm_id}/agents/order`, order),
 				delete: (realm_id: Snowflake, agent_id: Snowflake) =>
 					http.delete(`/api/v1/realms/${realm_id}/agents/${agent_id}`),
 				grants: {

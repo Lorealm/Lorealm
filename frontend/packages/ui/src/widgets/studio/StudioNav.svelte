@@ -1,13 +1,10 @@
 <script lang="ts">
+	import { realmStore } from '$lib/stores/realm.svelte.js';
 	import { studioStore, StudioSection } from '$lib/stores/studio.svelte';
 
 	var selectedWorld = $state();
 
-	const realms = [
-		{ id: '1', name: 'Eldoria' },
-		{ id: '2', name: 'Earth' },
-		{ id: '3', name: 'Venus' }
-	];
+	const realms = realmStore.summaries;
 
 	const activeRealmExists = $derived(selectedWorld !== 'None');
 
@@ -16,7 +13,7 @@
 		{ id: StudioSection.Characters, label: 'Characters' },
 		{ id: StudioSection.Lorebooks, label: 'Lorebooks' },
 		{ id: StudioSection.Templates, label: 'Templates' },
-		{ id: StudioSection.Commands, label: 'Commands' },
+		{ id: StudioSection.Tools, label: 'Tools' },
 		{ id: StudioSection.Personas, label: 'Personas' }
 	];
 </script>
@@ -25,8 +22,8 @@
 	<select bind:value={selectedWorld}>
 		<option>None</option>
 		<hr />
-		{#each realms as { id, name } (id)}
-			<option>{name}</option>
+		{#each realms as realm (realm.id)}
+			<option>{realm.name}</option>
 		{/each}
 	</select>
 	<hr />

@@ -82,6 +82,9 @@ pub struct ResolveContext<'a> {
     pub user_id: Snowflake,
     pub state: &'a ReconstructedState,
     pub lorebook_state: Mutex<Option<CapturedState>>,
+    /// `None` = the user's active lorebooks; `Some` = exactly these books
+    /// (realm turns feed the agent's bound imports here).
+    pub lorebook_ids: Option<&'a [Snowflake]>,
     pub persona: Option<&'a UserPersona>,
     pub tokenizer: &'a Arc<kitoken::Kitoken>,
 }

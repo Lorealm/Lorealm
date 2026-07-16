@@ -4,8 +4,7 @@ use serde::Serialize;
 use crate::services::chat::WidgetInstance;
 
 /// Picks whose turn it is. `turn_index` is the position along the active
-/// message path — one committed message per turn, so swipes/branches derive
-/// their own turn order from their own path.
+/// message path (one committed message per turn).
 pub trait TurnPolicy: Send + Sync {
     fn next<'a>(&self, turn_index: usize, agents: &'a [RealmAgent]) -> Option<&'a RealmAgent>;
 }

@@ -3,21 +3,19 @@ use async_trait::async_trait;
 use crate::{
     StorageError,
     models::{
-        AgentObservation, Realm, RealmCast, RealmEvent, RealmSummary, RealmVersionInfo, Snowflake,
-        TurnCommit, VersionedSaveMode,
+        AgentObservation, Realm, RealmCast, RealmConfig, RealmEvent, RealmSummary,
+        RealmVersionInfo, Snowflake, TurnCommit, VersionedSaveMode,
     },
 };
 
 #[async_trait]
 pub trait RealmStorage {
-    // ----- presets (versioned, same machinery as characters) -----
-
     async fn list_realms(&self, user_id: Snowflake) -> Result<Vec<RealmSummary>, StorageError>;
 
     /// Load the current version of a realm.
     async fn get_realm(&self, id: Snowflake) -> Result<Option<Realm>, StorageError>;
 
-    /// Load a specific pinned version of a realm from its snapshot.
+    /// Load a specific version of a realm from its snapshot.
     async fn get_realm_at_version(
         &self,
         id: Snowflake,
@@ -25,8 +23,8 @@ pub trait RealmStorage {
     ) -> Result<Option<Realm>, StorageError>;
 
     /// Create or update a realm. Writes the head and, per `mode`, either
-    /// appends a version row (caller has set a fresh `current_version_id`)
-    /// or updates the current one in place. Tags are resynced.
+    /// appends a version row or updates the current one in place. Tags are
+    /// resynced.
     async fn save_realm(
         &self,
         realm: &Realm,
@@ -64,8 +62,8 @@ pub trait RealmStorage {
         cast: &RealmCast,
     ) -> Result<(), StorageError>;
 
-    /// The playthrough's objective timeline, oldest-first. `before` pages
-    /// backward by event id for long histories.
+    /// The playthrough's timeline, oldest-first. `before` pages backward by
+    /// event id.
     async fn list_realm_events(
         &self,
         conversation_id: Snowflake,
@@ -84,15 +82,24 @@ pub trait RealmStorage {
     ) -> Result<Vec<AgentObservation>, StorageError>;
 
     /// The agent's feed restricted to the given messages (an active path),
-    /// oldest-first by observation id. This is the branch-aware prompt view.
+    /// oldest-first by observation id.
     async fn list_observations_for_messages(
         &self,
         agent_id: Snowflake,
         message_ids: &[Snowflake],
     ) -> Result<Vec<AgentObservation>, StorageError>;
 
-    /// Atomic insert of one committed turn's events + observations. The
-    /// anchoring message and its state delta are persisted by the chat
-    /// pipeline before this is called.
+    /// Atomic insert of one committed turn's events + observations.
     async fn commit_turn(&self, commit: TurnCommit) -> Result<(), StorageError>;
+
+    /// A realm's formatting overrides. Absent columns/rows come back as `None`.
+    async fn get_realm_config(&self, realm_id: Snowflake) -> Result<RealmConfig, StorageError>;
+
+    /// Upsert a realm's overrides; `user_id` records the owner.
+    async fn put_realm_config(
+        &self,
+        realm_id: Snowflake,
+        user_id: Snowflake,
+        config: &RealmConfig,
+    ) -> Result<(), StorageError>;
 }

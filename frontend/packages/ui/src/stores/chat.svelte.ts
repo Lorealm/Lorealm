@@ -9,6 +9,7 @@ import type {
 	FullConversation
 } from '$lib/types/conversation.js';
 import type { Greeting } from '$lib/types/character.js';
+import type { PlayerAction, RealmAgent, RealmCast, TurnResult } from '$lib/types/realm.js';
 import type { WidgetInstance } from '$lib/types/widgets.js';
 import { SvelteMap } from 'svelte/reactivity';
 import { messageStateStore } from './messageState.svelte.ts';
@@ -33,6 +34,10 @@ interface PendingState extends NewConversationOptions {
 
 const TEMP_PREFIX = 'tmp_';
 const isTemp = (id: Snowflake) => (id as unknown as string).startsWith(TEMP_PREFIX);
+
+function scopeMatches(pattern: string, ns: string): boolean {
+	return pattern.endsWith('*') ? ns.startsWith(pattern.slice(0, -1)) : ns === pattern;
+}
 
 class ChatStore {
 	private _api = $state<ApiClient>();
@@ -66,6 +71,12 @@ class ChatStore {
 	private _streamingConvId: Snowflake | null = null;
 	private _cancelling = $state(false);
 
+	private _realmCast = $state<RealmCast | null>(null);
+	private _streamAgentName = $state<string | null>(null);
+	private _streamAgentId = $state<Snowflake | null>(null);
+	realmAutoRun = $state(true);
+	realmDirectorView = $state(false);
+
 	streamState = $state<StreamState>({ status: 'idle' });
 
 	#tempCounter = 0;
@@ -90,6 +101,63 @@ class ChatStore {
 		return this._cancelling;
 	}
 
+	get isRealm(): boolean {
+		return this._conversation?.realm_id != null;
+	}
+	get realmCast(): RealmCast | null {
+		return this._realmCast;
+	}
+	/** Whose turn is next: turn index = position along the active path. */
+	get nextRealmAgent(): RealmAgent | null {
+		const agents = this._realmCast?.agents;
+		if (!this.isRealm || !agents || agents.length === 0) return null;
+		return agents[this.activePath.length % agents.length];
+	}
+	/** Set when the next turn belongs to a player */
+	get awaitingRealmPlayer(): RealmAgent | null {
+		if (this.isStreaming) return null;
+		const next = this.nextRealmAgent;
+		return next?.kind === 'player' ? next : null;
+	}
+
+	/** The player agent this viewer drives.
+	 *  Null while spectating an all-LLM cast. */
+	get viewerAgent(): RealmAgent | null {
+		if (!this.isRealm) return null;
+		return this._realmCast?.agents.find((a) => a.kind === 'player') ?? null;
+	}
+
+	/** The source agent a realm message was committed by, via its metadata. */
+	#messageAgentId(m: ConversationMessage): Snowflake | null {
+		return (m.metadata as { agent_id?: Snowflake } | null)?.agent_id ?? null;
+	}
+
+	/** Can `viewer` hear speech carried on `scope`? */
+	#canHear(viewer: RealmAgent, scope: string): boolean {
+		return viewer.grants.some((g) => scopeMatches(g.scope, scope));
+	}
+
+	get visiblePath(): ConversationMessage[] {
+		const path = this.activePath;
+		const viewer = this.viewerAgent;
+		if (this.realmDirectorView || !viewer) return path;
+
+		const agents = this._realmCast?.agents ?? [];
+		return path.filter((m) => {
+			if (this.#messageAgentId(m) === viewer.id) return true; // own turn
+			if (m.content.trim().length === 0) return false; // silent (script) turn
+			const src = agents.find((a) => a.id === this.#messageAgentId(m));
+			return this.#canHear(viewer, src?.speech_scope ?? 'main');
+		});
+	}
+
+	/** True while a turn the player cannot hear is streaming */
+	get hiddenTurnActive(): boolean {
+		if (!this.isStreaming || this.realmDirectorView || !this.viewerAgent) return false;
+		const last = this.activePath.at(-1);
+		return last != null && !this.visiblePath.some((m) => m.id === last.id);
+	}
+
 	get activePath(): ConversationMessage[] {
 		const path: ConversationMessage[] = [];
 		let cur = this._activeLeafId ? this._messages.get(this._activeLeafId) : undefined;
@@ -101,7 +169,9 @@ class ChatStore {
 							content: this._streamBuffer,
 							metadata: {
 								widgets: this._streamWidgets,
-								reasoning: this._streamReasoning
+								reasoning: this._streamReasoning,
+								agent_name: this._streamAgentName,
+								agent_id: this._streamAgentId
 							} as unknown as ConversationMessage['metadata']
 						}
 					: cur;
@@ -168,6 +238,13 @@ class ChatStore {
 		this.#resetSession();
 		const full = await this.#api.chat.get(id, true);
 		this.#ingestFull(full);
+		if (full.metadata.realm_id != null) {
+			try {
+				this._realmCast = await this.#api.chat.realm.cast(id);
+			} catch (e) {
+				this.#handleError(e, { title: 'Failed to load the realm cast' }, 5000);
+			}
+		}
 	}
 
 	messageById(id: Snowflake): ConversationMessage | undefined {
@@ -235,12 +312,21 @@ class ChatStore {
 		this._streamBuffer = '';
 		this._streamReasoning = '';
 		this._streamWidgets = [];
+		this._realmCast = null;
+		this._streamAgentName = null;
+		this._streamAgentId = null;
+		this.realmAutoRun = true;
 		this.streamState = { status: 'idle' };
 	}
 
 	/** Send a user message */
 	async sendMessage(content: string) {
 		if (this.isStreaming) return;
+
+		if (this.isRealm) {
+			await this.submitRealmPlayerTurn(content || null, null);
+			return;
+		}
 
 		if (this._pending) {
 			const p = this._pending;
@@ -264,6 +350,14 @@ class ChatStore {
 	/** Continue or regenerate from the current leaf. */
 	async regenerate() {
 		if (this.isStreaming) return;
+		if (this.isRealm) {
+			// Regenerating an assistant leaf re-runs that agent's turn as a
+			// sibling; otherwise just advance the world.
+			const leaf = this._activeLeafId ? this._messages.get(this._activeLeafId) : undefined;
+			if (leaf?.role === 'assistant') await this.runRealmTurn(leaf.id);
+			else await this.runRealmTurns();
+			return;
+		}
 		await this.#runCompletion(null, null);
 	}
 
@@ -273,6 +367,9 @@ class ChatStore {
 		const convId = this._streamingConvId;
 		if (!convId) return;
 
+		// A cancelled realm turn still commits its partial message, so the
+		// auto-run loop must not roll on past it.
+		this.realmAutoRun = false;
 		this._cancelling = true;
 		try {
 			await this.#api.chat.cancel(convId);
@@ -284,6 +381,16 @@ class ChatStore {
 
 	async commitUserSwipe(target: Snowflake, content: string) {
 		if (this.isStreaming) return;
+		if (this.isRealm) {
+			// Player turns always append at the leaf; there is no
+			// alternate-player-turn endpoint (yet).
+			this.#handleError(
+				new Error('Branching a player turn is not supported yet — regenerate the reply instead.'),
+				{ title: 'Not supported in realms' },
+				5000
+			);
+			return;
+		}
 		await this.#runCompletion(content, target);
 	}
 
@@ -303,7 +410,9 @@ class ChatStore {
 		}
 		if (this.isStreaming || isTemp(id)) return;
 		if (msg.role === 'assistant') {
-			await this.#runCompletion(null, id); // new assistant sibling of this one
+			// new assistant sibling of this one (realms: same agent, new world-line)
+			if (this.isRealm) await this.runRealmTurn(id);
+			else await this.#runCompletion(null, id);
 		}
 	}
 
@@ -442,6 +551,141 @@ class ChatStore {
 			this._streamWidgets = [];
 			this.#handleError(e, {}, 5000);
 		}
+	}
+
+	async runRealmTurn(
+		target: Snowflake | null = null
+	): Promise<'committed' | 'awaiting_player' | 'stopped'> {
+		const convId = this.conversationId;
+		if (!convId || !this.isRealm || this.isStreaming) return 'stopped';
+		// A player is up: nothing to stream, prompt them instead.
+		if (target === null && this.awaitingRealmPlayer) return 'awaiting_player';
+
+		const prevLeaf = this._activeLeafId;
+		const assistantParent = target
+			? (this._messages.get(target)?.parent ?? null)
+			: this._activeLeafId;
+
+		const assistantId = this.#tempId();
+		this._messages.set(assistantId, {
+			id: assistantId,
+			conversation_id: convId,
+			parent: assistantParent,
+			role: 'assistant',
+			content: '',
+			order: Number.MAX_SAFE_INTEGER,
+			metadata: null,
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString()
+		});
+
+		this._activeLeafId = assistantId;
+		this._streamingId = assistantId;
+		this._streamingConvId = convId;
+		this._streamBuffer = '';
+		this._streamReasoning = '';
+		this._streamWidgets = [];
+		this._streamAgentName = null;
+		this._streamAgentId = null;
+		this._cancelling = false;
+		this.streamState = { status: 'streaming' };
+
+		try {
+			const stream = this.#api.chat.realm.turnStream(convId, target ? { target } : {});
+
+			let committed: ConversationMessage | null = null;
+			let awaiting = false;
+			for await (const event of stream) {
+				switch (event.type) {
+					case 'awaiting_player':
+						awaiting = true;
+						break;
+					case 'turn_started':
+						this._streamAgentName = event.name;
+						this._streamAgentId = event.agent_id;
+						break;
+					case 'delta':
+						this._streamBuffer += event.content;
+						break;
+					case 'reasoning':
+						this._streamReasoning += event.content;
+						break;
+					case 'widget':
+						this._streamWidgets = [...this._streamWidgets, event.widget];
+						break;
+					case 'action':
+						// Thin by design: observers only learn *that* the agent
+						// acted; the result lands in the actor's private feed.
+						break;
+					case 'committed':
+						committed = event.message;
+						break;
+				}
+			}
+
+			this._messages.delete(assistantId);
+			if (committed) this._messages.set(committed.id, committed);
+			this._activeLeafId = committed?.id ?? prevLeaf;
+			this.#clearStream();
+
+			if (committed) {
+				messageStateStore.inspect(committed.id, committed.conversation_id);
+				return 'committed';
+			}
+			return awaiting ? 'awaiting_player' : 'stopped';
+		} catch (e) {
+			this._messages.delete(assistantId);
+			this._activeLeafId = prevLeaf;
+			this.#clearStream(true);
+			this.#handleError(e, { title: 'Turn failed' }, 5000);
+			return 'stopped';
+		}
+	}
+
+	/** Keep running LLM turns until a player's turn, a pause, or an error. */
+	async runRealmTurns() {
+		this.realmAutoRun = true;
+		while (this.realmAutoRun && this.isRealm) {
+			const result = await this.runRealmTurn();
+			if (result !== 'committed') break;
+		}
+	}
+
+	/** Finish the in-flight turn, then stop advancing. */
+	pauseRealm() {
+		this.realmAutoRun = false;
+	}
+
+	/** The current player's turn: say something, act, or both. */
+	async submitRealmPlayerTurn(content: string | null, action: PlayerAction | null): Promise<boolean> {
+		const convId = this.conversationId;
+		if (!convId || !this.isRealm || this.isStreaming) return false;
+		if (!content?.trim() && !action) return false;
+
+		let result: TurnResult;
+		try {
+			result = await this.#api.chat.realm.playerTurn(convId, { content, action });
+		} catch (e) {
+			this.#handleError(e, { title: 'Failed to submit turn' }, 5000);
+			return false;
+		}
+
+		this._messages.set(result.message.id, result.message);
+		this._activeLeafId = result.message.id;
+		if (this.realmAutoRun) await this.runRealmTurns();
+		return true;
+	}
+
+	#clearStream(failed = false) {
+		this._streamingId = null;
+		this._streamingConvId = null;
+		this._cancelling = false;
+		this._streamBuffer = '';
+		this._streamReasoning = '';
+		this._streamWidgets = [];
+		this._streamAgentName = null;
+		this._streamAgentId = null;
+		if (!failed) this.streamState = { status: 'idle' };
 	}
 
 	/** Edit a message's text in place */

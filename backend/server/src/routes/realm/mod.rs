@@ -20,6 +20,7 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
     let session_only_routes = Router::new()
         .route("/", get(handlers::list_realms))
         .route("/{realm_id}", get(handlers::get_realm))
+        .route("/{realm_id}/config", get(handlers::get_config))
         .route("/{realm_id}/versions", get(handlers::list_versions))
         .route(
             "/{realm_id}/versions/{version_id}",
@@ -45,11 +46,13 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
             "/{realm_id}",
             patch(handlers::update_realm).delete(handlers::delete_realm),
         )
+        .route("/{realm_id}/config", put(handlers::set_config))
         .route(
             "/{realm_id}/versions/{version_id}/restore",
             post(handlers::restore_version),
         )
         .route("/{realm_id}/agents", post(handlers::create_agent))
+        .route("/{realm_id}/agents/order", put(handlers::reorder_agents))
         .route(
             "/{realm_id}/agents/{agent_id}",
             put(handlers::update_agent).delete(handlers::delete_agent),
@@ -58,6 +61,7 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
             "/{realm_id}/agents/{agent_id}/grants",
             put(handlers::set_grants),
         )
+        .route("/{realm_id}/imports", put(handlers::set_imports))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
             session_csrf_middleware,

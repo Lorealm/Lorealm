@@ -1,25 +1,29 @@
 <script lang="ts">
-	import { realmStore } from '$lib/stores/realm.svelte.js';
 	import type { JsonValue } from '$lib/types/core.js';
+	import type { ActionSpec, PlayerAction } from '$lib/types/realm.js';
 	import type { Param } from '$lib/types/tools.js';
 	import { Send } from '@lucide/svelte';
+
+	let {
+		agentName,
+		actions,
+		disabled = false,
+		onsubmit
+	}: {
+		/** The player agent whose turn it is. */
+		agentName: string;
+		/** Their action space (remount the bar — e.g. {#key} — when it changes). */
+		actions: ActionSpec[];
+		disabled?: boolean;
+		onsubmit: (content: string | null, action: PlayerAction | null) => Promise<boolean>;
+	} = $props();
 
 	let content = $state('');
 	let selectedToolId = $state<string>('');
 	let argDrafts = $state<Record<string, string>>({});
 	let busy = $state(false);
 
-	const awaiting = $derived(realmStore.awaitingAgent);
-	const myTurn = $derived(awaiting?.kind === 'player');
-	const actions = $derived(realmStore.playerActions);
 	const selectedAction = $derived(actions.find((a) => a.tool_id === selectedToolId) ?? null);
-
-	$effect(() => {
-		void realmStore.awaitingAgentId;
-		selectedToolId = '';
-		argDrafts = {};
-		realmStore.loadPlayerActions();
-	});
 
 	function parseArg(param: Param, raw: string): JsonValue {
 		const ty = param.ty;
@@ -36,10 +40,10 @@
 	}
 
 	async function submit() {
-		if (busy || !myTurn) return;
+		if (busy || disabled) return;
 		const text = content.trim();
 
-		let action = null;
+		let action: PlayerAction | null = null;
 		if (selectedAction) {
 			const args: Record<string, JsonValue> = {};
 			for (const param of selectedAction.params) {
@@ -54,7 +58,7 @@
 
 		busy = true;
 		try {
-			const ok = await realmStore.submitPlayerTurn(text || null, action);
+			const ok = await onsubmit(text || null, action);
 			if (ok) {
 				content = '';
 				selectedToolId = '';
@@ -66,70 +70,68 @@
 	}
 </script>
 
-{#if myTurn && awaiting}
-	<div class="turnBar">
-		<div class="turnHeader">
-			Your turn as <strong>{awaiting.name}</strong>
-			{#if actions.length > 0}
-				<select bind:value={selectedToolId} aria-label="Choose an action">
-					<option value="">No action (just speak)</option>
-					{#each actions as action (action.tool_id)}
-						<option value={action.tool_id}>{action.display_name ?? action.name}</option>
-					{/each}
-				</select>
-			{/if}
-		</div>
-
-		{#if selectedAction}
-			<div class="args">
-				{#if selectedAction.description}
-					<p class="desc">{selectedAction.description}</p>
-				{/if}
-				{#each selectedAction.params as param (param.name)}
-					<label>
-						<span>{param.name}{param.required ? ' *' : ''}</span>
-						{#if param.ty === 'bool'}
-							<select bind:value={argDrafts[param.name]}>
-								<option value="">—</option>
-								<option value="true">true</option>
-								<option value="false">false</option>
-							</select>
-						{:else}
-							<input
-								type={param.ty === 'number' ? 'number' : 'text'}
-								bind:value={argDrafts[param.name]}
-								placeholder={param.description ?? ''}
-							/>
-						{/if}
-					</label>
+<div class="turnBar">
+	<div class="turnHeader">
+		Your turn as <strong>{agentName}</strong>
+		{#if actions.length > 0}
+			<select bind:value={selectedToolId} aria-label="Choose an action">
+				<option value="">No action (just speak)</option>
+				{#each actions as action (action.tool_id)}
+					<option value={action.tool_id}>{action.display_name ?? action.name}</option>
 				{/each}
-			</div>
+			</select>
 		{/if}
-
-		<div class="inputRow">
-			<textarea
-				rows="2"
-				placeholder="Say something…"
-				bind:value={content}
-				onkeydown={(e) => {
-					if (e.key === 'Enter' && !e.shiftKey) {
-						e.preventDefault();
-						submit();
-					}
-				}}
-			></textarea>
-			<button
-				type="button"
-				class="primary"
-				onclick={submit}
-				disabled={busy || (!content.trim() && !selectedAction)}
-				title="Submit your turn"
-			>
-				<Send size={16} />
-			</button>
-		</div>
 	</div>
-{/if}
+
+	{#if selectedAction}
+		<div class="args">
+			{#if selectedAction.description}
+				<p class="desc">{selectedAction.description}</p>
+			{/if}
+			{#each selectedAction.params as param (param.name)}
+				<label>
+					<span>{param.name}{param.required ? ' *' : ''}</span>
+					{#if param.ty === 'bool'}
+						<select bind:value={argDrafts[param.name]}>
+							<option value="">—</option>
+							<option value="true">true</option>
+							<option value="false">false</option>
+						</select>
+					{:else}
+						<input
+							type={param.ty === 'number' ? 'number' : 'text'}
+							bind:value={argDrafts[param.name]}
+							placeholder={param.description ?? ''}
+						/>
+					{/if}
+				</label>
+			{/each}
+		</div>
+	{/if}
+
+	<div class="inputRow">
+		<textarea
+			rows="2"
+			placeholder="Say something…"
+			bind:value={content}
+			onkeydown={(e) => {
+				if (e.key === 'Enter' && !e.shiftKey) {
+					e.preventDefault();
+					submit();
+				}
+			}}
+		></textarea>
+		<button
+			type="button"
+			class="primary"
+			onclick={submit}
+			disabled={busy || disabled || (!content.trim() && !selectedAction)}
+			title="Submit your turn"
+		>
+			<Send size={16} />
+		</button>
+	</div>
+</div>
 
 <style>
 	.turnBar {

@@ -5,7 +5,8 @@ use axum::{
     extract::{Path, State},
 };
 use lorealm_storage::models::{
-    AgentGrant, Realm, RealmAgent, RealmSummary, RealmVersionInfo, Snowflake,
+    AgentGrant, ImportRule, Realm, RealmAgent, RealmConfig, RealmSummary, RealmVersionInfo,
+    Snowflake,
 };
 
 use crate::{
@@ -171,6 +172,23 @@ pub async fn update_agent(
     Ok(Json(updated))
 }
 
+/// Rewrite the cast's turn order; the body must be a permutation of the
+/// current agent ids.
+pub async fn reorder_agents(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(realm_id): Path<Snowflake>,
+    Json(payload): Json<Vec<Snowflake>>,
+) -> Result<Json<Vec<RealmAgent>>, AppError> {
+    let agents = state
+        .services()
+        .realm()
+        .reorder_agents(realm_id, session.user_id, payload)
+        .await?;
+
+    Ok(Json(agents))
+}
+
 pub async fn delete_agent(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
@@ -212,6 +230,50 @@ pub async fn set_grants(
         .await?;
 
     Ok(())
+}
+
+pub async fn set_imports(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(realm_id): Path<Snowflake>,
+    Json(payload): Json<Vec<ImportRule>>,
+) -> Result<Json<Vec<ImportRule>>, AppError> {
+    let imports = state
+        .services()
+        .realm()
+        .set_imports(realm_id, session.user_id, payload)
+        .await?;
+
+    Ok(Json(imports))
+}
+
+pub async fn get_config(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(realm_id): Path<Snowflake>,
+) -> Result<Json<RealmConfig>, AppError> {
+    let config = state
+        .services()
+        .realm()
+        .get_config(realm_id, session.user_id)
+        .await?;
+
+    Ok(Json(config))
+}
+
+pub async fn set_config(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(realm_id): Path<Snowflake>,
+    Json(payload): Json<RealmConfig>,
+) -> Result<Json<RealmConfig>, AppError> {
+    let config = state
+        .services()
+        .realm()
+        .set_config(realm_id, session.user_id, payload)
+        .await?;
+
+    Ok(Json(config))
 }
 
 /// The agent's action space as currently authored in the preset.

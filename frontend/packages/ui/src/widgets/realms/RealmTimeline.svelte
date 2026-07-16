@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { realmStore } from '$lib/stores/realm.svelte.js';
 	import { Hammer, Loader } from '@lucide/svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	let scroller = $state<HTMLDivElement>();
 	let loadingOlder = $state(false);
@@ -12,7 +13,7 @@
 
 	// One committed message = one turn; number the groups in arrival order.
 	const turnNumbers = $derived.by(() => {
-		const map = new Map<string, number>();
+		const map = new SvelteMap<string, number>();
 		for (const e of events) {
 			if (!map.has(e.message_id)) map.set(e.message_id, map.size + 1);
 		}

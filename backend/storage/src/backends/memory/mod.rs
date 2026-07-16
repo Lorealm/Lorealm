@@ -50,6 +50,7 @@ pub struct MemoryStorage {
     pub(crate) conversation_casts: RwLock<HashMap<Snowflake, RealmCast>>,
     pub(crate) realm_events: RwLock<HashMap<Snowflake, RealmEvent>>,
     pub(crate) agent_observations: RwLock<HashMap<Snowflake, AgentObservation>>,
+    pub(crate) realm_config: RwLock<HashMap<Snowflake, RealmConfig>>,
 }
 
 impl MemoryStorage {

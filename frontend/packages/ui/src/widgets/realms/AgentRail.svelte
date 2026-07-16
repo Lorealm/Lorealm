@@ -1,16 +1,42 @@
 <script lang="ts">
 	import { realmStore } from '$lib/stores/realm.svelte.js';
-	import { Bot, Plus, Trash2, User } from '@lucide/svelte';
-	import AgentForm from './AgentForm.svelte';
+	import type { RealmAgent } from '$lib/types/realm.js';
+	import { Bot, ChevronDown, ChevronUp, CodeXml, Plus, Trash2, User } from '@lucide/svelte';
 
-	let adding = $state(false);
+	let {
+		selectedId = null,
+		onselect,
+		oncreate
+	}: {
+		/** Editor mode: the agent currently open in the editor. */
+		selectedId?: string | null;
+		/** Editor mode: pick an agent to edit (also feeds the inspector). */
+		onselect?: (agent: RealmAgent) => void;
+		/** Editor mode: start authoring a new agent. */
+		oncreate?: () => void;
+	} = $props();
 
 	const playing = $derived(realmStore.inPlaythrough);
 	const nextAgentId = $derived(realmStore.nextAgent?.id ?? null);
 
+	function pick(agent: RealmAgent) {
+		if (playing) {
+			// Play mode: toggle the knowledge inspection.
+			void realmStore.inspectAgent(agent.id);
+		} else {
+			onselect?.(agent);
+			void realmStore.selectInspection(agent.id);
+		}
+	}
+
 	async function remove(e: MouseEvent, id: string) {
 		e.stopPropagation();
 		await realmStore.deleteAgent(id);
+	}
+
+	async function move(e: MouseEvent, id: string, delta: -1 | 1) {
+		e.stopPropagation();
+		await realmStore.moveAgent(id, delta);
 	}
 </script>
 
@@ -18,28 +44,28 @@
 	<div class="railHeader">
 		<span>{playing ? 'Cast' : 'Agents'}</span>
 		{#if !playing}
-			<button type="button" title="Add agent" onclick={() => (adding = !adding)}>
+			<button type="button" title="Add agent" onclick={() => oncreate?.()}>
 				<Plus size={14} />
 			</button>
 		{/if}
 	</div>
 
-	{#if adding && !playing}
-		<AgentForm oncreated={() => (adding = false)} oncancel={() => (adding = false)} />
-	{/if}
-
 	<div class="agents">
-		{#each realmStore.agents as agent (agent.id)}
+		{#each realmStore.agents as agent, index (agent.id)}
 			<button
 				type="button"
 				class="agent"
-				class:selected={realmStore.inspection?.agentId === agent.id}
+				class:selected={playing
+					? realmStore.inspection?.agentId === agent.id
+					: selectedId === agent.id}
 				class:next={agent.id === nextAgentId}
-				onclick={() => realmStore.inspectAgent(agent.id)}
-				title="Inspect what this agent knows"
+				onclick={() => pick(agent)}
+				title={playing ? 'Inspect what this agent knows' : 'Edit this agent'}
 			>
 				{#if agent.kind === 'player'}
 					<User size={16} />
+				{:else if agent.kind === 'script'}
+				    <CodeXml size={16} />
 				{:else}
 					<Bot size={16} />
 				{/if}
@@ -49,7 +75,29 @@
 				{/if}
 				{#if !playing}
 					<span
-						class="delete"
+						class="rowAction"
+						class:hiddenAction={index === 0}
+						role="button"
+						tabindex="-1"
+						title="Move up in the turn order"
+						onclick={(e) => move(e, agent.id, -1)}
+						onkeydown={(e) => e.stopPropagation()}
+					>
+						<ChevronUp size={14} />
+					</span>
+					<span
+						class="rowAction"
+						class:hiddenAction={index === realmStore.agents.length - 1}
+						role="button"
+						tabindex="-1"
+						title="Move down in the turn order"
+						onclick={(e) => move(e, agent.id, 1)}
+						onkeydown={(e) => e.stopPropagation()}
+					>
+						<ChevronDown size={14} />
+					</span>
+					<span
+						class="rowAction delete"
 						role="button"
 						tabindex="-1"
 						title="Remove agent from the preset"
@@ -141,15 +189,23 @@
 		flex-shrink: 0;
 	}
 
-	.delete {
+	.rowAction {
 		display: none;
 		align-items: center;
 		color: var(--color-text-muted);
 		flex-shrink: 0;
 	}
 
-	.agent:hover .delete {
+	.agent:hover .rowAction {
 		display: flex;
+	}
+
+	.agent:hover .rowAction.hiddenAction {
+		visibility: hidden;
+	}
+
+	.rowAction:hover {
+		color: var(--color-text-primary, inherit);
 	}
 
 	.delete:hover {

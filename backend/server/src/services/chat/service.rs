@@ -433,6 +433,7 @@ impl ChatService {
                 user_id: spec.owner,
                 state: baseline,
                 lorebook_state: Mutex::new(None),
+                lorebook_ids: spec.lorebook_ids.as_deref(),
                 persona: persona.as_ref(),
                 tokenizer: &tokenizer,
             };
@@ -497,6 +498,7 @@ impl ChatService {
                 ChatError::State(crate::errors::StateError::NoActiveTokenizer),
             )?,
             profile_id: self.state.get_active_profile(user_id).await?.id,
+            lorebook_ids: None,
         })
     }
 

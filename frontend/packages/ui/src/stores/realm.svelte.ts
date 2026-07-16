@@ -6,16 +6,22 @@ import type {
 	AgentGrant,
 	AgentObservation,
 	CreateAgentRequest,
+	ImportKind,
+	ImportRule,
 	PlayerAction,
 	Realm,
 	RealmAgent,
 	RealmCast,
+	RealmConfig,
 	RealmEvent,
 	RealmSummary,
+	RealmVersionInfo,
 	StateSlice,
-	TurnResult
+	TurnResult,
+	UpdateRealmRequest
 } from '$lib/types/realm.js';
 import type { WidgetInstance } from '$lib/types/widgets.js';
+import { SvelteSet } from 'svelte/reactivity';
 import { showError } from './errorToast.svelte.ts';
 
 export type RunStatus = 'idle' | 'streaming' | 'error';
@@ -35,18 +41,11 @@ export interface AgentInspection {
 	agentId: Snowflake;
 	grants: AgentGrant[];
 	actions: ActionSpec[];
-	/** Playthrough-only: the agent's grant-filtered pool at the active leaf. */
 	state: StateSlice;
-	/** Playthrough-only: the agent's private feed. */
+	/** The agent's private feed. */
 	observations: AgentObservation[];
 }
 
-/**
- * A realm is authored as a versioned preset and *played* as a conversation.
- * The store spans both: `realm` is the open preset (editor mode); starting
- * a conversation instantiates it and moves the play state — cast snapshot,
- * events, turns — onto that conversation (playthrough mode).
- */
 class RealmStore {
 	private _api = $state<ApiClient>();
 
@@ -57,29 +56,21 @@ class RealmStore {
 
 	summaries = $state<Array<RealmSummary>>([]);
 
-	realm = $state<Realm | null>(null);
-
-	// ----- playthrough state (bound to one conversation) -----
-
+  realm = $state<Realm | null>(null);
+	
 	conversation = $state<Conversation | null>(null);
-	/** The cast pinned at instantiation — the playthrough's roster. */
 	cast = $state<RealmCast | null>(null);
-	/** Playthrough timeline, oldest-first, most recent window. */
 	events = $state<Array<RealmEvent>>([]);
-	/** Committed turns this session ≈ messages along the active path. */
 	turnCount = $state(0);
 
 	runStatus = $state<RunStatus>('idle');
-	/** Keep running turns until a player's turn comes up (or an error/pause). */
 	autoRun = $state(true);
 	turn = $state<LiveTurn | null>(null);
-	/** Set when the policy picked a player agent and waits on their turn. */
 	awaitingAgentId = $state<Snowflake | null>(null);
 	#cancelling = false;
 
 	inspection = $state<AgentInspection | null>(null);
 
-	/** Action space of the player agent whose turn it is. */
 	playerActions = $state<ActionSpec[]>([]);
 
 	get inPlaythrough(): boolean {
@@ -90,12 +81,10 @@ class RealmStore {
 		return this.runStatus === 'streaming';
 	}
 
-	/** The roster: pinned cast while playing, the live definition while editing. */
 	get agents(): RealmAgent[] {
 		return this.cast?.agents ?? this.realm?.definition.agents ?? [];
 	}
 
-	/** Whose turn the round-robin policy picks next (playthrough only). */
 	get nextAgent(): RealmAgent | null {
 		if (!this.inPlaythrough) return null;
 		const agents = this.agents;
@@ -110,8 +99,6 @@ class RealmStore {
 	agentById(id: Snowflake | null): RealmAgent | undefined {
 		return id ? this.agents.find((a) => a.id === id) : undefined;
 	}
-
-	// ------------------------------------------------------------- presets
 
 	async loadList() {
 		this.summaries = await this.#api.realms.list();
@@ -138,11 +125,14 @@ class RealmStore {
 	async openRealm(id: Snowflake) {
 		this.closeRealm();
 		this.realm = await this.#api.realms.get(id);
+		await this.loadConfig();
 	}
 
 	closeRealm() {
 		this.realm = null;
 		this.inspection = null;
+		this.versions = [];
+		this.config = {};
 		this.#resetPlaythrough();
 	}
 
@@ -151,10 +141,121 @@ class RealmStore {
 		this.realm = await this.#api.realms.get(this.realm.id);
 	}
 
+	async updateRealm(req: UpdateRealmRequest): Promise<boolean> {
+		if (!this.realm) return false;
+		try {
+			this.realm = await this.#api.realms.update(this.realm.id, req);
+			await this.loadList();
+			return true;
+		} catch (e) {
+			this.#handleError(e, 'Failed to update realm');
+			return false;
+		}
+	}
+
+	async setImports(imports: ImportRule[]): Promise<void> {
+		const realm = this.realm;
+		if (!realm) return;
+		realm.definition.imports = await this.#api.realms.imports.set(realm.id, imports);
+	}
+
+	config = $state<RealmConfig>({});
+
+	async loadConfig() {
+		if (!this.realm) return;
+		try {
+			this.config = await this.#api.realms.config.get(this.realm.id);
+		} catch (e) {
+			this.#handleError(e, 'Failed to load formatting settings');
+		}
+	}
+
+	async saveConfig(config: RealmConfig): Promise<boolean> {
+		if (!this.realm) return false;
+		try {
+			this.config = await this.#api.realms.config.set(this.realm.id, config);
+			return true;
+		} catch (e) {
+			this.#handleError(e, 'Failed to save formatting');
+			return false;
+		}
+	}
+
+	importUsers(kind: ImportKind, resourceId: Snowflake): RealmAgent[] {
+		const agents = this.realm?.definition.agents ?? [];
+		return agents.filter((a) => {
+			switch (kind) {
+				case 'character':
+					return a.character_id === resourceId;
+				case 'template':
+					return a.template_id === resourceId;
+				case 'tool':
+					return a.tools.some((b) => b.tool_id === resourceId);
+				case 'lorebook':
+					return a.lorebooks.includes(resourceId);
+			}
+		});
+	}
+
+	get missingImports(): ImportRule[] {
+		const definition = this.realm?.definition;
+		if (!definition) return [];
+		const have = new SvelteSet(definition.imports.map((r) => `${r.kind}:${r.resource_id}`));
+		const missing: ImportRule[] = [];
+		const need = (kind: ImportKind, resource_id: Snowflake) => {
+			const key = `${kind}:${resource_id}`;
+			if (have.has(key)) return;
+			have.add(key);
+			missing.push({ kind, resource_id });
+		};
+		for (const agent of definition.agents) {
+			if (agent.character_id) need('character', agent.character_id);
+			if (agent.template_id) need('template', agent.template_id);
+			for (const b of agent.tools) need('tool', b.tool_id);
+			for (const l of agent.lorebooks ?? []) need('lorebook', l);
+		}
+		return missing;
+	}
+
 	async createAgent(req: CreateAgentRequest): Promise<RealmAgent | null> {
 		if (!this.realm) return null;
 		const agent = await this.#api.realms.agents.create(this.realm.id, req);
 		this.realm.definition.agents = [...this.realm.definition.agents, agent];
+		return agent;
+	}
+
+	async reorderAgents(order: Snowflake[]) {
+		const realm = this.realm;
+		if (!realm) return;
+		const prev = [...realm.definition.agents];
+		const byId = new Map(prev.map((a) => [a.id, a]));
+		realm.definition.agents = order
+			.map((id) => byId.get(id))
+			.filter((a): a is RealmAgent => a !== undefined);
+		try {
+			realm.definition.agents = await this.#api.realms.agents.reorder(realm.id, order);
+		} catch (e) {
+			realm.definition.agents = prev;
+			this.#handleError(e, 'Failed to reorder cast');
+		}
+	}
+
+	async moveAgent(agentId: Snowflake, delta: -1 | 1) {
+		const agents = this.realm?.definition.agents ?? [];
+		const index = agents.findIndex((a) => a.id === agentId);
+		const target = index + delta;
+		if (index === -1 || target < 0 || target >= agents.length) return;
+		const order = agents.map((a) => a.id);
+		[order[index], order[target]] = [order[target], order[index]];
+		await this.reorderAgents(order);
+	}
+
+	async updateAgent(agentId: Snowflake, req: CreateAgentRequest): Promise<RealmAgent | null> {
+		const realm = this.realm;
+		if (!realm) return null;
+		const agent = await this.#api.realms.agents.update(realm.id, agentId, req);
+		realm.definition.agents = realm.definition.agents.map((a) => (a.id === agentId ? agent : a));
+		if (this.inspection?.agentId === agentId) await this.refreshInspection();
 		return agent;
 	}
 
@@ -174,9 +275,29 @@ class RealmStore {
 		}
 	}
 
-	// -------------------------------------------------------- playthroughs
+	versions = $state<RealmVersionInfo[]>([]);
 
-	/** Instantiate the open realm into a fresh conversation and enter play. */
+	async loadVersions() {
+		if (!this.realm) return;
+		try {
+			this.versions = await this.#api.realms.versions.list(this.realm.id);
+		} catch (e) {
+			this.#handleError(e, 'Failed to load version history');
+		}
+	}
+
+	async restoreVersion(versionId: Snowflake): Promise<boolean> {
+		if (!this.realm) return false;
+		try {
+			this.realm = await this.#api.realms.versions.restore(this.realm.id, versionId);
+			await this.loadVersions();
+			return true;
+		} catch (e) {
+			this.#handleError(e, 'Failed to restore version');
+			return false;
+		}
+	}
+
 	async startPlaythrough(): Promise<boolean> {
 		const realm = this.realm;
 		if (!realm || this.isStreaming) return false;
@@ -196,7 +317,6 @@ class RealmStore {
 		}
 	}
 
-	/** Leave the playthrough and return to the preset editor. */
 	exitPlaythrough() {
 		this.#resetPlaythrough();
 		this.inspection = null;
@@ -214,7 +334,6 @@ class RealmStore {
 		this.#cancelling = false;
 	}
 
-	/** Load older events above the current window. Returns how many arrived. */
 	async loadOlderEvents(): Promise<number> {
 		const convo = this.conversation;
 		const oldest = this.events[0];
@@ -224,7 +343,6 @@ class RealmStore {
 		return older.length;
 	}
 
-	/** Run one turn. Returns true if it committed (so a loop may continue). */
 	async step(): Promise<boolean> {
 		const convo = this.conversation;
 		if (!convo || this.isStreaming) return false;
@@ -287,7 +405,6 @@ class RealmStore {
 		}
 	}
 
-	/** Keep running turns until a player's turn, a pause, or an error. */
 	async play() {
 		this.autoRun = true;
 		while (this.autoRun && this.conversation) {
@@ -300,7 +417,6 @@ class RealmStore {
 		this.autoRun = false;
 	}
 
-	/** Stop the in-flight generation; the abandoned turn never commits. */
 	async cancel() {
 		const convo = this.conversation;
 		if (!convo || !this.isStreaming) return;
@@ -314,7 +430,6 @@ class RealmStore {
 		}
 	}
 
-	/** Say something, act, or both — then keep the loop going if auto-run is on. */
 	async submitPlayerTurn(content: string | null, action: PlayerAction | null): Promise<boolean> {
 		const convo = this.conversation;
 		if (!convo || this.isStreaming) return false;
@@ -348,19 +463,22 @@ class RealmStore {
 		}
 	}
 
-	// ---------------------------------------------------------- inspection
-
 	async inspectAgent(id: Snowflake) {
 		if (this.inspection?.agentId === id) {
 			this.inspection = null; // toggle off
 			return;
 		}
+		await this.selectInspection(id);
+	}
+
+	async selectInspection(id: Snowflake) {
+		if (this.inspection?.agentId === id) return;
 		const agent = this.agentById(id);
 		if (!agent) return;
 
 		try {
 			if (this.conversation) {
-				// Live playthrough: knowledge comes from the conversation.
+				// Live playthrough: state and observations come from the conversation.
 				const api = this.#api.chat.realm.agents;
 				const [actions, state, observations] = await Promise.all([
 					api.actions(this.conversation.id, id),
@@ -369,7 +487,7 @@ class RealmStore {
 				]);
 				this.inspection = { agentId: id, grants: agent.grants, actions, state, observations };
 			} else if (this.realm) {
-				// Editor: only the authored shape exists — no world to know yet.
+				// Editor: only the authored shape exists, no live state.
 				const actions = await this.#api.realms.agents.actions(this.realm.id, id);
 				this.inspection = { agentId: id, grants: agent.grants, actions, state: {}, observations: [] };
 			}
