@@ -56,8 +56,8 @@ class RealmStore {
 
 	summaries = $state<Array<RealmSummary>>([]);
 
-  realm = $state<Realm | null>(null);
-	
+	realm = $state<Realm | null>(null);
+
 	conversation = $state<Conversation | null>(null);
 	cast = $state<RealmCast | null>(null);
 	events = $state<Array<RealmEvent>>([]);
@@ -259,9 +259,96 @@ class RealmStore {
 		return agent;
 	}
 
+	agentRequest(a: RealmAgent): CreateAgentRequest {
+		return {
+			name: a.name,
+			kind: a.kind,
+			character_id: a.character_id,
+			char_version_id: a.char_version_id,
+			template_id: a.template_id,
+			profile_id: a.profile_id,
+			persona_id: a.persona_id,
+			grants: a.grants,
+			tools: a.tools,
+			speech_scope: a.speech_scope ?? null,
+			lorebooks: a.lorebooks,
+			script: a.script ?? null,
+			run_condition: a.run_condition ?? null
+		};
+	}
+
+	#agentSaveTimers = new Map<Snowflake, ReturnType<typeof setTimeout>>();
+
+	editAgent(agentId: Snowflake, mutate: (a: RealmAgent) => void) {
+		const agent = this.realm?.definition.agents.find((a) => a.id === agentId);
+		if (!agent) return;
+		mutate(agent);
+		this.#queueAgentSave(agentId);
+	}
+
+	async setAgentCharacter(agentId: Snowflake, characterId: Snowflake | '') {
+		const agent = this.realm?.definition.agents.find((a) => a.id === agentId);
+		if (!agent) return;
+		if (!characterId) {
+			agent.character_id = null;
+			agent.char_version_id = null;
+		} else {
+			try {
+				const full = await this.#api.characters.get(characterId);
+				agent.character_id = full.id;
+				agent.char_version_id = full.current_version_id;
+			} catch (e) {
+				this.#handleError(e, 'Failed to load character');
+				return;
+			}
+		}
+		this.#queueAgentSave(agentId);
+	}
+
+	#queueAgentSave(agentId: Snowflake) {
+		const existing = this.#agentSaveTimers.get(agentId);
+		if (existing) clearTimeout(existing);
+		this.#agentSaveTimers.set(
+			agentId,
+			setTimeout(() => void this.#saveAgentNow(agentId), 500)
+		);
+	}
+
+	async #saveAgentNow(agentId: Snowflake) {
+		this.#agentSaveTimers.delete(agentId);
+		const realm = this.realm;
+		const agent = realm?.definition.agents.find((a) => a.id === agentId);
+		if (!realm || !agent) return;
+		try {
+			const saved = await this.#api.realms.agents.update(
+				realm.id,
+				agentId,
+				this.agentRequest(agent)
+			);
+			agent.turn_order = saved.turn_order;
+			agent.char_version_id = saved.char_version_id;
+		} catch (e) {
+			this.#handleError(e, 'Failed to save agent');
+		}
+	}
+
+	/** Flush any pending debounced agent saves immediately. */
+	async flushAgentSaves() {
+		const ids = [...this.#agentSaveTimers.keys()];
+		for (const id of ids) {
+			clearTimeout(this.#agentSaveTimers.get(id));
+			await this.#saveAgentNow(id);
+		}
+	}
+
 	async deleteAgent(agentId: Snowflake) {
 		const realm = this.realm;
 		if (!realm) return;
+		const timer = this.#agentSaveTimers.get(agentId);
+		if (timer) {
+			clearTimeout(timer);
+			this.#agentSaveTimers.delete(agentId);
+		}
 		const prev = [...realm.definition.agents];
 		realm.definition.agents = realm.definition.agents.filter((a) => a.id !== agentId);
 		if (this.inspection?.agentId === agentId) this.inspection = null;
@@ -489,7 +576,13 @@ class RealmStore {
 			} else if (this.realm) {
 				// Editor: only the authored shape exists, no live state.
 				const actions = await this.#api.realms.agents.actions(this.realm.id, id);
-				this.inspection = { agentId: id, grants: agent.grants, actions, state: {}, observations: [] };
+				this.inspection = {
+					agentId: id,
+					grants: agent.grants,
+					actions,
+					state: {},
+					observations: []
+				};
 			}
 		} catch (e) {
 			this.#handleError(e, 'Failed to inspect agent');

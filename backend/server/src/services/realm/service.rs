@@ -27,7 +27,7 @@ use crate::{
         character::CharacterService,
         chat::{AgentOutcome, ChatService, FullConversation, InferEvent, TurnAccumulator},
         connection::ConnectionService,
-        context::ContextService,
+        context::{ContextService, TracedBlock},
         conversation::ConversationService,
         persona::PersonaService,
         realm::{ActionSpec, RealmStreamEvent, RoundRobin, TurnPolicy, TurnResult},
@@ -532,8 +532,6 @@ impl RealmService {
                 })));
             }
             TurnPlan::Ready(ready) => {
-                // A script turn is already resolved: no model, no stream to
-                // cancel. Announce it and commit.
                 let service = Arc::clone(self);
                 let config = config.clone();
                 let stream = async_stream::try_stream! {
@@ -603,8 +601,9 @@ impl RealmService {
 
             let delta = open.delta(&service.state);
             let activation = std::mem::take(&mut open.activation);
+            let trace = std::mem::take(&mut open.trace);
             let production = service
-                .llm_production(&llm.agent, llm.persist, acc.finish(), delta, activation, open.had_assembly, &config)
+                .llm_production(&llm.agent, &llm.spec, trace, llm.persist, acc.finish(), delta, activation, open.had_assembly, &config)
                 .await?;
             let TurnResult { message, events } =
                 service.commit(&llm.convo, &llm.cast, &config, production).await?;
@@ -925,6 +924,8 @@ impl RealmService {
     async fn llm_production(
         &self,
         agent: &RealmAgent,
+        spec: &AgentSpec,
+        trace: Vec<TracedBlock>,
         persist: PersistPlan,
         outcome: AgentOutcome,
         delta: StateDelta,
@@ -932,12 +933,20 @@ impl RealmService {
         had_assembly: bool,
         config: &ResolvedRealmConfig,
     ) -> Result<Production, RealmError> {
+        // Unlike plain chat, the trace keeps its content inline: realm history
+        // blocks come from per-agent observations (never message refs), and
+        // character parts belong to the agent's character, which the client
+        // has no active character to reconstruct them from.
         let meta = json!({
+            "context": trace,
             "reasoning": outcome.reasoning,
             "tool_calls": outcome.tool_calls,
             "widgets": outcome.widgets,
             "agent_id": agent.id,
             "agent_name": agent.name,
+            "conn_profile": spec.profile_id,
+            "tok_id": spec.tokenizer_id,
+            "template_id": spec.template_id,
         });
 
         let action_scopes = self.action_scopes(&agent.tools).await?;
