@@ -68,9 +68,9 @@ impl EvalContext for ToolContext {
             ))),
             other => {
                 if let Some(allowed) = &self.write_scopes {
-                    if !allowed.iter().any(|p| p.matches(other)) {
+                    if !allowed.iter().any(|p| p.matches_var(other, name)) {
                         return Err(EvalError::host_error(format!(
-                            "no write access to namespace '{other}'"
+                            "no write access to '{other}:{name}'"
                         )));
                     }
                 }
@@ -120,24 +120,24 @@ mod tests {
     fn unrestricted_writes_anywhere() {
         let mut c = ctx(None);
         assert!(
-            c.set_variable("nation.a", "gold", WeaverValue::None)
+            c.set_variable("nation", "a.gold", WeaverValue::None)
                 .is_ok()
         );
     }
 
     #[test]
     fn write_scope_enforced() {
-        let mut c = ctx(Some(vec!["nation.a", "market.*"]));
+        let mut c = ctx(Some(vec!["nation:a.*", "market"]));
         assert!(
-            c.set_variable("nation.a", "gold", WeaverValue::None)
+            c.set_variable("nation", "a.gold", WeaverValue::None)
                 .is_ok()
         );
         assert!(
-            c.set_variable("market.ore", "price", WeaverValue::None)
+            c.set_variable("market", "ore.price", WeaverValue::None)
                 .is_ok()
         );
         assert!(
-            c.set_variable("nation.b", "gold", WeaverValue::None)
+            c.set_variable("nation", "b.gold", WeaverValue::None)
                 .is_err()
         );
     }

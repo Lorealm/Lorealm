@@ -109,7 +109,7 @@ const parser: StreamParser<State> = {
 				}
 				if (stream.match(/^[A-Za-z_]\w*(?=\s*:)/)) return 'scope';
 				if (stream.match(':')) return 'punctuation';
-				if (stream.match(IDENT)) return 'varName';
+				if (stream.match(DOTTED)) return 'varName';
 				stream.next();
 				return null;
 			}

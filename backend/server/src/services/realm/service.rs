@@ -41,7 +41,7 @@ use super::{
         AgentRegistry, EventDraft, PersistPlan, PlanCx, Production, ReadyTurn, TurnPlan, capture,
         push_state_events, speech_scope,
     },
-    validate::{agent_required_imports, apply_turn_order},
+    validate::{agent_required_imports, apply_turn_order, validate_grants},
     weaver,
 };
 
@@ -395,6 +395,8 @@ impl RealmService {
         user_id: Snowflake,
         grants: Vec<AgentGrant>,
     ) -> Result<(), RealmError> {
+        validate_grants(&grants)?;
+
         let mut edit = self.get_realm_for_edit(realm_id, user_id).await?;
 
         let agent = edit
@@ -1184,7 +1186,7 @@ impl RealmService {
 
             for event in events {
                 let own = event.source == Some(observer.id);
-                if !own && !grants.iter().any(|g| g.matches(&event.scope)) {
+                if !own && !grants.iter().any(|g| g.matches_channel(&event.scope)) {
                     continue;
                 }
                 let (role, content) = match event.kind {

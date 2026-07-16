@@ -37,13 +37,19 @@ pub(super) fn write_scopes(grants: &[AgentGrant]) -> Vec<ScopePattern> {
         .collect()
 }
 
-/// The subpool an agent may read: the namespaces of `world` matching any of
-/// its read scopes.
+/// The subpool an agent may read: every variable of `world` matching any of
+/// its read scopes. Namespaces left empty by the filter are dropped.
 pub(super) fn slice(world: &StatePool, read: &[ScopePattern]) -> StatePool {
     world
         .iter()
-        .filter(|(ns, _)| read.iter().any(|g| g.matches(ns)))
-        .map(|(ns, vars)| (ns.clone(), vars.clone()))
+        .filter_map(|(ns, vars)| {
+            let kept: HashMap<_, _> = vars
+                .iter()
+                .filter(|(name, _)| read.iter().any(|g| g.matches_var(ns, name)))
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+            (!kept.is_empty()).then(|| (ns.clone(), kept))
+        })
         .collect()
 }
 
@@ -148,6 +154,46 @@ mod tests {
             .or_default()
             .insert("n".into(), json!(7));
         w
+    }
+
+    #[test]
+    fn slice_filters_per_variable() {
+        let mut w = StatePool::new();
+        let nation = w.entry("nation".into()).or_default();
+        nation.insert("a.gold".into(), json!(100));
+        nation.insert("b.gold".into(), json!(50));
+        w.entry("market".into())
+            .or_default()
+            .insert("ore.price".into(), json!(3));
+
+        let read = read_scopes(&[grant("nation:a.*")]);
+        let s = slice(&w, &read);
+
+        assert_eq!(s["nation"].len(), 1);
+        assert!(s["nation"].contains_key("a.gold"));
+        // `market` matched nothing: the namespace is dropped, not left empty.
+        assert!(!s.contains_key("market"));
+    }
+
+    #[test]
+    fn dotted_names_read_through_scoped_grants() {
+        // weaver_lang 0.3.6: dotted names in `{{scope:name}}` literals.
+        let mut w = StatePool::new();
+        w.entry("nation".into())
+            .or_default()
+            .insert("a.gold".into(), json!(100));
+
+        assert!(run_condition_passes(
+            &Some("{{nation:a.gold}} > 50".into()),
+            &[grant("nation:a.*")],
+            &w
+        ));
+        // Granted only b.*: a.gold is invisible, so the read errors closed.
+        assert!(!run_condition_passes(
+            &Some("{{nation:a.gold}} > 50".into()),
+            &[grant("nation:b.*")],
+            &w
+        ));
     }
 
     #[test]

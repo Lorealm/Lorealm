@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use lorealm_storage::models::{AgentKind, ImportKind, ImportRule, RealmAgent, Snowflake};
+use lorealm_storage::models::{
+    AgentGrant, AgentKind, ImportKind, ImportRule, RealmAgent, ScopePattern, Snowflake,
+    is_identifier,
+};
 use weaver_lang::CompiledExpr;
 
 use crate::{
@@ -206,7 +209,33 @@ impl RealmService {
             })?;
         }
 
+        validate_grants(&req.grants)?;
+        validate_channel("speech_scope", req.speech_scope.as_deref())?;
+        for binding in &req.tools {
+            validate_channel("event_scope", binding.event_scope.as_deref())?;
+        }
+
         Ok(parts)
+    }
+}
+
+/// Grants must be weaver `scope[:name]` patterns ([`ScopePattern::validate`]).
+pub(super) fn validate_grants(grants: &[AgentGrant]) -> Result<(), RealmError> {
+    for g in grants {
+        ScopePattern::validate(&g.scope).map_err(RealmError::InvalidAgent)?;
+    }
+    Ok(())
+}
+
+/// Event channels (speech/event scopes) carry no name half: a bare weaver
+/// identifier only.
+pub(super) fn validate_channel(field: &str, channel: Option<&str>) -> Result<(), RealmError> {
+    match channel {
+        None => Ok(()),
+        Some(c) if is_identifier(c) => Ok(()),
+        Some(c) => Err(RealmError::InvalidAgent(format!(
+            "{field} '{c}' must be a bare identifier ([A-Za-z_][A-Za-z0-9_]*)"
+        ))),
     }
 }
 

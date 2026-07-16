@@ -269,7 +269,7 @@
 							type="text"
 							class="mono"
 							value={grant.scope}
-							placeholder="e.g. nation.velen.*"
+							placeholder="e.g. nation:velen.*"
 							oninput={(e) => edit((a) => (a.grants[i].scope = e.currentTarget.value))}
 						/>
 						<select

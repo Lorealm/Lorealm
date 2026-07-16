@@ -109,7 +109,7 @@ export async function loadCatalog(): Promise<void> {
 	]);
 }
 
-export const scopeRoot = (scope: string): string => scope.split('.')[0];
+export const scopeRoot = (scope: string): string => scope.split(':')[0];
 
 export const GRAPH_W = 900;
 export const GRAPH_H = 620;

@@ -49,9 +49,9 @@
 		content: '"Uhm... Hello?..."',
 		tool: 'Forge Documents',
 		output: 'papers accepted',
-		scope: 'nation.velen.treasury',
-		changes: 'gold: 812 → 640',
-		key: 'gold',
+		scope: 'nation',
+		changes: 'velen.treasury: 812 → 640',
+		key: 'velen.treasury',
 		value: '640'
 	};
 
