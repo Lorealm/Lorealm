@@ -1,25 +1,50 @@
 <script lang="ts">
 	import { realmStore } from '$lib/stores/realm.svelte.js';
+	import type { Snowflake } from '$lib/types/core.js';
 	import type { AgentKind } from '$lib/types/realm.js';
 	import AgentCard from './AgentCard.svelte';
-	import { realmEditor } from './realmEditor.svelte.js';
+	import { catalogItem, realmEditor } from './realmEditor.svelte.js';
 
 	let newKind = $state<AgentKind>('llm');
+	let newTemplateId = $state<Snowflake | ''>('');
+	let newProfileId = $state<Snowflake | ''>('');
 	let adding = $state(false);
 
 	const agents = $derived([...realmStore.agents].sort((a, b) => a.turn_order - b.turn_order));
 
+	const imports = $derived(realmStore.realm?.definition.imports ?? []);
+	const importedTemplates = $derived(
+		imports
+			.filter((r) => r.kind === 'template')
+			.map((r) => catalogItem('template', r.resource_id))
+			.filter((c) => c !== undefined)
+	);
+	const importedProfiles = $derived(
+		imports
+			.filter((r) => r.kind === 'connection_profile')
+			.map((r) => catalogItem('connection_profile', r.resource_id))
+			.filter((c) => c !== undefined)
+	);
+
+	const canAdd = $derived(newKind !== 'llm' || (newTemplateId !== '' && newProfileId !== ''));
+
 	async function addAgent() {
-		if (adding) return;
+		if (adding || !canAdd) return;
 		adding = true;
 		try {
 			const label = newKind === 'llm' ? 'LLM' : newKind === 'player' ? 'Player' : 'Script';
 			const saved = await realmStore.createAgent({
 				name: `New ${label}`,
 				kind: newKind,
+				template_id: newKind === 'llm' ? newTemplateId || null : null,
+				profile_id: newKind === 'llm' ? newProfileId || null : null,
 				script: newKind === 'script' ? '$[set_var("state:placeholder", "edit me")]' : null
 			});
-			if (saved) realmEditor.expandedAgentId = saved.id;
+			if (saved) {
+				realmEditor.expandedAgentId = saved.id;
+				newTemplateId = '';
+				newProfileId = '';
+			}
 		} finally {
 			adding = false;
 		}
@@ -33,8 +58,27 @@
 			<option value="player">Player</option>
 			<option value="script">Script</option>
 		</select>
-		<button type="button" class="primary" onclick={addAgent} disabled={adding}>+ Add agent</button>
+		{#if newKind === 'llm'}
+			<select bind:value={newTemplateId}>
+				<option value="">Template…</option>
+				{#each importedTemplates as t (t.id)}
+					<option value={t.id}>{t.name}</option>
+				{/each}
+			</select>
+			<select bind:value={newProfileId}>
+				<option value="">Connection profile…</option>
+				{#each importedProfiles as p (p.id)}
+					<option value={p.id}>{p.name}</option>
+				{/each}
+			</select>
+		{/if}
+		<button type="button" class="primary" onclick={addAgent} disabled={adding || !canAdd}>
+			+ Add agent
+		</button>
 	</div>
+	{#if newKind === 'llm' && (importedTemplates.length === 0 || importedProfiles.length === 0)}
+		<div class="hint">Import a template and a connection profile first.</div>
+	{/if}
 
 	{#each agents as agent, i (agent.id)}
 		<AgentCard {agent} index={i} total={agents.length} />
@@ -70,5 +114,11 @@
 	.empty {
 		color: var(--color-text-muted);
 		font-size: var(--font-size-base);
+	}
+
+	.hint {
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
+		text-align: right;
 	}
 </style>

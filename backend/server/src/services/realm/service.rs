@@ -567,8 +567,6 @@ impl RealmService {
 
             let mut acc = TurnAccumulator::default();
             loop {
-                // `?` can't live inside select! arms under try_stream!, so
-                // resolve the branch first and handle the result out here.
                 let next = tokio::select! {
                     biased;
                     _ = cancel.cancelled() => None,
@@ -613,9 +611,6 @@ impl RealmService {
         Ok(Box::pin(stream))
     }
 
-    /// A player's turn: a user message (+ optional structured action)
-    /// through the same grant-checked weaver pipeline as any LLM tool call,
-    /// committed as one message with its events.
     pub async fn submit_player_turn(
         &self,
         convo_id: Snowflake,
@@ -629,12 +624,14 @@ impl RealmService {
         let ids: Vec<Snowflake> = path.iter().map(|m| m.id).collect();
         let reconstructed = self.state.reconstruct(&ids).await?;
 
-        // The player is only up if the run_condition skip-forward scan lands
-        // on them against this world.
-        let agent = self
-            .runnable_agent(path.len(), &cast.agents, &reconstructed.persistent)
-            .ok_or(RealmError::NoRunnableAgent)?
-            .clone();
+        let agent = runnable_agent(
+            self.policy.as_ref(),
+            turn_start(&path, &cast.agents),
+            &cast.agents,
+            &reconstructed.persistent,
+        )
+        .ok_or(RealmError::NoRunnableAgent)?
+        .clone();
 
         if !matches!(agent.kind, AgentKind::Player) || agent.user_id != Some(user_id) {
             return Err(RealmError::NotYourTurn(agent.id));
@@ -723,8 +720,6 @@ impl RealmService {
         self.commit(&convo, &cast, &config, production).await
     }
 
-    // ------------------------------------------------- playthrough views
-
     /// The cast snapshot of a playthrough (roster, turn order, bindings).
     pub async fn cast(
         &self,
@@ -733,6 +728,27 @@ impl RealmService {
     ) -> Result<RealmCast, RealmError> {
         let (_, cast) = self.realm_conversation(convo_id, user_id).await?;
         Ok(cast)
+    }
+
+    /// Whose turn it is at the active leaf once run_conditions are honored
+    pub async fn next_agent(
+        &self,
+        convo_id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<Option<Snowflake>, RealmError> {
+        let (convo, cast) = self.realm_conversation(convo_id, user_id).await?;
+
+        let path = self.active_path(&convo).await?;
+        let ids: Vec<Snowflake> = path.iter().map(|m| m.id).collect();
+        let world = self.state.reconstruct(&ids).await?;
+
+        Ok(runnable_agent(
+            self.policy.as_ref(),
+            turn_start(&path, &cast.agents),
+            &cast.agents,
+            &world.persistent,
+        )
+        .map(|a| a.id))
     }
 
     /// The playthrough's objective timeline (owner view).
@@ -800,12 +816,7 @@ impl RealmService {
     }
 }
 
-// ---------------------------------------------------------------- internals
-
 impl RealmService {
-    /// Load a realm for mutation, resolving the editing session: edits
-    /// within the TTL window collapse into the same version, otherwise a
-    /// fresh version id is allocated (mirrors character editing).
     async fn get_realm_for_edit(
         &self,
         realm_id: Snowflake,
@@ -841,8 +852,6 @@ impl RealmService {
         })
     }
 
-    /// Resolve whose turn it is along the path and project that agent's view
-    /// of the world into an executable plan (dispatched by kind).
     async fn plan_turn(
         &self,
         convo: &Conversation,
@@ -854,12 +863,16 @@ impl RealmService {
         let path_ids: Vec<Snowflake> = path.iter().map(|m| m.id).collect();
         let world = self.state.reconstruct(&path_ids).await?;
 
-        // The turn index is the position along the path, so a regenerated
-        // sibling re-runs the same agent's turn.
-        let agent = self
-            .runnable_agent(path.len(), &cast.agents, &world.persistent)
-            .ok_or(RealmError::NoRunnableAgent)?
-            .clone();
+        // Assembly runs against the target's parent path on a regenerate, so
+        // the scan re-resolves that same agent's turn.
+        let agent = runnable_agent(
+            self.policy.as_ref(),
+            turn_start(&path, &cast.agents),
+            &cast.agents,
+            &world.persistent,
+        )
+        .ok_or(RealmError::NoRunnableAgent)?
+        .clone();
 
         self.agents
             .get(&agent.kind)
@@ -875,24 +888,6 @@ impl RealmService {
             .await
     }
 
-    /// Whose turn it is once run_conditions are honored: the first agent the
-    /// turn policy yields from `turn_index` forward whose `run_condition`
-    /// passes against `world`. `None` when every agent is gated off this turn.
-    fn runnable_agent<'a>(
-        &self,
-        turn_index: usize,
-        agents: &'a [RealmAgent],
-        world: &StatePool,
-    ) -> Option<&'a RealmAgent> {
-        (0..agents.len()).find_map(|k| {
-            let a = self.policy.next(turn_index + k, agents)?;
-            weaver::run_condition_passes(&a.run_condition, &a.grants, world).then_some(a)
-        })
-    }
-
-    /// The message path to assemble against and where a new message lands.
-    /// `target` regenerates: the message becomes a sibling of `target`, so
-    /// assembly runs against `target`'s parent path.
     async fn resolve_path(
         &self,
         convo: &Conversation,
@@ -934,9 +929,7 @@ impl RealmService {
         config: &ResolvedRealmConfig,
     ) -> Result<Production, RealmError> {
         // Unlike plain chat, the trace keeps its content inline: realm history
-        // blocks come from per-agent observations (never message refs), and
-        // character parts belong to the agent's character, which the client
-        // has no active character to reconstruct them from.
+        // blocks come from per-agent observations
         let meta = json!({
             "context": trace,
             "reasoning": outcome.reasoning,
@@ -982,8 +975,6 @@ impl RealmService {
 
         push_state_events(agent.id, &delta, config, &mut events);
 
-        // Assembly writes are how a realm's opening state materializes, so
-        // persist a row even on an empty delta when assembly captured state.
         let state =
             (had_assembly || !delta.writes.is_empty() || !delta.deletes.is_empty()).then(|| {
                 CapturedState {
@@ -1004,9 +995,7 @@ impl RealmService {
         })
     }
 
-    /// Persist a produced turn: the message, its optional state row, and the
-    /// events + observations that fan out of it. The single commit path for
-    /// LLM, script, and player turns.
+    /// Persist a produced turn
     async fn commit(
         &self,
         convo: &Conversation,
@@ -1033,7 +1022,6 @@ impl RealmService {
             self.state.persist(message.id, captured).await?;
         }
 
-        // Anchor the drafts to the committed message; seq follows push order.
         let events: Vec<RealmEvent> = events
             .into_iter()
             .enumerate()
@@ -1063,7 +1051,6 @@ impl RealmService {
         Ok(TurnResult { message, events })
     }
 
-    /// Write the turn's message into the tree at the planned position.
     async fn persist_message(
         &self,
         convo: &Conversation,
@@ -1092,8 +1079,6 @@ impl RealmService {
         })
     }
 
-    /// Load + authorize a realm playthrough: the caller must own the
-    /// conversation or drive one of its player agents.
     async fn realm_conversation(
         &self,
         convo_id: Snowflake,
@@ -1123,8 +1108,6 @@ impl RealmService {
         Ok((convo, cast))
     }
 
-    /// Resolve the settings in effect for a playthrough: the realm's overrides
-    /// over the built-in defaults.
     pub(super) async fn resolve_config(
         &self,
         convo: &Conversation,
@@ -1316,6 +1299,37 @@ impl RealmService {
     }
 }
 
+fn message_agent_id(message: &ConversationMessage) -> Option<Snowflake> {
+    serde_json::from_value(message.metadata.get("agent_id")?.clone()).ok()
+}
+
+fn turn_start(path: &[ConversationMessage], agents: &[RealmAgent]) -> usize {
+    let Some(last) = path.last() else { return 0 };
+
+    match message_agent_id(last).and_then(|id| agents.iter().position(|a| a.id == id)) {
+        Some(slot) => slot + 1,
+        None => {
+            tracing::warn!(
+                message = %last.id,
+                "realm message has no resolvable agent; restarting the turn rotation"
+            );
+            0
+        }
+    }
+}
+
+fn runnable_agent<'a>(
+    policy: &dyn TurnPolicy,
+    start: usize,
+    agents: &'a [RealmAgent],
+    world: &StatePool,
+) -> Option<&'a RealmAgent> {
+    (0..agents.len()).find_map(|k| {
+        let a = policy.next(start + k, agents)?;
+        weaver::run_condition_passes(&a.run_condition, &a.grants, world).then_some(a)
+    })
+}
+
 #[async_trait]
 impl CleanableService for RealmService {
     fn name(&self) -> &'static str {
@@ -1326,5 +1340,144 @@ impl CleanableService for RealmService {
         let before = sessions.len();
         sessions.retain(|_, s| s.last_touched.elapsed() < EDIT_SESSION_TTL);
         before - sessions.len()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lorealm_storage::models::AgentAccess;
+
+    fn agent(slot: i64, name: &str, kind: AgentKind, run_condition: Option<&str>) -> RealmAgent {
+        RealmAgent {
+            id: Snowflake(slot),
+            name: name.into(),
+            kind,
+            character_id: None,
+            char_version_id: None,
+            template_id: None,
+            profile_id: None,
+            user_id: None,
+            persona_id: None,
+            turn_order: slot as i32,
+            grants: vec![AgentGrant {
+                scope: "state".into(),
+                access: AgentAccess::ReadWrite,
+            }],
+            tools: Vec::new(),
+            speech_scope: None,
+            lorebooks: Vec::new(),
+            script: None,
+            run_condition: run_condition.map(Into::into),
+        }
+    }
+
+    fn cast() -> Vec<RealmAgent> {
+        vec![
+            agent(0, "Player", AgentKind::Player, None),
+            agent(1, "Script", AgentKind::Script, None),
+            agent(
+                2,
+                "Agent #1",
+                AgentKind::Llm,
+                Some("{{state:index}} == 0 || {{state:index}} == 1"),
+            ),
+            agent(
+                3,
+                "Agent #2",
+                AgentKind::Llm,
+                Some("{{state:index}} == 0 || {{state:index}} == 2"),
+            ),
+        ]
+    }
+
+    fn world(index: i64) -> StatePool {
+        let mut w = StatePool::new();
+        w.entry("state".into())
+            .or_default()
+            .insert("index".into(), json!(index));
+        w
+    }
+
+    fn message(id: i64, agent: Option<&RealmAgent>) -> ConversationMessage {
+        ConversationMessage {
+            id: Snowflake(id),
+            conversation_id: Snowflake(100),
+            parent: None,
+            role: ChatRole::Assistant,
+            content: String::new(),
+            order: id as i32,
+            metadata: match agent {
+                Some(a) => json!({ "agent_id": a.id, "agent_name": a.name }),
+                None => json!({}),
+            },
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        }
+    }
+
+    #[test]
+    fn empty_path_starts_at_the_top_of_the_cast() {
+        assert_eq!(turn_start(&[], &cast()), 0);
+    }
+
+    #[test]
+    fn start_follows_the_last_actor_not_the_path_length() {
+        let cast = cast();
+        let path: Vec<ConversationMessage> = [0, 1, 2, 3, 0, 1, 2, 0]
+            .iter()
+            .enumerate()
+            .map(|(i, slot)| message(i as i64, Some(&cast[*slot])))
+            .collect();
+
+        assert_eq!(path.len(), 8);
+        assert_eq!(turn_start(&path, &cast), 1);
+        assert_eq!(
+            runnable_agent(&RoundRobin, turn_start(&path, &cast), &cast, &world(1))
+                .map(|a| a.name.as_str()),
+            Some("Script"),
+        );
+    }
+
+    #[test]
+    fn unattributable_last_turn_restarts_the_rotation() {
+        assert_eq!(turn_start(&[message(0, None)], &cast()), 0);
+    }
+
+    #[test]
+    fn a_gated_agent_is_skipped_without_stalling_the_rotation() {
+        let cast = cast();
+        let ran = |start| runnable_agent(&RoundRobin, start, &cast, &world(1)).map(|a| a.id);
+        assert_eq!(ran(2), Some(cast[2].id));
+        assert_eq!(ran(3), Some(cast[0].id));
+    }
+
+    #[test]
+    fn no_runnable_agent_when_every_condition_is_false() {
+        let cast = cast();
+        assert!(runnable_agent(&RoundRobin, 0, &cast[2..], &world(9)).is_none());
+    }
+
+    #[test]
+    fn skips_keep_the_group_chat_cycle_aligned() {
+        let cast = cast();
+        let next = |last_slot: usize, index: i64| {
+            let path = [message(0, Some(&cast[last_slot]))];
+            runnable_agent(&RoundRobin, turn_start(&path, &cast), &cast, &world(index))
+                .map(|a| a.name.clone())
+        };
+
+        // index 0: nobody is gated, so the whole cast speaks in order.
+        assert_eq!(next(0, 0).as_deref(), Some("Script"));
+        assert_eq!(next(1, 0).as_deref(), Some("Agent #1"));
+        assert_eq!(next(2, 0).as_deref(), Some("Agent #2"));
+        assert_eq!(next(3, 0).as_deref(), Some("Player"));
+
+        // index 1: Agent #2 sits out and the player is up straight after #1.
+        assert_eq!(next(2, 1).as_deref(), Some("Player"));
+
+        // index 2: Agent #1 sits out and Agent #2 speaks in its place.
+        assert_eq!(next(1, 2).as_deref(), Some("Agent #2"));
+        assert_eq!(next(3, 2).as_deref(), Some("Player"));
     }
 }

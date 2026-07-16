@@ -1,8 +1,3 @@
-//! Import and cast validation. A realm declares which of its owner's
-//! resources exist inside it (imports); agents may only reference imported
-//! resources. Enforces that rule plus per-kind agent identity checks and
-//! turn-order permutations.
-
 use std::collections::HashMap;
 
 use lorealm_storage::models::{AgentKind, ImportKind, ImportRule, RealmAgent, Snowflake};
@@ -65,13 +60,16 @@ impl RealmService {
                     return Err(RealmError::NotOwned(TargetType::UserTool, id));
                 }
             }
+            ImportKind::Persona => {
+                self.personas.get_persona(id, user_id).await?;
+            }
+            ImportKind::ConnectionProfile => {
+                self.connection.get_profile(user_id, id).await?;
+            }
         }
         Ok(())
     }
 
-    /// Validate the identity bundle of a create/update agent request.
-    /// Strict membrane: every referenced character/template/tool/lorebook
-    /// must be declared in the realm's imports.
     pub(super) async fn validate_agent(
         &self,
         user_id: Snowflake,
@@ -83,18 +81,25 @@ impl RealmService {
                 if req.character_id.is_some()
                     || req.char_version_id.is_some()
                     || req.template_id.is_some()
-                    || req.profile_id.is_some()
                     || !req.lorebooks.is_empty()
                 {
                     return Err(RealmError::InvalidAgent(
-                        "player agents cannot have character/template/profile/lorebooks".into(),
+                        "player agents cannot have character/template/lorebooks".into(),
                     ));
                 }
+                let profile_id = match req.profile_id {
+                    Some(id) => {
+                        self.connection.get_profile(user_id, id).await?;
+                        ensure_imported(imports, ImportKind::ConnectionProfile, id)?;
+                        Some(id)
+                    }
+                    None => None,
+                };
                 AgentParts {
                     character_id: None,
                     char_version_id: None,
                     template_id: None,
-                    profile_id: None,
+                    profile_id,
                     user_id: Some(user_id),
                 }
             }
@@ -142,19 +147,17 @@ impl RealmService {
                     }
                 };
 
-                let template_id = match req.template_id {
-                    Some(id) => self.templates.get_template(id, user_id).await?.id,
-                    None => self
-                        .state
-                        .get_active_template_id(user_id)
-                        .await?
-                        .ok_or(RealmError::NotFound(TargetType::ContextTemplate, user_id))?,
-                };
+                let template_id = req.template_id.ok_or_else(|| {
+                    RealmError::InvalidAgent("llm agents require an explicit template_id".into())
+                })?;
+                self.templates.get_template(template_id, user_id).await?;
                 ensure_imported(imports, ImportKind::Template, template_id)?;
-                let profile_id = match req.profile_id {
-                    Some(id) => self.connection.get_profile(user_id, id).await?.id,
-                    None => self.state.get_active_profile(user_id).await?.id,
-                };
+
+                let profile_id = req.profile_id.ok_or_else(|| {
+                    RealmError::InvalidAgent("llm agents require an explicit profile_id".into())
+                })?;
+                self.connection.get_profile(user_id, profile_id).await?;
+                ensure_imported(imports, ImportKind::ConnectionProfile, profile_id)?;
 
                 for &lorebook_id in &req.lorebooks {
                     ensure_imported(imports, ImportKind::Lorebook, lorebook_id)?;
@@ -180,6 +183,7 @@ impl RealmService {
 
         if let Some(id) = req.persona_id {
             self.personas.get_persona(id, user_id).await?;
+            ensure_imported(imports, ImportKind::Persona, id)?;
         }
 
         for binding in &req.tools {
@@ -195,7 +199,7 @@ impl RealmService {
         }
 
         // A run_condition must compile now so the author sees the error at
-        // edit time, not silently at turn time.
+        // edit time
         if let Some(src) = req.run_condition.as_ref().filter(|s| !s.trim().is_empty()) {
             CompiledExpr::compile(src).map_err(|errors| {
                 RealmError::InvalidAgent(format!("run_condition failed to compile: {errors:?}"))
@@ -231,13 +235,17 @@ pub(super) fn agent_required_imports(agent: &RealmAgent) -> Vec<(ImportKind, Sno
     if let Some(t) = agent.template_id {
         required.push((ImportKind::Template, t));
     }
+    if let Some(p) = agent.profile_id {
+        required.push((ImportKind::ConnectionProfile, p));
+    }
+    if let Some(p) = agent.persona_id {
+        required.push((ImportKind::Persona, p));
+    }
     required.extend(agent.tools.iter().map(|b| (ImportKind::Tool, b.tool_id)));
     required.extend(agent.lorebooks.iter().map(|&l| (ImportKind::Lorebook, l)));
     required
 }
 
-/// Sort `agents` by `order` and reassign `turn_order` by position. Fails
-/// unless `order` is exactly a permutation of the current agent ids.
 pub(super) fn apply_turn_order(
     agents: &mut [RealmAgent],
     order: &[Snowflake],
@@ -289,7 +297,7 @@ mod tests {
             template_id: Some(sf(20)),
             profile_id: Some(sf(30)),
             user_id: None,
-            persona_id: None,
+            persona_id: Some(sf(60)),
             turn_order: 0,
             grants: Vec::new(),
             tools: vec![AgentToolBinding {
@@ -318,6 +326,8 @@ mod tests {
             vec![
                 (ImportKind::Character, sf(10)),
                 (ImportKind::Template, sf(20)),
+                (ImportKind::ConnectionProfile, sf(30)),
+                (ImportKind::Persona, sf(60)),
                 (ImportKind::Tool, sf(40)),
                 (ImportKind::Lorebook, sf(50)),
             ]
@@ -331,6 +341,8 @@ mod tests {
         player.character_id = None;
         player.char_version_id = None;
         player.template_id = None;
+        player.profile_id = None;
+        player.persona_id = None;
         player.lorebooks.clear();
 
         assert_eq!(
@@ -340,14 +352,31 @@ mod tests {
     }
 
     #[test]
+    fn player_agents_may_require_a_connection_profile() {
+        let mut player = agent("you");
+        player.kind = AgentKind::Player;
+        player.character_id = None;
+        player.char_version_id = None;
+        player.template_id = None;
+        player.persona_id = None;
+        player.lorebooks.clear();
+        // profile_id stays Some(sf(30)) from the fixture
+
+        assert_eq!(
+            agent_required_imports(&player),
+            vec![(ImportKind::ConnectionProfile, sf(30)), (ImportKind::Tool, sf(40))]
+        );
+    }
+
+    #[test]
     fn script_agents_depend_on_no_imports() {
-        // A script agent's turn is its inline weaver source over the state
-        // pool: no character/template/lorebook/tool, so nothing to import.
         let mut script = agent("log-keeper");
         script.kind = AgentKind::Script;
         script.character_id = None;
         script.char_version_id = None;
         script.template_id = None;
+        script.profile_id = None;
+        script.persona_id = None;
         script.tools.clear();
         script.lorebooks.clear();
         script.script = Some("state.set('log.events', 'entries', [])".into());
@@ -357,7 +386,6 @@ mod tests {
 
     #[test]
     fn ensure_imported_distinguishes_kinds() {
-        // Same id imported as a tool must not satisfy a lorebook reference.
         let imports = vec![rule(ImportKind::Tool, 50)];
         assert!(ensure_imported(&imports, ImportKind::Tool, sf(50)).is_ok());
         assert!(matches!(

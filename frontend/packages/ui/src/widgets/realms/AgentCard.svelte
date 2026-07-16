@@ -20,7 +20,9 @@
 	const expanded = $derived(realmEditor.expandedAgentId === agent.id);
 
 	const imports = $derived(realmStore.realm?.definition.imports ?? []);
-	const importedOf = (kind: 'character' | 'template' | 'tool' | 'lorebook') =>
+	const importedOf = (
+		kind: 'character' | 'template' | 'tool' | 'lorebook' | 'persona' | 'connection_profile'
+	) =>
 		imports
 			.filter((r) => r.kind === kind)
 			.map((r) => catalogItem(kind, r.resource_id))
@@ -29,6 +31,8 @@
 	const templates = $derived(importedOf('template'));
 	const tools = $derived(importedOf('tool'));
 	const lorebooks = $derived(importedOf('lorebook'));
+	const personas = $derived(importedOf('persona'));
+	const profiles = $derived(importedOf('connection_profile'));
 
 	const boundToolIds = $derived(new Set(agent.tools.map((t) => t.tool_id)));
 	const availableTools = $derived(tools.filter((t) => !boundToolIds.has(t.id)));
@@ -52,9 +56,9 @@
 				a.character_id = null;
 				a.char_version_id = null;
 				a.template_id = null;
-				a.profile_id = null;
 			}
 			if (kind === 'script') {
+				a.profile_id = null;
 				a.persona_id = null;
 				a.tools = [];
 				a.speech_scope = null;
@@ -190,16 +194,33 @@
 				</div>
 			{/if}
 
-			{#if agent.kind === 'player'}
-				<label>
-					<span>Persona</span>
-					<input
-						type="text"
-						value={agent.persona_id ?? ''}
-						placeholder="Optional persona id"
-						oninput={(e) => edit((a) => (a.persona_id = e.currentTarget.value || null))}
-					/>
-				</label>
+			{#if agent.kind !== 'script'}
+				<div class="row2">
+					<label>
+						<span>Connection profile{agent.kind === 'player' ? ' (optional)' : ''}</span>
+						<select
+							value={agent.profile_id ?? ''}
+							onchange={(e) => edit((a) => (a.profile_id = e.currentTarget.value || null))}
+						>
+							<option value="">— none —</option>
+							{#each profiles as p (p.id)}
+								<option value={p.id}>{p.name}</option>
+							{/each}
+						</select>
+					</label>
+					<label>
+						<span>Persona (optional)</span>
+						<select
+							value={agent.persona_id ?? ''}
+							onchange={(e) => edit((a) => (a.persona_id = e.currentTarget.value || null))}
+						>
+							<option value="">— none —</option>
+							{#each personas as p (p.id)}
+								<option value={p.id}>{p.name}</option>
+							{/each}
+						</select>
+					</label>
+				</div>
 			{/if}
 
 			{#if agent.kind !== 'script'}

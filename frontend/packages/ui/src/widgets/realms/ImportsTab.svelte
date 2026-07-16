@@ -4,11 +4,18 @@
 	import { studioStore } from '$lib/stores/studio.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import type { ImportKind } from '$lib/types/realm.js';
-	import { BookOpen, FileText, Pencil, User, Wrench, X } from '@lucide/svelte';
+	import { BookOpen, FileText, Pencil, Plug, User, UserCircle, Wrench, X } from '@lucide/svelte';
 	import Badge from './Badge.svelte';
 	import { catalogItem, IMPORT_KINDS, IMPORT_LABEL, realmEditor } from './realmEditor.svelte.js';
 
-	const ICON = { character: User, lorebook: BookOpen, tool: Wrench, template: FileText };
+	const ICON = {
+		character: User,
+		lorebook: BookOpen,
+		tool: Wrench,
+		template: FileText,
+		persona: UserCircle,
+		connection_profile: Plug
+	};
 
 	const imports = $derived(realmStore.realm?.definition.imports ?? []);
 
@@ -71,17 +78,19 @@
 								{/if}
 							</div>
 							<div class="cardActions">
-								<button
-									type="button"
-									class="icon"
-									title="Edit in Studio"
-									onclick={(e) => {
-										e.stopPropagation();
-										studioStore.editResource(kind, id);
-									}}
-								>
-									<Pencil size={14} />
-								</button>
+								{#if kind !== 'connection_profile'}
+									<button
+										type="button"
+										class="icon"
+										title="Edit in Studio"
+										onclick={(e) => {
+											e.stopPropagation();
+											studioStore.editResource(kind, id);
+										}}
+									>
+										<Pencil size={14} />
+									</button>
+								{/if}
 								<button
 									type="button"
 									class="icon"

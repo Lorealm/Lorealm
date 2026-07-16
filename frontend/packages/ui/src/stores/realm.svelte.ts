@@ -61,7 +61,6 @@ class RealmStore {
 	conversation = $state<Conversation | null>(null);
 	cast = $state<RealmCast | null>(null);
 	events = $state<Array<RealmEvent>>([]);
-	turnCount = $state(0);
 
 	runStatus = $state<RunStatus>('idle');
 	autoRun = $state(true);
@@ -83,13 +82,6 @@ class RealmStore {
 
 	get agents(): RealmAgent[] {
 		return this.cast?.agents ?? this.realm?.definition.agents ?? [];
-	}
-
-	get nextAgent(): RealmAgent | null {
-		if (!this.inPlaythrough) return null;
-		const agents = this.agents;
-		if (agents.length === 0) return null;
-		return agents[this.turnCount % agents.length];
 	}
 
 	get awaitingAgent(): RealmAgent | null {
@@ -193,6 +185,10 @@ class RealmStore {
 					return a.tools.some((b) => b.tool_id === resourceId);
 				case 'lorebook':
 					return a.lorebooks.includes(resourceId);
+				case 'persona':
+					return a.persona_id === resourceId;
+				case 'connection_profile':
+					return a.profile_id === resourceId;
 			}
 		});
 	}
@@ -211,6 +207,8 @@ class RealmStore {
 		for (const agent of definition.agents) {
 			if (agent.character_id) need('character', agent.character_id);
 			if (agent.template_id) need('template', agent.template_id);
+			if (agent.profile_id) need('connection_profile', agent.profile_id);
+			if (agent.persona_id) need('persona', agent.persona_id);
 			for (const b of agent.tools) need('tool', b.tool_id);
 			for (const l of agent.lorebooks ?? []) need('lorebook', l);
 		}
@@ -395,7 +393,6 @@ class RealmStore {
 			this.#resetPlaythrough();
 			this.conversation = full.metadata;
 			this.cast = cast;
-			this.turnCount = full.messages.length;
 			this.inspection = null;
 			return true;
 		} catch (e) {
@@ -413,7 +410,6 @@ class RealmStore {
 		this.conversation = null;
 		this.cast = null;
 		this.events = [];
-		this.turnCount = 0;
 		this.turn = null;
 		this.awaitingAgentId = null;
 		this.runStatus = 'idle';
@@ -597,7 +593,6 @@ class RealmStore {
 	}
 
 	#applyCommit(result: TurnResult) {
-		this.turnCount += 1;
 		if (result.events.length > 0) this.events = [...this.events, ...result.events];
 	}
 

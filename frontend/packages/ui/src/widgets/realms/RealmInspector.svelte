@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { realmStore } from '$lib/stores/realm.svelte.js';
-	import { studioStore } from '$lib/stores/studio.svelte.js';
+	import { studioStore, type StudioResourceKind } from '$lib/stores/studio.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import type { ImportKind } from '$lib/types/realm.js';
 	import type { Component } from 'svelte';
@@ -10,9 +10,11 @@
 		Database,
 		FileText,
 		Pencil,
+		Plug,
 		Repeat,
 		Terminal,
 		User,
+		UserCircle,
 		Wrench,
 		X
 	} from '@lucide/svelte';
@@ -30,13 +32,17 @@
 		character: User,
 		lorebook: BookOpen,
 		tool: Wrench,
-		template: FileText
+		template: FileText,
+		persona: UserCircle,
+		connection_profile: Plug
 	};
 	const IMPORT_LABEL: Record<ImportKind, string> = {
 		character: 'Character',
 		lorebook: 'Lorebook',
 		tool: 'Tool',
-		template: 'Context template'
+		template: 'Context template',
+		persona: 'Persona',
+		connection_profile: 'Connection profile'
 	};
 
 	interface Row {
@@ -343,7 +349,7 @@
 			typeLabel: gt === 'character' ? 'Character' : 'Context template',
 			primary: {
 				label: 'Edit in Studio',
-				run: () => studioStore.editResource(gt as ImportKind, gid)
+				run: () => studioStore.editResource(gt as StudioResourceKind, gid)
 			},
 			groups: [
 				{
@@ -400,13 +406,16 @@
 		</div>
 		<div class="h">{resource.item.name}</div>
 		<p>{resource.item.description || 'No description.'}</p>
-		<button
-			type="button"
-			class="wide secondary"
-			onclick={() => studioStore.editResource(resource.kind, resource.id)}
-		>
-			<Pencil size={14} /> Edit in Studio
-		</button>
+		{#if resource.kind !== 'connection_profile'}
+			<button
+				type="button"
+				class="wide secondary"
+				onclick={() =>
+					studioStore.editResource(resource.kind as StudioResourceKind, resource.id)}
+			>
+				<Pencil size={14} /> Edit in Studio
+			</button>
+		{/if}
 	</div>
 {:else if mode === 'agent' && agentInsp}
 	<div class="pane">

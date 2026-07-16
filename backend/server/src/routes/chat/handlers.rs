@@ -28,7 +28,7 @@ use crate::{
     },
     services::{
         chat::FullConversation,
-        realm::{ActionSpec, TurnResult},
+        realm::{ActionSpec, NextTurn, TurnResult},
         state::{ReconstructedState, StatePool},
     },
 };
@@ -282,6 +282,20 @@ pub async fn player_turn(
         .await?;
 
     Ok(Json(result))
+}
+
+pub async fn next_turn(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(conversation_id): Path<Snowflake>,
+) -> Result<Json<NextTurn>, AppError> {
+    let agent_id = state
+        .services()
+        .realm()
+        .next_agent(conversation_id, session.user_id)
+        .await?;
+
+    Ok(Json(NextTurn { agent_id }))
 }
 
 pub async fn get_cast(
