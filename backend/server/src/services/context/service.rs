@@ -9,8 +9,8 @@ use crate::{
     errors::{ContextError, ContextType, TemplateError},
     services::{
         context::{
-            ContextNode, CreateNode, GroupMode, MoveNode, MovedNode, NodeWithPath, UpdateNode,
-            providers::SourceRegistry, template::ContextTemplate,
+            ContextNode, CreateNode, GroupMode, MoveNode, MovedNode, NodeWithPath, SourceRegistry,
+            UpdateNode, template::ContextTemplate,
         },
         snowflake::SnowflakeService,
     },
@@ -24,11 +24,15 @@ pub struct ContextService {
 }
 
 impl ContextService {
-    pub fn new(storage: Arc<dyn Storage>, snowflake_service: Arc<SnowflakeService>) -> Self {
+    pub fn new(
+        storage: Arc<dyn Storage>,
+        snowflake_service: Arc<SnowflakeService>,
+        registry: Arc<SourceRegistry>,
+    ) -> Self {
         Self {
             storage,
             snowflake_service,
-            registry: Arc::new(SourceRegistry::new()),
+            registry,
         }
     }
 

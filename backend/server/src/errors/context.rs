@@ -100,19 +100,6 @@ pub enum TemplateError {
     #[error("Invalid parent: {0} is not a group node")]
     InvalidParent(Snowflake),
 
-    #[error("Unknown source: {0}")]
-    UnknownSource(String),
-
-    #[error("Unknown source node: source '{source_id}' has no node '{node_id}'")]
-    UnknownSourceNode { source_id: String, node_id: String },
-
-    #[error("Invalid setting '{key}' for source '{source_id}' node '{node_id}'")]
-    InvalidSetting {
-        source_id: String,
-        node_id: String,
-        key: String,
-    },
-
     #[error("Circular reference detected")]
     CircularReference,
 
@@ -135,19 +122,6 @@ impl TemplateError {
             TemplateError::InvalidParent(id) => {
                 format!("Assigning {id} as a parent is not a valid operation")
             }
-            TemplateError::UnknownSource(src) => {
-                format!("Source '{src}' was not found in the internal registry")
-            }
-            TemplateError::UnknownSourceNode { source_id, node_id } => {
-                format!("Node '{node_id}' (from '{source_id}') is not a valid node.")
-            }
-            TemplateError::InvalidSetting {
-                source_id,
-                node_id,
-                key,
-            } => format!(
-                "Node '{node_id}' (from '{source_id}') does not contain a setting named '{key}'"
-            ),
             TemplateError::CircularReference => "Circular reference detected".into(),
             TemplateError::WouldCreateCircle => {
                 "This operation is invalid: would create a circular reference".into()

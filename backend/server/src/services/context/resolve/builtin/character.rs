@@ -5,17 +5,72 @@ use lorealm_storage::models::{Character, ExampleDialogue};
 
 use crate::{
     errors::ContextError,
-    services::context::{CharacterPart, ContentRef},
+    services::context::{
+        CharacterPart, ContentRef, SettingDefinition, SettingType, SourceDefinition,
+        SourceNodeDefinition, SourceType,
+    },
 };
 
-use super::super::{PromptRole, ResolveContext, ResolvedBlock, SourceResolver};
+use super::super::{ContextSource, PromptRole, ResolveContext, ResolvedBlock};
 
 pub struct CharacterResolver;
 
 #[async_trait]
-impl SourceResolver for CharacterResolver {
-    fn source_id(&self) -> &str {
-        "character"
+impl ContextSource for CharacterResolver {
+    fn definition(&self) -> SourceDefinition {
+        SourceDefinition {
+            source_id: "character".into(),
+            name: "Character".into(),
+            description: "Character definition and personality data".into(),
+            source_type: SourceType::BuiltIn,
+            nodes: vec![
+                SourceNodeDefinition {
+                    node_id: "definition".into(),
+                    title: "Character Definition".into(),
+                    description: "The main character definition/description".into(),
+                    icon: Some("user".into()),
+                    settings: vec![],
+                },
+                SourceNodeDefinition {
+                    node_id: "personality".into(),
+                    title: "Character Personality".into(),
+                    description: "Character personality traits and behavior".into(),
+                    icon: Some("heart".into()),
+                    settings: vec![],
+                },
+                SourceNodeDefinition {
+                    node_id: "scenario".into(),
+                    title: "Scenario".into(),
+                    description: "The current roleplay scenario".into(),
+                    icon: Some("map".into()),
+                    settings: vec![],
+                },
+                SourceNodeDefinition {
+                    node_id: "first_message".into(),
+                    title: "First Message".into(),
+                    description: "Character's opening message".into(),
+                    icon: Some("message-circle".into()),
+                    settings: vec![],
+                },
+                SourceNodeDefinition {
+                    node_id: "example_messages".into(),
+                    title: "Example Messages".into(),
+                    description: "Example conversation messages for style reference".into(),
+                    icon: Some("list".into()),
+                    settings: vec![SettingDefinition {
+                        key: "max_examples".into(),
+                        label: "Maximum Examples".into(),
+                        description: "Maximum number of example exchanges to include".into(),
+                        setting_type: SettingType::Integer {
+                            min: Some(0),
+                            max: Some(20),
+                        },
+                        default_value: serde_json::json!(5),
+                        required: false,
+                    }],
+                },
+            ],
+        }
     }
 
     async fn resolve(

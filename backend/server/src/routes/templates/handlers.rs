@@ -101,7 +101,7 @@ pub async fn list_sources(
     let sources = state
         .services()
         .context()
-        .with_registry(|reg| reg.all_sources_owned());
+        .with_registry(|reg| reg.definitions());
 
     Ok(Json(sources))
 }
