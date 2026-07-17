@@ -4,17 +4,61 @@ use async_trait::async_trait;
 
 use crate::{
     errors::{ContextError, TokenizerError},
-    services::context::ContentRef,
+    services::context::{
+        SelectOption, SettingDefinition, SettingType, SourceDefinition, SourceNodeDefinition,
+        SourceType,
+    },
 };
 
-use super::super::{ResolveContext, ResolvedBlock, SourceResolver};
+use super::super::{ContextSource, ResolveContext, ResolvedBlock};
 
 pub struct ChatHistoryResolver;
 
 #[async_trait]
-impl SourceResolver for ChatHistoryResolver {
-    fn source_id(&self) -> &str {
-        "chat_history"
+impl ContextSource for ChatHistoryResolver {
+    fn definition(&self) -> SourceDefinition {
+        SourceDefinition {
+            source_id: "chat_history".into(),
+            name: "Chat History".into(),
+            description: "The conversation history between user and assistant".into(),
+            source_type: SourceType::BuiltIn,
+            nodes: vec![SourceNodeDefinition {
+                node_id: "main".into(),
+                title: "Chat History".into(),
+                description: "Insert the conversation history at this position".into(),
+                icon: Some("message-square".into()),
+                settings: vec![
+                    SettingDefinition {
+                        key: "max_tokens".into(),
+                        label: "Maximum Tokens".into(),
+                        description: "Truncate history beyond this token count (0 = unlimited)"
+                            .into(),
+                        setting_type: SettingType::TokenCount,
+                        default_value: serde_json::json!(0),
+                        required: false,
+                    },
+                    SettingDefinition {
+                        key: "truncation_strategy".into(),
+                        label: "Truncation Strategy".into(),
+                        description: "How to handle truncation when limit is reached".into(),
+                        setting_type: SettingType::Select {
+                            options: vec![
+                                SelectOption {
+                                    value: "oldest_first".into(),
+                                    label: "Remove oldest messages".into(),
+                                },
+                                SelectOption {
+                                    value: "middle_out".into(),
+                                    label: "Remove messages from the middle".into(),
+                                },
+                            ],
+                        },
+                        default_value: serde_json::json!("oldest_first"),
+                        required: false,
+                    },
+                ],
+            }],
+        }
     }
 
     async fn resolve(

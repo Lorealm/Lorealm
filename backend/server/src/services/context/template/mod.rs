@@ -5,13 +5,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     errors::{ContextError, TemplateError},
-    services::{
-        context::{PromptRole, providers::SourceRegistry},
-        snowflake::SnowflakeService,
-    },
+    services::{context::PromptRole, snowflake::SnowflakeService},
 };
 
-pub mod providers;
 mod types;
 
 pub use types::*;
@@ -660,69 +656,6 @@ impl ContextTemplate {
         let mut result = Vec::new();
         collect(&self.nodes, &mut result);
         result
-    }
-
-    /// Validate the entire template against a source registry
-    pub fn validate(&self, registry: &SourceRegistry) -> Result<(), Vec<TemplateError>> {
-        let mut errors = Vec::new();
-        let mut used_source_nodes: HashMap<(String, String), Snowflake> = HashMap::new();
-
-        fn validate_nodes(
-            nodes: &[ContextNode],
-            registry: &SourceRegistry,
-            used: &mut HashMap<(String, String), Snowflake>,
-            errors: &mut Vec<TemplateError>,
-        ) {
-            for node in nodes {
-                match &node.content {
-                    NodeContent::Source {
-                        source_id,
-                        node_id,
-                        settings: _,
-                    } => {
-                        // Check for duplicates
-                        let key = (source_id.clone(), node_id.clone());
-                        if let Some(&_existing_id) = used.get(&key) {
-                            errors.push(TemplateError::DuplicateSourceNode {
-                                source_id: source_id.clone(),
-                                node_id: node_id.clone(),
-                            });
-                        } else {
-                            used.insert(key, node.id);
-                        }
-
-                        // Validate source exists
-                        match registry.get(source_id) {
-                            None => {
-                                errors.push(TemplateError::UnknownSource(source_id.clone()));
-                            }
-                            Some(source) => {
-                                // Validate node exists in source
-                                if !source.nodes.iter().any(|n| n.node_id == *node_id) {
-                                    errors.push(TemplateError::UnknownSourceNode {
-                                        source_id: source_id.clone(),
-                                        node_id: node_id.clone(),
-                                    });
-                                }
-                                // TODO: validate settings
-                            }
-                        }
-                    }
-                    NodeContent::Group { children, .. } => {
-                        validate_nodes(children, registry, used, errors);
-                    }
-                    NodeContent::Text { .. } => {}
-                }
-            }
-        }
-
-        validate_nodes(&self.nodes, registry, &mut used_source_nodes, &mut errors);
-
-        if errors.is_empty() {
-            Ok(())
-        } else {
-            Err(errors)
-        }
     }
 
     /// Count total number of nodes in the template

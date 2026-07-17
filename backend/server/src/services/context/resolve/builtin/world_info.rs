@@ -14,14 +14,15 @@ use crate::{
     errors::ContextError,
     services::{
         context::{
-            ContentRef, PromptTurn, to_weaver_lorebook,
+            ContentRef, PromptTurn, SettingDefinition, SettingType, SourceDefinition,
+            SourceNodeDefinition, SourceType, to_weaver_lorebook,
             weaver::{LorealmWeaverPlugin, stdlib::StdlibPlugin},
         },
         state::{CapturedState, StatePool, StateService},
     },
 };
 
-use super::super::{PromptRole, ResolveContext, ResolvedBlock, SourceResolver};
+use super::super::{ContextSource, PromptRole, ResolveContext, ResolvedBlock};
 
 pub struct WorldInfoResolver {
     state: Arc<StateService>,
@@ -33,10 +34,79 @@ impl WorldInfoResolver {
     }
 }
 
+fn world_info_node(id: &str, title: &str, description: &str) -> SourceNodeDefinition {
+    SourceNodeDefinition {
+        node_id: id.into(),
+        title: title.into(),
+        description: description.into(),
+        icon: Some("book".into()),
+        settings: vec![
+            SettingDefinition {
+                key: "separator".into(),
+                label: "Entry Separator".into(),
+                description: "Text to insert between entries".into(),
+                setting_type: SettingType::String {
+                    max_length: Some(100),
+                },
+                default_value: serde_json::json!("\n---\n"),
+                required: false,
+            },
+            SettingDefinition {
+                key: "max_entries".into(),
+                label: "Maximum Entries".into(),
+                description: "Maximum number of entries to include (0 = unlimited)".into(),
+                setting_type: SettingType::Integer {
+                    min: Some(0),
+                    max: Some(100),
+                },
+                default_value: serde_json::json!(0),
+                required: false,
+            },
+        ],
+    }
+}
+
 #[async_trait]
-impl SourceResolver for WorldInfoResolver {
-    fn source_id(&self) -> &str {
-        "world_info"
+impl ContextSource for WorldInfoResolver {
+    fn definition(&self) -> SourceDefinition {
+        SourceDefinition {
+            source_id: "world_info".into(),
+            name: "World Info / Lorebook".into(),
+            description: "Dynamic world information entries that activate based on keywords".into(),
+            source_type: SourceType::BuiltIn,
+            nodes: vec![
+                world_info_node(
+                    "prelude",
+                    "World Info (Prelude)",
+                    "World info entries placed at the deepest layer of context",
+                ),
+                world_info_node(
+                    "preamble",
+                    "World Info (Preamble)",
+                    "World info entries placed near the base of context, above the prelude",
+                ),
+                world_info_node(
+                    "backdrop",
+                    "World Info (Backdrop)",
+                    "World info entries providing background context",
+                ),
+                world_info_node(
+                    "setting",
+                    "World Info (Setting)",
+                    "World info entries placed in the middle of context",
+                ),
+                world_info_node(
+                    "foreground",
+                    "World Info (Foreground)",
+                    "World info entries placed near the front of context, closer to recent content",
+                ),
+                world_info_node(
+                    "coda",
+                    "World Info (Coda)",
+                    "World info entries placed at the most recent layer of context",
+                ),
+            ],
+        }
     }
 
     async fn resolve(

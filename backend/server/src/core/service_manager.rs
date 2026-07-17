@@ -8,11 +8,21 @@ use tokio::task::JoinHandle;
 use crate::{
     config::{CharacterConfig, ConfigProvider, SessionConfig, TokenizerConfig, UserConfig},
     services::{
-        character::CharacterService, chat::ChatService, connection::ConnectionService,
-        context::ContextService, conversation::ConversationService, lorebook::LorebookService,
-        permission::service::PermissionService, persona::PersonaService, realm::RealmService,
-        session::SessionService, snowflake::SnowflakeService, state::StateService,
-        tokenizer::TokenizerService, tools::UserToolService, users::UserService,
+        character::CharacterService,
+        chat::ChatService,
+        connection::ConnectionService,
+        context::{ContextService, SourceRegistry, builtin::register_builtin_sources},
+        conversation::ConversationService,
+        lorebook::LorebookService,
+        permission::service::PermissionService,
+        persona::PersonaService,
+        realm::RealmService,
+        session::SessionService,
+        snowflake::SnowflakeService,
+        state::StateService,
+        tokenizer::TokenizerService,
+        tools::UserToolService,
+        users::UserService,
     },
 };
 
@@ -69,9 +79,18 @@ impl ServiceManager {
             config.get::<CharacterConfig>(),
         ));
 
+        let state = Arc::new(StateService::new(Arc::clone(&storage)));
+
+        let sources = {
+            let mut registry = SourceRegistry::new();
+            register_builtin_sources(&mut registry, Arc::clone(&state));
+            Arc::new(registry)
+        };
+
         let context = Arc::new(ContextService::new(
             Arc::clone(&storage),
             Arc::clone(&snowflake),
+            Arc::clone(&sources),
         ));
 
         let lorebook = Arc::new(LorebookService::new(
@@ -84,8 +103,6 @@ impl ServiceManager {
             Arc::clone(&blob),
             Arc::clone(&snowflake),
         ));
-
-        let state = Arc::new(StateService::new(Arc::clone(&storage)));
 
         let conversation = Arc::new(ConversationService::new(
             Arc::clone(&storage),
@@ -124,6 +141,7 @@ impl ServiceManager {
             Arc::clone(&connection),
             Arc::clone(&tools),
             Arc::clone(&tokenizers),
+            Arc::clone(&sources),
         ));
 
         let realms = Arc::new(RealmService::new(

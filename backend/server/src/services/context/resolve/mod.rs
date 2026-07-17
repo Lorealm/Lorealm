@@ -7,7 +7,7 @@ use crate::{errors::ContextError, services::context::GroupWrapMode, util::BulkRe
 
 use super::{
     PromptRole,
-    template::{ContextNode, ContextTemplate, NodeContent},
+    template::{ContextNode, ContextTemplate, NodeContent, SourceDefinition},
 };
 
 pub mod builtin;
@@ -17,9 +17,14 @@ mod types;
 pub use convert::to_weaver_lorebook;
 pub use types::*;
 
+/// A source of context blocks. [`definition`](ContextSource::definition)
+/// describes the source to the template editor;
+/// [`resolve`](ContextSource::resolve) produces its blocks at assembly time.
+/// Both faces live on one trait so a source cannot be described without being
+/// resolvable, or vice versa.
 #[async_trait]
-pub trait SourceResolver: Send + Sync {
-    fn source_id(&self) -> &str;
+pub trait ContextSource: Send + Sync {
+    fn definition(&self) -> SourceDefinition;
 
     async fn resolve(
         &self,
@@ -29,32 +34,35 @@ pub trait SourceResolver: Send + Sync {
     ) -> Result<Vec<ResolvedBlock>, ContextError>;
 }
 
-/// Runtime counterpart to `SourceRegistry`: id -> producer, where
-/// `SourceRegistry` is id -> metadata.
+/// All known context sources, keyed by [`SourceDefinition::source_id`].
 #[derive(Clone, Default)]
-pub struct ResolverRegistry {
-    resolvers: HashMap<String, Arc<dyn SourceResolver>>,
+pub struct SourceRegistry {
+    sources: HashMap<String, Arc<dyn ContextSource>>,
 }
 
-impl ResolverRegistry {
+impl SourceRegistry {
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn register(&mut self, resolver: Arc<dyn SourceResolver>) {
-        self.resolvers
-            .insert(resolver.source_id().to_string(), resolver);
+    pub fn register(&mut self, source: Arc<dyn ContextSource>) {
+        self.sources.insert(source.definition().source_id, source);
     }
 
-    pub fn get(&self, source_id: &str) -> Option<&Arc<dyn SourceResolver>> {
-        self.resolvers.get(source_id)
+    pub fn get(&self, source_id: &str) -> Option<&Arc<dyn ContextSource>> {
+        self.sources.get(source_id)
+    }
+
+    /// Every source's metadata
+    pub fn definitions(&self) -> Vec<SourceDefinition> {
+        self.sources.values().map(|s| s.definition()).collect()
     }
 }
 
 /// Walk the template depth-first, producing blocks in flattened tree order.
 pub async fn assemble(
     template: &ContextTemplate,
-    registry: &ResolverRegistry,
+    registry: &SourceRegistry,
     ctx: &ResolveContext<'_>,
 ) -> Result<Vec<TracedBlock>, ContextError> {
     resolve_nodes(&template.nodes, registry, ctx, Vec::new()).await
@@ -63,7 +71,7 @@ pub async fn assemble(
 // Boxed because the recursion is async (groups await child resolution).
 fn resolve_nodes<'a>(
     nodes: &'a [ContextNode],
-    registry: &'a ResolverRegistry,
+    registry: &'a SourceRegistry,
     ctx: &'a ResolveContext<'a>,
     path: Vec<Snowflake>, // <- new: current group ancestry
 ) -> Pin<Box<dyn Future<Output = Result<Vec<TracedBlock>, ContextError>> + Send + 'a>> {

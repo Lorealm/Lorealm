@@ -26,8 +26,8 @@ use crate::{
         },
         connection::ConnectionService,
         context::{
-            ContextTemplate, PromptRole, PromptTurn, ResolveContext, ResolverRegistry, TracedBlock,
-            assemble, builtin::register_builtin_resolvers,
+            ContextTemplate, PromptRole, PromptTurn, ResolveContext, SourceRegistry, TracedBlock,
+            assemble,
         },
         conversation::{ConversationService, EditMode},
         persona::PersonaService,
@@ -51,7 +51,7 @@ pub struct ChatService {
     connection: Arc<ConnectionService>,
     tools: Arc<UserToolService>,
     tokenizers: Arc<TokenizerService>,
-    resolvers: Arc<ResolverRegistry>,
+    sources: Arc<SourceRegistry>,
     schedule: Arc<Schedule>,
     cancellations: Arc<DashMap<Snowflake, CancellationToken>>,
 }
@@ -67,10 +67,8 @@ impl ChatService {
         connection: Arc<ConnectionService>,
         tools: Arc<UserToolService>,
         tokenizers: Arc<TokenizerService>,
+        sources: Arc<SourceRegistry>,
     ) -> Self {
-        let mut registry = ResolverRegistry::new();
-        register_builtin_resolvers(&mut registry, Arc::clone(&state));
-
         Self {
             storage,
             snowflake,
@@ -81,7 +79,7 @@ impl ChatService {
             connection,
             tools,
             tokenizers,
-            resolvers: Arc::new(registry),
+            sources,
             schedule: Arc::new(Schedule::new(vec![Box::new(PrivacyStage)])),
             cancellations: Arc::new(DashMap::new()),
         }
@@ -437,7 +435,7 @@ impl ChatService {
                 persona: persona.as_ref(),
                 tokenizer: &tokenizer,
             };
-            let trace = assemble(&template, &self.resolvers, &ctx).await?;
+            let trace = assemble(&template, &self.sources, &ctx).await?;
             captured = ctx.lorebook_state.lock().await.take();
             trace
         };
