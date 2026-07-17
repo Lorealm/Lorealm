@@ -287,5 +287,4 @@ impl RealmStorage for MemoryStorage {
             .insert(realm_id, config.clone());
         Ok(())
     }
-
 }

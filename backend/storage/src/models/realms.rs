@@ -476,7 +476,14 @@ mod tests {
 
     #[test]
     fn validate_accepts_weaver_grant_forms() {
-        for ok in ["nation", "nation:*", "nation:a", "nation:a.gold", "nation:a.*", "_x:y_2.z"] {
+        for ok in [
+            "nation",
+            "nation:*",
+            "nation:a",
+            "nation:a.gold",
+            "nation:a.*",
+            "_x:y_2.z",
+        ] {
             assert!(ScopePattern::validate(ok).is_ok(), "{ok}");
         }
     }
@@ -484,13 +491,13 @@ mod tests {
     #[test]
     fn validate_rejects_non_weaver_forms() {
         for bad in [
-            "nation.a",    // dotted scope: pre-convergence form
-            "market.*",    // scope-half wildcard
-            "nation:",     // empty name
-            ":gold",       // empty scope
-            "nation:a..b", // empty path segment
-            "nation:*.a",  // wildcard must be trailing
-            "1nation",     // not an identifier
+            "nation.a",       // dotted scope: pre-convergence form
+            "market.*",       // scope-half wildcard
+            "nation:",        // empty name
+            ":gold",          // empty scope
+            "nation:a..b",    // empty path segment
+            "nation:*.a",     // wildcard must be trailing
+            "1nation",        // not an identifier
             "nation:a.gold.", // trailing dot
         ] {
             assert!(ScopePattern::validate(bad).is_err(), "{bad}");

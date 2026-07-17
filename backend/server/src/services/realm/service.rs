@@ -529,9 +529,10 @@ impl RealmService {
 
         let llm = match self.plan_turn(&convo, cast, target).await? {
             TurnPlan::AwaitPlayer { agent_id } => {
-                return Ok(Box::pin(futures_util::stream::once(async move {
-                    Ok(RealmStreamEvent::AwaitingPlayer { agent_id })
-                })));
+                let stream = async_stream::try_stream! {
+                    yield RealmStreamEvent::AwaitingPlayer { agent_id };
+                };
+                return Ok(Box::pin(stream));
             }
             TurnPlan::Ready(ready) => {
                 let service = Arc::clone(self);
@@ -550,10 +551,14 @@ impl RealmService {
             }
             TurnPlan::Stream(llm) => llm,
         };
+        let realm_id = convo
+            .realm_id
+            .ok_or(RealmError::NotRealmConversation(convo.id))?;
+        let realm = self.get_realm(realm_id, user_id).await?;
 
         let mut open = self
             .chat
-            .open_agent_turn(&llm.spec, &llm.turns, &llm.baseline, &llm.policy)
+            .open_agent_turn(&llm.spec, &realm, &llm.turns, &llm.baseline, &llm.policy)
             .await?;
 
         let (cancel, guard) = self.chat.begin_cancel(convo_id);
@@ -610,7 +615,7 @@ impl RealmService {
             yield RealmStreamEvent::Committed { message, events };
         };
 
-        Ok(Box::pin(stream))
+        return Ok(Box::pin(stream));
     }
 
     pub async fn submit_player_turn(

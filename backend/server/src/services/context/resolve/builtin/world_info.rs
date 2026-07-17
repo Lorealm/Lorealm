@@ -200,8 +200,9 @@ impl WorldInfoResolver {
 
         let state = ctx.state;
 
-        weaver.reserve_namespace("char", NamespaceAccess::ReadOnly);
-        weaver.reserve_namespace("user", NamespaceAccess::ReadOnly);
+        for (scope, _) in ctx.variables.iter() {
+            weaver.reserve_namespace(scope, NamespaceAccess::ReadOnly);
+        }
 
         weaver.restore_persistent(to_weaver_snapshot(&state.persistent)?);
 
@@ -212,18 +213,10 @@ impl WorldInfoResolver {
             }
         }
 
-        if let Some(ch) = ctx.character {
-            let name = ch
-                .metadata
-                .display_name
-                .clone()
-                .unwrap_or_else(|| ch.definition.name.clone());
-            weaver.set_variable("char", "name", name);
-        }
-
-        if let Some(p) = ctx.persona {
-            let name = p.display_name.clone().unwrap_or_else(|| p.name.clone());
-            weaver.set_variable("user", "name", name);
+        for (scope, vars) in ctx.variables.iter() {
+            for (name, value) in vars {
+                weaver.set_variable(scope, name, value.clone());
+            }
         }
 
         let cw_messages = convert_messages(ctx.messages);

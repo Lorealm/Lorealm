@@ -393,7 +393,10 @@ mod tests {
 
         assert_eq!(
             agent_required_imports(&player),
-            vec![(ImportKind::ConnectionProfile, sf(30)), (ImportKind::Tool, sf(40))]
+            vec![
+                (ImportKind::ConnectionProfile, sf(30)),
+                (ImportKind::Tool, sf(40))
+            ]
         );
     }
 

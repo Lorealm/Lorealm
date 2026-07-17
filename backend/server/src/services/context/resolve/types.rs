@@ -1,14 +1,13 @@
 use std::sync::Arc;
 
-use lorealm_storage::models::{
-    AgentObservation, Character, ConversationMessage, Snowflake, UserPersona,
-};
+use lorealm_storage::models::{AgentObservation, Character, ConversationMessage, Snowflake};
 use serde::Serialize;
 use tokio::sync::Mutex;
 
 use crate::services::{
     context::PromptRole,
     state::{CapturedState, ReconstructedState},
+    variables::Variables,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -85,8 +84,10 @@ pub struct ResolveContext<'a> {
     /// `None` = the user's active lorebooks; `Some` = exactly these books
     /// (realm turns feed the agent's bound imports here).
     pub lorebook_ids: Option<&'a [Snowflake]>,
-    pub persona: Option<&'a UserPersona>,
     pub tokenizer: &'a Arc<kitoken::Kitoken>,
+    /// Host variables for this turn, materialized once so the lorebook host and
+    /// block substitution cannot disagree. See [`crate::services::variables`].
+    pub variables: Variables,
 }
 
 /// A single prompt-visible turn, source-agnostic. Both conversation
