@@ -3,7 +3,10 @@ use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc};
 use async_trait::async_trait;
 use lorealm_storage::models::Snowflake;
 
-use crate::{errors::ContextError, services::context::GroupWrapMode, util::BulkReplace};
+use crate::{
+    errors::ContextError,
+    services::{context::GroupWrapMode, variables::substitute},
+};
 
 use super::{
     PromptRole,
@@ -150,24 +153,7 @@ fn resolve_nodes<'a>(
 }
 
 fn apply_variables(content: &mut String, ctx: &ResolveContext) {
-    let replace = BulkReplace::new(content.clone());
-
-    if let Some(ch) = ctx.character {
-        let name = ch
-            .metadata
-            .display_name
-            .clone()
-            .unwrap_or_else(|| ch.definition.name.clone());
-
-        replace.register("{{char:name}}", name);
-    }
-
-    if let Some(p) = ctx.persona {
-        let name = p.display_name.clone().unwrap_or_else(|| p.name.clone());
-        replace.register("{{user:name}}", name);
-    }
-
-    *content = replace.execute();
+    *content = substitute(content, &ctx.variables);
 }
 
 fn wrapper_block(

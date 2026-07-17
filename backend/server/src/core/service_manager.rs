@@ -23,6 +23,7 @@ use crate::{
         tokenizer::TokenizerService,
         tools::UserToolService,
         users::UserService,
+        variables::{VariableRegistry, builtin::register_builtin_providers},
     },
 };
 
@@ -87,6 +88,13 @@ impl ServiceManager {
             Arc::new(registry)
         };
 
+        // The one definition of `{{scope:name}}`, shared by every weaver host.
+        let variables = {
+            let mut registry = VariableRegistry::new();
+            register_builtin_providers(&mut registry);
+            Arc::new(registry)
+        };
+
         let context = Arc::new(ContextService::new(
             Arc::clone(&storage),
             Arc::clone(&snowflake),
@@ -142,6 +150,7 @@ impl ServiceManager {
             Arc::clone(&tools),
             Arc::clone(&tokenizers),
             Arc::clone(&sources),
+            Arc::clone(&variables),
         ));
 
         let realms = Arc::new(RealmService::new(

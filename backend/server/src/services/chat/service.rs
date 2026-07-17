@@ -7,7 +7,8 @@ use lorealm_providers::{Client, ContentBlock, LlmProvider, OpenRouterOptions, Op
 use lorealm_storage::{
     Storage,
     models::{
-        AgentSpec, ChatRole, Conversation, ConversationMessage, ConversationMetadata, Snowflake,
+        AgentSpec, ChatRole, Conversation, ConversationMessage, ConversationMetadata, Realm,
+        Snowflake,
     },
 };
 use serde_json::json;
@@ -38,6 +39,7 @@ use crate::{
         tools::{
             CompiledUserTool, ToolPolicy, ToolSignature, UserToolService, build_tool_registry,
         },
+        variables::{VariableContext, VariableRegistry},
     },
 };
 
@@ -52,6 +54,7 @@ pub struct ChatService {
     tools: Arc<UserToolService>,
     tokenizers: Arc<TokenizerService>,
     sources: Arc<SourceRegistry>,
+    variables: Arc<VariableRegistry>,
     schedule: Arc<Schedule>,
     cancellations: Arc<DashMap<Snowflake, CancellationToken>>,
 }
@@ -68,6 +71,7 @@ impl ChatService {
         tools: Arc<UserToolService>,
         tokenizers: Arc<TokenizerService>,
         sources: Arc<SourceRegistry>,
+        variables: Arc<VariableRegistry>,
     ) -> Self {
         Self {
             storage,
@@ -80,6 +84,7 @@ impl ChatService {
             tools,
             tokenizers,
             sources,
+            variables,
             schedule: Arc::new(Schedule::new(vec![Box::new(PrivacyStage)])),
             cancellations: Arc::new(DashMap::new()),
         }
@@ -396,6 +401,7 @@ impl ChatService {
     async fn assemble_context(
         &self,
         spec: &AgentSpec,
+        realm: Option<&Realm>,
         thread: &[PromptTurn],
         baseline: &ReconstructedState,
     ) -> Result<Prepared, ChatError> {
@@ -432,8 +438,12 @@ impl ChatService {
                 state: baseline,
                 lorebook_state: Mutex::new(None),
                 lorebook_ids: spec.lorebook_ids.as_deref(),
-                persona: persona.as_ref(),
                 tokenizer: &tokenizer,
+                variables: self.variables.materialize(&VariableContext {
+                    character: character.as_ref(),
+                    persona: persona.as_ref(),
+                    realm,
+                }),
             };
             let trace = assemble(&template, &self.sources, &ctx).await?;
             captured = ctx.lorebook_state.lock().await.take();
@@ -544,7 +554,9 @@ impl ChatService {
             mut prompt,
             trace,
             captured,
-        } = self.assemble_context(&spec, &turns, &baseline).await?;
+        } = self
+            .assemble_context(&spec, None, &turns, &baseline)
+            .await?;
 
         let ids: Vec<Snowflake> = thread.iter().map(|m| m.id).collect();
         let baseline = self.state.reconstruct(&ids).await?.persistent;
@@ -804,6 +816,7 @@ impl ChatService {
     pub async fn open_agent_turn(
         &self,
         spec: &AgentSpec,
+        realm: &Realm,
         turns: &[PromptTurn],
         baseline: &ReconstructedState,
         policy: &ToolPolicy,
@@ -812,7 +825,9 @@ impl ChatService {
             prompt,
             trace,
             captured,
-        } = self.assemble_context(spec, turns, baseline).await?;
+        } = self
+            .assemble_context(spec, Some(realm), turns, baseline)
+            .await?;
 
         let diff_base = baseline.persistent.clone();
         let mut working = baseline.persistent.clone();

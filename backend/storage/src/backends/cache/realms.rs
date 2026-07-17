@@ -111,6 +111,8 @@ impl RealmStorage for CachedStorage {
         user_id: Snowflake,
         config: &RealmConfig,
     ) -> Result<(), StorageError> {
-        self.backend.put_realm_config(realm_id, user_id, config).await
+        self.backend
+            .put_realm_config(realm_id, user_id, config)
+            .await
     }
 }
