@@ -9,6 +9,7 @@
     "@tauri-apps/cli": "^2.10.1"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.18.0",
     "@codemirror/commands": "^6.6.0",
     "@codemirror/language": "^6.10.2",
     "@codemirror/state": "^6.4.1",

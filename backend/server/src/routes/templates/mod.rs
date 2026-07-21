@@ -22,6 +22,7 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         .route("/active", get(handlers::get_active))
         .route("/{template_id}", get(handlers::get_template))
         .route("/sources", get(handlers::list_sources))
+        .route("/weaver-vocabulary", get(handlers::list_weaver_vocabulary))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
             session_auth_middleware,

@@ -43,6 +43,13 @@ pub(super) struct NodeResponse {
     pub path: NodePath,
 }
 
+/// Every weaver command and processor an editor can offer
+#[derive(Serialize)]
+pub(super) struct WeaverVocabulary {
+    pub commands: Vec<weaver_lang::registry::CommandSignature>,
+    pub processors: Vec<weaver_lang::registry::ProcessorSignature>,
+}
+
 #[derive(Debug, Deserialize)]
 pub(super) struct UpdateNodeRequest {
     pub title: Option<String>,

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import WeaverField from "$lib/weaver/editor/WeaverField.svelte";
+	import type { ReferenceSource } from '$lib/weaver/editor/weaver-references.js';
 
 	let {
 		value,
@@ -7,7 +8,8 @@
 		multiline = false,
 		rows = 10,
 		placeholder = '',
-		ariaLabel
+		ariaLabel,
+		references
 	}: {
 		value: string;
 		onchange: (next: string) => void;
@@ -15,6 +17,7 @@
 		rows?: number;
 		placeholder?: string;
 		ariaLabel?: string;
+		references?: ReferenceSource;
 	} = $props();
 </script>
 
@@ -31,6 +34,7 @@
 	<WeaverField
 		doc={value}
 		onChange={onchange}
+		{references}
 	/>
 {/if}
 

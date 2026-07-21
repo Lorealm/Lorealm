@@ -1,6 +1,5 @@
 use context_weaver::Plugin;
-use weaver_lang::registry::{CommandSignature, ParamDef, ValueType, WeaverCommand};
-use weaver_lang::{EvalContext, EvalError, EvalErrorKind, Registry, Value};
+use weaver_lang::{EvalError, EvalErrorKind, Registry, Value};
 use weaver_macros::{weaver_command, weaver_processor};
 
 const INVALID_VAR_CHARS: [char; 5] = ['{', ':', '}', '<', '>'];
@@ -71,7 +70,14 @@ fn parse_var_key(key: &str) -> Result<(&str, &str), EvalError> {
 }
 
 /// `$[set_var("scope:name", value)]` — sets a variable in a writable scope.
-#[weaver_command(name = "set_var")]
+#[weaver_command(
+    name = "set_var",
+    returns = "none",
+    params(
+        key = "The `{{scope:name}}` formatted variable to set",
+        value = "The value to set the variable to"
+    )
+)]
 fn set_var(
     key: String,
     value: Value,
@@ -83,7 +89,11 @@ fn set_var(
 }
 
 /// `$[get_var("scope:name")]` — returns the variable's value, or `none` if unset.
-#[weaver_command(name = "get_var")]
+#[weaver_command(
+    name = "get_var",
+    returns = "any",
+    params(key = "The `{{scope:name}}` formatted variable to get")
+)]
 fn get_var(key: String, ctx: &mut dyn EvalContext) -> Result<Option<Value>, EvalError> {
     let (scope, name) = parse_var_key(&key)?;
     Ok(Some(
@@ -94,7 +104,11 @@ fn get_var(key: String, ctx: &mut dyn EvalContext) -> Result<Option<Value>, Eval
 /// `$[var_exists("scope:name")]` — returns whether the variable is defined.
 ///
 /// A key without a `scope:name` colon is a usage error and propagates.
-#[weaver_command(name = "var_exists")]
+#[weaver_command(
+    name = "var_exists",
+    returns = "bool",
+    params(key = "The `{{scope:name}}` formatted variable to check whether exists")
+)]
 fn var_exists(key: String, ctx: &mut dyn EvalContext) -> Result<Option<Value>, EvalError> {
     let (scope, name) = parse_var_key(&key)?;
     let exists = ctx.resolve_variable(scope, name)?.is_some();
@@ -105,7 +119,11 @@ fn var_exists(key: String, ctx: &mut dyn EvalContext) -> Result<Option<Value>, E
 ///
 /// An unset variable becomes a single-element array. A non-array value is a
 /// type error.
-#[weaver_command(name = "push_var")]
+#[weaver_command(
+    name = "push_var",
+    returns = "none",
+    params(key = "The `{{scope:name}}` formatted, array-typed variable to push a value to")
+)]
 fn push_var(
     key: String,
     value: Value,
@@ -128,7 +146,14 @@ fn push_var(
 ///
 /// A variable that already exists, including one set to `none`, is left
 /// unchanged.
-#[weaver_command(name = "default_var")]
+#[weaver_command(
+    name = "default_var",
+    returns = "none",
+    params(
+        key = "`The {{scope:name}}` formatted variable to *potentially* set",
+        value = "The value to *potentially* set"
+    )
+)]
 fn default_var(
     key: String,
     value: Value,
@@ -145,49 +170,30 @@ fn default_var(
 ///
 /// `amount` defaults to 1. An unset variable is initialized to `amount`; a
 /// non-numeric existing value is a type error.
-struct IncVarCommand;
+#[weaver_command(
+    name = "inc_var",
+    returns = "none",
+    params(
+        key = "The `{{scope:name}}` formatted, number-typed variable to increment",
+        amount = "An optional amount to increment the variable by. Defaults to 1.0"
+    )
+)]
+fn inc_var(
+    key: String,
+    amount: Option<f64>,
+    ctx: &mut dyn EvalContext,
+) -> Result<Option<Value>, EvalError> {
+    let amount = amount.unwrap_or(1.0);
+    let (scope, name) = parse_var_key(&key)?;
 
-impl WeaverCommand for IncVarCommand {
-    fn call(
-        &self,
-        args: Vec<Value>,
-        ctx: &mut dyn EvalContext,
-        _registry: &Registry,
-    ) -> Result<Option<Value>, EvalError> {
-        let key = args.first().and_then(|v| v.as_string()).ok_or_else(|| {
-            EvalError::type_error("string", args.first().map_or("none", |v| v.type_name()))
-        })?;
-        let amount = args.get(1).and_then(|v| v.as_number()).unwrap_or(1.0);
+    let new_val = match ctx.resolve_variable(scope, name)? {
+        Some(Value::Number(n)) => n + amount,
+        Some(other) => return Err(EvalError::type_error("number", other.type_name())),
+        None => amount,
+    };
 
-        let (scope, name) = parse_var_key(key)?;
-
-        let new_val = match ctx.resolve_variable(scope, name)? {
-            Some(Value::Number(n)) => n + amount,
-            Some(other) => return Err(EvalError::type_error("number", other.type_name())),
-            None => amount,
-        };
-
-        ctx.set_variable(scope, name, Value::Number(new_val))?;
-        Ok(None)
-    }
-
-    fn signature(&self) -> CommandSignature {
-        CommandSignature {
-            name: "inc_var".to_string(),
-            params: vec![
-                ParamDef {
-                    name: "key".to_string(),
-                    expected_type: Some(ValueType::String),
-                    required: true,
-                },
-                ParamDef {
-                    name: "amount".to_string(),
-                    expected_type: Some(ValueType::Number),
-                    required: false,
-                },
-            ],
-        }
-    }
+    ctx.set_variable(scope, name, Value::Number(new_val))?;
+    Ok(None)
 }
 
 fn register_text(registry: &mut Registry) {
@@ -206,31 +212,31 @@ fn register_text(registry: &mut Registry) {
 }
 
 /// `@[text.upper(text: "hello")]` → `"HELLO"`
-#[weaver_processor(namespace = "text", name = "upper")]
+#[weaver_processor(namespace = "text", name = "upper", returns = "string")]
 fn text_upper(text: String) -> Result<Value, EvalError> {
     Ok(Value::String(text.to_uppercase()))
 }
 
 /// `@[text.lower(text: "HELLO")]` → `"hello"`
-#[weaver_processor(namespace = "text", name = "lower")]
+#[weaver_processor(namespace = "text", name = "lower", returns = "string")]
 fn text_lower(text: String) -> Result<Value, EvalError> {
     Ok(Value::String(text.to_lowercase()))
 }
 
 /// `@[text.length(text: "hello")]` → `5` (counts Unicode scalar values).
-#[weaver_processor(namespace = "text", name = "length")]
+#[weaver_processor(namespace = "text", name = "length", returns = "number")]
 fn text_length(text: String) -> Result<Value, EvalError> {
     Ok(Value::Number(text.chars().count() as f64))
 }
 
 /// `@[text.trim(text: "  hello  ")]` → `"hello"`
-#[weaver_processor(namespace = "text", name = "trim")]
+#[weaver_processor(namespace = "text", name = "trim", returns = "string")]
 fn text_trim(text: String) -> Result<Value, EvalError> {
     Ok(Value::String(text.trim().to_string()))
 }
 
 /// `@[text.capitalize(text: "hello world")]` → `"Hello world"`
-#[weaver_processor(namespace = "text", name = "capitalize")]
+#[weaver_processor(namespace = "text", name = "capitalize", returns = "string")]
 fn text_capitalize(text: String) -> Result<Value, EvalError> {
     let mut chars = text.chars();
     let capitalized = match chars.next() {
@@ -241,25 +247,25 @@ fn text_capitalize(text: String) -> Result<Value, EvalError> {
 }
 
 /// `@[text.contains(text: "hello world", substring: "world")]` → `true`
-#[weaver_processor(namespace = "text", name = "contains")]
+#[weaver_processor(namespace = "text", name = "contains", returns = "bool")]
 fn text_contains(text: String, substring: String) -> Result<Value, EvalError> {
     Ok(Value::Bool(text.contains(&substring)))
 }
 
 /// `@[text.starts_with(text: "hello", prefix: "hel")]` → `true`
-#[weaver_processor(namespace = "text", name = "starts_with")]
+#[weaver_processor(namespace = "text", name = "starts_with", returns = "bool")]
 fn text_starts_with(text: String, prefix: String) -> Result<Value, EvalError> {
     Ok(Value::Bool(text.starts_with(&prefix)))
 }
 
 /// `@[text.ends_with(text: "hello", suffix: "llo")]` → `true`
-#[weaver_processor(namespace = "text", name = "ends_with")]
+#[weaver_processor(namespace = "text", name = "ends_with", returns = "bool")]
 fn text_ends_with(text: String, suffix: String) -> Result<Value, EvalError> {
     Ok(Value::Bool(text.ends_with(&suffix)))
 }
 
 /// `@[text.replace(text: "hello world", from: "world", to: "rust")]` → `"hello rust"`
-#[weaver_processor(namespace = "text", name = "replace")]
+#[weaver_processor(namespace = "text", name = "replace", returns = "string")]
 fn text_replace(text: String, from: String, to: String) -> Result<Value, EvalError> {
     Ok(Value::String(text.replace(&from, &to)))
 }
@@ -267,10 +273,10 @@ fn text_replace(text: String, from: String, to: String) -> Result<Value, EvalErr
 /// `@[text.substr(text: "hello", start: 1, length: 3)]` → `"ell"`
 ///
 /// `length` is optional; when omitted the substring runs to the end.
-#[weaver_processor(namespace = "text", name = "substr")]
-fn text_substr(text: String, start: f64, length: Value) -> Result<Value, EvalError> {
+#[weaver_processor(namespace = "text", name = "substr", returns = "string")]
+fn text_substr(text: String, start: f64, length: Option<f64>) -> Result<Value, EvalError> {
     let start = start as usize;
-    let result: String = match length.as_number() {
+    let result: String = match length {
         Some(len) => text.chars().skip(start).take(len as usize).collect(),
         None => text.chars().skip(start).collect(),
     };
@@ -280,9 +286,9 @@ fn text_substr(text: String, start: f64, length: Value) -> Result<Value, EvalErr
 /// `@[text.join(items: ["a", "b", "c"], separator: ", ")]` → `"a, b, c"`
 ///
 /// `separator` is optional and defaults to `", "`.
-#[weaver_processor(namespace = "text", name = "join")]
-fn text_join(items: Vec<Value>, separator: Value) -> Result<Value, EvalError> {
-    let sep = separator.as_string().unwrap_or(", ");
+#[weaver_processor(namespace = "text", name = "join", returns = "string")]
+fn text_join(items: Vec<Value>, separator: Option<String>) -> Result<Value, EvalError> {
+    let sep = separator.as_deref().unwrap_or(", ");
     let joined: String = items
         .iter()
         .map(|v| v.to_output_string())
@@ -292,7 +298,7 @@ fn text_join(items: Vec<Value>, separator: Value) -> Result<Value, EvalError> {
 }
 
 /// `@[text.repeat(text: "ha", count: 3)]` → `"hahaha"`
-#[weaver_processor(namespace = "text", name = "repeat")]
+#[weaver_processor(namespace = "text", name = "repeat", returns = "string")]
 fn text_repeat(text: String, count: f64) -> Result<Value, EvalError> {
     Ok(Value::String(text.repeat(count as usize)))
 }
@@ -313,25 +319,25 @@ fn register_math(registry: &mut Registry) {
 }
 
 /// `@[math.add(a: 1, b: 2)]` → `3`
-#[weaver_processor(namespace = "math", name = "add")]
+#[weaver_processor(namespace = "math", name = "add", returns = "number")]
 fn math_add(a: f64, b: f64) -> Result<Value, EvalError> {
     Ok(Value::Number(a + b))
 }
 
 /// `@[math.sub(a: 5, b: 3)]` → `2`
-#[weaver_processor(namespace = "math", name = "sub")]
+#[weaver_processor(namespace = "math", name = "sub", returns = "number")]
 fn math_sub(a: f64, b: f64) -> Result<Value, EvalError> {
     Ok(Value::Number(a - b))
 }
 
 /// `@[math.mul(a: 2, b: 3)]` → `6`
-#[weaver_processor(namespace = "math", name = "mul")]
+#[weaver_processor(namespace = "math", name = "mul", returns = "number")]
 fn math_mul(a: f64, b: f64) -> Result<Value, EvalError> {
     Ok(Value::Number(a * b))
 }
 
 /// `@[math.div(a: 10, b: 2)]` → `5`. Errors when `b` is 0.
-#[weaver_processor(namespace = "math", name = "div")]
+#[weaver_processor(namespace = "math", name = "div", returns = "number")]
 fn math_div(a: f64, b: f64) -> Result<Value, EvalError> {
     if b == 0.0 {
         return Err(EvalError::new(
@@ -343,7 +349,7 @@ fn math_div(a: f64, b: f64) -> Result<Value, EvalError> {
 }
 
 /// `@[math.mod(a: 10, b: 3)]` → `1`. Errors when `b` is 0.
-#[weaver_processor(namespace = "math", name = "mod")]
+#[weaver_processor(namespace = "math", name = "mod", returns = "number")]
 fn math_mod(a: f64, b: f64) -> Result<Value, EvalError> {
     if b == 0.0 {
         return Err(EvalError::new(
@@ -355,43 +361,43 @@ fn math_mod(a: f64, b: f64) -> Result<Value, EvalError> {
 }
 
 /// `@[math.abs(value: -5)]` → `5`
-#[weaver_processor(namespace = "math", name = "abs")]
+#[weaver_processor(namespace = "math", name = "abs", returns = "number")]
 fn math_abs(value: f64) -> Result<Value, EvalError> {
     Ok(Value::Number(value.abs()))
 }
 
 /// `@[math.min(a: 3, b: 7)]` → `3`
-#[weaver_processor(namespace = "math", name = "min")]
+#[weaver_processor(namespace = "math", name = "min", returns = "number")]
 fn math_min(a: f64, b: f64) -> Result<Value, EvalError> {
     Ok(Value::Number(a.min(b)))
 }
 
 /// `@[math.max(a: 3, b: 7)]` → `7`
-#[weaver_processor(namespace = "math", name = "max")]
+#[weaver_processor(namespace = "math", name = "max", returns = "number")]
 fn math_max(a: f64, b: f64) -> Result<Value, EvalError> {
     Ok(Value::Number(a.max(b)))
 }
 
 /// `@[math.clamp(value: 150, min: 0, max: 100)]` → `100`
-#[weaver_processor(namespace = "math", name = "clamp")]
+#[weaver_processor(namespace = "math", name = "clamp", returns = "number")]
 fn math_clamp(value: f64, min: f64, max: f64) -> Result<Value, EvalError> {
     Ok(Value::Number(value.max(min).min(max)))
 }
 
 /// `@[math.floor(value: 3.7)]` → `3`
-#[weaver_processor(namespace = "math", name = "floor")]
+#[weaver_processor(namespace = "math", name = "floor", returns = "number")]
 fn math_floor(value: f64) -> Result<Value, EvalError> {
     Ok(Value::Number(value.floor()))
 }
 
 /// `@[math.ceil(value: 3.2)]` → `4`
-#[weaver_processor(namespace = "math", name = "ceil")]
+#[weaver_processor(namespace = "math", name = "ceil", returns = "number")]
 fn math_ceil(value: f64) -> Result<Value, EvalError> {
     Ok(Value::Number(value.ceil()))
 }
 
 /// `@[math.round(value: 3.5)]` → `4`
-#[weaver_processor(namespace = "math", name = "round")]
+#[weaver_processor(namespace = "math", name = "round", returns = "number")]
 fn math_round(value: f64) -> Result<Value, EvalError> {
     Ok(Value::Number(value.round()))
 }
@@ -408,31 +414,31 @@ fn register_array(registry: &mut Registry) {
 }
 
 /// `@[array.length(items: [1, 2, 3])]` → `3`
-#[weaver_processor(namespace = "array", name = "length")]
+#[weaver_processor(namespace = "array", name = "length", returns = "number")]
 fn array_length(items: Vec<Value>) -> Result<Value, EvalError> {
     Ok(Value::Number(items.len() as f64))
 }
 
 /// `@[array.contains(items: ["a", "b"], value: "a")]` → `true`
-#[weaver_processor(namespace = "array", name = "contains")]
+#[weaver_processor(namespace = "array", name = "contains", returns = "bool")]
 fn array_contains(items: Vec<Value>, value: Value) -> Result<Value, EvalError> {
     Ok(Value::Bool(items.contains(&value)))
 }
 
 /// `@[array.first(items: [1, 2, 3])]` → `1`. `none` for an empty array.
-#[weaver_processor(namespace = "array", name = "first")]
+#[weaver_processor(namespace = "array", name = "first", returns = "any")]
 fn array_first(items: Vec<Value>) -> Result<Value, EvalError> {
     Ok(items.into_iter().next().unwrap_or(Value::None))
 }
 
 /// `@[array.last(items: [1, 2, 3])]` → `3`. `none` for an empty array.
-#[weaver_processor(namespace = "array", name = "last")]
+#[weaver_processor(namespace = "array", name = "last", returns = "any")]
 fn array_last(items: Vec<Value>) -> Result<Value, EvalError> {
     Ok(items.into_iter().last().unwrap_or(Value::None))
 }
 
 /// `@[array.reverse(items: [1, 2, 3])]` → `[3, 2, 1]`
-#[weaver_processor(namespace = "array", name = "reverse")]
+#[weaver_processor(namespace = "array", name = "reverse", returns = "array")]
 fn array_reverse(items: Vec<Value>) -> Result<Value, EvalError> {
     let mut reversed = items;
     reversed.reverse();
@@ -443,10 +449,10 @@ fn array_reverse(items: Vec<Value>) -> Result<Value, EvalError> {
 ///
 /// `end` is optional; when omitted the slice runs to the end. Both bounds are
 /// clamped to the array length.
-#[weaver_processor(namespace = "array", name = "slice")]
-fn array_slice(items: Vec<Value>, start: f64, end: Value) -> Result<Value, EvalError> {
+#[weaver_processor(namespace = "array", name = "slice", returns = "array")]
+fn array_slice(items: Vec<Value>, start: f64, end: Option<f64>) -> Result<Value, EvalError> {
     let start = start as usize;
-    let end = end.as_number().map(|n| n as usize).unwrap_or(items.len());
+    let end = end.map(|n| n as usize).unwrap_or(items.len());
     let sliced = items
         .get(start..end.min(items.len()))
         .unwrap_or(&[])
@@ -455,7 +461,7 @@ fn array_slice(items: Vec<Value>, start: f64, end: Value) -> Result<Value, EvalE
 }
 
 /// `@[array.range(start: 1, end: 4)]` → `[1, 2, 3]` (end-exclusive).
-#[weaver_processor(namespace = "array", name = "range")]
+#[weaver_processor(namespace = "array", name = "range", returns = "array")]
 fn array_range(start: f64, end: f64) -> Result<Value, EvalError> {
     let (start, end) = (start as i64, end as i64);
     let range: Vec<Value> = (start..end).map(|n| Value::Number(n as f64)).collect();
@@ -463,7 +469,7 @@ fn array_range(start: f64, end: f64) -> Result<Value, EvalError> {
 }
 
 /// `@[array.concat(a: [1, 2], b: [3, 4])]` → `[1, 2, 3, 4]`
-#[weaver_processor(namespace = "array", name = "concat")]
+#[weaver_processor(namespace = "array", name = "concat", returns = "array")]
 fn array_concat(a: Vec<Value>, b: Vec<Value>) -> Result<Value, EvalError> {
     let mut result = a;
     result.extend(b);
@@ -475,7 +481,7 @@ fn register_random(registry: &mut Registry) {
     registry.register_processor(PickRandomProcessor);
 }
 
-#[weaver_processor(namespace = "random", name = "gen")]
+#[weaver_processor(namespace = "random", name = "gen", returns = "number")]
 pub fn generate_random(min: f64, max: f64) -> Result<Value, EvalError> {
     let min = min as i32;
     let max = max as i32;
@@ -483,7 +489,7 @@ pub fn generate_random(min: f64, max: f64) -> Result<Value, EvalError> {
     Ok(Value::Number(rand::random_range(min..max) as f64))
 }
 
-#[weaver_processor(namespace = "random", name = "pick")]
+#[weaver_processor(namespace = "random", name = "pick", returns = "any")]
 pub fn pick_random(items: Vec<Value>) -> Result<Value, EvalError> {
     let min = 0;
     let max = items.len();
@@ -499,6 +505,7 @@ pub fn pick_random(items: Vec<Value>) -> Result<Value, EvalError> {
 mod tests {
     use super::*;
     use std::collections::HashMap;
+    use weaver_lang::EvalContext;
 
     struct SimpleContext {
         variables: HashMap<String, HashMap<String, Value>>,

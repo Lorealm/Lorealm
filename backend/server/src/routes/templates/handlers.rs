@@ -11,8 +11,9 @@ use crate::{
     core::AppState,
     errors::AppError,
     extract::AuthenticatedSession,
-    routes::templates::SetActiveRequest,
+    routes::templates::{SetActiveRequest, WeaverVocabulary},
     services::context::{ContextTemplate, SourceDefinition},
+    services::tools::build_tool_registry,
 };
 
 pub async fn list_templates(
@@ -104,6 +105,25 @@ pub async fn list_sources(
         .with_registry(|reg| reg.definitions());
 
     Ok(Json(sources))
+}
+
+/// Lists every weaver command and processor available to editors
+pub async fn list_weaver_vocabulary() -> Json<WeaverVocabulary> {
+    let registry = build_tool_registry();
+
+    let mut commands = registry.command_signatures();
+    commands.extend(context_weaver::host_command_signatures());
+    commands.sort_by(|a, b| a.name.cmp(&b.name));
+
+    let mut processors = registry.processor_signatures();
+    processors.sort_by(|a, b| {
+        (a.namespace.as_str(), a.name.as_str()).cmp(&(b.namespace.as_str(), b.name.as_str()))
+    });
+
+    Json(WeaverVocabulary {
+        commands,
+        processors,
+    })
 }
 
 pub async fn add_node(
@@ -217,4 +237,50 @@ pub async fn unset_active_template(
     session: AuthenticatedSession,
 ) -> Result<(), AppError> {
     set_active(state, session, None).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn vocabulary_carries_editor_metadata() {
+        let vocab = list_weaver_vocabulary().await.0;
+
+        // Standard library and the lorebook host commands are both present.
+        let names: Vec<&str> = vocab.commands.iter().map(|c| c.name.as_str()).collect();
+        assert!(names.contains(&"set_var"));
+        assert!(names.contains(&"inc_var"));
+        assert!(names.contains(&"is_active"));
+        assert!(names.contains(&"is_active_global"));
+
+        // Descriptions come through from the callables' doc comments.
+        let set_var = vocab.commands.iter().find(|c| c.name == "set_var").unwrap();
+        assert!(!set_var.description.is_empty());
+        assert_eq!(set_var.returns, weaver_lang::registry::ValueType::None);
+        assert!(set_var.mutates_context);
+
+        // The drift fix flows all the way to the wire: text.substr's `length`
+        // is optional and typed number, not required-and-any.
+        let substr = vocab
+            .processors
+            .iter()
+            .find(|p| p.namespace == "text" && p.name == "substr")
+            .unwrap();
+        let length = substr
+            .properties
+            .iter()
+            .find(|p| p.key == "length")
+            .unwrap();
+        assert!(!length.required);
+        assert_eq!(
+            length.expected_type,
+            Some(weaver_lang::registry::ValueType::Number)
+        );
+
+        // And it serializes to the shape the frontend consumes.
+        let json = serde_json::to_value(&vocab).unwrap();
+        assert!(json["commands"].is_array());
+        assert!(json["processors"].is_array());
+    }
 }

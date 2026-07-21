@@ -15,7 +15,10 @@ import {
 	serializeEntry,
 	type ParsedEntry
 } from '$lib/weaver/weaverFile.js';
-import { SvelteMap } from 'svelte/reactivity';
+import type { EntryRef } from '$lib/weaver/editor/weaver-references.js';
+import { weaverEditorPrefs } from './settings.svelte.js';
+import { studioStore } from './studio.svelte.js';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -119,6 +122,76 @@ class LorebookStore {
 
 	async loadActive() {
 		this.activeLorebooks = (await this._api?.lorebooks.active.get()) ?? [];
+	}
+
+	/**
+	 * Pull every active book into `loadedLorebooks`.
+	 */
+	async loadActiveBooks() {
+		await Promise.all(
+			this.activeLorebooks.map((id) =>
+				this.loadLorebook(id).catch(() => {}) // a book we can't load simply offers no ids
+			)
+		);
+	}
+
+	/**
+	 * The entry ids a `[[…]]` or `<trigger id="…">` in the book being edited
+	 * can resolve to.
+	 */
+	get referenceableEntries(): EntryRef[] {
+		const draft = this._draft;
+		const refs: EntryRef[] = draft
+			? draft.entries.map((e) => ({ id: e.meta.id, name: e.meta.name }))
+			: [];
+		if (!weaverEditorPrefs.suggestCrossBookIds) return refs;
+
+		const seen = new SvelteSet(refs.map((r) => r.id));
+		for (const bookId of this.activeLorebooks) {
+			if (bookId === draft?.id) continue;
+			const book = this.loadedLorebooks.get(bookId);
+			if (!book) continue;
+			for (const entry of book.entries) {
+				if (seen.has(entry.entry_id)) continue;
+				seen.add(entry.entry_id);
+				refs.push({
+					id: entry.entry_id,
+					detail: book.name,
+					navigable: weaverEditorPrefs.followCrossBookIds
+				});
+			}
+		}
+		return refs;
+	}
+
+	/**
+	 * An entry the editor should select once its book is open. Set by
+	 * [`navigateToEntry`] and cleared by the editor that consumes it.
+	 */
+	pendingEntry = $state<Snowflake | null>(null);
+
+	/**
+	 * Open the entry `id` refers to, resolving it the way the runtime would.
+	 * Switches lorebooks when the id belongs to another active book.
+	 */
+	navigateToEntry(id: string) {
+		const draft = this._draft;
+		const local = draft?.entries.find((e) => e.meta.id === id);
+		if (local) {
+			this.pendingEntry = local.snowflake;
+			return;
+		}
+		if (!weaverEditorPrefs.followCrossBookIds) return;
+
+		for (const bookId of this.activeLorebooks) {
+			if (bookId === draft?.id) continue;
+			const entry = this.loadedLorebooks.get(bookId)?.entries.find((e) => e.entry_id === id);
+			if (entry) {
+				this.pendingEntry = entry.id;
+				studioStore.editResource('lorebook', bookId);
+				return;
+			}
+		}
 	}
 
 	async startEditing(id: Snowflake) {
