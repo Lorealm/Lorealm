@@ -65,7 +65,21 @@ export interface ExampleDialogue {
 	content: string;
 }
 
-export type ImportResult = { status: 'ok'; id: Snowflake } | { status: 'failed'; reason: string };
+/**
+ * A lorebook created from a card's embedded `character_book`.
+ */
+export interface ImportedLorebook {
+	id: Snowflake;
+	name: string;
+	/** Entries that converted cleanly. */
+	entry_count: number;
+	/** Entries dropped because their content could not be converted. */
+	skipped: number;
+}
+
+export type ImportResult =
+	| { status: 'ok'; id: Snowflake; lorebook?: ImportedLorebook }
+	| { status: 'failed'; reason: string };
 
 export interface ImportCharResponse {
 	results: ImportResult[];
@@ -73,8 +87,6 @@ export interface ImportCharResponse {
 
 /**
  * A single edit applied against the current editing checkpoint.
- *
- * The endpoint accepts a CharacterEdit[]; Order is preserved and ops apply in sequence.
  */
 export type CharacterEdit =
 	| ({ op: 'definition' } & EditDefinition)

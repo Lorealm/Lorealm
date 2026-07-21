@@ -3,6 +3,8 @@
 	import { onMount } from 'svelte';
 	import { ArrowUpDown, Plus, Upload } from '@lucide/svelte';
 	import CharacterCard from './CharacterCard.svelte';
+	import { showToast } from '$lib/stores/errorToast.svelte.js';
+	import type { ImportedLorebook } from '$lib/types/character.js';
 
 	type SortKey = 'name-asc' | 'name-desc' | 'updated' | 'created';
 
@@ -63,18 +65,46 @@
 		const input = e.currentTarget as HTMLInputElement;
 		const files = input.files;
 		if (!files) return;
+
+		const lorebooks: ImportedLorebook[] = [];
+
 		for (var file of files) {
 			if (!file) return;
 
 			busy = true;
 			try {
-				await characterStore.import(file);
+				const results = await characterStore.import(file);
+				for (const result of results) {
+					if (result.status === 'ok' && result.lorebook) lorebooks.push(result.lorebook);
+				}
 			} finally {
 				busy = false;
 			}
 		}
 		input.value = '';
 		await characterStore.loadList();
+
+		reportImportedLorebooks(lorebooks);
+	}
+
+	function reportImportedLorebooks(lorebooks: ImportedLorebook[]) {
+		if (lorebooks.length === 0) return;
+
+		const entries = lorebooks.reduce((sum, b) => sum + b.entry_count, 0);
+		const skipped = lorebooks.reduce((sum, b) => sum + b.skipped, 0);
+
+		const subject =
+			lorebooks.length === 1
+				? `“${lorebooks[0].name}”`
+				: `${lorebooks.length} lorebooks`;
+		const entryCount = `${entries} ${entries === 1 ? 'entry' : 'entries'}`;
+		const tail = skipped > 0 ? ` ${skipped} could not be converted.` : '';
+
+		showToast({
+			title: 'Lorebook imported',
+			message: `Imported ${subject} with ${entryCount}.${tail}`,
+			variant: skipped > 0 ? 'warning' : 'success'
+		});
 	}
 </script>
 

@@ -288,7 +288,7 @@ pub async fn import_card_blob(
         .import_from_png(body.as_ref(), auth.user_id)
         .await
     {
-        Ok(id) => results.push(ImportResult::ok(id)),
+        Ok(card) => results.push(ImportResult::ok(card)),
         Err(e) => results.push(ImportResult::failed(&e.to_string())),
     }
 
@@ -338,7 +338,7 @@ pub async fn import_card_multipart(
             .import_from_png(data.as_ref(), auth.user_id)
             .await
         {
-            Ok(id) => results.push(ImportResult::ok(id)),
+            Ok(card) => results.push(ImportResult::ok(card)),
             Err(e) => results.push(ImportResult::failed(&e.to_string())),
         }
     }

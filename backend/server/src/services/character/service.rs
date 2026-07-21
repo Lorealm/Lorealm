@@ -18,12 +18,19 @@ use crate::{
     services::{
         character::{
             EditDefinition, EditMetadata, EditableCharacter,
-            card_parser::{DetectedSpec, parse_character_card_png},
-            compat::{CharaV2, convert_from_ccv2},
+            card_parser::{CARD_IDENTIFIERS, DetectedSpec, parse_character_card_png},
+            compat::{CharaV2, ConvertedCard, ImportedLorebook, convert_from_ccv2},
         },
         snowflake::SnowflakeService,
     },
 };
+
+/// The outcome of one successful card import.
+pub struct ImportedCard {
+    pub id: Snowflake,
+    /// Set when the card carried a usable `character_book`.
+    pub lorebook: Option<ImportedLorebook>,
+}
 
 struct EditingSession {
     version_id: Snowflake,
@@ -527,16 +534,19 @@ impl CharacterService {
     /// Import a character card from a PNG. Parses the embedded tEXt chunk,
     /// converts to the domain `Character` type, and persists it.
     ///
-    /// Returns the new character's id on success.
+    /// A card carrying a `character_book` also yields a lorebook, saved first
+    /// so the character never points at a book that isn't there.
     pub async fn import_from_png(
         &self,
         png_bytes: &[u8],
         user_id: Snowflake,
-    ) -> Result<Snowflake, CharacterError> {
-        let parsed = parse_character_card_png(png_bytes, "chara")?;
+    ) -> Result<ImportedCard, CharacterError> {
+        let parsed = parse_character_card_png(png_bytes, CARD_IDENTIFIERS)?;
 
-        let mut character = match parsed.detected_spec {
-            DetectedSpec::CharaV2 => {
+        // V3 is a superset of the CCv2 fields we read, so one converter serves
+        // both. Fields unique to V3 ride along in `extensions`.
+        let converted = match parsed.detected_spec {
+            DetectedSpec::CharaV2 | DetectedSpec::CharaV3 => {
                 let card: CharaV2 = serde_json::from_slice(&parsed.json_bytes)?;
                 convert_from_ccv2(card, user_id, &self.snowflake)
             }
@@ -545,7 +555,19 @@ impl CharacterService {
             }
         };
 
+        let ConvertedCard {
+            mut character,
+            lorebook,
+        } = converted;
         let character_id = character.id;
+
+        let imported_lorebook = match lorebook {
+            Some((book, stats)) => {
+                self.storage.save_lorebook(&book).await?;
+                Some(stats)
+            }
+            None => None,
+        };
 
         // This always exists due to the scope of the function
         let blob_id = self.blob.put(&parsed.stripped_image).await?;
@@ -554,7 +576,10 @@ impl CharacterService {
             .save_character(&character, VersionedSaveMode::NewVersion)
             .await?;
 
-        Ok(character_id)
+        Ok(ImportedCard {
+            id: character_id,
+            lorebook: imported_lorebook,
+        })
     }
 }
 

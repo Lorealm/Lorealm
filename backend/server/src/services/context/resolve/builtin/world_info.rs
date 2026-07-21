@@ -159,7 +159,7 @@ impl WorldInfoResolver {
         &self,
         ctx: &ResolveContext<'_>,
     ) -> Result<(Vec<AssembledBlock>, Option<CapturedState>), ContextError> {
-        let lorebooks = match ctx.lorebook_ids {
+        let mut lorebooks = match ctx.lorebook_ids {
             Some(ids) => self.state.get_lorebooks_by_ids(ctx.user_id, ids).await?,
             None => self
                 .state
@@ -167,6 +167,16 @@ impl WorldInfoResolver {
                 .await?
                 .unwrap_or_default(),
         };
+
+        if let Some(book_id) = ctx.character.and_then(|c| c.lorebook_id)
+            && !lorebooks.iter().any(|b| b.id == book_id)
+        {
+            lorebooks.extend(
+                self.state
+                    .get_lorebooks_by_ids(ctx.user_id, &[book_id])
+                    .await?,
+            );
+        }
 
         // Init with the first book, stack the rest. No active books -> every slot empty.
         let mut iter = lorebooks.into_iter();
