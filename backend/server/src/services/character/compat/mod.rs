@@ -8,15 +8,21 @@
 //! namespace rather than a separate spec. This keeps SillyTavern
 //! round-trip compatibility while letting us attach our own fields.
 
+mod lorebook;
+
 use std::collections::HashMap;
 
 use chrono::Utc;
 use lorealm_storage::models::{
-    Character, CharacterDefinition, CharacterMetadata, ExampleDialogue, Greeting, Snowflake,
+    Character, CharacterDefinition, CharacterMetadata, ExampleDialogue, Greeting, Lorebook,
+    Snowflake,
 };
 use serde::Deserialize;
 
 use crate::{services::snowflake::SnowflakeService, util::BulkReplace};
+
+pub use lorebook::ImportedLorebook;
+use lorebook::{CharacterBook, convert_character_book};
 
 #[derive(Deserialize)]
 pub(super) struct CharaV2 {
@@ -27,23 +33,45 @@ pub(super) struct CharaV2 {
     pub data: CharaV2Data,
 }
 
+/// Every field is defaulted: V3 cards and the various exporters differ on
+/// which of these they bother to emit, and a missing `system_prompt` is no
+/// reason to reject a card.
 #[derive(Deserialize)]
 pub(super) struct CharaV2Data {
+    #[serde(default)]
     pub name: String,
+    #[serde(default)]
     pub description: String,
+    #[serde(default)]
     pub personality: String,
+    #[serde(default)]
     pub scenario: String,
+    #[serde(default)]
     pub first_mes: String,
+    #[serde(default)]
     pub mes_example: String,
+    #[serde(default)]
     pub creator_notes: String,
+    #[serde(default)]
     pub system_prompt: String,
+    #[serde(default)]
     pub post_history_instructions: String,
+    #[serde(default)]
     pub alternate_greetings: Vec<String>,
+    #[serde(default)]
     pub tags: Vec<String>,
+    #[serde(default)]
     pub creator: String,
+    #[serde(default)]
     pub character_version: String,
+    #[serde(default)]
     pub extensions: HashMap<String, serde_json::Value>,
-    // TODO(lorebook): pub character_book: Option<CharaV2Lorebook>
+
+    /// Held as a raw value and converted separately: books in the wild play
+    /// fast and loose with field types, and a book we can't read must never
+    /// take the character down with it.
+    #[serde(default)]
+    pub character_book: Option<serde_json::Value>,
 }
 
 /// Fields Lorealm writes into CCv2's `extensions.lorealm` object on export
@@ -57,12 +85,21 @@ pub(super) struct LorealmExtension {
     pub alt_names: Option<Vec<String>>,
 }
 
-/// Convert a parsed CCv2 card into a fresh `Character`.
+/// A card unpacked into the domain types it maps onto.
+pub(super) struct ConvertedCard {
+    pub character: Character,
+    /// Present when the card embedded a usable `character_book`. The book
+    /// must be persisted before the character, which already points at it.
+    pub lorebook: Option<(Lorebook, ImportedLorebook)>,
+}
+
+/// Convert a parsed CCv2/V3 card into a fresh `Character`, plus the lorebook
+/// its `character_book` describes.
 pub(super) fn convert_from_ccv2(
     card: CharaV2,
     owner: Snowflake,
     snowflake: &SnowflakeService,
-) -> Character {
+) -> ConvertedCard {
     let data = card.data;
 
     let lorealm_ext: LorealmExtension = data
@@ -107,11 +144,24 @@ pub(super) fn convert_from_ccv2(
 
     let now = Utc::now();
 
-    Character {
+    // A book that fails to deserialize is logged and dropped: the character
+    // is still worth importing without it.
+    let lorebook = data
+        .character_book
+        .and_then(|raw| match serde_json::from_value::<CharacterBook>(raw) {
+            Ok(book) => Some(book),
+            Err(e) => {
+                tracing::warn!("character '{}' has an unreadable character_book: {e}", data.name);
+                None
+            }
+        })
+        .and_then(|book| convert_character_book(book, &data.name, owner, snowflake));
+
+    let character = Character {
         id: snowflake.generate(),
         user_id: owner,
         current_version_id: snowflake.generate(),
-        lorebook_id: None, // TODO(lorebook): convert character_book
+        lorebook_id: lorebook.as_ref().map(|(book, _)| book.id),
         extensions,
         metadata: CharacterMetadata {
             display_name: lorealm_ext.display_name,
@@ -138,6 +188,11 @@ pub(super) fn convert_from_ccv2(
             example_messages,
             greetings,
         },
+    };
+
+    ConvertedCard {
+        character,
+        lorebook,
     }
 }
 

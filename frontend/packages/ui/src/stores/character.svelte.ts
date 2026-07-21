@@ -6,7 +6,8 @@ import type {
 	CharacterSummary,
 	CharacterVersionInfo,
 	EditDefinition,
-	EditMetadata
+	EditMetadata,
+	ImportResult
 } from '$lib/types/character.js';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -181,9 +182,14 @@ class CharacterStore {
 		if (this.#baseline) this.#baseline.metadata.avatar_uri = avatar_uri;
 	}
 
-	async import(card: Blob, reloadList: boolean = false) {
-		await this.#api.characters.import(card);
+	/**
+	 * Import one card. Returns the per-file results so callers can report on
+	 * what came in.
+	 */
+	async import(card: Blob, reloadList: boolean = false): Promise<ImportResult[]> {
+		const { results } = await this.#api.characters.import(card);
 		if (reloadList) await this.loadList();
+		return results;
 	}
 
 	addGreeting() {

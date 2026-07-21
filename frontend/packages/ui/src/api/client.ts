@@ -7,7 +7,7 @@ import type {
 	CharacterSummary,
 	CharacterVersionInfo,
 	CreateCharacterRequest,
-	ImportResult
+	ImportCharResponse
 } from '$lib/types/character.js';
 import type { ConfigKey, ServerConfig } from '$lib/types/config.js';
 import type {
@@ -176,7 +176,8 @@ export function createApiClient(platform: PlatformAPI) {
 			avatar: (characterId: Snowflake) => http.getBlob(`/api/v1/characters/${characterId}/image`),
 			updateAvatar: (characterId: Snowflake, update: Blob) =>
 				http.putBlob<AvatarUpdateResponse>(`/api/v1/characters/${characterId}/image`, update),
-			import: (card: Blob) => http.putBlob<ImportResult>(`/api/v1/characters/import`, card),
+			import: (card: Blob) =>
+				http.putBlob<ImportCharResponse>(`/api/v1/characters/import`, card),
 			chats: (characterId: Snowflake) =>
 				http.get<Array<ConversationMetadata>>(`/api/v1/characters/${characterId}/chats`),
 			versions: {

@@ -36,19 +36,27 @@ pub struct ParsedCharacterCard {
 pub enum DetectedSpec {
     /// SillyTavern-compatible CCv2 (`"chara_card_v2"`).
     CharaV2,
+    /// Character Card V3 (`"chara_card_v3"`).
+    CharaV3,
     /// Any other value encountered in the `spec` field. Preserved verbatim.
     Unknown(String),
 }
 
+/// tEXt keywords searched on import, in priority order.
+pub const CARD_IDENTIFIERS: &[&str] = &["ccv3", "chara"];
+
 /// Parse a character card PNG and return the decoded JSON, a stripped
 /// image, and a detected-spec tag.
-///
-/// `identifier` is the tEXt keyword to search for.
-pub fn parse_character_card_png(png_data: &[u8], identifier: &str) -> Result<ParsedCharacterCard> {
+pub fn parse_character_card_png(
+    png_data: &[u8],
+    identifiers: &[&str],
+) -> Result<ParsedCharacterCard> {
     let chunks = parse_png_chunks(png_data)?;
 
-    let (chunk_idx, base64_payload) = find_card_chunk(&chunks, identifier.as_bytes())
-        .ok_or_else(|| CardParseError::ChunkNotFound(identifier.to_string()))?;
+    let (chunk_idx, base64_payload) = identifiers
+        .iter()
+        .find_map(|id| find_card_chunk(&chunks, id.as_bytes()))
+        .ok_or_else(|| CardParseError::ChunkNotFound(identifiers.join(", ")))?;
 
     let json_bytes = BASE64.decode(base64_payload)?;
     let detected_spec = peek_spec(&json_bytes)?;
@@ -209,6 +217,7 @@ fn peek_spec(json_bytes: &[u8]) -> Result<DetectedSpec> {
 
     Ok(match peek.spec.as_deref() {
         Some("chara_card_v2") => DetectedSpec::CharaV2,
+        Some("chara_card_v3") => DetectedSpec::CharaV3,
         Some(other) => DetectedSpec::Unknown(other.to_string()),
         None => DetectedSpec::Unknown(String::new()),
     })
@@ -298,7 +307,7 @@ mod tests {
         let json = br#"{"spec":"chara_card_v2","spec_version":"2.0","data":{"name":"Test"}}"#;
 
         let embedded = embed_character_card_png(&png, json, "chara").unwrap();
-        let parsed = parse_character_card_png(&embedded, "chara").unwrap();
+        let parsed = parse_character_card_png(&embedded, &["chara"]).unwrap();
 
         assert_eq!(parsed.json_bytes, json);
         assert_eq!(parsed.detected_spec, DetectedSpec::CharaV2);
@@ -307,11 +316,36 @@ mod tests {
     }
 
     #[test]
+    fn prefers_ccv3_chunk_when_both_present() {
+        // V3 cards ship both chunks; `chara` holds the downlevel copy.
+        let png = minimal_png();
+        let v2 = br#"{"spec":"chara_card_v2","data":{}}"#;
+        let v3 = br#"{"spec":"chara_card_v3","data":{}}"#;
+
+        let embedded = embed_character_card_png(&png, v2, "chara").unwrap();
+        let embedded = embed_character_card_png(&embedded, v3, "ccv3").unwrap();
+
+        let parsed = parse_character_card_png(&embedded, CARD_IDENTIFIERS).unwrap();
+        assert_eq!(parsed.detected_spec, DetectedSpec::CharaV3);
+        assert_eq!(parsed.json_bytes, v3);
+    }
+
+    #[test]
+    fn falls_back_to_chara_when_no_ccv3() {
+        let png = minimal_png();
+        let json = br#"{"spec":"chara_card_v2","data":{}}"#;
+        let embedded = embed_character_card_png(&png, json, "chara").unwrap();
+
+        let parsed = parse_character_card_png(&embedded, CARD_IDENTIFIERS).unwrap();
+        assert_eq!(parsed.detected_spec, DetectedSpec::CharaV2);
+    }
+
+    #[test]
     fn unknown_spec_preserves_value() {
         let png = minimal_png();
         let json = br#"{"spec":"something_else","data":{}}"#;
         let embedded = embed_character_card_png(&png, json, "chara").unwrap();
-        let parsed = parse_character_card_png(&embedded, "chara").unwrap();
+        let parsed = parse_character_card_png(&embedded, &["chara"]).unwrap();
         assert_eq!(
             parsed.detected_spec,
             DetectedSpec::Unknown("something_else".to_string())
@@ -321,14 +355,14 @@ mod tests {
     #[test]
     fn rejects_non_png() {
         let not_png = b"this is not a png";
-        let err = parse_character_card_png(not_png, "chara").unwrap_err();
+        let err = parse_character_card_png(not_png, CARD_IDENTIFIERS).unwrap_err();
         assert!(matches!(err, CardParseError::InvalidPng));
     }
 
     #[test]
     fn errors_when_chunk_missing() {
         let png = minimal_png();
-        let err = parse_character_card_png(&png, "chara").unwrap_err();
+        let err = parse_character_card_png(&png, CARD_IDENTIFIERS).unwrap_err();
         assert!(matches!(err, CardParseError::ChunkNotFound(_)));
     }
 
@@ -337,7 +371,7 @@ mod tests {
         let png = minimal_png();
         let json = br#"{"spec":"chara_card_v2","data":{}}"#;
         let embedded = embed_character_card_png(&png, json, "chara").unwrap();
-        let err = parse_character_card_png(&embedded, "ccv3").unwrap_err();
+        let err = parse_character_card_png(&embedded, &["ccv3"]).unwrap_err();
         assert!(matches!(err, CardParseError::ChunkNotFound(_)));
     }
 }
