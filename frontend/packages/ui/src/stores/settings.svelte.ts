@@ -34,3 +34,24 @@ class SettingsNavStore {
 }
 
 export const settingsNav = new SettingsNavStore();
+
+/**
+ * Weaver editor preferences.
+ *
+ * TODO: there is no local user-settings infrastructure yet, so these are
+ * hardcoded stubs with no UI behind them. Move them onto real persisted
+ * settings once that exists.
+ */
+class WeaverEditorPrefs {
+	/**
+	 * Offer entry ids from the other active lorebooks, not only the one being
+	 * edited. Mirrors context_weaver's `DefaultIdResolver`, which falls back to
+	 * the remaining active books when an id misses locally.
+	 */
+	suggestCrossBookIds = $state(true);
+
+	/** Let cmd/ctrl-click on a cross-book id switch to the book that owns it. */
+	followCrossBookIds = $state(true);
+}
+
+export const weaverEditorPrefs = new WeaverEditorPrefs();

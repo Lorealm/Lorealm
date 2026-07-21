@@ -39,6 +39,7 @@ import type {
 	SetActiveLorebooksRequest
 } from '$lib/types/lorebook.js';
 import type { SourceDefinition } from '$lib/types/node.js';
+import type { WeaverVocabulary } from '$lib/types/weaver.js';
 import type { UserPersona, UpdatePersona } from '$lib/types/persona.js';
 import type {
 	ActionSpec,
@@ -119,6 +120,7 @@ export function createApiClient(platform: PlatformAPI) {
 				http.put<ContextTemplate>(`/api/v1/templates/${id}`, update),
 			delete: (id: Snowflake) => http.delete(`/api/v1/templates/${id}`),
 			sources: () => http.get<Array<SourceDefinition>>('/api/v1/templates/sources'),
+			weaverVocabulary: () => http.get<WeaverVocabulary>('/api/v1/templates/weaver-vocabulary'),
 			active: {
 				get: () => http.get<Snowflake | null>('/api/v1/templates/active'),
 				set: (request: SetActiveTemplateRequest) => http.put('/api/v1/templates/active', request),

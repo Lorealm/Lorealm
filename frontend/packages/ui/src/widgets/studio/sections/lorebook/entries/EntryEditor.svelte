@@ -1,6 +1,7 @@
 <script lang="ts">
-	import type { DraftEntry, SaveState } from '$lib/stores/lorebook.svelte.js';
+	import { lorebookStore, type DraftEntry, type SaveState } from '$lib/stores/lorebook.svelte.js';
 	import type { EntryMeta, LorebookConfig, Slot } from '$lib/types/lorebook.js';
+	import type { ReferenceSource } from '$lib/weaver/editor/weaver-references.js';
 	import WeaverInput from './WeaverInput.svelte';
 	import StringListField from './StringListField.svelte';
 	import SlotPicker from '../SlotPicker.svelte';
@@ -19,6 +20,13 @@
 		saveState: SaveState;
 		requestSave: () => void;
 	} = $props();
+
+	// Read through the store rather than off a snapshot, so ids stay current as
+	// entries are added or renamed while this editor is open.
+	const references: ReferenceSource = {
+		entries: () => lorebookStore.referenceableEntries,
+		navigate: (ref) => lorebookStore.navigateToEntry(ref.id)
+	};
 
 	function set<K extends keyof EntryMeta>(key: K, value: EntryMeta[K]) {
 		entry.meta[key] = value;
@@ -84,6 +92,7 @@
 		<WeaverEditor
 			doc={entry.body}
 			onChange={setBody}
+			{references}
 		/>
 	</section>
 
@@ -117,6 +126,7 @@
 				onchange={(v) => setOptStr('condition', v)}
 				placeholder="weaver expression, e.g. {'{{state:level}}'} > 5"
 				ariaLabel="Activation condition"
+				{references}
 			/>
 		</div>
 

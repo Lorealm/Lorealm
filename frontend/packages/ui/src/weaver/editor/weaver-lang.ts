@@ -7,6 +7,7 @@ type Frame =
 	| { k: 'tag' }
 	| { k: 'doc' }
 	| { k: 'trigger' }
+	| { k: 'array' }
 	| { k: 'proc'; named: boolean }
 	| { k: 'cmd'; named: boolean };
 
@@ -33,13 +34,15 @@ function exprAtom(stream: any, state: State): string | null {
 		state.stack.push({ k: 'cmd', named: false });
 		return 'bracket';
 	}
-	if (stream.match('[[')) {
-		state.stack.push({ k: 'doc' });
-		return 'bracket';
-	}
 	if (stream.match(/^<\/?trigger\b/)) {
 		state.stack.push({ k: 'trigger' });
 		return 'tagName';
+	}
+	// An array literal gets its own frame so its `]` is consumed here rather
+	// than closing the enclosing `@[`/`$[`.
+	if (stream.match('[')) {
+		state.stack.push({ k: 'array' });
+		return 'bracket';
 	}
 	// Literals
 	if (stream.match(/^"(?:[^"\\]|\\.)*"/)) return 'string';
@@ -67,7 +70,6 @@ const parser: StreamParser<State> = {
 	token(stream, state) {
 		const top = state.stack[state.stack.length - 1];
 
-		// ---- Plain text mode ----
 		if (!top) {
 			if (stream.match('{{')) {
 				state.stack.push({ k: 'var' });
@@ -147,6 +149,15 @@ const parser: StreamParser<State> = {
 				if (!top.named && stream.match(DOTTED)) {
 					top.named = true;
 					return 'func';
+				}
+				return exprAtom(stream, state) ?? (stream.next(), null);
+			}
+
+			// [ expr, expr ]
+			case 'array': {
+				if (stream.match(']')) {
+					state.stack.pop();
+					return 'bracket';
 				}
 				return exprAtom(stream, state) ?? (stream.next(), null);
 			}

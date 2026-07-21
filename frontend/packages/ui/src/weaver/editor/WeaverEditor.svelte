@@ -15,9 +15,22 @@
 	import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
 	import { weaverSyntax } from './weaver-lang.js';
 	import { weaverHover } from './weaver-hover.js';
+	import { weaverCompletion } from './weaver-complete.js';
 	import { weaverTheme } from './weaver-theme.js';
+	import { weaverReferences } from './weaver-reflinks.js';
+	import type { ReferenceSource } from './weaver-references.js';
+	import { weaverVocabularyStore } from '$lib/stores/weaverVocabulary.svelte.js';
 
-	let { doc = '', onChange }: { doc?: string; onChange?: (value: string) => void } = $props();
+	let {
+		doc = '',
+		onChange,
+		references
+	}: {
+		doc?: string;
+		onChange?: (value: string) => void;
+		/** Supplies entry ids for `[[…]]`/`<trigger>` completion and navigation. */
+		references?: ReferenceSource;
+	} = $props();
 	let host: HTMLDivElement;
 	let view: EditorView;
 
@@ -38,6 +51,7 @@
 	});
 
 	onMount(() => {
+		void weaverVocabularyStore.load();
 		view = new EditorView({
 			parent: host,
 			state: EditorState.create({
@@ -54,7 +68,9 @@
 					EditorView.lineWrapping,
 					weaverSyntax,
 					weaverHover,
+					weaverCompletion,
 					weaverTheme,
+					...(references ? [weaverReferences(references)] : []),
 					editorSizing,
 					fieldSizing,
 					tooltips({ position: 'fixed', parent: document.body }),

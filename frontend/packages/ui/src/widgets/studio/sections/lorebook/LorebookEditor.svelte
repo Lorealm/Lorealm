@@ -27,9 +27,18 @@
 		untrack(() => {
 			selected = 'config';
 			void lorebookStore.startEditing(lid);
+			void lorebookStore.loadActiveBooks();
 		});
 	});
 	onDestroy(() => lorebookStore.stopEditing());
+
+	$effect(() => {
+		const pending = lorebookStore.pendingEntry;
+		if (pending && draft?.entries.some((e) => e.snowflake === pending)) {
+			selected = pending;
+			lorebookStore.pendingEntry = null;
+		}
+	});
 
 	const entryTimers = new SvelteMap<Snowflake, ReturnType<typeof setTimeout>>();
 	let bookTimer: ReturnType<typeof setTimeout> | undefined;
