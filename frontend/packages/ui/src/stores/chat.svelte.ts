@@ -148,7 +148,7 @@ class ChatStore {
 			if (this.#messageAgentId(m) === viewer.id) return true; // own turn
 			if (m.content.trim().length === 0) return false; // silent (script) turn
 			const src = agents.find((a) => a.id === this.#messageAgentId(m));
-			return this.#canHear(viewer, src?.speech_scope ?? 'main');
+			return this.#canHear(viewer, src?.speech_channel ?? 'main');
 		});
 	}
 

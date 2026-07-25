@@ -32,7 +32,7 @@ pub struct ActionSpec {
     pub display_name: Option<String>,
     pub description: String,
     pub params: Vec<Param>,
-    pub event_scope: Option<String>,
+    pub event_channel: Option<String>,
 }
 
 /// A committed turn: the message it anchored to and what fanned out of it.

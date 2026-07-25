@@ -9,12 +9,13 @@
 		Bot,
 		Database,
 		FileText,
+		LayoutDashboard,
 		Pencil,
 		Plug,
 		Repeat,
 		Terminal,
 		User,
-		UserCircle,
+		CircleUser,
 		Wrench,
 		X
 	} from '@lucide/svelte';
@@ -33,8 +34,9 @@
 		lorebook: BookOpen,
 		tool: Wrench,
 		template: FileText,
-		persona: UserCircle,
-		connection_profile: Plug
+		persona: CircleUser,
+		connection_profile: Plug,
+		widget: LayoutDashboard
 	};
 	const IMPORT_LABEL: Record<ImportKind, string> = {
 		character: 'Character',
@@ -42,7 +44,8 @@
 		tool: 'Tool',
 		template: 'Context template',
 		persona: 'Persona',
-		connection_profile: 'Connection profile'
+		connection_profile: 'Connection profile',
+		widget: 'Widget'
 	};
 
 	interface Row {
@@ -104,8 +107,8 @@
 			speaks:
 				a.kind === 'script'
 					? "Doesn't speak — runs world logic"
-					: a.speech_scope
-						? 'Private → ' + a.speech_scope
+					: a.speech_channel
+						? 'Private → ' + a.speech_channel
 						: 'Broadcast (main)'
 		};
 	});
@@ -410,8 +413,7 @@
 			<button
 				type="button"
 				class="wide secondary"
-				onclick={() =>
-					studioStore.editResource(resource.kind as StudioResourceKind, resource.id)}
+				onclick={() => studioStore.editResource(resource.kind as StudioResourceKind, resource.id)}
 			>
 				<Pencil size={14} /> Edit in Studio
 			</button>

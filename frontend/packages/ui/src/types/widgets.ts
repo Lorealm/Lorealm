@@ -1,7 +1,41 @@
+import type { Snowflake } from './core.ts';
+
 /** A widget instance the model attached to a message. */
 export interface WidgetInstance {
 	widget_id: string;
 	props: Record<string, unknown>;
+}
+
+/** A static display widget */
+export interface UserWidget {
+	id: Snowflake;
+	user_id: Snowflake;
+	name: string;
+	description: string;
+	/** Self-contained HTML document */
+	source: string;
+	/** The prompt included with this widget. */
+	prompt: string;
+	tools: Snowflake[];
+	enabled: boolean;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface CreateUserWidgetRequest {
+	name: string;
+	description?: string;
+	source?: string;
+	prompt?: string;
+	tools?: Snowflake[];
+}
+
+export interface UpdateUserWidgetRequest {
+	name?: string;
+	description?: string;
+	source?: string;
+	prompt?: string;
+	tools?: Snowflake[];
 }
 
 export type ContentSegment = { type: 'text'; text: string } | { type: 'widget'; index: number };

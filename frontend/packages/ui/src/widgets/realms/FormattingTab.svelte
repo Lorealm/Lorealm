@@ -126,7 +126,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-lg);
-		max-width: var(--width-content-max);
 	}
 
 	.lede {

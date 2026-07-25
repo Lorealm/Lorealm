@@ -12,6 +12,7 @@ mod templates;
 mod tokenizers;
 mod tools;
 mod users;
+mod widgets;
 
 pub use characters::*;
 pub use common::*;
@@ -27,3 +28,4 @@ pub use templates::*;
 pub use tokenizers::*;
 pub use tools::*;
 pub use users::*;
+pub use widgets::*;

@@ -14,7 +14,10 @@ use crate::{
 pub mod dto;
 mod handlers;
 
-pub use dto::{CreateAgentRequest, PlayerTurnRequest, RunTurnRequest, UpdateRealmRequest};
+pub use dto::{
+    CreateAgentRequest, CreateScenarioRequest, PlayerTurnRequest, RunTurnRequest,
+    UpdateRealmRequest,
+};
 
 pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewareState) -> Router {
     let session_only_routes = Router::new()
@@ -62,6 +65,11 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
             put(handlers::set_grants),
         )
         .route("/{realm_id}/imports", put(handlers::set_imports))
+        .route("/{realm_id}/scenarios", post(handlers::create_scenario))
+        .route(
+            "/{realm_id}/scenarios/{scenario_id}",
+            put(handlers::update_scenario).delete(handlers::delete_scenario),
+        )
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
             session_csrf_middleware,

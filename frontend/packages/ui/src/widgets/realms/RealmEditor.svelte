@@ -7,6 +7,7 @@
 	import HistoryTab from './HistoryTab.svelte';
 	import ImportsTab from './ImportsTab.svelte';
 	import OverviewTab from './OverviewTab.svelte';
+	import ScenariosTab from './ScenariosTab.svelte';
 	import { EDITOR_TABS, realmEditor, type EditorTab } from './realmEditor.svelte.js';
 
 	async function select(tab: EditorTab) {
@@ -36,6 +37,8 @@
 			<ImportsTab />
 		{:else if realmEditor.tab === 'cast'}
 			<CastTab />
+		{:else if realmEditor.tab === 'scenarios'}
+			<ScenariosTab />
 		{:else if realmEditor.tab === 'access'}
 			<AccessMapTab />
 		{:else if realmEditor.tab === 'graph'}

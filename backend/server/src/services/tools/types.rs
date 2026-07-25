@@ -4,22 +4,21 @@ use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use lorealm_providers::Error as ProviderError;
 use lorealm_providers::{Tool, ToolDef};
-use lorealm_storage::models::{Param, ScopePattern, Snowflake};
+use lorealm_storage::models::{Param, Snowflake};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use weaver_lang::{CompiledTemplate, Registry, Value as WeaverValue};
 
-use crate::services::tools::{ToolContext, ToolStatePool};
+use crate::services::tools::{Actor, EventSink, ToolContext, ToolStatePool};
 use crate::util::weaver::json_to_weaver;
 
-/// Constraints on what a turn's tools may see and do. The plain chat flow is
-/// unrestricted; realm agents get their grant-derived write scopes and their
-/// bound tool set.
+/// Which tools a turn exposes and on whose behalf they run.
 #[derive(Default)]
 pub struct ToolPolicy {
-    pub write_scopes: Option<Arc<Vec<ScopePattern>>>,
-    /// `None` = the owner's enabled tools; `Some` = exactly these tool ids.
     pub tool_ids: Option<Vec<Snowflake>>,
+    pub extra_tool_ids: Vec<Snowflake>,
+    pub actor: Option<Actor>,
+    pub event_sink: Option<EventSink>,
 }
 
 #[derive(Deserialize)]
@@ -53,7 +52,7 @@ pub struct CompiledUserTool {
     body: CompiledTemplate,
     registry: Arc<Registry>,
     state: Arc<Mutex<ToolStatePool>>,
-    write_scopes: Option<Arc<Vec<ScopePattern>>>,
+    actor: Option<Actor>,
 }
 
 impl From<lorealm_storage::models::UserTool> for ToolSignature {
@@ -72,7 +71,7 @@ impl CompiledUserTool {
         sig: ToolSignature,
         registry: Arc<Registry>,
         state: Arc<Mutex<ToolStatePool>>,
-        write_scopes: Option<Arc<Vec<ScopePattern>>>,
+        actor: Option<Actor>,
     ) -> Result<Self, ProviderError> {
         let body = CompiledTemplate::compile(&sig.body).map_err(|e| {
             ProviderError::Tool(format!("'{}' body failed to compile: {e:?}", sig.name))
@@ -82,7 +81,7 @@ impl CompiledUserTool {
             body,
             registry,
             state,
-            write_scopes,
+            actor,
         })
     }
 }
@@ -118,8 +117,7 @@ impl Tool for CompiledUserTool {
             }
         }
 
-        let mut ctx = ToolContext::new(cmd, Arc::clone(&self.state))
-            .with_write_scopes(self.write_scopes.clone());
+        let mut ctx = ToolContext::new(cmd, Arc::clone(&self.state)).with_actor(self.actor.clone());
         let out = self
             .body
             .evaluate(&mut ctx, &self.registry)

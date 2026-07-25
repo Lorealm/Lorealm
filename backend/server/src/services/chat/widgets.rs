@@ -27,8 +27,7 @@ pub enum InferEvent {
     ToolCall(ToolCallRecord),
 }
 
-/// A widget the model attached to its reply. Streamed to the client as a
-/// `widget` event and persisted in message metadata under `"widgets"`.
+/// A widget the model attached to its reply.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct WidgetInstance {
     pub widget_id: String,
@@ -284,6 +283,49 @@ pub fn widget_marker(index: usize) -> String {
     format!("\u{E000}widget:{index}\u{E001}")
 }
 
+/// Replaces [`widget_marker`] spans with a plain-text stand-in
+/// (`[widget: <id>]`, or `[widget]` when the index can't be resolved
+/// against `widgets`).
+///
+/// If not applied, models can and will start imitating this pattern.
+/// 
+/// TODO: In the future, this will be changed to return whatever the widget
+/// returns, if anything.
+pub fn sanitize_widget_markers(content: &str, widgets: &[WidgetInstance]) -> String {
+    const START: char = '\u{E000}';
+    const END: char = '\u{E001}';
+
+    if !content.contains(START) {
+        return content.to_string();
+    }
+    let mut out = String::with_capacity(content.len());
+    let mut rest = content;
+    while let Some(pos) = rest.find(START) {
+        out.push_str(&rest[..pos]);
+        let after = &rest[pos + START.len_utf8()..];
+        let Some(end) = after.find(END) else {
+            rest = after;
+            continue;
+        };
+        let index = after[..end]
+            .strip_prefix("widget:")
+            .and_then(|n| n.parse::<usize>().ok());
+        if let Some(i) = index {
+            match widgets.get(i) {
+                Some(w) => {
+                    out.push_str("[widget: ");
+                    out.push_str(&w.widget_id);
+                    out.push(']');
+                }
+                None => out.push_str("[widget]"),
+            }
+        }
+        rest = &after[end + END.len_utf8()..];
+    }
+    out.push_str(rest);
+    out
+}
+
 pub fn widget_registry() -> (ToolRegistry, WidgetSink) {
     let sink = Arc::new(Mutex::new(Vec::new()));
     let mut registry = ToolRegistry::new();
@@ -292,4 +334,61 @@ pub fn widget_registry() -> (ToolRegistry, WidgetSink) {
         sink: Arc::clone(&sink),
     });
     (registry, sink)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn widget(id: &str) -> WidgetInstance {
+        WidgetInstance {
+            widget_id: id.into(),
+            props: serde_json::Map::new(),
+        }
+    }
+
+    #[test]
+    fn marker_resolves_to_widget_id() {
+        let text = format!("read this: {}", widget_marker(0));
+        assert_eq!(
+            sanitize_widget_markers(&text, &[widget("note")]),
+            "read this: [widget: note]"
+        );
+    }
+
+    #[test]
+    fn unresolvable_index_degrades_to_generic_stand_in() {
+        let text = format!("a {} b", widget_marker(3));
+        assert_eq!(sanitize_widget_markers(&text, &[]), "a [widget] b");
+    }
+
+    #[test]
+    fn multiple_markers_resolve_independently() {
+        let text = format!("{}mid{}", widget_marker(0), widget_marker(1));
+        assert_eq!(
+            sanitize_widget_markers(&text, &[widget("note"), widget("sign-neon")]),
+            "[widget: note]mid[widget: sign-neon]"
+        );
+    }
+
+    #[test]
+    fn non_widget_pua_spans_are_stripped() {
+        assert_eq!(
+            sanitize_widget_markers("x\u{E000}bogus\u{E001}y", &[]),
+            "xy"
+        );
+    }
+
+    #[test]
+    fn unpaired_start_marker_drops_only_the_sentinel() {
+        assert_eq!(
+            sanitize_widget_markers("x\u{E000}widget:1", &[]),
+            "xwidget:1"
+        );
+    }
+
+    #[test]
+    fn text_without_markers_is_unchanged() {
+        assert_eq!(sanitize_widget_markers("plain text", &[]), "plain text");
+    }
 }

@@ -24,7 +24,7 @@ use crate::{
             StartChatRequest,
             dto::{ChatEdit, CompletionsRequest, GetConversationQuery, StartRealmChatRequest},
         },
-        realm::dto::{EventsQuery, ObservationsQuery},
+        realm::dto::{AgentStateQuery, EventsQuery, ObservationsQuery},
     },
     services::{
         chat::FullConversation,
@@ -241,7 +241,7 @@ pub async fn start_realm_chat(
     let chat = state
         .services()
         .realm()
-        .start_conversation(request.realm_id, session.user_id)
+        .start_conversation(request.realm_id, session.user_id, request.scenario_id)
         .await?;
 
     Ok(Json(chat))
@@ -346,11 +346,12 @@ pub async fn agent_state(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
     Path((conversation_id, agent_id)): Path<(Snowflake, Snowflake)>,
+    Query(query): Query<AgentStateQuery>,
 ) -> Result<Json<StatePool>, AppError> {
     let slice = state
         .services()
         .realm()
-        .agent_state_slice(conversation_id, agent_id, session.user_id)
+        .agent_state_slice(conversation_id, agent_id, session.user_id, query.at)
         .await?;
 
     Ok(Json(slice))

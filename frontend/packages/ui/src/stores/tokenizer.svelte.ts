@@ -41,7 +41,7 @@ class TokenizerStore {
 	}
 
 	async importFile(query: ImportQuery, blob: Blob) {
-		await this.#api.tokenizers.imports.file(query, blob);
+		await this.#api.tokenizers.imports.file(blob);
 		await this.load();
 	}
 

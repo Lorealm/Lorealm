@@ -11,11 +11,6 @@ export interface SaveState {
 	code?: string;
 }
 
-/**
- * The editable form of a tool. `display_name` uses '' to mean "no value"
- * (same convention as the persona draft); `params` is a deep copy so edits
- * don't mutate the baseline we diff against.
- */
 export interface ToolDraft {
 	id: Snowflake;
 	name: string;
@@ -25,7 +20,6 @@ export interface ToolDraft {
 	body: string;
 }
 
-// Mirrors the server-side validate_name: 1–64 chars, [A-Za-z0-9_-].
 const NAME_RE = /^[a-zA-Z0-9_-]{1,64}$/;
 
 class ToolStore {
@@ -45,7 +39,7 @@ class ToolStore {
 
 	#saving = false;
 	#resaveQueued = false;
-	/** Last toasted save error, so autosave doesn't stack identical toasts. */
+	/** Last toasted save error to (partially) prevent auto-save spam */
 	#lastError: string | null = null;
 
 	get editingTool(): ToolDraft | null {
@@ -62,6 +56,14 @@ class ToolStore {
 	async loadTools() {
 		const tools = await this.#api?.tools.list();
 		if (tools) this.loadedTools = tools;
+	}
+
+	/** Server-shipped builtin tools: bindable in realms without an import, read-only. */
+	builtinTools = $state<Array<UserTool>>();
+
+	async loadBuiltins() {
+		const tools = await this.#api?.tools.builtins();
+		if (tools) this.builtinTools = tools;
 	}
 
 	async startEditing(id: Snowflake) {
@@ -104,7 +106,6 @@ class ToolStore {
 		}
 	}
 
-	/** Delete a tool. Optimistic; reverts the list if the request fails. */
 	async deleteTool(id: Snowflake) {
 		const previous = this.loadedTools;
 		if (this.loadedTools) this.loadedTools = this.loadedTools.filter((t) => t.id !== id);
@@ -117,7 +118,6 @@ class ToolStore {
 		}
 	}
 
-	/** Toggle a tool on/off. Optimistic; reverts the row if the request fails. */
 	async setEnabled(id: Snowflake, enabled: boolean) {
 		const list = this.loadedTools;
 		const i = list?.findIndex((t) => t.id === id) ?? -1;
@@ -153,8 +153,6 @@ class ToolStore {
 		const base = this.#baseline;
 		if (!draft || !base) return;
 
-		// Block invalid names before they reach the server, so an in-progress
-		// rename ('' or a bad char) shows an inline hint instead of toast spam.
 		if (!NAME_RE.test(draft.name)) {
 			this.saveState = {
 				status: 'error',
@@ -214,17 +212,11 @@ function buildDraft(t: UserTool): ToolDraft {
 		name: t.name,
 		display_name: t.display_name ?? '',
 		description: t.description,
-		// Deep copy: the draft's params are mutated in place by the editor, and
-		// the baseline must stay pristine for diffTool to detect real changes.
 		params: $state.snapshot(t.params),
 		body: t.body
 	};
 }
 
-/**
- * Build a merge-patch. `params` is replace-the-whole-array (the API takes the
- * full Param[]), so it's included only when the array changed at all.
- */
 function diffTool(base: UserTool, draft: ToolDraft): UpdateUserTool {
 	const patch: UpdateUserTool = {};
 	if (draft.name !== base.name) patch.name = draft.name;
@@ -238,11 +230,6 @@ function diffTool(base: UserTool, draft: ToolDraft): UpdateUserTool {
 	return patch;
 }
 
-/**
- * Structural equality via JSON. Order-sensitive, which is fine: the draft is
- * cloned from the baseline (preserving key/element order), so an untouched
- * param compares equal, and any reorder is a genuine change worth saving.
- */
 function paramsEqual(a: Param[], b: Param[]): boolean {
 	return JSON.stringify(a) === JSON.stringify(b);
 }

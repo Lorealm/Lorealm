@@ -18,8 +18,12 @@ mod templates;
 mod tokenizers;
 mod tools;
 mod users;
+mod widgets;
 
-pub use realm::{CreateAgentRequest, PlayerTurnRequest, RunTurnRequest, UpdateRealmRequest};
+pub use realm::{
+    CreateAgentRequest, CreateScenarioRequest, PlayerTurnRequest, RunTurnRequest,
+    UpdateRealmRequest,
+};
 
 pub async fn api_routes(
     app_state: Arc<AppState>,
@@ -62,6 +66,10 @@ pub async fn api_routes(
         .nest(
             "/tools",
             tools::router(Arc::clone(&app_state), session_state.clone()),
+        )
+        .nest(
+            "/widgets",
+            widgets::router(Arc::clone(&app_state), session_state.clone()),
         )
         .nest(
             "/tokenizers",

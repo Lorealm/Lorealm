@@ -9,7 +9,7 @@ use weaver_lang::CompiledExpr;
 use crate::{
     errors::{RealmError, TargetType},
     routes::CreateAgentRequest,
-    services::realm::RealmService,
+    services::{realm::RealmService, tools::builtin_tool},
 };
 
 /// The identity bundle a validated create/update agent request resolves to.
@@ -69,6 +69,16 @@ impl RealmService {
             ImportKind::ConnectionProfile => {
                 self.connection.get_profile(user_id, id).await?;
             }
+            ImportKind::Widget => {
+                let widget = self
+                    .storage
+                    .get_widget(id)
+                    .await?
+                    .ok_or(RealmError::NotFound(TargetType::UserWidget, id))?;
+                if widget.user_id != user_id {
+                    return Err(RealmError::NotOwned(TargetType::UserWidget, id));
+                }
+            }
         }
         Ok(())
     }
@@ -78,7 +88,12 @@ impl RealmService {
         user_id: Snowflake,
         req: &CreateAgentRequest,
         imports: &[ImportRule],
+        cast: &[RealmAgent],
+        exclude: Option<Snowflake>,
     ) -> Result<AgentParts, RealmError> {
+        validate_handle(&req.handle, cast, exclude)?;
+        validate_properties(&req.properties)?;
+
         let parts = match req.kind {
             AgentKind::Player => {
                 if req.character_id.is_some()
@@ -114,9 +129,10 @@ impl RealmService {
                     || req.persona_id.is_some()
                     || !req.lorebooks.is_empty()
                     || !req.tools.is_empty()
+                    || !req.widgets.is_empty()
                 {
                     return Err(RealmError::InvalidAgent(
-                        "script agents cannot have character/template/profile/persona/lorebooks/tools"
+                        "script agents cannot have character/template/profile/persona/lorebooks/tools/widgets"
                             .into(),
                     ));
                 }
@@ -189,7 +205,14 @@ impl RealmService {
             ensure_imported(imports, ImportKind::Persona, id)?;
         }
 
+        for &widget_id in &req.widgets {
+            ensure_imported(imports, ImportKind::Widget, widget_id)?;
+        }
+
         for binding in &req.tools {
+            if builtin_tool(binding.tool_id).is_some() {
+                continue;
+            }
             let tool = self
                 .storage
                 .get_tool(binding.tool_id)
@@ -210,25 +233,85 @@ impl RealmService {
         }
 
         validate_grants(&req.grants)?;
-        validate_channel("speech_scope", req.speech_scope.as_deref())?;
+        validate_channel("speech_channel", req.speech_channel.as_deref())?;
         for binding in &req.tools {
-            validate_channel("event_scope", binding.event_scope.as_deref())?;
+            validate_channel("event_channel", binding.event_channel.as_deref())?;
         }
 
         Ok(parts)
     }
 }
 
-/// Grants must be weaver `scope[:name]` patterns ([`ScopePattern::validate`]).
-pub(super) fn validate_grants(grants: &[AgentGrant]) -> Result<(), RealmError> {
-    for g in grants {
-        ScopePattern::validate(&g.scope).map_err(RealmError::InvalidAgent)?;
+pub(super) fn validate_handle(
+    handle: &str,
+    cast: &[RealmAgent],
+    exclude: Option<Snowflake>,
+) -> Result<(), RealmError> {
+    if !is_identifier(handle) {
+        return Err(RealmError::InvalidAgent(format!(
+            "handle '{handle}' must be a bare identifier ([A-Za-z_][A-Za-z0-9_]*)"
+        )));
+    }
+    if cast
+        .iter()
+        .filter(|a| Some(a.id) != exclude)
+        .any(|a| a.handle == handle)
+    {
+        return Err(RealmError::InvalidAgent(format!(
+            "handle '{handle}' is already taken by another cast member"
+        )));
     }
     Ok(())
 }
 
-/// Event channels (speech/event scopes) carry no name half: a bare weaver
-/// identifier only.
+pub(super) fn validate_properties(
+    properties: &HashMap<String, serde_json::Value>,
+) -> Result<(), RealmError> {
+    for key in properties.keys() {
+        if key.is_empty() || !key.split('.').all(is_identifier) {
+            return Err(RealmError::InvalidAgent(format!(
+                "property key '{key}' must be a dotted path of identifiers"
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// A scenario needs a name, its seed script must compile and its overrides must
+/// target current cast handles with valid property keys.
+pub(super) fn validate_scenario(
+    req: &crate::routes::CreateScenarioRequest,
+    cast: &[RealmAgent],
+) -> Result<(), RealmError> {
+    if req.name.trim().is_empty() {
+        return Err(RealmError::InvalidScenario(
+            "a scenario needs a name".into(),
+        ));
+    }
+    if !req.seed_script.trim().is_empty() {
+        weaver_lang::CompiledTemplate::compile(&req.seed_script).map_err(|errors| {
+            RealmError::InvalidScenario(format!("seed script failed to compile: {errors:?}"))
+        })?;
+    }
+    for (handle, props) in &req.agent_overrides {
+        if !cast.iter().any(|a| &a.handle == handle) {
+            return Err(RealmError::InvalidScenario(format!(
+                "override targets unknown agent handle '{handle}'"
+            )));
+        }
+        validate_properties(props)?;
+    }
+    Ok(())
+}
+
+/// Grants must be weaver `scope[:name]` patterns ([`ScopePattern::validate`]).
+pub(super) fn validate_grants(grants: &[AgentGrant]) -> Result<(), RealmError> {
+    for g in grants {
+        ScopePattern::validate(&g.channel).map_err(RealmError::InvalidAgent)?;
+    }
+    Ok(())
+}
+
 pub(super) fn validate_channel(field: &str, channel: Option<&str>) -> Result<(), RealmError> {
     match channel {
         None => Ok(()),
@@ -270,8 +353,15 @@ pub(super) fn agent_required_imports(agent: &RealmAgent) -> Vec<(ImportKind, Sno
     if let Some(p) = agent.persona_id {
         required.push((ImportKind::Persona, p));
     }
-    required.extend(agent.tools.iter().map(|b| (ImportKind::Tool, b.tool_id)));
+    required.extend(
+        agent
+            .tools
+            .iter()
+            .filter(|b| builtin_tool(b.tool_id).is_none())
+            .map(|b| (ImportKind::Tool, b.tool_id)),
+    );
     required.extend(agent.lorebooks.iter().map(|&l| (ImportKind::Lorebook, l)));
+    required.extend(agent.widgets.iter().map(|&w| (ImportKind::Widget, w)));
     required
 }
 
@@ -320,6 +410,7 @@ mod tests {
         RealmAgent {
             id: sf(1),
             name: name.into(),
+            handle: name.into(),
             kind: AgentKind::Llm,
             character_id: Some(sf(10)),
             char_version_id: Some(sf(11)),
@@ -328,13 +419,15 @@ mod tests {
             user_id: None,
             persona_id: Some(sf(60)),
             turn_order: 0,
+            properties: HashMap::new(),
             grants: Vec::new(),
             tools: vec![AgentToolBinding {
                 tool_id: sf(40),
-                event_scope: None,
+                event_channel: None,
             }],
-            speech_scope: None,
+            speech_channel: None,
             lorebooks: vec![sf(50)],
+            widgets: Vec::new(),
             script: None,
             run_condition: None,
         }

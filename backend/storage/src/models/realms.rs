@@ -1,8 +1,14 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
 
 use crate::models::{ChatRole, Snowflake};
+
+/// The state namespace holding per-agent variables: an agent with handle `h`
+/// owns `agents:h.*`.
+pub const AGENTS_SCOPE: &str = "agents";
 
 pub struct AgentSpec {
     pub owner: Snowflake,
@@ -37,6 +43,26 @@ pub struct RealmDefinition {
     /// The cast, run in the same order as defined in the array
     #[serde(default)]
     pub agents: Vec<RealmAgent>,
+    /// Named openings; instantiation picks one (see [`Scenario`]).
+    #[serde(default)]
+    pub scenarios: Vec<Scenario>,
+}
+
+/// A named opening for a realm, analogous to a character greeting: a seed
+/// script committed as the turn-zero state delta, optional opening narration
+/// (a `System` event on `main`), and per-agent property overrides.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Scenario {
+    pub id: Snowflake,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub seed_script: String,
+    #[serde(default)]
+    pub opening: Option<String>,
+    #[serde(default)]
+    pub agent_overrides: HashMap<String, HashMap<String, serde_json::Value>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -48,6 +74,7 @@ pub enum ImportKind {
     Tool,
     Persona,
     ConnectionProfile,
+    Widget,
 }
 
 impl ImportKind {
@@ -59,6 +86,7 @@ impl ImportKind {
             ImportKind::Tool => "tool",
             ImportKind::Persona => "persona",
             ImportKind::ConnectionProfile => "connection profile",
+            ImportKind::Widget => "widget",
         }
     }
 }
@@ -86,8 +114,7 @@ pub struct RealmSummary {
     pub updated_at: DateTime<Utc>,
 }
 
-/// A realm's formatting settings. Every field is an override: `None` uses the
-/// built-in default. Stored as nullable columns per realm.
+/// A realm's formatting settings.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct RealmConfig {
     #[serde(default)]
@@ -104,7 +131,6 @@ pub struct RealmConfig {
     pub state_delete_format: Option<String>,
 }
 
-/// Realm settings with every field resolved to a concrete value.
 #[derive(Debug, Clone)]
 pub struct ResolvedRealmConfig {
     pub speech_format: String,
@@ -211,6 +237,9 @@ pub enum AgentKind {
 pub struct RealmAgent {
     pub id: Snowflake,
     pub name: String,
+    /// Stable weaver-addressable identity
+    #[serde(default)]
+    pub handle: String,
     pub kind: AgentKind,
 
     pub character_id: Option<Snowflake>,
@@ -223,6 +252,8 @@ pub struct RealmAgent {
     pub persona_id: Option<Snowflake>,
     pub turn_order: i32,
 
+    #[serde(default)]
+    pub properties: HashMap<String, serde_json::Value>,
     /// Scoped read/write access to state namespaces.
     #[serde(default)]
     pub grants: Vec<AgentGrant>,
@@ -232,11 +263,14 @@ pub struct RealmAgent {
     /// The scope this agent's [`EventKind::Spoke`] events carry. `None` = the broadcast
     /// `main` channel
     #[serde(default)]
-    pub speech_scope: Option<String>,
+    pub speech_channel: Option<String>,
     /// Imported lorebooks feeding this agent's context assembly. Empty = no
     /// lorebook context.
     #[serde(default)]
     pub lorebooks: Vec<Snowflake>,
+    /// Imported static display widgets shown when this agent is the viewer.
+    #[serde(default)]
+    pub widgets: Vec<Snowflake>,
     /// Inline weaver source run on this agent's turn.
     #[serde(default)]
     pub script: Option<String>,
@@ -247,9 +281,30 @@ pub struct RealmAgent {
     pub run_condition: Option<String>,
 }
 
+impl RealmAgent {
+    /// The implicit grant every handled agent holds on its own subtree:
+    /// `agents:<handle>.*`. `None` for legacy agents without a handle.
+    pub fn own_scope(&self) -> Option<ScopePattern> {
+        (!self.handle.is_empty()).then(|| ScopePattern {
+            scope: AGENTS_SCOPE.to_string(),
+            name: NamePattern::Under(format!("{}.", self.handle)),
+        })
+    }
+}
+
+impl AgentKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AgentKind::Llm => "llm",
+            AgentKind::Player => "player",
+            AgentKind::Script => "script",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentGrant {
-    pub scope: String,
+    pub channel: String,
     pub access: AgentAccess,
 }
 
@@ -257,10 +312,10 @@ pub struct AgentGrant {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentToolBinding {
     pub tool_id: Snowflake,
-    /// Scope of the `Acted` event emitted when this tool runs. `None` =
+    /// The channel of the `Acted` event emitted when this tool runs. `None` =
     /// only the acting agent observes it.
     #[serde(default)]
-    pub event_scope: Option<String>,
+    pub event_channel: Option<String>,
 }
 
 /// The cast pinned onto a conversation when it instantiates a realm.
@@ -283,8 +338,7 @@ pub enum EventKind {
     System,
 }
 
-/// What happened on a turn, anchored to the message that committed it.
-/// `source` is a cast agent id.
+/// What happened on a turn
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct RealmEvent {
     pub id: Snowflake,
@@ -292,14 +346,13 @@ pub struct RealmEvent {
     pub message_id: Snowflake,
     pub seq: i32,
     pub source: Option<Snowflake>,
-    pub scope: String,
+    pub channel: String,
     pub kind: EventKind,
     pub content: String,
     pub payload: serde_json::Value,
 }
 
-/// One entry of an agent's private feed, keyed by the message whose turn
-/// produced it.
+/// One entry of an agent's private feed
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct AgentObservation {
     pub id: Snowflake,
@@ -337,9 +390,6 @@ pub struct ScopePattern {
     pub name: NamePattern,
 }
 
-/// The name half of a grant: `*` (every variable), an exact dotted path
-/// (`a.gold`), or a dotted path with a trailing `.*` (`a.*` — every variable
-/// under `a.`).
 #[derive(Debug, Clone)]
 pub enum NamePattern {
     Any,
@@ -358,8 +408,7 @@ impl ScopePattern {
             }
     }
 
-    /// Whether this grant observes events on `channel`: the grant's scope
-    /// half names the channel, whatever its name half.
+    /// Whether this grant observes events on `channel`
     pub fn matches_channel(&self, channel: &str) -> bool {
         self.scope == channel
     }

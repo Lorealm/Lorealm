@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use lorealm_storage::models::{AgentGrant, AgentKind, AgentToolBinding, Snowflake};
 use serde::Deserialize;
 
@@ -6,7 +8,6 @@ pub struct CreateRealmRequest {
     pub name: String,
 }
 
-/// Partial preset edit; omitted fields keep their value.
 #[derive(Deserialize)]
 pub struct UpdateRealmRequest {
     pub name: Option<String>,
@@ -18,6 +19,10 @@ pub struct UpdateRealmRequest {
 #[serde(rename_all = "snake_case")]
 pub struct CreateAgentRequest {
     pub name: String,
+    /// Weaver identifier, unique across the cast. See [`RealmAgent::handle`].
+    ///
+    /// [`RealmAgent::handle`]: lorealm_storage::models::RealmAgent::handle
+    pub handle: String,
     pub kind: AgentKind,
 
     // llm only
@@ -28,18 +33,38 @@ pub struct CreateAgentRequest {
 
     pub persona_id: Option<Snowflake>,
 
+    /// Seeded as `agents:<handle>.<key>` at instantiation.
+    #[serde(default)]
+    pub properties: std::collections::HashMap<String, serde_json::Value>,
     #[serde(default)]
     pub grants: Vec<AgentGrant>,
     #[serde(default)]
     pub tools: Vec<AgentToolBinding>,
     #[serde(default)]
-    pub speech_scope: Option<String>,
+    pub speech_channel: Option<String>,
     #[serde(default)]
     pub lorebooks: Vec<Snowflake>,
+    /// Static display widgets shown when this agent is the viewer.
+    #[serde(default)]
+    pub widgets: Vec<Snowflake>,
     #[serde(default)]
     pub script: Option<String>,
     #[serde(default)]
     pub run_condition: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct CreateScenarioRequest {
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub seed_script: String,
+    #[serde(default)]
+    pub opening: Option<String>,
+    /// Property overrides keyed by agent handle.
+    #[serde(default)]
+    pub agent_overrides: HashMap<String, HashMap<String, serde_json::Value>>,
 }
 
 #[derive(Deserialize)]
@@ -71,4 +96,10 @@ pub struct EventsQuery {
 #[derive(Deserialize)]
 pub struct ObservationsQuery {
     pub before: Option<Snowflake>,
+}
+
+#[derive(Deserialize)]
+pub struct AgentStateQuery {
+    /// Reconstruct state up to this message
+    pub at: Option<Snowflake>,
 }

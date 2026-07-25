@@ -46,7 +46,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-sm);
-		max-width: var(--width-content-max);
 	}
 
 	.card {

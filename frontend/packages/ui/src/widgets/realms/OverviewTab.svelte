@@ -83,7 +83,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-2xl);
-		max-width: var(--width-content-max);
 	}
 
 	.field {

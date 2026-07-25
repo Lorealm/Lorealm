@@ -10,8 +10,13 @@ use crate::{
     core::AppState,
     errors::AppError,
     extract::AuthenticatedSession,
-    services::tools::{CreateUserTool, UpdateUserTool},
+    services::tools::{CreateUserTool, UpdateUserTool, builtin_tools},
 };
+
+/// Server-shipped builtin tools
+pub async fn list_builtin_tools(_session: AuthenticatedSession) -> Json<Vec<UserTool>> {
+    Json(builtin_tools().to_vec())
+}
 
 pub async fn list_tools(
     State(app_state): State<Arc<AppState>>,

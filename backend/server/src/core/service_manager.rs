@@ -22,6 +22,7 @@ use crate::{
         state::StateService,
         tokenizer::TokenizerService,
         tools::UserToolService,
+        user_widgets::UserWidgetService,
         users::UserService,
         variables::{VariableRegistry, builtin::register_builtin_providers},
     },
@@ -41,6 +42,7 @@ pub struct ServiceManager {
     persona: Arc<PersonaService>,
     connection: Arc<ConnectionService>,
     tools: Arc<UserToolService>,
+    widgets: Arc<UserWidgetService>,
     tokenizers: Arc<TokenizerService>,
     realms: Arc<RealmService>,
 }
@@ -122,6 +124,11 @@ impl ServiceManager {
             Arc::clone(&snowflake),
         ));
 
+        let widgets = Arc::new(UserWidgetService::new(
+            Arc::clone(&storage),
+            Arc::clone(&snowflake),
+        ));
+
         let connection = Arc::new(ConnectionService::new(
             Arc::clone(&storage),
             Arc::clone(&snowflake),
@@ -185,6 +192,7 @@ impl ServiceManager {
             persona,
             connection,
             tools,
+            widgets,
             tokenizers,
             realms,
         }
@@ -284,6 +292,10 @@ impl ServiceManager {
 
     pub fn tools(&self) -> &Arc<UserToolService> {
         &self.tools
+    }
+
+    pub fn widgets(&self) -> &Arc<UserWidgetService> {
+        &self.widgets
     }
 
     pub fn tokenizers(&self) -> &Arc<TokenizerService> {

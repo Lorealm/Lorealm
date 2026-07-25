@@ -4,7 +4,17 @@
 	import { studioStore } from '$lib/stores/studio.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import type { ImportKind } from '$lib/types/realm.js';
-	import { BookOpen, FileText, Pencil, Plug, User, UserCircle, Wrench, X } from '@lucide/svelte';
+	import {
+		BookOpen,
+		FileText,
+		LayoutDashboard,
+		Pencil,
+		Plug,
+		User,
+		CircleUser,
+		Wrench,
+		X
+	} from '@lucide/svelte';
 	import Badge from './Badge.svelte';
 	import { catalogItem, IMPORT_KINDS, IMPORT_LABEL, realmEditor } from './realmEditor.svelte.js';
 
@@ -13,8 +23,9 @@
 		lorebook: BookOpen,
 		tool: Wrench,
 		template: FileText,
-		persona: UserCircle,
-		connection_profile: Plug
+		persona: CircleUser,
+		connection_profile: Plug,
+		widget: LayoutDashboard
 	};
 
 	const imports = $derived(realmStore.realm?.definition.imports ?? []);
@@ -27,7 +38,7 @@
 		const users = realmStore.importUsers(kind, id);
 		if (users.length > 0) {
 			showError(
-				`Still used by ${users.map((a) => `"${a.name}"`).join(', ')} — unbind it there first.`,
+				`Still used by ${users.map((a) => `"${a.name}"`).join(', ')}. Unbind it there first.`,
 				{
 					title: 'Import in use',
 					durationMs: 5000
@@ -118,7 +129,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-2xl);
-		max-width: var(--width-content-max);
 	}
 
 	header {

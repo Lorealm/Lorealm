@@ -1,8 +1,15 @@
 <script lang="ts">
 	import { chatStore } from '$lib/stores/chat.svelte.js';
+	import { userWidgetStore } from '$lib/stores/userWidgets.svelte.js';
 	import MessageBubble from './MessageBubble.svelte';
 	import ContextInspector from './ContextInspector.svelte';
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
+
+	// Loaded once here rather than per bubble; every message renders the
+	// viewer's static widgets from this list.
+	onMount(() => {
+		if (!userWidgetStore.loadedWidgets) void userWidgetStore.loadWidgets();
+	});
 
 	let scrollEl: HTMLDivElement;
 	let pinned = $state(true);

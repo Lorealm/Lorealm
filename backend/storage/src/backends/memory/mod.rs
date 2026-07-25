@@ -11,6 +11,7 @@ pub mod templates;
 pub mod tokenizer;
 pub mod tools;
 pub mod users;
+pub mod widgets;
 
 use crate::StorageCore;
 use crate::backends::memory::characters::StoredVersion;
@@ -43,6 +44,7 @@ pub struct MemoryStorage {
     pub(crate) secrets: RwLock<HashMap<Snowflake, Secret>>,
     pub(crate) connection_profiles: RwLock<HashMap<Snowflake, ConnectionProfile>>,
     pub(crate) user_tools: RwLock<HashMap<Snowflake, UserTool>>,
+    pub(crate) user_widgets: RwLock<HashMap<Snowflake, UserWidget>>,
     pub(crate) tokenizers: RwLock<HashMap<Snowflake, Tokenizer>>,
     pub(crate) tokenizer_shares: RwLock<Vec<TokenizerShare>>,
     pub(crate) realms: RwLock<HashMap<Snowflake, StoredRealm>>,

@@ -8,17 +8,25 @@ export enum StudioSection {
 	Templates,
 	Characters,
 	Tools,
-	Personas
+	Personas,
+	Widgets
 }
 
-export type StudioResourceKind = 'character' | 'lorebook' | 'template' | 'tool' | 'persona';
+export type StudioResourceKind =
+	| 'character'
+	| 'lorebook'
+	| 'template'
+	| 'tool'
+	| 'persona'
+	| 'widget';
 
 const SECTION_FOR: Record<StudioResourceKind, StudioSection> = {
 	character: StudioSection.Characters,
 	lorebook: StudioSection.Lorebooks,
 	template: StudioSection.Templates,
 	tool: StudioSection.Tools,
-	persona: StudioSection.Personas
+	persona: StudioSection.Personas,
+	widget: StudioSection.Widgets
 };
 
 class StudioStore {

@@ -28,6 +28,14 @@
 
 	const canAdd = $derived(newKind !== 'llm' || (newTemplateId !== '' && newProfileId !== ''));
 
+	/** First `<kind>_<n>` handle not taken by the cast. */
+	function nextHandle(kind: AgentKind): string {
+		const taken = new Set(realmStore.agents.map((a) => a.handle));
+		for (let i = 1; ; i++) {
+			if (!taken.has(`${kind}_${i}`)) return `${kind}_${i}`;
+		}
+	}
+
 	async function addAgent() {
 		if (adding || !canAdd) return;
 		adding = true;
@@ -35,6 +43,7 @@
 			const label = newKind === 'llm' ? 'LLM' : newKind === 'player' ? 'Player' : 'Script';
 			const saved = await realmStore.createAgent({
 				name: `New ${label}`,
+				handle: nextHandle(newKind),
 				kind: newKind,
 				template_id: newKind === 'llm' ? newTemplateId || null : null,
 				profile_id: newKind === 'llm' ? newProfileId || null : null,
@@ -92,7 +101,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-lg);
-		max-width: var(--width-content-max);
 	}
 
 	.toolbar {

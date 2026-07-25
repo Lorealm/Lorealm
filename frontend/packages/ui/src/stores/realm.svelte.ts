@@ -6,6 +6,7 @@ import type {
 	AgentGrant,
 	AgentObservation,
 	CreateAgentRequest,
+	CreateScenarioRequest,
 	ImportKind,
 	ImportRule,
 	PlayerAction,
@@ -16,6 +17,7 @@ import type {
 	RealmEvent,
 	RealmSummary,
 	RealmVersionInfo,
+	Scenario,
 	StateSlice,
 	TurnResult,
 	UpdateRealmRequest
@@ -260,16 +262,19 @@ class RealmStore {
 	agentRequest(a: RealmAgent): CreateAgentRequest {
 		return {
 			name: a.name,
+			handle: a.handle,
 			kind: a.kind,
 			character_id: a.character_id,
 			char_version_id: a.char_version_id,
 			template_id: a.template_id,
 			profile_id: a.profile_id,
 			persona_id: a.persona_id,
+			properties: a.properties,
 			grants: a.grants,
 			tools: a.tools,
-			speech_scope: a.speech_scope ?? null,
+			speech_channel: a.speech_channel ?? null,
 			lorebooks: a.lorebooks,
+			widgets: a.widgets,
 			script: a.script ?? null,
 			run_condition: a.run_condition ?? null
 		};
@@ -383,12 +388,54 @@ class RealmStore {
 		}
 	}
 
-	async startPlaythrough(): Promise<boolean> {
+	async createScenario(req: CreateScenarioRequest): Promise<Scenario | null> {
+		const realm = this.realm;
+		if (!realm) return null;
+		try {
+			const scenario = await this.#api.realms.scenarios.create(realm.id, req);
+			realm.definition.scenarios = [...realm.definition.scenarios, scenario];
+			return scenario;
+		} catch (e) {
+			this.#handleError(e, 'Failed to create scenario');
+			return null;
+		}
+	}
+
+	async updateScenario(scenarioId: Snowflake, req: CreateScenarioRequest): Promise<boolean> {
+		const realm = this.realm;
+		if (!realm) return false;
+		try {
+			const saved = await this.#api.realms.scenarios.update(realm.id, scenarioId, req);
+			realm.definition.scenarios = realm.definition.scenarios.map((s) =>
+				s.id === scenarioId ? saved : s
+			);
+			return true;
+		} catch (e) {
+			this.#handleError(e, 'Failed to save scenario');
+			return false;
+		}
+	}
+
+	async deleteScenario(scenarioId: Snowflake): Promise<void> {
+		const realm = this.realm;
+		if (!realm) return;
+		try {
+			await this.#api.realms.scenarios.delete(realm.id, scenarioId);
+			realm.definition.scenarios = realm.definition.scenarios.filter((s) => s.id !== scenarioId);
+		} catch (e) {
+			this.#handleError(e, 'Failed to delete scenario');
+		}
+	}
+
+	async startPlaythrough(scenarioId?: Snowflake): Promise<boolean> {
 		const realm = this.realm;
 		if (!realm || this.isStreaming) return false;
 
 		try {
-			const full = await this.#api.chat.realm.start({ realm_id: realm.id });
+			const full = await this.#api.chat.realm.start({
+				realm_id: realm.id,
+				scenario_id: scenarioId ?? null
+			});
 			const cast = await this.#api.chat.realm.cast(full.metadata.id);
 			this.#resetPlaythrough();
 			this.conversation = full.metadata;

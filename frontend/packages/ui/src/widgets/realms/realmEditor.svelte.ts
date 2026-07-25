@@ -4,6 +4,7 @@ import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
 import { personaStore } from '$lib/stores/persona.svelte.js';
 import { templateStore } from '$lib/stores/template.svelte.js';
 import { toolStore } from '$lib/stores/tools.svelte.js';
+import { userWidgetStore } from '$lib/stores/userWidgets.svelte.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type { ImportKind, Realm } from '$lib/types/realm.js';
 
@@ -11,6 +12,7 @@ export type EditorTab =
 	| 'overview'
 	| 'imports'
 	| 'cast'
+	| 'scenarios'
 	| 'access'
 	| 'graph'
 	| 'formatting'
@@ -20,6 +22,7 @@ export const EDITOR_TABS: Array<{ value: EditorTab; label: string }> = [
 	{ value: 'overview', label: 'Overview' },
 	{ value: 'imports', label: 'Imports' },
 	{ value: 'cast', label: 'Cast' },
+	{ value: 'scenarios', label: 'Scenarios' },
 	{ value: 'access', label: 'Access Map' },
 	{ value: 'graph', label: 'Graph (Beta)' },
 	{ value: 'formatting', label: 'Formatting' },
@@ -32,7 +35,8 @@ export const IMPORT_KINDS: ImportKind[] = [
 	'tool',
 	'template',
 	'persona',
-	'connection_profile'
+	'connection_profile',
+	'widget'
 ];
 
 export const IMPORT_LABEL: Record<ImportKind, string> = {
@@ -41,7 +45,8 @@ export const IMPORT_LABEL: Record<ImportKind, string> = {
 	tool: 'Tools',
 	template: 'Templates',
 	persona: 'Personas',
-	connection_profile: 'Connection Profiles'
+	connection_profile: 'Connection Profiles',
+	widget: 'Widgets'
 };
 
 /** A catalog resource projected to the shape the editor renders. */
@@ -90,11 +95,26 @@ export function catalogItems(kind: ImportKind): CatalogItem[] {
 				name: p.name,
 				description: p.provider
 			}));
+		case 'widget':
+			return (userWidgetStore.loadedWidgets ?? []).map((w) => ({
+				id: w.id,
+				name: w.name,
+				description: w.description
+			}));
 	}
 }
 
 export function catalogItem(kind: ImportKind, id: Snowflake): CatalogItem | undefined {
 	return catalogItems(kind).find((c) => c.id === id);
+}
+
+/** Server-shipped builtin tools: bindable without an import. */
+export function builtinToolItems(): CatalogItem[] {
+	return (toolStore.builtinTools ?? []).map((t) => ({
+		id: t.id,
+		name: t.display_name ?? t.name,
+		description: t.description ?? ''
+	}));
 }
 
 /** Load any catalog list not already in memory. */
@@ -104,6 +124,8 @@ export async function loadCatalog(): Promise<void> {
 		lorebookStore.metadataList ? Promise.resolve() : lorebookStore.loadList(),
 		templateStore.metadataList ? Promise.resolve() : templateStore.loadList(),
 		toolStore.loadedTools ? Promise.resolve() : toolStore.loadTools(),
+		toolStore.builtinTools ? Promise.resolve() : toolStore.loadBuiltins(),
+		userWidgetStore.loadedWidgets ? Promise.resolve() : userWidgetStore.loadWidgets(),
 		personaStore.loadedPersonas ? Promise.resolve() : personaStore.loadPersonas(),
 		connectionStore.profiles ? Promise.resolve() : connectionStore.loadProfiles()
 	]);
