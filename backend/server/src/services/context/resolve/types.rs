@@ -5,6 +5,7 @@ use serde::Serialize;
 use tokio::sync::Mutex;
 
 use crate::services::{
+    chat::{WidgetInstance, sanitize_widget_markers},
     context::PromptRole,
     state::{CapturedState, ReconstructedState},
     variables::Variables,
@@ -88,6 +89,7 @@ pub struct ResolveContext<'a> {
     /// Host variables for this turn, materialized once so the lorebook host and
     /// block substitution cannot disagree. See [`crate::services::variables`].
     pub variables: Variables,
+    pub widget_prompts: &'a [String],
 }
 
 /// A single prompt-visible turn, source-agnostic. Both conversation
@@ -101,9 +103,21 @@ pub struct PromptTurn {
 
 impl PromptTurn {
     pub fn from_message(m: &ConversationMessage) -> Self {
+        // Widget markers live in stored content (the client needs their
+        // positions) but must never reach a prompt.
+        let content = if m.content.contains('\u{E000}') {
+            let widgets: Vec<WidgetInstance> = m
+                .metadata
+                .get("widgets")
+                .and_then(|v| serde_json::from_value(v.clone()).ok())
+                .unwrap_or_default();
+            sanitize_widget_markers(&m.content, &widgets)
+        } else {
+            m.content.clone()
+        };
         Self {
             role: chat_role_to_prompt_role(&m.role), // reuse whatever the chat resolver uses today
-            content: m.content.clone(),
+            content,
             content_ref: ContentRef::Message(m.id),
         }
     }
@@ -111,8 +125,8 @@ impl PromptTurn {
     pub fn from_observation(o: &AgentObservation) -> Self {
         Self {
             role: chat_role_to_prompt_role(&o.role),
-            content: o.content.clone(),
-            content_ref: ContentRef::Verbatim, // see note below
+            content: sanitize_widget_markers(&o.content, &[]),
+            content_ref: ContentRef::Verbatim,
         }
     }
 }
@@ -122,5 +136,49 @@ fn chat_role_to_prompt_role(role: &lorealm_storage::prelude::ChatRole) -> Prompt
         lorealm_storage::models::ChatRole::System => PromptRole::System,
         lorealm_storage::models::ChatRole::User => PromptRole::User,
         lorealm_storage::models::ChatRole::Assistant => PromptRole::Assistant,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use lorealm_storage::models::ChatRole;
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn message_markers_are_sanitized_for_prompts() {
+        let m = ConversationMessage {
+            id: Snowflake(1),
+            conversation_id: Snowflake(2),
+            parent: None,
+            role: ChatRole::Assistant,
+            content: "here you go: \u{E000}widget:0\u{E001}".into(),
+            order: 0,
+            metadata: json!({ "widgets": [{ "widget_id": "note", "props": {} }] }),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+        assert_eq!(
+            PromptTurn::from_message(&m).content,
+            "here you go: [widget: note]"
+        );
+    }
+
+    #[test]
+    fn observation_markers_are_sanitized_for_prompts() {
+        let o = AgentObservation {
+            id: Snowflake(1),
+            conversation_id: Snowflake(2),
+            message_id: Snowflake(3),
+            agent_id: Snowflake(4),
+            event_id: None,
+            role: ChatRole::User,
+            content: "Alice: look \u{E000}widget:0\u{E001}".into(),
+        };
+        assert_eq!(
+            PromptTurn::from_observation(&o).content,
+            "Alice: look [widget]"
+        );
     }
 }

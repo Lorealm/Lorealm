@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use lorealm_storage::models::ScopePattern;
+use lorealm_storage::models::AGENTS_SCOPE;
 use weaver_lang::{EvalContext, EvalError, Registry, Value as WeaverValue};
 
 use crate::{
@@ -14,11 +14,23 @@ use crate::{
 pub type ToolStatePool =
     std::collections::HashMap<String, std::collections::HashMap<String, serde_json::Value>>;
 
+/// The realm agent a weaver body runs on behalf of.
+#[derive(Clone)]
+pub struct Actor {
+    pub handle: String,
+    pub name: String,
+    /// [`AgentKind::as_str`]: `llm` | `player` | `script`.
+    ///
+    /// [`AgentKind::as_str`]: lorealm_storage::models::AgentKind::as_str
+    pub kind: &'static str,
+}
+
 pub struct ToolContext {
     cmd: HashMap<String, WeaverValue>,
     local: HashMap<String, WeaverValue>,
     state: Arc<Mutex<ToolStatePool>>,
-    write_scopes: Option<Arc<Vec<ScopePattern>>>,
+    read_only: bool,
+    actor: Option<Actor>,
 }
 
 impl ToolContext {
@@ -27,13 +39,39 @@ impl ToolContext {
             cmd,
             local: HashMap::new(),
             state,
-            write_scopes: None,
+            read_only: false,
+            actor: None,
         }
     }
 
-    pub fn with_write_scopes(mut self, scopes: Option<Arc<Vec<ScopePattern>>>) -> Self {
-        self.write_scopes = scopes;
+    /// Reject every state write (`local:` scratch stays writable). Used for
+    /// run-condition evaluation.
+    pub fn read_only(mut self) -> Self {
+        self.read_only = true;
         self
+    }
+
+    pub fn with_actor(mut self, actor: Option<Actor>) -> Self {
+        self.actor = actor;
+        self
+    }
+
+    /// The pool variable a `self:`-aliased name maps to:
+    /// `agents:<handle>.<name>`.
+    fn own_var(&self, name: &str) -> Option<String> {
+        self.actor
+            .as_ref()
+            .filter(|a| !a.handle.is_empty())
+            .map(|a| format!("{}.{name}", a.handle))
+    }
+
+    fn state_var(&self, scope: &str, name: &str) -> Option<WeaverValue> {
+        self.state
+            .lock()
+            .unwrap()
+            .get(scope)
+            .and_then(|ns| ns.get(name))
+            .map(json_to_weaver)
     }
 }
 
@@ -42,13 +80,21 @@ impl EvalContext for ToolContext {
         Ok(match scope {
             "cmd" => self.cmd.get(name).cloned(),
             "local" => self.local.get(name).cloned(),
-            other => self
-                .state
-                .lock()
-                .unwrap()
-                .get(other)
-                .and_then(|ns| ns.get(name))
-                .map(json_to_weaver),
+            "self" => self
+                .own_var(name)
+                .and_then(|var| self.state_var(AGENTS_SCOPE, &var)),
+            "actor" => match &self.actor {
+                Some(a) => match name {
+                    "handle" => Some(WeaverValue::String(a.handle.clone())),
+                    "name" => Some(WeaverValue::String(a.name.clone())),
+                    "kind" => Some(WeaverValue::String(a.kind.to_string())),
+                    prop => self
+                        .own_var(prop)
+                        .and_then(|var| self.state_var(AGENTS_SCOPE, &var)),
+                },
+                None => None,
+            },
+            other => self.state_var(other, name),
         })
     }
 
@@ -58,28 +104,38 @@ impl EvalContext for ToolContext {
         name: &str,
         value: WeaverValue,
     ) -> Result<(), EvalError> {
+        // `self:` writes map back onto the agent's own subtree.
+        let (scope, name) = match scope {
+            "self" => match self.own_var(name) {
+                Some(var) => (AGENTS_SCOPE, var),
+                None => {
+                    return Err(EvalError::host_error(
+                        "'self:' has no bound agent identity here",
+                    ));
+                }
+            },
+            other => (other, name.to_string()),
+        };
         match scope {
             "local" => {
-                self.local.insert(name.into(), value);
+                self.local.insert(name, value);
                 Ok(())
             }
-            "user" | "char" => Err(EvalError::host_error(format!(
+            "user" | "char" | "actor" => Err(EvalError::host_error(format!(
                 "namespace '{scope}' is a reserved namespace"
             ))),
             other => {
-                if let Some(allowed) = &self.write_scopes {
-                    if !allowed.iter().any(|p| p.matches_var(other, name)) {
-                        return Err(EvalError::host_error(format!(
-                            "no write access to '{other}:{name}'"
-                        )));
-                    }
+                if self.read_only {
+                    return Err(EvalError::host_error(format!(
+                        "'{other}:{name}' cannot be written in a read-only evaluation"
+                    )));
                 }
                 self.state
                     .lock()
                     .unwrap()
                     .entry(other.into())
                     .or_default()
-                    .insert(name.into(), weaver_to_json(&value));
+                    .insert(name, weaver_to_json(&value));
                 Ok(())
             }
         }
@@ -109,46 +165,86 @@ pub fn build_tool_registry() -> Registry {
 mod tests {
     use super::*;
 
-    fn ctx(scopes: Option<Vec<&str>>) -> ToolContext {
+    fn ctx() -> ToolContext {
         let state = Arc::new(Mutex::new(ToolStatePool::default()));
-        ToolContext::new(HashMap::new(), state).with_write_scopes(
-            scopes.map(|s| Arc::new(s.into_iter().map(ScopePattern::parse).collect())),
-        )
+        ToolContext::new(HashMap::new(), state)
     }
 
     #[test]
-    fn unrestricted_writes_anywhere() {
-        let mut c = ctx(None);
+    fn writes_land_anywhere_but_reserved_namespaces() {
+        let mut c = ctx();
         assert!(
             c.set_variable("nation", "a.gold", WeaverValue::None)
                 .is_ok()
         );
+        assert!(c.set_variable("user", "name", WeaverValue::None).is_err());
+        assert!(c.set_variable("char", "name", WeaverValue::None).is_err());
     }
 
     #[test]
-    fn write_scope_enforced() {
-        let mut c = ctx(Some(vec!["nation:a.*", "market"]));
+    fn read_only_blocks_state_writes_but_not_local() {
+        let mut c = ctx().read_only();
         assert!(
             c.set_variable("nation", "a.gold", WeaverValue::None)
-                .is_ok()
+                .is_err()
         );
         assert!(
-            c.set_variable("market", "ore.price", WeaverValue::None)
+            c.set_variable("local", "scratch", WeaverValue::None)
                 .is_ok()
         );
+    }
+
+    fn actor_ctx() -> ToolContext {
+        ctx().with_actor(Some(Actor {
+            handle: "h".into(),
+            name: "Tester".into(),
+            kind: "llm",
+        }))
+    }
+
+    #[test]
+    fn self_maps_onto_the_own_agents_subtree() {
+        let mut c = actor_ctx();
+        c.set_variable("self", "gold", WeaverValue::Number(5.0))
+            .unwrap();
+        // The write landed at agents:h.gold and reads back through both paths.
+        assert_eq!(
+            c.resolve_variable("agents", "h.gold").unwrap(),
+            Some(WeaverValue::Number(5.0))
+        );
+        assert_eq!(
+            c.resolve_variable("self", "gold").unwrap(),
+            Some(WeaverValue::Number(5.0))
+        );
+    }
+
+    #[test]
+    fn actor_mounts_identity_and_properties_read_only() {
+        let mut c = actor_ctx();
+        c.set_variable("self", "gold", WeaverValue::Number(5.0))
+            .unwrap();
+        assert_eq!(
+            c.resolve_variable("actor", "handle").unwrap(),
+            Some(WeaverValue::String("h".into()))
+        );
+        assert_eq!(
+            c.resolve_variable("actor", "kind").unwrap(),
+            Some(WeaverValue::String("llm".into()))
+        );
+        assert_eq!(
+            c.resolve_variable("actor", "gold").unwrap(),
+            Some(WeaverValue::Number(5.0))
+        );
         assert!(
-            c.set_variable("nation", "b.gold", WeaverValue::None)
+            c.set_variable("actor", "handle", WeaverValue::None)
                 .is_err()
         );
     }
 
     #[test]
-    fn local_scope_bypasses_grants() {
-        let mut c = ctx(Some(vec![]));
-        assert!(
-            c.set_variable("local", "scratch", WeaverValue::None)
-                .is_ok()
-        );
-        assert!(c.set_variable("anything", "x", WeaverValue::None).is_err());
+    fn self_without_an_actor_is_unresolvable_and_unwritable() {
+        let mut c = ctx();
+        assert_eq!(c.resolve_variable("self", "gold").unwrap(), None);
+        assert!(c.set_variable("self", "gold", WeaverValue::None).is_err());
     }
 }

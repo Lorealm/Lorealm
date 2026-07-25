@@ -36,6 +36,8 @@ pub enum RealmError {
     ImportInUse(ImportKind, Snowflake, String),
     #[error("action failed: {0}")]
     ActionFailed(String),
+    #[error("invalid scenario: {0}")]
+    InvalidScenario(String),
     #[error(transparent)]
     Chat(#[from] ChatError),
     #[error(transparent)]
@@ -88,6 +90,7 @@ impl RealmError {
                 kind.as_str()
             ),
             RealmError::ActionFailed(hint) => format!("action failed: {hint}"),
+            RealmError::InvalidScenario(hint) => format!("invalid scenario: {hint}"),
             RealmError::Character(character_error) => character_error.client_message().to_string(),
             RealmError::Context(context_error) => context_error.client_message(),
             RealmError::Persona(persona_error) => persona_error.client_message(),

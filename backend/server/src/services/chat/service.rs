@@ -37,7 +37,8 @@ use crate::{
         state::{CapturedState, ReconstructedState, StatePool, StateService, apply_delta},
         tokenizer::TokenizerService,
         tools::{
-            CompiledUserTool, ToolPolicy, ToolSignature, UserToolService, build_tool_registry,
+            CompiledUserTool, EmitEventCommand, ToolPolicy, ToolSignature, UserToolService,
+            build_tool_registry, builtin_tool,
         },
         variables::{VariableContext, VariableRegistry},
     },
@@ -398,12 +399,33 @@ impl ChatService {
         })
     }
 
+    async fn enabled_widget_prompts(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<(Vec<String>, Vec<Snowflake>), ChatError> {
+        let widgets = self.storage.list_enabled_widgets(user_id).await?;
+        let mut prompts = Vec::new();
+        let mut tools = Vec::new();
+        for w in widgets {
+            if !w.prompt.trim().is_empty() {
+                prompts.push(w.prompt);
+            }
+            for id in w.tools {
+                if !tools.contains(&id) {
+                    tools.push(id);
+                }
+            }
+        }
+        Ok((prompts, tools))
+    }
+
     async fn assemble_context(
         &self,
         spec: &AgentSpec,
         realm: Option<&Realm>,
         thread: &[PromptTurn],
         baseline: &ReconstructedState,
+        widget_prompts: &[String],
     ) -> Result<Prepared, ChatError> {
         let character = match spec.character {
             Some((cid, cvid)) => Some(self.characters.load_version(cid, cvid, spec.owner).await?),
@@ -444,6 +466,7 @@ impl ChatService {
                     persona: persona.as_ref(),
                     realm,
                 }),
+                widget_prompts,
             };
             let trace = assemble(&template, &self.sources, &ctx).await?;
             captured = ctx.lorebook_state.lock().await.take();
@@ -550,12 +573,14 @@ impl ChatService {
         // "Use this user's active selections." A Realm agent supplies its own spec.
         let spec = self.active_spec(user_id, &convo).await?;
 
+        let (widget_prompts, widget_tools) = self.enabled_widget_prompts(user_id).await?;
+
         let Prepared {
             mut prompt,
             trace,
             captured,
         } = self
-            .assemble_context(&spec, None, &turns, &baseline)
+            .assemble_context(&spec, None, &turns, &baseline, &widget_prompts)
             .await?;
 
         let ids: Vec<Snowflake> = thread.iter().map(|m| m.id).collect();
@@ -579,7 +604,10 @@ impl ChatService {
                 &spec,
                 prompt,
                 Arc::clone(&state_pool),
-                &ToolPolicy::default(),
+                &ToolPolicy {
+                    extra_tool_ids: widget_tools,
+                    ..Default::default()
+                },
             )
             .await?;
 
@@ -764,25 +792,46 @@ impl ChatService {
 
         let (mut registry, widget_sink) = widget_registry();
 
-        let weaver_registry = Arc::new(build_tool_registry());
+        let weaver_registry = {
+            let mut r = build_tool_registry();
+            if let Some(sink) = &policy.event_sink {
+                r.register_command(EmitEventCommand::new(Arc::clone(sink)));
+            }
+            Arc::new(r)
+        };
 
-        let rows = match &policy.tool_ids {
+        let mut rows = match &policy.tool_ids {
             None => self.tools.list_enabled(spec.owner).await?,
             Some(ids) => {
                 let mut rows = Vec::with_capacity(ids.len());
                 for id in ids {
-                    rows.push(self.tools.get_tool(*id, spec.owner).await?);
+                    rows.push(match builtin_tool(*id) {
+                        Some(tool) => tool,
+                        None => self.tools.get_tool(*id, spec.owner).await?,
+                    });
                 }
                 rows
             }
         };
+        
+        // Widgets bundle their tools regardless of the selection above.
+        for id in &policy.extra_tool_ids {
+            if rows.iter().any(|r| r.id == *id) {
+                continue;
+            }
+            rows.push(match builtin_tool(*id) {
+                Some(tool) => tool,
+                None => self.tools.get_tool(*id, spec.owner).await?,
+            });
+        }
+        
         for row in rows {
             let sig = ToolSignature::from(row.clone());
             match CompiledUserTool::build(
                 ToolSignature::from(row),
                 Arc::clone(&weaver_registry),
                 Arc::clone(&state),
-                policy.write_scopes.clone(),
+                policy.actor.clone(),
             ) {
                 Ok(tool) => {
                     tracing::info!("Registering tool: {}", sig.name);
@@ -811,8 +860,7 @@ impl ChatService {
         }
     }
 
-    /// Assemble context and start inference, handing the live event stream
-    /// to the caller (used by realm tick streaming).
+    /// Assemble context and start inference
     pub async fn open_agent_turn(
         &self,
         spec: &AgentSpec,
@@ -820,13 +868,14 @@ impl ChatService {
         turns: &[PromptTurn],
         baseline: &ReconstructedState,
         policy: &ToolPolicy,
+        widget_prompts: &[String],
     ) -> Result<OpenAgentTurn, ChatError> {
         let Prepared {
             prompt,
             trace,
             captured,
         } = self
-            .assemble_context(spec, Some(realm), turns, baseline)
+            .assemble_context(spec, Some(realm), turns, baseline, widget_prompts)
             .await?;
 
         let diff_base = baseline.persistent.clone();
@@ -878,6 +927,7 @@ where
     let client = Client::new(provider);
     let tool_defs = registry.defs();
 
+    // TODO: merge into connection profiles?
     const MAX_TOOL_ROUNDS: usize = 8;
 
     let stream = async_stream::try_stream! {

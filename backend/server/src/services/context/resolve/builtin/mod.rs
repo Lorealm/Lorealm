@@ -6,16 +6,19 @@ use super::SourceRegistry;
 
 mod character;
 mod chat_history;
+mod widgets;
 mod world_info;
 
 pub use character::CharacterResolver;
 pub use chat_history::ChatHistoryResolver;
+pub use widgets::WidgetPromptsResolver;
 pub use world_info::WorldInfoResolver;
 
 pub fn register_builtin_sources(registry: &mut SourceRegistry, state: Arc<StateService>) {
     registry.register(Arc::new(ChatHistoryResolver));
     registry.register(Arc::new(CharacterResolver));
     registry.register(Arc::new(WorldInfoResolver::new(Arc::clone(&state))));
+    registry.register(Arc::new(WidgetPromptsResolver));
 }
 
 #[cfg(test)]
@@ -64,6 +67,7 @@ mod tests {
 
         assert!(has_node(&registry, "chat_history", "main"));
         assert!(has_node(&registry, "character", "definition"));
+        assert!(has_node(&registry, "widgets", "main"));
 
         assert!(has_node(&registry, "world_info", "prelude"));
         assert!(has_node(&registry, "world_info", "preamble"));
@@ -87,8 +91,8 @@ mod tests {
             .map(|d| d.source_id)
             .collect();
 
-        assert_eq!(ids.len(), 3);
-        for id in ["chat_history", "character", "world_info"] {
+        assert_eq!(ids.len(), 4);
+        for id in ["chat_history", "character", "world_info", "widgets"] {
             assert!(ids.contains(&id.to_string()), "missing {id}");
             assert!(registry.get(id).is_some(), "{id} listed but not resolvable");
         }

@@ -14,7 +14,8 @@
 		{ id: StudioSection.Lorebooks, label: 'Lorebooks' },
 		{ id: StudioSection.Templates, label: 'Templates' },
 		{ id: StudioSection.Tools, label: 'Tools' },
-		{ id: StudioSection.Personas, label: 'Personas' }
+		{ id: StudioSection.Personas, label: 'Personas' },
+		{ id: StudioSection.Widgets, label: 'Widgets' }
 	];
 </script>
 

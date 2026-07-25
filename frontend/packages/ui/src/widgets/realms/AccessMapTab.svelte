@@ -36,7 +36,7 @@
 
 	function subtitle(a: RealmAgent): string {
 		if (a.kind === 'script') return `${a.grants.length} grants`;
-		const speech = a.speech_scope ? `→ ${a.speech_scope}` : 'broadcast';
+		const speech = a.speech_channel ? `→ ${a.speech_channel}` : 'broadcast';
 		return `${speech} · ${a.tools.length ? a.tools.length + ' tools' : 'speak-only'}`;
 	}
 
@@ -150,7 +150,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-md);
-		max-width: var(--width-content-max);
 	}
 
 	.lede {

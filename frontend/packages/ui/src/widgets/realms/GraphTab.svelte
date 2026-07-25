@@ -314,7 +314,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-md);
-		max-width: var(--width-content-max);
 	}
 
 	.lede {

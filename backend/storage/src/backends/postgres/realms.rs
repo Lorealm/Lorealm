@@ -254,7 +254,7 @@ impl RealmStorage for PostgresStorage {
         limit: i64,
     ) -> Result<Vec<RealmEvent>, StorageError> {
         let mut rows = sqlx::query_as::<_, RealmEvent>(
-            "SELECT id, conversation_id, message_id, seq, source, scope, kind, content, payload
+            "SELECT id, conversation_id, message_id, seq, source, channel, kind, content, payload
              FROM realm_events
              WHERE conversation_id = $1 AND ($2::BIGINT IS NULL OR id < $2)
              ORDER BY id DESC
@@ -317,7 +317,7 @@ impl RealmStorage for PostgresStorage {
         for e in &commit.events {
             sqlx::query(
                 "INSERT INTO realm_events
-                     (id, conversation_id, message_id, seq, source, scope, kind, content, payload)
+                     (id, conversation_id, message_id, seq, source, channel, kind, content, payload)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
             )
             .bind(e.id)
@@ -325,7 +325,7 @@ impl RealmStorage for PostgresStorage {
             .bind(e.message_id)
             .bind(e.seq)
             .bind(e.source)
-            .bind(&e.scope)
+            .bind(&e.channel)
             .bind(&e.kind)
             .bind(&e.content)
             .bind(&e.payload)

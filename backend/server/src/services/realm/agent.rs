@@ -1,6 +1,5 @@
 //! Cast members as behaviors. The turn loop resolves whose turn it is along
 //! the path, then dispatches to that member's [`Agent`] impl to plan the turn.
-//! Kinds: player, LLM, script, each registered in [`AgentRegistry`].
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -17,14 +16,12 @@ use crate::{
         context::PromptTurn,
         realm::{RealmService, weaver},
         state::{CapturedState, ReconstructedState},
-        tools::ToolPolicy,
+        tools::{EmittedEvent, ToolPolicy},
     },
 };
 
 /// The default broadcast channel every listener is granted on.
-pub(super) const MAIN_SCOPE: &str = "main";
-
-// ------------------------------------------------------------- turn shapes
+pub(super) const MAIN_CHANNEL: &str = "main";
 
 /// Where a committed message lands in the conversation tree.
 #[derive(Clone, Copy)]
@@ -35,11 +32,9 @@ pub(super) enum PersistPlan {
     Alternate(Snowflake),
 }
 
-/// One event a turn emits, before it is anchored to a message. The committer
-/// stamps id/conversation/message/seq when it persists the turn.
 pub(super) struct EventDraft {
     pub source: Snowflake,
-    pub scope: String,
+    pub channel: String,
     pub kind: EventKind,
     pub content: String,
     pub payload: serde_json::Value,
@@ -59,16 +54,12 @@ pub(super) struct Production {
     pub actor_notes: Vec<String>,
 }
 
-/// A turn already resolved into a production, with the conversation + cast
-/// the committer needs.
 pub(super) struct ReadyTurn {
     pub convo: Conversation,
     pub cast: RealmCast,
     pub production: Production,
 }
 
-/// A streamed LLM turn: assembled context inputs + tool policy, ready to infer
-/// and then finalize into a production.
 pub(super) struct LlmTurn {
     pub convo: Conversation,
     pub cast: RealmCast,
@@ -78,6 +69,7 @@ pub(super) struct LlmTurn {
     pub policy: ToolPolicy,
     pub persist: PersistPlan,
     pub turns: Vec<PromptTurn>,
+    pub widget_prompts: Vec<String>,
 }
 
 /// The resolved turn before execution; the turn loop matches on the shape.
@@ -90,8 +82,7 @@ pub(super) enum TurnPlan {
     Stream(Box<LlmTurn>),
 }
 
-/// Everything an [`Agent`] needs to plan a turn: the resolved turn context
-/// plus a handle back to the service for state/spec resolution.
+/// Everything an [`Agent`] needs to plan a turn
 pub(super) struct PlanCx<'a> {
     pub service: &'a RealmService,
     pub convo: &'a Conversation,
@@ -105,13 +96,9 @@ pub(super) struct PlanCx<'a> {
     pub persist: PersistPlan,
 }
 
-// ------------------------------------------------------------------- trait
-
-/// One cast-member kind's turn behavior.
+// An Agent capable of acting within a Realm
 #[async_trait]
 pub(super) trait Agent: Send + Sync {
-    /// Resolve this agent's turn against the reconstructed world into a plan
-    /// the turn loop can execute.
     async fn plan(&self, cx: PlanCx<'_>) -> Result<TurnPlan, RealmError>;
 }
 
@@ -128,8 +115,7 @@ impl Agent for PlayerAgent {
     }
 }
 
-/// A cast member that runs its inline weaver source against its granted state
-/// slice; the resulting delta fans out as `StateChanged` events.
+/// An agent that runs a script and nothing else
 pub(super) struct ScriptAgent;
 
 #[async_trait]
@@ -145,12 +131,12 @@ impl Agent for ScriptAgent {
             ..
         } = cx;
 
-        let (output, delta) = weaver::run_scoped(
+        let (output, delta, emitted) = weaver::run_scoped(
             &service.state,
             agent.script.as_deref().unwrap_or_default(),
             &[],
             json!({}),
-            &agent.grants,
+            &agent,
             &world.persistent,
         )
         .await?;
@@ -162,10 +148,10 @@ impl Agent for ScriptAgent {
             "output": output,
         });
 
-        // A script speaks nothing; its only events are the state changes it
-        // made.
+        // A script's events: whatever it emitted, plus the state changes it made.
         let config = service.resolve_config(convo).await?;
         let mut events = Vec::new();
+        push_emitted_events(agent.id, emitted, &mut events);
         push_state_events(agent.id, &delta, &config, &mut events);
         let state = capture(world.activation, delta);
 
@@ -186,8 +172,7 @@ impl Agent for ScriptAgent {
     }
 }
 
-/// An LLM cast member: project its granted view of the world into a prompt and
-/// hand back a streamed turn the loop drives to completion.
+/// An LLM-driven agent
 pub(super) struct LlmAgent;
 
 #[async_trait]
@@ -203,14 +188,14 @@ impl Agent for LlmAgent {
             persist,
         } = cx;
 
-        let baseline_slice = weaver::slice(&world.persistent, &weaver::read_scopes(&agent.grants));
+        let mut baseline_slice = weaver::slice(&world.persistent, &weaver::read_scopes_of(&agent));
+        weaver::inject_self_alias(&agent, &mut baseline_slice);
 
         let mut observations = service
             .storage
             .list_observations_for_messages(agent.id, &path_ids)
             .await?;
-        // Path order == id order: along one path every message commits after
-        // its ancestors, and observations are created with their message.
+
         if observations.len() > super::OBSERVATION_WINDOW as usize {
             observations.drain(..observations.len() - super::OBSERVATION_WINDOW as usize);
         }
@@ -223,9 +208,15 @@ impl Agent for LlmAgent {
         let tokenizer_id = service.state.get_active_tokenizer(convo.user_id).await?.id;
         let spec = service.spec_for(convo.user_id, tokenizer_id, &agent)?;
 
+        // The agent's bound tools plus the tools its widgets bundle.
+        let bindings = service.effective_bindings(&agent).await?;
+        let (widget_prompts, _) = service.widget_directives(&agent).await?;
+
         let policy = ToolPolicy {
-            write_scopes: Some(Arc::new(weaver::write_scopes(&agent.grants))),
-            tool_ids: Some(agent.tools.iter().map(|b| b.tool_id).collect()),
+            tool_ids: Some(bindings.iter().map(|b| b.tool_id).collect()),
+            extra_tool_ids: Vec::new(),
+            actor: Some(weaver::actor_of(&agent)),
+            event_sink: Some(Arc::new(std::sync::Mutex::new(Vec::new()))),
         };
         let baseline = ReconstructedState {
             persistent: baseline_slice,
@@ -241,13 +232,11 @@ impl Agent for LlmAgent {
             policy,
             persist,
             turns,
+            widget_prompts,
         })))
     }
 }
 
-// ---------------------------------------------------------------- registry
-
-/// Maps each agent kind to its behavior.
 pub(super) struct AgentRegistry {
     behaviors: HashMap<AgentKind, Arc<dyn Agent>>,
 }
@@ -268,20 +257,14 @@ impl AgentRegistry {
     }
 }
 
-// ----------------------------------------------------------------- helpers
-
-/// The scope an agent's speech carries: its configured channel, or the
-/// broadcast `main` channel by default.
-pub(super) fn speech_scope(agent: &RealmAgent) -> String {
+/// The agent's configured channel
+pub(super) fn speech_channel(agent: &RealmAgent) -> String {
     agent
-        .speech_scope
+        .speech_channel
         .clone()
-        .unwrap_or_else(|| MAIN_SCOPE.to_string())
+        .unwrap_or_else(|| MAIN_CHANNEL.to_string())
 }
 
-/// Wrap a turn's writes as persistable state, only when there is something to
-/// persist. `activation` is carried forward so a state row never resets
-/// lorebook activation for later turns.
 pub(super) fn capture(
     activation: HashMap<Snowflake, ActivationState>,
     delta: StateDelta,
@@ -290,6 +273,21 @@ pub(super) fn capture(
         activation,
         persistent: delta,
     })
+}
+
+/// Append one draft per event a weaver body emitted via `emit_event`.
+pub(super) fn push_emitted_events(
+    source: Snowflake,
+    emitted: Vec<EmittedEvent>,
+    events: &mut Vec<EventDraft>,
+) {
+    events.extend(emitted.into_iter().map(|e| EventDraft {
+        source,
+        channel: e.scope,
+        kind: e.kind,
+        content: e.content,
+        payload: json!({}),
+    }));
 }
 
 /// Append one `StateChanged` event draft per namespace the delta touched.
@@ -319,7 +317,7 @@ pub(super) fn push_state_events(
         }
         events.push(EventDraft {
             source,
-            scope: ns.clone(),
+            channel: ns.clone(),
             kind: EventKind::StateChanged,
             content: config.state_change(ns, &parts.join(", ")),
             payload: json!({ "writes": delta.writes.get(ns), "deletes": delta.deletes.get(ns) }),

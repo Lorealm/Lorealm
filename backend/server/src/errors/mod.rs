@@ -13,6 +13,7 @@ mod realm;
 mod state;
 mod tokenizer;
 mod tools;
+mod widgets;
 
 pub use auth::*;
 pub use card::*;
@@ -29,6 +30,7 @@ pub use realm::*;
 pub use state::*;
 pub use tokenizer::*;
 pub use tools::*;
+pub use widgets::*;
 
 use axum::{Json, http::StatusCode, response::IntoResponse};
 use serde_json::json;
@@ -48,10 +50,12 @@ pub enum TargetType {
     ConnectionProfile,
     Secret,
     UserTool,
+    UserWidget,
     Lorebook,
     Realm,
     RealmAgent,
     RealmVersion,
+    Scenario,
 }
 
 impl Display for TargetType {
@@ -68,10 +72,12 @@ impl Display for TargetType {
             TargetType::ConnectionProfile => write!(f, "connection_profile"),
             TargetType::Secret => write!(f, "secret"),
             TargetType::UserTool => write!(f, "user_tool"),
+            TargetType::UserWidget => write!(f, "user_widget"),
             TargetType::Lorebook => write!(f, "lorebook"),
             TargetType::Realm => write!(f, "realm"),
             TargetType::RealmAgent => write!(f, "realm_agent"),
             TargetType::RealmVersion => write!(f, "realm_version"),
+            TargetType::Scenario => write!(f, "scenario"),
         }
     }
 }
@@ -344,6 +350,24 @@ impl From<UserToolError> for AppError {
     }
 }
 
+impl From<UserWidgetError> for AppError {
+    fn from(err: UserWidgetError) -> Self {
+        match err {
+            UserWidgetError::NotFound(_, _) | UserWidgetError::NotOwned => AppError::BadRequest {
+                code: "NOT_FOUND",
+                message: Cow::Owned(err.client_message()),
+            },
+            UserWidgetError::Invalid(_) => AppError::BadRequest {
+                code: "INVALID_DATA",
+                message: Cow::Owned(err.client_message()),
+            },
+            UserWidgetError::Storage(_) => AppError::Internal {
+                internal: Cow::Owned(err.client_message()),
+            },
+        }
+    }
+}
+
 impl From<TokenizerError> for AppError {
     fn from(err: TokenizerError) -> Self {
         match err {
@@ -418,6 +442,10 @@ impl From<RealmError> for AppError {
             },
             RealmError::ImportInUse(_, _, _) => AppError::Conflict {
                 code: "IMPORT_IN_USE",
+                message: Cow::Owned(err.client_message()),
+            },
+            RealmError::InvalidScenario(_) => AppError::BadRequest {
+                code: "INVALID_SCENARIO",
                 message: Cow::Owned(err.client_message()),
             },
             RealmError::Chat(chat_error) => chat_error.into(),

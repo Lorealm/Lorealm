@@ -6,14 +6,16 @@ use axum::{
 };
 use lorealm_storage::models::{
     AgentGrant, ImportRule, Realm, RealmAgent, RealmConfig, RealmSummary, RealmVersionInfo,
-    Snowflake,
+    Scenario, Snowflake,
 };
 
 use crate::{
     core::AppState,
     errors::AppError,
     extract::AuthenticatedSession,
-    routes::realm::dto::{CreateAgentRequest, CreateRealmRequest, UpdateRealmRequest},
+    routes::realm::dto::{
+        CreateAgentRequest, CreateRealmRequest, CreateScenarioRequest, UpdateRealmRequest,
+    },
     services::realm::ActionSpec,
 };
 
@@ -198,6 +200,50 @@ pub async fn delete_agent(
         .services()
         .realm()
         .delete_agent(realm_id, agent_id, session.user_id)
+        .await?;
+
+    Ok(())
+}
+
+pub async fn create_scenario(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(realm_id): Path<Snowflake>,
+    Json(payload): Json<CreateScenarioRequest>,
+) -> Result<Json<Scenario>, AppError> {
+    let created = state
+        .services()
+        .realm()
+        .create_scenario(realm_id, session.user_id, payload)
+        .await?;
+
+    Ok(Json(created))
+}
+
+pub async fn update_scenario(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path((realm_id, scenario_id)): Path<(Snowflake, Snowflake)>,
+    Json(payload): Json<CreateScenarioRequest>,
+) -> Result<Json<Scenario>, AppError> {
+    let updated = state
+        .services()
+        .realm()
+        .update_scenario(realm_id, scenario_id, session.user_id, payload)
+        .await?;
+
+    Ok(Json(updated))
+}
+
+pub async fn delete_scenario(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path((realm_id, scenario_id)): Path<(Snowflake, Snowflake)>,
+) -> Result<(), AppError> {
+    state
+        .services()
+        .realm()
+        .delete_scenario(realm_id, scenario_id, session.user_id)
         .await?;
 
     Ok(())

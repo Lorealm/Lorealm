@@ -16,6 +16,13 @@
 	const realm = $derived(realmStore.realm);
 	let starting = $state(false);
 
+	const scenarios = $derived(realm?.definition.scenarios ?? []);
+	/** '' = let the server pick (only/none). Required when several exist. */
+	let scenarioPick = $state<string>('');
+	$effect(() => {
+		if (!scenarios.some((s) => s.id === scenarioPick)) scenarioPick = scenarios[0]?.id ?? '';
+	});
+
 	onMount(() => {
 		void realmStore.loadList();
 		void loadCatalog();
@@ -41,7 +48,10 @@
 		starting = true;
 		try {
 			await realmStore.flushAgentSaves();
-			const full = await api.chat.realm.start({ realm_id: realm.id });
+			const full = await api.chat.realm.start({
+				realm_id: realm.id,
+				scenario_id: scenarioPick || null
+			});
 			await chatStore.loadConversation(full.metadata.id);
 			navigationStore.setSidebarView(SidebarView.Write);
 			showToast({
@@ -71,18 +81,27 @@
 			<div class="title">{realm ? realm.definition.name || 'Untitled Realm' : 'Realms'}</div>
 		</div>
 		{#if realm}
-			<button
-				type="button"
-				class="primary"
-				onclick={play}
-				disabled={starting || realmStore.agents.length === 0}
-				title={realmStore.agents.length === 0
-					? 'Add at least one agent first'
-					: "Starts a fresh conversation in Write, using this realm's current cast"}
-			>
-				<Play size={14} />
-				{starting ? 'Starting…' : 'Play'}
-			</button>
+			<div class="playGroup">
+				{#if scenarios.length > 1}
+					<select bind:value={scenarioPick} title="Scenario to open with">
+						{#each scenarios as s (s.id)}
+							<option value={s.id}>{s.name || 'Untitled scenario'}</option>
+						{/each}
+					</select>
+				{/if}
+				<button
+					type="button"
+					class="primary"
+					onclick={play}
+					disabled={starting || realmStore.agents.length === 0}
+					title={realmStore.agents.length === 0
+						? 'Add at least one agent first'
+						: "Starts a fresh conversation in Write, using this realm's current cast"}
+				>
+					<Play size={14} />
+					{starting ? 'Starting…' : 'Play'}
+				</button>
+			</div>
 		{/if}
 	</header>
 
@@ -153,6 +172,17 @@
 		color: var(--color-text-primary);
 	}
 
+	.playGroup {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+	}
+
+	.playGroup > select {
+		height: 32px;
+		max-width: 220px;
+	}
+
 	.primary {
 		display: flex;
 		align-items: center;
@@ -183,10 +213,6 @@
 		overflow: hidden;
 	}
 
-	/* Global text controls are borderless on `--color-bg-elevated`, so inside
-	   the realm cards (also elevated) they vanish. Give each a visible border
-	   and an inset surface so it reads as an editable control. Checkboxes and
-	   switches keep their own styling. */
 	.shell :global(input:not([type='checkbox'])),
 	.shell :global(select),
 	.shell :global(textarea) {

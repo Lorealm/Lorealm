@@ -47,6 +47,7 @@ import type {
 	AgentObservation,
 	CreateAgentRequest,
 	CreateRealmRequest,
+	CreateScenarioRequest,
 	ImportRule,
 	NextTurn,
 	PlayerTurnRequest,
@@ -59,6 +60,7 @@ import type {
 	RealmSummary,
 	RealmVersionInfo,
 	RunTurnRequest,
+	Scenario,
 	StartRealmChatRequest,
 	StateSlice,
 	TurnResult,
@@ -94,6 +96,11 @@ import type {
 	UpdateUserTool,
 	UserTool
 } from '$lib/types/tools.js';
+import type {
+	CreateUserWidgetRequest,
+	UpdateUserWidgetRequest,
+	UserWidget
+} from '$lib/types/widgets.js';
 import type { User } from '$lib/types/user.js';
 import type { StatusCodes } from 'http-status-codes';
 import { getContext, setContext } from 'svelte';
@@ -176,8 +183,7 @@ export function createApiClient(platform: PlatformAPI) {
 			avatar: (characterId: Snowflake) => http.getBlob(`/api/v1/characters/${characterId}/image`),
 			updateAvatar: (characterId: Snowflake, update: Blob) =>
 				http.putBlob<AvatarUpdateResponse>(`/api/v1/characters/${characterId}/image`, update),
-			import: (card: Blob) =>
-				http.putBlob<ImportCharResponse>(`/api/v1/characters/import`, card),
+			import: (card: Blob) => http.putBlob<ImportCharResponse>(`/api/v1/characters/import`, card),
 			chats: (characterId: Snowflake) =>
 				http.get<Array<ConversationMetadata>>(`/api/v1/characters/${characterId}/chats`),
 			versions: {
@@ -197,10 +203,8 @@ export function createApiClient(platform: PlatformAPI) {
 			delete: (conversation_id: Snowflake) => http.delete(`/api/v1/chat/${conversation_id}`),
 			completions: (conversation_id: Snowflake, request: CompletionsRequest) =>
 				http.stream<ChatStreamEvent>(`/api/v1/chat/${conversation_id}/completions`, request),
-			/** Cancels the in-flight generation — chat completion or realm turn alike. */
 			cancel: (conversation_id: Snowflake) =>
 				http.delete(`/api/v1/chat/${conversation_id}/completions`),
-			/** Realm playthrough surfaces of a conversation. */
 			realm: {
 				/** Instantiate a realm preset into a fresh playthrough conversation. */
 				start: (request: StartRealmChatRequest) =>
@@ -208,9 +212,6 @@ export function createApiClient(platform: PlatformAPI) {
 				/** The cast snapshot pinned when this playthrough started. */
 				cast: (conversation_id: Snowflake) =>
 					http.get<RealmCast>(`/api/v1/chat/${conversation_id}/cast`),
-				/** Whose turn it is, resolved server-side: run conditions read
-				 *  world state the client doesn't have, so the schedule can't be
-				 *  derived from the cast alone. */
 				nextTurn: (conversation_id: Snowflake) =>
 					http.get<NextTurn>(`/api/v1/chat/${conversation_id}/turn/next`),
 				/** The playthrough's objective timeline (id-paged backward). */
@@ -233,8 +234,11 @@ export function createApiClient(platform: PlatformAPI) {
 						http.get<Array<ActionSpec>>(
 							`/api/v1/chat/${conversation_id}/agents/${agent_id}/actions`
 						),
-					state: (conversation_id: Snowflake, agent_id: Snowflake) =>
-						http.get<StateSlice>(`/api/v1/chat/${conversation_id}/agents/${agent_id}/state`)
+					/** The agent's granted slice: at `at` when given, else the active leaf. */
+					state: (conversation_id: Snowflake, agent_id: Snowflake, at?: Snowflake) =>
+						http.get<StateSlice>(
+							`/api/v1/chat/${conversation_id}/agents/${agent_id}/state${at !== undefined ? `?at=${at}` : ''}`
+						)
 				}
 			},
 			messages: {
@@ -293,6 +297,7 @@ export function createApiClient(platform: PlatformAPI) {
 		},
 		tools: {
 			list: () => http.get<Array<UserTool>>('/api/v1/tools'),
+			builtins: () => http.get<Array<UserTool>>('/api/v1/tools/builtin'),
 			get: (tool_id: Snowflake) => http.get<UserTool>(`/api/v1/tools/${tool_id}`),
 			create: (create: CreateUserTool) => http.post<Snowflake>('/api/v1/tools', create),
 			update: (tool_id: Snowflake, update: UpdateUserTool) =>
@@ -300,6 +305,16 @@ export function createApiClient(platform: PlatformAPI) {
 			toggle: (tool_id: Snowflake, enable: ToolEnabledRequest) =>
 				http.patch(`/api/v1/tools/${tool_id}`, enable),
 			delete: (tool_id: Snowflake) => http.delete(`/api/v1/tools/${tool_id}`)
+		},
+		userWidgets: {
+			list: () => http.get<Array<UserWidget>>('/api/v1/widgets'),
+			get: (widget_id: Snowflake) => http.get<UserWidget>(`/api/v1/widgets/${widget_id}`),
+			create: (create: CreateUserWidgetRequest) => http.post<UserWidget>('/api/v1/widgets', create),
+			update: (widget_id: Snowflake, update: UpdateUserWidgetRequest) =>
+				http.put<UserWidget>(`/api/v1/widgets/${widget_id}`, update),
+			toggle: (widget_id: Snowflake, enabled: boolean) =>
+				http.patch(`/api/v1/widgets/${widget_id}`, { enabled }),
+			delete: (widget_id: Snowflake) => http.delete(`/api/v1/widgets/${widget_id}`)
 		},
 		tokenizers: {
 			list: () => http.get<Array<Tokenizer>>('/api/v1/tokenizers'),
@@ -376,6 +391,14 @@ export function createApiClient(platform: PlatformAPI) {
 				/** The agent's action space as currently authored in the preset. */
 				actions: (realm_id: Snowflake, agent_id: Snowflake) =>
 					http.get<Array<ActionSpec>>(`/api/v1/realms/${realm_id}/agents/${agent_id}/actions`)
+			},
+			scenarios: {
+				create: (realm_id: Snowflake, create: CreateScenarioRequest) =>
+					http.post<Scenario>(`/api/v1/realms/${realm_id}/scenarios`, create),
+				update: (realm_id: Snowflake, scenario_id: Snowflake, update: CreateScenarioRequest) =>
+					http.put<Scenario>(`/api/v1/realms/${realm_id}/scenarios/${scenario_id}`, update),
+				delete: (realm_id: Snowflake, scenario_id: Snowflake) =>
+					http.delete(`/api/v1/realms/${realm_id}/scenarios/${scenario_id}`)
 			}
 		},
 		config: {

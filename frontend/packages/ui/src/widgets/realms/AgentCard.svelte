@@ -6,7 +6,10 @@
 	import WeaverEditor from '$lib/weaver/editor/WeaverEditor.svelte';
 	import WeaverField from '$lib/weaver/editor/WeaverField.svelte';
 	import Badge from './Badge.svelte';
-	import { catalogItem, realmEditor } from './realmEditor.svelte.js';
+	import { builtinToolItems, catalogItem, realmEditor } from './realmEditor.svelte.js';
+
+	/** Placeholder for property/override value inputs. */
+	const VALUE_HINT = 'value — JSON, e.g. 3 or "shy"';
 
 	let { agent, index, total }: { agent: RealmAgent; index: number; total: number } = $props();
 
@@ -21,7 +24,14 @@
 
 	const imports = $derived(realmStore.realm?.definition.imports ?? []);
 	const importedOf = (
-		kind: 'character' | 'template' | 'tool' | 'lorebook' | 'persona' | 'connection_profile'
+		kind:
+			| 'character'
+			| 'template'
+			| 'tool'
+			| 'lorebook'
+			| 'persona'
+			| 'connection_profile'
+			| 'widget'
 	) =>
 		imports
 			.filter((r) => r.kind === kind)
@@ -33,15 +43,21 @@
 	const lorebooks = $derived(importedOf('lorebook'));
 	const personas = $derived(importedOf('persona'));
 	const profiles = $derived(importedOf('connection_profile'));
+	const importedWidgets = $derived(importedOf('widget'));
 
+	const builtins = $derived(builtinToolItems());
 	const boundToolIds = $derived(new Set(agent.tools.map((t) => t.tool_id)));
 	const availableTools = $derived(tools.filter((t) => !boundToolIds.has(t.id)));
+	const availableBuiltins = $derived(builtins.filter((t) => !boundToolIds.has(t.id)));
+	const isBuiltin = (id: Snowflake) => builtins.some((t) => t.id === id);
+	const toolName = (id: Snowflake) =>
+		catalogItem('tool', id)?.name ?? builtins.find((t) => t.id === id)?.name ?? id;
 	let toolPick = $state('');
 
 	const summary = $derived(
 		agent.kind === 'script'
 			? `${agent.grants.length} grants`
-			: `${agent.speech_scope ? 'Private → ' + agent.speech_scope : 'Broadcast (main)'} · ${
+			: `${agent.speech_channel ? 'Private → ' + agent.speech_channel : 'Broadcast (main)'} · ${
 					agent.tools.length === 0 ? 'speak-only' : agent.tools.length + ' tools'
 				}`
 	);
@@ -61,7 +77,7 @@
 				a.profile_id = null;
 				a.persona_id = null;
 				a.tools = [];
-				a.speech_scope = null;
+				a.speech_channel = null;
 				a.lorebooks = [];
 				a.script = a.script ?? '';
 			} else {
@@ -76,7 +92,7 @@
 		toolPick = '';
 		edit((a) => {
 			if (!a.tools.some((t) => t.tool_id === id))
-				a.tools = [...a.tools, { tool_id: id, event_scope: null }];
+				a.tools = [...a.tools, { tool_id: id, event_channel: null }];
 		});
 	}
 
@@ -85,6 +101,34 @@
 			a.lorebooks = a.lorebooks.includes(id)
 				? a.lorebooks.filter((l) => l !== id)
 				: [...a.lorebooks, id];
+		});
+	}
+
+	// Property values are JSON
+	const displayValue = (v: unknown) => (typeof v === 'string' ? v : JSON.stringify(v));
+	function parseValue(raw: string): unknown {
+		if (raw === '') return '';
+		try {
+			return JSON.parse(raw);
+		} catch {
+			return raw;
+		}
+	}
+
+	function addProperty() {
+		edit((a) => {
+			let i = 1;
+			while (`key_${i}` in a.properties) i++;
+			a.properties = { ...a.properties, [`key_${i}`]: '' };
+		});
+	}
+
+	function renameProperty(from: string, to: string) {
+		if (from === to) return;
+		edit((a) => {
+			const next: Record<string, unknown> = {};
+			for (const [k, v] of Object.entries(a.properties)) next[k === from ? to : k] = v;
+			a.properties = next as typeof a.properties;
 		});
 	}
 </script>
@@ -150,6 +194,16 @@
 						type="text"
 						value={agent.name}
 						oninput={(e) => edit((a) => (a.name = e.currentTarget.value))}
+					/>
+				</label>
+				<label class="kind">
+					<span>Handle</span>
+					<input
+						type="text"
+						class="mono"
+						value={agent.handle}
+						placeholder="e.g. velen"
+						oninput={(e) => edit((a) => (a.handle = e.currentTarget.value))}
 					/>
 				</label>
 				<label class="kind">
@@ -228,9 +282,9 @@
 					<span>Speech scope</span>
 					<input
 						type="text"
-						value={agent.speech_scope ?? ''}
+						value={agent.speech_channel ?? ''}
 						placeholder="Blank = broadcast on the main channel"
-						oninput={(e) => edit((a) => (a.speech_scope = e.currentTarget.value || null))}
+						oninput={(e) => edit((a) => (a.speech_channel = e.currentTarget.value || null))}
 					/>
 				</label>
 			{/if}
@@ -250,6 +304,55 @@
 					doc={agent.run_condition ?? ''}
 					onChange={(v) => edit((a) => (a.run_condition = v.trim() || null))}
 				/>
+			</div>
+
+			<div class="section">
+				<div class="sectionHead">
+					<span>
+						Properties <em>— seeded as agents:{agent.handle || '<handle>'}.key at play start</em>
+					</span>
+					<button type="button" class="ghost" onclick={addProperty}>+ Add property</button>
+				</div>
+				{#each Object.keys(agent.properties) as key (key)}
+					<div class="grantRow">
+						<input
+							type="text"
+							class="mono"
+							value={key}
+							placeholder="key (dotted path)"
+							onchange={(e) => renameProperty(key, e.currentTarget.value)}
+						/>
+						<input
+							type="text"
+							class="mono"
+							value={displayValue(agent.properties[key])}
+							placeholder={VALUE_HINT}
+							onchange={(e) =>
+								edit(
+									(a) =>
+										(a.properties = {
+											...a.properties,
+											[key]: parseValue(e.currentTarget.value) as (typeof a.properties)[string]
+										})
+								)}
+						/>
+						<button
+							type="button"
+							class="icon"
+							title="Remove property"
+							onclick={() =>
+								edit((a) => {
+									const next = { ...a.properties };
+									delete next[key];
+									a.properties = next;
+								})}
+						>
+							<X size={14} />
+						</button>
+					</div>
+				{:else}
+					<div class="hint">No properties — nothing seeds for this agent.</div>
+				{/each}
 			</div>
 
 			<div class="section">
@@ -297,18 +400,23 @@
 			{#if agent.kind !== 'script'}
 				<div class="section">
 					<div class="sectionLabel">Tools <em>— no tools bound means speak-only</em></div>
+					<div class="hint">
+						Binding a tool grants its full capability: tool bodies read and write the whole world
+						state, and their output enters this agent's feed permanently.
+					</div>
 					{#each agent.tools as binding, i (binding.tool_id)}
 						<div class="toolRow">
 							<div class="toolName">
-								{catalogItem('tool', binding.tool_id)?.name ?? binding.tool_id}
+								{toolName(binding.tool_id)}
+								{#if isBuiltin(binding.tool_id)}<Badge tone="info">builtin</Badge>{/if}
 							</div>
 							<input
 								type="text"
 								class="mono"
-								value={binding.event_scope ?? ''}
+								value={binding.event_channel ?? ''}
 								placeholder="Event scope — blank = private to the actor"
 								oninput={(e) =>
-									edit((a) => (a.tools[i].event_scope = e.currentTarget.value || null))}
+									edit((a) => (a.tools[i].event_channel = e.currentTarget.value || null))}
 							/>
 							<button
 								type="button"
@@ -321,13 +429,24 @@
 							</button>
 						</div>
 					{/each}
-					{#if availableTools.length > 0}
+					{#if availableTools.length > 0 || availableBuiltins.length > 0}
 						<div class="bindRow">
 							<select bind:value={toolPick}>
 								<option value="">Add a tool…</option>
-								{#each availableTools as t (t.id)}
-									<option value={t.id}>{t.name}</option>
-								{/each}
+								{#if availableTools.length > 0}
+									<optgroup label="Imported">
+										{#each availableTools as t (t.id)}
+											<option value={t.id}>{t.name}</option>
+										{/each}
+									</optgroup>
+								{/if}
+								{#if availableBuiltins.length > 0}
+									<optgroup label="Builtin">
+										{#each availableBuiltins as t (t.id)}
+											<option value={t.id}>{t.name}</option>
+										{/each}
+									</optgroup>
+								{/if}
 							</select>
 							<button type="button" class="secondary" onclick={bindTool}>Bind</button>
 						</div>
@@ -349,6 +468,31 @@
 						</label>
 					{:else}
 						<div class="hint">No lorebooks imported into this realm yet.</div>
+					{/each}
+				</div>
+			{/if}
+
+			{#if agent.kind !== 'script'}
+				<div class="section">
+					<div class="sectionLabel">
+						Widgets <em>— shown when this agent is the viewer</em>
+					</div>
+					{#each importedWidgets as w (w.id)}
+						<label class="check">
+							<input
+								type="checkbox"
+								checked={agent.widgets.includes(w.id)}
+								onchange={() =>
+									edit((a) => {
+										a.widgets = a.widgets.includes(w.id)
+											? a.widgets.filter((id) => id !== w.id)
+											: [...a.widgets, w.id];
+									})}
+							/>
+							<span>{w.name}</span>
+						</label>
+					{:else}
+						<div class="hint">No widgets imported into this realm yet.</div>
 					{/each}
 				</div>
 			{/if}
@@ -505,6 +649,7 @@
 		color: var(--color-text-secondary);
 	}
 
+	.sectionHead em,
 	.sectionLabel em {
 		color: var(--color-text-muted);
 		font-style: normal;

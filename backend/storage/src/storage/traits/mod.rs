@@ -13,6 +13,7 @@ mod templates;
 mod tokenizer;
 mod tools;
 mod users;
+mod widgets;
 
 pub use blob::BlobStore;
 pub use characters::CharacterStorage;
@@ -29,6 +30,7 @@ pub use templates::TemplateStorage;
 pub use tokenizer::TokenizerStorage;
 pub use tools::UserToolStorage;
 pub use users::UserStorage;
+pub use widgets::UserWidgetStorage;
 
 pub trait Storage:
     StorageCore
@@ -44,6 +46,7 @@ pub trait Storage:
     + SecretStorage
     + ConnectionStorage
     + UserToolStorage
+    + UserWidgetStorage
     + TokenizerStorage
     + RealmStorage
 {
@@ -63,6 +66,7 @@ impl<T> Storage for T where
         + SecretStorage
         + ConnectionStorage
         + UserToolStorage
+        + UserWidgetStorage
         + TokenizerStorage
         + RealmStorage
 {

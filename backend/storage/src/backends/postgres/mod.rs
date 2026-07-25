@@ -11,6 +11,7 @@ pub mod templates;
 pub mod tokenizer;
 pub mod tools;
 pub mod users;
+pub mod widgets;
 
 use crate::StorageCore;
 use crate::error::StorageError;

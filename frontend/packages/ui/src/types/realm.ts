@@ -16,6 +16,24 @@ export interface RealmDefinition {
 	description: string;
 	imports: ImportRule[];
 	agents: RealmAgent[];
+	scenarios: Scenario[];
+}
+
+export interface Scenario {
+	id: Snowflake;
+	name: string;
+	description: string;
+	seed_script: string;
+	opening?: string | null;
+	agent_overrides: Record<string, Record<string, JsonValue>>;
+}
+
+export interface CreateScenarioRequest {
+	name: string;
+	description?: string;
+	seed_script?: string;
+	opening?: string | null;
+	agent_overrides?: Record<string, Record<string, JsonValue>>;
 }
 
 export type ImportKind =
@@ -24,7 +42,8 @@ export type ImportKind =
 	| 'template'
 	| 'tool'
 	| 'persona'
-	| 'connection_profile';
+	| 'connection_profile'
+	| 'widget';
 
 export interface ImportRule {
 	kind: ImportKind;
@@ -50,6 +69,10 @@ export type AgentKind = 'llm' | 'player' | 'script';
 export interface RealmAgent {
 	id: Snowflake;
 	name: string;
+	/**
+	 * Stable weaver identity: the agent's state subtree is `agents:<handle>.*`.
+	 */
+	handle: string;
 	kind: AgentKind;
 
 	character_id: Snowflake | null;
@@ -62,10 +85,14 @@ export interface RealmAgent {
 	persona_id: Snowflake | null;
 	turn_order: number;
 
+	/** Seeded as `agents:<handle>.<key>` at instantiation. Keys are dotted paths. */
+	properties: Record<string, JsonValue>;
 	grants: AgentGrant[];
 	tools: ToolBinding[];
-	speech_scope?: string | null;
+	speech_channel?: string | null;
 	lorebooks: Snowflake[];
+	/** Static display widgets shown when this agent is the viewer. */
+	widgets: Snowflake[];
 	script?: string | null;
 	run_condition?: string | null;
 }
@@ -79,7 +106,7 @@ export interface AgentGrant {
 
 export interface ToolBinding {
 	tool_id: Snowflake;
-	event_scope?: string | null;
+	event_channel?: string | null;
 }
 
 export interface RealmCast {
@@ -96,7 +123,7 @@ export interface RealmEvent {
 	message_id: Snowflake;
 	seq: number;
 	source: Snowflake | null;
-	scope: string;
+	channel: string;
 	kind: EventKind;
 	content: string;
 	payload: JsonValue;
@@ -118,7 +145,7 @@ export interface ActionSpec {
 	display_name: string | null;
 	description: string;
 	params: Param[];
-	event_scope: string | null;
+	event_channel: string | null;
 }
 
 export type StateSlice = Record<string, JsonValue>;
@@ -159,29 +186,37 @@ export const REALM_CONFIG_DEFAULTS: Required<{ [K in keyof RealmConfig]: string 
 
 export interface CreateAgentRequest {
 	name: string;
+	handle: string;
 	kind: AgentKind;
 
 	// character: llm only, both-or-neither
 	character_id?: Snowflake | null;
-	char_version_id?: Snowflake | null;
-	/** llm only — required, no fallback to the caller's active template. */
-	template_id?: Snowflake | null;
-	/** llm required, player optional — no fallback to the caller's active connection profile. */
-	profile_id?: Snowflake | null;
+  char_version_id?: Snowflake | null;
 
-	/** Any agent kind but script. */
+  // llm or player
+	template_id?: Snowflake | null;
+	profile_id?: Snowflake | null;
 	persona_id?: Snowflake | null;
 
+	/** Seeded as `agents:<handle>.<key>` at instantiation. Keys are dotted paths. */
+	properties?: Record<string, JsonValue>;
 	grants?: AgentGrant[];
 	tools?: ToolBinding[];
-	speech_scope?: string | null;
+	speech_channel?: string | null;
 	lorebooks?: Snowflake[];
+	/** Static display widgets shown when this agent is the viewer. */
+	widgets?: Snowflake[];
 	script?: string | null;
 	run_condition?: string | null;
 }
 
 export interface StartRealmChatRequest {
 	realm_id: Snowflake;
+	/**
+	 * The scenario to open with. Omitted: the realm's only scenario, or the
+	 * legacy emergent start when the realm defines none.
+	 */
+	scenario_id?: Snowflake | null;
 }
 
 export interface PlayerTurnRequest {

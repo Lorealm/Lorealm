@@ -7,6 +7,7 @@
 	import RealmSection from '../studio/sections/realm/RealmSection.svelte';
 	import PersonaSection from '../studio/sections/personas/PersonaSection.svelte';
 	import ToolsSection from '../studio/sections/tools/ToolsSection.svelte';
+	import WidgetsSection from '../studio/sections/widgets/WidgetsSection.svelte';
 </script>
 
 <div style="display:flex; flex-direction:column; flex:1; min-height:0; padding:var(--spacing-sm)">
@@ -22,6 +23,8 @@
 		<ToolsSection />
 	{:else if studioStore.section === StudioSection.Personas}
 		<PersonaSection />
+	{:else if studioStore.section === StudioSection.Widgets}
+		<WidgetsSection />
 	{:else if studioStore.section === StudioSection.Realm}
 		<RealmSection />
 	{/if}

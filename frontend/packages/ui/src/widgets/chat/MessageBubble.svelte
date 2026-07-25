@@ -4,6 +4,7 @@
 	import type { ConversationMessage } from '$lib/types/conversation.js';
 	import TransportImage from '$lib/components/TransportImage.svelte';
 	import ChatWidget from '$lib/components/ChatWidget.svelte';
+	import StaticWidgets from '$lib/components/StaticWidgets.svelte';
 	import { ChevronLeft, ChevronRight, Layers, Pencil, Trash2 } from '@lucide/svelte';
 	import { contextInspector } from '$lib/stores/contextInspector.svelte.js';
 	import { parseContextBlocks } from '$lib/types/context.js';
@@ -154,11 +155,18 @@
 			</div>
 		{/if}
 
-		{#if !editing && trailing.length > 0}
+		<!-- Static widgets currently only appear on assistant messages, and not on the opening message. -->
+		{#if !editing && trailing.length > 0 && message.role === 'assistant' && message.parent !== null}
 			<div class="widgets">
 				{#each trailing as widget, i (i)}
 					<ChatWidget {widget} />
 				{/each}
+			</div>
+		{/if}
+		
+		{#if !editing && !busy && message.role === 'assistant' && message.parent !== null}
+			<div class="widgets">
+				<StaticWidgets messageId={message.id} />
 			</div>
 		{/if}
 
