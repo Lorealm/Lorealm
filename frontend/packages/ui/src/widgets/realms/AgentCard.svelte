@@ -361,7 +361,7 @@
 					<button
 						type="button"
 						class="ghost"
-						onclick={() => edit((a) => (a.grants = [...a.grants, { scope: '', access: 'read' }]))}
+						onclick={() => edit((a) => (a.grants = [...a.grants, { channel: '', access: 'read' }]))}
 					>
 						+ Add grant
 					</button>
@@ -371,9 +371,9 @@
 						<input
 							type="text"
 							class="mono"
-							value={grant.scope}
+							value={grant.channel}
 							placeholder="e.g. nation:velen.*"
-							oninput={(e) => edit((a) => (a.grants[i].scope = e.currentTarget.value))}
+							oninput={(e) => edit((a) => (a.grants[i].channel = e.currentTarget.value))}
 						/>
 						<select
 							value={grant.access}

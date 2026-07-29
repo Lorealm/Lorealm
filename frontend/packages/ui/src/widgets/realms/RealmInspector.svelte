@@ -96,7 +96,7 @@
 			meta,
 			name: a.name,
 			sees: a.grants.length
-				? a.grants.map((g) => g.scope || '(unset scope)').join(', ')
+				? a.grants.map((g) => g.channel || '(unset scope)').join(', ')
 				: 'Nothing — no grants',
 			does: a.tools.length
 				? a.tools.map((t) => catalogItem('tool', t.tool_id)?.name ?? t.tool_id).join(', ')
@@ -130,9 +130,9 @@
 				title: 'State pools',
 				empty: 'No grants',
 				rows: a.grants.map((g, gi) => ({
-					label: g.scope || '(unset)',
+					label: g.channel || '(unset)',
 					badge: g.access === 'read_write' ? 'R/W' : 'R',
-					onSelect: () => select('scope:' + g.scope),
+					onSelect: () => select('scope:' + g.channel),
 					actions: [
 						{
 							icon: Repeat,
@@ -239,12 +239,12 @@
 			const isPool = gt === 'pool';
 			const matches = (scope: string) =>
 				scope && (isPool ? scopeRoot(scope) === gid : scope === gid);
-			const users = agents.filter((a) => a.grants.some((g) => matches(g.scope)));
+			const users = agents.filter((a) => a.grants.some((g) => matches(g.channel)));
 			const groups: Group[] = [];
 			if (isPool) {
 				const scopes = [
 					...new Set(
-						users.flatMap((a) => a.grants.map((g) => g.scope).filter((s) => scopeRoot(s) === gid))
+						users.flatMap((a) => a.grants.map((g) => g.channel).filter((s) => scopeRoot(s) === gid))
 					)
 				].sort();
 				groups.push({
@@ -261,7 +261,7 @@
 				title: 'Accessed by',
 				empty: 'No agents access this',
 				rows: users.map((a) => {
-					const gi = a.grants.findIndex((g) => matches(g.scope));
+					const gi = a.grants.findIndex((g) => matches(g.channel));
 					const g = a.grants[gi];
 					return {
 						label: a.name,

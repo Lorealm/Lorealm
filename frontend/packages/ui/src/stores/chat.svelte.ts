@@ -135,7 +135,7 @@ class ChatStore {
 
 	/** Can `viewer` hear speech carried on `scope`? */
 	#canHear(viewer: RealmAgent, scope: string): boolean {
-		return viewer.grants.some((g) => scopeMatches(g.scope, scope));
+		return viewer.grants.some((g) => scopeMatches(g.channel, scope));
 	}
 
 	get visiblePath(): ConversationMessage[] {

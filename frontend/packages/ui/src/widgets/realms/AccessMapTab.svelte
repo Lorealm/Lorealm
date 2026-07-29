@@ -16,7 +16,7 @@
 	const scopeList = $derived.by(() => {
 		const list: string[] = [];
 		for (const a of agents)
-			for (const g of a.grants) if (g.scope && !list.includes(g.scope)) list.push(g.scope);
+			for (const g of a.grants) if (g.channel && !list.includes(g.channel)) list.push(g.channel);
 		return list.sort();
 	});
 
@@ -25,13 +25,13 @@
 	function agentActive(a: RealmAgent): boolean {
 		if (!sel) return true;
 		if (sel.type === 'agent') return sel.id === a.id;
-		return a.grants.some((g) => g.scope === sel.id);
+		return a.grants.some((g) => g.channel === sel.id);
 	}
 	function scopeActive(scope: string): boolean {
 		if (!sel) return true;
 		if (sel.type === 'scope') return sel.id === scope;
 		const a = agents.find((x) => x.id === sel.id);
-		return a ? a.grants.some((g) => g.scope === scope) : false;
+		return a ? a.grants.some((g) => g.channel === scope) : false;
 	}
 
 	function subtitle(a: RealmAgent): string {
@@ -53,13 +53,13 @@
 		}> = [];
 		agents.forEach((a, ai) => {
 			a.grants.forEach((g) => {
-				if (!g.scope) return;
-				const si = scopeList.indexOf(g.scope);
+				if (!g.channel) return;
+				const si = scopeList.indexOf(g.channel);
 				if (si < 0) return;
 				const active =
 					!sel ||
 					(sel.type === 'agent' && sel.id === a.id) ||
-					(sel.type === 'scope' && sel.id === g.scope);
+					(sel.type === 'scope' && sel.id === g.channel);
 				const rw = g.access === 'read_write';
 				list.push({
 					y1: TOP + si * ROW_H,
