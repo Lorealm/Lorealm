@@ -270,7 +270,7 @@ export function buildGraph(realm: Realm): GraphModel {
 	const scopeList: string[] = [];
 	agents.forEach((a) =>
 		a.grants.forEach((g) => {
-			if (g.scope && !scopeList.includes(g.scope)) scopeList.push(g.scope);
+			if (g.channel && !scopeList.includes(g.channel)) scopeList.push(g.channel);
 		})
 	);
 	scopeList.sort();
@@ -327,11 +327,11 @@ export function buildGraph(realm: Realm): GraphModel {
 	const seenPool: Record<string, true> = {};
 	agents.forEach((a) => {
 		a.grants.forEach((g) => {
-			if (!g.scope) return;
-			const key = a.id + '|' + scopeRoot(g.scope);
+			if (!g.channel) return;
+			const key = a.id + '|' + scopeRoot(g.channel);
 			if (seenPool[key]) return;
 			seenPool[key] = true;
-			edges.push({ source: 'agent:' + a.id, target: 'pool:' + scopeRoot(g.scope) });
+			edges.push({ source: 'agent:' + a.id, target: 'pool:' + scopeRoot(g.channel) });
 		});
 		a.tools.forEach((tb) => edges.push({ source: 'agent:' + a.id, target: 'tool:' + tb.tool_id }));
 		a.lorebooks.forEach((l) => edges.push({ source: 'agent:' + a.id, target: 'lorebook:' + l }));

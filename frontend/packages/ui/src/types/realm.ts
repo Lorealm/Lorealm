@@ -100,7 +100,7 @@ export interface RealmAgent {
 export type AgentAccess = 'read' | 'read_write';
 
 export interface AgentGrant {
-	scope: string;
+	channel: string;
 	access: AgentAccess;
 }
 

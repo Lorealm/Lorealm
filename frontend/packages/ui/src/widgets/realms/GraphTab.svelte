@@ -60,9 +60,9 @@
 			const a = agents.find((x) => x.id === gid);
 			if (a) {
 				a.grants.forEach((g) => {
-					if (g.scope) {
-						add('scope:' + g.scope);
-						add('pool:' + scopeRoot(g.scope));
+					if (g.channel) {
+						add('scope:' + g.channel);
+						add('pool:' + scopeRoot(g.channel));
 					}
 				});
 				a.tools.forEach((tb) => add('tool:' + tb.tool_id));
@@ -73,12 +73,12 @@
 		} else if (gt === 'scope') {
 			add('pool:' + scopeRoot(gid));
 			agents.forEach((a) => {
-				if (a.grants.some((g) => g.scope === gid)) add('agent:' + a.id);
+				if (a.grants.some((g) => g.channel === gid)) add('agent:' + a.id);
 			});
 		} else if (gt === 'pool') {
 			(model.poolScopes[gid] ?? []).forEach((sc) => add('scope:' + sc));
 			agents.forEach((a) => {
-				if (a.grants.some((g) => g.scope && scopeRoot(g.scope) === gid)) add('agent:' + a.id);
+				if (a.grants.some((g) => g.channel && scopeRoot(g.channel) === gid)) add('agent:' + a.id);
 			});
 		} else if (gt === 'tool') {
 			agents.forEach((a) => a.tools.some((tb) => tb.tool_id === gid) && add('agent:' + a.id));
@@ -159,12 +159,12 @@
 			};
 			if (filters.scope)
 				a.grants.forEach((g) => {
-					if (!g.scope) return;
-					const tp = attach[g.scope];
+					if (!g.channel) return;
+					const tp = attach[g.channel];
 					if (!tp) return;
 					const rw = g.access === 'read_write';
 					push(
-						'scope:' + g.scope,
+						'scope:' + g.channel,
 						tp,
 						rw ? 'var(--color-primary-light)' : 'var(--color-warning)',
 						rw ? 2.5 : 1.5,
