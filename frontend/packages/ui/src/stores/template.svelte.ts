@@ -291,6 +291,44 @@ class TemplateStore {
 		}
 	}
 
+	/**
+	 * Toggle a node on the active template, without an editing session.
+	 */
+	async toggleActiveNode(nodeId: Snowflake) {
+		const id = this.activeTemplateId;
+		const base = id ? this.loadedTemplates.get(id) : undefined;
+		if (!id || !base) return;
+
+		const optimistic = clone(base);
+		const path = findPath(optimistic.nodes, nodeId);
+		if (!path) return;
+		const node = nodeAt(optimistic.nodes, path)!;
+		node.enabled = !node.enabled;
+		this.loadedTemplates.set(id, optimistic);
+
+		try {
+			const res: ToggleNodeResponse = await this.#api.templates.nodes.toggle(id, nodeId);
+			// Apply the authoritative delta (invariant groups turn siblings off).
+			const settled = clone(optimistic);
+			for (const [changedId, enabled] of Object.entries(res.delta)) {
+				const p = findPath(settled.nodes, changedId);
+				if (p) nodeAt(settled.nodes, p)!.enabled = enabled;
+			}
+			this.loadedTemplates.set(id, settled);
+
+			// Keep an open editor of the same template in sync.
+			if (this._draft?.id === id) {
+				for (const [changedId, enabled] of Object.entries(res.delta)) {
+					const p = findPath(this._draft.nodes, changedId);
+					if (p) nodeAt(this._draft.nodes, p)!.enabled = enabled;
+				}
+			}
+		} catch (e) {
+			this.loadedTemplates.set(id, base);
+			throw e;
+		}
+	}
+
 	async deleteNode(nodeId: Snowflake) {
 		const draft = this._draft;
 		if (!draft) return;

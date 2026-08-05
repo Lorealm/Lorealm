@@ -37,7 +37,7 @@ pub(super) struct CharacterBook {
     // so this field is never used
     #[serde(default)]
     pub recursive_scanning: Option<bool>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "super::null_as_default")]
     pub entries: Vec<BookEntry>,
 }
 
@@ -45,13 +45,13 @@ pub(super) struct CharacterBook {
 pub(super) struct BookEntry {
     #[serde(default)]
     pub name: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "super::null_as_default")]
     pub keys: Vec<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "super::null_as_default")]
     pub secondary_keys: Vec<serde_json::Value>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "super::null_as_default")]
     pub content: String,
-    #[serde(default = "default_true")]
+    #[serde(default = "default_true", deserialize_with = "null_as_true")]
     pub enabled: bool,
     #[serde(default)]
     pub insertion_order: Option<i32>,
@@ -61,15 +61,15 @@ pub(super) struct BookEntry {
     pub priority: Option<i32>,
     #[serde(default)]
     pub comment: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "super::null_as_default")]
     pub constant: bool,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "super::null_as_default")]
     pub selective: bool,
     /// `"before_char"`, `"after_char"`, `"at_depth"`, … Absent on many cards,
     /// in which case `extensions.position` carries the numeric form.
     #[serde(default)]
     pub position: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "super::null_as_default")]
     pub extensions: EntryExtensions,
 }
 
@@ -96,6 +96,12 @@ pub(super) struct EntryExtensions {
 
 fn default_true() -> bool {
     true
+}
+
+/// `enabled`'s null-tolerant reader. Unlike the other flags it defaults to
+/// `true`, so it cannot share `super::null_as_default`.
+fn null_as_true<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<bool, D::Error> {
+    Ok(Option::<bool>::deserialize(deserializer)?.unwrap_or(true))
 }
 
 /// What a book conversion produced. Surfaced to the client so the import
@@ -534,6 +540,71 @@ mod tests {
         let config: LorebookConfig = serde_yaml::from_str(&lorebook.config_yaml).unwrap();
         assert_eq!(config.default_scan_depth, 5);
         assert_eq!(config.token_budget, Some(1200));
+    }
+
+    #[test]
+    fn book_survives_explicit_nulls() {
+        let raw = serde_json::json!({
+            "name": "Booru Book",
+            "entries": [{
+                "id": 0,
+                "keys": ["tower"],
+                "name": "The Tower",
+                "comment": null,
+                "content": "{{char}} built it.",
+                "enabled": true,
+                "constant": null,
+                "position": null,
+                "priority": null,
+                "selective": null,
+                "use_regex": false,
+                "extensions": {},
+                "case_sensitive": null,
+                "secondary_keys": null,
+                "insertion_order": 0
+            }],
+            "extensions": {},
+            "scan_depth": 4,
+            "description": null,
+            "token_budget": null,
+            "creation_date": 1_700_000_000,
+            "modification_date": 1_700_000_001,
+            "recursive_scanning": null
+        });
+
+        let book: CharacterBook =
+            serde_json::from_value(raw).expect("nulls must not fail the book");
+        assert_eq!(book.entries.len(), 1);
+        assert!(!book.entries[0].constant);
+        assert!(!book.entries[0].selective);
+        assert!(book.entries[0].secondary_keys.is_empty());
+
+        let sf = SnowflakeService::new(1);
+        let (lorebook, stats) =
+            convert_character_book(book, "Nyx", Snowflake(9), &sf).expect("book should convert");
+        assert_eq!(lorebook.name, "Booru Book");
+        assert_eq!(stats.entry_count, 1);
+        assert_eq!(lorebook.entries[0].entry_id, "the_tower");
+    }
+
+    #[test]
+    fn null_containers_and_enabled_fall_back() {
+        let entry: BookEntry = serde_json::from_value(serde_json::json!({
+            "keys": null,
+            "content": null,
+            "enabled": null,
+            "extensions": null,
+        }))
+        .expect("null containers must not fail the entry");
+        assert!(entry.keys.is_empty());
+        assert_eq!(entry.content, "");
+        assert!(entry.enabled, "an unset `enabled` means enabled");
+        assert_eq!(entry.extensions.depth, None);
+
+        let book: CharacterBook =
+            serde_json::from_value(serde_json::json!({ "name": "B", "entries": null }))
+                .expect("null entries must not fail the book");
+        assert!(book.entries.is_empty());
     }
 
     #[test]
