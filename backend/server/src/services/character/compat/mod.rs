@@ -33,38 +33,53 @@ pub(super) struct CharaV2 {
     pub data: CharaV2Data,
 }
 
+/// Deserialize a field that may be present but `null`.
+///
+/// `#[serde(default)]` alone only covers an *absent* key: an explicit
+/// `"mes_example": null` still reaches the field's own `Deserialize`, and
+/// `String`, `Vec` and `bool` all reject it. Exporters write `null` for
+/// "unset" freely, so every defaulted non-`Option` field on a card pairs
+/// `default` with this.
+pub(super) fn null_as_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de> + Default,
+{
+    Ok(Option::<T>::deserialize(deserializer)?.unwrap_or_default())
+}
+
 /// Every field is defaulted: V3 cards and the various exporters differ on
 /// which of these they bother to emit, and a missing `system_prompt` is no
 /// reason to reject a card.
 #[derive(Deserialize)]
 pub(super) struct CharaV2Data {
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub name: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub description: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub personality: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub scenario: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub first_mes: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub mes_example: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub creator_notes: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub system_prompt: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub post_history_instructions: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub alternate_greetings: Vec<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub tags: Vec<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub creator: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub character_version: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub extensions: HashMap<String, serde_json::Value>,
 
     /// Held as a raw value and converted separately: books in the wild play
@@ -203,4 +218,48 @@ fn convert_variables(content: &String) -> String {
         .register("{{user}}", "{{user:name}}")
         .register("{{char}}", "{{char:name}}")
         .execute()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn card_survives_explicit_nulls() {
+        let card: CharaV2 = serde_json::from_value(serde_json::json!({
+            "spec": "chara_card_v2",
+            "spec_version": "2.0",
+            "data": {
+                "name": "Nyx",
+                "description": null,
+                "personality": null,
+                "scenario": null,
+                "first_mes": null,
+                "mes_example": null,
+                "creator": null,
+                "creator_notes": null,
+                "system_prompt": null,
+                "post_history_instructions": null,
+                "alternate_greetings": null,
+                "tags": null,
+                "character_version": null,
+                "extensions": null,
+                "character_book": null
+            }
+        }))
+        .expect("nulls must not fail the card");
+
+        assert_eq!(card.data.name, "Nyx");
+        assert_eq!(card.data.description, "");
+        assert!(card.data.alternate_greetings.is_empty());
+        assert!(card.data.tags.is_empty());
+        assert!(card.data.extensions.is_empty());
+        assert!(card.data.character_book.is_none());
+
+        let sf = SnowflakeService::new(1);
+        let converted = convert_from_ccv2(card, Snowflake(9), &sf);
+        assert_eq!(converted.character.definition.name, "Nyx");
+        assert_eq!(converted.character.metadata.card_version, "0.0.1");
+        assert!(converted.lorebook.is_none());
+    }
 }

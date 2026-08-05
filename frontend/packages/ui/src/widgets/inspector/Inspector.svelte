@@ -4,6 +4,7 @@
 	import ContextWidget from './widgets/ContextWidget.svelte';
 	import RealmAgentWidget from './widgets/RealmAgentWidget.svelte';
 	import StateWidget from './widgets/StateWidget.svelte';
+	import TemplateWidget from './widgets/TemplateWidget.svelte';
 </script>
 
 <div class="container">
@@ -13,6 +14,7 @@
 			<RealmAgentWidget />
 		{:else}
 			<CharacterImageWidget />
+			<TemplateWidget />
 			<ContextWidget />
 			<StateWidget />
 		{/if}
