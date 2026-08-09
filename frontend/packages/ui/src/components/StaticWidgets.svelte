@@ -6,23 +6,26 @@
 	import type { UserWidget } from '$lib/types/widgets.js';
 	import StateFrame from './StateFrame.svelte';
 
-	let { messageId }: { messageId: Snowflake } = $props();
+	let { messageId, last = false }: { messageId: Snowflake; last?: boolean } = $props();
 
 	const api = useApi();
 
 	const widgets = $derived.by((): UserWidget[] => {
 		const all = userWidgetStore.loadedWidgets ?? [];
 		if (!chatStore.conversationId) return [];
-		if (chatStore.isRealm) {
-			const viewer = chatStore.viewerAgent;
-			const ids = new Set(
-				viewer && !chatStore.realmDirectorView
-					? viewer.widgets
-					: (chatStore.realmCast?.agents ?? []).flatMap((a) => a.widgets)
-			);
-			return all.filter((w) => ids.has(w.id));
-		}
-		return all.filter((w) => w.enabled);
+		const bound = chatStore.isRealm
+			? (() => {
+					const viewer = chatStore.viewerAgent;
+					const ids = new Set(
+						viewer && !chatStore.realmDirectorView
+							? viewer.widgets
+							: (chatStore.realmCast?.agents ?? []).flatMap((a) => a.widgets)
+					);
+					return all.filter((w) => ids.has(w.id));
+				})()
+			: all.filter((w) => w.enabled);
+
+		return bound.filter((w) => w.placement !== 'attachment' && (w.mode === 'every' || last));
 	});
 
 	let state = $state<Record<string, JsonValue>>({});

@@ -8,7 +8,7 @@ use lorealm_storage::{
     Storage,
     models::{
         AgentSpec, ChatRole, Conversation, ConversationMessage, ConversationMetadata, Realm,
-        Snowflake,
+        Snowflake, WidgetPlacement,
     },
 };
 use serde_json::json;
@@ -23,7 +23,10 @@ use crate::{
         chat::{
             CancelGuard, ChatStreamEvent, FullConversation, OpenAgentTurn, Persist, Prepared,
             PromptMessage, TurnAccumulator, TurnPlan,
-            widgets::{InferEvent, ToolCallRecord, WidgetInstance, WidgetSink, widget_registry},
+            widgets::{
+                AttachmentSpec, InferEvent, ToolCallRecord, WidgetInstance, WidgetSink,
+                register_attachment_commands,
+            },
         },
         connection::ConnectionService,
         context::{
@@ -37,8 +40,8 @@ use crate::{
         state::{CapturedState, ReconstructedState, StatePool, StateService, apply_delta},
         tokenizer::TokenizerService,
         tools::{
-            CompiledUserTool, EmitEventCommand, ToolPolicy, ToolSignature, UserToolService,
-            build_tool_registry, builtin_tool,
+            ATTACHMENT_TOOL_IDS, CompiledUserTool, EmitEventCommand, ToolPolicy, ToolSignature,
+            UserToolService, build_tool_registry, builtin_tool,
         },
         variables::{VariableContext, VariableRegistry},
     },
@@ -399,14 +402,19 @@ impl ChatService {
         })
     }
 
-    async fn enabled_widget_prompts(
+    async fn enabled_widgets(
         &self,
         user_id: Snowflake,
-    ) -> Result<(Vec<String>, Vec<Snowflake>), ChatError> {
+    ) -> Result<(Vec<String>, Vec<Snowflake>, Vec<AttachmentSpec>), ChatError> {
         let widgets = self.storage.list_enabled_widgets(user_id).await?;
         let mut prompts = Vec::new();
         let mut tools = Vec::new();
+        let mut catalog = Vec::new();
         for w in widgets {
+            if w.placement == WidgetPlacement::Attachment {
+                catalog.push(AttachmentSpec::from(&w));
+                continue;
+            }
             if !w.prompt.trim().is_empty() {
                 prompts.push(w.prompt);
             }
@@ -416,7 +424,7 @@ impl ChatService {
                 }
             }
         }
-        Ok((prompts, tools))
+        Ok((prompts, tools, catalog))
     }
 
     async fn assemble_context(
@@ -573,7 +581,7 @@ impl ChatService {
         // "Use this user's active selections." A Realm agent supplies its own spec.
         let spec = self.active_spec(user_id, &convo).await?;
 
-        let (widget_prompts, widget_tools) = self.enabled_widget_prompts(user_id).await?;
+        let (widget_prompts, widget_tools, attachments) = self.enabled_widgets(user_id).await?;
 
         let Prepared {
             mut prompt,
@@ -606,6 +614,7 @@ impl ChatService {
                 Arc::clone(&state_pool),
                 &ToolPolicy {
                     extra_tool_ids: widget_tools,
+                    attachments,
                     ..Default::default()
                 },
             )
@@ -790,10 +799,12 @@ impl ChatService {
             })
             .collect();
 
-        let (mut registry, widget_sink) = widget_registry();
+        let mut registry = lorealm_providers::ToolRegistry::new();
 
+        let widget_sink;
         let weaver_registry = {
             let mut r = build_tool_registry();
+            widget_sink = register_attachment_commands(&mut r, policy.attachments.clone());
             if let Some(sink) = &policy.event_sink {
                 r.register_command(EmitEventCommand::new(Arc::clone(sink)));
             }
@@ -813,7 +824,15 @@ impl ChatService {
                 rows
             }
         };
-        
+
+        if !policy.attachments.is_empty() {
+            for id in ATTACHMENT_TOOL_IDS {
+                if !rows.iter().any(|r| r.id == id) {
+                    rows.extend(builtin_tool(id));
+                }
+            }
+        }
+
         // Widgets bundle their tools regardless of the selection above.
         for id in &policy.extra_tool_ids {
             if rows.iter().any(|r| r.id == *id) {
@@ -824,7 +843,7 @@ impl ChatService {
                 None => self.tools.get_tool(*id, spec.owner).await?,
             });
         }
-        
+
         for row in rows {
             let sig = ToolSignature::from(row.clone());
             match CompiledUserTool::build(

@@ -1,6 +1,3 @@
-//! Cast members as behaviors. The turn loop resolves whose turn it is along
-//! the path, then dispatches to that member's [`Agent`] impl to plan the turn.
-
 use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
@@ -217,6 +214,8 @@ impl Agent for LlmAgent {
             extra_tool_ids: Vec::new(),
             actor: Some(weaver::actor_of(&agent)),
             event_sink: Some(Arc::new(std::sync::Mutex::new(Vec::new()))),
+            // Realm agents do not offer attachments yet.
+            attachments: Vec::new(),
         };
         let baseline = ReconstructedState {
             persistent: baseline_slice,

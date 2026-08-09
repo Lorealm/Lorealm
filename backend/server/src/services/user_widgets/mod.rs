@@ -3,7 +3,7 @@ use std::sync::Arc;
 use chrono::Utc;
 use lorealm_storage::{
     Storage,
-    models::{Snowflake, UserWidget},
+    models::{Snowflake, UserWidget, WidgetMode, WidgetPlacement, is_identifier},
 };
 use serde::Deserialize;
 
@@ -23,6 +23,12 @@ pub struct CreateUserWidget {
     pub prompt: String,
     #[serde(default)]
     pub tools: Vec<Snowflake>,
+    #[serde(default)]
+    pub placement: WidgetPlacement,
+    #[serde(default)]
+    pub mode: WidgetMode,
+    #[serde(default)]
+    pub props: Vec<String>,
 }
 
 #[derive(Default, Deserialize)]
@@ -32,6 +38,9 @@ pub struct UpdateUserWidget {
     pub source: Option<String>,
     pub prompt: Option<String>,
     pub tools: Option<Vec<Snowflake>>,
+    pub placement: Option<WidgetPlacement>,
+    pub mode: Option<WidgetMode>,
+    pub props: Option<Vec<String>>,
 }
 
 pub struct UserWidgetService {
@@ -86,6 +95,9 @@ impl UserWidgetService {
             prompt: create.prompt,
             tools: create.tools,
             enabled: false,
+            placement: create.placement,
+            mode: create.mode,
+            props: create.props,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
@@ -119,6 +131,16 @@ impl UserWidgetService {
             self.validate_tools(user_id, &tools).await?;
             widget.tools = tools;
         }
+        if let Some(placement) = update.placement {
+            widget.placement = placement;
+        }
+        if let Some(mode) = update.mode {
+            widget.mode = mode;
+        }
+        if let Some(props) = update.props {
+            Self::validate_props(&props)?;
+            widget.props = props;
+        }
 
         self.storage.save_widget(widget.clone()).await?;
         Ok(widget)
@@ -145,6 +167,17 @@ impl UserWidgetService {
         Ok(())
     }
 
+    fn validate_props(props: &[String]) -> Result<(), UserWidgetError> {
+        for p in props {
+            if p.trim().is_empty() || !is_identifier(p) {
+                return Err(UserWidgetError::Invalid(format!(
+                    "prop name '{p}' must be a bare identifier"
+                )));
+            }
+        }
+        Ok(())
+    }
+
     fn validate_name(name: &str) -> Result<(), UserWidgetError> {
         if name.trim().is_empty() {
             return Err(UserWidgetError::Invalid("a widget needs a name".into()));
@@ -152,9 +185,6 @@ impl UserWidgetService {
         Ok(())
     }
 
-    /// Every declared tool must resolve to a builtin or a tool this user owns
-    /// — a widget bundles its tools, so this is the ownership gate that
-    /// bind-time no longer performs.
     async fn validate_tools(
         &self,
         user_id: Snowflake,

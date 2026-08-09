@@ -1,13 +1,3 @@
--- Realms adopt the character versioning machinery: an immutable snapshot
--- per version, a head pointer, and tags. The realm definition (name,
--- description, cast with grants + tool bindings) becomes a document inside
--- the version snapshot, so the relational cast tables retire.
---
--- `status` is dropped — a draft/published lifecycle only makes sense on a
--- sharing platform, which Lorealm is not. `tokenizer_id` is dropped —
--- realm turns resolve the tokenizer from the user's active settings at
--- turn time, exactly like plain chat.
-
 CREATE TABLE realm_versions (
     id          BIGINT       PRIMARY KEY,
     realm_id    BIGINT       NOT NULL REFERENCES realms(id) ON DELETE CASCADE,
@@ -28,9 +18,6 @@ CREATE TABLE realm_tags (
 
 CREATE INDEX realm_tags_tag_idx ON realm_tags (tag);
 
--- Seed version 1 for every existing realm from its relational cast.
--- Snowflake ids serialize as strings in snapshots; the realm's own id is
--- reused as its first version id (distinct tables, no collision).
 INSERT INTO realm_versions (id, realm_id, version_num, snapshot)
 SELECT
     r.id,
@@ -73,8 +60,6 @@ ALTER TABLE realms ADD COLUMN current_version_id BIGINT;
 UPDATE realms SET current_version_id = id;
 ALTER TABLE realms ALTER COLUMN current_version_id SET NOT NULL;
 
--- Head always points at an existing version; deleting the last version is
--- not allowed while the head exists (same shape as characters).
 ALTER TABLE realms
     ADD CONSTRAINT realms_current_version_fk
     FOREIGN KEY (current_version_id)

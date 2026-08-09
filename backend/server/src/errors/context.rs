@@ -53,7 +53,7 @@ pub enum ContextError {
     #[error("Unknown source node: {source_id}:{node_id}")]
     UnknownSourceNode { source_id: String, node_id: String },
     #[error("State conversion: {0}")]
-    StateConversion(String),
+    StateConversion(#[from] crate::util::weaver::ConversionError),
     #[error("Tokenizer: {0}")]
     Tokenizer(#[from] TokenizerError),
 }

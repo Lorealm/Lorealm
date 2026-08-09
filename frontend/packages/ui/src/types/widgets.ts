@@ -6,18 +6,35 @@ export interface WidgetInstance {
 	props: Record<string, unknown>;
 }
 
-/** A static display widget */
+export type WidgetPlacement =
+	/** Always on screen, fed a slice of weaver state. */
+	| 'widget'
+	/** Placed inline by the model through the `attach` tool. */
+	| 'attachment';
+
+/** Which messages a `widget`-placement row renders on. */
+export type WidgetMode =
+	/** Only the newest message — one iframe, however long the chat runs. */
+	| 'latest'
+	/** Every message. One iframe per message; costly in a long conversation. */
+	| 'every';
+
+/** A user-authored widget, in either placement. */
 export interface UserWidget {
 	id: Snowflake;
 	user_id: Snowflake;
 	name: string;
+	/** For an attachment, this is what the model searches against. */
 	description: string;
-	/** Self-contained HTML document */
 	source: string;
 	/** The prompt included with this widget. */
 	prompt: string;
 	tools: Snowflake[];
 	enabled: boolean;
+	placement: WidgetPlacement;
+	mode: WidgetMode;
+	/** Prop names an attachment accepts; unused by a widget. */
+	props: string[];
 	created_at: string;
 	updated_at: string;
 }
@@ -28,6 +45,9 @@ export interface CreateUserWidgetRequest {
 	source?: string;
 	prompt?: string;
 	tools?: Snowflake[];
+	placement?: WidgetPlacement;
+	mode?: WidgetMode;
+	props?: string[];
 }
 
 export interface UpdateUserWidgetRequest {
@@ -36,6 +56,9 @@ export interface UpdateUserWidgetRequest {
 	source?: string;
 	prompt?: string;
 	tools?: Snowflake[];
+	placement?: WidgetPlacement;
+	mode?: WidgetMode;
+	props?: string[];
 }
 
 export type ContentSegment = { type: 'text'; text: string } | { type: 'widget'; index: number };

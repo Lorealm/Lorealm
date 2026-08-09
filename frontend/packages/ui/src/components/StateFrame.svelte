@@ -5,18 +5,20 @@
 		source,
 		slice,
 		title,
+		kind = 'state',
 		onaction
 	}: {
 		source: string;
 		slice: Record<string, JsonValue>;
 		title: string;
+		kind?: 'state' | 'props';
 		onaction?: (toolId: string, args: JsonValue) => void;
 	} = $props();
 
 	/**
 	 * Injected at the end of every widget so authors don't hand-write it:
 	 * reports content height (iframes can't self-size) and pings ready so the
-	 * host pushes the initial state.
+	 * host pushes the initial payload.
 	 */
 	const HOST_SCRIPT = `<script>(function () {
   function report() {
@@ -30,18 +32,22 @@
     );
     parent.postMessage({ type: 'lorealm:height', height: h }, '*');
   }
+  function ready() { parent.postMessage({ type: 'lorealm:ready' }, '*'); }
   try { new ResizeObserver(report).observe(document.body); } catch (e) {}
-  addEventListener('load', report);
+  addEventListener('load', function () { report(); ready(); });
   report();
-  parent.postMessage({ type: 'lorealm:ready' }, '*');
+  ready();
 })();${'</'}script>`;
 
 	let frame = $state<HTMLIFrameElement | null>(null);
 	let height = $state(0);
 
 	function push() {
+		const payload = $state.snapshot(slice);
 		frame?.contentWindow?.postMessage(
-			{ type: 'lorealm:state', state: $state.snapshot(slice) },
+			// `state` stays on the payload whatever the kind, so a widget
+			// author's `e.data.state` keeps working.
+			{ type: `lorealm:${kind}`, state: payload, props: payload },
 			'*'
 		);
 	}
@@ -73,6 +79,7 @@
 
 <iframe
 	class="static-widget"
+	class:bare={kind === 'props'}
 	{title}
 	sandbox="allow-scripts"
 	srcdoc={source + HOST_SCRIPT}
@@ -82,6 +89,11 @@
 ></iframe>
 
 <style>
+	.static-widget.bare {
+		border: none;
+		border-radius: 0;
+		background: transparent;
+	}
 	.static-widget {
 		display: block;
 		width: 100%;

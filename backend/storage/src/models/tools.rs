@@ -11,6 +11,7 @@ pub enum ParamType {
     Number,
     Bool,
     Array(Box<ParamType>),
+    Object,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,6 +43,7 @@ impl ParamType {
             ParamType::Number => json!({ "type": "number" }),
             ParamType::Bool => json!({ "type": "boolean" }),
             ParamType::Array(inner) => json!({ "type": "array", "items": inner.json_schema() }),
+            ParamType::Object => json!({ "type": "object", "additionalProperties": true }),
         }
     }
 }

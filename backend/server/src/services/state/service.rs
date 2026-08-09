@@ -12,7 +12,7 @@ use crate::{
     errors::{StateError, TargetType},
     services::{
         context::ContextTemplate,
-        state::{CapturedState, ReconstructedState, StatePool},
+        state::{CapturedState, ReconstructedState, StatePool, apply_delta},
     },
 };
 
@@ -164,27 +164,7 @@ impl StateService {
         for id in chain {
             let Some(ms) = states.get(id) else { continue };
 
-            for (ns, vars) in &ms.persistent.writes {
-                let target = persistent.entry(ns.clone()).or_default();
-                for (name, v) in vars {
-                    target.insert(name.clone(), v.clone());
-                }
-            }
-
-            for (ns, names) in &ms.persistent.deletes {
-                let now_empty = if let Some(target) = persistent.get_mut(ns) {
-                    for name in names {
-                        target.remove(name);
-                    }
-                    target.is_empty()
-                } else {
-                    false
-                };
-                if now_empty {
-                    persistent.remove(ns);
-                }
-            }
-
+            apply_delta(&mut persistent, &ms.persistent);
             nearest_activation = Some(&ms.activation);
         }
 

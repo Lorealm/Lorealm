@@ -7,7 +7,7 @@ use lorealm_storage::models::AGENTS_SCOPE;
 use weaver_lang::{EvalContext, EvalError, Registry, Value as WeaverValue};
 
 use crate::{
-    services::context::weaver::stdlib,
+    services::{context::weaver::stdlib, state::write_var},
     util::weaver::{json_to_weaver, weaver_to_json},
 };
 
@@ -65,37 +65,51 @@ impl ToolContext {
             .map(|a| format!("{}.{name}", a.handle))
     }
 
-    fn state_var(&self, scope: &str, name: &str) -> Option<WeaverValue> {
-        self.state
-            .lock()
-            .unwrap()
-            .get(scope)
-            .and_then(|ns| ns.get(name))
-            .map(json_to_weaver)
+    fn state_var(&self, scope: &str, name: &str) -> Result<Option<WeaverValue>, EvalError> {
+        let pool = self.state.lock().unwrap();
+        let Some(ns) = pool.get(scope) else {
+            return Ok(None);
+        };
+        let found = match name.split_once('.') {
+            None => ns.get(name),
+            Some((root, rest)) => {
+                let mut cur = ns.get(root);
+                for segment in rest.split('.') {
+                    cur = cur.and_then(|v| v.get(segment));
+                }
+                cur
+            }
+        };
+        found
+            .map(|v| json_to_weaver(v).map_err(|e| EvalError::host_error(e.to_string())))
+            .transpose()
+    }
+
+    fn own_state_var(&self, name: &str) -> Result<Option<WeaverValue>, EvalError> {
+        match self.own_var(name) {
+            Some(var) => self.state_var(AGENTS_SCOPE, &var),
+            None => Ok(None),
+        }
     }
 }
 
 impl EvalContext for ToolContext {
     fn resolve_variable(&self, scope: &str, name: &str) -> Result<Option<WeaverValue>, EvalError> {
-        Ok(match scope {
-            "cmd" => self.cmd.get(name).cloned(),
-            "local" => self.local.get(name).cloned(),
-            "self" => self
-                .own_var(name)
-                .and_then(|var| self.state_var(AGENTS_SCOPE, &var)),
+        match scope {
+            "cmd" => Ok(self.cmd.get(name).cloned()),
+            "local" => Ok(self.local.get(name).cloned()),
+            "self" => self.own_state_var(name),
             "actor" => match &self.actor {
                 Some(a) => match name {
-                    "handle" => Some(WeaverValue::String(a.handle.clone())),
-                    "name" => Some(WeaverValue::String(a.name.clone())),
-                    "kind" => Some(WeaverValue::String(a.kind.to_string())),
-                    prop => self
-                        .own_var(prop)
-                        .and_then(|var| self.state_var(AGENTS_SCOPE, &var)),
+                    "handle" => Ok(Some(WeaverValue::String(a.handle.clone()))),
+                    "name" => Ok(Some(WeaverValue::String(a.name.clone()))),
+                    "kind" => Ok(Some(WeaverValue::String(a.kind.to_string()))),
+                    prop => self.own_state_var(prop),
                 },
-                None => None,
+                None => Ok(None),
             },
             other => self.state_var(other, name),
-        })
+        }
     }
 
     fn set_variable(
@@ -130,12 +144,10 @@ impl EvalContext for ToolContext {
                         "'{other}:{name}' cannot be written in a read-only evaluation"
                     )));
                 }
-                self.state
-                    .lock()
-                    .unwrap()
-                    .entry(other.into())
-                    .or_default()
-                    .insert(name, weaver_to_json(&value));
+                let json =
+                    weaver_to_json(&value).map_err(|e| EvalError::host_error(e.to_string()))?;
+                let mut pool = self.state.lock().unwrap();
+                write_var(pool.entry(other.into()).or_default(), &name, &json);
                 Ok(())
             }
         }

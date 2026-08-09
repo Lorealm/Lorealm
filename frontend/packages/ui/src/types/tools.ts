@@ -1,6 +1,6 @@
 import type { Snowflake } from './core.ts';
 
-export type ParamType = 'string' | 'number' | 'bool' | { array: ParamType };
+export type ParamType = 'string' | 'number' | 'bool' | 'object' | { array: ParamType };
 
 export interface Param {
 	name: string;
@@ -18,7 +18,7 @@ export interface UserTool {
 	params: Param[];
 	body: string;
 	enabled: boolean;
-	created_at: string; // DateTime<Utc> -> RFC 3339 string
+	created_at: string;
 	updated_at: string;
 }
 

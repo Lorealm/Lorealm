@@ -163,10 +163,10 @@
 				{/each}
 			</div>
 		{/if}
-		
+
 		{#if !editing && !busy && message.role === 'assistant' && message.parent !== null}
 			<div class="widgets">
-				<StaticWidgets messageId={message.id} />
+				<StaticWidgets messageId={message.id} {last} />
 			</div>
 		{/if}
 
