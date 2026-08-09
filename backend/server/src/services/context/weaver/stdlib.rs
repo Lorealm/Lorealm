@@ -1,8 +1,6 @@
 use context_weaver::Plugin;
 use weaver_lang::{EvalError, EvalErrorKind, Registry, Value};
-use weaver_macros::{weaver_command, weaver_processor};
-
-const INVALID_VAR_CHARS: [char; 5] = ['{', ':', '}', '<', '>'];
+use weaver_macros::weaver_processor;
 
 /// Registers every standard-library command and processor.
 pub struct StdlibPlugin;
@@ -19,19 +17,8 @@ impl Plugin for StdlibPlugin {
 
 /// Registers every command and processor onto `registry`.
 pub fn register_all(registry: &mut Registry) {
-    register_commands(registry);
+    context_weaver::stdlib::register(registry);
     register_processors(registry);
-}
-
-/// Registers the variable commands: `set_var`, `get_var`, `var_exists`,
-/// `inc_var`, `push_var`, and `default_var`.
-pub fn register_commands(registry: &mut Registry) {
-    registry.register_command(SetVarCommand);
-    registry.register_command(GetVarCommand);
-    registry.register_command(VarExistsCommand);
-    registry.register_command(IncVarCommand);
-    registry.register_command(PushVarCommand);
-    registry.register_command(DefaultVarCommand);
 }
 
 /// Registers the `text.*`, `math.*`, and `array.*` processors.
@@ -40,160 +27,6 @@ pub fn register_processors(registry: &mut Registry) {
     register_math(registry);
     register_array(registry);
     register_random(registry);
-}
-
-/// Splits a `"scope:name"` key into its scope and name. Returns an error when
-/// the key omits the colon or contains a reserved character.
-fn parse_var_key(key: &str) -> Result<(&str, &str), EvalError> {
-    let (ns, var) = key
-        .find(':')
-        .map(|pos| (&key[..pos], &key[pos + 1..]))
-        .ok_or_else(|| {
-            EvalError::new(
-                EvalErrorKind::HostError,
-                format!("invalid variable key \"{key}\": expected \"scope:name\" format"),
-            )
-        })?;
-
-    if ns.chars().any(|c| INVALID_VAR_CHARS.contains(&c))
-        || var.chars().any(|c| INVALID_VAR_CHARS.contains(&c))
-    {
-        return Err(EvalError::new(
-            EvalErrorKind::HostError,
-            format!(
-                "Invalid variable definition \"{key}\": contains one or more illegal characters: {INVALID_VAR_CHARS:?}"
-            ),
-        ));
-    }
-
-    Ok((ns, var))
-}
-
-/// `$[set_var("scope:name", value)]` — sets a variable in a writable scope.
-#[weaver_command(
-    name = "set_var",
-    returns = "none",
-    params(
-        key = "The `{{scope:name}}` formatted variable to set",
-        value = "The value to set the variable to"
-    )
-)]
-fn set_var(
-    key: String,
-    value: Value,
-    ctx: &mut dyn EvalContext,
-) -> Result<Option<Value>, EvalError> {
-    let (scope, name) = parse_var_key(&key)?;
-    ctx.set_variable(scope, name, value)?;
-    Ok(None)
-}
-
-/// `$[get_var("scope:name")]` — returns the variable's value, or `none` if unset.
-#[weaver_command(
-    name = "get_var",
-    returns = "any",
-    params(key = "The `{{scope:name}}` formatted variable to get")
-)]
-fn get_var(key: String, ctx: &mut dyn EvalContext) -> Result<Option<Value>, EvalError> {
-    let (scope, name) = parse_var_key(&key)?;
-    Ok(Some(
-        ctx.resolve_variable(scope, name)?.unwrap_or(Value::None),
-    ))
-}
-
-/// `$[var_exists("scope:name")]` — returns whether the variable is defined.
-///
-/// A key without a `scope:name` colon is a usage error and propagates.
-#[weaver_command(
-    name = "var_exists",
-    returns = "bool",
-    params(key = "The `{{scope:name}}` formatted variable to check whether exists")
-)]
-fn var_exists(key: String, ctx: &mut dyn EvalContext) -> Result<Option<Value>, EvalError> {
-    let (scope, name) = parse_var_key(&key)?;
-    let exists = ctx.resolve_variable(scope, name)?.is_some();
-    Ok(Some(Value::Bool(exists)))
-}
-
-/// `$[push_var("scope:name", value)]` — appends `value` to an array variable.
-///
-/// An unset variable becomes a single-element array. A non-array value is a
-/// type error.
-#[weaver_command(
-    name = "push_var",
-    returns = "none",
-    params(key = "The `{{scope:name}}` formatted, array-typed variable to push a value to")
-)]
-fn push_var(
-    key: String,
-    value: Value,
-    ctx: &mut dyn EvalContext,
-) -> Result<Option<Value>, EvalError> {
-    let (scope, name) = parse_var_key(&key)?;
-    let new_arr = match ctx.resolve_variable(scope, name)? {
-        Some(Value::Array(mut arr)) => {
-            arr.push(value);
-            arr
-        }
-        Some(other) => return Err(EvalError::type_error("array", other.type_name())),
-        None => vec![value],
-    };
-    ctx.set_variable(scope, name, Value::Array(new_arr))?;
-    Ok(None)
-}
-
-/// `$[default_var("scope:name", value)]` — sets the variable only if unset.
-///
-/// A variable that already exists, including one set to `none`, is left
-/// unchanged.
-#[weaver_command(
-    name = "default_var",
-    returns = "none",
-    params(
-        key = "`The {{scope:name}}` formatted variable to *potentially* set",
-        value = "The value to *potentially* set"
-    )
-)]
-fn default_var(
-    key: String,
-    value: Value,
-    ctx: &mut dyn EvalContext,
-) -> Result<Option<Value>, EvalError> {
-    let (scope, name) = parse_var_key(&key)?;
-    if ctx.resolve_variable(scope, name)?.is_none() {
-        ctx.set_variable(scope, name, value)?;
-    }
-    Ok(None)
-}
-
-/// `$[inc_var("scope:name", amount)]` — adds `amount` to a numeric variable.
-///
-/// `amount` defaults to 1. An unset variable is initialized to `amount`; a
-/// non-numeric existing value is a type error.
-#[weaver_command(
-    name = "inc_var",
-    returns = "none",
-    params(
-        key = "The `{{scope:name}}` formatted, number-typed variable to increment",
-        amount = "An optional amount to increment the variable by. Defaults to 1.0"
-    )
-)]
-fn inc_var(
-    key: String,
-    amount: Option<f64>,
-    ctx: &mut dyn EvalContext,
-) -> Result<Option<Value>, EvalError> {
-    let amount = amount.unwrap_or(1.0);
-    let (scope, name) = parse_var_key(&key)?;
-
-    let new_val = match ctx.resolve_variable(scope, name)? {
-        Some(Value::Number(n)) => n + amount,
-        Some(other) => return Err(EvalError::type_error("number", other.type_name())),
-        None => amount,
-    };
-
-    ctx.set_variable(scope, name, Value::Number(new_val))?;
-    Ok(None)
 }
 
 fn register_text(registry: &mut Registry) {
@@ -552,9 +385,11 @@ mod tests {
         }
     }
 
+    /// The var commands now come from context_weaver; these stay as a
+    /// contract test that they still behave as Lorealm expects.
     fn make_registry() -> Registry {
         let mut r = Registry::new();
-        register_commands(&mut r);
+        context_weaver::stdlib::register(&mut r);
         r
     }
 

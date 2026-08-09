@@ -3,6 +3,7 @@
 	import { toolStore } from '$lib/stores/tools.svelte.js';
 	import { userWidgetStore } from '$lib/stores/userWidgets.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
+	import type { WidgetMode, WidgetPlacement } from '$lib/types/widgets.js';
 	import { onDestroy, onMount } from 'svelte';
 
 	const SAVE_MS = 500;
@@ -42,14 +43,19 @@ ${'</'}script>
 	]);
 	const toolName = (id: Snowflake) => availableTools.find((t) => t.id === id)?.name ?? id;
 
-	// Local draft so typing doesn't round-trip through the server per keystroke.
+	// Local draft
 	let draftName = $state('');
 	let draftDescription = $state('');
 	let draftSource = $state('');
 	let draftPrompt = $state('');
 	let draftTools = $state<Snowflake[]>([]);
+	let draftPlacement = $state<WidgetPlacement>('widget');
+	let draftMode = $state<WidgetMode>('latest');
+	let draftProps = $state<string[]>([]);
 	let toolPick = $state('');
 	let loadedId: string | null = null;
+
+	const isAttachment = $derived(draftPlacement === 'attachment');
 
 	$effect(() => {
 		if (selected && selected.id !== loadedId) {
@@ -59,6 +65,9 @@ ${'</'}script>
 			draftSource = selected.source;
 			draftPrompt = selected.prompt;
 			draftTools = [...selected.tools];
+			draftPlacement = selected.placement;
+			draftMode = selected.mode;
+			draftProps = [...selected.props];
 		} else if (!selected) {
 			loadedId = null;
 		}
@@ -85,8 +94,19 @@ ${'</'}script>
 			description: draftDescription,
 			source: draftSource,
 			prompt: draftPrompt,
-			tools: draftTools
+			tools: draftTools,
+			placement: draftPlacement,
+			mode: draftMode,
+			props: draftProps.map((p) => p.trim()).filter(Boolean)
 		});
+	}
+
+	function addProp() {
+		draftProps = [...draftProps, ''];
+	}
+	function removeProp(i: number) {
+		draftProps = draftProps.filter((_, k) => k !== i);
+		requestSave();
 	}
 
 	function bindTool() {
@@ -128,9 +148,25 @@ ${'</'}script>
 	// Preview: re-mount the iframe when the source changes, then feed it a
 	// sample payload so the author sees the shape their widget receives.
 	let previewFrame = $state<HTMLIFrameElement | null>(null);
-	const SAMPLE = { world: { season: 'winter' }, self: { stamina: 3 } };
+
+	const SAMPLE = {
+		world: { season: 'winter' },
+		self: { stamina: 3, inventory: { sword: 1, potion: 2 } }
+	};
+
+	const previewPayload = $derived(
+		isAttachment ? Object.fromEntries(draftProps.filter(Boolean).map((p) => [p, `<${p}>`])) : SAMPLE
+	);
 	function feedPreview() {
-		previewFrame?.contentWindow?.postMessage({ type: 'lorealm:state', state: SAMPLE }, '*');
+		const payload = $state.snapshot(previewPayload);
+		previewFrame?.contentWindow?.postMessage(
+			{
+				type: isAttachment ? 'lorealm:props' : 'lorealm:state',
+				state: payload,
+				props: payload
+			},
+			'*'
+		);
 	}
 </script>
 
@@ -176,15 +212,62 @@ ${'</'}script>
 					<input type="text" bind:value={draftName} oninput={requestSave} />
 				</label>
 				<label>
-					<span>Description</span>
+					<span>
+						{isAttachment ? 'Description — what the model searches against' : 'Description'}
+					</span>
 					<input type="text" bind:value={draftDescription} oninput={requestSave} />
 				</label>
+				<label>
+					<span>Placement</span>
+					<select bind:value={draftPlacement} onchange={requestSave}>
+						<option value="widget">Widget — always on, reads state</option>
+						<option value="attachment">Attachment — the model places it inline</option>
+					</select>
+				</label>
+				{#if !isAttachment}
+					<label>
+						<span>Renders on</span>
+						<select bind:value={draftMode} onchange={requestSave}>
+							<option value="latest">Latest message only</option>
+							<option value="every">Every message (costly in long chats)</option>
+						</select>
+					</label>
+				{/if}
 			</div>
+
+			{#if isAttachment}
+				<div class="props">
+					<span class="propsLabel">
+						Props — the values the model fills in. Your HTML receives them as
+						<code>{'{ type: "lorealm:props", props }'}</code>.
+					</span>
+					{#each draftProps, i (i)}
+						<div class="propRow">
+							<input
+								type="text"
+								placeholder="name"
+								bind:value={draftProps[i]}
+								oninput={requestSave}
+							/>
+							<button type="button" class="del" title="Remove prop" onclick={() => removeProp(i)}>
+								×
+							</button>
+						</div>
+					{/each}
+					<button type="button" class="new" onclick={addProp}>Add prop</button>
+				</div>
+			{/if}
 
 			<div class="split">
 				<label class="sourceBox">
 					<span>
-						HTML source — receives <code>{'{ type: "lorealm:state", state }'}</code> via postMessage
+						HTML source — receives
+						<code
+							>{isAttachment
+								? '{ type: "lorealm:props", props }'
+								: '{ type: "lorealm:state", state }'}</code
+						>
+						via postMessage
 					</span>
 					<textarea spellcheck="false" bind:value={draftSource} oninput={requestSave}></textarea>
 				</label>
@@ -373,15 +456,23 @@ ${'</'}script>
 		resize: vertical;
 	}
 
-	.tools {
+	.tools,
+	.props {
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-sm);
 	}
 
-	.toolsLabel {
+	.toolsLabel,
+	.propsLabel {
 		font-size: var(--font-size-sm);
 		color: var(--color-text-secondary);
+	}
+
+	.propRow {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
 	}
 
 	.toolRow {

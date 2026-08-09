@@ -7,7 +7,6 @@ use context_weaver::{
 };
 use kitoken::Kitoken;
 use lorealm_storage::models::{ActivationState, Snowflake};
-use serde_json::Value as JsonValue;
 use weaver_lang::Value as WeaverValue;
 
 use crate::{
@@ -20,6 +19,7 @@ use crate::{
         },
         state::{CapturedState, StatePool, StateService},
     },
+    util::weaver::{json_to_weaver, weaver_to_json},
 };
 
 use super::super::{ContextSource, PromptRole, ResolveContext, ResolvedBlock};
@@ -308,61 +308,6 @@ fn weaver_activation_to_storage(
     serde_json::from_str(&json)
 }
 
-fn to_weaver_value(value: &JsonValue) -> Result<WeaverValue, ContextError> {
-    Ok(match value {
-        JsonValue::Null => WeaverValue::None,
-        JsonValue::Bool(b) => WeaverValue::Bool(*b),
-        JsonValue::String(s) => WeaverValue::String(s.clone()),
-        JsonValue::Number(n) => match n.as_f64() {
-            Some(f) => WeaverValue::Number(f),
-            None => {
-                return Err(ContextError::StateConversion(format!(
-                    "number not representable as f64: {n}"
-                )));
-            }
-        },
-        JsonValue::Array(items) => WeaverValue::Array(
-            items
-                .iter()
-                .map(to_weaver_value)
-                .collect::<Result<_, _>>()?,
-        ),
-        JsonValue::Object(_) => {
-            return Err(ContextError::StateConversion(
-                "object has no weaver-lang representation".into(),
-            ));
-        }
-    })
-}
-
-fn weaver_value_to_json(value: &WeaverValue) -> Result<JsonValue, ContextError> {
-    Ok(match value {
-        WeaverValue::None => JsonValue::Null,
-        WeaverValue::Bool(b) => JsonValue::Bool(*b),
-        WeaverValue::String(s) => JsonValue::String(s.clone()),
-        WeaverValue::Number(n) => {
-            if !n.is_finite() {
-                return Err(ContextError::StateConversion(format!(
-                    "non-finite number cannot be stored as JSON: {n}"
-                )));
-            }
-            if n.fract() == 0.0 && *n >= i64::MIN as f64 && *n <= i64::MAX as f64 {
-                JsonValue::Number((*n as i64).into())
-            } else {
-                JsonValue::Number(
-                    serde_json::Number::from_f64(*n).expect("finite f64 is representable"),
-                )
-            }
-        }
-        WeaverValue::Array(items) => JsonValue::Array(
-            items
-                .iter()
-                .map(weaver_value_to_json)
-                .collect::<Result<_, _>>()?,
-        ),
-    })
-}
-
 fn to_state_pool(
     snapshot: &HashMap<String, HashMap<String, WeaverValue>>,
 ) -> Result<StatePool, ContextError> {
@@ -371,7 +316,7 @@ fn to_state_pool(
         .map(|(ns, vars)| {
             let converted = vars
                 .iter()
-                .map(|(name, v)| Ok((name.clone(), weaver_value_to_json(v)?)))
+                .map(|(name, v)| Ok((name.clone(), weaver_to_json(v)?)))
                 .collect::<Result<HashMap<_, _>, ContextError>>()?;
             Ok((ns.clone(), converted))
         })
@@ -385,7 +330,7 @@ fn to_weaver_snapshot(
         .map(|(ns, vars)| {
             let converted = vars
                 .iter()
-                .map(|(name, v)| Ok((name.clone(), to_weaver_value(v)?)))
+                .map(|(name, v)| Ok((name.clone(), json_to_weaver(v)?)))
                 .collect::<Result<HashMap<_, _>, ContextError>>()?;
             Ok((ns.clone(), converted))
         })

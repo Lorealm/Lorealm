@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use weaver_lang::{CompiledTemplate, Registry, Value as WeaverValue};
 
+use crate::services::chat::AttachmentSpec;
 use crate::services::tools::{Actor, EventSink, ToolContext, ToolStatePool};
 use crate::util::weaver::json_to_weaver;
 
@@ -19,6 +20,7 @@ pub struct ToolPolicy {
     pub extra_tool_ids: Vec<Snowflake>,
     pub actor: Option<Actor>,
     pub event_sink: Option<EventSink>,
+    pub attachments: Vec<AttachmentSpec>,
 }
 
 #[derive(Deserialize)]
@@ -103,7 +105,9 @@ impl Tool for CompiledUserTool {
         for p in &self.sig.params {
             match args.get(&p.name) {
                 Some(v) => {
-                    cmd.insert(p.name.clone(), json_to_weaver(v));
+                    let value = json_to_weaver(v)
+                        .map_err(|e| ProviderError::Tool(format!("parameter '{}': {e}", p.name)))?;
+                    cmd.insert(p.name.clone(), value);
                 }
                 None if p.required => {
                     return Err(ProviderError::Tool(format!(

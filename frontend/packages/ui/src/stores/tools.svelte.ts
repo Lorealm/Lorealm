@@ -42,11 +42,20 @@ class ToolStore {
 	/** Last toasted save error to (partially) prevent auto-save spam */
 	#lastError: string | null = null;
 
+	/** A builtin opened for reading. Mutually exclusive with an edit session. */
+	private _viewing = $state<ToolDraft | null>(null);
+
 	get editingTool(): ToolDraft | null {
 		return this._draft;
 	}
 	get editingId(): Snowflake | null {
 		return this._draft?.id ?? null;
+	}
+	get viewingTool(): ToolDraft | null {
+		return this._viewing;
+	}
+	get selectedId(): Snowflake | null {
+		return this._draft?.id ?? this._viewing?.id ?? null;
 	}
 	get hasUnsavedChanges(): boolean {
 		if (!this.#baseline || !this._draft) return false;
@@ -76,6 +85,18 @@ class ToolStore {
 		}
 		this.#baseline = found;
 		this._draft = buildDraft(found);
+	}
+
+	/** Open a builtin read-only. */
+	async viewBuiltin(id: Snowflake) {
+		this.#resetSession();
+		if (!this.builtinTools) await this.loadBuiltins();
+		const found = this.builtinTools?.find((t) => t.id === id) ?? null;
+		if (!found) {
+			this.saveState = { status: 'error', message: 'Tool not found' };
+			return;
+		}
+		this._viewing = buildDraft(found);
 	}
 
 	stopEditing() {
@@ -134,6 +155,7 @@ class ToolStore {
 
 	#resetSession() {
 		this._draft = null;
+		this._viewing = null;
 		this.#baseline = null;
 		this.saveState = { status: 'idle' };
 		this.#resaveQueued = false;

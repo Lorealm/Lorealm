@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
 	import { messageStateStore } from '$lib/stores/messageState.svelte.js';
+	import { flattenPaths } from '$lib/types/state.js';
 	import { ChevronDown } from '@lucide/svelte';
 
 	let messageState = $derived(messageStateStore.current);
@@ -42,7 +43,7 @@
 		if (!messageState) return [];
 		return Object.entries(messageState.persistent).map(([name, pool]) => ({
 			name,
-			entries: Object.entries(pool).map(([key, value]) => ({ key, value }))
+			entries: flattenPaths(pool)
 		}));
 	});
 

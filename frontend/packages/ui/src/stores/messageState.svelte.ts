@@ -1,6 +1,6 @@
 import { useApi, type ApiClient } from '$lib/api/client.js';
 import type { Snowflake } from '$lib/types/core.js';
-import type { ReconstructedState } from '$lib/types/state.js';
+import { readPath, type ReconstructedState } from '$lib/types/state.js';
 import { SvelteMap } from 'svelte/reactivity';
 
 class MessageStateStore {
@@ -73,12 +73,7 @@ class MessageStateStore {
 		if (!namespace || !variableName) return undefined;
 
 		const state = messageId ? this.#loadedStates.get(messageId) : this.current;
-		const pool = state?.persistent[namespace];
-		// Guard own-property so we don't surface inherited keys
-		if (!pool || !Object.prototype.hasOwnProperty.call(pool, variableName)) {
-			return undefined;
-		}
-		return pool[variableName];
+		return readPath(state?.persistent[namespace], variableName);
 	}
 
 	// Formatted preview for a "namespace:variableName" path

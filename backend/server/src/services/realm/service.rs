@@ -33,7 +33,7 @@ use crate::{
         persona::PersonaService,
         realm::{ActionSpec, RealmStreamEvent, RoundRobin, TurnPolicy, TurnResult},
         snowflake::SnowflakeService,
-        state::{CapturedState, StatePool, StateService},
+        state::{CapturedState, StatePool, StateService, write_var},
         tools::{EmittedEvent, builtin_tool},
     },
 };
@@ -639,11 +639,11 @@ impl RealmService {
         let mut vars: HashMap<String, serde_json::Value> = HashMap::new();
         for agent in agents.iter().filter(|a| !a.handle.is_empty()) {
             for (k, v) in &agent.properties {
-                vars.insert(format!("{}.{k}", agent.handle), v.clone());
+                write_var(&mut vars, &format!("{}.{k}", agent.handle), v);
             }
             if let Some(overrides) = scenario.and_then(|s| s.agent_overrides.get(&agent.handle)) {
                 for (k, v) in overrides {
-                    vars.insert(format!("{}.{k}", agent.handle), v.clone());
+                    write_var(&mut vars, &format!("{}.{k}", agent.handle), v);
                 }
             }
         }

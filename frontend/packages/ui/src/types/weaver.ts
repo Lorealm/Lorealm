@@ -1,4 +1,4 @@
-export type ValueType = 'string' | 'number' | 'bool' | 'array' | 'none' | 'any';
+export type ValueType = 'string' | 'number' | 'bool' | 'array' | 'object' | 'none' | 'any';
 
 export interface ParamDef {
 	name: string;

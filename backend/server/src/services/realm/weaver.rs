@@ -45,18 +45,45 @@ pub(super) fn inject_self_alias(agent: &RealmAgent, slice: &mut StatePool) {
     if agent.handle.is_empty() {
         return;
     }
-    let prefix = format!("{}.", agent.handle);
     let own: HashMap<String, serde_json::Value> = slice
         .get(AGENTS_SCOPE)
-        .map(|vars| {
-            vars.iter()
-                .filter_map(|(k, v)| k.strip_prefix(&prefix).map(|n| (n.to_string(), v.clone())))
-                .collect()
-        })
+        .and_then(|vars| vars.get(&agent.handle))
+        .and_then(|own| own.as_object())
+        .map(|fields| fields.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
         .unwrap_or_default();
     if !own.is_empty() {
         slice.insert("self".into(), own);
     }
+}
+
+/// Keep the parts of `value` reachable at a granted dotted path.
+///
+/// `path` is the name the value sits at, rebuilt as the walk descends, so
+/// grants are still asked the same question they were asked when the pool
+/// was flat — [`ScopePattern::matches_var`] is unchanged.
+///
+/// A grant on a branch (`nation:a.*`) admits the whole subtree; a grant on a
+/// leaf (`market:ore.price`) admits only that leaf. Returns `None` when
+/// nothing under `value` is readable.
+fn prune(
+    ns: &str,
+    path: &str,
+    value: &serde_json::Value,
+    read: &[ScopePattern],
+) -> Option<serde_json::Value> {
+    if read.iter().any(|g| g.matches_var(ns, path)) {
+        return Some(value.clone());
+    }
+    // Not granted outright — a descendant still might be.
+    let fields = value.as_object()?;
+    let kept: serde_json::Map<_, _> = fields
+        .iter()
+        .filter_map(|(key, child)| {
+            let child_path = format!("{path}.{key}");
+            Some((key.clone(), prune(ns, &child_path, child, read)?))
+        })
+        .collect();
+    (!kept.is_empty()).then(|| serde_json::Value::Object(kept))
 }
 
 /// The subpool an agent may read
@@ -66,8 +93,7 @@ pub(super) fn slice(world: &StatePool, read: &[ScopePattern]) -> StatePool {
         .filter_map(|(ns, vars)| {
             let kept: HashMap<_, _> = vars
                 .iter()
-                .filter(|(name, _)| read.iter().any(|g| g.matches_var(ns, name)))
-                .map(|(k, v)| (k.clone(), v.clone()))
+                .filter_map(|(name, v)| Some((name.clone(), prune(ns, name, v, read)?)))
                 .collect();
             (!kept.is_empty()).then(|| (ns.clone(), kept))
         })
@@ -97,7 +123,10 @@ pub(super) async fn run_scoped(
     for p in params {
         match args.get(&p.name) {
             Some(v) => {
-                cmd.insert(p.name.clone(), json_to_weaver(v));
+                let value = json_to_weaver(v).map_err(|e| {
+                    RealmError::ActionFailed(format!("parameter '{}': {e}", p.name))
+                })?;
+                cmd.insert(p.name.clone(), value);
             }
             None if p.required => {
                 return Err(RealmError::ActionFailed(format!(
@@ -224,19 +253,30 @@ mod tests {
     fn slice_filters_per_variable() {
         let mut w = StatePool::new();
         let nation = w.entry("nation".into()).or_default();
-        nation.insert("a.gold".into(), json!(100));
-        nation.insert("b.gold".into(), json!(50));
+        nation.insert("a".into(), json!({ "gold": 100 }));
+        nation.insert("b".into(), json!({ "gold": 50 }));
         w.entry("market".into())
             .or_default()
-            .insert("ore.price".into(), json!(3));
+            .insert("ore".into(), json!({ "price": 3 }));
 
         let read = read_scopes(&[grant("nation:a.*")]);
         let s = slice(&w, &read);
 
         assert_eq!(s["nation"].len(), 1);
-        assert!(s["nation"].contains_key("a.gold"));
+        assert_eq!(s["nation"]["a"], json!({ "gold": 100 }));
         // `market` matched nothing: the namespace is dropped, not left empty.
         assert!(!s.contains_key("market"));
+    }
+
+    #[test]
+    fn a_leaf_grant_does_not_leak_its_siblings() {
+        let mut w = StatePool::new();
+        w.entry("market".into())
+            .or_default()
+            .insert("ore".into(), json!({ "price": 3, "stock": 99 }));
+
+        let s = slice(&w, &read_scopes(&[grant("market:ore.price")]));
+        assert_eq!(s["market"]["ore"], json!({ "price": 3 }));
     }
 
     #[test]
@@ -244,7 +284,7 @@ mod tests {
         let mut w = StatePool::new();
         w.entry("nation".into())
             .or_default()
-            .insert("a.gold".into(), json!(100));
+            .insert("a".into(), json!({ "gold": 100 }));
 
         assert!(condition_passes(
             "{{nation:a.gold}} > 50",
@@ -306,8 +346,8 @@ mod tests {
     fn agents_world() -> StatePool {
         let mut w = StatePool::new();
         let agents = w.entry(AGENTS_SCOPE.into()).or_default();
-        agents.insert("h.stamina".into(), json!(3));
-        agents.insert("rival.stamina".into(), json!(9));
+        agents.insert("h".into(), json!({ "stamina": 3 }));
+        agents.insert("rival".into(), json!({ "stamina": 9 }));
         w
     }
 
@@ -350,12 +390,12 @@ mod tests {
     }
 
     #[test]
-    fn self_alias_injection_strips_the_handle_prefix() {
+    fn self_alias_lifts_the_own_subtree() {
         let a = agent(vec![], None);
         let mut s = slice(&agents_world(), &read_scopes_of(&a));
         inject_self_alias(&a, &mut s);
         assert_eq!(s["self"]["stamina"], json!(3));
         // Only the own subtree was granted and aliased.
-        assert!(!s[AGENTS_SCOPE].contains_key("rival.stamina"));
+        assert!(!s[AGENTS_SCOPE].contains_key("rival"));
     }
 }

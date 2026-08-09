@@ -5,7 +5,7 @@ use sqlx::types::Json;
 use crate::{
     StorageError, UserWidgetStorage,
     backends::PostgresStorage,
-    models::{Snowflake, UserWidget},
+    models::{Snowflake, UserWidget, WidgetMode, WidgetPlacement},
 };
 
 #[derive(sqlx::FromRow)]
@@ -18,6 +18,9 @@ struct PgUserWidget {
     prompt: String,
     tools: Json<Vec<Snowflake>>,
     enabled: bool,
+    placement: WidgetPlacement,
+    mode: WidgetMode,
+    props: Json<Vec<String>>,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
 }
@@ -33,6 +36,9 @@ impl From<PgUserWidget> for UserWidget {
             prompt: r.prompt,
             tools: r.tools.0,
             enabled: r.enabled,
+            placement: r.placement,
+            mode: r.mode,
+            props: r.props.0,
             created_at: r.created_at,
             updated_at: r.updated_at,
         }
@@ -75,8 +81,9 @@ impl UserWidgetStorage for PostgresStorage {
     async fn save_widget(&self, widget: UserWidget) -> Result<(), StorageError> {
         sqlx::query(
             r#"INSERT INTO user_widgets
-                (id, user_id, name, description, source, prompt, tools, enabled)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                (id, user_id, name, description, source, prompt, tools, enabled,
+                 placement, mode, props)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             ON CONFLICT (id) DO UPDATE SET
                 name = EXCLUDED.name,
                 description = EXCLUDED.description,
@@ -84,6 +91,9 @@ impl UserWidgetStorage for PostgresStorage {
                 prompt = EXCLUDED.prompt,
                 tools = EXCLUDED.tools,
                 enabled = EXCLUDED.enabled,
+                placement = EXCLUDED.placement,
+                mode = EXCLUDED.mode,
+                props = EXCLUDED.props,
                 updated_at = now()"#,
         )
         .bind(widget.id)
@@ -94,6 +104,9 @@ impl UserWidgetStorage for PostgresStorage {
         .bind(&widget.prompt)
         .bind(Json(&widget.tools))
         .bind(widget.enabled)
+        .bind(widget.placement)
+        .bind(widget.mode)
+        .bind(Json(&widget.props))
         .execute(&self.pool)
         .await?;
 

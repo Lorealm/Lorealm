@@ -1,10 +1,15 @@
 use std::sync::{Arc, Mutex};
 
-use async_trait::async_trait;
-use lorealm_providers::{Error, Result, ToolRegistry, TypedTool};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use weaver_lang::{
+    EvalContext, EvalError, Registry, Value, WeaverCommand,
+    registry::{CommandSignature, ParamDef, ValueType},
+};
+
+use lorealm_storage::models::UserWidget;
+
+use crate::util::weaver::{ConversionError, weaver_to_json};
 
 pub type WidgetSink = Arc<Mutex<Vec<WidgetInstance>>>;
 
@@ -51,234 +56,190 @@ impl WidgetInstance {
     }
 }
 
+/// One entry in the catalog the model searches. Named "attachment" because
+/// it attaches inline to a reply, as opposed to a [`UserWidget`], which is
+/// always-on and reads weaver state.
+///
+/// [`UserWidget`]: lorealm_storage::models::UserWidget
 #[derive(Debug, Clone, Serialize)]
-pub struct WidgetSpec {
-    pub id: &'static str,
-    pub desc: &'static str,
-    pub props: &'static [&'static str],
-    #[serde(skip)]
-    keywords: &'static [&'static str],
+pub struct AttachmentSpec {
+    pub id: String,
+    pub desc: String,
+    pub props: Vec<String>,
 }
 
-/// Hardcoded PoC catalog. Endgame: populated from user-defined weaver_lang
-/// commands.
-pub const WIDGET_CATALOG: &[WidgetSpec] = &[
-    WidgetSpec {
-        id: "sms-outgoing",
-        desc: "A classic SMS chat bubble, as if a text message was sent on a phone",
-        props: &["sender", "content"],
-        keywords: &["sms", "text", "phone", "message", "bubble", "dm", "texting"],
-    },
-    WidgetSpec {
-        id: "sms-incoming",
-        desc: "A classic SMS chat bubble, as if a text message was received on a phone",
-        props: &["sender", "content"],
-        keywords: &["sms", "text", "phone", "message", "bubble", "dm", "texting"],
-    },
-    WidgetSpec {
-        id: "note",
-        desc: "A handwritten paper note",
-        props: &["content"],
-        keywords: &[
-            "note",
-            "letter",
-            "paper",
-            "handwritten",
-            "scribble",
-            "written",
-        ],
-    },
-    WidgetSpec {
-        id: "sign-medieval",
-        desc: "A carved wooden tavern sign with engraved text and iron studs",
-        props: &["title", "subtitle"],
-        keywords: &[
-            "sign", "medieval", "tavern", "wood", "wooden", "inn", "fantasy", "shingle", "placard",
-        ],
-    },
-    WidgetSpec {
-        id: "note-parchment",
-        desc: "An aged parchment note sealed with wax, for proclamations and quests",
-        props: &["title", "content"],
-        keywords: &[
-            "note",
-            "parchment",
-            "scroll",
-            "medieval",
-            "letter",
-            "proclamation",
-            "quest",
-            "notice",
-            "aged",
-            "wax",
-            "fantasy",
-        ],
-    },
-    WidgetSpec {
-        id: "sign-steampunk",
-        desc: "A polished brass plaque with riveted corners and embossed lettering",
-        props: &["title", "subtitle"],
-        keywords: &[
-            "sign",
-            "steampunk",
-            "brass",
-            "plaque",
-            "metal",
-            "rivets",
-            "industrial",
-            "engraved",
-            "victorian",
-            "placard",
-        ],
-    },
-    WidgetSpec {
-        id: "sign-neon",
-        desc: "A glowing neon sign with a configurable tube color",
-        props: &["text", "color"],
-        keywords: &[
-            "sign",
-            "neon",
-            "glow",
-            "glowing",
-            "light",
-            "cyberpunk",
-            "bar",
-            "city",
-            "night",
-            "storefront",
-        ],
-    },
-    WidgetSpec {
-        id: "note-arcane",
-        desc: "A glowing arcane note with a pulsing sigil, for spells and incantations",
-        props: &["title", "content"],
-        keywords: &[
-            "note",
-            "arcane",
-            "magic",
-            "magical",
-            "spell",
-            "rune",
-            "sigil",
-            "incantation",
-            "mystic",
-            "enchanted",
-            "fantasy",
-        ],
-    },
-];
-
-#[derive(Deserialize, JsonSchema)]
-pub struct SearchWidgetsInput {
-    pub keywords: Vec<String>,
+impl From<&UserWidget> for AttachmentSpec {
+    fn from(w: &UserWidget) -> Self {
+        Self {
+            id: w.id.to_string(),
+            desc: w.description.clone(),
+            props: w.props.clone(),
+        }
+    }
 }
 
-pub struct SearchWidgets;
+/// `$[search_attachments(keywords)]`
+pub struct SearchAttachmentsCommand {
+    catalog: Arc<Vec<AttachmentSpec>>,
+}
 
-#[async_trait]
-impl TypedTool for SearchWidgets {
-    type Input = SearchWidgetsInput;
-    type Output = Vec<WidgetSpec>;
+impl WeaverCommand for SearchAttachmentsCommand {
+    fn call(
+        &self,
+        args: Vec<Value>,
+        _ctx: &mut dyn EvalContext,
+        _registry: &Registry,
+    ) -> std::result::Result<Option<Value>, EvalError> {
+        let needles: Vec<String> = match args.into_iter().next() {
+            Some(Value::Array(items)) => items
+                .iter()
+                .map(|v| v.to_output_string().to_lowercase())
+                .collect(),
+            Some(Value::String(s)) => vec![s.to_lowercase()],
+            Some(Value::None) | None => Vec::new(),
+            Some(other) => {
+                return Err(EvalError::host_error(format!(
+                    "search_attachments: keywords must be an array of strings, got {}",
+                    other.type_name()
+                )));
+            }
+        };
 
-    fn name(&self) -> &str {
-        "search_widgets"
-    }
-
-    fn description(&self) -> &str {
-        "Search the catalog of visual widgets you can attach to your reply, e.g. an SMS \
-             bubble when a character sends a text message. Returns widget ids along with the \
-             props each widget accepts. You may use the IDs to render widgets through the start_widget command."
-    }
-
-    async fn call(&self, input: SearchWidgetsInput) -> Result<Vec<WidgetSpec>> {
-        let needles: Vec<String> = input.keywords.iter().map(|k| k.to_lowercase()).collect();
-        tracing::info!("The model searched for: {needles:?}");
-        let hits: Vec<WidgetSpec> = WIDGET_CATALOG
+        tracing::info!("The model searched attachments for: {needles:?}");
+        let hits: Vec<&AttachmentSpec> = self
+            .catalog
             .iter()
             .filter(|spec| {
-                needles.iter().any(|n| {
-                    spec.id.contains(n.as_str())
-                        || spec.desc.to_lowercase().contains(n.as_str())
-                        || spec
-                            .keywords
-                            .iter()
-                            .any(|k| k.contains(n.as_str()) || n.contains(k))
-                })
+                needles
+                    .iter()
+                    .any(|n| spec.desc.to_lowercase().contains(n.as_str()))
             })
-            .cloned()
             .collect();
 
-        // The catalog is tiny for now; an empty result helps nobody, so fall
-        // back to returning everything. Revisit once the catalog grows.
-        Ok(if hits.is_empty() {
-            WIDGET_CATALOG.to_vec()
+        let shown: Vec<&AttachmentSpec> = if hits.is_empty() {
+            self.catalog.iter().collect()
         } else {
             hits
-        })
+        };
+
+        let matches = shown
+            .into_iter()
+            .map(|spec| {
+                Value::object([
+                    ("id", Value::String(spec.id.clone())),
+                    ("description", Value::String(spec.desc.clone())),
+                    (
+                        "props",
+                        Value::Array(
+                            spec.props
+                                .iter()
+                                .map(|p| Value::String(p.clone()))
+                                .collect(),
+                        ),
+                    ),
+                ])
+            })
+            .collect();
+
+        Ok(Some(Value::object([("matches", Value::Array(matches))])))
+    }
+
+    fn signature(&self) -> CommandSignature {
+        CommandSignature {
+            name: "search_attachments".into(),
+            description: "Search the attachment catalog by keyword".into(),
+            returns: ValueType::Object,
+            params: vec![ParamDef {
+                name: "keywords".into(),
+                description: "Words to match against ids, descriptions and keywords".into(),
+                expected_type: Some(ValueType::Array),
+                required: true,
+            }],
+            mutates_context: false,
+        }
     }
 }
 
-#[derive(Deserialize, JsonSchema)]
-pub struct StartWidgetInput {
-    /// A widget id obtained from search_widgets.
-    pub id: String,
-    /// Property values for the widget, keyed by prop name.
-    pub props: serde_json::Map<String, serde_json::Value>,
+/// `$[attach(id, props)]`
+pub struct AttachCommand {
+    sink: WidgetSink,
+    catalog: Arc<Vec<AttachmentSpec>>,
 }
 
-pub struct StartWidget {
-    sink: Arc<Mutex<Vec<WidgetInstance>>>,
-}
+impl WeaverCommand for AttachCommand {
+    fn call(
+        &self,
+        args: Vec<Value>,
+        _ctx: &mut dyn EvalContext,
+        _registry: &Registry,
+    ) -> std::result::Result<Option<Value>, EvalError> {
+        let mut args = args.into_iter();
+        let id = match args.next() {
+            Some(Value::String(s)) => s,
+            other => {
+                return Err(EvalError::host_error(format!(
+                    "attach: id must be a string, got {}",
+                    other.map_or("none", |v| v.type_name())
+                )));
+            }
+        };
+        let spec = self.catalog.iter().find(|w| w.id == id).ok_or_else(|| {
+            EvalError::host_error(format!(
+                "attach: unknown attachment id '{id}'; call search_attachments for valid ids"
+            ))
+        })?;
 
-#[async_trait]
-impl TypedTool for StartWidget {
-    type Input = StartWidgetInput;
-    type Output = serde_json::Value;
+        let props = match args.next() {
+            Some(Value::Object(fields)) => fields
+                .iter()
+                .map(|(k, v)| Ok((k.clone(), weaver_to_json(v)?)))
+                .collect::<std::result::Result<serde_json::Map<_, _>, ConversionError>>()
+                .map_err(|e| EvalError::host_error(e.to_string()))?,
+            Some(Value::None) | None => serde_json::Map::new(),
+            Some(other) => {
+                return Err(EvalError::host_error(format!(
+                    "attach: props must be an object, got {}",
+                    other.type_name()
+                )));
+            }
+        };
 
-    fn name(&self) -> &str {
-        "start_widget"
-    }
-
-    fn description(&self) -> &str {
-        r#"Render a visual widget inline, at the point in your reply where it's most relevant.
-            This tool returns no content you need to reason about — it only emits UI, rendered
-            exactly at the position where the call appears in your message.
-
-            The text immediately before the call must be a natural in-context lead-in that the
-            widget continues — NOT an announcement of the tool or a description of showing it.
-            Never narrate the act of rendering (no "I will now show you...", "here is...",
-            "let me hand you..."). The widget should land as if it is simply the next beat of
-            your message. Write that lead-in text first, then call this tool immediately after.
-
-            Use search_widgets first to get the id and props."#
-    }
-
-    async fn call(&self, input: StartWidgetInput) -> Result<serde_json::Value> {
-        let spec = WIDGET_CATALOG
-            .iter()
-            .find(|w| w.id == input.id)
-            .ok_or_else(|| {
-                Error::Tool(format!(
-                    "unknown widget id '{}'; call search_widgets to discover valid ids",
-                    input.id
-                ))
-            })?;
-
-        tracing::info!("The model attached a widget: {}", input.id);
-
+        tracing::info!("The model attached: {}", spec.id);
         self.sink.lock().unwrap().push(WidgetInstance {
-            widget_id: spec.id.to_string(),
-            props: input.props,
+            widget_id: spec.id.clone(),
+            props,
         });
+        Ok(None)
+    }
 
-        Ok(json!({ "status": "attached", "id": spec.id }))
+    fn signature(&self) -> CommandSignature {
+        CommandSignature {
+            name: "attach".into(),
+            description: "Attach a catalog entry inline at this point in the reply".into(),
+            returns: ValueType::None,
+            params: vec![
+                ParamDef {
+                    name: "id".into(),
+                    description: "An attachment id from search_attachments".into(),
+                    expected_type: Some(ValueType::String),
+                    required: true,
+                },
+                ParamDef {
+                    name: "props".into(),
+                    description: "Property values, keyed by prop name".into(),
+                    expected_type: Some(ValueType::Object),
+                    required: false,
+                },
+            ],
+            mutates_context: true,
+        }
     }
 }
 
 /// Marker embedded into message content at the position a widget was
-/// attached. References an index into the message's `metadata.widgets`.
-/// Private-use-area characters are used so model-generated text can't
-/// collide with the marker syntax.
+/// attached.
+/// 
+/// A model should never see these
 pub fn widget_marker(index: usize) -> String {
     format!("\u{E000}widget:{index}\u{E001}")
 }
@@ -288,7 +249,7 @@ pub fn widget_marker(index: usize) -> String {
 /// against `widgets`).
 ///
 /// If not applied, models can and will start imitating this pattern.
-/// 
+///
 /// TODO: In the future, this will be changed to return whatever the widget
 /// returns, if anything.
 pub fn sanitize_widget_markers(content: &str, widgets: &[WidgetInstance]) -> String {
@@ -326,25 +287,171 @@ pub fn sanitize_widget_markers(content: &str, widgets: &[WidgetInstance]) -> Str
     out
 }
 
-pub fn widget_registry() -> (ToolRegistry, WidgetSink) {
-    let sink = Arc::new(Mutex::new(Vec::new()));
-    let mut registry = ToolRegistry::new();
-    registry.register_typed(SearchWidgets);
-    registry.register_typed(StartWidget {
-        sink: Arc::clone(&sink),
+/// Register the attachment commands onto a weaver registry, returning the
+/// sink [`AttachCommand`] buffers into.
+pub fn register_attachment_commands(
+    registry: &mut Registry,
+    catalog: Vec<AttachmentSpec>,
+) -> WidgetSink {
+    let sink: WidgetSink = Arc::new(Mutex::new(Vec::new()));
+    let catalog = Arc::new(catalog);
+    registry.register_command(SearchAttachmentsCommand {
+        catalog: Arc::clone(&catalog),
     });
-    (registry, sink)
+    registry.register_command(AttachCommand {
+        sink: Arc::clone(&sink),
+        catalog,
+    });
+    sink
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::services::tools::{ToolContext, ToolStatePool, build_tool_registry};
+    use crate::util::weaver::json_to_weaver;
+    use std::collections::HashMap;
+    use weaver_lang::CompiledTemplate;
 
     fn widget(id: &str) -> WidgetInstance {
         WidgetInstance {
             widget_id: id.into(),
             props: serde_json::Map::new(),
         }
+    }
+
+    fn spec(id: &str, desc: &str, props: &[&str]) -> AttachmentSpec {
+        AttachmentSpec {
+            id: id.into(),
+            desc: desc.into(),
+            props: props.iter().map(|p| (*p).to_string()).collect(),
+        }
+    }
+
+    #[test]
+    fn spec_id_matches_the_serialized_widget_id() {
+        let w = UserWidget {
+            id: lorealm_storage::models::Snowflake(123456789),
+            user_id: lorealm_storage::models::Snowflake(1),
+            name: "Note".into(),
+            description: "A handwritten note".into(),
+            source: String::new(),
+            prompt: String::new(),
+            tools: Vec::new(),
+            enabled: true,
+            placement: lorealm_storage::models::WidgetPlacement::Attachment,
+            mode: Default::default(),
+            props: vec!["content".into()],
+            created_at: chrono::DateTime::UNIX_EPOCH,
+            updated_at: chrono::DateTime::UNIX_EPOCH,
+        };
+        assert_eq!(
+            serde_json::to_value(w.id).unwrap(),
+            serde_json::Value::String(AttachmentSpec::from(&w).id)
+        );
+    }
+
+    fn catalog() -> Vec<AttachmentSpec> {
+        vec![
+            spec("101", "A handwritten paper note", &["content"]),
+            spec("102", "A glowing neon sign", &["text", "color"]),
+        ]
+    }
+
+    fn run(
+        source: &str,
+        cmd: &[(&str, serde_json::Value)],
+    ) -> Result<(String, Vec<WidgetInstance>), EvalError> {
+        let mut registry = build_tool_registry();
+        let sink = register_attachment_commands(&mut registry, catalog());
+
+        let bound: HashMap<String, Value> = cmd
+            .iter()
+            .map(|(k, v)| ((*k).to_string(), json_to_weaver(v).unwrap()))
+            .collect();
+        let mut ctx = ToolContext::new(bound, Arc::new(Mutex::new(ToolStatePool::default())));
+
+        let out = CompiledTemplate::compile(source)
+            .map_err(|e| EvalError::host_error(format!("{e:?}")))?
+            .evaluate(&mut ctx, &registry)?;
+        let attached = std::mem::take(&mut *sink.lock().unwrap());
+        Ok((out, attached))
+    }
+
+    const ATTACH_BODY: &str = "$[attach({{cmd:id}}, {{cmd:props}})]";
+
+    #[test]
+    fn attach_buffers_the_instance_with_its_props() {
+        let (out, attached) = run(
+            ATTACH_BODY,
+            &[
+                ("id", serde_json::json!("101")),
+                (
+                    "props",
+                    serde_json::json!({ "content": "Meet me at dusk." }),
+                ),
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(out, "");
+        assert_eq!(attached.len(), 1);
+        assert_eq!(attached[0].widget_id, "101");
+        assert_eq!(attached[0].props["content"], "Meet me at dusk.");
+    }
+
+    #[test]
+    fn attach_rejects_an_id_outside_the_catalog() {
+        let err = run(
+            ATTACH_BODY,
+            &[
+                ("id", serde_json::json!("no-such-thing")),
+                ("props", serde_json::json!({})),
+            ],
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("no-such-thing"), "{err}");
+    }
+
+    #[test]
+    fn attach_survives_a_missing_props_object() {
+        let (_, attached) = run(
+            ATTACH_BODY,
+            &[
+                ("id", serde_json::json!("101")),
+                ("props", serde_json::json!(null)),
+            ],
+        )
+        .unwrap();
+        assert!(attached[0].props.is_empty());
+    }
+
+    #[test]
+    fn search_renders_as_parseable_json() {
+        let (out, _) = run(
+            "$[search_attachments({{cmd:keywords}})]",
+            &[("keywords", serde_json::json!(["neon"]))],
+        )
+        .unwrap();
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&out).expect("search output must be JSON the model can read");
+        let matches = parsed["matches"].as_array().unwrap();
+        assert_eq!(matches.len(), 1, "only the neon sign matches: {out}");
+        // Props travel with each hit so the model can fill them in.
+        assert_eq!(matches[0]["id"], "102");
+        assert_eq!(matches[0]["props"], serde_json::json!(["text", "color"]));
+    }
+
+    #[test]
+    fn search_falls_back_to_the_whole_catalog_when_nothing_matches() {
+        let (out, _) = run(
+            "$[search_attachments({{cmd:keywords}})]",
+            &[("keywords", serde_json::json!(["zzzz-no-match"]))],
+        )
+        .unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(parsed["matches"].as_array().unwrap().len(), catalog().len());
     }
 
     #[test]

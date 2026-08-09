@@ -24,12 +24,14 @@
 	let {
 		doc = '',
 		onChange,
-		references
+		references,
+		readOnly = false
 	}: {
 		doc?: string;
 		onChange?: (value: string) => void;
 		/** Supplies entry ids for `[[…]]`/`<trigger>` completion and navigation. */
 		references?: ReferenceSource;
+		readOnly?: boolean;
 	} = $props();
 	let host: HTMLDivElement;
 	let view: EditorView;
@@ -70,6 +72,7 @@
 					weaverHover,
 					weaverCompletion,
 					weaverTheme,
+					...(readOnly ? [EditorState.readOnly.of(true), EditorView.editable.of(false)] : []),
 					...(references ? [weaverReferences(references)] : []),
 					editorSizing,
 					fieldSizing,
