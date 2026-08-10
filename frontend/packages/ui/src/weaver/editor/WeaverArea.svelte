@@ -19,7 +19,8 @@
 		rows = 6,
 		hint = '',
 		autofocus = false,
-		fill = false
+		fill = false,
+		surface = 'elevated'
 	}: {
 		doc?: string;
 		onChange?: (value: string) => void;
@@ -31,6 +32,11 @@
 		hint?: string;
 		autofocus?: boolean;
 		fill?: boolean;
+		/**
+		 * `elevated` matches the other form controls. Use `sunken` where the
+		 * container is already elevated, so the editor doesn't vanish into it.
+		 */
+		surface?: 'elevated' | 'sunken';
 	} = $props();
 
 	let host: HTMLDivElement;
@@ -41,27 +47,29 @@
 			'&': {
 				width: '100%',
 				boxSizing: 'border-box',
-				backgroundColor: 'var(--color-bg-elevated)',
+				backgroundColor: surface === 'sunken' ? 'var(--color-bg-base)' : 'var(--color-bg-elevated)',
 				borderRadius: 'var(--radius-md)',
-				border: '1px solid transparent',
+				border:
+					surface === 'sunken' ? '1px solid var(--color-border-subtle)' : '1px solid transparent',
 				...(fill ? { height: '100%' } : {})
 			},
 			'&.cm-focused': {
 				outline: 'none',
 				borderColor: 'var(--color-border-active)'
 			},
+			// `.cm-content` is the only part that takes clicks, so it has to span the
+			// whole visible box. CodeMirror's own `min-height: 100%` can't do that
+			// here: it resolves against `.cm-scroller`, whose height is auto.
 			'.cm-content': {
-			    height: '100%',
 				padding: 'var(--spacing-sm)',
 				fontFamily: 'var(--font-family-body)',
-				lineHeight: '1.5'
+				lineHeight: '1.5',
+				minHeight: fill ? '100%' : `calc(${rows} * 1.5em + 2 * var(--spacing-sm))`
 			},
 			'.cm-scroller': {
 				overflowY: 'auto',
 				lineHeight: '1.5',
-				...(fill
-					? { height: '100%' }
-					: { minHeight: `calc(${rows} * 1.5em + 2 * var(--spacing-sm))`, maxHeight: '60vh' })
+				...(fill ? { height: '100%' } : { maxHeight: '60vh' })
 			},
 			'.cm-placeholder': { color: 'var(--color-text-muted)' }
 		}))();

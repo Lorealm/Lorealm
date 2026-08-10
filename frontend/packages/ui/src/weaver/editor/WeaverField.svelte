@@ -29,7 +29,11 @@
 	let view: EditorView;
 
 	const fieldSizing = EditorView.theme({
-		'&': { borderRadius: '6px', border: '1px solid #23262e' },
+		'&': {
+			backgroundColor: 'var(--color-bg-base)',
+			borderRadius: '6px',
+			border: '1px solid #23262e'
+		},
 		'.cm-content': { padding: '7px 10px' },
 		'.cm-scroller': { overflowX: 'auto' }
 	});

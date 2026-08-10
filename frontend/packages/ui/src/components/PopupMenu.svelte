@@ -11,11 +11,13 @@
 	let {
 		items,
 		title,
-		icon
+		icon,
+		placement = 'up'
 	}: {
 		items: MenuItem[];
 		title?: string;
 		icon: Snippet;
+		placement?: 'up' | 'down';
 	} = $props();
 
 	let open = $state(false);
@@ -126,7 +128,7 @@
 	</button>
 
 	{#if open}
-		<div class="menu" role="menu" bind:this={menuEl}>
+		<div class="menu" class:down={placement === 'down'} role="menu" bind:this={menuEl}>
 			{#each items as item, i (i)}
 				<button
 					class="item"
@@ -180,6 +182,12 @@
 		user-select: none;
 		gap: var(--spacing-xs);
 		-moz-user-select: none;
+	}
+	.menu.down {
+		top: calc(100% + 4px);
+		bottom: auto;
+		left: auto;
+		right: 0;
 	}
 	.item {
 		display: flex;

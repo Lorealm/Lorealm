@@ -45,6 +45,7 @@
 		'&': {
 			width: '100%',
 			boxSizing: 'border-box',
+			backgroundColor: 'var(--color-bg-base)',
 			borderRadius: '6px',
 			border: '1px solid #23262e'
 		},

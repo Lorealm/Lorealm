@@ -1,166 +1,90 @@
 <script lang="ts">
 	import { characterStore } from '$lib/stores/character.svelte.js';
 	import { onMount } from 'svelte';
-	import { ArrowUpDown, Plus } from '@lucide/svelte';
 	import CharacterListItem from './CharacterListItem.svelte';
-
-	type SortKey = 'name-asc' | 'name-desc' | 'updated' | 'created';
+	import StudioList from '../StudioList.svelte';
 
 	let {
 		oncreate
 	}: {
-		oncreate?: () => void;
+		oncreate?: () => void | Promise<void>;
 	} = $props();
 
-	type SortableMeta = {
-		id: string;
-		name?: string;
-		createdAt?: string | number | Date;
-		updatedAt?: string | number | Date;
-	};
+	let query = $state('');
+	let sort = $state('updated');
+	let creating = $state(false);
 
-	let sortBy = $state<SortKey>('name-asc');
+	const characters = $derived(characterStore.metadataList ?? []);
 
-	const characters = $derived(characterStore.metadataList);
-
-	const ts = (v: unknown): number => {
-		if (!v) return 0;
-		const t = new Date(v as string | number | Date).getTime();
+	const ts = (value: string): number => {
+		const t = new Date(value).getTime();
 		return Number.isNaN(t) ? 0 : t;
 	};
 
-	const sortedCharacters = $derived.by(() => {
-		const list = [...characters] as unknown as SortableMeta[];
-		switch (sortBy) {
-			case 'name-asc':
-				list.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
-				break;
-			case 'name-desc':
-				list.sort((a, b) => (b.name ?? '').localeCompare(a.name ?? ''));
-				break;
-			case 'updated':
-				list.sort((a, b) => ts(b.updatedAt) - ts(a.updatedAt));
-				break;
-			case 'created':
-				list.sort((a, b) => ts(b.createdAt) - ts(a.createdAt));
-				break;
-		}
-		return list as unknown as typeof characters;
+	const shown = $derived.by(() => {
+		const needle = query.trim().toLowerCase();
+		const list = characters.filter(
+			(c) =>
+				needle === '' ||
+				c.name.toLowerCase().includes(needle) ||
+				(c.display_name ?? '').toLowerCase().includes(needle) ||
+				c.tags.some((t) => t.toLowerCase().includes(needle))
+		);
+		if (sort === 'name-asc') return list.sort((a, b) => a.name.localeCompare(b.name));
+		if (sort === 'name-desc') return list.sort((a, b) => b.name.localeCompare(a.name));
+		return list.sort((a, b) => ts(b.updated_at) - ts(a.updated_at));
 	});
 
 	onMount(async () => {
 		await characterStore.loadList();
 	});
+
+	async function create() {
+		if (creating) return;
+		creating = true;
+		try {
+			await oncreate?.();
+		} finally {
+			creating = false;
+		}
+	}
 </script>
 
-<div class="page">
-	<div class="topbar">
-		<div class="sort">
-			<ArrowUpDown size={16} />
-			<select bind:value={sortBy} aria-label="Sort characters">
-				<option value="name-asc">Name (A–Z)</option>
-				<option value="name-desc">Name (Z–A)</option>
-				<option value="updated">Recently updated</option>
-				<option value="created">Recently added</option>
-			</select>
-		</div>
+<StudioList
+	title="Characters"
+	bind:query
+	bind:sort
+	layout="list"
+	sortOptions={[
+		{ value: 'updated', label: 'Recently updated' },
+		{ value: 'name-asc', label: 'Name (A–Z)' },
+		{ value: 'name-desc', label: 'Name (Z–A)' }
+	]}
+	searchPlaceholder="Search characters…"
+	createLabel="New character"
+	oncreate={create}
+	{creating}
+>
+	{#snippet empty()}
+		{#if shown.length === 0}
+			<p class="empty">
+				{characters.length === 0
+					? 'No characters yet — create one to get started.'
+					: 'No characters match that search.'}
+			</p>
+		{/if}
+	{/snippet}
 
-		<div class="actions">
-			<button type="button" class="primary" onclick={() => oncreate?.()}>
-				<Plus size={16} />
-				New
-			</button>
-		</div>
-	</div>
-
-	{#if sortedCharacters.length === 0}
-		<div class="empty">No characters yet — create one to get started.</div>
-	{:else}
-		<div class="list">
-			{#each sortedCharacters as char (char.id)}
-				<CharacterListItem summary={char} />
-			{/each}
-		</div>
-	{/if}
-</div>
+	{#each shown as char (char.id)}
+		<CharacterListItem summary={char} />
+	{/each}
+</StudioList>
 
 <style>
-	.page {
-		display: flex;
-		flex-direction: column;
-		height: 100%;
-		min-height: 0;
-	}
-
-	.topbar {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-md) var(--spacing-lg);
-		border-bottom: 1px solid var(--color-border-subtle);
-		background-color: var(--color-bg-panel);
-		backdrop-filter: var(--backdrop-blur);
-		position: sticky;
-		top: 0;
-		z-index: var(--z-index-sticky);
-	}
-
-	.sort {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-xs);
-		color: var(--color-text-secondary);
-	}
-
-	/* Undo the global `select { width: 100% }` so it sizes to the bar */
-	.topbar select {
-		width: auto;
-		min-width: 150px;
-		flex: 0 0 auto;
-	}
-
-	.actions {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-		margin-left: auto;
-	}
-
-	.topbar button {
-		align-items: center;
-		justify-content: center;
-		gap: var(--spacing-xs);
-		white-space: nowrap;
-	}
-
-	button.primary {
-		background: var(--gradient-primary);
-		color: var(--color-text-white);
-		box-shadow: var(--shadow-md);
-	}
-
-	button.primary:hover {
-		color: var(--color-text-white);
-		box-shadow: var(--shadow-glow);
-	}
-
-	.list {
-		flex: 1 1 auto;
-		min-height: 0;
-		display: flex;
-		padding: var(--spacing-lg);
-		overflow-y: auto;
-		flex-direction: column;
-		gap: var(--spacing-sm);
-	}
-
 	.empty {
-		flex: 1 1 auto;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: var(--color-text-muted);
-		padding: var(--spacing-4xl) var(--spacing-lg);
+		margin: 0;
+		padding: var(--spacing-3xl) 0;
 		text-align: center;
+		color: var(--color-text-muted);
 	}
 </style>
