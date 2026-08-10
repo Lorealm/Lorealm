@@ -32,7 +32,7 @@ export interface LorebookMetadata {
 	owner_id: Snowflake;
 	name: string;
 	description: string;
-	entry_count: string;
+	entry_count: number;
 }
 
 export interface CreateLorebookRequest {
@@ -41,7 +41,7 @@ export interface CreateLorebookRequest {
 }
 
 export interface SetActiveLorebooksRequest {
-  ids: Snowflake[]
+	ids: Snowflake[];
 }
 
 export interface UpdateLorebookRequest {

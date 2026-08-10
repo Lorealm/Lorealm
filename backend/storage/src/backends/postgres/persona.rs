@@ -85,13 +85,15 @@ impl PersonaStorage for PostgresStorage {
     async fn save_override(&self, r#override: PersonaOverride) -> Result<(), StorageError> {
         sqlx::query(
             r#"INSERT INTO character_persona_overrides
-                (character_id, persona_id)
-            VALUES ($1, $2)
+                (character_id, persona_id, user_id)
+            VALUES ($1, $2, $3)
             ON CONFLICT (character_id) DO UPDATE SET
-                persona_id = EXCLUDED.persona_id"#,
+                persona_id = EXCLUDED.persona_id,
+                user_id = EXCLUDED.user_id"#,
         )
         .bind(r#override.character_id)
         .bind(r#override.persona_id)
+        .bind(r#override.user_id)
         .execute(&self.pool)
         .await?;
 
@@ -103,12 +105,37 @@ impl PersonaStorage for PostgresStorage {
         character_id: Snowflake,
     ) -> Result<Option<PersonaOverride>, StorageError> {
         let result = sqlx::query_as::<_, PersonaOverride>(
-            r#"SELECT * FROM character_persona_overrides WHERE character_id = $1"#,
+            r#"SELECT character_id, persona_id, user_id
+               FROM character_persona_overrides WHERE character_id = $1"#,
         )
         .bind(character_id)
         .fetch_optional(&self.pool)
         .await?;
 
         Ok(result)
+    }
+
+    async fn list_overrides(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Vec<PersonaOverride>, StorageError> {
+        let overrides = sqlx::query_as::<_, PersonaOverride>(
+            r#"SELECT character_id, persona_id, user_id
+               FROM character_persona_overrides WHERE user_id = $1"#,
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(overrides)
+    }
+
+    async fn delete_override(&self, character_id: Snowflake) -> Result<(), StorageError> {
+        sqlx::query(r#"DELETE FROM character_persona_overrides WHERE character_id = $1"#)
+            .bind(character_id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
     }
 }

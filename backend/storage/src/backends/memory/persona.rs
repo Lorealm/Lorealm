@@ -94,4 +94,21 @@ impl PersonaStorage for MemoryStorage {
         let overrides = self.persona_overrides.read().await;
         Ok(overrides.get(&character_id).cloned())
     }
+
+    async fn list_overrides(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Vec<PersonaOverride>, StorageError> {
+        let overrides = self.persona_overrides.read().await;
+        Ok(overrides
+            .values()
+            .filter(|o| o.user_id == user_id)
+            .cloned()
+            .collect())
+    }
+
+    async fn delete_override(&self, character_id: Snowflake) -> Result<(), StorageError> {
+        self.persona_overrides.write().await.remove(&character_id);
+        Ok(())
+    }
 }

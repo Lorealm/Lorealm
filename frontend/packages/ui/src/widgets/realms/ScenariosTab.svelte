@@ -3,6 +3,8 @@
 	import type { JsonValue, Snowflake } from '$lib/types/core.js';
 	import type { Scenario } from '$lib/types/realm.js';
 	import WeaverEditor from '$lib/weaver/editor/WeaverEditor.svelte';
+	import ContextField from '$lib/components/ContextField.svelte';
+	import FieldShell from '$lib/components/FieldShell.svelte';
 	import { ChevronDown, ChevronUp, Trash2, X } from '@lucide/svelte';
 
 	/** Placeholder for property/override value inputs. */
@@ -161,19 +163,21 @@
 						</label>
 					</div>
 
-					<label>
-						<span>Opening narration — the playthrough's prologue, heard on <code>main</code></span>
-						<textarea rows="4" bind:value={draft.opening}></textarea>
-					</label>
+					<ContextField
+						label="Opening narration"
+						hint="The playthrough's prologue, heard on `main`."
+						value={draft.opening}
+						rows={4}
+						onchange={(v) => (draft!.opening = v)}
+					/>
 
-					<div class="field">
-						<span class="fieldLabel">
-							Seed script <em>— weaver, committed as the turn-zero world state</em>
-						</span>
-						<div class="scriptBox">
-							<WeaverEditor doc={draft.seed_script} onChange={(v) => (draft!.seed_script = v)} />
-						</div>
-					</div>
+					<FieldShell label="Seed script" hint="weaver, committed as the turn-zero world state.">
+						{#snippet editor(fill: boolean)}
+							<div class="scriptBox" class:fill>
+								<WeaverEditor doc={draft!.seed_script} onChange={(v) => (draft!.seed_script = v)} />
+							</div>
+						{/snippet}
+					</FieldShell>
 
 					<div class="section">
 						<div class="sectionHead">
@@ -327,18 +331,6 @@
 		color: var(--color-text-secondary);
 	}
 
-	.field {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-	}
-
-	.fieldLabel {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
-	}
-
-	.fieldLabel em,
 	.sectionHead em {
 		color: var(--color-text-muted);
 		font-style: normal;
@@ -346,6 +338,12 @@
 
 	.scriptBox {
 		display: flex;
+	}
+	
+	.scriptBox.fill {
+		flex: 1 1 auto;
+		min-height: 0;
+		height: 100%;
 	}
 
 	.mono {

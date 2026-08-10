@@ -129,8 +129,8 @@ class LorebookStore {
 	 */
 	async loadActiveBooks() {
 		await Promise.all(
-			this.activeLorebooks.map((id) =>
-				this.loadLorebook(id).catch(() => {}) // a book we can't load simply offers no ids
+			this.activeLorebooks.map(
+				(id) => this.loadLorebook(id).catch(() => {}) // a book we can't load simply offers no ids
 			)
 		);
 	}
@@ -263,7 +263,13 @@ class LorebookStore {
 		const created = await this.#api.lorebooks.entries.add(draft.id);
 		this.loadedLorebooks.get(draft.id)?.entries.push(created);
 		draft.entries.push({ snowflake: created.id, ...parseEntry(created.source) });
+		this.#bumpEntryCount(draft.id, 1);
 		return created.id;
+	}
+
+	#bumpEntryCount(bookId: Snowflake, delta: number) {
+		const meta = this.metadataList?.find((m) => m.id === bookId);
+		if (meta) meta.entry_count = Math.max(0, meta.entry_count + delta);
 	}
 
 	/** Delete an entry. */
@@ -281,11 +287,13 @@ class LorebookStore {
 		if (bi !== -1) base!.entries.splice(bi, 1);
 
 		this.saveStates.delete(snowflake);
+		this.#bumpEntryCount(draft.id, -1);
 		try {
 			await this.#api.lorebooks.entries.delete(draft.id, snowflake);
 		} catch (e) {
 			draft.entries.splice(di, 0, removedDraft);
 			if (removedBase) base!.entries.splice(bi, 0, removedBase);
+			this.#bumpEntryCount(draft.id, 1);
 			throw e;
 		}
 	}
@@ -322,6 +330,17 @@ class LorebookStore {
 	async createLorebook(req: CreateLorebookRequest): Promise<Lorebook> {
 		const book = await this.#api.lorebooks.create(req);
 		this.loadedLorebooks.set(book.id, book);
+		// Keep the listing in step so the new book shows up without a refetch.
+		this.metadataList = [
+			...(this.metadataList ?? []),
+			{
+				id: book.id,
+				owner_id: book.owner_id,
+				name: book.name,
+				description: book.description,
+				entry_count: book.entries.length
+			}
+		];
 		return book;
 	}
 

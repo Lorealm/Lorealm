@@ -15,8 +15,10 @@ pub struct UserPersona {
     pub updated_at: DateTime<Utc>,
 }
 
+/// Binds a character to a persona other than the user's active one.
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct PersonaOverride {
     pub character_id: Snowflake,
     pub persona_id: Snowflake,
+    pub user_id: Snowflake,
 }

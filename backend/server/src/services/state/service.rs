@@ -126,30 +126,6 @@ impl StateService {
         Ok(template_id)
     }
 
-    pub async fn get_active_template(
-        &self,
-        user_id: Snowflake,
-    ) -> Result<ContextTemplate, StateError> {
-        let template_id = self
-            .get_active_template_id(user_id)
-            .await?
-            .ok_or(StateError::NoActiveTemplate)?;
-
-        let template = self
-            .storage
-            .get_template_owned(template_id, user_id)
-            .await?
-            .ok_or(StateError::NotFound(
-                TargetType::ContextTemplate,
-                template_id,
-            ))?;
-
-        let ctx_template = ContextTemplate::from_db(template)
-            .map_err(|e| StateError::TemplateConversion(e.to_string()))?;
-
-        Ok(ctx_template)
-    }
-
     /// Replay state up an ancestor chain.
     ///
     /// `chain` MUST be the full ancestry in root→leaf order. Messages without
@@ -221,6 +197,13 @@ impl StateService {
         };
         self.storage.put_message_state(&state).await?;
         Ok(())
+    }
+
+    pub async fn get_active_persona_id(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Option<Snowflake>, StateError> {
+        Ok(self.storage.get_active_persona(user_id).await?)
     }
 
     pub async fn get_active_persona(&self, user_id: Snowflake) -> Result<UserPersona, StateError> {

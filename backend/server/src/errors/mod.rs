@@ -303,7 +303,19 @@ impl From<StateError> for AppError {
 impl From<PersonaError> for AppError {
     fn from(err: PersonaError) -> Self {
         match err {
-            _ => AppError::Internal {
+            PersonaError::NotFound(_, _) => AppError::BadRequest {
+                code: "NOT_FOUND",
+                message: Cow::Owned(err.client_message()),
+            },
+            PersonaError::NotOwned => AppError::Forbidden {
+                code: "NOT_OWNED",
+                message: Cow::Owned(err.client_message()),
+            },
+            PersonaError::UnsupportedMediaType => AppError::BadRequest {
+                code: "UNSUPPORTED_MEDIA_TYPE",
+                message: Cow::Owned(err.client_message()),
+            },
+            PersonaError::Storage(_) => AppError::Internal {
                 internal: Cow::Owned(err.client_message()),
             },
         }

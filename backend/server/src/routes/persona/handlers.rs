@@ -7,13 +7,13 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use bytes::Bytes;
-use lorealm_storage::models::{Snowflake, UserPersona};
+use lorealm_storage::models::{PersonaOverride, Snowflake, UserPersona};
 
 use crate::{
     core::AppState,
     errors::{AppError, PersonaError},
     extract::AuthenticatedSession,
-    routes::persona::dto::{AvatarUpdateResponse, SetActiveRequest},
+    routes::persona::dto::{AvatarUpdateResponse, SetActiveRequest, SetOverrideRequest},
     services::persona::UpdatePersona,
 };
 
@@ -33,14 +33,20 @@ pub async fn list_personas(
 pub async fn create_persona(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
-) -> Result<(), AppError> {
-    state
+) -> Result<Json<UserPersona>, AppError> {
+    let id = state
         .services()
         .persona()
         .create_default(session.user_id, "New persona".to_string())
         .await?;
 
-    Ok(())
+    let persona = state
+        .services()
+        .persona()
+        .get_persona(id, session.user_id)
+        .await?;
+
+    Ok(Json(persona))
 }
 
 pub async fn save_persona(
@@ -116,15 +122,57 @@ pub async fn set_active_persona(
     Ok(())
 }
 
+pub async fn list_overrides(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+) -> Result<Json<Vec<PersonaOverride>>, AppError> {
+    let overrides = state
+        .services()
+        .persona()
+        .list_overrides(session.user_id)
+        .await?;
+
+    Ok(Json(overrides))
+}
+
+pub async fn set_override(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(character_id): Path<Snowflake>,
+    Json(request): Json<SetOverrideRequest>,
+) -> Result<Json<PersonaOverride>, AppError> {
+    let r#override = state
+        .services()
+        .persona()
+        .set_override(session.user_id, character_id, request.persona_id)
+        .await?;
+
+    Ok(Json(r#override))
+}
+
+pub async fn clear_override(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(character_id): Path<Snowflake>,
+) -> Result<(), AppError> {
+    state
+        .services()
+        .persona()
+        .clear_override(session.user_id, character_id)
+        .await?;
+
+    Ok(())
+}
+
 pub async fn get_active_persona(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
 ) -> Result<Json<Option<Snowflake>>, AppError> {
-    let persona = state
+    let persona_id = state
         .services()
         .state()
-        .get_active_persona(session.user_id)
+        .get_active_persona_id(session.user_id)
         .await?;
 
-    Ok(Json(Some(persona.id)))
+    Ok(Json(persona_id))
 }

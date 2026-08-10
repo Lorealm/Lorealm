@@ -1,6 +1,11 @@
 import { useApi, type ApiClient } from '$lib/api/client.js';
 import type { Snowflake } from '$lib/types/core.js';
-import type { Tokenizer, NetworkCreate, ImportQuery } from '$lib/types/tokenizer.js';
+import type {
+	Tokenizer,
+	NetworkCreate,
+	ImportQuery,
+	BatchTokenizeResponse
+} from '$lib/types/tokenizer.js';
 
 class TokenizerStore {
 	private _api = $state<ApiClient>();
@@ -14,6 +19,8 @@ class TokenizerStore {
 	activeId = $state<Snowflake | null>(null);
 	loaded = $state(false);
 
+	#loading: Promise<void> | null = null;
+
 	async load() {
 		const [list, active] = await Promise.all([
 			this.#api.tokenizers.list(),
@@ -22,6 +29,16 @@ class TokenizerStore {
 		this.tokenizers = list;
 		this.activeId = active;
 		this.loaded = true;
+	}
+
+	async ensureLoaded() {
+		if (this.loaded) return;
+		this.#loading ??= this.load().finally(() => (this.#loading = null));
+		await this.#loading;
+	}
+
+	async batchCount(id: Snowflake, batch: Record<string, string>): Promise<BatchTokenizeResponse> {
+		return await this.#api.tokenizers.count.batch(id, { batch });
 	}
 
 	async setActive(id: Snowflake) {

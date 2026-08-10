@@ -5,6 +5,7 @@
 	import type { Snowflake } from '$lib/types/core.js';
 	import type { WidgetMode, WidgetPlacement } from '$lib/types/widgets.js';
 	import { onDestroy, onMount } from 'svelte';
+	import ContextField from '$lib/components/ContextField.svelte';
 
 	const SAVE_MS = 500;
 
@@ -54,6 +55,7 @@ ${'</'}script>
 	let draftProps = $state<string[]>([]);
 	let toolPick = $state('');
 	let loadedId: string | null = null;
+	let syncedId = $state<string | null>(null);
 
 	const isAttachment = $derived(draftPlacement === 'attachment');
 
@@ -68,8 +70,10 @@ ${'</'}script>
 			draftPlacement = selected.placement;
 			draftMode = selected.mode;
 			draftProps = [...selected.props];
+			syncedId = selected.id;
 		} else if (!selected) {
 			loadedId = null;
+			syncedId = null;
 		}
 	});
 
@@ -286,19 +290,24 @@ ${'</'}script>
 				</div>
 			</div>
 
-			<label class="prompt">
+			<div class="prompt">
 				<span>
 					Model directive — how the model should maintain this widget's state. Requires the
 					<code>Widget Directives</code> node in the active context template to reach the model.
 				</span>
-				<textarea
-					rows="3"
-					spellcheck="false"
-					placeholder="e.g. When affection changes, update relationship:&lt;name&gt;.affection (0–100)."
-					bind:value={draftPrompt}
-					oninput={requestSave}
-				></textarea>
-			</label>
+				{#key syncedId}
+					<ContextField
+						label="Directive"
+						value={draftPrompt}
+						rows={3}
+						placeholder="e.g. When affection changes, update relationship:<name>.affection (0–100)."
+						onchange={(v) => {
+							draftPrompt = v;
+							requestSave();
+						}}
+					/>
+				{/key}
+			</div>
 
 			<div class="tools">
 				<span class="toolsLabel">
@@ -448,12 +457,6 @@ ${'</'}script>
 	.prompt code {
 		font-family: var(--font-family-mono);
 		font-size: var(--font-size-xs);
-	}
-
-	.prompt textarea {
-		font-family: var(--font-family-mono);
-		font-size: var(--font-size-sm);
-		resize: vertical;
 	}
 
 	.tools,

@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { personaStore } from '$lib/stores/persona.svelte.js';
+	import { characterStore } from '$lib/stores/character.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import TransportImage from '$lib/components/TransportImage.svelte';
+	import ContextField from '$lib/components/ContextField.svelte';
+	import { Plus, X } from '@lucide/svelte';
 
 	const SAVE_MS = 500;
 
@@ -11,6 +14,7 @@
 	const personas = $derived(personaStore.loadedPersonas ?? []);
 	const selectedId = $derived(personaStore.editingId);
 	const activePersonaId = $derived(personaStore.activePersonaId);
+	const characters = $derived(characterStore.metadataList);
 
 	// Same path as the avatar PUT, GET-side. The version query busts the cache
 	// for the persona being edited so TransportImage refetches after an upload.
@@ -29,8 +33,68 @@
 	onMount(() => {
 		void personaStore.loadPersonas();
 		void personaStore.loadActive();
+		void personaStore.loadOverrides();
+		void characterStore.loadList();
 	});
 	onDestroy(() => personaStore.stopEditing());
+
+	let creating = $state(false);
+	async function createPersona() {
+		if (creating) return;
+		creating = true;
+		try {
+			const persona = await personaStore.create();
+			await select(persona.id);
+		} catch (e) {
+			console.error(e);
+		} finally {
+			creating = false;
+		}
+	}
+
+	const boundCharacters = $derived.by(() => {
+		const id = personaStore.editingId;
+		if (!id) return [];
+		const bound = new Set(personaStore.overridesFor(id).map((o) => o.character_id));
+		return characters.filter((c) => bound.has(c.id));
+	});
+	
+	const bindable = $derived.by(() => {
+		const id = personaStore.editingId;
+		return characters
+			.filter((c) => personaStore.overrideFor(c.id)?.persona_id !== id)
+			.map((c) => {
+				const other = personaStore.overrideFor(c.id);
+				const owner = other && personas.find((p) => p.id === other.persona_id);
+				return { id: c.id, label: owner ? `${c.name} — bound to ${owner.name}` : c.name };
+			});
+	});
+
+	let bindError = $state<string | null>(null);
+
+	async function bind(e: Event) {
+		const el = e.currentTarget as HTMLSelectElement;
+		const characterId = el.value;
+		el.value = '';
+		const personaId = personaStore.editingId;
+		if (!characterId || !personaId) return;
+
+		bindError = null;
+		try {
+			await personaStore.setOverride(characterId, personaId);
+		} catch (err) {
+			bindError = err instanceof Error ? err.message : 'Could not bind that character';
+		}
+	}
+
+	async function unbind(characterId: Snowflake) {
+		bindError = null;
+		try {
+			await personaStore.clearOverride(characterId);
+		} catch (err) {
+			bindError = err instanceof Error ? err.message : 'Could not unbind that character';
+		}
+	}
 
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	function requestSave() {
@@ -102,7 +166,13 @@
 <div class="persona-editor">
 	<section class="col-list">
 		<header class="list-header">
-			<span class="title">Personas</span>
+			<div class="title-row">
+				<span class="title">Personas</span>
+				<button type="button" class="new" onclick={createPersona} disabled={creating}>
+					<Plus size={14} />
+					{creating ? 'Creating…' : 'New'}
+				</button>
+			</div>
 			{#if draft}
 				<div class="save-row" class:error={save.status === 'error'}>
 					<span class="dot" data-status={save.status}></span>
@@ -199,13 +269,62 @@
 					</div>
 				</div>
 
-				<div class="field">
-					<label for="p-desc">
-						Description {@render hint('Free-form notes describing this persona.')}
-					</label>
-					<textarea id="p-desc" rows="8" bind:value={draft.description} oninput={requestSave}
-					></textarea>
-				</div>
+				{#key draft}
+					<ContextField
+						label="Description"
+						hint="Free-form notes describing this persona. Reaches the model as {'{{persona:description}}'}."
+						value={draft.description}
+						rows={8}
+						onchange={(v) => {
+							draft.description = v;
+							requestSave();
+						}}
+					/>
+				{/key}
+
+				<section class="overrides">
+					<div class="overrides-head">
+						<h2>Character overrides</h2>
+						<select onchange={bind} aria-label="Bind a character to this persona">
+							<option value="">Bind a character…</option>
+							{#each bindable as option (option.id)}
+								<option value={option.id}>{option.label}</option>
+							{/each}
+						</select>
+					</div>
+					<p class="overrides-note">
+						Chats with these characters use this persona instead of your active one. A character can
+						only be bound to one persona.
+					</p>
+
+					{#if bindError}
+						<p class="overrides-error">{bindError}</p>
+					{/if}
+
+					{#if boundCharacters.length === 0}
+						<p class="empty">No characters are bound to this persona.</p>
+					{:else}
+						<ul class="bound-list">
+							{#each boundCharacters as character (character.id)}
+								<li class="bound-item">
+									<span class="bound-avatar">
+										<TransportImage src={`/api/v1/characters/${character.id}/image`} alt="" />
+									</span>
+									<span class="bound-name">{character.name}</span>
+									<button
+										type="button"
+										class="unbind"
+										title="Remove override"
+										aria-label={`Unbind ${character.name}`}
+										onclick={() => unbind(character.id)}
+									>
+										<X size={14} />
+									</button>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</section>
 			</div>
 		{:else}
 			<div class="pane empty-pane">
@@ -244,10 +363,26 @@
 		padding: var(--spacing-md);
 		border-bottom: 1px solid var(--color-border-subtle);
 	}
+	.title-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--spacing-sm);
+	}
 	.title {
 		color: var(--color-text-primary);
 		font-family: var(--font-family-heading);
 		font-size: var(--font-size-md);
+	}
+	.new {
+		flex: 0 0 auto;
+		align-items: center;
+		gap: var(--spacing-xs);
+		font-size: var(--font-size-sm);
+		padding: var(--spacing-xs) var(--spacing-sm);
+	}
+	.new:disabled {
+		opacity: 0.6;
 	}
 	.save-row {
 		display: flex;
@@ -458,5 +593,92 @@
 	.empty {
 		color: var(--color-text-muted);
 		font-size: var(--font-size-sm);
+	}
+
+	/* --- character overrides --- */
+	.overrides {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-sm);
+		margin-top: var(--spacing-lg);
+		padding-top: var(--spacing-lg);
+		border-top: 1px solid var(--color-border-subtle);
+	}
+	.overrides-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--spacing-md);
+	}
+	.overrides h2 {
+		margin: 0;
+		font-size: var(--font-size-h4);
+	}
+	.overrides-head select {
+		width: auto;
+		max-width: 260px;
+		font-size: var(--font-size-sm);
+	}
+	.overrides-note {
+		margin: 0;
+		color: var(--color-text-muted);
+		font-size: var(--font-size-xs);
+	}
+	.overrides-error {
+		margin: 0;
+		padding: var(--spacing-sm);
+		border-radius: var(--radius-sm);
+		background-color: var(--color-error-bg);
+		color: var(--color-error-text);
+		font-size: var(--font-size-sm);
+	}
+	.bound-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-xs);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.bound-item {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		padding: var(--spacing-xs) var(--spacing-sm);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius-md);
+		background-color: var(--color-bg-elevated-2);
+	}
+	.bound-avatar {
+		flex: 0 0 auto;
+		width: 28px;
+		height: 28px;
+		overflow: hidden;
+		border-radius: var(--radius-full);
+		background: var(--gradient-portrait);
+	}
+	.bound-avatar :global(.transport-image) {
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
+	.bound-name {
+		flex: 1 1 auto;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		color: var(--color-text-primary);
+		font-size: var(--font-size-sm);
+	}
+	.unbind {
+		flex: 0 0 auto;
+		padding: var(--spacing-xs);
+		background-color: transparent;
+		color: var(--color-text-muted);
+	}
+	.unbind:hover {
+		background-color: var(--color-error-bg);
+		color: var(--color-error-text);
 	}
 </style>

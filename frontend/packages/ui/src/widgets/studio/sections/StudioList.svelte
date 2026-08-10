@@ -1,0 +1,159 @@
+<script lang="ts">
+	import { ArrowUpDown, Plus, Search } from '@lucide/svelte';
+	import type { Snippet } from 'svelte';
+
+	let {
+		title,
+		query = $bindable(''),
+		sort = $bindable(''),
+		sortOptions = [],
+		searchPlaceholder = 'Search…',
+		createLabel,
+		oncreate,
+		creating = false,
+		empty,
+		children
+	}: {
+		title: string;
+		query?: string;
+		sort?: string;
+		sortOptions?: Array<{ value: string; label: string }>;
+		searchPlaceholder?: string;
+		createLabel: string;
+		oncreate: () => void;
+		creating?: boolean;
+		empty?: Snippet;
+		children: Snippet;
+	} = $props();
+</script>
+
+<div class="page">
+	<div class="topbar">
+		<h2>{title}</h2>
+
+		<div class="search">
+			<Search size={14} />
+			<input
+				type="text"
+				placeholder={searchPlaceholder}
+				bind:value={query}
+				aria-label={searchPlaceholder}
+			/>
+		</div>
+
+		{#if sortOptions.length > 0}
+			<div class="sort">
+				<ArrowUpDown size={14} />
+				<select bind:value={sort} aria-label={`Sort ${title.toLowerCase()}`}>
+					{#each sortOptions as option (option.value)}
+						<option value={option.value}>{option.label}</option>
+					{/each}
+				</select>
+			</div>
+		{/if}
+
+		<button type="button" class="create" onclick={oncreate} disabled={creating}>
+			<Plus size={16} />
+			{creating ? 'Creating…' : createLabel}
+		</button>
+	</div>
+
+	<div class="body">
+		{#if empty}
+			{@render empty()}
+		{/if}
+		<div class="grid">
+			{@render children()}
+		</div>
+	</div>
+</div>
+
+<style>
+	.page {
+		display: flex;
+		flex-direction: column;
+		flex: 1 1 auto;
+		min-height: 0;
+	}
+
+	.topbar {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-md);
+		padding: var(--spacing-md) var(--spacing-xl);
+		border-bottom: 1px solid var(--color-border-subtle);
+		background-color: var(--color-bg-panel);
+		backdrop-filter: var(--backdrop-blur);
+	}
+
+	h2 {
+		flex: 0 0 auto;
+		margin: 0;
+		font-size: var(--font-size-h4);
+	}
+
+	.search {
+		flex: 1 1 auto;
+		min-width: 0;
+		max-width: 320px;
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+		padding: 0 var(--spacing-sm);
+		border-radius: var(--radius-md);
+		background-color: var(--color-bg-elevated);
+		color: var(--color-text-muted);
+	}
+	.search input {
+		background: transparent;
+		padding: var(--spacing-xs) 0;
+	}
+
+	.sort {
+		flex: 0 0 auto;
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+		color: var(--color-text-secondary);
+	}
+	/* Undo the global `select { width: 100% }` so it sizes to the bar */
+	.sort select {
+		width: auto;
+		min-width: 150px;
+	}
+
+	.create {
+		flex: 0 0 auto;
+		margin-left: auto;
+		align-items: center;
+		gap: var(--spacing-xs);
+		white-space: nowrap;
+		background: var(--gradient-primary);
+		color: var(--color-text-white);
+		box-shadow: var(--shadow-md);
+	}
+	.create:hover:not(:disabled) {
+		color: var(--color-text-white);
+		box-shadow: var(--shadow-glow);
+	}
+	.create:disabled {
+		opacity: 0.6;
+	}
+
+	.body {
+		flex: 1 1 auto;
+		min-height: 0;
+		overflow-y: auto;
+		padding: var(--spacing-xl);
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-lg);
+	}
+
+	.grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+		gap: var(--grid-gap);
+		align-content: start;
+	}
+</style>

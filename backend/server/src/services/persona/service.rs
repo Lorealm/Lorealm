@@ -4,7 +4,7 @@ use bytes::Bytes;
 use chrono::Utc;
 use lorealm_storage::{
     BlobStore, Storage, StorageError,
-    models::{BlobId, Snowflake, UserPersona},
+    models::{BlobId, PersonaOverride, Snowflake, UserPersona},
 };
 
 use crate::{
@@ -167,5 +167,44 @@ impl PersonaService {
         };
 
         Ok(persona)
+    }
+
+    pub async fn list_overrides(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Vec<PersonaOverride>, PersonaError> {
+        Ok(self.storage.list_overrides(user_id).await?)
+    }
+
+    pub async fn set_override(
+        &self,
+        user_id: Snowflake,
+        character_id: Snowflake,
+        persona_id: Snowflake,
+    ) -> Result<PersonaOverride, PersonaError> {
+        self.get_persona(persona_id, user_id).await?;
+
+        let r#override = PersonaOverride {
+            character_id,
+            persona_id,
+            user_id,
+        };
+        self.storage.save_override(r#override.clone()).await?;
+
+        Ok(r#override)
+    }
+
+    pub async fn clear_override(
+        &self,
+        user_id: Snowflake,
+        character_id: Snowflake,
+    ) -> Result<(), PersonaError> {
+        match self.storage.get_override(character_id).await? {
+            Some(existing) if existing.user_id != user_id => return Err(PersonaError::NotOwned),
+            Some(_) => self.storage.delete_override(character_id).await?,
+            None => return Ok(()),
+        }
+
+        Ok(())
     }
 }

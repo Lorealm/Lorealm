@@ -142,6 +142,21 @@ class TemplateStore {
 	async createTemplate(req: CreateTemplateRequest): Promise<ContextTemplate> {
 		const tpl = await this.#api.templates.create(req);
 		this.loadedTemplates.set(tpl.id, clone(tpl));
+		// Keep the listing in step so the new template shows up without a refetch.
+		this.metadataList = [
+			...(this.metadataList ?? []),
+			{
+				id: tpl.id,
+				owner_id: tpl.owner_id,
+				name: tpl.name,
+				description: tpl.description,
+				// Storage counts root nodes for the listing, so match that here.
+				node_count: tpl.nodes.length,
+				version: tpl.version,
+				created_at: tpl.created_at,
+				updated_at: tpl.updated_at
+			}
+		];
 		return tpl;
 	}
 

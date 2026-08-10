@@ -33,11 +33,11 @@ export interface TokenizeRequest {
 }
 
 export interface BatchTokenizeRequest {
-	batch: Map<string, string>;
+	batch: Record<string, string>;
 }
 
 export interface BatchTokenizeResponse {
 	tokenizer_id: Snowflake;
-	counts: Map<string, number>;
+	counts: Record<string, number>;
 	total_tokens: number;
 }

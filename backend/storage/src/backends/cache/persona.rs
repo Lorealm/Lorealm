@@ -53,4 +53,18 @@ impl PersonaStorage for CachedStorage {
         self.get_through(&key, self.backend.get_override(character_id))
             .await
     }
+
+    async fn list_overrides(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Vec<PersonaOverride>, StorageError> {
+        self.backend.list_overrides(user_id).await
+    }
+
+    async fn delete_override(&self, character_id: Snowflake) -> Result<(), StorageError> {
+        let key = self.key("persona_override", &character_id.to_string());
+        self.backend.delete_override(character_id).await?;
+        self.cache_del(&key).await;
+        Ok(())
+    }
 }

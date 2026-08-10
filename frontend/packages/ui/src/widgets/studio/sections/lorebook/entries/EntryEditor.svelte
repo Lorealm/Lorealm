@@ -2,12 +2,13 @@
 	import { lorebookStore, type DraftEntry, type SaveState } from '$lib/stores/lorebook.svelte.js';
 	import type { EntryMeta, LorebookConfig, Slot } from '$lib/types/lorebook.js';
 	import type { ReferenceSource } from '$lib/weaver/editor/weaver-references.js';
-	import WeaverInput from './WeaverInput.svelte';
+	import WeaverField from '$lib/weaver/editor/WeaverField.svelte';
 	import StringListField from './StringListField.svelte';
 	import SlotPicker from '../SlotPicker.svelte';
 	import SaveIndicator from '$lib/components/SaveIndicator.svelte';
 	import NumberInput from '$lib/components/NumberInput.svelte';
 	import WeaverEditor from '$lib/weaver/editor/WeaverEditor.svelte';
+	import FieldShell from '$lib/components/FieldShell.svelte';
 
 	let {
 		entry,
@@ -87,14 +88,13 @@
 		<SaveIndicator state={saveState} />
 	</header>
 
-	<section class="block">
-		<div class="block-title">Content</div>
-		<WeaverEditor
-			doc={entry.body}
-			onChange={setBody}
-			{references}
-		/>
-	</section>
+	<FieldShell label="Content" tokenText={entry.body}>
+		{#snippet editor(fill: boolean)}
+			<div class="content-editor" class:fill>
+				<WeaverEditor doc={entry.body} onChange={setBody} {references} />
+			</div>
+		{/snippet}
+	</FieldShell>
 
 	<fieldset class="block activation">
 		<legend>Activation</legend>
@@ -121,11 +121,10 @@
 
 		<div class="field">
 			<span>Condition</span>
-			<WeaverInput
-				value={entry.meta.condition ?? ''}
-				onchange={(v) => setOptStr('condition', v)}
-				placeholder="weaver expression, e.g. {'{{state:level}}'} > 5"
-				ariaLabel="Activation condition"
+			<WeaverField
+				doc={entry.meta.condition ?? ''}
+				onChange={(v) => setOptStr('condition', v)}
+				hint="weaver expression, e.g. {'{{state:level}}'} > 5"
 				{references}
 			/>
 		</div>
@@ -312,6 +311,17 @@
 		flex: 1 1 10rem;
 	}
 
+	.content-editor {
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+	}
+	
+	.content-editor.fill {
+		flex: 1 1 auto;
+		height: 100%;
+	}
+
 	.block {
 		display: flex;
 		flex-direction: column;
@@ -320,7 +330,6 @@
 		padding: 0;
 		margin: 0;
 	}
-	.block-title,
 	.activation legend,
 	.advanced summary {
 		font-family: var(--font-family-heading);
