@@ -4,7 +4,6 @@ export const weaverTheme = EditorView.theme(
 	{
 		'&': {
 			color: 'var(--color-text-primary)',
-			backgroundColor: 'var(--color-bg-base)',
 			fontSize: 'var(--font-size-base)'
 		},
 		'.cm-content': {

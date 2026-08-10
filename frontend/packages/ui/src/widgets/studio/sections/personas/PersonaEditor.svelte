@@ -5,7 +5,8 @@
 	import type { Snowflake } from '$lib/types/core.js';
 	import TransportImage from '$lib/components/TransportImage.svelte';
 	import ContextField from '$lib/components/ContextField.svelte';
-	import { Plus, X } from '@lucide/svelte';
+	import StudioSidebar from '../StudioSidebar.svelte';
+	import { X } from '@lucide/svelte';
 
 	const SAVE_MS = 500;
 
@@ -15,6 +16,25 @@
 	const selectedId = $derived(personaStore.editingId);
 	const activePersonaId = $derived(personaStore.activePersonaId);
 	const characters = $derived(characterStore.metadataList);
+
+	let query = $state('');
+	let sort = $state('name-asc');
+
+	const shownPersonas = $derived.by(() => {
+		const needle = query.trim().toLowerCase();
+		const out = personas.filter(
+			(p) =>
+				needle === '' ||
+				p.name.toLowerCase().includes(needle) ||
+				(p.display_name ?? '').toLowerCase().includes(needle)
+		);
+		if (sort === 'name-desc') return out.sort((a, b) => b.name.localeCompare(a.name));
+		if (sort === 'active')
+			return out.sort(
+				(a, b) => Number(b.id === activePersonaId) - Number(a.id === activePersonaId)
+			);
+		return out.sort((a, b) => a.name.localeCompare(b.name));
+	});
 
 	// Same path as the avatar PUT, GET-side. The version query busts the cache
 	// for the persona being edited so TransportImage refetches after an upload.
@@ -58,7 +78,7 @@
 		const bound = new Set(personaStore.overridesFor(id).map((o) => o.character_id));
 		return characters.filter((c) => bound.has(c.id));
 	});
-	
+
 	const bindable = $derived.by(() => {
 		const id = personaStore.editingId;
 		return characters
@@ -164,15 +184,20 @@
 {/snippet}
 
 <div class="persona-editor">
-	<section class="col-list">
-		<header class="list-header">
-			<div class="title-row">
-				<span class="title">Personas</span>
-				<button type="button" class="new" onclick={createPersona} disabled={creating}>
-					<Plus size={14} />
-					{creating ? 'Creating…' : 'New'}
-				</button>
-			</div>
+	<StudioSidebar
+		title="Personas"
+		oncreate={createPersona}
+		{creating}
+		bind:query
+		bind:sort
+		sortOptions={[
+			{ value: 'name-asc', label: 'Name (A–Z)' },
+			{ value: 'name-desc', label: 'Name (Z–A)' },
+			{ value: 'active', label: 'Active first' }
+		]}
+		searchPlaceholder="Search personas…"
+	>
+		{#snippet status()}
 			{#if draft}
 				<div class="save-row" class:error={save.status === 'error'}>
 					<span class="dot" data-status={save.status}></span>
@@ -182,46 +207,46 @@
 			{#if save.status === 'error' && save.message}
 				<pre class="save-error">{save.message}</pre>
 			{/if}
-		</header>
+		{/snippet}
 
-		<nav class="persona-list">
-			{#if personas.length === 0}
-				<p class="empty">No personas yet.</p>
-			{/if}
-			{#each personas as persona (persona.id)}
-				<div
-					class="persona-item"
-					class:selected={persona.id === selectedId}
-					class:is-active={persona.id === activePersonaId}
+		{#if shownPersonas.length === 0}
+			<p class="empty">
+				{personas.length === 0 ? 'No personas yet.' : 'No personas match that search.'}
+			</p>
+		{/if}
+		{#each shownPersonas as persona (persona.id)}
+			<div
+				class="persona-item"
+				class:selected={persona.id === selectedId}
+				class:is-active={persona.id === activePersonaId}
+			>
+				<button class="persona-open" type="button" onclick={() => select(persona.id)}>
+					<span class="list-avatar">
+						<TransportImage src={avatarSrc(persona.id)} alt="" />
+					</span>
+					<span class="persona-text">
+						<span class="persona-name">{persona.name || 'Untitled'}</span>
+						{#if persona.display_name}
+							<span class="persona-sub">{persona.display_name}</span>
+						{/if}
+					</span>
+				</button>
+				<button
+					class="active-toggle"
+					class:on={persona.id === activePersonaId}
+					type="button"
+					title={persona.id === activePersonaId ? 'Active persona' : 'Set as active'}
+					aria-pressed={persona.id === activePersonaId}
+					aria-label={persona.id === activePersonaId
+						? `${persona.name} is the active persona`
+						: `Set ${persona.name} as active`}
+					onclick={() => makeActive(persona.id)}
 				>
-					<button class="persona-open" type="button" onclick={() => select(persona.id)}>
-						<span class="list-avatar">
-							<TransportImage src={avatarSrc(persona.id)} alt="" />
-						</span>
-						<span class="persona-text">
-							<span class="persona-name">{persona.name || 'Untitled'}</span>
-							{#if persona.display_name}
-								<span class="persona-sub">{persona.display_name}</span>
-							{/if}
-						</span>
-					</button>
-					<button
-						class="active-toggle"
-						class:on={persona.id === activePersonaId}
-						type="button"
-						title={persona.id === activePersonaId ? 'Active persona' : 'Set as active'}
-						aria-pressed={persona.id === activePersonaId}
-						aria-label={persona.id === activePersonaId
-							? `${persona.name} is the active persona`
-							: `Set ${persona.name} as active`}
-						onclick={() => makeActive(persona.id)}
-					>
-						{persona.id === activePersonaId ? '★' : '☆'}
-					</button>
-				</div>
-			{/each}
-		</nav>
-	</section>
+					{persona.id === activePersonaId ? '★' : '☆'}
+				</button>
+			</div>
+		{/each}
+	</StudioSidebar>
 
 	<section class="col-content">
 		{#if draft}
@@ -341,48 +366,12 @@
 		min-height: 0;
 		position: relative;
 	}
-	.col-list {
-		flex: 0 0 240px;
-		display: flex;
-		flex-direction: column;
-		min-height: 0;
-		min-width: 0;
-		border-right: 1px solid var(--color-border-subtle);
-	}
 	.col-content {
 		flex: 1 1 auto;
 		min-width: 0;
 		display: flex;
 		min-height: 0;
 		overflow-y: auto;
-	}
-	.list-header {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-md);
-		border-bottom: 1px solid var(--color-border-subtle);
-	}
-	.title-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--spacing-sm);
-	}
-	.title {
-		color: var(--color-text-primary);
-		font-family: var(--font-family-heading);
-		font-size: var(--font-size-md);
-	}
-	.new {
-		flex: 0 0 auto;
-		align-items: center;
-		gap: var(--spacing-xs);
-		font-size: var(--font-size-sm);
-		padding: var(--spacing-xs) var(--spacing-sm);
-	}
-	.new:disabled {
-		opacity: 0.6;
 	}
 	.save-row {
 		display: flex;
@@ -421,13 +410,6 @@
 		font-family: var(--font-family-mono);
 		font-size: var(--font-size-xs);
 		white-space: pre-wrap;
-	}
-	.persona-list {
-		display: flex;
-		flex-direction: column;
-		padding: var(--spacing-sm);
-		gap: var(--spacing-xs);
-		overflow-y: auto;
 	}
 	.persona-item {
 		display: flex;

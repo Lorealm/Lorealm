@@ -6,6 +6,8 @@
 	import type { WidgetMode, WidgetPlacement } from '$lib/types/widgets.js';
 	import { onDestroy, onMount } from 'svelte';
 	import ContextField from '$lib/components/ContextField.svelte';
+	import StudioSidebar from '../StudioSidebar.svelte';
+	import { LayoutDashboard, Paperclip } from '@lucide/svelte';
 
 	const SAVE_MS = 500;
 
@@ -33,6 +35,23 @@ ${'</'}script>
 	const widgets = $derived(userWidgetStore.loadedWidgets ?? []);
 	const selectedId = $derived(studioStore.editingId);
 	const selected = $derived(widgets.find((w) => w.id === selectedId) ?? null);
+
+	let query = $state('');
+	let sort = $state('name-asc');
+	let creating = $state(false);
+
+	const shownWidgets = $derived.by(() => {
+		const needle = query.trim().toLowerCase();
+		const out = widgets.filter(
+			(w) =>
+				needle === '' ||
+				w.name.toLowerCase().includes(needle) ||
+				w.description.toLowerCase().includes(needle)
+		);
+		if (sort === 'name-desc') return out.sort((a, b) => b.name.localeCompare(a.name));
+		if (sort === 'enabled') return out.sort((a, b) => Number(b.enabled) - Number(a.enabled));
+		return out.sort((a, b) => a.name.localeCompare(b.name));
+	});
 
 	// The tools a widget can bundle: the user's own tools plus the builtins.
 	const availableTools = $derived([
@@ -133,13 +152,19 @@ ${'</'}script>
 	}
 
 	async function newWidget() {
+		if (creating) return;
+		creating = true;
 		clearTimeout(timer);
-		await saveNow();
-		const created = await userWidgetStore.createWidget({
-			name: 'New widget',
-			source: STARTER
-		});
-		if (created) studioStore.open(created.id);
+		try {
+			await saveNow();
+			const created = await userWidgetStore.createWidget({
+				name: 'New widget',
+				source: STARTER
+			});
+			if (created) studioStore.open(created.id);
+		} finally {
+			creating = false;
+		}
 	}
 
 	async function removeWidget(id: Snowflake, name: string) {
@@ -149,8 +174,6 @@ ${'</'}script>
 		if (selectedId === id) studioStore.close();
 	}
 
-	// Preview: re-mount the iframe when the source changes, then feed it a
-	// sample payload so the author sees the shape their widget receives.
 	let previewFrame = $state<HTMLIFrameElement | null>(null);
 
 	const SAMPLE = {
@@ -174,237 +197,278 @@ ${'</'}script>
 	}
 </script>
 
-<div class="editor">
-	<section class="list">
-		<header>
-			<span class="title">Widgets</span>
-			<button type="button" class="new" onclick={newWidget}>New</button>
-		</header>
-		<nav>
-			{#each widgets as widget (widget.id)}
-				<div class="row" class:active={widget.id === selectedId}>
-					<button type="button" class="pick" onclick={() => select(widget.id)}>
-						<span class="name">{widget.name || 'Untitled'}</span>
-					</button>
-					<label class="toggle" title="Show in every conversation">
-						<input
-							type="checkbox"
-							checked={widget.enabled}
-							onchange={(e) => void userWidgetStore.setEnabled(widget.id, e.currentTarget.checked)}
-						/>
-					</label>
+<div class="widgets-editor">
+	<StudioSidebar
+		title="Widgets"
+		oncreate={newWidget}
+		{creating}
+		bind:query
+		bind:sort
+		sortOptions={[
+			{ value: 'name-asc', label: 'Name (A–Z)' },
+			{ value: 'name-desc', label: 'Name (Z–A)' },
+			{ value: 'enabled', label: 'Enabled first' }
+		]}
+		searchPlaceholder="Search widgets…"
+	>
+		{#if shownWidgets.length === 0}
+			<p class="empty">
+				{widgets.length === 0 ? 'No widgets yet.' : 'No widgets match that search.'}
+			</p>
+		{/if}
+		{#each shownWidgets as widget (widget.id)}
+			<div
+				class="widget-item"
+				class:selected={widget.id === selectedId}
+				class:disabled={!widget.enabled}
+			>
+				<button class="widget-open" type="button" onclick={() => select(widget.id)}>
+					<span
+						class="widget-icon"
+						title={widget.placement === 'attachment'
+							? 'Attachment'
+							: 'Widget'}
+					>
+						{#if widget.placement === 'attachment'}
+							<Paperclip size={16} />
+						{:else}
+							<LayoutDashboard size={16} />
+						{/if}
+					</span>
+					<span class="widget-text">
+						<span class="widget-name">{widget.name || 'Untitled'}</span>
+						{#if widget.description}
+							<span class="widget-sub">{widget.description}</span>
+						{/if}
+					</span>
+				</button>
+				<input
+					type="checkbox"
+					class="switch enable-toggle"
+					checked={widget.enabled}
+					onchange={(e) => void userWidgetStore.setEnabled(widget.id, e.currentTarget.checked)}
+					title={widget.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'}
+					aria-label={widget.enabled ? `Disable ${widget.name}` : `Enable ${widget.name}`}
+				/>
+			</div>
+		{/each}
+	</StudioSidebar>
+
+	<section class="col-content">
+		{#if selected}
+			<div class="pane">
+				<div class="pane-head">
+					<h1>Edit widget</h1>
 					<button
 						type="button"
-						class="del"
-						title="Delete widget"
-						onclick={() => void removeWidget(widget.id, widget.name)}
+						class="delete"
+						onclick={() => void removeWidget(selected.id, selected.name)}
 					>
-						×
+						Delete
 					</button>
 				</div>
-			{:else}
-				<div class="empty">No widgets yet.</div>
-			{/each}
-		</nav>
-	</section>
 
-	<section class="pane">
-		{#if selected}
-			<div class="fields">
-				<label>
-					<span>Name</span>
-					<input type="text" bind:value={draftName} oninput={requestSave} />
-				</label>
-				<label>
-					<span>
-						{isAttachment ? 'Description — what the model searches against' : 'Description'}
-					</span>
-					<input type="text" bind:value={draftDescription} oninput={requestSave} />
-				</label>
-				<label>
-					<span>Placement</span>
-					<select bind:value={draftPlacement} onchange={requestSave}>
-						<option value="widget">Widget — always on, reads state</option>
-						<option value="attachment">Attachment — the model places it inline</option>
-					</select>
-				</label>
-				{#if !isAttachment}
+				<div class="fields">
 					<label>
-						<span>Renders on</span>
-						<select bind:value={draftMode} onchange={requestSave}>
-							<option value="latest">Latest message only</option>
-							<option value="every">Every message (costly in long chats)</option>
+						<span>Name</span>
+						<input type="text" bind:value={draftName} oninput={requestSave} />
+					</label>
+					<label>
+						<span>
+							{isAttachment ? 'Description' : 'Description'}
+						</span>
+						<input type="text" bind:value={draftDescription} oninput={requestSave} />
+					</label>
+					<label>
+						<span>Placement</span>
+						<select bind:value={draftPlacement} onchange={requestSave}>
+							<option value="widget">Widget — always on, reads state</option>
+							<option value="attachment">Attachment — the model places it inline</option>
 						</select>
 					</label>
-				{/if}
-			</div>
+					{#if !isAttachment}
+						<label>
+							<span>Renders on</span>
+							<select bind:value={draftMode} onchange={requestSave}>
+								<option value="latest">Latest message only</option>
+								<option value="every">Every message (costly in long chats)</option>
+							</select>
+						</label>
+					{/if}
+				</div>
 
-			{#if isAttachment}
-				<div class="props">
-					<span class="propsLabel">
-						Props — the values the model fills in. Your HTML receives them as
-						<code>{'{ type: "lorealm:props", props }'}</code>.
+				{#if isAttachment}
+					<div class="props">
+						<span class="propsLabel">
+							Properties
+							<code>{'{ type: "lorealm:props", props }'}</code>.
+						</span>
+						{#each draftProps, i (i)}
+							<div class="propRow">
+								<input
+									type="text"
+									placeholder="name"
+									bind:value={draftProps[i]}
+									oninput={requestSave}
+								/>
+								<button type="button" class="del" title="Remove prop" onclick={() => removeProp(i)}>
+									×
+								</button>
+							</div>
+						{/each}
+						<button type="button" class="new" onclick={addProp}>Add prop</button>
+					</div>
+				{/if}
+
+				<div class="split">
+					<label class="sourceBox">
+						<span>
+							HTML source
+						</span>
+						<textarea spellcheck="false" bind:value={draftSource} oninput={requestSave}></textarea>
+					</label>
+
+					<div class="previewBox">
+						<span>Preview (sample state)</span>
+						{#key draftSource}
+							<iframe
+								title="Widget preview"
+								sandbox="allow-scripts"
+								srcdoc={draftSource}
+								bind:this={previewFrame}
+								onload={feedPreview}
+							></iframe>
+						{/key}
+					</div>
+				</div>
+
+				<div class="prompt">
+					{#key syncedId}
+						<ContextField
+							label="Directive"
+							value={draftPrompt}
+							hint = "A weaver-formatted prompt sent to the model. Describes how the model should maintain this "
+							rows={3}
+							placeholder="When affection changes, update relationship:&lbrace;&lbrace;char:name&rbrace;&rbrace;.affection using the set_var tool."
+							onchange={(v) => {
+								draftPrompt = v;
+								requestSave();
+							}}
+						/>
+					{/key}
+				</div>
+
+				<div class="tools">
+					<span class="toolsLabel">
+						Tools — made available to the model whenever this widget is active. Imported into a
+						realm with the widget; no separate tool import needed.
 					</span>
-					{#each draftProps, i (i)}
-						<div class="propRow">
-							<input
-								type="text"
-								placeholder="name"
-								bind:value={draftProps[i]}
-								oninput={requestSave}
-							/>
-							<button type="button" class="del" title="Remove prop" onclick={() => removeProp(i)}>
+					{#each draftTools as id (id)}
+						<div class="toolRow">
+							<span class="toolName">{toolName(id)}</span>
+							<button type="button" class="del" title="Remove tool" onclick={() => unbindTool(id)}>
 								×
 							</button>
 						</div>
 					{/each}
-					<button type="button" class="new" onclick={addProp}>Add prop</button>
+					{#if availableTools.some((t) => !draftTools.includes(t.id))}
+						<div class="bindRow">
+							<select bind:value={toolPick}>
+								<option value="">Add a tool…</option>
+								{#each availableTools.filter((t) => !draftTools.includes(t.id)) as t (t.id)}
+									<option value={t.id}>{t.name}</option>
+								{/each}
+							</select>
+							<button type="button" class="bind" onclick={bindTool}>Bind</button>
+						</div>
+					{/if}
 				</div>
-			{/if}
-
-			<div class="split">
-				<label class="sourceBox">
-					<span>
-						HTML source — receives
-						<code
-							>{isAttachment
-								? '{ type: "lorealm:props", props }'
-								: '{ type: "lorealm:state", state }'}</code
-						>
-						via postMessage
-					</span>
-					<textarea spellcheck="false" bind:value={draftSource} oninput={requestSave}></textarea>
-				</label>
-
-				<div class="previewBox">
-					<span>Preview (sample state)</span>
-					{#key draftSource}
-						<iframe
-							title="Widget preview"
-							sandbox="allow-scripts"
-							srcdoc={draftSource}
-							bind:this={previewFrame}
-							onload={feedPreview}
-						></iframe>
-					{/key}
-				</div>
-			</div>
-
-			<div class="prompt">
-				<span>
-					Model directive — how the model should maintain this widget's state. Requires the
-					<code>Widget Directives</code> node in the active context template to reach the model.
-				</span>
-				{#key syncedId}
-					<ContextField
-						label="Directive"
-						value={draftPrompt}
-						rows={3}
-						placeholder="e.g. When affection changes, update relationship:<name>.affection (0–100)."
-						onchange={(v) => {
-							draftPrompt = v;
-							requestSave();
-						}}
-					/>
-				{/key}
-			</div>
-
-			<div class="tools">
-				<span class="toolsLabel">
-					Tools — made available to the model whenever this widget is active. Imported into a realm
-					with the widget; no separate tool import needed.
-				</span>
-				{#each draftTools as id (id)}
-					<div class="toolRow">
-						<span class="toolName">{toolName(id)}</span>
-						<button type="button" class="del" title="Remove tool" onclick={() => unbindTool(id)}>
-							×
-						</button>
-					</div>
-				{/each}
-				{#if availableTools.some((t) => !draftTools.includes(t.id))}
-					<div class="bindRow">
-						<select bind:value={toolPick}>
-							<option value="">Add a tool…</option>
-							{#each availableTools.filter((t) => !draftTools.includes(t.id)) as t (t.id)}
-								<option value={t.id}>{t.name}</option>
-							{/each}
-						</select>
-						<button type="button" class="bind" onclick={bindTool}>Bind</button>
-					</div>
-				{/if}
 			</div>
 		{:else}
-			<div class="empty pad">Select a widget, or create one.</div>
+			<div class="pane empty-pane">
+				<p class="empty">Select a widget to edit, or create one.</p>
+			</div>
 		{/if}
 	</section>
 </div>
 
 <style>
-	.editor {
+	.widgets-editor {
 		display: flex;
-		flex: 1;
+		flex: 1 0 0;
 		min-height: 0;
-		gap: var(--spacing-md);
 	}
-
-	.list {
-		display: flex;
-		flex-direction: column;
-		width: 240px;
-		flex-shrink: 0;
-		gap: var(--spacing-sm);
-	}
-
-	.list > header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-
-	.title {
-		font-family: var(--font-family-heading);
-		font-weight: 600;
-	}
-
-	.list > nav {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-		overflow-y: auto;
-	}
-
-	.row {
-		display: flex;
-		align-items: center;
-		gap: 4px;
-		border-radius: var(--radius-md);
-		padding: 2px 4px;
-	}
-
-	.row.active {
-		background: var(--color-bg-elevated);
-	}
-
-	.pick {
-		flex: 1;
+	.col-content {
+		flex: 1 1 auto;
 		min-width: 0;
-		text-align: left;
-		background: none;
-		border: none;
-		color: inherit;
-		padding: 4px;
+		min-height: 0;
+		display: flex;
+		padding: var(--spacing-lg);
 	}
 
-	.name {
-		display: block;
+	.widget-item {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+		border-radius: var(--radius-sm);
+	}
+	.widget-item:hover {
+		background-color: var(--color-hover);
+	}
+	.widget-item.selected {
+		background-color: var(--color-selected);
+	}
+	.widget-item.disabled .widget-name {
+		color: var(--color-text-muted);
+	}
+	.widget-open {
+		flex: 1 1 auto;
+		min-width: 0;
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		background: transparent;
+		padding: var(--spacing-sm);
+		text-align: left;
+	}
+	.widget-icon {
+		flex: 0 0 auto;
+		display: flex;
+		color: var(--color-text-muted);
+	}
+	.widget-item.selected .widget-icon {
+		color: var(--color-text-accent);
+	}
+	.widget-text {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+	.widget-name {
+		color: var(--color-text-primary);
+		font-size: var(--font-size-sm);
+		font-weight: var(--font-weight-semibold);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-
-	.toggle input {
-		width: auto;
+	.widget-sub {
+		color: var(--color-text-muted);
+		font-size: var(--font-size-xs);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.enable-toggle {
+		flex: 0 0 auto;
+		width: 32px;
+		height: 18px;
+		padding: 2px;
+		display: inline-flex;
+		align-items: center;
+		border-radius: var(--radius-full);
+		background-color: var(--color-bg-elevated-3);
+		transition: background-color 0.15s ease;
 	}
 
 	.del {
@@ -425,6 +489,25 @@ ${'</'}script>
 		min-width: 0;
 		min-height: 0;
 		gap: var(--spacing-md);
+	}
+	.pane-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+	.pane h1 {
+		font-size: var(--font-size-h3);
+		margin: 0;
+	}
+	.empty-pane {
+		align-items: center;
+		justify-content: center;
+	}
+	.delete {
+		flex: 0 0 auto;
+		padding: var(--spacing-xs) var(--spacing-sm);
+		font-size: var(--font-size-sm);
+		color: var(--color-error-text);
 	}
 
 	.fields {
@@ -452,11 +535,6 @@ ${'</'}script>
 		flex: 1;
 		min-height: 0;
 		gap: var(--spacing-md);
-	}
-
-	.prompt code {
-		font-family: var(--font-family-mono);
-		font-size: var(--font-size-xs);
 	}
 
 	.tools,
@@ -537,9 +615,5 @@ ${'</'}script>
 	.empty {
 		color: var(--color-text-muted);
 		font-size: var(--font-size-sm);
-	}
-
-	.pad {
-		padding: var(--spacing-md);
 	}
 </style>

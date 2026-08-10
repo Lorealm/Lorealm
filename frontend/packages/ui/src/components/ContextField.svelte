@@ -16,7 +16,8 @@
 		readOnly = false,
 		tokens = true,
 		maximizable = true,
-		weaver = true
+		weaver = true,
+		surface = 'elevated'
 	}: {
 		label?: string;
 		value: string;
@@ -36,6 +37,8 @@
 		 * Highlight and complete weaver syntax.
 		 */
 		weaver?: boolean;
+		/** See {@link WeaverArea}'s `surface`. Multiline weaver fields only. */
+		surface?: 'elevated' | 'sunken';
 	} = $props();
 </script>
 
@@ -58,6 +61,7 @@
 			{readOnly}
 			{rows}
 			{fill}
+			{surface}
 			hint={placeholder}
 			autofocus={fill}
 		/>

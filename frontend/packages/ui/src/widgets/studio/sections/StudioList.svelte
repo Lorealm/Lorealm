@@ -11,6 +11,7 @@
 		createLabel,
 		oncreate,
 		creating = false,
+		layout = 'grid',
 		empty,
 		children
 	}: {
@@ -22,6 +23,8 @@
 		createLabel: string;
 		oncreate: () => void;
 		creating?: boolean;
+		/** `grid` tiles cards; `list` stacks full-width rows. */
+		layout?: 'grid' | 'list';
 		empty?: Snippet;
 		children: Snippet;
 	} = $props();
@@ -62,7 +65,7 @@
 		{#if empty}
 			{@render empty()}
 		{/if}
-		<div class="grid">
+		<div class="items" class:list={layout === 'list'}>
 			{@render children()}
 		</div>
 	</div>
@@ -150,10 +153,16 @@
 		gap: var(--spacing-lg);
 	}
 
-	.grid {
+	.items {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
 		gap: var(--grid-gap);
 		align-content: start;
+	}
+
+	.items.list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-sm);
 	}
 </style>

@@ -2,10 +2,11 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { toolStore } from '$lib/stores/tools.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
-	import type { Param, ParamType } from '$lib/types/tools.js';
+	import type { Param, ParamType, UserTool } from '$lib/types/tools.js';
 	import WeaverEditor from '$lib/weaver/editor/WeaverEditor.svelte';
 	import FieldShell from '$lib/components/FieldShell.svelte';
 	import ContextField from '$lib/components/ContextField.svelte';
+	import StudioSidebar from '../StudioSidebar.svelte';
 
 	const SAVE_MS = 500;
 	const MAX_DEPTH = 3; // UI cap on array nesting
@@ -19,6 +20,26 @@
 	const selectedId = $derived(toolStore.selectedId);
 	const shown = $derived(draft ?? toolStore.viewingTool);
 	const readOnly = $derived(!draft);
+
+	let query = $state('');
+	let sort = $state('name-asc');
+
+	function arrange(list: UserTool[]): UserTool[] {
+		const needle = query.trim().toLowerCase();
+		const out = list.filter(
+			(t) =>
+				needle === '' ||
+				t.name.toLowerCase().includes(needle) ||
+				(t.display_name ?? '').toLowerCase().includes(needle)
+		);
+		if (sort === 'name-desc') return out.sort((a, b) => b.name.localeCompare(a.name));
+		if (sort === 'enabled') return out.sort((a, b) => Number(b.enabled) - Number(a.enabled));
+		return out.sort((a, b) => a.name.localeCompare(b.name));
+	}
+
+	const shownTools = $derived(arrange(tools));
+	const shownBuiltins = $derived(arrange(builtins));
+	const noMatches = $derived(shownTools.length === 0 && shownBuiltins.length === 0);
 
 	onMount(() => {
 		void toolStore.loadTools();
@@ -108,66 +129,67 @@
 {/snippet}
 
 <div class="tool-editor">
-	<section class="col-list">
-		<header class="list-header">
-			<div class="header-row">
-				<span class="title">Tools</span>
-				<button type="button" class="new-tool" onclick={newTool}>New</button>
-			</div>
+	<StudioSidebar
+		title="Tools"
+		oncreate={newTool}
+		bind:query
+		bind:sort
+		sortOptions={[
+			{ value: 'name-asc', label: 'Name (A–Z)' },
+			{ value: 'name-desc', label: 'Name (Z–A)' },
+			{ value: 'enabled', label: 'Enabled first' }
+		]}
+		searchPlaceholder="Search tools…"
+	>
+		{#snippet status()}
 			{#if draft}
 				<div class="save-row" class:error={save.status === 'error'}>
 					<span class="dot" data-status={save.status}></span>
 					<span class="save-label">{saveLabel}</span>
 				</div>
 			{/if}
-		</header>
+		{/snippet}
 
-		<nav class="tool-list">
-			{#if tools.length === 0}
-				<p class="empty">No tools yet.</p>
-			{/if}
-			{#each tools as tool (tool.id)}
-				<div
-					class="tool-item"
-					class:selected={tool.id === selectedId}
-					class:disabled={!tool.enabled}
-				>
-					<button class="tool-open" type="button" onclick={() => select(tool.id)}>
+		{#if noMatches}
+			<p class="empty">{tools.length === 0 ? 'No tools yet.' : 'No tools match that search.'}</p>
+		{/if}
+		{#each shownTools as tool (tool.id)}
+			<div class="tool-item" class:selected={tool.id === selectedId} class:disabled={!tool.enabled}>
+				<button class="tool-open" type="button" onclick={() => select(tool.id)}>
+					<span class="tool-text">
+						<span class="tool-name">{tool.name || 'Untitled'}</span>
+						{#if tool.display_name}
+							<span class="tool-sub">{tool.display_name}</span>
+						{/if}
+					</span>
+				</button>
+				<input
+					type="checkbox"
+					class="switch enable-toggle"
+					checked={tool.enabled}
+					onchange={() => toolStore.setEnabled(tool.id, !tool.enabled)}
+					title={tool.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'}
+					aria-label={tool.enabled ? `Disable ${tool.name}` : `Enable ${tool.name}`}
+				/>
+			</div>
+		{/each}
+
+		{#if shownBuiltins.length > 0}
+			<p class="group-label">Built-in</p>
+			{#each shownBuiltins as tool (tool.id)}
+				<div class="tool-item" class:selected={tool.id === selectedId}>
+					<button class="tool-open" type="button" onclick={() => selectBuiltin(tool.id)}>
 						<span class="tool-text">
-							<span class="tool-name">{tool.name || 'Untitled'}</span>
+							<span class="tool-name">{tool.name}</span>
 							{#if tool.display_name}
 								<span class="tool-sub">{tool.display_name}</span>
 							{/if}
 						</span>
 					</button>
-					<input
-						type="checkbox"
-						class="switch enable-toggle"
-						checked={tool.enabled}
-						onchange={() => toolStore.setEnabled(tool.id, !tool.enabled)}
-						title={tool.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'}
-						aria-label={tool.enabled ? `Disable ${tool.name}` : `Enable ${tool.name}`}
-					/>
 				</div>
 			{/each}
-
-			{#if builtins.length > 0}
-				<p class="group-label">Built-in</p>
-				{#each builtins as tool (tool.id)}
-					<div class="tool-item" class:selected={tool.id === selectedId}>
-						<button class="tool-open" type="button" onclick={() => selectBuiltin(tool.id)}>
-							<span class="tool-text">
-								<span class="tool-name">{tool.name}</span>
-								{#if tool.display_name}
-									<span class="tool-sub">{tool.display_name}</span>
-								{/if}
-							</span>
-						</button>
-					</div>
-				{/each}
-			{/if}
-		</nav>
-	</section>
+		{/if}
+	</StudioSidebar>
 
 	<section class="col-content">
 		{#if shown}
@@ -355,14 +377,6 @@
 		min-height: 0;
 		position: relative;
 	}
-	.col-list {
-		flex: 0 0 240px;
-		display: flex;
-		flex-direction: column;
-		min-height: 0;
-		min-width: 0;
-		border-right: 1px solid var(--color-border-subtle);
-	}
 	.col-content {
 		flex: 1 1 auto;
 		min-width: 0;
@@ -370,28 +384,6 @@
 		min-height: 0;
 		overflow-y: auto;
 		position: relative;
-	}
-	.list-header {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-md);
-		border-bottom: 1px solid var(--color-border-subtle);
-	}
-	.header-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-	.title {
-		color: var(--color-text-primary);
-		font-family: var(--font-family-heading);
-		font-size: var(--font-size-md);
-	}
-	.new-tool {
-		flex: 0 0 auto;
-		padding: var(--spacing-xs) var(--spacing-sm);
-		font-size: var(--font-size-sm);
 	}
 	.save-row {
 		display: flex;
@@ -424,13 +416,6 @@
 	}
 	.dot[data-status='error'] {
 		background-color: var(--color-error);
-	}
-	.tool-list {
-		display: flex;
-		flex-direction: column;
-		padding: var(--spacing-sm);
-		gap: var(--spacing-xs);
-		overflow-y: auto;
 	}
 	.group-label {
 		margin: var(--spacing-md) 0 var(--spacing-xs);
