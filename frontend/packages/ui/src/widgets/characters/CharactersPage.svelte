@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { characterStore } from '$lib/stores/character.svelte.js';
-	import { onMount } from 'svelte';
 	import { ArrowUpDown, Plus, Upload } from '@lucide/svelte';
 	import CharacterCard from './CharacterCard.svelte';
 	import { showToast } from '$lib/stores/errorToast.svelte.js';
@@ -53,10 +52,6 @@
 		return list as unknown as typeof characters;
 	});
 
-	onMount(async () => {
-		await characterStore.loadList();
-	});
-
 	function openPicker() {
 		inputEl.click();
 	}
@@ -94,9 +89,7 @@
 		const skipped = lorebooks.reduce((sum, b) => sum + b.skipped, 0);
 
 		const subject =
-			lorebooks.length === 1
-				? `“${lorebooks[0].name}”`
-				: `${lorebooks.length} lorebooks`;
+			lorebooks.length === 1 ? `“${lorebooks[0].name}”` : `${lorebooks.length} lorebooks`;
 		const entryCount = `${entries} ${entries === 1 ? 'entry' : 'entries'}`;
 		const tail = skipped > 0 ? ` ${skipped} could not be converted.` : '';
 

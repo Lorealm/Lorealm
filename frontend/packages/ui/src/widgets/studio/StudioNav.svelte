@@ -1,21 +1,24 @@
 <script lang="ts">
+	import { navigator } from '$lib/navigation/navigator.js';
+	import type { StudioSection } from '$lib/navigation/routes.js';
 	import { realmStore } from '$lib/stores/realm.svelte.js';
-	import { studioStore, StudioSection } from '$lib/stores/studio.svelte';
+
+	let { section }: { section: StudioSection } = $props();
 
 	var selectedWorld = $state();
 
-	const realms = realmStore.summaries;
+	const realms = $derived(realmStore.summaries);
 
 	const activeRealmExists = $derived(selectedWorld !== 'None');
 
-	const sections = [
-		{ id: StudioSection.Realm, label: 'Realm' },
-		{ id: StudioSection.Characters, label: 'Characters' },
-		{ id: StudioSection.Lorebooks, label: 'Lorebooks' },
-		{ id: StudioSection.Templates, label: 'Templates' },
-		{ id: StudioSection.Tools, label: 'Tools' },
-		{ id: StudioSection.Personas, label: 'Personas' },
-		{ id: StudioSection.Widgets, label: 'Widgets' }
+	const sections: Array<{ id: StudioSection; label: string; go: () => void }> = [
+		{ id: 'realm', label: 'Realm', go: () => navigator.start().studio().realm() },
+		{ id: 'characters', label: 'Characters', go: () => navigator.start().studio().characters() },
+		{ id: 'lorebooks', label: 'Lorebooks', go: () => navigator.start().studio().lorebooks() },
+		{ id: 'templates', label: 'Templates', go: () => navigator.start().studio().templates() },
+		{ id: 'tools', label: 'Tools', go: () => navigator.start().studio().tools() },
+		{ id: 'personas', label: 'Personas', go: () => navigator.start().studio().personas() },
+		{ id: 'widgets', label: 'Widgets', go: () => navigator.start().studio().widgets() }
 	];
 </script>
 
@@ -28,13 +31,9 @@
 		{/each}
 	</select>
 	<hr />
-	{#each sections as { id, label } (id)}
-		{#if id !== StudioSection.Realm || activeRealmExists}
-			<button
-				class="tab"
-				class:active={studioStore.section === id}
-				onclick={() => studioStore.setSection(id)}
-			>
+	{#each sections as { id, label, go } (id)}
+		{#if id !== 'realm' || activeRealmExists}
+			<button class="tab" class:active={section === id} onclick={go}>
 				{label}
 			</button>
 		{/if}

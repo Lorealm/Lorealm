@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy } from 'svelte';
+	import { navigator } from '$lib/navigation/navigator.js';
 	import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
-	import { studioStore } from '$lib/stores/studio.svelte';
 	import type { Snowflake } from '$lib/types/core.js';
 	import EntryList from './entries/EntryList.svelte';
 	import EntryEditor from './entries/EntryEditor.svelte';
@@ -11,8 +11,6 @@
 
 	const SAVE_MS = 500;
 
-	let { id }: { id: Snowflake } = $props();
-
 	const draft = $derived(lorebookStore.editingLorebook);
 
 	let selected = $state<Snowflake | 'config'>('config');
@@ -21,16 +19,6 @@
 			? (draft.entries.find((e) => e.snowflake === selected) ?? null)
 			: null
 	);
-
-	$effect(() => {
-		const lid = id;
-		untrack(() => {
-			selected = 'config';
-			void lorebookStore.startEditing(lid);
-			void lorebookStore.loadActiveBooks();
-		});
-	});
-	onDestroy(() => lorebookStore.stopEditing());
 
 	$effect(() => {
 		const pending = lorebookStore.pendingEntry;
@@ -83,8 +71,10 @@
 	<section class="col-list">
 		<header class="list-header">
 			<div class="header-row">
-				<button class="back" onclick={() => studioStore.close()} aria-label="Back to lorebooks"
-					>←</button
+				<button
+					class="back"
+					onclick={() => navigator.start().studio().lorebooks()}
+					aria-label="Back to lorebooks">←</button
 				>
 				<span class="book-name" title={draft?.name}>{draft?.name ?? 'Loading…'}</span>
 			</div>

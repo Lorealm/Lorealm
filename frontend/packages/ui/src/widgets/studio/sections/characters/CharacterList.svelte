@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { characterStore } from '$lib/stores/character.svelte.js';
-	import { onMount } from 'svelte';
 	import CharacterListItem from './CharacterListItem.svelte';
 	import StudioList from '../StudioList.svelte';
 
@@ -33,10 +32,6 @@
 		if (sort === 'name-asc') return list.sort((a, b) => a.name.localeCompare(b.name));
 		if (sort === 'name-desc') return list.sort((a, b) => b.name.localeCompare(a.name));
 		return list.sort((a, b) => ts(b.updated_at) - ts(a.updated_at));
-	});
-
-	onMount(async () => {
-		await characterStore.loadList();
 	});
 
 	async function create() {

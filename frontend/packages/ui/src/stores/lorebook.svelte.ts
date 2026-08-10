@@ -1,4 +1,4 @@
-import { useApi, type ApiClient } from '$lib/api/client.js';
+import { useApi } from '$lib/api/client.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type {
 	CreateLorebookRequest,
@@ -17,7 +17,7 @@ import {
 } from '$lib/weaver/weaverFile.js';
 import type { EntryRef } from '$lib/weaver/editor/weaver-references.js';
 import { weaverEditorPrefs } from './settings.svelte.js';
-import { studioStore } from './studio.svelte.js';
+import { navigator } from '$lib/navigation/navigator.js';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -43,13 +43,11 @@ export interface LorebookDraft {
 }
 
 class LorebookStore {
-	private _api = $state<ApiClient>();
 	/** Listing-only metadata */
 	metadataList = $state<Array<LorebookMetadata>>();
 
 	get #api() {
-		if (!this._api) this._api = useApi(); // NOTE: This assumes it's accessed once during page init. Dirty workaround.
-		return this._api;
+		return useApi();
 	}
 
 	private loadedLorebooks = new SvelteMap<Snowflake, Lorebook>(new SvelteMap());
@@ -121,7 +119,7 @@ class LorebookStore {
 	}
 
 	async loadActive() {
-		this.activeLorebooks = (await this._api?.lorebooks.active.get()) ?? [];
+		this.activeLorebooks = (await this.#api.lorebooks.active.get()) ?? [];
 	}
 
 	/**
@@ -188,7 +186,7 @@ class LorebookStore {
 			const entry = this.loadedLorebooks.get(bookId)?.entries.find((e) => e.entry_id === id);
 			if (entry) {
 				this.pendingEntry = entry.id;
-				studioStore.editResource('lorebook', bookId);
+				navigator.start().studio().lorebooks(bookId);
 				return;
 			}
 		}

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { realmStore } from '$lib/stores/realm.svelte.js';
-	import { studioStore, type StudioResourceKind } from '$lib/stores/studio.svelte.js';
+	import { navigator, type StudioResource } from '$lib/navigation/navigator.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import type { ImportKind } from '$lib/types/realm.js';
 	import type { Component } from 'svelte';
@@ -201,7 +201,7 @@
 						{
 							icon: Pencil,
 							title: 'Edit in Studio',
-							run: () => studioStore.editResource('character', a.character_id!)
+							run: () => navigator.start().studio().resource('character', a.character_id!)
 						}
 					]
 				});
@@ -214,7 +214,7 @@
 						{
 							icon: Pencil,
 							title: 'Edit in Studio',
-							run: () => studioStore.editResource('template', a.template_id!)
+							run: () => navigator.start().studio().resource('template', a.template_id!)
 						}
 					]
 				});
@@ -314,7 +314,10 @@
 				iconColor: TYPE_COLOR[gt],
 				label: item?.name ?? gid,
 				typeLabel: gt === 'tool' ? 'Tool' : 'Lorebook',
-				primary: { label: 'Edit in Studio', run: () => studioStore.editResource(gt, gid) },
+				primary: {
+					label: 'Edit in Studio',
+					run: () => navigator.start().studio().resource(gt, gid)
+				},
 				groups: [
 					{
 						title: 'Bound to',
@@ -352,7 +355,11 @@
 			typeLabel: gt === 'character' ? 'Character' : 'Context template',
 			primary: {
 				label: 'Edit in Studio',
-				run: () => studioStore.editResource(gt as StudioResourceKind, gid)
+				run: () =>
+					navigator
+						.start()
+						.studio()
+						.resource(gt as StudioResource, gid)
 			},
 			groups: [
 				{
@@ -413,7 +420,11 @@
 			<button
 				type="button"
 				class="wide secondary"
-				onclick={() => studioStore.editResource(resource.kind as StudioResourceKind, resource.id)}
+				onclick={() =>
+					navigator
+						.start()
+						.studio()
+						.resource(resource.kind as StudioResource, resource.id)}
 			>
 				<Pencil size={14} /> Edit in Studio
 			</button>

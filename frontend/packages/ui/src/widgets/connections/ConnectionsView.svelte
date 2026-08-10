@@ -1,5 +1,8 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onDestroy } from 'svelte';
+	import { navigator } from '$lib/navigation/navigator.js';
+	import { router } from '$lib/navigation/router.svelte.js';
+	import { SECRETS } from '$lib/navigation/routes.js';
 	import { connectionStore } from '$lib/stores/connection.svelte.js';
 	import { PROVIDER_SCHEMAS } from '$lib/types/schema.js';
 	import type { Snowflake } from '$lib/types/core.js';
@@ -10,16 +13,9 @@
 
 	const SAVE_MS = 500;
 
-	let selected = $state<Snowflake | 'secrets' | null>(null);
+	const route = $derived(router.current);
+	const selected = $derived(route.view === 'connections' ? (route.id ?? null) : null);
 	const draft = $derived(connectionStore.editingProfile);
-
-	onMount(async () => {
-		await Promise.all([
-			connectionStore.loadProfiles(),
-			connectionStore.loadSecrets(),
-			connectionStore.getActiveProfile()
-		]);
-	});
 
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let dirty = false;
@@ -50,14 +46,12 @@
 	async function selectProfile(id: Snowflake) {
 		if (selected === id) return;
 		await flushPending();
-		selected = id;
-		connectionStore.startEditing(id);
+		navigator.start().connections(id);
 	}
 
 	async function openSecrets() {
 		await flushPending();
-		selected = 'secrets';
-		connectionStore.stopEditing();
+		navigator.start().connections(SECRETS);
 	}
 
 	async function activateProfile(id: Snowflake) {
@@ -96,7 +90,7 @@
 	}
 
 	async function deleteProfile(id: Snowflake) {
-		if (selected === id) selected = null;
+		if (selected === id) navigator.start().connections();
 		try {
 			await connectionStore.deleteProfile(id);
 		} catch (e) {
@@ -112,11 +106,8 @@
 				<span class="view-name">Connections</span>
 			</div>
 			<div class="header-row">
-				<button
-					class="keys"
-					class:active={selected === 'secrets'}
-					type="button"
-					onclick={openSecrets}>API keys</button
+				<button class="keys" class:active={selected === SECRETS} type="button" onclick={openSecrets}
+					>API keys</button
 				>
 				<button class="add" class:active={creating} type="button" onclick={openCreate}
 					>＋ Profile</button
@@ -154,7 +145,7 @@
 		{#if connectionStore.profiles}
 			<ProfileList
 				profiles={connectionStore.profiles}
-				selectedId={selected === 'secrets' ? null : selected}
+				selectedId={selected === SECRETS ? null : selected}
 				onActivate={(id) => void activateProfile(id)}
 				onSelect={(id) => void selectProfile(id)}
 				onDelete={(id) => void deleteProfile(id)}
@@ -171,7 +162,7 @@
 					onManageSecrets={() => void openSecrets()}
 				/>
 			{/key}
-		{:else if selected === 'secrets'}
+		{:else if selected === SECRETS}
 			<SecretsManager />
 		{:else}
 			<div class="empty">Select a profile, or create one.</div>

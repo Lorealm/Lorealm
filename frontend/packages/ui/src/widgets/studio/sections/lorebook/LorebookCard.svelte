@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { studioStore } from '$lib/stores/studio.svelte.js';
+	import { navigator } from '$lib/navigation/navigator.js';
 	import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
 	import type { LorebookMetadata } from '$lib/types/lorebook.js';
 	import { BookOpen, Check, Pencil, Trash2 } from '@lucide/svelte';
@@ -66,7 +66,7 @@
 				<Check size={14} />
 				{active ? 'Deactivate' : 'Activate'}
 			</button>
-			<button type="button" onclick={() => studioStore.open(meta.id)}>
+			<button type="button" onclick={() => navigator.start().studio().lorebooks(meta.id)}>
 				<Pencil size={14} />
 				Edit
 			</button>

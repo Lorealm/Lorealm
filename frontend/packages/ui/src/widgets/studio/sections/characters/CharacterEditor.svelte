@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { onDestroy, onMount, untrack } from 'svelte';
+	import { onDestroy } from 'svelte';
+	import { navigator } from '$lib/navigation/navigator.js';
 	import { characterStore } from '$lib/stores/character.svelte.js';
-	import { studioStore } from '$lib/stores/studio.svelte';
 	import { userWidgetStore } from '$lib/stores/userWidgets.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import TagField from './TagField.svelte';
@@ -9,8 +9,6 @@
 	import { DateTime } from 'luxon';
 
 	const SAVE_MS = 500;
-
-	let { id }: { id: Snowflake } = $props();
 
 	const draft = $derived(characterStore.editingCharacter);
 	const save = $derived(characterStore.saveState);
@@ -43,10 +41,6 @@
 	const allWidgets = $derived(userWidgetStore.loadedWidgets ?? []);
 	const unattached = $derived(allWidgets.filter((w) => !characterStore.isWidgetAttached(w.id)));
 
-	onMount(() => {
-		if (!userWidgetStore.loadedWidgets) void userWidgetStore.loadWidgets();
-	});
-
 	function toggleWidget(id: Snowflake) {
 		characterStore.toggleWidget(id);
 		requestSave();
@@ -63,15 +57,6 @@
 	function formatDate(value: string): string {
 		return DateTime.fromISO(value as string).toLocaleString(DateTime.DATETIME_MED);
 	}
-
-	$effect(() => {
-		const cid = id;
-		untrack(() => {
-			section = 'identity';
-			void characterStore.startEditing(cid);
-		});
-	});
-	onDestroy(() => characterStore.stopEditing());
 
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	function requestSave() {
@@ -163,8 +148,10 @@
 	<section class="col-list">
 		<header class="list-header">
 			<div class="header-row">
-				<button class="back" onclick={() => studioStore.close()} aria-label="Back to characters"
-					>←</button
+				<button
+					class="back"
+					onclick={() => navigator.start().studio().characters()}
+					aria-label="Back to characters">←</button
 				>
 				<span class="char-name" title={draft?.name}>{draft?.name || 'Loading…'}</span>
 			</div>

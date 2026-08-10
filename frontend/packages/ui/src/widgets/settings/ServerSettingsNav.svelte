@@ -1,25 +1,26 @@
 <script lang="ts">
+	import { navigator } from '$lib/navigation/navigator.js';
+	import type { ServerSection } from '$lib/navigation/routes.js';
 	import { configStore } from '$lib/stores/serverConfig.svelte';
-	import { settingsNav, ServerSection } from '$lib/stores/settings.svelte';
 
-	const sections = [
-		{ id: ServerSection.Hosting, label: 'Hosting' },
-		{ id: ServerSection.Storage, label: 'Storage' },
-		{ id: ServerSection.Sessions, label: 'Sessions' },
-		{ id: ServerSection.Users, label: 'Users' },
-		{ id: ServerSection.Characters, label: 'Characters' },
-		{ id: ServerSection.Tokenizers, label: 'Tokenizers' },
-		{ id: ServerSection.Tasks, label: 'Tasks' }
+	let { section }: { section: ServerSection } = $props();
+
+	const server = () => navigator.start().settings().server();
+
+	const sections: Array<{ id: ServerSection; label: string; go: () => void }> = [
+		{ id: 'hosting', label: 'Hosting', go: () => server().hosting() },
+		{ id: 'storage', label: 'Storage', go: () => server().storage() },
+		{ id: 'sessions', label: 'Sessions', go: () => server().sessions() },
+		{ id: 'users', label: 'Users', go: () => server().users() },
+		{ id: 'characters', label: 'Characters', go: () => server().characters() },
+		{ id: 'tokenizers', label: 'Tokenizers', go: () => server().tokenizers() },
+		{ id: 'tasks', label: 'Tasks', go: () => server().tasks() }
 	];
 </script>
 
 <nav class="settingsNav">
-	{#each sections as { id, label } (id)}
-		<button
-			class="tab"
-			class:active={settingsNav.serverSection === id}
-			onclick={() => settingsNav.setServerSection(id)}
-		>
+	{#each sections as { id, label, go } (id)}
+		<button class="tab" class:active={section === id} onclick={go}>
 			{label}
 		</button>
 	{/each}

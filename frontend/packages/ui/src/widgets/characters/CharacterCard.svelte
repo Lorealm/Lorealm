@@ -2,8 +2,7 @@
 	import TransportImage from '$lib/components/TransportImage.svelte';
 	import { characterStore } from '$lib/stores/character.svelte.js';
 	import { chatStore } from '$lib/stores/chat.svelte.js';
-	import { navigationStore, SidebarView } from '$lib/stores/navigation.svelte.js';
-	import { StudioSection, studioStore } from '$lib/stores/studio.svelte.js';
+	import { navigator } from '$lib/navigation/navigator.js';
 	import type { CharacterSummary } from '$lib/types/character.js';
 	import { MessageCircle, Pencil } from '@lucide/svelte';
 
@@ -11,7 +10,7 @@
 	let imageEndpoint = $derived(`/api/v1/characters/${summary.id}/image`);
 
 	async function startChat() {
-		navigationStore.setSidebarView(SidebarView.Write);
+		navigator.start().write();
 
 		const [, opened] = await Promise.all([
 			characterStore.setActive(summary.id),
@@ -46,11 +45,7 @@
 				class="btn btn-edit"
 				type="button"
 				aria-label="Edit"
-				onclick={() => {
-					studioStore.setSection(StudioSection.Characters);
-					studioStore.open(summary.id);
-					navigationStore.setSidebarView(SidebarView.Studio);
-				}}
+				onclick={() => navigator.start().studio().characters(summary.id)}
 			>
 				<Pencil size={16} aria-hidden="true" />
 			</button>

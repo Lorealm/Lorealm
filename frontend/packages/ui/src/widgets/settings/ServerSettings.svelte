@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { configStore } from '$lib/stores/serverConfig.svelte';
-	import { settingsNav, ServerSection } from '$lib/stores/settings.svelte';
+	import type { ServerSection } from '$lib/navigation/routes.js';
 	import ServerSettingsNav from './ServerSettingsNav.svelte';
 	import HostingSection from './sections/HostingSection.svelte';
 	import StorageSection from './sections/StorageSection.svelte';
@@ -11,30 +10,28 @@
 	import TokenizersSection from './sections/TokenizersSection.svelte';
 	import TasksSection from './sections/TasksSection.svelte';
 
-	onMount(() => {
-		if (!configStore.loaded) configStore.load();
-	});
+	let { section }: { section: ServerSection } = $props();
 </script>
 
 <div class="server">
 	{#if !configStore.loaded}
 		<div class="status">Loading settings…</div>
 	{:else}
-		<ServerSettingsNav />
+		<ServerSettingsNav {section} />
 
-		{#if settingsNav.serverSection === ServerSection.Hosting}
+		{#if section === 'hosting'}
 			<HostingSection />
-		{:else if settingsNav.serverSection === ServerSection.Storage}
+		{:else if section === 'storage'}
 			<StorageSection />
-		{:else if settingsNav.serverSection === ServerSection.Sessions}
+		{:else if section === 'sessions'}
 			<SessionsSection />
-		{:else if settingsNav.serverSection === ServerSection.Users}
+		{:else if section === 'users'}
 			<UsersSection />
-		{:else if settingsNav.serverSection === ServerSection.Characters}
+		{:else if section === 'characters'}
 			<CharactersSection />
-		{:else if settingsNav.serverSection === ServerSection.Tokenizers}
+		{:else if section === 'tokenizers'}
 			<TokenizersSection />
-		{:else if settingsNav.serverSection === ServerSection.Tasks}
+		{:else if section === 'tasks'}
 			<TasksSection />
 		{/if}
 	{/if}

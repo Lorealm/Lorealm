@@ -1,4 +1,4 @@
-import { useApi, type ApiClient } from '$lib/api/client.js';
+import { useApi } from '$lib/api/client.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type { ContextNode, NodeContent, NodePath, SourceDefinition } from '$lib/types/node.js';
 import type {
@@ -77,19 +77,15 @@ function clone<T>(value: T): T {
 	return structuredClone($state.snapshot(value)) as T;
 }
 
-// ---------------------------------------------------------------------------
-
 /// TODO: errors are rolled back locally and re-thrown so pages can react.
 class TemplateStore {
-	private _api = $state<ApiClient>();
 	/** Metadata list over ContextTemplates */
 	metadataList = $state<Array<TemplateMetadata>>();
 
 	sources = $state<Array<SourceDefinition>>();
 
 	get #api() {
-		if (!this._api) this._api = useApi(); // NOTE: This assumes it's accessed once during page init. Dirty workaround.
-		return this._api;
+		return useApi();
 	}
 
 	private loadedTemplates = new SvelteMap<Snowflake, ContextTemplate>();

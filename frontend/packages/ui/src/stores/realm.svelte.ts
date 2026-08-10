@@ -1,4 +1,4 @@
-import { useApi, type ApiClient } from '$lib/api/client.js';
+import { useApi } from '$lib/api/client.js';
 import type { Conversation } from '$lib/types/conversation.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type {
@@ -49,11 +49,8 @@ export interface AgentInspection {
 }
 
 class RealmStore {
-	private _api = $state<ApiClient>();
-
 	get #api() {
-		if (!this._api) this._api = useApi(); // NOTE: This assumes it's accessed once during page init. Dirty workaround.
-		return this._api;
+		return useApi();
 	}
 
 	summaries = $state<Array<RealmSummary>>([]);

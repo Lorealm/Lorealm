@@ -117,20 +117,6 @@ export function builtinToolItems(): CatalogItem[] {
 	}));
 }
 
-/** Load any catalog list not already in memory. */
-export async function loadCatalog(): Promise<void> {
-	await Promise.all([
-		characterStore.metadataList ? Promise.resolve() : characterStore.loadList(),
-		lorebookStore.metadataList ? Promise.resolve() : lorebookStore.loadList(),
-		templateStore.metadataList ? Promise.resolve() : templateStore.loadList(),
-		toolStore.loadedTools ? Promise.resolve() : toolStore.loadTools(),
-		toolStore.builtinTools ? Promise.resolve() : toolStore.loadBuiltins(),
-		userWidgetStore.loadedWidgets ? Promise.resolve() : userWidgetStore.loadWidgets(),
-		personaStore.loadedPersonas ? Promise.resolve() : personaStore.loadPersonas(),
-		connectionStore.profiles ? Promise.resolve() : connectionStore.loadProfiles()
-	]);
-}
-
 export const scopeRoot = (scope: string): string => scope.split(':')[0];
 
 export const GRAPH_W = 900;

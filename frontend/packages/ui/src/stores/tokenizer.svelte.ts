@@ -1,4 +1,4 @@
-import { useApi, type ApiClient } from '$lib/api/client.js';
+import { useApi } from '$lib/api/client.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type {
 	Tokenizer,
@@ -8,11 +8,8 @@ import type {
 } from '$lib/types/tokenizer.js';
 
 class TokenizerStore {
-	private _api = $state<ApiClient>();
-
 	get #api() {
-		if (!this._api) this._api = useApi();
-		return this._api;
+		return useApi();
 	}
 
 	tokenizers = $state<Tokenizer[]>([]);

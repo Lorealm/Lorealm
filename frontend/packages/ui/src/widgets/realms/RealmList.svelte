@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { navigator } from '$lib/navigation/navigator.js';
 	import { realmStore } from '$lib/stores/realm.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import { Plus, Trash2 } from '@lucide/svelte';
@@ -11,7 +12,7 @@
 		busy = true;
 		try {
 			const realm = await realmStore.createRealm('Untitled Realm');
-			await realmStore.openRealm(realm.id);
+			navigator.start().realms(realm.id);
 		} finally {
 			busy = false;
 		}
@@ -33,9 +34,9 @@
 				class="card"
 				role="button"
 				tabindex="0"
-				onclick={() => realmStore.openRealm(realm.id)}
+				onclick={() => navigator.start().realms(realm.id)}
 				onkeydown={(e) => {
-					if (e.key === 'Enter' || e.key === ' ') realmStore.openRealm(realm.id);
+					if (e.key === 'Enter' || e.key === ' ') navigator.start().realms(realm.id);
 				}}
 			>
 				<div class="cardTop">

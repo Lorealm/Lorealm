@@ -1,4 +1,4 @@
-import { useApi, type ApiClient } from '$lib/api/client.js';
+import { useApi } from '$lib/api/client.js';
 import type { JsonValue, Snowflake } from '$lib/types/core.js';
 import type {
 	ConnectionProfile,
@@ -23,11 +23,8 @@ export interface ProfileDraft {
 }
 
 class ConnectionStore {
-	private _api = $state<ApiClient>();
-
 	get #api() {
-		if (!this._api) this._api = useApi();
-		return this._api;
+		return useApi();
 	}
 
 	profiles = $state<ConnectionProfile[]>();

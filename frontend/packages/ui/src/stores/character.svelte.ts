@@ -1,4 +1,4 @@
-import { useApi, type ApiClient } from '$lib/api/client.js';
+import { useApi } from '$lib/api/client.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type {
 	Character,
@@ -51,14 +51,12 @@ export interface CharacterDraft {
 }
 
 class CharacterStore {
-	private _api = $state<ApiClient>();
 	metadataList = $state<Array<CharacterSummary>>([]);
 
 	activeCharacter = $state<Character | null>(null);
 
 	get #api() {
-		if (!this._api) this._api = useApi(); // NOTE: This assumes it's accessed once during page init. Dirty workaround.
-		return this._api;
+		return useApi();
 	}
 
 	#baseline = $state<Character | null>(null);

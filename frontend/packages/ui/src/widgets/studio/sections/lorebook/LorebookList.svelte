@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
-	import { studioStore } from '$lib/stores/studio.svelte.js';
-	import { onMount } from 'svelte';
+	import { navigator } from '$lib/navigation/navigator.js';
 	import LorebookCard from './LorebookCard.svelte';
 	import StudioList from '../StudioList.svelte';
 
@@ -28,17 +27,12 @@
 		return list.sort((a, b) => a.name.localeCompare(b.name));
 	});
 
-	onMount(async () => {
-		await lorebookStore.loadList();
-		await lorebookStore.loadActive();
-	});
-
 	async function create() {
 		if (creating) return;
 		creating = true;
 		try {
 			const book = await lorebookStore.createLorebook({ name: 'Untitled lorebook' });
-			studioStore.open(book.id);
+			navigator.start().studio().lorebooks(book.id);
 		} catch (e) {
 			console.error(e);
 		} finally {

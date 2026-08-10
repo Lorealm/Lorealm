@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ErrorToast from '$lib/components/ErrorToast.svelte';
 	import { getPlatformApi } from '$lib/core/context.js';
 	import { setAuthState } from '$lib/stores/auth.svelte';
 	import type { LoginRequest } from '$lib/types/auth.js';
@@ -47,6 +48,8 @@
 	</div>
 	<button class="push-button" onclick={handleLogin}>Log in</button>
 </div>
+
+<ErrorToast />
 
 <style>
 	.container {

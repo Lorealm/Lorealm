@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { studioStore } from '$lib/stores/studio.svelte.js';
+	import { navigator } from '$lib/navigation/navigator.js';
 	import { templateStore } from '$lib/stores/template.svelte.js';
 	import type { TemplateMetadata } from '$lib/types/template.js';
 	import { Check, Layers, Pencil, Trash2 } from '@lucide/svelte';
@@ -78,7 +78,7 @@
 				<Check size={14} />
 				{active ? 'In use' : 'Use'}
 			</button>
-			<button type="button" onclick={() => studioStore.open(meta.id)}>
+			<button type="button" onclick={() => navigator.start().studio().templates(meta.id)}>
 				<Pencil size={14} />
 				Edit
 			</button>

@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { studioStore } from '$lib/stores/studio.svelte.js';
+	import { navigator } from '$lib/navigation/navigator.js';
 	import { toolStore } from '$lib/stores/tools.svelte.js';
 	import { userWidgetStore } from '$lib/stores/userWidgets.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import type { WidgetMode, WidgetPlacement } from '$lib/types/widgets.js';
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import ContextField from '$lib/components/ContextField.svelte';
 	import StudioSidebar from '../StudioSidebar.svelte';
 	import { LayoutDashboard, Paperclip } from '@lucide/svelte';
@@ -32,8 +32,9 @@
 ${'</'}script>
 `;
 
+	let { selectedId }: { selectedId: Snowflake | null } = $props();
+
 	const widgets = $derived(userWidgetStore.loadedWidgets ?? []);
-	const selectedId = $derived(studioStore.editingId);
 	const selected = $derived(widgets.find((w) => w.id === selectedId) ?? null);
 
 	let query = $state('');
@@ -96,12 +97,6 @@ ${'</'}script>
 		}
 	});
 
-	onMount(() => {
-		void userWidgetStore.loadWidgets();
-		if (!toolStore.loadedTools) void toolStore.loadTools();
-		if (!toolStore.builtinTools) void toolStore.loadBuiltins();
-	});
-
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	function requestSave() {
 		clearTimeout(timer);
@@ -148,7 +143,7 @@ ${'</'}script>
 		if (id === selectedId) return;
 		clearTimeout(timer);
 		await saveNow();
-		studioStore.open(id);
+		navigator.start().studio().widgets(id);
 	}
 
 	async function newWidget() {
@@ -161,7 +156,7 @@ ${'</'}script>
 				name: 'New widget',
 				source: STARTER
 			});
-			if (created) studioStore.open(created.id);
+			if (created) navigator.start().studio().widgets(created.id);
 		} finally {
 			creating = false;
 		}
@@ -171,7 +166,7 @@ ${'</'}script>
 		if (!confirm(`Delete "${name || 'Untitled'}"? This can't be undone.`)) return;
 		clearTimeout(timer);
 		await userWidgetStore.deleteWidget(id);
-		if (selectedId === id) studioStore.close();
+		if (selectedId === id) navigator.start().studio().widgets();
 	}
 
 	let previewFrame = $state<HTMLIFrameElement | null>(null);
@@ -225,9 +220,7 @@ ${'</'}script>
 				<button class="widget-open" type="button" onclick={() => select(widget.id)}>
 					<span
 						class="widget-icon"
-						title={widget.placement === 'attachment'
-							? 'Attachment'
-							: 'Widget'}
+						title={widget.placement === 'attachment' ? 'Attachment' : 'Widget'}
 					>
 						{#if widget.placement === 'attachment'}
 							<Paperclip size={16} />
@@ -322,9 +315,7 @@ ${'</'}script>
 
 				<div class="split">
 					<label class="sourceBox">
-						<span>
-							HTML source
-						</span>
+						<span> HTML source </span>
 						<textarea spellcheck="false" bind:value={draftSource} oninput={requestSave}></textarea>
 					</label>
 
@@ -347,7 +338,7 @@ ${'</'}script>
 						<ContextField
 							label="Directive"
 							value={draftPrompt}
-							hint = "A weaver-formatted prompt sent to the model. Describes how the model should maintain this "
+							hint="A weaver-formatted prompt sent to the model. Describes how the model should maintain this "
 							rows={3}
 							placeholder="When affection changes, update relationship:&lbrace;&lbrace;char:name&rbrace;&rbrace;.affection using the set_var tool."
 							onchange={(v) => {

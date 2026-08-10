@@ -1,4 +1,4 @@
-import { useApi, type ApiClient } from '$lib/api/client.js';
+import { useApi } from '$lib/api/client.js';
 import type {
 	CommandSignature,
 	ParamDef,
@@ -33,8 +33,6 @@ export function paramDocs(sig: CommandSignature | ProcessorSignature): ParamDoc[
 }
 
 class WeaverVocabularyStore {
-	private _api = $state<ApiClient>();
-
 	commands = $state<CommandSignature[]>([]);
 	processors = $state<ProcessorSignature[]>([]);
 	loaded = $state(false);
@@ -43,8 +41,7 @@ class WeaverVocabularyStore {
 	private pending: Promise<void> | null = null;
 
 	get #api() {
-		if (!this._api) this._api = useApi();
-		return this._api;
+		return useApi();
 	}
 
 	/** Look up a command by its bare name (`set_var`). */

@@ -108,9 +108,6 @@ import type {
 } from '$lib/types/widgets.js';
 import type { User } from '$lib/types/user.js';
 import type { StatusCodes } from 'http-status-codes';
-import { getContext, setContext } from 'svelte';
-
-const API_KEY = Symbol('api-client');
 
 export function createApiClient(platform: PlatformAPI) {
 	const { http } = platform;
@@ -424,12 +421,14 @@ export function createApiClient(platform: PlatformAPI) {
 
 export type ApiClient = ReturnType<typeof createApiClient>;
 
+let client: ApiClient | null = null;
+
 export function provideApiClient(platform: PlatformAPI): ApiClient {
-	const client = createApiClient(platform);
-	setContext(API_KEY, client);
+	client = createApiClient(platform);
 	return client;
 }
 
 export function useApi(): ApiClient {
-	return getContext<ApiClient>(API_KEY);
+	if (!client) throw new Error('useApi() before provideApiClient()');
+	return client;
 }

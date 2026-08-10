@@ -1,10 +1,9 @@
-import { useApi, type ApiClient } from '$lib/api/client.js';
+import { useApi } from '$lib/api/client.js';
 import type { Snowflake } from '$lib/types/core.js';
 import { readPath, type ReconstructedState } from '$lib/types/state.js';
 import { SvelteMap } from 'svelte/reactivity';
 
 class MessageStateStore {
-	#apiClient?: ApiClient;
 	#loadedStates = $state(new SvelteMap<Snowflake, ReconstructedState>());
 
 	// The message currently pinned for inspection
@@ -12,11 +11,7 @@ class MessageStateStore {
 	#loading = $state(false);
 
 	get #api() {
-		return (this.#apiClient ??= useApi());
-	}
-
-	ensureApi() {
-		void this.#api;
+		return useApi();
 	}
 
 	async getState(
