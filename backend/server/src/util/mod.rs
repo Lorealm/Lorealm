@@ -1,6 +1,7 @@
 mod register;
 mod replacement;
 mod serialize;
+pub mod template;
 pub mod weaver;
 
 pub use register::scaffold_user;

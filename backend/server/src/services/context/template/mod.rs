@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     errors::{ContextError, TemplateError},
     services::{context::PromptRole, snowflake::SnowflakeService},
+    util::template::CORE_INSTRUCTIONS,
 };
 
 mod types;
@@ -23,6 +24,24 @@ pub struct ContextNode {
 }
 
 impl ContextNode {
+    pub fn text(
+        snowflake_gen: &Arc<SnowflakeService>,
+        title: impl Into<String>,
+        description: impl Into<String>,
+        content: impl Into<String>,
+        role: PromptRole,
+    ) -> Self {
+        Self {
+            id: snowflake_gen.generate(),
+            title: title.into(),
+            description: description.into(),
+            enabled: true,
+            content: NodeContent::Text {
+                content: content.into(),
+                role,
+            },
+        }
+    }
     pub fn source(
         snowflake_gen: &Arc<SnowflakeService>,
         title: impl Into<String>,
@@ -48,6 +67,7 @@ impl ContextNode {
         title: impl Into<String>,
         description: impl Into<String>,
         children: Vec<ContextNode>,
+        wrappers: (Option<String>, Option<String>),
     ) -> Self {
         Self {
             id: snowflake_gen.generate(),
@@ -57,8 +77,8 @@ impl ContextNode {
             content: NodeContent::Group {
                 children,
                 wrap_mode: GroupWrapMode::NoMixed,
-                prefix: None,
-                suffix: None,
+                prefix: wrappers.0,
+                suffix: wrappers.1,
                 always_include_wrappers: false,
                 mode: GroupMode::Collection,
             },
@@ -114,12 +134,53 @@ impl ContextTemplate {
             description: "An automatically generated template.".into(),
             owner_id,
             nodes: vec![
-                ContextNode::source(
+                ContextNode::group(
                     sg,
-                    "World Info (Prelude)",
-                    "Deepest layer of world info",
-                    "world_info",
-                    "prelude",
+                    "Rules",
+                    "The rules the assistant should adhere to",
+                    vec![ContextNode::text(
+                        sg,
+                        "Core Instructions",
+                        "The core instructions the model should follow",
+                        CORE_INSTRUCTIONS,
+                        PromptRole::System,
+                    )],
+                    (Some("<rules>".into()), Some("</rules>".into())),
+                ),
+                ContextNode::group(
+                    sg,
+                    "Persona",
+                    "A container for the user/agent's persona",
+                    vec![ContextNode::source(
+                        sg,
+                        "Persona",
+                        "The active persona.",
+                        "persona",
+                        "description",
+                    )],
+                    (Some("<persona>".into()), Some("</persona>".into())),
+                ),
+                ContextNode::group(
+                    sg,
+                    "World Info (before)",
+                    "A container for world world info output",
+                    vec![
+                        ContextNode::source(
+                            sg,
+                            "World Info (Prelude)",
+                            "Deepest layer of world info",
+                            "world_info",
+                            "prelude",
+                        ),
+                        ContextNode::source(
+                            sg,
+                            "World Info (Preamble)",
+                            "Near base of context",
+                            "world_info",
+                            "preamble",
+                        ),
+                    ],
+                    (Some("<world_info>".into()), Some("</world_info>".into())),
                 ),
                 ContextNode::group(
                     sg,
@@ -141,62 +202,90 @@ impl ContextTemplate {
                             "personality",
                         ),
                     ],
+                    (Some("<character>".into()), Some("</character>".into())),
                 ),
-                ContextNode::source(
-                    sg,
-                    "World Info (Preamble)",
-                    "Near base of context",
-                    "world_info",
-                    "preamble",
-                ),
-                ContextNode::source(
+                ContextNode::group(
                     sg,
                     "Scenario",
-                    "The current scenario",
-                    "character",
-                    "scenario",
+                    "A container for the scenario",
+                    vec![ContextNode::source(
+                        sg,
+                        "Scenario",
+                        "The current scenario",
+                        "character",
+                        "scenario",
+                    )],
+                    (Some("<scenario>".into()), Some("</scenario>".into())),
                 ),
-                ContextNode::source(
+                ContextNode::group(
                     sg,
-                    "World Info (Backdrop)",
-                    "Background context",
-                    "world_info",
-                    "backdrop",
+                    "World Info (middle)",
+                    "A container for world world info output",
+                    vec![
+                        ContextNode::source(
+                            sg,
+                            "World Info (Backdrop)",
+                            "Background context",
+                            "world_info",
+                            "backdrop",
+                        ),
+                        ContextNode::source(
+                            sg,
+                            "World Info (Setting)",
+                            "Middle of context",
+                            "world_info",
+                            "setting",
+                        ),
+                    ],
+                    (Some("<world_info>".into()), Some("</world_info>".into())),
                 ),
-                ContextNode::source(
-                    sg,
-                    "World Info (Setting)",
-                    "Middle of context",
-                    "world_info",
-                    "setting",
-                ),
-                ContextNode::source(
+                ContextNode::group(
                     sg,
                     "Example Messages",
-                    "Example conversation messages",
-                    "character",
-                    "example_messages",
+                    "A container for the example messages",
+                    vec![ContextNode::source(
+                        sg,
+                        "Example Messages",
+                        "Example conversation messages",
+                        "character",
+                        "example_messages",
+                    )],
+                    (Some("<examples>".into()), Some("</examples>".into())),
                 ),
-                ContextNode::source(
+                ContextNode::group(
                     sg,
                     "Chat History",
-                    "The conversation history",
-                    "chat_history",
-                    "main",
+                    "A container for the chat history",
+                    vec![ContextNode::source(
+                        sg,
+                        "Chat History",
+                        "The conversation history",
+                        "chat_history",
+                        "main",
+                    )],
+                    (Some("<history>".into()), Some("</history>".into())),
                 ),
-                ContextNode::source(
+                ContextNode::group(
                     sg,
-                    "World Info (Foreground)",
-                    "Near front of context",
-                    "world_info",
-                    "foreground",
-                ),
-                ContextNode::source(
-                    sg,
-                    "World Info (Coda)",
-                    "Most recent layer",
-                    "world_info",
-                    "coda",
+                    "World Info (after)",
+                    "A container for world world info output",
+                    vec![
+                        ContextNode::source(
+                            sg,
+                            "World Info (Foreground)",
+                            "Near front of context",
+                            "world_info",
+                            "foreground",
+                        ),
+                        ContextNode::source(
+                            sg,
+                            "World Info (Coda)",
+                            "Most recent layer",
+                            "world_info",
+                            "coda",
+                        ),
+                    ],
+                    (Some("<world_info>".into()), Some("</world_info>".into())),
                 ),
             ],
             version: Self::CURRENT_VERSION,
@@ -633,29 +722,6 @@ impl ContextTemplate {
         }
 
         search(&self.nodes, source_id, node_id, exclude_node_id)
-    }
-
-    /// Get all used source nodes as (source_id, node_id) tuples
-    pub fn get_used_source_nodes(&self) -> Vec<(String, String)> {
-        fn collect(nodes: &[ContextNode], result: &mut Vec<(String, String)>) {
-            for node in nodes {
-                match &node.content {
-                    NodeContent::Source {
-                        source_id, node_id, ..
-                    } => {
-                        result.push((source_id.clone(), node_id.clone()));
-                    }
-                    NodeContent::Group { children, .. } => {
-                        collect(children, result);
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        let mut result = Vec::new();
-        collect(&self.nodes, &mut result);
-        result
     }
 
     /// Count total number of nodes in the template
