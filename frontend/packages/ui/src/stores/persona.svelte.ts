@@ -1,4 +1,4 @@
-import { type ApiClient, useApi } from '$lib/api/client.js';
+import { useApi } from '$lib/api/client.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type { PersonaOverride, UpdatePersona, UserPersona } from '$lib/types/persona.js';
 
@@ -20,7 +20,6 @@ export interface PersonaDraft {
 }
 
 class PersonaStore {
-	private _api = $state<ApiClient>();
 	/** Listing-only metadata */
 	loadedPersonas = $state<Array<UserPersona>>();
 
@@ -31,8 +30,7 @@ class PersonaStore {
 	overrides = $state<Array<PersonaOverride>>([]);
 
 	get #api() {
-		if (!this._api) this._api = useApi(); // NOTE: This assumes it's accessed once during page init. Dirty workaround.
-		return this._api;
+		return useApi();
 	}
 
 	#baseline = $state<UserPersona | null>(null);

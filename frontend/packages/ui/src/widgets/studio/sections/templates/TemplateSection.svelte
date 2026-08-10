@@ -1,11 +1,15 @@
 <script lang="ts">
-	import { studioStore } from '$lib/stores/studio.svelte';
+	import type { Snowflake } from '$lib/types/core.js';
 	import TemplateList from './TemplateList.svelte';
 	import TemplateEditor from './TemplateEditor.svelte';
+
+	let { id }: { id?: Snowflake } = $props();
 </script>
 
-{#if studioStore.editingId}
-	<TemplateEditor id={studioStore.editingId} />
+{#if id}
+	{#key id}
+		<TemplateEditor />
+	{/key}
 {:else}
 	<TemplateList />
 {/if}

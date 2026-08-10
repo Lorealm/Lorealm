@@ -1,4 +1,4 @@
-import { type ApiClient, useApi } from '$lib/api/client.js';
+import { useApi } from '$lib/api/client.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type { CreateUserTool, Param, UpdateUserTool, UserTool } from '$lib/types/tools.js';
 import { showError } from '$lib/stores/errorToast.svelte.js';
@@ -23,13 +23,11 @@ export interface ToolDraft {
 const NAME_RE = /^[a-zA-Z0-9_-]{1,64}$/;
 
 class ToolStore {
-	private _api = $state<ApiClient>();
 	/** Listing-only metadata; carries `enabled`, which the draft never does. */
 	loadedTools = $state<Array<UserTool>>();
 
 	get #api() {
-		if (!this._api) this._api = useApi(); // accessed once during page init
-		return this._api;
+		return useApi();
 	}
 
 	#baseline = $state<UserTool | null>(null);
@@ -120,7 +118,6 @@ class ToolStore {
 		try {
 			const id = await this.#api.tools.create(create);
 			await this.loadTools();
-			void this.startEditing(id);
 			return id;
 		} catch (e) {
 			showError(e, { title: 'Create failed' });

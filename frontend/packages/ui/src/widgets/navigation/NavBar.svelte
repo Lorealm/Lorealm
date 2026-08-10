@@ -10,7 +10,7 @@
 		User
 	} from '@lucide/svelte';
 	import NavButton from './NavButton.svelte';
-	import { SidebarView } from '$lib/stores/navigation.svelte';
+	import { navigator } from '$lib/navigation/navigator.js';
 	var collapsed = $state(false);
 	var sidebarElement: HTMLDivElement;
 
@@ -34,14 +34,50 @@
 			{/if}
 		</button>
 	</div>
-	<NavButton label="Write" Icon={PencilIcon} {collapsed} view={SidebarView.Write} />
-	<NavButton label="Characters" Icon={User} {collapsed} view={SidebarView.Characters} />
-	<NavButton label="Realms" Icon={Earth} {collapsed} view={SidebarView.Realm} />
-	<NavButton label="Connections" Icon={Plug2} {collapsed} view={SidebarView.Connections} />
-	<NavButton label="Studio" Icon={Palette} {collapsed} view={SidebarView.Studio} />
+	<NavButton
+		label="Write"
+		Icon={PencilIcon}
+		{collapsed}
+		view="write"
+		onselect={() => navigator.start().write()}
+	/>
+	<NavButton
+		label="Characters"
+		Icon={User}
+		{collapsed}
+		view="characters"
+		onselect={() => navigator.start().characters()}
+	/>
+	<NavButton
+		label="Realms"
+		Icon={Earth}
+		{collapsed}
+		view="realms"
+		onselect={() => navigator.start().realms()}
+	/>
+	<NavButton
+		label="Connections"
+		Icon={Plug2}
+		{collapsed}
+		view="connections"
+		onselect={() => navigator.start().connections()}
+	/>
+	<NavButton
+		label="Studio"
+		Icon={Palette}
+		{collapsed}
+		view="studio"
+		onselect={() => navigator.start().studio()}
+	/>
 
 	<div style="margin-top: auto; margin-bottom: 0.33em;">
-		<NavButton label="Settings" Icon={Settings} {collapsed} view={SidebarView.Settings} />
+		<NavButton
+			label="Settings"
+			Icon={Settings}
+			{collapsed}
+			view="settings"
+			onselect={() => navigator.start().settings()}
+		/>
 	</div>
 </div>
 

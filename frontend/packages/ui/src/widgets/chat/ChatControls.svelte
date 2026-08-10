@@ -5,9 +5,6 @@
 	import { messageStateStore } from '$lib/stores/messageState.svelte.js';
 	import { FilePlus, ListStart, Paperclip, Send, Sparkles, Square } from '@lucide/svelte';
 
-	chatStore.ensureApi();
-	messageStateStore.ensureApi();
-
 	let busy = $derived(chatStore.isStreaming);
 
 	let inputText = $state('');

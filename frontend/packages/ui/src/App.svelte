@@ -5,32 +5,30 @@
 	import type { PlatformAPI } from './index.ts';
 	import { setAPI } from './core/context.ts';
 	import Router from './Router.svelte';
-	import { createApiClient } from './api/client.ts';
+	import { provideApiClient } from './api/client.ts';
 	import { setAuthState } from './stores/auth.svelte.ts';
-	import { ActiveView, navigationStore } from './stores/navigation.svelte.ts';
 	import Titlebar from './widgets/Titlebar.svelte';
+	import { showToast } from './stores/errorToast.svelte.ts';
 
 	let { api }: { api: PlatformAPI } = $props();
 
 	// svelte-ignore state_referenced_locally
 	setAPI(api);
+	// The stores and the route loader reach the client through `useApi`, so it
+	// has to exist before the first route is entered below.
 	// svelte-ignore state_referenced_locally
-	createApiClient(api);
+	provideApiClient(api);
 
 	$effect(() => {
 		api.auth
 			.hydrate()
 			.then((session) => {
-				if (session) {
-					console.log('Valid session!');
-					setAuthState({ status: 'authenticated', session });
-					navigationStore.setView(ActiveView.Main);
-				} else {
-					setAuthState({ status: 'unauthenticated' });
-					navigationStore.setView(ActiveView.Login);
-				}
+				if (session) setAuthState({ status: 'authenticated', session });
+				else setAuthState({ status: 'unauthenticated' });
 			})
-			.catch((error: Error) => {});
+			.catch((error: Error) => {
+                showToast({message: error.message, variant: 'error'});
+			});
 	});
 </script>
 

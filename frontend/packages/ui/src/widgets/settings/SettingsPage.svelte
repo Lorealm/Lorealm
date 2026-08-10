@@ -1,34 +1,41 @@
 <script lang="ts">
-	import { settingsNav, SettingsScope } from '$lib/stores/settings.svelte';
+	import { navigator } from '$lib/navigation/navigator.js';
+	import { router } from '$lib/navigation/router.svelte.js';
 	import { configStore } from '$lib/stores/serverConfig.svelte';
 	import UserSettings from './UserSettings.svelte';
 	import ServerSettings from './ServerSettings.svelte';
+
+	const route = $derived(router.current);
+	const settings = $derived(route.view === 'settings' ? route : null);
+	const scope = $derived(settings?.scope ?? 'user');
+	const userSection = $derived(settings?.scope === 'user' ? settings.section : 'tokenizers');
+	const serverSection = $derived(settings?.scope === 'server' ? settings.section : 'hosting');
 </script>
 
 <div class="settings">
 	<nav class="scopeNav">
 		<button
 			class="tab"
-			class:active={settingsNav.scope === SettingsScope.User}
-			onclick={() => settingsNav.setScope(SettingsScope.User)}
+			class:active={scope === 'user'}
+			onclick={() => navigator.start().settings().user()}
 		>
 			User
 		</button>
 		{#if configStore.canEditServer}
 			<button
 				class="tab"
-				class:active={settingsNav.scope === SettingsScope.Server}
-				onclick={() => settingsNav.setScope(SettingsScope.Server)}
+				class:active={scope === 'server'}
+				onclick={() => navigator.start().settings().server()}
 			>
 				Server
 			</button>
 		{/if}
 	</nav>
 
-	{#if settingsNav.scope === SettingsScope.Server && configStore.canEditServer}
-		<ServerSettings />
+	{#if scope === 'server' && configStore.canEditServer}
+		<ServerSettings section={serverSection} />
 	{:else}
-		<UserSettings />
+		<UserSettings section={userSection} />
 	{/if}
 </div>
 

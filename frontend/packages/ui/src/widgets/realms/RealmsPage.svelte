@@ -2,14 +2,13 @@
 	import { useApi } from '$lib/api/client.js';
 	import { chatStore } from '$lib/stores/chat.svelte.js';
 	import { showError, showToast } from '$lib/stores/errorToast.svelte.js';
-	import { navigationStore, SidebarView } from '$lib/stores/navigation.svelte.js';
+	import { navigator } from '$lib/navigation/navigator.js';
 	import { realmStore } from '$lib/stores/realm.svelte.js';
 	import { ArrowLeft, Play } from '@lucide/svelte';
-	import { onMount } from 'svelte';
 	import PickerDialog from './PickerDialog.svelte';
 	import RealmEditor from './RealmEditor.svelte';
 	import RealmList from './RealmList.svelte';
-	import { loadCatalog, realmEditor } from './realmEditor.svelte.js';
+	import { realmEditor } from './realmEditor.svelte.js';
 
 	const api = useApi();
 
@@ -23,11 +22,6 @@
 		if (!scenarios.some((s) => s.id === scenarioPick)) scenarioPick = scenarios[0]?.id ?? '';
 	});
 
-	onMount(() => {
-		void realmStore.loadList();
-		void loadCatalog();
-	});
-
 	let lastRealmId: string | null = null;
 	$effect(() => {
 		const id = realm?.id ?? null;
@@ -39,7 +33,7 @@
 
 	async function back() {
 		await realmStore.flushAgentSaves();
-		realmStore.closeRealm();
+		navigator.start().realms();
 	}
 
 	/** Instantiate the realm and play it */
@@ -53,7 +47,7 @@
 				scenario_id: scenarioPick || null
 			});
 			await chatStore.loadConversation(full.metadata.id);
-			navigationStore.setSidebarView(SidebarView.Write);
+			navigator.start().write();
 			showToast({
 				variant: 'info',
 				title: 'Playthrough started',

@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy } from 'svelte';
+	import { navigator } from '$lib/navigation/navigator.js';
 	import { personaStore } from '$lib/stores/persona.svelte.js';
 	import { characterStore } from '$lib/stores/character.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
@@ -10,10 +11,11 @@
 
 	const SAVE_MS = 500;
 
+	let { selectedId }: { selectedId: Snowflake | null } = $props();
+
 	const draft = $derived(personaStore.editingPersona);
 	const save = $derived(personaStore.saveState);
 	const personas = $derived(personaStore.loadedPersonas ?? []);
-	const selectedId = $derived(personaStore.editingId);
 	const activePersonaId = $derived(personaStore.activePersonaId);
 	const characters = $derived(characterStore.metadataList);
 
@@ -49,14 +51,6 @@
 	let inputEl: HTMLInputElement;
 	let busy = $state(false);
 	let avatarError = $state<string | null>(null);
-
-	onMount(() => {
-		void personaStore.loadPersonas();
-		void personaStore.loadActive();
-		void personaStore.loadOverrides();
-		void characterStore.loadList();
-	});
-	onDestroy(() => personaStore.stopEditing());
 
 	let creating = $state(false);
 	async function createPersona() {
@@ -124,10 +118,10 @@
 	onDestroy(() => clearTimeout(timer));
 
 	async function select(id: Snowflake) {
-		if (id === personaStore.editingId) return;
+		if (id === selectedId) return;
 		clearTimeout(timer);
 		await personaStore.save(); // flush any pending edits before switching (no-op if none)
-		void personaStore.startEditing(id);
+		navigator.start().studio().personas(id);
 	}
 
 	function openPicker() {

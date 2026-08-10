@@ -3,12 +3,7 @@
 	import NavBar from '$lib/widgets/navigation/NavBar.svelte';
 	import MainViewRouter from '$lib/widgets/routers/MainViewRouter.svelte';
 
-	import { provideApiClient } from '$lib/api/client.js';
-	import { getPlatformApi } from '$lib/core/context.js';
 	import ErrorToast from '$lib/components/ErrorToast.svelte';
-
-	const platform = getPlatformApi();
-	provideApiClient(platform);
 </script>
 
 <div class="container">

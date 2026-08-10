@@ -1,22 +1,27 @@
 <script lang="ts">
 	import type { Component } from 'svelte';
-	import { navigationStore, type SidebarView } from '$lib/stores/navigation.svelte';
+	import { router } from '$lib/navigation/router.svelte.js';
+	import type { ViewName } from '$lib/navigation/routes.js';
 
 	let {
 		label,
 		Icon,
 		collapsed,
-		view
-	}: { label: string; Icon: Component; collapsed: boolean; view: SidebarView } = $props();
+		view,
+		onselect
+	}: {
+		label: string;
+		Icon: Component;
+		collapsed: boolean;
+		/** The view this button lights up for. */
+		view: ViewName;
+		onselect: () => void;
+	} = $props();
 
-	let active = $derived(navigationStore.sidebarActive === view);
-
-	function handleClick() {
-		navigationStore.setSidebarView(view);
-	}
+	let active = $derived(router.current.view === view);
 </script>
 
-<button class="container" class:active onclick={handleClick}>
+<button class="container" class:active onclick={onselect}>
 	<Icon />
 	{#if !collapsed}
 		<span>{label}</span>

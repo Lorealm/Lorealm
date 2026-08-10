@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { templateStore } from '$lib/stores/template.svelte.js';
-	import { studioStore } from '$lib/stores/studio.svelte.js';
-	import { onMount } from 'svelte';
+	import { navigator } from '$lib/navigation/navigator.js';
 	import TemplateCard from './TemplateCard.svelte';
 	import StudioList from '../StudioList.svelte';
 
@@ -30,11 +29,6 @@
 		return list.sort((a, b) => ts(b.updated_at) - ts(a.updated_at));
 	});
 
-	onMount(async () => {
-		await templateStore.loadList();
-		await templateStore.loadActive();
-	});
-
 	async function create() {
 		if (creating) return;
 		creating = true;
@@ -43,7 +37,7 @@
 				name: 'Untitled template',
 				default: true
 			});
-			studioStore.open(tpl.id);
+			navigator.start().studio().templates(tpl.id);
 		} catch (e) {
 			console.error(e);
 		} finally {

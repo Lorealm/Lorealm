@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy } from 'svelte';
+	import { navigator } from '$lib/navigation/navigator.js';
 	import { toolStore } from '$lib/stores/tools.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import type { Param, ParamType, UserTool } from '$lib/types/tools.js';
@@ -13,11 +14,12 @@
 
 	type Base = 'string' | 'number' | 'bool' | 'object';
 
+	let { selectedId }: { selectedId: Snowflake | null } = $props();
+
 	const draft = $derived(toolStore.editingTool);
 	const save = $derived(toolStore.saveState);
 	const tools = $derived(toolStore.loadedTools ?? []);
 	const builtins = $derived(toolStore.builtinTools ?? []);
-	const selectedId = $derived(toolStore.selectedId);
 	const shown = $derived(draft ?? toolStore.viewingTool);
 	const readOnly = $derived(!draft);
 
@@ -41,12 +43,6 @@
 	const shownBuiltins = $derived(arrange(builtins));
 	const noMatches = $derived(shownTools.length === 0 && shownBuiltins.length === 0);
 
-	onMount(() => {
-		void toolStore.loadTools();
-		void toolStore.loadBuiltins();
-	});
-	onDestroy(() => toolStore.stopEditing());
-
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	function requestSave() {
 		if (readOnly) return;
@@ -55,29 +51,28 @@
 	}
 	onDestroy(() => clearTimeout(timer));
 
-	async function select(id: Snowflake) {
-		if (id === toolStore.editingId) return;
+	async function flushPending() {
 		clearTimeout(timer);
 		await toolStore.save();
-		void toolStore.startEditing(id);
 	}
 
-	async function selectBuiltin(id: Snowflake) {
-		if (id === toolStore.selectedId) return;
-		clearTimeout(timer);
-		await toolStore.save();
-		void toolStore.viewBuiltin(id);
+	async function select(id: Snowflake) {
+		if (id === selectedId) return;
+		await flushPending();
+		navigator.start().studio().tools(id);
 	}
 
 	async function newTool() {
-		clearTimeout(timer);
-		await toolStore.save();
-		void toolStore.createTool();
+		await flushPending();
+		const id = await toolStore.createTool();
+		if (id) navigator.start().studio().tools(id);
 	}
 
 	async function removeTool(id: Snowflake, name: string) {
 		if (!confirm(`Delete "${name || 'Untitled'}"? This can't be undone.`)) return;
+		clearTimeout(timer);
 		await toolStore.deleteTool(id);
+		if (id === selectedId) navigator.start().studio().tools();
 	}
 
 	function flatten(ty: ParamType): { base: Base; depth: number } {
@@ -178,7 +173,7 @@
 			<p class="group-label">Built-in</p>
 			{#each shownBuiltins as tool (tool.id)}
 				<div class="tool-item" class:selected={tool.id === selectedId}>
-					<button class="tool-open" type="button" onclick={() => selectBuiltin(tool.id)}>
+					<button class="tool-open" type="button" onclick={() => select(tool.id)}>
 						<span class="tool-text">
 							<span class="tool-name">{tool.name}</span>
 							{#if tool.display_name}
@@ -471,7 +466,7 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	
+
 	.enable-toggle {
 		flex: 0 0 auto;
 		width: 32px;
@@ -538,7 +533,7 @@
 		flex-direction: column;
 		min-height: 0;
 	}
-	
+
 	.body-editor.fill {
 		flex: 1 1 auto;
 		height: 100%;

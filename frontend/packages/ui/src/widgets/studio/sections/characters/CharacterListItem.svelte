@@ -1,8 +1,7 @@
 <script lang="ts">
 	import PopupMenu from '$lib/components/PopupMenu.svelte';
 	import TransportImage from '$lib/components/TransportImage.svelte';
-	import { characterStore } from '$lib/stores/character.svelte.js';
-	import { studioStore } from '$lib/stores/studio.svelte.js';
+	import { navigator } from '$lib/navigation/navigator.js';
 	import type { CharacterSummary } from '$lib/types/character.js';
 	import { Copy, Ellipsis, MessageSquarePlus, Pencil, Trash2, Upload } from '@lucide/svelte';
 	import { DateTime } from 'luxon';
@@ -42,10 +41,7 @@
 		<button
 			type="button"
 			class="edit"
-			onclick={() => {
-				characterStore.startEditing(summary.id);
-				studioStore.open(summary.id);
-			}}
+			onclick={() => navigator.start().studio().characters(summary.id)}
 		>
 			<Pencil size={16} />
 			Edit

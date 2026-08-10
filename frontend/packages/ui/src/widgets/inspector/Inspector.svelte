@@ -1,5 +1,5 @@
 <script>
-	import { navigationStore, SidebarView } from '$lib/stores/navigation.svelte';
+	import { router } from '$lib/navigation/router.svelte.js';
 	import CharacterImageWidget from './widgets/CharacterImageWidget.svelte';
 	import ContextWidget from './widgets/ContextWidget.svelte';
 	import RealmAgentWidget from './widgets/RealmAgentWidget.svelte';
@@ -10,7 +10,7 @@
 <div class="container">
 	<div class="topBar"></div>
 	<div class="content">
-		{#if navigationStore.sidebarActive === SidebarView.Realm}
+		{#if router.current.view === 'realms'}
 			<RealmAgentWidget />
 		{:else}
 			<CharacterImageWidget />

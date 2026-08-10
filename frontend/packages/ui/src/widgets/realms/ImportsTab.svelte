@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { showError } from '$lib/stores/errorToast.svelte.js';
 	import { realmStore } from '$lib/stores/realm.svelte.js';
-	import { studioStore } from '$lib/stores/studio.svelte.js';
+	import { navigator } from '$lib/navigation/navigator.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import type { ImportKind } from '$lib/types/realm.js';
 	import {
@@ -96,7 +96,7 @@
 										title="Edit in Studio"
 										onclick={(e) => {
 											e.stopPropagation();
-											studioStore.editResource(kind, id);
+											navigator.start().studio().resource(kind, id);
 										}}
 									>
 										<Pencil size={14} />

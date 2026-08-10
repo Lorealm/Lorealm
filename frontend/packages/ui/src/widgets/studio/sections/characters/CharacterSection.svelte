@@ -1,17 +1,22 @@
 <script lang="ts">
-	import { studioStore } from '$lib/stores/studio.svelte';
+	import { navigator } from '$lib/navigation/navigator.js';
+	import { characterStore } from '$lib/stores/character.svelte.js';
+	import type { Snowflake } from '$lib/types/core.js';
 	import CharacterList from './CharacterList.svelte';
 	import CharacterEditor from './CharacterEditor.svelte';
-	import { characterStore } from '$lib/stores/character.svelte.js';
+
+	let { id }: { id?: Snowflake } = $props();
 
 	async function handleCreate() {
-		const id = await characterStore.create('New Character');
-		studioStore.open(id);
+		const created = await characterStore.create('New Character');
+		navigator.start().studio().characters(created);
 	}
 </script>
 
-{#if studioStore.editingId}
-	<CharacterEditor id={studioStore.editingId} />
+{#if id}
+	{#key id}
+		<CharacterEditor />
+	{/key}
 {:else}
 	<CharacterList oncreate={handleCreate} />
 {/if}

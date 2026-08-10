@@ -1,4 +1,4 @@
-import { useApi, type ApiClient } from '$lib/api/client.js';
+import { useApi } from '$lib/api/client.js';
 import type { ServerConfig, ConfigKey } from '$lib/types/config.js';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -8,22 +8,9 @@ export interface SaveState {
 	message?: string;
 }
 
-export enum SettingsSection {
-	Hosting,
-	Storage,
-	Sessions,
-	Users,
-	Characters,
-	Tokenizers,
-	Tasks
-}
-
 class ConfigStore {
-	private _api = $state<ApiClient>();
-
 	get #api() {
-		if (!this._api) this._api = useApi();
-		return this._api;
+		return useApi();
 	}
 
 	config = $state<ServerConfig>();
@@ -32,11 +19,6 @@ class ConfigStore {
 	// Hardcoded for now.
 	// TODO: Implement real permissions. Depends on backend work
 	canEditServer = $state(true);
-
-	section = $state(SettingsSection.Hosting);
-	setSection(section: SettingsSection) {
-		this.section = section;
-	}
 
 	async load() {
 		this.config = await this.#api.config.getAll();

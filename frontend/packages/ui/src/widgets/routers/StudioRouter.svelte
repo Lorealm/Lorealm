@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { studioStore, StudioSection } from '$lib/stores/studio.svelte';
+	import type { StudioSection } from '$lib/navigation/routes.js';
+	import type { Snowflake } from '$lib/types/core.js';
 	import StudioNav from '../studio/StudioNav.svelte';
 	import LorebooksSection from '../studio/sections/lorebook/LorebooksSection.svelte';
 	import TemplateSection from '../studio/sections/templates/TemplateSection.svelte';
@@ -8,24 +9,26 @@
 	import PersonaSection from '../studio/sections/personas/PersonaSection.svelte';
 	import ToolsSection from '../studio/sections/tools/ToolsSection.svelte';
 	import WidgetsSection from '../studio/sections/widgets/WidgetsSection.svelte';
+
+	let { section, id }: { section: StudioSection; id?: Snowflake } = $props();
 </script>
 
 <div style="display:flex; flex-direction:column; flex:1; min-height:0; padding:var(--spacing-sm)">
-	<StudioNav />
+	<StudioNav {section} />
 
-	{#if studioStore.section === StudioSection.Lorebooks}
-		<LorebooksSection />
-	{:else if studioStore.section === StudioSection.Templates}
-		<TemplateSection />
-	{:else if studioStore.section === StudioSection.Characters}
-		<CharacterSection />
-	{:else if studioStore.section === StudioSection.Tools}
-		<ToolsSection />
-	{:else if studioStore.section === StudioSection.Personas}
-		<PersonaSection />
-	{:else if studioStore.section === StudioSection.Widgets}
-		<WidgetsSection />
-	{:else if studioStore.section === StudioSection.Realm}
+	{#if section === 'lorebooks'}
+		<LorebooksSection {id} />
+	{:else if section === 'templates'}
+		<TemplateSection {id} />
+	{:else if section === 'characters'}
+		<CharacterSection {id} />
+	{:else if section === 'tools'}
+		<ToolsSection {id} />
+	{:else if section === 'personas'}
+		<PersonaSection {id} />
+	{:else if section === 'widgets'}
+		<WidgetsSection {id} />
+	{:else if section === 'realm'}
 		<RealmSection />
 	{/if}
 </div>

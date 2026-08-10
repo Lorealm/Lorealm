@@ -1,4 +1,4 @@
-import { type ApiClient, useApi } from '$lib/api/client.js';
+import { useApi } from '$lib/api/client.js';
 import { showError } from '$lib/stores/errorToast.svelte.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type {
@@ -9,11 +9,8 @@ import type {
 
 /** The user's static display widgets (see [`UserWidget`]). */
 class UserWidgetStore {
-	private _api = $state<ApiClient>();
-
 	get #api() {
-		if (!this._api) this._api = useApi();
-		return this._api;
+		return useApi();
 	}
 
 	loadedWidgets = $state<Array<UserWidget>>();

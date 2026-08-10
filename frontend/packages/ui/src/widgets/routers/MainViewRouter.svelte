@@ -1,6 +1,6 @@
-<script>
+<script lang="ts">
 	import { chatStore } from '$lib/stores/chat.svelte';
-	import { navigationStore, SidebarView } from '$lib/stores/navigation.svelte';
+	import { router } from '$lib/navigation/router.svelte.js';
 	import ChatBox from '$lib/widgets/chat/ChatBox.svelte';
 	import CharactersPage from '../characters/CharactersPage.svelte';
 	import ChatControls from '../chat/ChatControls.svelte';
@@ -9,23 +9,50 @@
 	import RealmsPage from '../realms/RealmsPage.svelte';
 	import SettingsPage from '../settings/SettingsPage.svelte';
 	import StudioRouter from './StudioRouter.svelte';
+
+	const route = $derived(router.current);
 </script>
 
-{#if navigationStore.sidebarActive === SidebarView.Write}
+{#if router.status === 'error'}
+	<div class="loadError" role="alert">
+		<span>{router.error ?? 'Something failed to load.'}</span>
+		<button type="button" onclick={() => router.enter()}>Retry</button>
+	</div>
+{/if}
+
+{#if route.view === 'write'}
 	<ChatBox />
 	{#if chatStore.isRealm}
 		<RealmChatControls />
 	{:else}
 		<ChatControls />
 	{/if}
-{:else if navigationStore.sidebarActive === SidebarView.Characters}
+{:else if route.view === 'characters'}
 	<CharactersPage />
-{:else if navigationStore.sidebarActive === SidebarView.Realm}
+{:else if route.view === 'realms'}
 	<RealmsPage />
-{:else if navigationStore.sidebarActive === SidebarView.Connections}
+{:else if route.view === 'connections'}
 	<ConnectionsView />
-{:else if navigationStore.sidebarActive === SidebarView.Studio}
-	<StudioRouter />
-{:else if navigationStore.sidebarActive === SidebarView.Settings}
+{:else if route.view === 'studio'}
+	<StudioRouter section={route.section} id={route.id} />
+{:else if route.view === 'settings'}
 	<SettingsPage />
 {/if}
+
+<style>
+	.loadError {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--spacing-md);
+		flex-shrink: 0;
+		padding: var(--spacing-sm) var(--spacing-lg);
+		background-color: var(--color-error-bg);
+		color: var(--color-error-text);
+		font-size: var(--font-size-sm);
+	}
+	.loadError button {
+		flex: 0 0 auto;
+		padding: 2px 10px;
+	}
+</style>

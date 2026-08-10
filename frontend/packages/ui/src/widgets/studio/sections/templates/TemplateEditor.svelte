@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, setContext, untrack } from 'svelte';
+	import { setContext } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import {
 		dndzone,
@@ -7,8 +7,8 @@
 		SHADOW_ITEM_MARKER_PROPERTY_NAME,
 		type DndEvent
 	} from 'svelte-dnd-action';
+	import { navigator } from '$lib/navigation/navigator.js';
 	import { templateStore } from '$lib/stores/template.svelte.js';
-	import { studioStore } from '$lib/stores/studio.svelte';
 	import type { ContextNode, NodePath } from '$lib/types/node.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import type { CreateNodeRequest } from '$lib/types/template.js';
@@ -26,8 +26,6 @@
 	const MENU_KEY = 'template:menu';
 
 	const isShadow = (n: ContextNode) => SHADOW_ITEM_MARKER_PROPERTY_NAME in n;
-
-	let { id }: { id: Snowflake } = $props();
 
 	const template = $derived(templateStore.editingTemplate);
 
@@ -91,19 +89,6 @@
 		const parentPath = tpl ? (findPath(tpl.nodes, node.id) ?? undefined) : undefined;
 		creating = { kind, parentPath };
 	}
-
-	// (Re)open the editing session whenever the routed id changes.
-	$effect(() => {
-		const tid = id;
-		untrack(() => {
-			selectedId = null;
-			void templateStore.startEditing(tid);
-		});
-	});
-	$effect(() => {
-		if (!templateStore.sources) void templateStore.loadSources();
-	});
-	onDestroy(() => templateStore.stopEditing());
 
 	const selectedNode = $derived(
 		selectedId && template ? findNode(template.nodes, selectedId) : null
@@ -215,8 +200,10 @@
 	<section class="col-hierarchy">
 		<header class="hierarchy-header">
 			<div class="header-row">
-				<button class="back" onclick={() => studioStore.close()} aria-label="Back to templates"
-					>←</button
+				<button
+					class="back"
+					onclick={() => navigator.start().studio().templates()}
+					aria-label="Back to templates">←</button
 				>
 				<span class="tpl-name" title={template?.name}>{template?.name ?? 'Loading…'}</span>
 				<div class="add-controls">

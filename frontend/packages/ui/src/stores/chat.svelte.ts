@@ -1,4 +1,4 @@
-import { useApi, type ApiClient } from '$lib/api/client.js';
+import { useApi } from '$lib/api/client.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type {
 	ChatEdit,
@@ -40,15 +40,8 @@ function scopeMatches(pattern: string, ns: string): boolean {
 }
 
 class ChatStore {
-	private _api = $state<ApiClient>();
-
 	get #api() {
-		if (!this._api) this._api = useApi(); // NOTE: This assumes it's accessed once during page init. Dirty workaround.
-		return this._api;
-	}
-
-	ensureApi() {
-		void this.#api;
+		return useApi();
 	}
 
 	metadataList = $state<Array<ConversationMetadata>>();
@@ -673,7 +666,10 @@ class ChatStore {
 	}
 
 	/** The current player's turn: say something, act, or both. */
-	async submitRealmPlayerTurn(content: string | null, action: PlayerAction | null): Promise<boolean> {
+	async submitRealmPlayerTurn(
+		content: string | null,
+		action: PlayerAction | null
+	): Promise<boolean> {
 		const convId = this.conversationId;
 		if (!convId || !this.isRealm || this.isStreaming) return false;
 		if (!content?.trim() && !action) return false;
