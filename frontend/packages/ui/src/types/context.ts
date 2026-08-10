@@ -1,6 +1,9 @@
+import type { UserPersona } from './persona.js';
+
 export type ContentRef =
 	| { kind: 'verbatim' }
 	| { kind: 'message'; id: string }
+	| { kind: 'persona'; persona: UserPersona }
 	| { kind: 'character'; part: CharacterPart }
 	| { kind: 'plugin'; source_id: string; data: unknown }
 	/** Future-proofing so deserialization doesn't break */
@@ -57,6 +60,7 @@ function parseContentRef(v: unknown): ContentRef {
 	if (isRecord(v)) {
 		if (typeof v.Message === 'string') return { kind: 'message', id: v.Message };
 		if ('Character' in v) return { kind: 'character', part: parseCharacterPart(v.Character) };
+		if (isRecord(v.Persona)) return { kind: 'persona', persona: v.Persona as unknown as UserPersona };
 		if (isRecord(v.Plugin)) {
 			return {
 				kind: 'plugin',

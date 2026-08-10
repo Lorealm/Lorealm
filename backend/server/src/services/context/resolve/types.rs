@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use lorealm_storage::models::{AgentObservation, Character, ConversationMessage, Snowflake};
+use lorealm_storage::models::{
+    AgentObservation, Character, ConversationMessage, Snowflake, UserPersona,
+};
 use serde::Serialize;
 use tokio::sync::Mutex;
 
@@ -18,6 +20,7 @@ pub enum ContentRef {
     Verbatim,
     Message(Snowflake),
     Character(CharacterPart),
+    Persona(UserPersona),
     /// Recoverable reference defined by a plugin source.
     /// The frontend dispatches on source_id to interpret `data`.
     Plugin {
@@ -79,6 +82,7 @@ pub enum OriginKind {
 pub struct ResolveContext<'a> {
     pub character: Option<&'a Character>,
     pub messages: &'a [PromptTurn],
+    pub persona: Option<&'a UserPersona>,
     pub user_id: Snowflake,
     pub state: &'a ReconstructedState,
     pub lorebook_state: Mutex<Option<CapturedState>>,

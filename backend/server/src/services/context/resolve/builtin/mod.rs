@@ -1,11 +1,15 @@
 use std::sync::Arc;
 
-use crate::services::state::StateService;
+use crate::services::{
+    context::{ContentRef, PromptRole, ResolvedBlock, builtin::persona::PersonaResolver},
+    state::StateService,
+};
 
 use super::SourceRegistry;
 
 mod character;
 mod chat_history;
+mod persona;
 mod widgets;
 mod world_info;
 
@@ -17,8 +21,25 @@ pub use world_info::WorldInfoResolver;
 pub fn register_builtin_sources(registry: &mut SourceRegistry, state: Arc<StateService>) {
     registry.register(Arc::new(ChatHistoryResolver));
     registry.register(Arc::new(CharacterResolver));
+    registry.register(Arc::new(PersonaResolver));
     registry.register(Arc::new(WorldInfoResolver::new(Arc::clone(&state))));
     registry.register(Arc::new(WidgetPromptsResolver));
+}
+
+pub(super) fn text_block(
+    role: PromptRole,
+    content: &str,
+    content_ref: ContentRef,
+) -> Vec<ResolvedBlock> {
+    if content.is_empty() {
+        Vec::new()
+    } else {
+        vec![ResolvedBlock {
+            role,
+            content: content.to_string(),
+            content_ref,
+        }]
+    }
 }
 
 #[cfg(test)]
