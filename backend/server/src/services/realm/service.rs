@@ -755,6 +755,7 @@ impl RealmService {
                         service.commit(&convo, &cast, &config, production).await?;
                     yield RealmStreamEvent::Committed { message, events };
                 };
+                // NOTE: If you see an error here, it's a false positive.
                 return Ok(Box::pin(stream));
             }
             TurnPlan::Stream(llm) => llm,
@@ -836,6 +837,7 @@ impl RealmService {
             yield RealmStreamEvent::Committed { message, events };
         };
 
+        // NOTE: If you see an error here, it's a false positive.
         return Ok(Box::pin(stream));
     }
 

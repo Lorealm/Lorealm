@@ -55,7 +55,7 @@ export function resolveBlockContent(block: TracedBlock): ResolvedContent {
 
 		case 'message': {
 			const msg = chatStore.messageById(ref.id as unknown as Snowflake);
-      if (msg) return { text: msg.content, label: 'message', resolved: true };
+			if (msg) return { text: msg.content, label: 'message', resolved: true };
 			// Legacy fallback if present
 			return { text: inline, label: 'message · unresolved', resolved: inline !== '' };
 		}
@@ -65,6 +65,14 @@ export function resolveBlockContent(block: TracedBlock): ResolvedContent {
 			if (text !== null) return { text, label: characterPartLabel(ref.part), resolved: true };
 			// Legacy fallback if present
 			return { text: inline, label: characterPartLabel(ref.part), resolved: inline !== '' };
+		}
+
+		case 'persona': {
+			const label = `persona · ${ref.persona.name}`;
+			const text = ref.persona.description ?? '';
+			if (text !== '') return { text, label, resolved: true };
+			// Legacy fallback if present
+			return { text: inline, label, resolved: inline !== '' };
 		}
 
 		case 'plugin':

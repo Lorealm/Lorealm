@@ -7,7 +7,7 @@ use crate::{
     errors::ContextError,
     services::context::{
         CharacterPart, ContentRef, SettingDefinition, SettingType, SourceDefinition,
-        SourceNodeDefinition, SourceType,
+        SourceNodeDefinition, SourceType, builtin::text_block,
     },
 };
 
@@ -136,18 +136,6 @@ impl ContextSource for CharacterResolver {
         };
 
         Ok(blocks)
-    }
-}
-
-fn text_block(role: PromptRole, content: &str, content_ref: ContentRef) -> Vec<ResolvedBlock> {
-    if content.is_empty() {
-        Vec::new()
-    } else {
-        vec![ResolvedBlock {
-            role,
-            content: content.to_string(),
-            content_ref,
-        }]
     }
 }
 

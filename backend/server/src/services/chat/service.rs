@@ -464,6 +464,7 @@ impl ChatService {
             let ctx = ResolveContext {
                 character: character.as_ref(),
                 messages: &thread,
+                persona: persona.as_ref(),
                 user_id: spec.owner,
                 state: baseline,
                 lorebook_state: Mutex::new(None),
@@ -525,7 +526,6 @@ impl ChatService {
         user_id: Snowflake,
         convo: &Conversation,
     ) -> Result<AgentSpec, ChatError> {
-        tracing::info!("evaluating spec");
         Ok(AgentSpec {
             owner: user_id,
             character: Some(Self::convo_character(convo)?),
