@@ -35,6 +35,7 @@ pub enum CharacterEdit {
     ReorderExamples { ids: Vec<Snowflake> },
     SetTags { tags: Vec<String> },
     SetAltNames { alt_names: Vec<String> },
+    SetWidgets { widget_ids: Vec<Snowflake> },
 }
 
 #[derive(Serialize)]

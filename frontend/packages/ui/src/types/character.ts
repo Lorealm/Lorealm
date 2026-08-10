@@ -19,6 +19,7 @@ export interface Character {
 	metadata: CharacterMetadata;
 	definition: CharacterDefinition;
 	lorebook_id?: Snowflake;
+	widget_ids: Snowflake[];
 	/** CCv3 round-trip preservation. Opaque JSON blob. */
 	extensions: unknown;
 }
@@ -103,7 +104,8 @@ export type CharacterEdit =
 	| { op: 'reorder_examples'; ids: Snowflake[] }
 	// whole-list replace
 	| { op: 'set_tags'; tags: string[] }
-	| { op: 'set_alt_names'; alt_names: string[] };
+	| { op: 'set_alt_names'; alt_names: string[] }
+	| { op: 'set_widgets'; widget_ids: Snowflake[] };
 
 export interface EditDefinition {
 	name?: string | null;

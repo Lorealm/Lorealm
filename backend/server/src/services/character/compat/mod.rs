@@ -177,6 +177,7 @@ pub(super) fn convert_from_ccv2(
         user_id: owner,
         current_version_id: snowflake.generate(),
         lorebook_id: lorebook.as_ref().map(|(book, _)| book.id),
+        widget_ids: Vec::new(),
         extensions,
         metadata: CharacterMetadata {
             display_name: lorealm_ext.display_name,

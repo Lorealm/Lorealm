@@ -13,6 +13,8 @@ pub struct Character {
     pub metadata: CharacterMetadata,
     pub definition: CharacterDefinition,
     pub lorebook_id: Option<Snowflake>,
+    #[serde(default)]
+    pub widget_ids: Vec<Snowflake>,
 
     // CCv3 round-trip preservation. Opaque JSON blob of anything
     // we didn't recognize on import. Never consumed internally.

@@ -173,6 +173,11 @@ pub async fn edit_character(
                     .set_alt_names(character_id, session.user_id, alt_names)
                     .await?
             }
+            CharacterEdit::SetWidgets { widget_ids } => {
+                char_service
+                    .set_widgets(character_id, session.user_id, widget_ids)
+                    .await?
+            }
         };
     }
     Ok(Json(latest_char))

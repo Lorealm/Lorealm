@@ -78,6 +78,7 @@ impl CharacterService {
                 ..Default::default()
             },
             lorebook_id: None,
+            widget_ids: Vec::new(),
             extensions: serde_json::Value::Null,
         };
 
@@ -490,6 +491,40 @@ impl CharacterService {
     ) -> Result<Character, CharacterError> {
         let mut char = self.get_character_for_edit(character_id, user_id).await?;
         char.character.metadata.tags = tags;
+
+        self.storage
+            .save_character(&char.character, char.save_mode)
+            .await?;
+
+        Ok(char.character)
+    }
+
+    /// Replace the character's attached widgets. Ids are resolved against the
+    /// caller's own widgets, de-duplicated, and stored in the order given.
+    pub async fn set_widgets(
+        &self,
+        character_id: Snowflake,
+        user_id: Snowflake,
+        widget_ids: Vec<Snowflake>,
+    ) -> Result<Character, CharacterError> {
+        let mut resolved: Vec<Snowflake> = Vec::with_capacity(widget_ids.len());
+        for id in widget_ids {
+            if resolved.contains(&id) {
+                continue;
+            }
+            let widget = self
+                .storage
+                .get_widget(id)
+                .await?
+                .ok_or(CharacterError::NotFound(TargetType::UserWidget, id))?;
+            if widget.user_id != user_id {
+                return Err(CharacterError::NotOwned(id));
+            }
+            resolved.push(id);
+        }
+
+        let mut char = self.get_character_for_edit(character_id, user_id).await?;
+        char.character.widget_ids = resolved;
 
         self.storage
             .save_character(&char.character, char.save_mode)
