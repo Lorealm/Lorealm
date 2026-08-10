@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { characterStore } from '$lib/stores/character.svelte.js';
 	import { studioStore } from '$lib/stores/studio.svelte';
+	import { userWidgetStore } from '$lib/stores/userWidgets.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import TagField from './TagField.svelte';
 	import ContextField from '$lib/components/ContextField.svelte';
@@ -23,6 +24,7 @@
 		| 'prompts'
 		| 'greetings'
 		| 'examples'
+		| 'widgets'
 		| 'authoring'
 		| 'history';
 	let section = $state<Section>('identity');
@@ -33,9 +35,26 @@
 		{ key: 'prompts', label: 'Prompts' },
 		{ key: 'greetings', label: 'Greetings', count: () => draft?.greetings.length ?? 0 },
 		{ key: 'examples', label: 'Examples', count: () => draft?.examples.length ?? 0 },
+		{ key: 'widgets', label: 'Widgets', count: () => draft?.widget_ids.length ?? 0 },
 		{ key: 'authoring', label: 'Authoring' },
 		{ key: 'history', label: 'History', count: () => characterStore.versions.length }
 	];
+
+	const allWidgets = $derived(userWidgetStore.loadedWidgets ?? []);
+	const unattached = $derived(allWidgets.filter((w) => !characterStore.isWidgetAttached(w.id)));
+
+	onMount(() => {
+		if (!userWidgetStore.loadedWidgets) void userWidgetStore.loadWidgets();
+	});
+
+	function toggleWidget(id: Snowflake) {
+		characterStore.toggleWidget(id);
+		requestSave();
+	}
+	function moveWidget(i: number, dir: -1 | 1) {
+		characterStore.moveWidget(i, dir);
+		requestSave();
+	}
 
 	const currentVersion = $derived(
 		characterStore.versions.find((v) => v.id === characterStore.currentVersionId) ?? null
@@ -348,6 +367,85 @@
 										requestSave();
 									}}
 								/>
+							</div>
+						{/each}
+					{:else if section === 'widgets'}
+						<h1>Widgets</h1>
+						<p class="hint">
+							Widgets attached here travel with the character and run in every chat with it, whether
+							or not they are enabled in the Widgets studio.
+						</p>
+
+						{#if draft.widget_ids.length === 0}
+							<p class="empty">No widgets attached.</p>
+						{/if}
+						{#each draft.widget_ids as widgetId, i (widgetId)}
+							{@const widget = userWidgetStore.byId(widgetId)}
+							<div class="item-card">
+								<div class="widget-row">
+									<div class="widget-meta">
+										<span class="widget-name">{widget?.name ?? 'Unknown widget'}</span>
+										{#if widget}
+											<span class="widget-tag">{widget.placement}</span>
+											{#if widget.placement === 'widget'}
+												<span class="widget-tag">{widget.mode}</span>
+											{/if}
+										{:else}
+											<span class="widget-tag missing">missing — {widgetId}</span>
+										{/if}
+									</div>
+									<div class="item-actions">
+										<button
+											type="button"
+											aria-label="Move up"
+											disabled={i === 0}
+											onclick={() => moveWidget(i, -1)}>↑</button
+										>
+										<button
+											type="button"
+											aria-label="Move down"
+											disabled={i === draft.widget_ids.length - 1}
+											onclick={() => moveWidget(i, 1)}>↓</button
+										>
+										<button
+											type="button"
+											class="danger"
+											aria-label="Detach"
+											onclick={() => toggleWidget(widgetId)}>✕</button
+										>
+									</div>
+								</div>
+								{#if widget?.description}
+									<p class="widget-desc">{widget.description}</p>
+								{/if}
+							</div>
+						{/each}
+
+						<h2 class="sub">Available</h2>
+						{#if unattached.length === 0}
+							<p class="empty">
+								{allWidgets.length === 0
+									? 'No widgets authored yet. Create one in the Widgets studio.'
+									: 'Every widget is already attached.'}
+							</p>
+						{/if}
+						{#each unattached as widget (widget.id)}
+							<div class="item-card">
+								<div class="widget-row">
+									<div class="widget-meta">
+										<span class="widget-name">{widget.name}</span>
+										<span class="widget-tag">{widget.placement}</span>
+										{#if widget.placement === 'widget'}
+											<span class="widget-tag">{widget.mode}</span>
+										{/if}
+									</div>
+									<div class="item-actions">
+										<button type="button" onclick={() => toggleWidget(widget.id)}>＋ Attach</button>
+									</div>
+								</div>
+								{#if widget.description}
+									<p class="widget-desc">{widget.description}</p>
+								{/if}
 							</div>
 						{/each}
 					{:else if section === 'authoring'}
@@ -663,6 +761,45 @@
 		display: flex;
 		align-items: center;
 		justify-content: flex-end;
+	}
+	.sub {
+		font-size: var(--font-size-md);
+		margin: var(--spacing-md) 0 0;
+	}
+	.widget-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--spacing-sm);
+	}
+	.widget-meta {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		min-width: 0;
+	}
+	.widget-name {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		color: var(--color-text-primary);
+	}
+	.widget-tag {
+		flex: 0 0 auto;
+		background-color: var(--color-bg-elevated-3);
+		color: var(--color-text-secondary);
+		border-radius: var(--radius-full);
+		padding: 0 var(--spacing-sm);
+		font-size: var(--font-size-xs);
+	}
+	.widget-tag.missing {
+		background-color: var(--color-error-bg);
+		color: var(--color-error-text);
+	}
+	.widget-desc {
+		margin: 0;
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
 	}
 	.item-actions {
 		display: flex;

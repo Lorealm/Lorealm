@@ -47,6 +47,7 @@ export interface CharacterDraft {
 	post_history_instructions: string;
 	greetings: DraftGreeting[];
 	examples: DraftExample[];
+	widget_ids: Snowflake[];
 }
 
 class CharacterStore {
@@ -212,6 +213,20 @@ class CharacterStore {
 		swap(this._draft?.examples, index, index + dir);
 	}
 
+	isWidgetAttached(id: Snowflake): boolean {
+		return this._draft?.widget_ids.includes(id) ?? false;
+	}
+	toggleWidget(id: Snowflake) {
+		const draft = this._draft;
+		if (!draft) return;
+		const at = draft.widget_ids.indexOf(id);
+		if (at === -1) draft.widget_ids.push(id);
+		else draft.widget_ids.splice(at, 1);
+	}
+	moveWidget(index: number, dir: -1 | 1) {
+		swap(this._draft?.widget_ids, index, index + dir);
+	}
+
 	#diffEdits(): CharacterEdit[] {
 		if (!this.#baseline || !this._draft) return [];
 		return diffCharacter(this.#baseline, this._draft).edits;
@@ -290,7 +305,8 @@ function buildDraft(base: Character): CharacterDraft {
 		system_prompt: base.definition.system_prompt,
 		post_history_instructions: base.definition.post_history_instructions,
 		greetings: orderedGreetings(base).map((g) => ({ id: g.id, text: g.text })),
-		examples: orderedExamples(base).map((e) => ({ id: e.id, content: e.content }))
+		examples: orderedExamples(base).map((e) => ({ id: e.id, content: e.content })),
+		widget_ids: [...(base.widget_ids ?? [])]
 	};
 }
 
@@ -339,6 +355,8 @@ function diffCharacter(
 		edits.push({ op: 'set_tags', tags: [...draft.tags] });
 	if (!arrayEq(draft.alt_names, base.metadata.alt_names))
 		edits.push({ op: 'set_alt_names', alt_names: [...draft.alt_names] });
+	if (!arrayEq(draft.widget_ids, base.widget_ids ?? []))
+		edits.push({ op: 'set_widgets', widget_ids: [...draft.widget_ids] });
 
 	// greetings
 	diffList(

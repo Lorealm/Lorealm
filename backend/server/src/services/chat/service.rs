@@ -402,11 +402,28 @@ impl ChatService {
         })
     }
 
-    async fn enabled_widgets(
+    /// The widgets in play for a turn
+    async fn active_widgets(
         &self,
         user_id: Snowflake,
+        attached: &[Snowflake],
     ) -> Result<(Vec<String>, Vec<Snowflake>, Vec<AttachmentSpec>), ChatError> {
-        let widgets = self.storage.list_enabled_widgets(user_id).await?;
+        let mut widgets = self.storage.list_enabled_widgets(user_id).await?;
+        for &id in attached {
+            if widgets.iter().any(|w| w.id == id) {
+                continue;
+            }
+            // A widget deleted out from under the character just drops out.
+            let Some(widget) = self.storage.get_widget(id).await? else {
+                tracing::warn!("A character-bound widget was to be loaded, but count not be found: {id}");
+                continue;
+            };
+            if widget.user_id != user_id {
+                continue;
+            }
+            widgets.push(widget);
+        }
+
         let mut prompts = Vec::new();
         let mut tools = Vec::new();
         let mut catalog = Vec::new();
@@ -581,7 +598,17 @@ impl ChatService {
         // "Use this user's active selections." A Realm agent supplies its own spec.
         let spec = self.active_spec(user_id, &convo).await?;
 
-        let (widget_prompts, widget_tools, attachments) = self.enabled_widgets(user_id).await?;
+        let attached = match spec.character {
+            Some((cid, cvid)) => {
+                self.characters
+                    .load_version(cid, cvid, user_id)
+                    .await?
+                    .widget_ids
+            }
+            None => Vec::new(),
+        };
+        let (widget_prompts, widget_tools, attachments) =
+            self.active_widgets(user_id, &attached).await?;
 
         let Prepared {
             mut prompt,

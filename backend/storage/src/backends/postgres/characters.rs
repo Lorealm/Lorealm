@@ -63,8 +63,11 @@ impl CharacterStorage for PostgresStorage {
         let tags = fetch_tags(&self.pool, id).await?;
         let greetings = fetch_greetings(&self.pool, id).await?;
         let examples = fetch_examples(&self.pool, id).await?;
+        let widgets = fetch_widgets(&self.pool, id).await?;
 
-        Ok(Some(row.into_character(tags, greetings, examples)?))
+        Ok(Some(row.into_character(
+            tags, greetings, examples, widgets,
+        )?))
     }
 
     async fn get_character_at_version(
@@ -86,7 +89,13 @@ impl CharacterStorage for PostgresStorage {
         .fetch_optional(&self.pool)
         .await?;
 
-        row.map(CharacterVersionRow::into_character).transpose()
+        let Some(row) = row else { return Ok(None) };
+
+        // Attachments live on the head, so an older version still reports the
+        // character's current widget set.
+        let widgets = fetch_widgets(&self.pool, row.character_id).await?;
+
+        Ok(Some(row.into_character(widgets)?))
     }
 
     async fn list_characters_by_owner(
@@ -114,7 +123,8 @@ impl CharacterStorage for PostgresStorage {
             let tags = fetch_tags(&self.pool, id).await?;
             let greetings = fetch_greetings(&self.pool, id).await?;
             let examples = fetch_examples(&self.pool, id).await?;
-            out.push(row.into_character(tags, greetings, examples)?);
+            let widgets = fetch_widgets(&self.pool, id).await?;
+            out.push(row.into_character(tags, greetings, examples, widgets)?);
         }
         Ok(out)
     }
@@ -219,6 +229,25 @@ impl CharacterStorage for PostgresStorage {
                 .bind(tag)
                 .execute(&mut *tx)
                 .await?;
+        }
+
+        sqlx::query("DELETE FROM character_widgets WHERE character_id = $1")
+            .bind(character.id)
+            .execute(&mut *tx)
+            .await?;
+
+        for (position, widget_id) in character.widget_ids.iter().enumerate() {
+            sqlx::query(
+                r#"
+                INSERT INTO character_widgets (character_id, widget_id, position)
+                VALUES ($1, $2, $3)
+                "#,
+            )
+            .bind(character.id)
+            .bind(widget_id)
+            .bind(position as i32)
+            .execute(&mut *tx)
+            .await?;
         }
 
         sqlx::query("DELETE FROM character_greetings WHERE character_id = $1")
@@ -350,6 +379,7 @@ impl CharacterHeadRow {
         tags: Vec<String>,
         greetings: Vec<Greeting>,
         example_messages: Vec<ExampleDialogue>,
+        widget_ids: Vec<Snowflake>,
     ) -> Result<Character, StorageError> {
         let snap: PersistedSnapshot = serde_json::from_value(self.snapshot)?;
 
@@ -365,6 +395,7 @@ impl CharacterHeadRow {
             user_id: self.user_id,
             current_version_id: self.current_version_id,
             lorebook_id: self.lorebook_id,
+            widget_ids,
             extensions: self.extensions,
             metadata,
             definition,
@@ -383,7 +414,7 @@ struct CharacterVersionRow {
 }
 
 impl CharacterVersionRow {
-    fn into_character(self) -> Result<Character, StorageError> {
+    fn into_character(self, widget_ids: Vec<Snowflake>) -> Result<Character, StorageError> {
         let snap: PersistedSnapshot = serde_json::from_value(self.snapshot)?;
 
         Ok(Character {
@@ -391,6 +422,7 @@ impl CharacterVersionRow {
             user_id: self.user_id,
             current_version_id: self.version_id,
             lorebook_id: self.lorebook_id,
+            widget_ids,
             extensions: self.extensions,
             metadata: snap.metadata,
             definition: snap.definition,
@@ -439,6 +471,18 @@ async fn fetch_tags(
             .fetch_all(pool)
             .await?,
     )
+}
+
+async fn fetch_widgets(
+    pool: &sqlx::PgPool,
+    character_id: Snowflake,
+) -> Result<Vec<Snowflake>, StorageError> {
+    Ok(sqlx::query_scalar(
+        "SELECT widget_id FROM character_widgets WHERE character_id = $1 ORDER BY position ASC",
+    )
+    .bind(character_id)
+    .fetch_all(pool)
+    .await?)
 }
 
 #[derive(FromRow)]

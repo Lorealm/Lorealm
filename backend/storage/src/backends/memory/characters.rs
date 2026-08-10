@@ -53,12 +53,21 @@ impl CharacterStorage for MemoryStorage {
         _id: Snowflake,
         version_id: Snowflake,
     ) -> Result<Option<Character>, StorageError> {
-        let versions = self.character_versions.read().await;
-        Ok(versions.get(&version_id).map(|v| {
+        let mut c = {
+            let versions = self.character_versions.read().await;
+            let Some(v) = versions.get(&version_id) else {
+                return Ok(None);
+            };
             let mut c = v.character.clone();
             c.current_version_id = version_id;
             c
-        }))
+        };
+
+        if let Some(head) = self.characters.read().await.get(&c.id) {
+            c.widget_ids = head.widget_ids.clone();
+        }
+
+        Ok(Some(c))
     }
 
     async fn list_characters_by_owner(
