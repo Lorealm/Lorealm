@@ -40,7 +40,12 @@ import type {
 } from '$lib/types/lorebook.js';
 import type { SourceDefinition } from '$lib/types/node.js';
 import type { WeaverVocabulary } from '$lib/types/weaver.js';
-import type { UserPersona, UpdatePersona } from '$lib/types/persona.js';
+import type {
+	UserPersona,
+	UpdatePersona,
+	PersonaOverride,
+	SetPersonaOverride
+} from '$lib/types/persona.js';
 import type {
 	ActionSpec,
 	AgentGrant,
@@ -258,7 +263,7 @@ export function createApiClient(platform: PlatformAPI) {
 		},
 		personas: {
 			list: () => http.get<Array<UserPersona>>('/api/v1/persona'),
-			create: () => http.post('/api/v1/persona'),
+			create: () => http.post<UserPersona>('/api/v1/persona'),
 			update: (persona_id: Snowflake, update: UpdatePersona) =>
 				http.put<UserPersona>(`/api/v1/persona/${persona_id}`, update),
 			setAvatar: (persona_id: Snowflake, avatar: Blob) =>
@@ -266,6 +271,13 @@ export function createApiClient(platform: PlatformAPI) {
 			active: {
 				get: () => http.get<Snowflake | null>('/api/v1/persona/active'),
 				set: (request: SetActiveRequest) => http.put('/api/v1/persona/active', request)
+			},
+			/** Per-character persona bindings, which win over the active persona. */
+			overrides: {
+				list: () => http.get<Array<PersonaOverride>>('/api/v1/persona/overrides'),
+				set: (character_id: Snowflake, request: SetPersonaOverride) =>
+					http.put<PersonaOverride>(`/api/v1/persona/overrides/${character_id}`, request),
+				clear: (character_id: Snowflake) => http.delete(`/api/v1/persona/overrides/${character_id}`)
 			}
 		},
 		connection: {

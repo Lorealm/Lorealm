@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { EditorState, type ChangeSpec } from '@codemirror/state';
-	import { EditorView, drawSelection, keymap, tooltips } from '@codemirror/view';
+	import { EditorView, drawSelection, keymap, tooltips, placeholder } from '@codemirror/view';
 	import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
 	import { weaverSyntax } from './weaver-lang.js';
 	import { weaverHover } from './weaver-hover.js';
@@ -14,12 +14,15 @@
 	let {
 		doc = '',
 		onChange,
-		references
+		references,
+		hint = ''
 	}: {
 		doc?: string;
 		onChange?: (value: string) => void;
 		/** Supplies entry ids for `[[…]]`/`<trigger>` completion and navigation. */
 		references?: ReferenceSource;
+		/** Placeholder shown while the field is empty. */
+		hint?: string;
 	} = $props();
 
 	let host: HTMLDivElement;
@@ -62,6 +65,7 @@
 					weaverHover,
 					weaverCompletion,
 					weaverTheme,
+					...(hint ? [placeholder(hint)] : []),
 					...(references ? [weaverReferences(references)] : []),
 					fieldSizing,
 					drawSelection(),

@@ -5,6 +5,7 @@
 	import { Bot, ChevronDown, ChevronUp, Terminal, Trash2, User, X } from '@lucide/svelte';
 	import WeaverEditor from '$lib/weaver/editor/WeaverEditor.svelte';
 	import WeaverField from '$lib/weaver/editor/WeaverField.svelte';
+	import FieldShell from '$lib/components/FieldShell.svelte';
 	import Badge from './Badge.svelte';
 	import { builtinToolItems, catalogItem, realmEditor } from './realmEditor.svelte.js';
 
@@ -290,12 +291,16 @@
 			{/if}
 
 			{#if agent.kind === 'script'}
-				<div class="field">
-					<span class="fieldLabel">Weaver script</span>
-					<div class="scriptBox">
-						<WeaverEditor doc={agent.script ?? ''} onChange={(v) => edit((a) => (a.script = v))} />
-					</div>
-				</div>
+				<FieldShell label="Weaver script">
+					{#snippet editor(fill: boolean)}
+						<div class="scriptBox" class:fill>
+							<WeaverEditor
+								doc={agent.script ?? ''}
+								onChange={(v) => edit((a) => (a.script = v))}
+							/>
+						</div>
+					{/snippet}
+				</FieldShell>
 			{/if}
 
 			<div class="field">
@@ -625,6 +630,12 @@
 
 	.scriptBox {
 		display: flex;
+	}
+	/* Fill the overlay; inline the editor keeps its own natural height. */
+	.scriptBox.fill {
+		flex: 1 1 auto;
+		min-height: 0;
+		height: 100%;
 	}
 
 	.mono {

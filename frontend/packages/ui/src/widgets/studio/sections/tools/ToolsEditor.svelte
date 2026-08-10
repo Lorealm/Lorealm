@@ -4,6 +4,8 @@
 	import type { Snowflake } from '$lib/types/core.js';
 	import type { Param, ParamType } from '$lib/types/tools.js';
 	import WeaverEditor from '$lib/weaver/editor/WeaverEditor.svelte';
+	import FieldShell from '$lib/components/FieldShell.svelte';
+	import ContextField from '$lib/components/ContextField.svelte';
 
 	const SAVE_MS = 500;
 	const MAX_DEPTH = 3; // UI cap on array nesting
@@ -57,9 +59,6 @@
 		await toolStore.deleteTool(id);
 	}
 
-	// --- ParamType <-> (base primitive + array depth) ---------------------------
-	// Every ParamType is a primitive wrapped in N array layers, so the editor
-	// works in (base, depth) and rebuilds the nested shape on each change.
 	function flatten(ty: ParamType): { base: Base; depth: number } {
 		let depth = 0;
 		let cur: ParamType = ty;
@@ -102,15 +101,7 @@
 					? 'Unsaved'
 					: 'Saved'
 	);
-
-	let bodyFullscreen = $state(false);
-
-	function onKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape' && bodyFullscreen) bodyFullscreen = false;
-	}
 </script>
-
-<svelte:window onkeydown={onKeydown} />
 
 {#snippet hint(text: string)}
 	<button type="button" class="hint" title={text} aria-label={`Help: ${text}`}>?</button>
@@ -225,18 +216,20 @@
 					/>
 				</div>
 
-				<div class="field">
-					<label for="t-desc">
-						Description {@render hint('Tells the model when and why to call this tool.')}
-					</label>
-					<textarea
-						id="t-desc"
-						rows="3"
-						readonly={readOnly}
-						bind:value={shown.description}
-						oninput={requestSave}
-					></textarea>
-				</div>
+				{#key shown.id}
+					<ContextField
+						label="Description"
+						hint="Tells the model when and why to call this tool."
+						value={shown.description}
+						rows={3}
+						{readOnly}
+						weaver={false}
+						onchange={(v) => {
+							shown.description = v;
+							requestSave();
+						}}
+					/>
+				{/key}
 
 				<div class="field">
 					<div class="params-head">
@@ -325,41 +318,12 @@
 					</div>
 				</div>
 
-				<div class="field">
-					<div class="body-head">
-						<label for="t-body">
-							Body {@render hint(
-								'weaver-lang source. Its output is returned to the model as the tool result.'
-							)}
-						</label>
-						<button
-							type="button"
-							class="fs-toggle"
-							onclick={() => (bodyFullscreen = !bodyFullscreen)}
-						>
-							{bodyFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-						</button>
-					</div>
-
-					<div
-						class="body-wrap"
-						class:fullscreen={bodyFullscreen}
-						role={bodyFullscreen ? 'dialog' : undefined}
-						aria-modal={bodyFullscreen ? 'true' : undefined}
-						aria-label={bodyFullscreen ? 'Tool body editor' : undefined}
-					>
-						{#if bodyFullscreen}
-							<div class="fs-bar">
-								<span class="fs-title mono">{shown.name || 'Untitled'} — body</span>
-								<button
-									type="button"
-									class="fs-close"
-									onclick={() => (bodyFullscreen = false)}
-									aria-label="Exit fullscreen (Esc)">✕</button
-								>
-							</div>
-						{/if}
-						<div class="body-editor">
+				<FieldShell
+					label="Body"
+					hint="weaver-lang source. Its output is returned to the model as the tool result."
+				>
+					{#snippet editor(fill: boolean)}
+						<div class="body-editor" class:fill>
 							{#key shown.id}
 								<WeaverEditor
 									doc={shown.body}
@@ -373,8 +337,8 @@
 								/>
 							{/key}
 						</div>
-					</div>
-				</div>
+					{/snippet}
+				</FieldShell>
 			</div>
 		{:else}
 			<div class="pane empty-pane">
@@ -522,7 +486,7 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	/* enable toggle: a small switch, on when the tool is enabled */
+	
 	.enable-toggle {
 		flex: 0 0 auto;
 		width: 32px;
@@ -584,70 +548,21 @@
 	.mono {
 		font-family: var(--font-family-mono);
 	}
-	.body-head {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-	.fs-toggle {
-		flex: 0 0 auto;
-		padding: var(--spacing-xs) var(--spacing-sm);
-		font-size: var(--font-size-sm);
-	}
-	.body-wrap {
-		display: flex;
-		flex-direction: column;
-		min-height: 0;
-		margin-top: var(--spacing-xs);
-	}
 	.body-editor {
 		display: flex;
 		flex-direction: column;
 		min-height: 0;
 	}
-	.body-wrap.fullscreen {
-		position: absolute;
-		inset: 0;
-		z-index: var(--z-modal, 1000);
-		margin: 0;
-		padding: var(--spacing-md);
-		gap: var(--spacing-sm);
-		background: var(--color-bg-base, var(--color-bg-elevated-3));
-	}
-	.fs-bar {
-		flex: 0 0 auto;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-	.fs-title {
-		color: var(--color-text-secondary);
-		font-size: var(--font-size-sm);
-	}
-	.fs-close {
-		flex: 0 0 auto;
-		width: 28px;
-		height: 28px;
-		padding: 0;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		background: transparent;
-		color: var(--color-text-muted);
-	}
-	.fs-close:hover {
-		color: var(--color-text-accent);
-	}
-	/* fill the viewport only in fullscreen; inline keeps the editor's natural height */
-	.body-wrap.fullscreen .body-editor {
+	
+	.body-editor.fill {
 		flex: 1 1 auto;
+		height: 100%;
 	}
-	.body-wrap.fullscreen .body-editor > :global(*) {
+	.body-editor.fill > :global(*) {
 		flex: 1 1 auto;
 		min-height: 0;
 	}
 
-	/* --- parameters --- */
 	.params-head {
 		display: flex;
 		align-items: center;
@@ -691,12 +606,12 @@
 	}
 	.param-name {
 		flex: 1 1 auto;
-		width: auto; /* override global input width:100% so flex controls the size */
-		min-width: 0; /* allow shrink below intrinsic input width */
+		width: auto;
+		min-width: 0;
 	}
 	.param-type {
 		flex: 0 0 auto;
-		width: auto; /* override global select width:100% */
+		width: auto;
 		min-width: 7rem;
 	}
 	.depth {

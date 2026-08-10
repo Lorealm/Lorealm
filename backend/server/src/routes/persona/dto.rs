@@ -10,3 +10,8 @@ pub struct AvatarUpdateResponse {
 pub(super) struct SetActiveRequest {
     pub id: Snowflake,
 }
+
+#[derive(Deserialize)]
+pub(super) struct SetOverrideRequest {
+    pub persona_id: Snowflake,
+}

@@ -24,4 +24,9 @@ pub trait PersonaStorage: Send + Sync {
         &self,
         character_id: Snowflake,
     ) -> Result<Option<PersonaOverride>, StorageError>;
+    async fn list_overrides(
+        &self,
+        user_id: Snowflake,
+    ) -> Result<Vec<PersonaOverride>, StorageError>;
+    async fn delete_override(&self, character_id: Snowflake) -> Result<(), StorageError>;
 }

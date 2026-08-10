@@ -4,6 +4,7 @@
 	import { studioStore } from '$lib/stores/studio.svelte';
 	import type { Snowflake } from '$lib/types/core.js';
 	import TagField from './TagField.svelte';
+	import ContextField from '$lib/components/ContextField.svelte';
 	import { DateTime } from 'luxon';
 
 	const SAVE_MS = 500;
@@ -48,7 +49,6 @@
 		const cid = id;
 		untrack(() => {
 			section = 'identity';
-			maximized = null;
 			void characterStore.startEditing(cid);
 		});
 	});
@@ -104,19 +104,6 @@
 		}
 	}
 
-	let maximizedValue = $state('');
-	let maximized = $state<{ title: string; set: (v: string) => void } | null>(null);
-	function maximize(title: string, get: () => string, set: (v: string) => void) {
-		maximizedValue = get();
-		maximized = { title, set };
-	}
-	function minimize() {
-		maximized = null;
-	}
-	function autofocus(node: HTMLTextAreaElement) {
-		node.focus();
-	}
-
 	// beautiful
 	const saveLabel = $derived(
 		save.status === 'saving'
@@ -140,14 +127,17 @@
 	style="display:none"
 />
 
-{#snippet maxBtn(title: string, get: () => string, set: (v: string) => void)}
-	<button
-		type="button"
-		class="maximize"
-		title="Maximize"
-		aria-label={`Maximize ${title}`}
-		onclick={() => maximize(title, get, set)}>⤢</button
-	>
+{#snippet field(label: string, hint: string, get: () => string, set: (v: string) => void, rows = 6)}
+	<ContextField
+		{label}
+		hint={hint || undefined}
+		value={get()}
+		{rows}
+		onchange={(v) => {
+			set(v);
+			requestSave();
+		}}
+	/>
 {/snippet}
 
 <div class="character-editor">
@@ -197,262 +187,219 @@
 
 	<section class="col-content">
 		{#if draft}
-			<div class="pane">
-				{#if section === 'identity'}
-					<h1>Identity</h1>
-					<div class="identity-top">
-						<div class="avatar">
-							{#if characterStore.avatarUrl}
-								<img src={characterStore.avatarUrl} alt={`${draft.name} avatar`} />
-							{:else}
-								<div class="avatar-placeholder" aria-hidden="true"></div>
-							{/if}
-							<button onclick={openPicker} disabled={busy} class="pickFile">
-								{busy ? 'Uploading…' : 'Change avatar'}</button
-							>
-						</div>
-						<div class="identity-fields">
-							<label for="f-name">Name <span class="req">in-chat, {`{{char:name}}`}</span></label>
-							<input id="f-name" bind:value={draft.name} oninput={requestSave} />
+			{#key draft}
+				<div class="pane">
+					{#if section === 'identity'}
+						<h1>Identity</h1>
+						<div class="identity-top">
+							<div class="avatar">
+								{#if characterStore.avatarUrl}
+									<img src={characterStore.avatarUrl} alt={`${draft.name} avatar`} />
+								{:else}
+									<div class="avatar-placeholder" aria-hidden="true"></div>
+								{/if}
+								<button onclick={openPicker} disabled={busy} class="pickFile">
+									{busy ? 'Uploading…' : 'Change avatar'}</button
+								>
+							</div>
+							<div class="identity-fields">
+								<label for="f-name">Name <span class="req">in-chat, {`{{char:name}}`}</span></label>
+								<input id="f-name" bind:value={draft.name} oninput={requestSave} />
 
-							<label for="f-display">Display name</label>
-							<input
-								id="f-display"
-								placeholder={draft.name}
-								bind:value={draft.display_name}
-								oninput={requestSave}
-							/>
+								<label for="f-display">Display name</label>
+								<input
+									id="f-display"
+									placeholder={draft.name}
+									bind:value={draft.display_name}
+									oninput={requestSave}
+								/>
+							</div>
 						</div>
-					</div>
 
-					<TagField label="Tags" items={draft.tags} onchange={requestSave} placeholder="Add tag…" />
-					<TagField
-						label="Alternate names"
-						items={draft.alt_names}
-						onchange={requestSave}
-						placeholder="Add name…"
-					/>
-				{:else if section === 'persona'}
-					<h1>Persona</h1>
-					<label for="f-desc">Description</label>
-					<div class="expandable">
-						<textarea id="f-desc" rows="8" bind:value={draft.description} oninput={requestSave}
-						></textarea>
-						{@render maxBtn(
+						<TagField
+							label="Tags"
+							items={draft.tags}
+							onchange={requestSave}
+							placeholder="Add tag…"
+						/>
+						<TagField
+							label="Alternate names"
+							items={draft.alt_names}
+							onchange={requestSave}
+							placeholder="Add name…"
+						/>
+					{:else if section === 'persona'}
+						<h1>Persona</h1>
+						{@render field(
 							'Description',
+							'The main character definition. Reaches the model through the Description node.',
 							() => draft.description,
-							(v) => (draft.description = v)
+							(v) => (draft.description = v),
+							8
 						)}
-					</div>
-
-					<label for="f-pers">Personality</label>
-					<div class="expandable">
-						<textarea id="f-pers" rows="6" bind:value={draft.personality} oninput={requestSave}
-						></textarea>
-						{@render maxBtn(
+						{@render field(
 							'Personality',
+							'Traits and behaviour, placed by the Personality node.',
 							() => draft.personality,
 							(v) => (draft.personality = v)
 						)}
-					</div>
-
-					<label for="f-scen">Scenario</label>
-					<div class="expandable">
-						<textarea id="f-scen" rows="6" bind:value={draft.scenario} oninput={requestSave}
-						></textarea>
-						{@render maxBtn(
+						{@render field(
 							'Scenario',
+							'The situation the roleplay opens in, placed by the Scenario node.',
 							() => draft.scenario,
 							(v) => (draft.scenario = v)
 						)}
-					</div>
-				{:else if section === 'prompts'}
-					<h1>Prompts</h1>
-					<label for="f-sys">System prompt</label>
-					<div class="expandable">
-						<textarea id="f-sys" rows="8" bind:value={draft.system_prompt} oninput={requestSave}
-						></textarea>
-						{@render maxBtn(
+					{:else if section === 'prompts'}
+						<h1>Prompts</h1>
+						{@render field(
 							'System prompt',
+							'Overrides the template’s system prompt for this character.',
 							() => draft.system_prompt,
-							(v) => (draft.system_prompt = v)
+							(v) => (draft.system_prompt = v),
+							8
 						)}
-					</div>
-
-					<label for="f-phi">Post-history instructions</label>
-					<div class="expandable">
-						<textarea
-							id="f-phi"
-							rows="6"
-							bind:value={draft.post_history_instructions}
-							oninput={requestSave}
-						></textarea>
-						{@render maxBtn(
+						{@render field(
 							'Post-history instructions',
+							'Placed after the chat history, closest to the model’s reply.',
 							() => draft.post_history_instructions,
 							(v) => (draft.post_history_instructions = v)
 						)}
-					</div>
-				{:else if section === 'greetings'}
-					<div class="section-head">
-						<h1>Greetings</h1>
-						<button type="button" class="add" onclick={addGreeting}>＋ Greeting</button>
-					</div>
-					{#if draft.greetings.length === 0}
-						<p class="empty">No greetings yet.</p>
-					{/if}
-					{#each draft.greetings as greeting, i (greeting)}
-						<div class="item-card">
-							<div class="item-bar">
-								<span class="item-label">Greeting {i + 1}</span>
-								<div class="item-actions">
-									<button
-										type="button"
-										aria-label="Move up"
-										disabled={i === 0}
-										onclick={() => moveGreeting(i, -1)}>↑</button
-									>
-									<button
-										type="button"
-										aria-label="Move down"
-										disabled={i === draft.greetings.length - 1}
-										onclick={() => moveGreeting(i, 1)}>↓</button
-									>
-									<button
-										type="button"
-										class="danger"
-										aria-label="Remove"
-										onclick={() => removeGreeting(i)}>✕</button
-									>
+					{:else if section === 'greetings'}
+						<div class="section-head">
+							<h1>Greetings</h1>
+							<button type="button" class="add" onclick={addGreeting}>＋ Greeting</button>
+						</div>
+						{#if draft.greetings.length === 0}
+							<p class="empty">No greetings yet.</p>
+						{/if}
+						{#each draft.greetings as greeting, i (greeting)}
+							<div class="item-card">
+								<div class="item-bar">
+									<div class="item-actions">
+										<button
+											type="button"
+											aria-label="Move up"
+											disabled={i === 0}
+											onclick={() => moveGreeting(i, -1)}>↑</button
+										>
+										<button
+											type="button"
+											aria-label="Move down"
+											disabled={i === draft.greetings.length - 1}
+											onclick={() => moveGreeting(i, 1)}>↓</button
+										>
+										<button
+											type="button"
+											class="danger"
+											aria-label="Remove"
+											onclick={() => removeGreeting(i)}>✕</button
+										>
+									</div>
 								</div>
+								<ContextField
+									value={greeting.text}
+									rows={4}
+									onchange={(v) => {
+										greeting.text = v;
+										requestSave();
+									}}
+									label={`Greeting ${i + 1}`}
+								/>
 							</div>
-							<div class="expandable">
-								<textarea rows="4" bind:value={greeting.text} oninput={requestSave}></textarea>
-								{@render maxBtn(
-									`Greeting ${i + 1}`,
-									() => greeting.text,
-									(v) => (greeting.text = v)
-								)}
-							</div>
+						{/each}
+					{:else if section === 'examples'}
+						<div class="section-head">
+							<h1>Example dialogues</h1>
+							<button type="button" class="add" onclick={addExample}>＋ Example</button>
 						</div>
-					{/each}
-				{:else if section === 'examples'}
-					<div class="section-head">
-						<h1>Example dialogues</h1>
-						<button type="button" class="add" onclick={addExample}>＋ Example</button>
-					</div>
-					{#if draft.examples.length === 0}
-						<p class="empty">No example dialogues yet.</p>
-					{/if}
-					{#each draft.examples as example, i (example)}
-						<div class="item-card">
-							<div class="item-bar">
-								<span class="item-label">Example {i + 1}</span>
-								<div class="item-actions">
-									<button
-										type="button"
-										aria-label="Move up"
-										disabled={i === 0}
-										onclick={() => moveExample(i, -1)}>↑</button
-									>
-									<button
-										type="button"
-										aria-label="Move down"
-										disabled={i === draft.examples.length - 1}
-										onclick={() => moveExample(i, 1)}>↓</button
-									>
-									<button
-										type="button"
-										class="danger"
-										aria-label="Remove"
-										onclick={() => removeExample(i)}>✕</button
-									>
+						{#if draft.examples.length === 0}
+							<p class="empty">No example dialogues yet.</p>
+						{/if}
+						{#each draft.examples as example, i (example)}
+							<div class="item-card">
+								<div class="item-bar">
+									<div class="item-actions">
+										<button
+											type="button"
+											aria-label="Move up"
+											disabled={i === 0}
+											onclick={() => moveExample(i, -1)}>↑</button
+										>
+										<button
+											type="button"
+											aria-label="Move down"
+											disabled={i === draft.examples.length - 1}
+											onclick={() => moveExample(i, 1)}>↓</button
+										>
+										<button
+											type="button"
+											class="danger"
+											aria-label="Remove"
+											onclick={() => removeExample(i)}>✕</button
+										>
+									</div>
 								</div>
+								<ContextField
+									label={`Example ${i + 1}`}
+									value={example.content}
+									rows={5}
+									onchange={(v) => {
+										example.content = v;
+										requestSave();
+									}}
+								/>
 							</div>
-							<div class="expandable">
-								<textarea rows="5" bind:value={example.content} oninput={requestSave}></textarea>
-								{@render maxBtn(
-									`Example ${i + 1}`,
-									() => example.content,
-									(v) => (example.content = v)
-								)}
+						{/each}
+					{:else if section === 'authoring'}
+						<h1>Authoring</h1>
+						<label for="f-creator">Creator</label>
+						<input id="f-creator" bind:value={draft.creator} oninput={requestSave} />
+
+						<label for="f-version">Card version</label>
+						<input id="f-version" bind:value={draft.card_version} oninput={requestSave} />
+
+						<ContextField
+							label="Creator notes"
+							hint="Notes for whoever opens this card. Never sent to the model."
+							value={draft.creator_notes}
+							rows={6}
+							tokens={false}
+							weaver={false}
+							onchange={(v) => {
+								draft.creator_notes = v;
+								requestSave();
+							}}
+						/>
+
+						{#if characterStore.lorebookId}
+							<p class="hint">Linked lorebook: {characterStore.lorebookId}</p>
+						{/if}
+					{:else if section === 'history'}
+						<h1>History</h1>
+						<p class="hint">
+							Edits made close together are grouped into one version. A new version starts after a
+							period of inactivity.
+						</p>
+						{#if characterStore.versions.length === 0}
+							<p class="empty">No versions recorded yet.</p>
+						{/if}
+						{#each characterStore.versions as v (v.id)}
+							<div class="version-item" class:current={v.id === characterStore.currentVersionId}>
+								<div class="version-item-main">
+									<span class="version-item-num">v{v.version_num}</span>
+									<span class="version-item-card">{v.card_version}</span>
+									{#if v.id === characterStore.currentVersionId}
+										<span class="version-item-tag">current</span>
+									{/if}
+								</div>
+								<span class="version-item-date">{formatDate(v.created_at)}</span>
 							</div>
-						</div>
-					{/each}
-				{:else if section === 'authoring'}
-					<h1>Authoring</h1>
-					<label for="f-creator">Creator</label>
-					<input id="f-creator" bind:value={draft.creator} oninput={requestSave} />
-
-					<label for="f-version">Card version</label>
-					<input id="f-version" bind:value={draft.card_version} oninput={requestSave} />
-
-					<label for="f-notes">Creator notes</label>
-					<div class="expandable">
-						<textarea id="f-notes" rows="6" bind:value={draft.creator_notes} oninput={requestSave}
-						></textarea>
-						{@render maxBtn(
-							'Creator notes',
-							() => draft.creator_notes,
-							(v) => (draft.creator_notes = v)
-						)}
-					</div>
-
-					{#if characterStore.lorebookId}
-						<p class="hint">Linked lorebook: {characterStore.lorebookId}</p>
+						{/each}
 					{/if}
-				{:else if section === 'history'}
-					<h1>History</h1>
-					<p class="hint">
-						Edits made close together are grouped into one version. A new version starts after a
-						period of inactivity.
-					</p>
-					{#if characterStore.versions.length === 0}
-						<p class="empty">No versions recorded yet.</p>
-					{/if}
-					{#each characterStore.versions as v (v.id)}
-						<div class="version-item" class:current={v.id === characterStore.currentVersionId}>
-							<div class="version-item-main">
-								<span class="version-item-num">v{v.version_num}</span>
-								<span class="version-item-card">{v.card_version}</span>
-								{#if v.id === characterStore.currentVersionId}
-									<span class="version-item-tag">current</span>
-								{/if}
-							</div>
-							<span class="version-item-date">{formatDate(v.created_at)}</span>
-						</div>
-					{/each}
-				{/if}
-			</div>
+				</div>
+			{/key}
 		{/if}
 	</section>
-
-	{#if maximized}
-		<div class="maximize-overlay">
-			<div class="maximize-bar">
-				<span class="maximize-title">{maximized.title}</span>
-				<button
-					type="button"
-					class="maximize-close"
-					title="Minimize"
-					aria-label="Minimize"
-					onclick={minimize}>⤡ Minimize</button
-				>
-			</div>
-			<textarea
-				class="maximize-area"
-				use:autofocus
-				bind:value={maximizedValue}
-				oninput={() => {
-					maximized?.set(maximizedValue);
-					requestSave();
-				}}
-				onkeydown={(e) => {
-					if (e.key === 'Escape') minimize();
-				}}
-			></textarea>
-		</div>
-	{/if}
 </div>
 
 <style>
@@ -715,11 +662,7 @@
 	.item-bar {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
-	}
-	.item-label {
-		color: var(--color-text-secondary);
-		font-size: var(--font-size-sm);
+		justify-content: flex-end;
 	}
 	.item-actions {
 		display: flex;
@@ -739,65 +682,5 @@
 	}
 	label {
 		margin-top: var(--spacing-xs);
-	}
-
-	/* --- expandable text fields --- */
-	.expandable {
-		position: relative;
-	}
-	.maximize {
-		position: absolute;
-		top: var(--spacing-xs);
-		right: var(--spacing-sm);
-		padding: 2px 6px;
-		background-color: var(--color-bg-elevated-3);
-		color: var(--color-text-secondary);
-		border-radius: var(--radius-sm);
-		font-size: var(--font-size-sm);
-		line-height: 1;
-		opacity: 0;
-		transition: opacity var(--transition-fast) var(--easing-default);
-	}
-	.expandable:hover .maximize,
-	.expandable:focus-within .maximize,
-	.maximize:focus-visible {
-		opacity: 0.7;
-	}
-	.maximize:hover {
-		opacity: 1;
-		background-color: var(--color-hover);
-		color: var(--color-text-accent);
-	}
-
-	/* --- maximize overlay --- */
-	.maximize-overlay {
-		position: absolute;
-		inset: 0;
-		z-index: var(--z-index-elevated);
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-lg);
-		background-color: var(--color-bg-base);
-	}
-	.maximize-bar {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		flex: 0 0 auto;
-	}
-	.maximize-title {
-		color: var(--color-text-primary);
-		font-family: var(--font-family-heading);
-		font-size: var(--font-size-md);
-	}
-	.maximize-close {
-		font-size: var(--font-size-sm);
-		padding: var(--spacing-xs) var(--spacing-sm);
-	}
-	.maximize-area {
-		flex: 1 1 auto;
-		min-height: 0;
-		resize: none;
 	}
 </style>

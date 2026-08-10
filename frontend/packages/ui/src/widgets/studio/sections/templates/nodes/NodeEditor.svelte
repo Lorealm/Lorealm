@@ -4,6 +4,8 @@
 	import type { ContextNode, NodeContent } from '$lib/types/node.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import NodeSettings from './NodeSettings.svelte';
+	import FieldShell from '$lib/components/FieldShell.svelte';
+	import WeaverArea from '$lib/weaver/editor/WeaverArea.svelte';
 
 	type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -18,6 +20,7 @@
 	// Local buffer for the text body
 	let text = $state('');
 	let lastId: Snowflake | null = null;
+	let syncedId = $state<Snowflake | null>(null);
 	let timer: ReturnType<typeof setTimeout> | null = null;
 	let pending: { id: Snowflake; content: NodeContent } | null = null;
 
@@ -30,11 +33,12 @@
 			lastId = nid;
 			saveState = 'idle';
 			text = n && n.content.type === 'text' ? n.content.content : '';
+			syncedId = nid;
 		});
 	});
 
-	function onInput(e: Event) {
-		text = (e.currentTarget as HTMLTextAreaElement).value;
+	function onInput(next: string) {
+		text = next;
 		const n = node;
 		if (!n || n.content.type !== 'text') return;
 		pending = { id: n.id, content: { type: 'text', content: text, role: n.content.role } };
@@ -70,16 +74,13 @@
 
 		{#if node.content.type === 'text'}
 			<div class="content-region">
-				<span class="content-label">Content</span>
-				<!-- TODO: weaver editor (?) -->
-				<textarea
-					class="content-input"
-					value={text}
-					oninput={onInput}
-					onblur={() => void flush()}
-					placeholder="Empty prompt"
-					spellcheck="false"
-				></textarea>
+				<FieldShell label="Content" tokenText={text} fill>
+					{#snippet editor(fill: boolean)}
+						{#key syncedId}
+							<WeaverArea doc={text} onChange={onInput} hint="Empty prompt" fill autofocus={fill} />
+						{/key}
+					{/snippet}
+				</FieldShell>
 			</div>
 		{/if}
 	{/if}
@@ -126,15 +127,5 @@
 		flex-direction: column;
 		gap: var(--spacing-xs);
 		padding: var(--spacing-lg);
-	}
-	.content-label {
-		color: var(--color-text-secondary);
-		font-size: var(--font-size-sm);
-	}
-	.content-input {
-		flex: 1;
-		height: 100%;
-		resize: none;
-		min-height: 0;
 	}
 </style>

@@ -7,6 +7,7 @@
 		type SourceNodeDefinition
 	} from '$lib/types/node.js';
 	import SourcePicker from './SourcePicker.svelte';
+	import ContextField from '$lib/components/ContextField.svelte';
 	import type { JsonValue, PromptRole } from '$lib/types/core.js';
 
 	type Kind = 'text' | 'group' | 'source';
@@ -159,14 +160,13 @@
 							<option value="assistant">Assistant</option>
 						</select>
 					</label>
-					<label class="field">
-						<span>Content</span>
-						<textarea
-							bind:value={textContent}
-							rows="4"
-							placeholder="Optional — you can edit this later"
-						></textarea>
-					</label>
+					<ContextField
+						label="Content"
+						value={textContent}
+						rows={4}
+						placeholder="Optional — you can edit this later"
+						onchange={(v) => (textContent = v)}
+					/>
 				{/if}
 
 				{#if kind === 'group'}
@@ -180,9 +180,7 @@
 					<label class="field">
 						<span>Wrap Behavior</span>
 						<div class="inline-row">
-							<select
-								bind:value={wrap}
-							>
+							<select bind:value={wrap}>
 								<option value="no_mixed">No mixed (same role only)</option>
 								<option value="majority">Majority (most common role)</option>
 								<option value="all">All (one group per role)</option>
@@ -190,9 +188,7 @@
 							</select>
 
 							{#if typeof wrap === 'object'}
-								<select
-									value={wrap.only}
-								>
+								<select value={wrap.only}>
 									<option value="system">System</option>
 									<option value="user">User</option>
 									<option value="assistant">Assistant</option>
@@ -200,19 +196,20 @@
 							{/if}
 						</div>
 					</label>
-					<label class="field">
-						<span>Prefix</span>
-						<textarea
-							bind:value={prefix}
-							rows="2"
-							placeholder="Optional (prepended before children)"
-						></textarea>
-					</label>
-					<label class="field">
-						<span>Suffix</span>
-						<textarea bind:value={suffix} rows="2" placeholder="Optional (appended after children)"
-						></textarea>
-					</label>
+					<ContextField
+						label="Prefix"
+						value={prefix}
+						rows={2}
+						placeholder="Optional (prepended before children)"
+						onchange={(v) => (prefix = v)}
+					/>
+					<ContextField
+						label="Suffix"
+						value={suffix}
+						rows={2}
+						placeholder="Optional (appended after children)"
+						onchange={(v) => (suffix = v)}
+					/>
 					<label class="check">
 						<input type="checkbox" bind:checked={alwaysIncludeWrappers} />
 						<span>Always include prefix/suffix, even if all children are disabled</span>

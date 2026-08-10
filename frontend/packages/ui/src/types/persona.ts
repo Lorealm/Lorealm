@@ -11,6 +11,16 @@ export interface UserPersona {
 	updated_at: string;
 }
 
+export interface PersonaOverride {
+	character_id: Snowflake;
+	persona_id: Snowflake;
+	user_id: Snowflake;
+}
+
+export interface SetPersonaOverride {
+	persona_id: Snowflake;
+}
+
 export interface UpdatePersona {
 	name?: string;
 	display_name?: string | null;

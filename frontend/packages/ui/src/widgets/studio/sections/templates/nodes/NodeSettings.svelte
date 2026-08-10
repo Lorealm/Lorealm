@@ -12,6 +12,7 @@
 	import type { UpdateNodeRequest } from '$lib/types/template.js';
 	import { SvelteSet } from 'svelte/reactivity';
 	import NumberInput from '$lib/components/NumberInput.svelte';
+	import ContextField from '$lib/components/ContextField.svelte';
 
 	type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -38,6 +39,7 @@
 	let settings = $state<Record<string, JsonValue>>({});
 
 	let lastId: Snowflake | null = null;
+	let syncedId = $state<Snowflake | null>(null);
 	let timer: ReturnType<typeof setTimeout> | null = null;
 	const dirty = new SvelteSet<'title' | 'description' | 'content'>();
 
@@ -61,6 +63,7 @@
 				alwaysIncludeWrappers = c.always_include_wrappers;
 			}
 			if (c.type === 'source') settings = { ...c.settings };
+			syncedId = nid;
 		});
 	});
 
@@ -222,30 +225,28 @@
 				{/if}
 			</div>
 		</label>
-		<label class="field">
-			<span>Prefix</span>
-			<textarea
+		{#key syncedId}
+			<ContextField
+				label="Prefix"
 				value={prefix}
-				rows="2"
+				rows={2}
 				placeholder="Optional — prepended before children"
-				oninput={(e) => {
-					prefix = e.currentTarget.value;
+				onchange={(v) => {
+					prefix = v;
 					scheduleSave('content');
 				}}
-			></textarea>
-		</label>
-		<label class="field">
-			<span>Suffix</span>
-			<textarea
+			/>
+			<ContextField
+				label="Suffix"
 				value={suffix}
-				rows="2"
+				rows={2}
 				placeholder="Optional — appended after children"
-				oninput={(e) => {
-					suffix = e.currentTarget.value;
+				onchange={(v) => {
+					suffix = v;
 					scheduleSave('content');
 				}}
-			></textarea>
-		</label>
+			/>
+		{/key}
 		<label class="check">
 			<input
 				type="checkbox"

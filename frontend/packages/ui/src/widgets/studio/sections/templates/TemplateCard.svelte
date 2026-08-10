@@ -1,114 +1,226 @@
 <script lang="ts">
 	import { studioStore } from '$lib/stores/studio.svelte.js';
 	import { templateStore } from '$lib/stores/template.svelte.js';
-	import type { Snowflake } from '$lib/types/core.js';
-	import { Check, Pencil } from '@lucide/svelte';
+	import type { TemplateMetadata } from '$lib/types/template.js';
+	import { Check, Layers, Pencil, Trash2 } from '@lucide/svelte';
+	import { DateTime } from 'luxon';
 
-	let { id }: { id: Snowflake } = $props();
+	let { meta }: { meta: TemplateMetadata } = $props();
 
-	const entry = $derived(templateStore.metadataList?.find((x) => x.id == id) ?? null);
-	const active = $derived(templateStore.activeId === entry?.id);
+	const active = $derived(templateStore.activeId === meta.id);
+	const updated = $derived(DateTime.fromISO(meta.updated_at).toRelative() ?? '');
+
+	let confirmingDelete = $state(false);
+	let busy = $state(false);
+
+	async function activate() {
+		if (busy || active) return;
+		busy = true;
+		try {
+			await templateStore.setActive(meta.id);
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function remove() {
+		confirmingDelete = false;
+		busy = true;
+		try {
+			await templateStore.deleteTemplate(meta.id);
+		} catch (e) {
+			console.error(e);
+		} finally {
+			busy = false;
+		}
+	}
 </script>
 
-<div class="card" class:active>
-	<div class="header" class:active>{entry?.name ?? 'Loading...'}</div>
-	<div class="description" class:active>{entry?.description ?? ''}</div>
-	<div class="controls" class:active>
-		<button
-			class="btn-primary"
-			disabled={!entry || active}
-			onclick={() => {
-				templateStore.setActive(entry!.id);
-			}}><Check />Select</button
-		>
-		<button
-			class="btn-ghost"
-			disabled={!entry}
-			onclick={() => {
-				studioStore.open(entry!.id);
-			}}><Pencil />Edit</button
-		>
+<article class="card" class:active>
+	<header class="head">
+		<h3 class="name" title={meta.name}>{meta.name}</h3>
+		{#if active}
+			<span class="pill">Active</span>
+		{/if}
+	</header>
+
+	<p class="description" class:none={!meta.description}>
+		{meta.description || 'No description'}
+	</p>
+
+	<div class="meta">
+		<span class="stat" title="Top-level nodes">
+			<Layers size={13} />
+			{meta.node_count}
+			{meta.node_count === 1 ? 'node' : 'nodes'}
+		</span>
+		<span class="stat">v{meta.version}</span>
+		{#if updated}
+			<span class="stat" title={meta.updated_at}>Updated {updated}</span>
+		{/if}
 	</div>
-</div>
+
+	{#if confirmingDelete}
+		<div class="controls confirm">
+			<span class="confirmText">Delete this template?</span>
+			<button type="button" class="danger" onclick={remove}>Delete</button>
+			<button type="button" onclick={() => (confirmingDelete = false)}>Cancel</button>
+		</div>
+	{:else}
+		<div class="controls">
+			<button
+				type="button"
+				class="toggle"
+				class:on={active}
+				disabled={busy || active}
+				onclick={activate}
+			>
+				<Check size={14} />
+				{active ? 'In use' : 'Use'}
+			</button>
+			<button type="button" onclick={() => studioStore.open(meta.id)}>
+				<Pencil size={14} />
+				Edit
+			</button>
+			<button
+				type="button"
+				class="del"
+				title="Delete template"
+				aria-label={`Delete ${meta.name}`}
+				disabled={busy}
+				onclick={() => (confirmingDelete = true)}
+			>
+				<Trash2 size={14} />
+			</button>
+		</div>
+	{/if}
+</article>
 
 <style>
 	.card {
 		display: flex;
 		flex-direction: column;
-		justify-content: center;
-		width: 15em;
-		min-height: 3em;
-		padding: var(--spacing-sm);
-		border-radius: var(--radius-sm);
+		gap: var(--spacing-sm);
+		min-height: 150px;
+		padding: var(--spacing-lg);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius-lg);
 		background-color: var(--color-bg-elevated);
 	}
-	.card.active {
-		background-color: var(--color-success-bg);
+	.card:hover {
+		border-color: var(--color-border-medium);
+		box-shadow: var(--shadow-md);
 	}
-	.header {
+	.card.active {
+		border-color: var(--color-success-border);
+	}
+
+	.head {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: var(--spacing-sm);
+	}
+	.name {
+		min-width: 0;
+		margin: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 		color: var(--color-primary);
 		font-family: var(--font-family-heading);
 		font-size: var(--font-size-md);
 		font-weight: var(--font-weight-semibold);
+		text-transform: none;
+		letter-spacing: normal;
 	}
-	.header.active {
+	.pill {
+		flex: 0 0 auto;
+		padding: 0 var(--spacing-sm);
+		border-radius: var(--radius-full);
+		background-color: var(--color-success-bg);
 		color: var(--color-success-text);
-	}
-	.description {
-		color: var(--color-text-muted);
-		font-family: var(--font-family-body);
-		font-size: var(--font-size-sm);
-	}
-	.description.active {
-		color: var(--color-success);
-	}
-	.controls {
-		display: flex;
-		flex-direction: row;
-		margin-top: var(--spacing-sm);
-		gap: var(--spacing-sm);
+		font-size: var(--font-size-xs);
+		line-height: 1.6;
 	}
 
-	.controls > button {
+	.description {
+		flex: 1 1 auto;
+		margin: 0;
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-sm);
+		line-height: var(--line-height-snug);
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 3;
+		line-clamp: 3;
+		overflow: hidden;
+	}
+	.description.none {
+		color: var(--color-text-muted);
+		font-style: italic;
+	}
+
+	.meta {
 		display: flex;
-		flex: 1;
+		flex-wrap: wrap;
+		gap: var(--spacing-md);
+	}
+	.stat {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+		color: var(--color-text-muted);
+		font-size: var(--font-size-xs);
+	}
+
+	.controls {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+	}
+	.controls button {
 		align-items: center;
 		justify-content: center;
 		gap: var(--spacing-xs);
-		transition:
-			background-color 0.15s ease,
-			color 0.15s ease;
+		font-size: var(--font-size-sm);
+		padding: var(--spacing-xs) var(--spacing-sm);
 	}
-
-	.controls > button :global(svg) {
-		width: 1.3em;
-		height: 1.3em;
-		flex-shrink: 0; /* prevents squishing in tight flex layouts */
+	.controls button:disabled {
+		opacity: 0.5;
 	}
-
-	.controls > button.btn-primary {
-		background-color: var(--color-primary);
-		color: var(--color-bg-elevated);
+	.toggle {
+		flex: 1 1 auto;
 	}
-
-	.controls.active > button.btn-primary {
+	.toggle.on {
 		background-color: var(--color-success-bg);
 		color: var(--color-success-text);
+		opacity: 1;
 	}
-	.controls.active > button.btn-primary:hover {
-		background-color: var(--color-success);
-	}
-
-	.controls > button.btn-primary:hover {
-		background-color: var(--color-primary-hover, var(--color-primary));
-		color: var(--color-bg-elevated);
-		filter: brightness(1.1);
-	}
-
-	.controls > button.btn-ghost {
+	.del {
+		flex: 0 0 auto;
 		background-color: transparent;
+		color: var(--color-text-muted);
 	}
-	.controls.active > button.btn-ghost:hover {
-		color: var(--color-success);
+	.del:hover {
+		background-color: var(--color-error-bg);
+		color: var(--color-error-text);
+	}
+
+	.confirm {
+		flex-wrap: wrap;
+	}
+	.confirmText {
+		flex: 1 1 100%;
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-sm);
+	}
+	.danger {
+		background-color: var(--color-error-bg);
+		color: var(--color-error-text);
+	}
+	.danger:hover {
+		background-color: var(--color-error);
+		color: var(--color-text-white);
 	}
 </style>

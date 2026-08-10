@@ -1,6 +1,6 @@
 import { type ApiClient, useApi } from '$lib/api/client.js';
 import type { Snowflake } from '$lib/types/core.js';
-import type { UpdatePersona, UserPersona } from '$lib/types/persona.js';
+import type { PersonaOverride, UpdatePersona, UserPersona } from '$lib/types/persona.js';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -26,6 +26,9 @@ class PersonaStore {
 
 	/** The user's currently active persona, or null. App-wide, not tied to editing. */
 	activePersonaId = $state<Snowflake | null>(null);
+
+	/** Character-level bindings that win over `activePersonaId`. */
+	overrides = $state<Array<PersonaOverride>>([]);
 
 	get #api() {
 		if (!this._api) this._api = useApi(); // NOTE: This assumes it's accessed once during page init. Dirty workaround.
@@ -79,6 +82,42 @@ class PersonaStore {
 		}
 	}
 
+	async create(): Promise<UserPersona> {
+		const persona = await this.#api.personas.create();
+		this.loadedPersonas = [...(this.loadedPersonas ?? []), persona];
+		return persona;
+	}
+
+	async loadOverrides() {
+		this.overrides = await this.#api.personas.overrides.list();
+	}
+
+	overridesFor(personaId: Snowflake): PersonaOverride[] {
+		return this.overrides.filter((o) => o.persona_id === personaId);
+	}
+
+	overrideFor(characterId: Snowflake): PersonaOverride | undefined {
+		return this.overrides.find((o) => o.character_id === characterId);
+	}
+
+	async setOverride(characterId: Snowflake, personaId: Snowflake) {
+		const saved = await this.#api.personas.overrides.set(characterId, { persona_id: personaId });
+		const i = this.overrides.findIndex((o) => o.character_id === characterId);
+		if (i === -1) this.overrides = [...this.overrides, saved];
+		else this.overrides[i] = saved;
+	}
+
+	async clearOverride(characterId: Snowflake) {
+		const previous = this.overrides;
+		this.overrides = this.overrides.filter((o) => o.character_id !== characterId);
+		try {
+			await this.#api.personas.overrides.clear(characterId);
+		} catch (e) {
+			this.overrides = previous;
+			throw e;
+		}
+	}
+
 	async startEditing(id: Snowflake) {
 		this.#resetSession();
 		if (!this.loadedPersonas) await this.loadPersonas();
@@ -100,7 +139,6 @@ class PersonaStore {
 		this.saveState = { status: 'idle' };
 	}
 
-	/** Upload a new avatar. Independent of the merge-patch save. */
 	async setAvatar(image: Blob) {
 		const draft = this._draft;
 		if (!draft) return;
