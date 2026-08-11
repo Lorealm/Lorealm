@@ -1,4 +1,4 @@
-import type { AuthApi, HttpTransport, PlatformAPI, Session, User } from "@lorealm/ui";
+import type { AuthApi, HttpTransport, LocalStore, PlatformAPI, Session, User } from "@lorealm/ui";
 import { SvelteSet } from "svelte/reactivity";
 
 const BASE = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -243,8 +243,32 @@ const webAuth: AuthApi = {
 };
 
 
+const STORE_PREFIX = "lorealm:";
+
+const store: LocalStore = {
+	async get<T>(key: string): Promise<T | null> {
+		if (typeof localStorage === "undefined") return null;
+		const raw = localStorage.getItem(STORE_PREFIX + key);
+		if (raw === null) return null;
+		try {
+			return JSON.parse(raw) as T;
+		} catch {
+			return null; // Corrupt entry: fall back to the caller's defaults.
+		}
+	},
+	async set(key, value) {
+		if (typeof localStorage === "undefined") return;
+		localStorage.setItem(STORE_PREFIX + key, JSON.stringify(value));
+	},
+	async delete(key) {
+		if (typeof localStorage === "undefined") return;
+		localStorage.removeItem(STORE_PREFIX + key);
+	},
+};
+
 export const webPlatform: PlatformAPI = {
 	auth: webAuth,
 	http,
+	store,
 	capabilities: new SvelteSet([]),
 };

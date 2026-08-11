@@ -16,7 +16,7 @@ import {
 	type ParsedEntry
 } from '$lib/weaver/weaverFile.js';
 import type { EntryRef } from '$lib/weaver/editor/weaver-references.js';
-import { weaverEditorPrefs } from './settings.svelte.js';
+import { settings } from './settings.svelte.js';
 import { navigator } from '$lib/navigation/navigator.js';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
@@ -142,7 +142,7 @@ class LorebookStore {
 		const refs: EntryRef[] = draft
 			? draft.entries.map((e) => ({ id: e.meta.id, name: e.meta.name }))
 			: [];
-		if (!weaverEditorPrefs.suggestCrossBookIds) return refs;
+		if (!settings.current.weaverSuggestCrossBookIds) return refs;
 
 		const seen = new SvelteSet(refs.map((r) => r.id));
 		for (const bookId of this.activeLorebooks) {
@@ -155,7 +155,7 @@ class LorebookStore {
 				refs.push({
 					id: entry.entry_id,
 					detail: book.name,
-					navigable: weaverEditorPrefs.followCrossBookIds
+					navigable: settings.current.weaverFollowCrossBookIds
 				});
 			}
 		}
@@ -179,7 +179,7 @@ class LorebookStore {
 			this.pendingEntry = local.snowflake;
 			return;
 		}
-		if (!weaverEditorPrefs.followCrossBookIds) return;
+		if (!settings.current.weaverFollowCrossBookIds) return;
 
 		for (const bookId of this.activeLorebooks) {
 			if (bookId === draft?.id) continue;

@@ -49,7 +49,12 @@ pub fn run() {
             auth::login,
             auth::validate_token,
             auth::get_stored_token,
-            auth::clear_stored_token
+            auth::clear_stored_token,
+            config::store_get,
+            config::store_set,
+            config::store_delete,
+            config::get_server_url,
+            config::set_server_url
         ])
         .setup(|app| {
             match AppConfig::load(app.handle()) {

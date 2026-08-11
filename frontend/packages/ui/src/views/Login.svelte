@@ -4,19 +4,35 @@
 	import { setAuthState } from '$lib/stores/auth.svelte';
 	import type { LoginRequest } from '$lib/types/auth.js';
 	import type { AppError, ServerError } from '$lib/types/error.js';
+	import { memory } from '$lib/stores/memory.svelte.js';
+	import { onMount } from 'svelte';
 
 	const platform = getPlatformApi();
+	/** Absent in the browser, which is bound to the origin it was served from. */
+	const server = platform.server;
 
 	let username = $state('');
 	let password = $state('');
 	let serverUrl = $state('');
 	let error = $state('');
 
+	// This view mounts before the boot in App.svelte has read local config back.
+	let prefilled = false;
+	$effect(() => {
+		if (!memory.loaded || prefilled) return;
+		prefilled = true;
+		username = memory.current.lastUsername;
+	});
+
+	onMount(() => {
+		server?.url().then((url) => (serverUrl = url));
+	});
+
 	async function handleLogin() {
 		try {
-			console.log('[HYDRATE] Loggin in from UI package');
+			if (server) await server.setUrl(serverUrl);
 			const session = await platform.auth.login({ username, password } as LoginRequest);
-			console.log('[HYDRATE] Loggin in from UI packagsdsdsde');
+			await memory.set('lastUsername', username);
 			setAuthState({ status: 'authenticated', session });
 		} catch (e: unknown) {
 			if ((e as AppError).error_type == 'Server') {
@@ -34,10 +50,12 @@
 	{#if error}
 		<div class="error-box">{@html error}</div>
 	{/if}
-	<div class="input-row" style="margin-bottom: var(--spacing-xs);">
-		<label for="ServerUrl">Server URL</label>
-		<input id="ServerUrl" type="text" class="standard-input" bind:value={serverUrl} />
-	</div>
+	{#if server}
+		<div class="input-row" style="margin-bottom: var(--spacing-xs);">
+			<label for="ServerUrl">Server URL</label>
+			<input id="ServerUrl" type="text" class="standard-input" bind:value={serverUrl} />
+		</div>
+	{/if}
 	<div class="input-row" style="margin-bottom: var(--spacing-xs);">
 		<label for="UsernameInput">Username</label>
 		<input id="UsernameInput" type="text" class="standard-input" bind:value={username} />

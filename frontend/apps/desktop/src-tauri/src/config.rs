@@ -1,7 +1,12 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
+use tokio::sync::Mutex;
+
+use crate::{state::AppState, AppResult, Error};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthState {
@@ -14,6 +19,8 @@ pub struct AuthState {
 pub struct AppConfig {
     pub auth: AuthState,
     pub server_url: String,
+    /// Whatever the frontend asked us to remember. Opaque here.
+    pub store: HashMap<String, Value>,
 }
 
 impl Default for AppConfig {
@@ -24,6 +31,7 @@ impl Default for AppConfig {
                 csrf_token: None,
             },
             server_url: "http://127.0.0.1:1551".to_string(),
+            store: HashMap::new(),
         }
     }
 }
@@ -88,4 +96,55 @@ impl AppConfig {
         println!("Saving config...");
         fs::write(path, json).map_err(|e| format!("Failed to write config file: {e}"))
     }
+}
+
+async fn read<T>(handle: &AppHandle, view: impl FnOnce(&AppConfig) -> T) -> AppResult<T> {
+    let state = handle
+        .try_state::<Mutex<AppState>>()
+        .ok_or(Error::Internal("AppState not yet available".into()))?;
+    let state = state.lock().await;
+    Ok(view(&state.config))
+}
+
+async fn update(handle: &AppHandle, edit: impl FnOnce(&mut AppConfig)) -> AppResult<()> {
+    let state = handle
+        .try_state::<Mutex<AppState>>()
+        .ok_or(Error::Internal("AppState not yet available".into()))?;
+    let mut state = state.lock().await;
+    edit(&mut state.config);
+    state.config.save(handle).map_err(Error::Config)
+}
+
+#[tauri::command]
+pub async fn store_get(handle: AppHandle, key: String) -> AppResult<Option<Value>> {
+    read(&handle, |c| c.store.get(&key).cloned()).await
+}
+
+#[tauri::command]
+pub async fn store_set(handle: AppHandle, key: String, value: Value) -> AppResult<()> {
+    update(&handle, |c| {
+        c.store.insert(key, value);
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn store_delete(handle: AppHandle, key: String) -> AppResult<()> {
+    update(&handle, |c| {
+        c.store.remove(&key);
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn get_server_url(handle: AppHandle) -> AppResult<String> {
+    read(&handle, |c| c.server_url.clone()).await
+}
+
+#[tauri::command]
+pub async fn set_server_url(handle: AppHandle, url: String) -> AppResult<()> {
+    update(&handle, |c| {
+        c.server_url = url.trim().trim_end_matches('/').to_string();
+    })
+    .await
 }

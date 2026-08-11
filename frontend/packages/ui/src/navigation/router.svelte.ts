@@ -2,6 +2,7 @@ import { applyRoute } from './loader.svelte.js';
 import {
 	HOME,
 	sameRoute,
+	type ClientSection,
 	type Route,
 	type ServerSection,
 	type StudioSection,
@@ -21,7 +22,8 @@ class Router {
 
 	/** Sections to return to when a destination names a view but not a section. */
 	#studioSection: StudioSection = 'lorebooks';
-	#settingsScope: 'user' | 'server' = 'user';
+	#settingsScope: 'client' | 'user' | 'server' = 'user';
+	#clientSection: ClientSection = 'editor';
 	#userSection: UserSection = 'tokenizers';
 	#serverSection: ServerSection = 'hosting';
 
@@ -81,7 +83,17 @@ class Router {
 		return { view: 'studio', section: this.#studioSection };
 	}
 	recallSettings(): Route {
-		return this.#settingsScope === 'server' ? this.recallServer() : this.recallUser();
+		switch (this.#settingsScope) {
+			case 'client':
+				return this.recallClient();
+			case 'server':
+				return this.recallServer();
+			default:
+				return this.recallUser();
+		}
+	}
+	recallClient(): Route {
+		return { view: 'settings', scope: 'client', section: this.#clientSection };
 	}
 	recallUser(): Route {
 		return { view: 'settings', scope: 'user', section: this.#userSection };
@@ -94,7 +106,8 @@ class Router {
 		if (route.view === 'studio') this.#studioSection = route.section;
 		if (route.view === 'settings') {
 			this.#settingsScope = route.scope;
-			if (route.scope === 'user') this.#userSection = route.section;
+			if (route.scope === 'client') this.#clientSection = route.section;
+			else if (route.scope === 'user') this.#userSection = route.section;
 			else this.#serverSection = route.section;
 		}
   }

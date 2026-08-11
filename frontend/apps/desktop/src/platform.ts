@@ -1,5 +1,13 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
-import type { AuthApi, HttpTransport, PlatformAPI, Session, User } from "@lorealm/ui";
+import type {
+	AuthApi,
+	HttpTransport,
+	LocalStore,
+	PlatformAPI,
+	ServerControls,
+	Session,
+	User,
+} from "@lorealm/ui";
 import { SvelteSet } from "svelte/reactivity";
 import { platform } from "@tauri-apps/plugin-os";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -176,9 +184,22 @@ const http: HttpTransport = {
     stream
 };
 
+const store: LocalStore = {
+	get: <T,>(key: string) => invoke<T | null>("store_get", { key }),
+	set: (key, value) => invoke("store_set", { key, value }),
+	delete: (key) => invoke("store_delete", { key }),
+};
+
+const server: ServerControls = {
+	url: () => invoke<string>("get_server_url"),
+	setUrl: (url) => invoke("set_server_url", { url }),
+};
+
 export const tauriPlatform: PlatformAPI = {
 	auth: tauriAuth,
 	http,
+	store,
+	server,
 	window: isMac
 		? undefined
 		: {

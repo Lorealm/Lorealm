@@ -1,14 +1,20 @@
+import { PersistedRecord } from './persisted.svelte.js';
+
 /**
- * Weaver editor preferences.
- *
- * TODO: Save to local user prefs when that eventually exists
+ * Preferences the user sets from the Client tab of the settings window. Local
+ * to this device; the server never sees them.
  */
-class WeaverEditorPrefs {
-	/** Offer entry ids from the other active lorebooks */
-	suggestCrossBookIds = $state(true);
+export interface ClientSettings {
+	/** Offer entry ids from the other active lorebooks. */
+	weaverSuggestCrossBookIds: boolean;
 
 	/** Let cmd/ctrl-click on a cross-book id switch to the book that owns it. */
-	followCrossBookIds = $state(true);
+	weaverFollowCrossBookIds: boolean;
 }
 
-export const weaverEditorPrefs = new WeaverEditorPrefs();
+const DEFAULTS: ClientSettings = {
+	weaverSuggestCrossBookIds: true,
+	weaverFollowCrossBookIds: true
+};
+
+export const settings = new PersistedRecord<ClientSettings>('settings', DEFAULTS);
