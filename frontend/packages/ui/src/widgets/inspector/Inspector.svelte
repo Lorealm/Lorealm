@@ -1,23 +1,39 @@
-<script>
+<script lang="ts">
+	import { iconFor } from '$lib/assets/icons/catalogue.js';
 	import { router } from '$lib/navigation/router.svelte.js';
-	import CharacterImageWidget from './widgets/CharacterImageWidget.svelte';
-	import ContextWidget from './widgets/ContextWidget.svelte';
-	import RealmAgentWidget from './widgets/RealmAgentWidget.svelte';
-	import StateWidget from './widgets/StateWidget.svelte';
-	import TemplateWidget from './widgets/TemplateWidget.svelte';
+	import { inspectorMatrix } from '$lib/stores/inspectorMatrix.svelte.js';
+	import { inspectorRegistry } from './registry.js';
+
+	const view = $derived(router.current.view);
+	const profiles = $derived(inspectorMatrix.ordered(view));
+	const widgets = $derived(inspectorMatrix.widgetsFor(view));
 </script>
 
 <div class="container">
-	<div class="topBar"></div>
+	<div class="topBar">
+		{#each profiles as profile (profile.id)}
+			{@const Icon = iconFor(profile.icon)}
+			{@const active = profile.id === inspectorMatrix.activeId}
+			<button
+				class="profile"
+				class:active
+				class:unconfigured={!inspectorMatrix.isConfigured(profile, view)}
+				title={profile.name}
+				aria-pressed={active}
+				onclick={() => inspectorMatrix.select(profile.id)}
+			>
+				<Icon size={16} />
+				{#if active}<span class="name">{profile.name}</span>{/if}
+			</button>
+		{/each}
+	</div>
 	<div class="content">
-		{#if router.current.view === 'realms'}
-			<RealmAgentWidget />
+		{#each widgets as key (key)}
+			{@const Widget = inspectorRegistry[key].component}
+			<Widget />
 		{:else}
-			<CharacterImageWidget />
-			<TemplateWidget />
-			<ContextWidget />
-			<StateWidget />
-		{/if}
+			<span class="empty">Nothing configured for this view.</span>
+		{/each}
 	</div>
 </div>
 
@@ -33,10 +49,47 @@
 	.topBar {
 		display: flex;
 		flex-shrink: 0;
+		align-items: center;
+		gap: var(--spacing-xs);
+		padding: 0 var(--spacing-sm);
 		width: 100%;
 		height: var(--height-header);
 		background-color: var(--color-bg-elevated);
 		border-bottom: 1px solid var(--color-border-subtle);
+		overflow-x: auto;
+	}
+	.profile {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		gap: var(--spacing-xs);
+		padding: 4px 5px;
+		border-radius: var(--radius-full);
+		background: transparent;
+		color: var(--color-text-secondary);
+	}
+	.profile.unconfigured {
+		color: var(--color-text-disabled);
+	}
+	.profile:hover {
+		background-color: var(--color-hover);
+		color: var(--color-text-accent);
+	}
+	.profile.active {
+		padding-right: var(--spacing-sm);
+		background-color: var(--color-active);
+		color: var(--color-text-accent);
+	}
+	.profile.active.unconfigured {
+		color: var(--color-text-secondary);
+	}
+	.name {
+		font-size: var(--font-size-sm);
+		line-height: 1;
+		max-width: 9em;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
 	}
 	.content {
 		display: flex;
@@ -44,5 +97,10 @@
 		flex: 1;
 		min-height: 0;
 		overflow-y: auto;
+	}
+	.empty {
+		padding: var(--spacing-lg);
+		color: var(--color-text-muted);
+		font-size: var(--font-size-xs);
 	}
 </style>

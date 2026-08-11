@@ -2,6 +2,7 @@
 	import { navigator } from '$lib/navigation/navigator.js';
 	import type { ClientSection } from '$lib/navigation/routes.js';
 	import EditorSection from './client/EditorSection.svelte';
+	import InspectorSection from './client/InspectorSection.svelte';
 
 	let { section }: { section: ClientSection } = $props();
 
@@ -10,6 +11,11 @@
 			id: 'editor',
 			label: 'Editor',
 			go: () => navigator.start().settings().client().editor()
+		},
+		{
+			id: 'inspector',
+			label: 'Inspector',
+			go: () => navigator.start().settings().client().inspector()
 		}
 	];
 </script>
@@ -25,6 +31,8 @@
 
 	{#if section === 'editor'}
 		<EditorSection />
+	{:else if section === 'inspector'}
+		<InspectorSection />
 	{/if}
 </div>
 

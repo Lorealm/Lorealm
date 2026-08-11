@@ -51,6 +51,7 @@ class ClientSettingsStage {
 	}
 
 	editor = () => this.#section('editor');
+	inspector = () => this.#section('inspector');
 }
 
 class UserSettingsStage {

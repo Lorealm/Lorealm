@@ -11,6 +11,7 @@
 	import { showToast } from './stores/errorToast.svelte.ts';
 	import { memory } from './stores/memory.svelte.ts';
 	import { settings } from './stores/settings.svelte.ts';
+	import { inspectorMatrix } from './stores/inspectorMatrix.svelte.ts';
 
 	let { api }: { api: PlatformAPI } = $props();
 
@@ -23,7 +24,7 @@
 
 	$effect(() => {
 		// Local config first: the login form reads it, and it needs no session.
-		Promise.all([memory.load(), settings.load()])
+		Promise.all([memory.load(), settings.load(), inspectorMatrix.load()])
 			.then(() => api.auth.hydrate())
 			.then((session) => {
 				if (session) setAuthState({ status: 'authenticated', session });

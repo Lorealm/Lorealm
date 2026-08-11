@@ -11,7 +11,7 @@ export type StudioSection =
 	| 'widgets';
 
 /** Settings that live on this device only. */
-export type ClientSection = 'editor';
+export type ClientSection = 'editor' | 'inspector';
 
 export type UserSection = 'tokenizers';
 
