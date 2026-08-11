@@ -25,7 +25,8 @@ export class ApiError extends Error {
 		readonly status: number,
 		readonly code: string | undefined,
 		message: string,
-		readonly body: unknown
+		readonly body: unknown,
+		readonly details?: { resource?: string; id?: string }
 	) {
 		super(message);
 		this.name = "ApiError";
@@ -42,15 +43,17 @@ function check<T>(res: HttpResponse): T {
 		const body = res.body;
 		let code: string | undefined;
 		let message: string;
+		let details: { resource?: string; id?: string } | undefined;
 		if (body && typeof body === "object") {
 			code = (body as { error_code?: string }).error_code;
 			message = (body as { message?: string }).message ?? `HTTP ${res.status}`;
+			details = (body as { details?: { resource?: string; id?: string } }).details;
 		} else if (typeof body === "string" && body.trim() !== "") {
 			message = body;
 		} else {
 			message = `HTTP ${res.status}`;
 		}
-		throw new ApiError(res.status, code, message, body);
+		throw new ApiError(res.status, code, message, body, details);
 	}
 	return res.body as T;
 }
@@ -133,11 +136,7 @@ async function* stream<T>(path: string, body?: unknown): AsyncGenerator<T> {
 
 				const data = tryParseJson(parsed.data);
 				if (parsed.event === "error") {
-					const message =
-						(data && typeof data === "object"
-							? (data as { message?: string }).message
-							: undefined) ?? "stream error";
-					throw new Error(message);
+					throw check<never>({ status: 500, body: data });
 				}
 				yield data as T;
 			}

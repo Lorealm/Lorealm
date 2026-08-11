@@ -1,3 +1,4 @@
+import { extractError } from '$lib/types/error.js';
 import { useApi } from '$lib/api/client.js';
 import type { JsonValue, Snowflake } from '$lib/types/core.js';
 import type {
@@ -206,20 +207,6 @@ function asParams(v: JsonValue): Record<string, JsonValue> {
 		return structuredClone(out);
 	}
 	return {};
-}
-
-function extractError(e: unknown): { message: string; code?: string } {
-	if (e instanceof Error) {
-		const code = (e as { code?: unknown }).code;
-		return { message: e.message, code: typeof code === 'string' ? code : undefined };
-	}
-	if (e && typeof e === 'object') {
-		const err = e as Record<string, unknown>;
-		const code = typeof err.error_code === 'string' ? err.error_code : undefined;
-		const message = typeof err.message === 'string' ? err.message : JSON.stringify(err);
-		return { message, code };
-	}
-	return { message: String(e) };
 }
 
 export const connectionStore = new ConnectionStore();

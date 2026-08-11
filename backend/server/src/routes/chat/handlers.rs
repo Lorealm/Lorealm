@@ -210,7 +210,7 @@ pub async fn completions(
         Ok(event) => Event::default().json_data(event),
         Err(err) => Event::default()
             .event("error")
-            .json_data(serde_json::json!({ "message": err.to_string() })),
+            .json_data(AppError::from(err).response_body()),
     });
 
     Ok(Sse::new(sse).keep_alive(KeepAlive::default()))
@@ -263,7 +263,7 @@ pub async fn run_turn(
         Ok(event) => Event::default().json_data(event),
         Err(err) => Event::default()
             .event("error")
-            .json_data(serde_json::json!({ "message": err.client_message() })),
+            .json_data(AppError::from(err).response_body()),
     });
 
     Ok(Sse::new(sse).keep_alive(KeepAlive::default()))

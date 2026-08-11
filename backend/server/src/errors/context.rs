@@ -1,19 +1,33 @@
-use std::fmt::Display;
+use std::{borrow::Cow, fmt::Display};
 
+use axum::http::StatusCode;
 use context_weaver::ContextWeaverError;
 use lorealm_storage::{StorageError, models::Snowflake};
 use thiserror::Error;
 
 use crate::{
-    errors::{LorebookError, StateError, TokenizerError},
+    errors::{
+        DomainError, ErrorDetails, LorebookError, StateError, TargetType, TokenizerError,
+        impl_app_error, sentence,
+    },
     services::context::NodePath,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum ContextType {
     Template,
     Lorebook,
     LorebookEntry,
+}
+
+impl ContextType {
+    fn target(&self) -> TargetType {
+        match self {
+            ContextType::Template => TargetType::ContextTemplate,
+            ContextType::Lorebook => TargetType::Lorebook,
+            ContextType::LorebookEntry => TargetType::LorebookEntry,
+        }
+    }
 }
 
 impl Display for ContextType {
@@ -58,33 +72,89 @@ pub enum ContextError {
     Tokenizer(#[from] TokenizerError),
 }
 
-impl ContextError {
-    pub fn client_message(&self) -> String {
+impl DomainError for ContextError {
+    fn code(&self) -> &'static str {
         match self {
-            ContextError::Storage(_) | ContextError::Serialization(_) | ContextError::Yaml(_) => {
-                "Unknown error".to_string()
+            Self::Template(err) => err.code(),
+            Self::Lorebook(err) => err.code(),
+            Self::State(err) => err.code(),
+            Self::Tokenizer(err) => err.code(),
+            Self::NotFound(_, _) => "context.not_found",
+            Self::ResolverNotFound(_) => "context.resolver_not_found",
+            Self::NoActiveCharacter => "context.no_active_character",
+            Self::UnknownSourceNode { .. } => "context.unknown_source_node",
+            Self::ContextWeaver(_) => "context.evaluation_failed",
+            Self::ContextWeaverPlugin(_) => "context.plugin_failed",
+            Self::Storage(_)
+            | Self::Serialization(_)
+            | Self::Yaml(_)
+            | Self::StateConversion(_) => "internal",
+        }
+    }
+
+    fn status(&self) -> StatusCode {
+        match self {
+            Self::Template(err) => err.status(),
+            Self::Lorebook(err) => err.status(),
+            Self::State(err) => err.status(),
+            Self::Tokenizer(err) => err.status(),
+            Self::NotFound(_, _) => StatusCode::NOT_FOUND,
+            Self::NoActiveCharacter => StatusCode::CONFLICT,
+            Self::ResolverNotFound(_)
+            | Self::UnknownSourceNode { .. }
+            | Self::ContextWeaver(_)
+            | Self::ContextWeaverPlugin(_) => StatusCode::BAD_REQUEST,
+            Self::Storage(_)
+            | Self::Serialization(_)
+            | Self::Yaml(_)
+            | Self::StateConversion(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+
+    fn message(&self) -> Cow<'static, str> {
+        match self {
+            Self::Template(err) => err.message(),
+            Self::Lorebook(err) => err.message(),
+            Self::State(err) => err.message(),
+            Self::Tokenizer(err) => err.message(),
+            Self::NotFound(kind, _) => {
+                Cow::Owned(format!("That {} no longer exists.", kind.target().label()))
             }
-            ContextError::NotFound(ctx_type, snowflake) => {
-                format!("{ctx_type} not found: {snowflake}")
+            Self::ResolverNotFound(name) => {
+                Cow::Owned(format!("Unknown resolver '{name}' in this template."))
             }
-            ContextError::Template(template_error) => template_error.client_message(),
-            ContextError::Lorebook(lorebook_error) => lorebook_error.client_message(),
-            ContextError::ResolverNotFound(resolver) => format!("resolver not found: {resolver}"),
-            ContextError::State(state_error) => state_error.client_message(),
-            ContextError::NoActiveCharacter => "resolver found no active character".to_string(),
-            ContextError::UnknownSourceNode { source_id, node_id } => {
-                format!("Unknown source node: {source_id}:{node_id}")
+            Self::NoActiveCharacter => "No character is selected.".into(),
+            Self::UnknownSourceNode { source_id, node_id } => Cow::Owned(format!(
+                "This template references an unknown node '{source_id}:{node_id}'."
+            )),
+            // Both describe the user's own template content.
+            Self::ContextWeaver(err) => sentence(format!("Context could not be built: {err}")),
+            Self::ContextWeaverPlugin(err) => sentence(format!("A context plugin failed: {err}")),
+            Self::Storage(_)
+            | Self::Serialization(_)
+            | Self::Yaml(_)
+            | Self::StateConversion(_) => "An internal error occurred".into(),
+        }
+    }
+
+    fn details(&self) -> Option<ErrorDetails> {
+        match self {
+            Self::Template(err) => err.details(),
+            Self::Lorebook(err) => err.details(),
+            Self::State(err) => err.details(),
+            Self::Tokenizer(err) => err.details(),
+            Self::NotFound(kind, id) => Some(ErrorDetails::target(kind.target(), *id)),
+            Self::NoActiveCharacter => Some(ErrorDetails::resource(TargetType::Character)),
+            Self::ResolverNotFound(_)
+            | Self::UnknownSourceNode { .. }
+            | Self::ContextWeaver(_)
+            | Self::ContextWeaverPlugin(_) => {
+                Some(ErrorDetails::resource(TargetType::ContextTemplate))
             }
-            ContextError::ContextWeaver(context_weaver_error) => {
-                format!("ContextWeaver: {context_weaver_error}")
-            }
-            ContextError::ContextWeaverPlugin(context_weaver_error) => {
-                format!("ContextWeaver (plugin): {context_weaver_error}")
-            }
-            ContextError::StateConversion(e) => {
-                format!("State conversion: {e}")
-            }
-            ContextError::Tokenizer(tokenizer_error) => tokenizer_error.client_message(),
+            Self::Storage(_)
+            | Self::Serialization(_)
+            | Self::Yaml(_)
+            | Self::StateConversion(_) => None,
         }
     }
 }
@@ -112,24 +182,55 @@ pub enum TemplateError {
     InvalidPath(NodePath),
 }
 
-impl TemplateError {
-    pub fn client_message(&self) -> String {
+impl DomainError for TemplateError {
+    fn code(&self) -> &'static str {
         match self {
-            TemplateError::NodeNotFound(id) => format!("Node not found: {id}"),
-            TemplateError::DuplicateSourceNode { source_id, node_id } => {
-                format!("Duplicate source node: {source_id}:{node_id}")
+            Self::NodeNotFound(_) => "template.node_not_found",
+            Self::DuplicateSourceNode { .. } => "template.duplicate_source_node",
+            Self::InvalidParent(_) => "template.invalid_parent",
+            Self::CircularReference | Self::WouldCreateCircle => "template.circular_reference",
+            Self::IndexOutOfBounds { .. } => "template.index_out_of_bounds",
+            Self::InvalidPath(_) => "template.invalid_path",
+        }
+    }
+
+    fn status(&self) -> StatusCode {
+        match self {
+            Self::NodeNotFound(_) => StatusCode::NOT_FOUND,
+            Self::DuplicateSourceNode { .. } => StatusCode::CONFLICT,
+            Self::InvalidParent(_)
+            | Self::CircularReference
+            | Self::WouldCreateCircle
+            | Self::IndexOutOfBounds { .. }
+            | Self::InvalidPath(_) => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn message(&self) -> Cow<'static, str> {
+        match self {
+            Self::NodeNotFound(_) => "That template node no longer exists.".into(),
+            Self::DuplicateSourceNode { source_id, node_id } => Cow::Owned(format!(
+                "Node '{source_id}:{node_id}' is already used in this template."
+            )),
+            Self::InvalidParent(_) => "Nodes can only be nested inside a group.".into(),
+            Self::CircularReference | Self::WouldCreateCircle => {
+                "That move would create a circular reference.".into()
             }
-            TemplateError::InvalidParent(id) => {
-                format!("Assigning {id} as a parent is not a valid operation")
+            Self::IndexOutOfBounds { index, len } => {
+                Cow::Owned(format!("Position {index} is out of range (max {len})."))
             }
-            TemplateError::CircularReference => "Circular reference detected".into(),
-            TemplateError::WouldCreateCircle => {
-                "This operation is invalid: would create a circular reference".into()
+            Self::InvalidPath(_) => "That template path is not valid.".into(),
+        }
+    }
+
+    fn details(&self) -> Option<ErrorDetails> {
+        match self {
+            Self::NodeNotFound(id) | Self::InvalidParent(id) => {
+                Some(ErrorDetails::target(TargetType::TemplateNode, *id))
             }
-            TemplateError::IndexOutOfBounds { index, len } => {
-                format!("Index {index} is out of bounds. (max: {len})")
-            }
-            TemplateError::InvalidPath(items) => format!("The path '{items:?}' is not valid"),
+            _ => Some(ErrorDetails::resource(TargetType::ContextTemplate)),
         }
     }
 }
+
+impl_app_error!(ContextError, TemplateError);

@@ -1,11 +1,13 @@
 import { useApi } from '$lib/api/client.js';
 import type { ServerConfig, ConfigKey } from '$lib/types/config.js';
+import type { ErrorCode, ErrorDetails } from '$lib/types/error.js';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export interface SaveState {
 	status: SaveStatus;
-	code?: string;
+	code?: ErrorCode;
 	message?: string;
+	details?: ErrorDetails;
 }
 
 class ConfigStore {

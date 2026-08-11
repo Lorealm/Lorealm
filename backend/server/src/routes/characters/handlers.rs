@@ -1,9 +1,12 @@
-use std::{borrow::Cow, sync::Arc};
+use std::sync::Arc;
 
 use axum::{
     Json,
     extract::{Multipart, Path, State},
-    http::header::{CACHE_CONTROL, CONTENT_TYPE},
+    http::{
+        StatusCode,
+        header::{CACHE_CONTROL, CONTENT_TYPE},
+    },
     response::{IntoResponse, Response},
 };
 use bytes::Bytes;
@@ -13,7 +16,7 @@ use lorealm_storage::models::{
 
 use crate::{
     core::AppState,
-    errors::{AppError, CharacterError},
+    errors::{AppError, CharacterError, DomainError},
     extract::{AuthenticatedSession, ResolvedPermissions},
     routes::characters::{
         dto::{AvatarUpdateResponse, CharacterEdit, CreateCharacterRequest, ImportCharResponse},
@@ -294,7 +297,7 @@ pub async fn import_card_blob(
         .await
     {
         Ok(card) => results.push(ImportResult::ok(card)),
-        Err(e) => results.push(ImportResult::failed(&e.to_string())),
+        Err(e) => results.push(ImportResult::failed(e.message().as_ref())),
     }
 
     Ok(Json(ImportCharResponse { results }))
@@ -315,10 +318,11 @@ pub async fn import_card_multipart(
             Ok(Some(f)) => f,
             Ok(None) => break,
             Err(_) => {
-                return Err(AppError::BadRequest {
-                    code: "MALFORMED_MULTIPART",
-                    message: Cow::Borrowed("Failed to read multipart stream."),
-                });
+                return Err(AppError::request(
+                    StatusCode::BAD_REQUEST,
+                    "character.malformed_upload",
+                    "The upload could not be read.",
+                ));
             }
         };
 
@@ -326,9 +330,12 @@ pub async fn import_card_multipart(
             continue;
         }
 
-        let data = field.bytes().await.map_err(|_| AppError::BadRequest {
-            code: "INVALID_FILE",
-            message: Cow::Borrowed("Failed to read file."),
+        let data = field.bytes().await.map_err(|_| {
+            AppError::request(
+                StatusCode::BAD_REQUEST,
+                "character.malformed_upload",
+                "That file could not be read.",
+            )
         })?;
 
         if data.is_empty() {
@@ -349,10 +356,11 @@ pub async fn import_card_multipart(
     }
 
     if results.is_empty() {
-        return Err(AppError::BadRequest {
-            code: "NO_FILES",
-            message: Cow::Borrowed("No files were provided."),
-        });
+        return Err(AppError::request(
+            StatusCode::BAD_REQUEST,
+            "character.no_files",
+            "No files were provided.",
+        ));
     }
 
     Ok(Json(ImportCharResponse { results }))
