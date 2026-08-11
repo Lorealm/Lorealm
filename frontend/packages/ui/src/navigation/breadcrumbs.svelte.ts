@@ -1,0 +1,156 @@
+import { characterStore } from '$lib/stores/character.svelte.js';
+import { connectionStore } from '$lib/stores/connection.svelte.js';
+import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
+import { personaStore } from '$lib/stores/persona.svelte.js';
+import { realmStore } from '$lib/stores/realm.svelte.js';
+import { templateStore } from '$lib/stores/template.svelte.js';
+import { toolStore } from '$lib/stores/tools.svelte.js';
+import { userWidgetStore } from '$lib/stores/userWidgets.svelte.js';
+import type { Snowflake } from '$lib/types/core.js';
+import { navigator } from './navigator.js';
+import {
+	SECRETS,
+	type ClientSection,
+	type Route,
+	type ServerSection,
+	type StudioSection,
+	type UserSection,
+	type ViewName
+} from './routes.js';
+
+export interface Crumb {
+	label: string;
+	go?: () => void;
+}
+
+const PENDING = '…';
+
+const VIEW_LABEL: Record<ViewName, string> = {
+	write: 'Write',
+	characters: 'Characters',
+	realms: 'Realms',
+	connections: 'Connections',
+	studio: 'Studio',
+	settings: 'Settings'
+};
+
+export const STUDIO_LABEL: Record<StudioSection, string> = {
+	realm: 'Realm',
+	characters: 'Characters',
+	lorebooks: 'Lorebooks',
+	templates: 'Templates',
+	tools: 'Tools',
+	personas: 'Personas',
+	widgets: 'Widgets'
+};
+
+const SCOPE_LABEL: Record<'client' | 'user' | 'server', string> = {
+	client: 'Client',
+	user: 'User',
+	server: 'Server'
+};
+
+const CLIENT_LABEL: Record<ClientSection, string> = {
+	editor: 'Editor',
+	inspector: 'Inspector'
+};
+
+const USER_LABEL: Record<UserSection, string> = {
+	tokenizers: 'Tokenizers'
+};
+
+const SERVER_LABEL: Record<ServerSection, string> = {
+	hosting: 'Hosting',
+	storage: 'Storage',
+	sessions: 'Sessions',
+	users: 'Users',
+	characters: 'Characters',
+	tokenizers: 'Tokenizers',
+	tasks: 'Tasks'
+};
+
+interface Named {
+	id: Snowflake;
+	name: string;
+	display_name?: string | null;
+}
+
+function nameIn(list: Named[] | undefined, id: Snowflake): string {
+	const found = list?.find((item) => item.id === id);
+	if (!found) return PENDING;
+	return found.display_name || found.name;
+}
+
+function studioName(section: StudioSection, id: Snowflake): string | null {
+	switch (section) {
+		case 'characters':
+			return nameIn(characterStore.metadataList, id);
+		case 'lorebooks':
+			return nameIn(lorebookStore.metadataList, id);
+		case 'templates':
+			return nameIn(templateStore.metadataList, id);
+		case 'tools':
+			return nameIn([...(toolStore.loadedTools ?? []), ...(toolStore.builtinTools ?? [])], id);
+		case 'personas':
+			return nameIn(personaStore.loadedPersonas, id);
+		case 'widgets':
+			return nameIn(userWidgetStore.loadedWidgets, id);
+		case 'realm':
+			return null;
+	}
+}
+
+/**
+ * The trail to the current route, root first.
+ */
+export function crumbsFor(route: Route): Crumb[] {
+	switch (route.view) {
+		case 'write':
+		case 'characters':
+			return [{ label: VIEW_LABEL[route.view] }];
+
+		case 'realms': {
+			if (route.id === undefined) return [{ label: VIEW_LABEL.realms }];
+			return [
+				{ label: VIEW_LABEL.realms, go: () => navigator.start().realms() },
+				{ label: nameIn(realmStore.summaries, route.id) }
+			];
+		}
+
+		case 'connections': {
+			if (route.id === undefined) return [{ label: VIEW_LABEL.connections }];
+			const label = route.id === SECRETS ? 'API keys' : nameIn(connectionStore.profiles, route.id);
+			return [
+				{ label: VIEW_LABEL.connections, go: () => navigator.start().connections() },
+				{ label }
+			];
+		}
+
+		case 'studio': {
+			const section = route.section;
+			const name = route.id === undefined ? null : studioName(section, route.id);
+			return [
+				{ label: VIEW_LABEL.studio },
+				{
+					label: STUDIO_LABEL[section],
+					go: name === null ? undefined : () => navigator.start().studio()[section]()
+				},
+				...(name === null ? [] : [{ label: name }])
+			];
+		}
+
+		case 'settings': {
+			const section =
+				route.scope === 'client'
+					? CLIENT_LABEL[route.section]
+					: route.scope === 'user'
+						? USER_LABEL[route.section]
+						: SERVER_LABEL[route.section];
+			return [
+				{ label: VIEW_LABEL.settings },
+				{ label: SCOPE_LABEL[route.scope] },
+				{ label: section }
+			];
+		}
+	}
+}

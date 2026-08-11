@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { STUDIO_LABEL } from '$lib/navigation/breadcrumbs.svelte.js';
 	import { navigator } from '$lib/navigation/navigator.js';
 	import type { StudioSection } from '$lib/navigation/routes.js';
 	import { realmStore } from '$lib/stores/realm.svelte.js';
@@ -11,14 +12,14 @@
 
 	const activeRealmExists = $derived(selectedWorld !== 'None');
 
-	const sections: Array<{ id: StudioSection; label: string; go: () => void }> = [
-		{ id: 'realm', label: 'Realm', go: () => navigator.start().studio().realm() },
-		{ id: 'characters', label: 'Characters', go: () => navigator.start().studio().characters() },
-		{ id: 'lorebooks', label: 'Lorebooks', go: () => navigator.start().studio().lorebooks() },
-		{ id: 'templates', label: 'Templates', go: () => navigator.start().studio().templates() },
-		{ id: 'tools', label: 'Tools', go: () => navigator.start().studio().tools() },
-		{ id: 'personas', label: 'Personas', go: () => navigator.start().studio().personas() },
-		{ id: 'widgets', label: 'Widgets', go: () => navigator.start().studio().widgets() }
+	const sections: Array<{ id: StudioSection; go: () => void }> = [
+		{ id: 'realm', go: () => navigator.start().studio().realm() },
+		{ id: 'characters', go: () => navigator.start().studio().characters() },
+		{ id: 'lorebooks', go: () => navigator.start().studio().lorebooks() },
+		{ id: 'templates', go: () => navigator.start().studio().templates() },
+		{ id: 'tools', go: () => navigator.start().studio().tools() },
+		{ id: 'personas', go: () => navigator.start().studio().personas() },
+		{ id: 'widgets', go: () => navigator.start().studio().widgets() }
 	];
 </script>
 
@@ -31,10 +32,10 @@
 		{/each}
 	</select>
 	<hr />
-	{#each sections as { id, label, go } (id)}
+	{#each sections as { id, go } (id)}
 		{#if id !== 'realm' || activeRealmExists}
 			<button class="tab" class:active={section === id} onclick={go}>
-				{label}
+				{STUDIO_LABEL[id]}
 			</button>
 		{/if}
 	{/each}
