@@ -24,7 +24,7 @@ import type {
 } from '$lib/types/realm.js';
 import type { WidgetInstance } from '$lib/types/widgets.js';
 import { SvelteSet } from 'svelte/reactivity';
-import { showError } from './errorToast.svelte.ts';
+import { showApiError } from './errorActions.js';
 
 export type RunStatus = 'idle' | 'streaming' | 'error';
 
@@ -641,13 +641,7 @@ class RealmStore {
 	}
 
 	#handleError(e: unknown, title: string) {
-		const message =
-			e instanceof Error
-				? e.message
-				: e && typeof e === 'object' && 'message' in e
-					? String((e as { message: unknown }).message)
-					: String(e);
-		showError(message, { title, durationMs: 5000 });
+		showApiError(e, { title, durationMs: 5000 });
 	}
 }
 

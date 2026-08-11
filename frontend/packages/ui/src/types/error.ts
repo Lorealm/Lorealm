@@ -154,6 +154,13 @@ export interface ExtractedError {
 	message: string;
 	code?: ErrorCode;
 	details?: ErrorDetails;
+	/**
+	 * HTTP status. `404` means `details.id` names something that is gone.
+	 *
+	 * Named apart from `status` so this can be spread into state objects that
+	 * carry a status of their own.
+	 */
+	httpStatus?: number;
 }
 
 /**
@@ -161,11 +168,12 @@ export interface ExtractedError {
  */
 export function extractError(e: unknown): ExtractedError {
 	if (e instanceof Error) {
-		const err = e as Error & { code?: unknown; details?: unknown };
+		const err = e as Error & { code?: unknown; details?: unknown; status?: unknown };
 		return {
 			message: e.message,
 			code: typeof err.code === 'string' ? (err.code as ErrorCode) : undefined,
-			details: err.details as ErrorDetails | undefined
+			details: err.details as ErrorDetails | undefined,
+			httpStatus: typeof err.status === 'number' ? err.status : undefined
 		};
 	}
 	if (e && typeof e === 'object') {
@@ -173,7 +181,8 @@ export function extractError(e: unknown): ExtractedError {
 		return {
 			message: typeof err.message === 'string' ? err.message : JSON.stringify(err),
 			code: typeof err.error_code === 'string' ? (err.error_code as ErrorCode) : undefined,
-			details: err.details as ErrorDetails | undefined
+			details: err.details as ErrorDetails | undefined,
+			httpStatus: typeof err.status === 'number' ? err.status : undefined
 		};
 	}
 	return { message: String(e) };
