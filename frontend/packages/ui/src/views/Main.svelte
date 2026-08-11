@@ -1,6 +1,7 @@
 <script>
 	import Inspector from '$lib/widgets/inspector/Inspector.svelte';
 	import NavBar from '$lib/widgets/navigation/NavBar.svelte';
+	import TopBar from '$lib/widgets/navigation/TopBar.svelte';
 	import MainViewRouter from '$lib/widgets/routers/MainViewRouter.svelte';
 
 	import ErrorToast from '$lib/components/ErrorToast.svelte';
@@ -9,7 +10,7 @@
 <div class="container">
 	<NavBar />
 	<div id="mainView" class="centre">
-		<div class="topBar"></div>
+		<TopBar />
 		<MainViewRouter />
 	</div>
 	<Inspector />
@@ -30,14 +31,6 @@
 		flex-direction: column;
 		min-height: 0;
 		min-width: 0;
-	}
-	.topBar {
-		display: flex;
-		width: 100%;
-		flex-shrink: 0;
-		height: var(--height-header);
-		background-color: var(--color-bg-elevated);
-		border-bottom: 1px solid var(--color-border-subtle);
 	}
 	.centre {
 		display: flex;
