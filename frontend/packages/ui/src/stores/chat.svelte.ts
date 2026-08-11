@@ -14,7 +14,8 @@ import type { PlayerAction, RealmAgent, RealmCast, TurnResult } from '$lib/types
 import type { WidgetInstance } from '$lib/types/widgets.js';
 import { SvelteMap } from 'svelte/reactivity';
 import { messageStateStore } from './messageState.svelte.ts';
-import { showError, type ToastAction } from './errorToast.svelte.ts';
+import { type ToastAction } from './errorToast.svelte.ts';
+import { showApiError } from './errorActions.js';
 
 export type StreamStatus = 'idle' | 'streaming' | 'error';
 
@@ -821,17 +822,17 @@ class ChatStore {
 			message: err.message
 		};
 
-		showError(err.message, {
-			title: opts?.title ?? 'Something went wrong',
+		showApiError(e, {
+			title: opts?.title,
 			durationMs: timeoutMs ?? 0,
-			action: opts?.action
+			actions: opts?.actions
 		});
 	}
 }
 
 type HandleErrorOptions = {
 	title?: string;
-	action?: ToastAction;
+	actions?: ToastAction[];
 };
 
 export const chatStore = new ChatStore();
