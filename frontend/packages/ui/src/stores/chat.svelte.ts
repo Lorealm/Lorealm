@@ -1,3 +1,4 @@
+import { extractError } from '$lib/types/error.js';
 import { useApi } from '$lib/api/client.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type {
@@ -832,15 +833,5 @@ type HandleErrorOptions = {
 	title?: string;
 	action?: ToastAction;
 };
-
-function extractError(e: unknown): { message: string } {
-	if (e instanceof Error) return { message: e.message };
-	if (e && typeof e === 'object') {
-		const err = e as Record<string, unknown>;
-		const message = typeof err.message === 'string' ? err.message : JSON.stringify(err);
-		return { message };
-	}
-	return { message: String(e) };
-}
 
 export const chatStore = new ChatStore();

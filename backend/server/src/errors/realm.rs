@@ -1,11 +1,14 @@
+use std::borrow::Cow;
+
+use axum::http::StatusCode;
 use lorealm_storage::{
     StorageError,
     models::{ImportKind, Snowflake},
 };
 
 use crate::errors::{
-    CharacterError, ChatError, ConnectionError, ContextError, ConversationError, PersonaError,
-    StateError, TargetType,
+    CharacterError, ChatError, ConnectionError, ContextError, ConversationError, DomainError,
+    ErrorDetails, PersonaError, StateError, TargetType, impl_app_error, sentence,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -58,43 +61,140 @@ pub enum RealmError {
     Serialization(#[from] serde_json::Error),
 }
 
-impl RealmError {
-    pub fn client_message(&self) -> String {
+impl DomainError for RealmError {
+    fn code(&self) -> &'static str {
         match self {
-            RealmError::NotRealmConversation(_) => {
-                "this conversation was not started from a realm".to_string()
+            Self::Chat(err) => err.code(),
+            Self::Conversation(err) => err.code(),
+            Self::State(err) => err.code(),
+            Self::Character(err) => err.code(),
+            Self::Context(err) => err.code(),
+            Self::Persona(err) => err.code(),
+            Self::Connection(err) => err.code(),
+            Self::NotRealmConversation(_) => "realm.not_realm_conversation",
+            Self::NoAgents(_) => "realm.no_agents",
+            Self::NoRunnableAgent => "realm.no_runnable_agent",
+            Self::NotYourTurn(_) => "realm.not_your_turn",
+            Self::MalformedAgent(_, _) => "realm.malformed_agent",
+            Self::NotFound(_, _) | Self::NotOwned(_, _) => "realm.not_found",
+            Self::InvalidAgent(_) => "realm.invalid_agent",
+            Self::InvalidTurn(_) => "realm.invalid_turn",
+            Self::ToolNotBound(_) => "realm.tool_not_bound",
+            Self::NotImported(_, _) => "realm.not_imported",
+            Self::ImportInUse(_, _, _) => "realm.import_in_use",
+            Self::ActionFailed(_) => "realm.action_failed",
+            Self::InvalidScenario(_) => "realm.invalid_scenario",
+            Self::Storage(_) | Self::Serialization(_) => "internal",
+        }
+    }
+
+    fn status(&self) -> StatusCode {
+        match self {
+            Self::Chat(err) => err.status(),
+            Self::Conversation(err) => err.status(),
+            Self::State(err) => err.status(),
+            Self::Character(err) => err.status(),
+            Self::Context(err) => err.status(),
+            Self::Persona(err) => err.status(),
+            Self::Connection(err) => err.status(),
+            Self::NotFound(_, _) | Self::NotOwned(_, _) => StatusCode::NOT_FOUND,
+            Self::NotYourTurn(_)
+            | Self::NoRunnableAgent
+            | Self::ImportInUse(_, _, _)
+            | Self::NotImported(_, _) => StatusCode::CONFLICT,
+            Self::NotRealmConversation(_)
+            | Self::NoAgents(_)
+            | Self::MalformedAgent(_, _)
+            | Self::InvalidAgent(_)
+            | Self::InvalidTurn(_)
+            | Self::ToolNotBound(_)
+            | Self::ActionFailed(_)
+            | Self::InvalidScenario(_) => StatusCode::BAD_REQUEST,
+            Self::Storage(_) | Self::Serialization(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+
+    fn message(&self) -> Cow<'static, str> {
+        match self {
+            Self::Chat(err) => err.message(),
+            Self::Conversation(err) => err.message(),
+            Self::State(err) => err.message(),
+            Self::Character(err) => err.message(),
+            Self::Context(err) => err.message(),
+            Self::Persona(err) => err.message(),
+            Self::Connection(err) => err.message(),
+            Self::NotRealmConversation(_) => {
+                "This conversation was not started from a realm.".into()
             }
-            RealmError::NoAgents(_) => format!("realm contains no agents"),
-            RealmError::NoRunnableAgent => {
-                "no agent could run this turn — every run condition was false".to_string()
+            Self::NoAgents(_) => "This realm has no agents yet.".into(),
+            Self::NoRunnableAgent => {
+                "No agent could run this turn — every run condition was false.".into()
             }
-            RealmError::NotYourTurn(_) => format!("it's not this agent's turn"),
-            RealmError::MalformedAgent(_, hint) => format!("malformed agent: {hint}"),
-            RealmError::NotFound(_, _) | RealmError::NotOwned(_, _) => self.to_string(),
-            RealmError::Chat(chat_error) => chat_error.to_string(),
-            RealmError::Conversation(conversation_error) => conversation_error.to_string(),
-            RealmError::Storage(_) => format!("storage error"),
-            RealmError::Serialization(error) => format!("serialization error: {error}"),
-            RealmError::State(state_error) => state_error.client_message(),
-            RealmError::InvalidAgent(hint) => format!("invalid agent: {hint}"),
-            RealmError::InvalidTurn(hint) => format!("invalid turn: {hint}"),
-            RealmError::ToolNotBound(_) => "this action is not available to the agent".to_string(),
-            RealmError::NotImported(kind, _) => {
-                format!(
-                    "this {} is not imported into the realm — import it first",
-                    kind.as_str()
-                )
+            Self::NotYourTurn(_) => "It isn't this agent's turn.".into(),
+            Self::MalformedAgent(_, hint) => {
+                sentence(format!("This agent is misconfigured: {hint}"))
             }
-            RealmError::ImportInUse(kind, _, agent) => format!(
-                "this {} is still used by agent \"{agent}\" — unbind it there first",
+            Self::NotFound(target, _) | Self::NotOwned(target, _) => {
+                Cow::Owned(format!("That {} no longer exists.", target.label()))
+            }
+            Self::InvalidAgent(hint) => sentence(format!("Invalid agent: {hint}")),
+            Self::InvalidTurn(hint) => sentence(format!("Invalid turn: {hint}")),
+            Self::ToolNotBound(_) => "This action isn't available to the agent.".into(),
+            Self::NotImported(kind, _) => Cow::Owned(format!(
+                "This {} isn't imported into the realm — import it first.",
                 kind.as_str()
-            ),
-            RealmError::ActionFailed(hint) => format!("action failed: {hint}"),
-            RealmError::InvalidScenario(hint) => format!("invalid scenario: {hint}"),
-            RealmError::Character(character_error) => character_error.client_message().to_string(),
-            RealmError::Context(context_error) => context_error.client_message(),
-            RealmError::Persona(persona_error) => persona_error.client_message(),
-            RealmError::Connection(connection_error) => connection_error.to_string(),
+            )),
+            Self::ImportInUse(kind, _, agent) => Cow::Owned(format!(
+                "This {} is still used by agent \"{agent}\" — unbind it there first.",
+                kind.as_str()
+            )),
+            Self::ActionFailed(hint) => sentence(format!("Action failed: {hint}")),
+            Self::InvalidScenario(hint) => sentence(format!("Invalid scenario: {hint}")),
+            Self::Storage(_) | Self::Serialization(_) => "An internal error occurred".into(),
+        }
+    }
+
+    fn details(&self) -> Option<ErrorDetails> {
+        match self {
+            Self::Chat(err) => err.details(),
+            Self::Conversation(err) => err.details(),
+            Self::State(err) => err.details(),
+            Self::Character(err) => err.details(),
+            Self::Context(err) => err.details(),
+            Self::Persona(err) => err.details(),
+            Self::Connection(err) => err.details(),
+            Self::NotFound(target, id) | Self::NotOwned(target, id) => {
+                Some(ErrorDetails::target(*target, *id))
+            }
+            Self::NotRealmConversation(id) | Self::NotYourTurn(id) => {
+                Some(ErrorDetails::target(TargetType::Conversation, *id))
+            }
+            Self::NoAgents(id) => Some(ErrorDetails::target(TargetType::Realm, *id)),
+            Self::MalformedAgent(id, _) => Some(ErrorDetails::target(TargetType::RealmAgent, *id)),
+            Self::ToolNotBound(id) => Some(ErrorDetails::target(TargetType::UserTool, *id)),
+            Self::NotImported(kind, id) | Self::ImportInUse(kind, id, _) => {
+                Some(ErrorDetails::target(import_target(*kind), *id))
+            }
+            Self::InvalidAgent(_) => Some(ErrorDetails::resource(TargetType::RealmAgent)),
+            Self::InvalidScenario(_) => Some(ErrorDetails::resource(TargetType::Scenario)),
+            Self::NoRunnableAgent | Self::InvalidTurn(_) | Self::ActionFailed(_) => {
+                Some(ErrorDetails::resource(TargetType::Realm))
+            }
+            Self::Storage(_) | Self::Serialization(_) => None,
         }
     }
 }
+
+fn import_target(kind: ImportKind) -> TargetType {
+    match kind {
+        ImportKind::Character => TargetType::Character,
+        ImportKind::Lorebook => TargetType::Lorebook,
+        ImportKind::Template => TargetType::ContextTemplate,
+        ImportKind::Tool => TargetType::UserTool,
+        ImportKind::Persona => TargetType::Persona,
+        ImportKind::ConnectionProfile => TargetType::ConnectionProfile,
+        ImportKind::Widget => TargetType::UserWidget,
+    }
+}
+
+impl_app_error!(RealmError);

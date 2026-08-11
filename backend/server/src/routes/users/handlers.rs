@@ -28,10 +28,11 @@ pub async fn register(
 ) -> Result<StatusCode, AppError> {
     // Check if the register endpoint is disabled
     if state.config().get::<UserConfig>().disable_register {
-        return Err(AppError::Forbidden {
-            code: "REGISTER_DISABLED",
-            message: REGISTER_DISABLED_REASON.into(),
-        });
+        return Err(AppError::request(
+            StatusCode::FORBIDDEN,
+            "auth.registration_disabled",
+            REGISTER_DISABLED_REASON,
+        ));
     };
 
     let user = state

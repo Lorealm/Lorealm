@@ -1,9 +1,12 @@
+use std::borrow::Cow;
+
+use axum::http::StatusCode;
 use lorealm_storage::{StorageError, models::Snowflake};
 use thiserror::Error;
 
 use crate::errors::{
-    CharacterError, ConnectionError, ContextError, ConversationError, PersonaError, StateError,
-    TargetType, TokenizerError, UserToolError,
+    CharacterError, ConnectionError, ContextError, ConversationError, DomainError, ErrorDetails,
+    PersonaError, StateError, TargetType, TokenizerError, UserToolError, impl_app_error, sentence,
 };
 
 #[derive(Debug, Error)]
@@ -38,31 +41,88 @@ pub enum ChatError {
     RealmConversation(Snowflake),
 }
 
-impl ChatError {
-    pub fn client_message(&self) -> String {
+impl DomainError for ChatError {
+    fn code(&self) -> &'static str {
         match self {
-            ChatError::Character(character_service_error) => {
-                character_service_error.client_message().to_string()
+            Self::Character(err) => err.code(),
+            Self::Conversation(err) => err.code(),
+            Self::Context(err) => err.code(),
+            Self::State(err) => err.code(),
+            Self::Persona(err) => err.code(),
+            Self::ConnectionProfile(err) => err.code(),
+            Self::UserTool(err) => err.code(),
+            Self::Tokenizer(err) => err.code(),
+            Self::NotFound(_, _) | Self::NotOwned(_, _) => "chat.not_found",
+            // Both are failures of the upstream LLM call.
+            Self::Provider(_) | Self::Connection(_) => "chat.provider_failed",
+            Self::RealmConversation(_) => "chat.realm_conversation",
+            Self::Storage(_) => "internal",
+        }
+    }
+
+    fn status(&self) -> StatusCode {
+        match self {
+            Self::Character(err) => err.status(),
+            Self::Conversation(err) => err.status(),
+            Self::Context(err) => err.status(),
+            Self::State(err) => err.status(),
+            Self::Persona(err) => err.status(),
+            Self::ConnectionProfile(err) => err.status(),
+            Self::UserTool(err) => err.status(),
+            Self::Tokenizer(err) => err.status(),
+            Self::NotFound(_, _) | Self::NotOwned(_, _) => StatusCode::NOT_FOUND,
+            Self::Provider(_) | Self::Connection(_) => StatusCode::BAD_GATEWAY,
+            Self::RealmConversation(_) => StatusCode::CONFLICT,
+            Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+
+    fn message(&self) -> Cow<'static, str> {
+        match self {
+            Self::Character(err) => err.message(),
+            Self::Conversation(err) => err.message(),
+            Self::Context(err) => err.message(),
+            Self::State(err) => err.message(),
+            Self::Persona(err) => err.message(),
+            Self::ConnectionProfile(err) => err.message(),
+            Self::UserTool(err) => err.message(),
+            Self::Tokenizer(err) => err.message(),
+            Self::NotFound(target, _) | Self::NotOwned(target, _) => {
+                Cow::Owned(format!("That {} no longer exists.", target.label()))
             }
-            ChatError::NotFound(target_type, snowflake) => {
-                format!("{target_type} not found: {snowflake}")
+            Self::Provider(err) => sentence(format!("The model provider failed: {err}")),
+            Self::Connection(reason) => {
+                sentence(format!("Could not reach the model provider: {reason}"))
             }
-            ChatError::NotOwned(target_type, snowflake) => {
-                format!("{target_type} not owned: {snowflake}")
+            Self::RealmConversation(_) => {
+                "Realm conversations advance through their turn endpoints.".into()
             }
-            ChatError::Storage(storage_error) => storage_error.to_string(),
-            ChatError::Conversation(conversation_error) => conversation_error.to_string(),
-            ChatError::Context(context_error) => context_error.client_message(),
-            ChatError::State(state_error) => state_error.client_message(),
-            ChatError::Persona(persona_error) => persona_error.client_message(),
-            ChatError::ConnectionProfile(connection_error) => connection_error.client_message(),
-            ChatError::Provider(error) => error.to_string(),
-            ChatError::Connection(msg) => msg.to_owned(),
-            ChatError::UserTool(user_tool_error) => user_tool_error.client_message(),
-            ChatError::Tokenizer(tokenizer_error) => tokenizer_error.client_message(),
-            ChatError::RealmConversation(_) => {
-                "realm conversations advance through their turn endpoints".to_string()
+            Self::Storage(_) => "An internal error occurred".into(),
+        }
+    }
+
+    fn details(&self) -> Option<ErrorDetails> {
+        match self {
+            Self::Character(err) => err.details(),
+            Self::Conversation(err) => err.details(),
+            Self::Context(err) => err.details(),
+            Self::State(err) => err.details(),
+            Self::Persona(err) => err.details(),
+            Self::ConnectionProfile(err) => err.details(),
+            Self::UserTool(err) => err.details(),
+            Self::Tokenizer(err) => err.details(),
+            Self::NotFound(target, id) | Self::NotOwned(target, id) => {
+                Some(ErrorDetails::target(*target, *id))
             }
+            Self::RealmConversation(id) => {
+                Some(ErrorDetails::target(TargetType::Conversation, *id))
+            }
+            Self::Provider(_) | Self::Connection(_) => {
+                Some(ErrorDetails::resource(TargetType::ConnectionProfile))
+            }
+            Self::Storage(_) => None,
         }
     }
 }
+
+impl_app_error!(ChatError);
