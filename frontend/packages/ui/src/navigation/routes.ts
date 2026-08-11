@@ -10,6 +10,9 @@ export type StudioSection =
 	| 'personas'
 	| 'widgets';
 
+/** Settings that live on this device only. */
+export type ClientSection = 'editor';
+
 export type UserSection = 'tokenizers';
 
 export type ServerSection =
@@ -30,6 +33,7 @@ export type Route =
 	| { view: 'realms'; id?: Snowflake }
 	| { view: 'connections'; id?: Snowflake | typeof SECRETS }
 	| { view: 'studio'; section: StudioSection; id?: Snowflake }
+	| { view: 'settings'; scope: 'client'; section: ClientSection }
 	| { view: 'settings'; scope: 'user'; section: UserSection }
 	| { view: 'settings'; scope: 'server'; section: ServerSection };
 

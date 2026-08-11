@@ -1,7 +1,7 @@
 import { router } from './router.svelte.js';
 import type { Snowflake } from '$lib/types/core.js';
 import { SECRETS } from './routes.js';
-import type { Route, ServerSection, StudioSection, UserSection } from './routes.js';
+import type { ClientSection, Route, ServerSection, StudioSection, UserSection } from './routes.js';
 
 class Chain {
 	#started = false;
@@ -43,6 +43,16 @@ class StudioStage {
 	widgets = (id?: Snowflake) => this.#section('widgets', id);
 }
 
+class ClientSettingsStage {
+	constructor(private readonly chain: Chain) {}
+
+	#section(section: ClientSection) {
+		this.chain.go({ view: 'settings', scope: 'client', section });
+	}
+
+	editor = () => this.#section('editor');
+}
+
 class UserSettingsStage {
 	constructor(private readonly chain: Chain) {}
 
@@ -71,6 +81,11 @@ class ServerSettingsStage {
 
 class SettingsStage {
 	constructor(private readonly chain: Chain) {}
+
+	client(): ClientSettingsStage {
+		this.chain.go(router.recallClient());
+		return new ClientSettingsStage(this.chain);
+	}
 
 	user(): UserSettingsStage {
 		this.chain.go(router.recallUser());

@@ -9,6 +9,8 @@
 	import { setAuthState } from './stores/auth.svelte.ts';
 	import Titlebar from './widgets/Titlebar.svelte';
 	import { showToast } from './stores/errorToast.svelte.ts';
+	import { memory } from './stores/memory.svelte.ts';
+	import { settings } from './stores/settings.svelte.ts';
 
 	let { api }: { api: PlatformAPI } = $props();
 
@@ -20,8 +22,9 @@
 	provideApiClient(api);
 
 	$effect(() => {
-		api.auth
-			.hydrate()
+		// Local config first: the login form reads it, and it needs no session.
+		Promise.all([memory.load(), settings.load()])
+			.then(() => api.auth.hydrate())
 			.then((session) => {
 				if (session) setAuthState({ status: 'authenticated', session });
 				else setAuthState({ status: 'unauthenticated' });

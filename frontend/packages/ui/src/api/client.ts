@@ -422,8 +422,10 @@ export function createApiClient(platform: PlatformAPI) {
 export type ApiClient = ReturnType<typeof createApiClient>;
 
 let client: ApiClient | null = null;
+let platformApi: PlatformAPI | null = null;
 
 export function provideApiClient(platform: PlatformAPI): ApiClient {
+	platformApi = platform;
 	client = createApiClient(platform);
 	return client;
 }
@@ -431,4 +433,9 @@ export function provideApiClient(platform: PlatformAPI): ApiClient {
 export function useApi(): ApiClient {
 	if (!client) throw new Error('useApi() before provideApiClient()');
 	return client;
+}
+
+export function usePlatform(): PlatformAPI {
+	if (!platformApi) throw new Error('usePlatform() before provideApiClient()');
+	return platformApi;
 }
