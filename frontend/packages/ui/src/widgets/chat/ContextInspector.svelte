@@ -2,6 +2,7 @@
 	import { tick } from 'svelte';
 	import { useApi } from '$lib/api/client.js';
 	import { contextInspector } from '$lib/stores/contextInspector.svelte.js';
+	import { keyLayer } from '$lib/keys/layers.svelte.js';
 	import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
 	import { showApiError } from '$lib/stores/errorActions.js';
 	import { parseContextBlocks, groupAdjacentBlocks, type TracedBlock } from '$lib/types/context.js';
@@ -361,6 +362,7 @@
 
 {#if contextInspector.message}
 	<div
+		use:keyLayer={{ id: 'chat.contextInspector', blocking: true }}
 		class="backdrop"
 		role="presentation"
 		onclick={(e) => {

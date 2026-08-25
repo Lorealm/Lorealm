@@ -21,7 +21,7 @@
 	}
 
 	// In a realm, render the playthrough from the player's vantage
-	const path = $derived(chatStore.isRealm ? chatStore.visiblePath : chatStore.activePath);
+	const path = $derived(chatStore.renderedPath);
 
 	$effect(() => {
 		void path.length;

@@ -4,6 +4,8 @@
 	import { chatStore } from '$lib/stores/chat.svelte.js';
 	import { messageStateStore } from '$lib/stores/messageState.svelte.js';
 	import { FilePlus, ListStart, Paperclip, Send, Sparkles, Square } from '@lucide/svelte';
+	import { CHAT_COMPOSER_LAYER, type ChatComposerLayer } from '$lib/keys/commands.js';
+	import { keyLayer } from '$lib/keys/layers.svelte.js';
 
 	let busy = $derived(chatStore.isStreaming);
 
@@ -35,6 +37,11 @@
 			send();
 		}
 	}
+
+	const composerLayer: ChatComposerLayer = {
+		focus: () => textareaEl?.focus(),
+		send
+	};
 
 	async function startNewChat() {
 		if (activeCharacter) {
@@ -74,6 +81,7 @@
 		</PopupMenu>
 		<button class="attachement-button" title="Attachments"><Paperclip /></button>
 		<textarea
+			use:keyLayer={{ id: CHAT_COMPOSER_LAYER, data: composerLayer }}
 			class="text-input"
 			placeholder="Send a message..."
 			rows="1"

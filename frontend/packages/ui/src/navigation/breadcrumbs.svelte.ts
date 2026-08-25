@@ -25,7 +25,7 @@ export interface Crumb {
 
 const PENDING = '…';
 
-const VIEW_LABEL: Record<ViewName, string> = {
+export const VIEW_LABEL: Record<ViewName, string> = {
 	write: 'Write',
 	characters: 'Characters',
 	realms: 'Realms',
@@ -52,7 +52,8 @@ const SCOPE_LABEL: Record<'client' | 'user' | 'server', string> = {
 
 const CLIENT_LABEL: Record<ClientSection, string> = {
 	editor: 'Editor',
-	inspector: 'Inspector'
+	inspector: 'Inspector',
+	keybinds: 'Keybinds'
 };
 
 const USER_LABEL: Record<UserSection, string> = {
