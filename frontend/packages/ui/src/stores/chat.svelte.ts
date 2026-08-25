@@ -147,6 +147,19 @@ class ChatStore {
 		});
 	}
 
+	/**
+	 * The path actually on screen. In a realm the player only sees the turns
+	 * their agent can perceive.
+	 */
+	get renderedPath(): ConversationMessage[] {
+		return this.isRealm ? this.visiblePath : this.activePath;
+	}
+
+	/** The newest message on screen */
+	get lastMessage(): ConversationMessage | null {
+		return this.renderedPath.at(-1) ?? null;
+	}
+
 	/** True while a turn the player cannot hear is streaming */
 	get hiddenTurnActive(): boolean {
 		if (!this.isStreaming || this.realmDirectorView || !this.viewerAgent) return false;
