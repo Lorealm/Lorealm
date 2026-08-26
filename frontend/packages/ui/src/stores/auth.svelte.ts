@@ -14,6 +14,6 @@ export function getAuthState() {
 
 export function setAuthState(state: AuthState) {
 	authState = state;
-	if (state.status === 'authenticated') router.enter();
+	if (state.status === 'authenticated') router.restore();
 	else router.reset();
 }

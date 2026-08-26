@@ -1,3 +1,4 @@
+import { session } from '$lib/stores/session.svelte.js';
 import { applyRoute } from './loader.svelte.js';
 import {
 	HOME,
@@ -19,6 +20,8 @@ class Router {
 	#generation = 0;
 	/** The stages of one `navigator` chain */
 	#pending: { previous: Route | null; route: Route } | null = null;
+	/** Where to land when the next entry fails. Only a restored route sets it. */
+	#fallback: Route | null = null;
 
 	/** Sections to return to when a destination names a view but not a section. */
 	#studioSection: StudioSection = 'lorebooks';
@@ -70,6 +73,20 @@ class Router {
 
 	enter() {
 		this.#schedule(null, this.current);
+	}
+
+	/**
+	 * Enter at the view this tab was on before it reloaded.
+	 */
+	restore() {
+		const saved = session.current.lastRoute;
+		if (saved) {
+			this.#stack = [saved];
+			this.#index = 0;
+			this.#remember(saved);
+			if ('id' in saved && saved.id !== undefined) this.#fallback = { ...saved, id: undefined };
+		}
+		this.enter();
 	}
 
 	reset() {
@@ -128,6 +145,8 @@ class Router {
 	async #enter(previous: Route | null, route: Route) {
 		const generation = ++this.#generation;
 		const stillCurrent = () => this.#generation === generation;
+		const fallback = this.#fallback;
+		this.#fallback = null;
 
 		this.status = 'loading';
 		this.error = null;
@@ -135,8 +154,10 @@ class Router {
 			await applyRoute(previous, route, stillCurrent);
 			if (!stillCurrent()) return;
 			this.status = 'ready';
+			session.set('lastRoute', $state.snapshot(route));
 		} catch (e) {
 			if (!stillCurrent()) return;
+			if (fallback) return this.go(fallback, true);
 			this.error = e instanceof Error ? e.message : String(e);
 			this.status = 'error';
 		}

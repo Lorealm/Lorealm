@@ -3,9 +3,8 @@
 	import { ArrowUpDown, Plus, Upload } from '@lucide/svelte';
 	import CharacterCard from './CharacterCard.svelte';
 	import { showToast } from '$lib/stores/errorToast.svelte.js';
+	import { memory, type CharacterSort } from '$lib/stores/memory.svelte.js';
 	import type { ImportedLorebook, ImportResult } from '$lib/types/character.js';
-
-	type SortKey = 'name-asc' | 'name-desc' | 'updated' | 'created';
 
 	let {
 		oncreate
@@ -20,7 +19,7 @@
 		updatedAt?: string | number | Date;
 	};
 
-	let sortBy = $state<SortKey>('name-asc');
+	const sortBy = $derived(memory.current.charactersSort);
 
 	const characters = $derived(characterStore.metadataList);
 
@@ -107,7 +106,11 @@
 	<div class="topbar">
 		<div class="sort">
 			<ArrowUpDown size={16} />
-			<select bind:value={sortBy} aria-label="Sort characters">
+			<select
+				value={sortBy}
+				onchange={(e) => memory.set('charactersSort', e.currentTarget.value as CharacterSort)}
+				aria-label="Sort characters"
+			>
 				<option value="name-asc">Name (A–Z)</option>
 				<option value="name-desc">Name (Z–A)</option>
 				<option value="updated">Recently updated</option>
