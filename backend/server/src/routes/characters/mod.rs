@@ -50,7 +50,7 @@ pub(super) fn router(
         ));
     let session_permission_routes = Router::new()
         .route("/import", put(handlers::import_card_blob))
-        .route("/importBatch", post(handlers::import_card_multipart))
+        .route("/importBatch", put(handlers::import_card_multipart))
         .route("/{character_id}", put(handlers::edit_character))
         .route("/{character_id}/image", put(handlers::put_image))
         .layer(axum::middleware::from_fn_with_state(
