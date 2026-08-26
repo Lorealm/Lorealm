@@ -3,7 +3,10 @@ use std::{collections::HashMap, pin::Pin, sync::Arc};
 use chrono::Utc;
 use dashmap::DashMap;
 use futures_util::{Stream, StreamExt};
-use lorealm_providers::{Client, ContentBlock, LlmProvider, OpenRouterOptions, OpenRouterProvider};
+use lorealm_providers::{
+    Client, ContentBlock, LlmProvider, OpenAiOptions, OpenAiProvider, OpenRouterOptions,
+    OpenRouterProvider,
+};
 use lorealm_storage::{
     Storage,
     models::{
@@ -415,7 +418,9 @@ impl ChatService {
             }
             // A widget deleted out from under the character just drops out.
             let Some(widget) = self.storage.get_widget(id).await? else {
-                tracing::warn!("A character-bound widget was to be loaded, but count not be found: {id}");
+                tracing::warn!(
+                    "A character-bound widget was to be loaded, but could not be found: {id}"
+                );
                 continue;
             };
             if widget.user_id != user_id {
@@ -664,35 +669,35 @@ impl ChatService {
             }
 
             loop {
-                tokio::select! {
+                let next = tokio::select! {
                     biased;
-                    _ = cancel.cancelled() => break,
-                    next = token_stream.next() => {
-                        let Some(Ok(event)) = next else { break };
-                        match event {
-                            InferEvent::Text(delta) => {
-                                let emitted = chain_tf.push(&delta);
-                                if !emitted.is_empty() {
-                                    acc.text(&emitted);
-                                    yield ChatStreamEvent::Delta { content: emitted };
-                                }
-                            }
-                            InferEvent::Reasoning(delta) => {
-                                let filtered = chain_tf.apply(&delta);
-                                if !filtered.is_empty() {
-                                    acc.reasoning(&filtered);
-                                    yield ChatStreamEvent::Reasoning { content: filtered };
-                                }
-                            }
-                            InferEvent::Widget(widget) => {
-                                let widget = widget.filtered(|s| chain_tf.apply(s));
-                                yield ChatStreamEvent::Widget { widget: widget.clone() };
-                                let marker = acc.widget(widget);
-                                yield ChatStreamEvent::Delta { content: marker };
-                            }
-                            InferEvent::ToolCall(rec) => acc.tool_call(rec),
+                    _ = cancel.cancelled() => None,
+                    next = token_stream.next() => next,
+                };
+                let Some(event) = next else { break };
+                // `?` aborts the stream
+                match event? {
+                    InferEvent::Text(delta) => {
+                        let emitted = chain_tf.push(&delta);
+                        if !emitted.is_empty() {
+                            acc.text(&emitted);
+                            yield ChatStreamEvent::Delta { content: emitted };
                         }
                     }
+                    InferEvent::Reasoning(delta) => {
+                        let filtered = chain_tf.apply(&delta);
+                        if !filtered.is_empty() {
+                            acc.reasoning(&filtered);
+                            yield ChatStreamEvent::Reasoning { content: filtered };
+                        }
+                    }
+                    InferEvent::Widget(widget) => {
+                        let widget = widget.filtered(|s| chain_tf.apply(s));
+                        yield ChatStreamEvent::Widget { widget: widget.clone() };
+                        let marker = acc.widget(widget);
+                        yield ChatStreamEvent::Delta { content: marker };
+                    }
+                    InferEvent::ToolCall(rec) => acc.tool_call(rec),
                 }
             }
             let tail = chain_tf.finish();
@@ -805,9 +810,7 @@ impl ChatService {
             .resolve_connection(spec.owner, profile.id)
             .await?;
 
-        let Some(api_key) = connection.api_key else {
-            return Err(ChatError::Connection("no api key".into()));
-        };
+        let api_key = connection.api_key;
         let Some(model) = connection.profile.model else {
             return Err(ChatError::Connection("no model".into()));
         };
@@ -890,6 +893,9 @@ impl ChatService {
         let http_client = Arc::new(reqwest::Client::new());
         match connection.profile.provider.as_str() {
             "openrouter" => {
+                let Some(api_key) = api_key else {
+                    return Err(ChatError::Connection("no api key".into()));
+                };
                 let pp: OpenRouterOptions =
                     serde_json::from_value(connection.profile.provider_params.clone())
                         .map_err(|e| ChatError::Connection(format!("bad provider params: {e}")))?;
@@ -898,6 +904,20 @@ impl ChatService {
                         b.header("X-OpenRouter-Title", "Lorealm")
                             .header("HTTP-Referer", "https://github.com/Lorealm/Lorealm")
                     });
+                run_inference(provider, messages, common, pp, registry, widget_sink).await
+            }
+            // Any OpenAI-compatible endpoint, including local servers such as
+            // KoboldCPP, which need no key at all.
+            "openai" => {
+                let pp: OpenAiOptions =
+                    serde_json::from_value(connection.profile.provider_params.clone())
+                        .map_err(|e| ChatError::Connection(format!("bad provider params: {e}")))?;
+                let provider = OpenAiProvider::new(
+                    http_client,
+                    model,
+                    pp.base_url.clone(),
+                    api_key.map(|key| key.to_string()),
+                );
                 run_inference(provider, messages, common, pp, registry, widget_sink).await
             }
             other => Err(ChatError::Connection(format!(

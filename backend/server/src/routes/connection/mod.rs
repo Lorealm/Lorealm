@@ -20,6 +20,7 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         .route("/secrets", get(handlers::list_secrets))
         .route("/profiles", get(handlers::list_profiles))
         .route("/profiles/active", get(handlers::get_active_profile))
+        .route("/profiles/{profile_id}/models", get(handlers::list_models))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
             session_auth_middleware,

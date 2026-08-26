@@ -1,3 +1,4 @@
+import { extractError, type ErrorCode, type ErrorDetails } from '$lib/types/error.js';
 import { useApi } from '$lib/api/client.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type {
@@ -25,7 +26,8 @@ export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export interface SaveState {
 	status: SaveStatus;
 	message?: string;
-	code?: string;
+	code?: ErrorCode;
+	details?: ErrorDetails;
 }
 
 /** An entry in the editable draft */
@@ -360,21 +362,6 @@ class LorebookStore {
 			throw e;
 		}
 	}
-}
-
-function extractError(e: unknown): { message: string; code?: string } {
-	console.log(e);
-	if (e instanceof Error) {
-		const code = (e as { code?: unknown }).code;
-		return { message: e.message, code: typeof code === 'string' ? code : undefined };
-	}
-	if (e && typeof e === 'object') {
-		const err = e as Record<string, unknown>;
-		const code = typeof err.error_code === 'string' ? err.error_code : undefined;
-		const message = typeof err.message === 'string' ? err.message : JSON.stringify(err);
-		return { message, code };
-	}
-	return { message: String(e) };
 }
 
 export const lorebookStore = new LorebookStore();

@@ -52,6 +52,7 @@ class ClientSettingsStage {
 
 	editor = () => this.#section('editor');
 	inspector = () => this.#section('inspector');
+	keybinds = () => this.#section('keybinds');
 }
 
 class UserSettingsStage {

@@ -1,7 +1,10 @@
+use std::borrow::Cow;
+
+use axum::http::StatusCode;
 use lorealm_storage::{StorageError, models::Snowflake};
 use thiserror::Error;
 
-use crate::errors::TargetType;
+use crate::errors::{DomainError, ErrorDetails, TargetType, impl_app_error};
 
 #[derive(Debug, Error)]
 pub enum PersonaError {
@@ -15,15 +18,43 @@ pub enum PersonaError {
     UnsupportedMediaType,
 }
 
-impl PersonaError {
-    pub fn client_message(&self) -> String {
+impl DomainError for PersonaError {
+    fn code(&self) -> &'static str {
         match self {
-            PersonaError::Storage(storage_error) => storage_error.to_string(),
-            PersonaError::NotFound(target_type, snowflake) => {
-                format!("{target_type} not found: {snowflake}")
+            // NotOwned shares the not-found code so the API never reveals that
+            // a persona exists under another account.
+            Self::NotFound(_, _) | Self::NotOwned => "persona.not_found",
+            Self::UnsupportedMediaType => "persona.unsupported_media_type",
+            Self::Storage(_) => "internal",
+        }
+    }
+
+    fn status(&self) -> StatusCode {
+        match self {
+            Self::NotFound(_, _) | Self::NotOwned => StatusCode::NOT_FOUND,
+            Self::UnsupportedMediaType => StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+
+    fn message(&self) -> Cow<'static, str> {
+        match self {
+            Self::NotFound(target, _) => {
+                Cow::Owned(format!("That {} no longer exists.", target.label()))
             }
-            PersonaError::NotOwned => "you do not own this persona".to_string(),
-            PersonaError::UnsupportedMediaType => "unsupported media type".to_string(),
+            Self::NotOwned => "That persona no longer exists.".into(),
+            Self::UnsupportedMediaType => "That image format isn't supported.".into(),
+            Self::Storage(_) => "An internal error occurred".into(),
+        }
+    }
+
+    fn details(&self) -> Option<ErrorDetails> {
+        match self {
+            Self::NotFound(target, id) => Some(ErrorDetails::target(*target, *id)),
+            Self::NotOwned => Some(ErrorDetails::resource(TargetType::Persona)),
+            Self::UnsupportedMediaType | Self::Storage(_) => None,
         }
     }
 }
+
+impl_app_error!(PersonaError);

@@ -1,19 +1,5 @@
 <script lang="ts">
 	import { dismissToast, toasts } from '$lib/stores/errorToast.svelte';
-
-	function runAction(action: NonNullable<(typeof toasts)[number]['action']>) {
-		if (action.kind === 'scroll') {
-			const el = document.querySelector<HTMLElement>(action.selector);
-			el?.scrollIntoView({
-				behavior: action.behavior ?? 'smooth',
-				block: 'start'
-			});
-			el?.focus?.({ preventScroll: true } as FocusOptions);
-			return;
-		}
-
-		action.run();
-	}
 </script>
 
 <div class="toast-container" aria-live="polite" aria-atomic="true">
@@ -38,17 +24,23 @@
 				</button>
 			</div>
 
-			{#if toast.action}
+			{#if toast.actions.length > 0}
 				<div class="toast-action-wrapper">
-					<button
-						class="toast-action-btn"
-						onclick={() => {
-							runAction(toast.action!);
-							dismissToast(toast.id);
-						}}
-					>
-						{toast.action.label}
-					</button>
+					{#each toast.actions as action (action.label)}
+						{@const Icon = action.icon}
+						<button
+							class="toast-action-btn tone-{action.tone ?? 'neutral'}"
+							onclick={() => {
+								action.run();
+								dismissToast(toast.id);
+							}}
+						>
+							{#if Icon}
+								<Icon size={14} aria-hidden="true" />
+							{/if}
+							<span>{action.label}</span>
+						</button>
+					{/each}
 				</div>
 			{/if}
 
@@ -154,13 +146,19 @@
 		margin-top: var(--spacing-md);
 		margin-bottom: var(--spacing-xs);
 		display: flex;
-		justify-content: flex-end;
+		gap: var(--spacing-sm);
 	}
 
 	.toast-action-btn {
-		background-color: var(--color-primary);
-		color: var(--color-text-inverse);
-		border: none;
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--spacing-xs);
+		background: none;
+		color: var(--action-text);
+		border: 1px solid var(--action-border);
 		cursor: pointer;
 		font-family: var(--font-family-heading);
 		font-size: var(--font-size-sm);
@@ -170,8 +168,27 @@
 		transition: background-color var(--transition-fast);
 	}
 
+	.tone-neutral {
+		--action-text: var(--variant-text);
+		--action-border: var(--variant-border);
+	}
+	.tone-primary {
+		--action-text: var(--color-primary);
+		--action-border: var(--color-primary);
+	}
+	.tone-danger {
+		--action-text: var(--color-error-text);
+		--action-border: var(--color-error-border);
+	}
+
+	.toast-action-btn span {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
 	.toast-action-btn:hover {
-		background-color: var(--color-primary-dark);
+		background-color: var(--color-hover);
 	}
 
 	/* Progress Bar Logic */

@@ -1,3 +1,4 @@
+import { extractError } from '$lib/types/error.js';
 import { useApi } from '$lib/api/client.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type {
@@ -13,7 +14,8 @@ import type { PlayerAction, RealmAgent, RealmCast, TurnResult } from '$lib/types
 import type { WidgetInstance } from '$lib/types/widgets.js';
 import { SvelteMap } from 'svelte/reactivity';
 import { messageStateStore } from './messageState.svelte.ts';
-import { showError, type ToastAction } from './errorToast.svelte.ts';
+import { type ToastAction } from './errorToast.svelte.ts';
+import { showApiError } from './errorActions.js';
 
 export type StreamStatus = 'idle' | 'streaming' | 'error';
 
@@ -143,6 +145,19 @@ class ChatStore {
 			const src = agents.find((a) => a.id === this.#messageAgentId(m));
 			return this.#canHear(viewer, src?.speech_channel ?? 'main');
 		});
+	}
+
+	/**
+	 * The path actually on screen. In a realm the player only sees the turns
+	 * their agent can perceive.
+	 */
+	get renderedPath(): ConversationMessage[] {
+		return this.isRealm ? this.visiblePath : this.activePath;
+	}
+
+	/** The newest message on screen */
+	get lastMessage(): ConversationMessage | null {
+		return this.renderedPath.at(-1) ?? null;
 	}
 
 	/** True while a turn the player cannot hear is streaming */
@@ -820,27 +835,17 @@ class ChatStore {
 			message: err.message
 		};
 
-		showError(err.message, {
-			title: opts?.title ?? 'Something went wrong',
+		showApiError(e, {
+			title: opts?.title,
 			durationMs: timeoutMs ?? 0,
-			action: opts?.action
+			actions: opts?.actions
 		});
 	}
 }
 
 type HandleErrorOptions = {
 	title?: string;
-	action?: ToastAction;
+	actions?: ToastAction[];
 };
-
-function extractError(e: unknown): { message: string } {
-	if (e instanceof Error) return { message: e.message };
-	if (e && typeof e === 'object') {
-		const err = e as Record<string, unknown>;
-		const message = typeof err.message === 'string' ? err.message : JSON.stringify(err);
-		return { message };
-	}
-	return { message: String(e) };
-}
 
 export const chatStore = new ChatStore();

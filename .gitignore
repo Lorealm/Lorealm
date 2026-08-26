@@ -26,6 +26,7 @@
 
 # IDE
 .idea/
+.claude/
 .vscode/
 *.swp
 *.swo

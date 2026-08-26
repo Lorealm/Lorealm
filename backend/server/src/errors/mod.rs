@@ -5,7 +5,10 @@ mod chat;
 mod config;
 mod connection;
 mod context;
+#[cfg(test)]
+mod contract;
 mod conversation;
+mod domain;
 mod lorebook;
 mod permission;
 mod persona;
@@ -23,6 +26,7 @@ pub use config::*;
 pub use connection::*;
 pub use context::*;
 pub use conversation::*;
+pub use domain::*;
 pub use lorebook::*;
 pub use permission::*;
 pub use persona::*;
@@ -37,7 +41,7 @@ use serde_json::json;
 use std::{borrow::Cow, fmt::Display};
 use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TargetType {
     Character,
     CharacterVersion,
@@ -56,6 +60,43 @@ pub enum TargetType {
     RealmAgent,
     RealmVersion,
     Scenario,
+    Tokenizer,
+    LorebookEntry,
+    TemplateNode,
+}
+
+impl TargetType {
+    /// Human-readable name for client-facing messages.
+    pub fn label(&self) -> &'static str {
+        match self {
+            TargetType::Character => "character",
+            TargetType::CharacterVersion => "character version",
+            TargetType::Greeting => "greeting",
+            TargetType::Conversation => "conversation",
+            TargetType::Message => "message",
+            TargetType::ExampleMessage => "example message",
+            TargetType::ContextTemplate => "context template",
+            TargetType::Persona => "persona",
+            TargetType::ConnectionProfile => "connection profile",
+            TargetType::Secret => "API key",
+            TargetType::UserTool => "tool",
+            TargetType::UserWidget => "widget",
+            TargetType::Lorebook => "lorebook",
+            TargetType::Realm => "realm",
+            TargetType::RealmAgent => "agent",
+            TargetType::RealmVersion => "realm version",
+            TargetType::Scenario => "scenario",
+            TargetType::Tokenizer => "tokenizer",
+            TargetType::LorebookEntry => "lorebook entry",
+            TargetType::TemplateNode => "template node",
+        }
+    }
+}
+
+impl serde::Serialize for TargetType {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.collect_str(self)
+    }
 }
 
 impl Display for TargetType {
@@ -78,6 +119,9 @@ impl Display for TargetType {
             TargetType::RealmAgent => write!(f, "realm_agent"),
             TargetType::RealmVersion => write!(f, "realm_version"),
             TargetType::Scenario => write!(f, "scenario"),
+            TargetType::Tokenizer => write!(f, "tokenizer"),
+            TargetType::LorebookEntry => write!(f, "lorebook_entry"),
+            TargetType::TemplateNode => write!(f, "template_node"),
         }
     }
 }
@@ -88,48 +132,96 @@ impl Display for TargetType {
 /// Internal details are logged server-side but never leaked to the client.
 #[derive(Debug, Error)]
 pub enum AppError {
-    #[error("FORBIDDEN ({code}): {message}")]
-    Forbidden {
+    /// Produced from a [`DomainError`]. Carries that error's own code, status
+    /// and optional resource pointer.
+    #[error("{code}: {message}")]
+    Domain {
+        status: StatusCode,
         code: &'static str,
         message: Cow<'static, str>,
-    },
-    #[error("UNAUTHORIZED ({code}): {message}")]
-    Unauthorized {
-        code: &'static str,
-        message: Cow<'static, str>,
-    },
-    #[error("BAD_REQUEST ({code}): {message}")]
-    BadRequest {
-        code: &'static str,
-        message: Cow<'static, str>,
-    },
-    #[error("CONFLICT ({code}): {message}")]
-    Conflict {
-        code: &'static str,
-        message: Cow<'static, str>,
+        details: Option<ErrorDetails>,
     },
     #[error("INTERNAL: {internal}")]
     Internal { internal: Cow<'static, str> },
 }
 
 impl AppError {
+    /// Route-level failure with no domain enum behind it, f.ex. upload framing
+    /// or endpoint toggles. Anything belonging to a service should implement
+    /// [`DomainError`] instead.
+    pub fn request(
+        status: StatusCode,
+        code: &'static str,
+        message: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        Self::Domain {
+            status,
+            code,
+            message: message.into(),
+            details: None,
+        }
+    }
+
+    /// Materializes a [`DomainError`] into its wire form.
+    ///
+    /// `500` variants collapse into [`AppError::Internal`] to ensure their details
+    /// are logged but never reaches the client.
+    /// 
+    /// Other 5xx keep their own code and message.
+    pub fn from_domain<E: DomainError>(err: &E) -> Self {
+        if err.status() == StatusCode::INTERNAL_SERVER_ERROR {
+            return Self::Internal {
+                internal: Cow::Owned(err.to_string()),
+            };
+        }
+
+        tracing::debug!("[ERROR] {}: {err}", err.code());
+
+        Self::Domain {
+            status: err.status(),
+            code: err.code(),
+            message: err.message(),
+            details: err.details(),
+        }
+    }
+
+    /// JSON body sent to clients. Shared by the HTTP and SSE transports.
+    ///
+    /// Additionally logs the internal detail of [`AppError::Internal`].
+    pub fn response_body(&self) -> serde_json::Value {
+        if let Self::Internal { internal } = self {
+            tracing::error!("[ERROR] internal: {internal}");
+        }
+
+        let mut body = json!({
+            "error_code": self.error_code(),
+            "message": self.client_message(),
+        });
+
+        if let Self::Domain {
+            details: Some(details),
+            ..
+        } = self
+        {
+            if let Ok(value) = serde_json::to_value(details) {
+                body["details"] = value;
+            }
+        }
+
+        body
+    }
+
     fn status_code(&self) -> StatusCode {
         match self {
-            Self::Forbidden { .. } => StatusCode::FORBIDDEN,
-            Self::Unauthorized { .. } => StatusCode::UNAUTHORIZED,
-            Self::BadRequest { .. } => StatusCode::BAD_REQUEST,
-            Self::Conflict { .. } => StatusCode::CONFLICT,
+            Self::Domain { status, .. } => *status,
             Self::Internal { .. } => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 
-    fn error_code(&self) -> String {
+    fn error_code(&self) -> &'static str {
         match self {
-            Self::Forbidden { code, message: _ } => format!("FORBIDDEN: {code}"),
-            Self::Unauthorized { code, message: _ } => format!("UNAUTHORIZED: {code}"),
-            Self::BadRequest { code, message: _ } => format!("BAD_REQUEST: {code}"),
-            Self::Conflict { code, message: _ } => format!("CONFLICT: {code}"),
-            Self::Internal { .. } => "INTERNAL".to_string(),
+            Self::Domain { code, .. } => code,
+            Self::Internal { .. } => "internal",
         }
     }
 
@@ -137,10 +229,7 @@ impl AppError {
     /// Internal errors always return a fixed generic message.
     fn client_message(&self) -> &str {
         match self {
-            Self::Forbidden { message, code: _ }
-            | Self::Unauthorized { message, code: _ }
-            | Self::BadRequest { message, code: _ }
-            | Self::Conflict { message, code: _ } => message,
+            Self::Domain { message, .. } => message,
             Self::Internal { .. } => "An internal error occurred",
         }
     }
@@ -148,333 +237,6 @@ impl AppError {
 
 impl IntoResponse for AppError {
     fn into_response(self) -> axum::response::Response {
-        if let Self::Internal { ref internal } = self {
-            tracing::error!("[ERROR] internal: {internal}");
-        }
-
-        let body = json!({
-            "error_code": self.error_code(),
-            "message": self.client_message(),
-        });
-
-        (self.status_code(), Json(body)).into_response()
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Conversions
-// ---------------------------------------------------------------------------
-
-impl From<AuthError> for AppError {
-    fn from(err: AuthError) -> Self {
-        // Log the detailed error for debugging; the client gets a safe message.
-        tracing::error!("[ERROR] auth: {err}");
-
-        match err {
-            // Infrastructure failures → 500, details stay server-side
-            AuthError::Encryption(_) | AuthError::Storage(_) | AuthError::TokenGenerationFailed => {
-                AppError::Internal {
-                    internal: Cow::Borrowed(err.client_message()),
-                }
-            }
-
-            // Duplicate resource → 409
-            AuthError::UsernameTaken(_) | AuthError::EmailTaken(_) => AppError::Conflict {
-                message: Cow::Borrowed(err.client_message()),
-                code: "USER_EXISTS",
-            },
-
-            // Malformed input → 400
-            AuthError::MalformedCredentials => AppError::BadRequest {
-                message: Cow::Borrowed(err.client_message()),
-                code: "MALFORMED_CREDENTIALS",
-            },
-
-            // Everything else is an authentication/session issue → 401
-            _ => AppError::Unauthorized {
-                message: Cow::Borrowed(err.client_message()),
-                code: "UNAUTHORIZED",
-            },
-        }
-    }
-}
-
-impl From<PermissionError> for AppError {
-    fn from(err: PermissionError) -> Self {
-        tracing::error!("[ERROR] perms: {err}");
-
-        match err {
-            PermissionError::Missing(_) => AppError::Forbidden {
-                code: "INVALID_PERMISSIONS",
-                message: Cow::Borrowed(err.client_message()),
-            },
-            PermissionError::Storage(_) => AppError::Internal {
-                internal: Cow::Borrowed(err.client_message()),
-            },
-        }
-    }
-}
-
-impl From<CharacterError> for AppError {
-    fn from(err: CharacterError) -> Self {
-        tracing::error!("[ERROR] character service: {err}");
-
-        match err {
-            _ => AppError::Internal {
-                internal: Cow::Borrowed(err.client_message()),
-            },
-        }
-    }
-}
-
-impl From<ContextError> for AppError {
-    fn from(err: ContextError) -> Self {
-        tracing::error!("[ERROR] context service: {err}");
-
-        match err {
-            ContextError::NotFound(_, _) => AppError::BadRequest {
-                code: "NOT_FOUND",
-                message: Cow::Owned(err.client_message()),
-            },
-            ContextError::Lorebook(e) => match e {
-                LorebookError::NotOwned(_, _) => AppError::BadRequest {
-                    code: "NOT_FOUND",
-                    message: Cow::Owned(e.client_message()),
-                },
-                LorebookError::ContextWeaver(_) => AppError::BadRequest {
-                    code: "CONTEXT_WEAVER",
-                    message: Cow::Owned(e.client_message()),
-                },
-                LorebookError::Yaml(_) => AppError::BadRequest {
-                    code: "SERIALIZATION",
-                    message: Cow::Owned(e.client_message()),
-                },
-            },
-            _ => AppError::Internal {
-                internal: Cow::Owned(err.client_message()),
-            },
-        }
-    }
-}
-
-impl From<ChatError> for AppError {
-    fn from(err: ChatError) -> Self {
-        tracing::error!("[ERROR] chat service: {err}");
-
-        match err {
-            ChatError::NotFound(_, _) | ChatError::NotOwned(_, _) => AppError::BadRequest {
-                code: "NOT_FOUND",
-                message: Cow::Owned(err.client_message()),
-            },
-            ChatError::Character(character_service_error) => character_service_error.into(),
-            ChatError::State(state_error) => state_error.into(),
-            ChatError::Connection(err) => AppError::BadRequest {
-                code: "CONNECTION",
-                message: Cow::Owned(format!("connection error: {err}")),
-            },
-            ChatError::RealmConversation(_) => AppError::BadRequest {
-                code: "REALM_CONVERSATION",
-                message: Cow::Owned(err.client_message()),
-            },
-            _ => AppError::Internal {
-                internal: Cow::Owned(err.client_message()),
-            },
-        }
-    }
-}
-
-impl From<StateError> for AppError {
-    fn from(err: StateError) -> Self {
-        match err {
-            StateError::NoActiveTemplate
-            | StateError::NoActiveConnectionProfile
-            | StateError::NoActivePersona
-            | StateError::NotFound(_, _) => AppError::BadRequest {
-                code: "NOT_FOUND",
-                message: Cow::Owned(err.client_message()),
-            },
-            _ => AppError::Internal {
-                internal: Cow::Owned(err.client_message()),
-            },
-        }
-    }
-}
-
-impl From<PersonaError> for AppError {
-    fn from(err: PersonaError) -> Self {
-        match err {
-            PersonaError::NotFound(_, _) => AppError::BadRequest {
-                code: "NOT_FOUND",
-                message: Cow::Owned(err.client_message()),
-            },
-            PersonaError::NotOwned => AppError::Forbidden {
-                code: "NOT_OWNED",
-                message: Cow::Owned(err.client_message()),
-            },
-            PersonaError::UnsupportedMediaType => AppError::BadRequest {
-                code: "UNSUPPORTED_MEDIA_TYPE",
-                message: Cow::Owned(err.client_message()),
-            },
-            PersonaError::Storage(_) => AppError::Internal {
-                internal: Cow::Owned(err.client_message()),
-            },
-        }
-    }
-}
-
-impl From<ConnectionError> for AppError {
-    fn from(err: ConnectionError) -> Self {
-        match err {
-            ConnectionError::NotFound(_, _) | ConnectionError::NotOwned(_, _) => {
-                AppError::BadRequest {
-                    code: "NOT_FOUND",
-                    message: Cow::Owned(err.client_message()),
-                }
-            }
-            ConnectionError::Validation(_) | ConnectionError::Corrupted(_) => {
-                AppError::BadRequest {
-                    code: "INVALID_DATA",
-                    message: Cow::Owned(err.client_message()),
-                }
-            }
-            ConnectionError::Encryption(_) | ConnectionError::Storage(_) => AppError::Internal {
-                internal: Cow::Owned(err.client_message()),
-            },
-        }
-    }
-}
-
-impl From<UserToolError> for AppError {
-    fn from(err: UserToolError) -> Self {
-        match err {
-            UserToolError::NotFound(_, _) | UserToolError::NotOwned => AppError::BadRequest {
-                code: "NOT_FOUND",
-                message: Cow::Owned(err.client_message()),
-            },
-            UserToolError::InvalidName(_) | UserToolError::InvalidBody(_) => AppError::BadRequest {
-                code: "INVALID_DATA",
-                message: Cow::Owned(err.client_message()),
-            },
-            UserToolError::Storage(_) => AppError::Internal {
-                internal: Cow::Owned(err.client_message()),
-            },
-        }
-    }
-}
-
-impl From<UserWidgetError> for AppError {
-    fn from(err: UserWidgetError) -> Self {
-        match err {
-            UserWidgetError::NotFound(_, _) | UserWidgetError::NotOwned => AppError::BadRequest {
-                code: "NOT_FOUND",
-                message: Cow::Owned(err.client_message()),
-            },
-            UserWidgetError::Invalid(_) => AppError::BadRequest {
-                code: "INVALID_DATA",
-                message: Cow::Owned(err.client_message()),
-            },
-            UserWidgetError::Storage(_) => AppError::Internal {
-                internal: Cow::Owned(err.client_message()),
-            },
-        }
-    }
-}
-
-impl From<TokenizerError> for AppError {
-    fn from(err: TokenizerError) -> Self {
-        match err {
-            TokenizerError::NotFound(_) | TokenizerError::Forbidden(_) => AppError::BadRequest {
-                code: "NOT_FOUND",
-                message: Cow::Owned(err.client_message()),
-            },
-            TokenizerError::InvalidData(_)
-            | TokenizerError::InvalidSource(_)
-            | TokenizerError::Fetch(_)
-            | TokenizerError::Tokenize(_) => AppError::BadRequest {
-                code: "INVALID_DATA",
-                message: Cow::Owned(err.client_message()),
-            },
-            TokenizerError::Storage(_) => AppError::Internal {
-                internal: Cow::Owned(err.client_message()),
-            },
-        }
-    }
-}
-
-impl From<ConfigError> for AppError {
-    fn from(err: ConfigError) -> Self {
-        match err {
-            ConfigError::UnknownKey => AppError::BadRequest {
-                code: "INVALID_DATA",
-                message: Cow::Owned(err.client_message()),
-            },
-            ConfigError::Invalid(_) | ConfigError::Io(_) => AppError::Internal {
-                internal: Cow::Owned(err.client_message()),
-            },
-        }
-    }
-}
-
-impl From<RealmError> for AppError {
-    fn from(err: RealmError) -> Self {
-        match err {
-            RealmError::NotYourTurn(_) => AppError::Conflict {
-                code: "CONFLICT",
-                message: Cow::Owned(err.client_message()),
-            },
-            RealmError::NotRealmConversation(_) | RealmError::NoAgents(_) => AppError::BadRequest {
-                code: "INVALID_REALM",
-                message: Cow::Owned(err.client_message()),
-            },
-            RealmError::NoRunnableAgent => AppError::Conflict {
-                code: "NO_RUNNABLE_AGENT",
-                message: Cow::Owned(err.client_message()),
-            },
-            RealmError::MalformedAgent(_, _) | RealmError::InvalidAgent(_) => {
-                AppError::BadRequest {
-                    code: "INVALID_REALM_AGENT",
-                    message: Cow::Owned(err.client_message()),
-                }
-            }
-            RealmError::NotFound(_, _) | RealmError::NotOwned(_, _) => AppError::BadRequest {
-                code: "INVALID_RESOURCE",
-                message: Cow::Owned(err.client_message()),
-            },
-            RealmError::InvalidTurn(_) | RealmError::ToolNotBound(_) => AppError::BadRequest {
-                code: "INVALID_TURN",
-                message: Cow::Owned(err.client_message()),
-            },
-            RealmError::ActionFailed(_) => AppError::BadRequest {
-                code: "ACTION_FAILED",
-                message: Cow::Owned(err.client_message()),
-            },
-            RealmError::NotImported(_, _) => AppError::BadRequest {
-                code: "NOT_IMPORTED",
-                message: Cow::Owned(err.client_message()),
-            },
-            RealmError::ImportInUse(_, _, _) => AppError::Conflict {
-                code: "IMPORT_IN_USE",
-                message: Cow::Owned(err.client_message()),
-            },
-            RealmError::InvalidScenario(_) => AppError::BadRequest {
-                code: "INVALID_SCENARIO",
-                message: Cow::Owned(err.client_message()),
-            },
-            RealmError::Chat(chat_error) => chat_error.into(),
-            RealmError::Conversation(conversation_error) => {
-                ChatError::from(conversation_error).into()
-            }
-            RealmError::Storage(error) => AppError::Internal {
-                internal: Cow::Owned(error.to_string()),
-            },
-            RealmError::Serialization(error) => AppError::Internal {
-                internal: Cow::Owned(error.to_string()),
-            },
-            RealmError::State(error) => error.into(),
-            RealmError::Character(character_error) => character_error.into(),
-            RealmError::Context(context_error) => context_error.into(),
-            RealmError::Persona(persona_error) => persona_error.into(),
-            RealmError::Connection(connection_error) => connection_error.into(),
-        }
+        (self.status_code(), Json(self.response_body())).into_response()
     }
 }

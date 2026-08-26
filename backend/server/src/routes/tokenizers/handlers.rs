@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use axum::{
     Json,
@@ -59,10 +59,11 @@ pub async fn import_tokenizer(
     perms.require(Permissions::IMPORT_TOKENIZER)?;
 
     if body.is_empty() {
-        return Err(AppError::BadRequest {
-            code: "EMPTY_FILE",
-            message: Cow::Borrowed("File is empty."),
-        });
+        return Err(AppError::request(
+            StatusCode::BAD_REQUEST,
+            "tokenizer.empty_file",
+            "That file is empty.",
+        ));
     }
 
     let tokenizer = state
