@@ -6,8 +6,8 @@
 	import type { Snowflake } from '$lib/types/core.js';
 	import TransportImage from '$lib/components/TransportImage.svelte';
 	import ContextField from '$lib/components/ContextField.svelte';
-	import StudioSidebar from '../StudioSidebar.svelte';
-	import { X } from '@lucide/svelte';
+	import ListSidebar from '$lib/components/ListSidebar.svelte';
+	import { Star, X } from '@lucide/svelte';
 
 	const SAVE_MS = 500;
 
@@ -178,7 +178,7 @@
 {/snippet}
 
 <div class="persona-editor">
-	<StudioSidebar
+	<ListSidebar
 		title="Personas"
 		oncreate={createPersona}
 		{creating}
@@ -226,7 +226,7 @@
 					</span>
 				</button>
 				<button
-					class="active-toggle"
+					class="icon-button active-toggle"
 					class:on={persona.id === activePersonaId}
 					type="button"
 					title={persona.id === activePersonaId ? 'Active persona' : 'Set as active'}
@@ -236,11 +236,11 @@
 						: `Set ${persona.name} as active`}
 					onclick={() => makeActive(persona.id)}
 				>
-					{persona.id === activePersonaId ? '★' : '☆'}
+					<Star size={14} fill={persona.id === activePersonaId ? 'currentColor' : 'none'} />
 				</button>
 			</div>
 		{/each}
-	</StudioSidebar>
+	</ListSidebar>
 
 	<section class="col-content">
 		{#if draft}
@@ -430,19 +430,30 @@
 		padding: var(--spacing-sm);
 		text-align: left;
 	}
-	.active-toggle {
+	.icon-button {
 		flex: 0 0 auto;
-		padding: var(--spacing-xs) var(--spacing-sm);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: var(--spacing-xs);
+		border-radius: var(--radius-sm);
 		background: transparent;
 		color: var(--color-text-muted);
-		font-size: var(--font-size-md);
-		line-height: 1;
 	}
-	.active-toggle:hover {
+	
+	.icon-button:hover {
+		background-color: var(--color-bg-elevated-3);
 		color: var(--color-text-accent);
+	}
+	.icon-button:focus-visible {
+		outline: none;
+		box-shadow: 0 0 0 2px var(--color-focus);
+	}
+	.active-toggle {
+		margin-right: var(--spacing-xs);
 	}
 	.active-toggle.on {
-		color: var(--color-text-accent);
+		color: var(--color-primary);
 	}
 	.list-avatar {
 		flex: 0 0 auto;

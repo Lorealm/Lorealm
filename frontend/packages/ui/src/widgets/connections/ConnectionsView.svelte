@@ -9,13 +9,28 @@
 	import ProfileList from './ProfileList.svelte';
 	import ProfileEditor from './ProfileEditor.svelte';
 	import SecretsManager from './SecretsManager.svelte';
+	import ListSidebar from '$lib/components/ListSidebar.svelte';
 	import SaveIndicator from '$lib/components/SaveIndicator.svelte';
+	import { KeyRound } from '@lucide/svelte';
 
 	const SAVE_MS = 500;
 
 	const route = $derived(router.current);
 	const selected = $derived(route.view === 'connections' ? (route.id ?? null) : null);
 	const draft = $derived(connectionStore.editingProfile);
+
+	let query = $state('');
+	const profiles = $derived(connectionStore.profiles);
+	const shownProfiles = $derived.by(() => {
+		const needle = query.trim().toLowerCase();
+		if (!needle) return profiles ?? [];
+		return (profiles ?? []).filter(
+			(p) =>
+				p.name.toLowerCase().includes(needle) ||
+				p.provider.toLowerCase().includes(needle) ||
+				p.model.toLowerCase().includes(needle)
+		);
+	});
 
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let dirty = false;
@@ -59,33 +74,20 @@
 	}
 
 	let creating = $state(false);
-	let newName = $state('');
-	let newProvider = $state(PROVIDER_SCHEMAS[0]?.provider ?? '');
-	let createBusy = $state(false);
-	let createError = $state('');
 
-	function openCreate() {
+	async function createProfile() {
+		if (creating) return;
 		creating = true;
-		newName = '';
-		createError = '';
-	}
-
-	async function confirmCreate() {
-		const name = newName.trim();
-		if (!name) {
-			createError = 'Name is required.';
-			return;
-		}
-		createBusy = true;
-		createError = '';
 		try {
-			const id = await connectionStore.createProfile(name, newProvider);
-			creating = false;
+			const id = await connectionStore.createProfile(
+				'Untitled profile',
+				PROVIDER_SCHEMAS[0]?.provider ?? ''
+			);
 			if (id) await selectProfile(id);
 		} catch (e) {
-			createError = e instanceof Error ? e.message : String(e);
+			console.error(e);
 		} finally {
-			createBusy = false;
+			creating = false;
 		}
 	}
 
@@ -100,58 +102,41 @@
 </script>
 
 <div class="connections-view">
-	<section class="col-list">
-		<header class="list-header">
-			<div class="header-row">
-				<span class="view-name">Connections</span>
-			</div>
-			<div class="header-row">
-				<button class="keys" class:active={selected === SECRETS} type="button" onclick={openSecrets}
-					>API keys</button
-				>
-				<button class="add" class:active={creating} type="button" onclick={openCreate}
-					>＋ Profile</button
-				>
-			</div>
-			{#if creating}
-				<div class="create-form">
-					<!-- svelte-ignore a11y_autofocus -->
-					<input
-						type="text"
-						placeholder="Profile name"
-						bind:value={newName}
-						autofocus
-						onkeydown={(e) => e.key === 'Enter' && confirmCreate()}
-					/>
-					<select bind:value={newProvider}>
-						{#each PROVIDER_SCHEMAS as s (s.provider)}
-							<option value={s.provider}>{s.label}</option>
-						{/each}
-					</select>
-					<div class="create-actions">
-						<button type="button" disabled={createBusy} onclick={confirmCreate}>
-							{createBusy ? 'Creating…' : 'Create'}
-						</button>
-						<button type="button" onclick={() => (creating = false)}>Cancel</button>
-					</div>
-					{#if createError}
-						<span class="create-error">{createError}</span>
-					{/if}
-				</div>
-			{/if}
+	<ListSidebar
+		title="Connections"
+		createLabel="New profile"
+		oncreate={createProfile}
+		{creating}
+		bind:query
+		searchPlaceholder="Search profiles…"
+	>
+		{#snippet status()}
 			<SaveIndicator state={connectionStore.saveState} />
-		</header>
+		{/snippet}
 
-		{#if connectionStore.profiles}
-			<ProfileList
-				profiles={connectionStore.profiles}
-				selectedId={selected === SECRETS ? null : selected}
-				onActivate={(id) => void activateProfile(id)}
-				onSelect={(id) => void selectProfile(id)}
-				onDelete={(id) => void deleteProfile(id)}
-			/>
+		<button
+			type="button"
+			class="secrets-item"
+			class:selected={selected === SECRETS}
+			onclick={() => void openSecrets()}
+		>
+			<KeyRound size={14} />
+			<span>API keys</span>
+		</button>
+
+		{#if shownProfiles.length === 0}
+			<p class="empty">
+				{(profiles ?? []).length === 0 ? 'No profiles yet.' : 'No profiles match that search.'}
+			</p>
 		{/if}
-	</section>
+		<ProfileList
+			profiles={shownProfiles}
+			selectedId={selected === SECRETS ? null : selected}
+			onActivate={(id) => void activateProfile(id)}
+			onSelect={(id) => void selectProfile(id)}
+			onDelete={(id) => void deleteProfile(id)}
+		/>
+	</ListSidebar>
 
 	<section class="col-content">
 		{#if draft}
@@ -165,7 +150,7 @@
 		{:else if selected === SECRETS}
 			<SecretsManager />
 		{:else}
-			<div class="empty">Select a profile, or create one.</div>
+			<div class="empty-pane">Select a profile, or create one.</div>
 		{/if}
 	</section>
 </div>
@@ -176,67 +161,53 @@
 		flex: 1 0 0;
 		min-height: 0;
 	}
-	.col-list {
-		flex: 0 0 300px;
-		display: flex;
-		flex-direction: column;
-		min-height: 0;
-		border-right: 1px solid var(--color-border-subtle);
-	}
 	.col-content {
 		flex: 1 1 auto;
-		width: 100%;
+		min-width: 0;
 		display: flex;
 		min-height: 0;
 	}
-	.list-header {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-md);
-		border-bottom: 1px solid var(--color-border-subtle);
-	}
-	.header-row {
-		display: flex;
+
+	.secrets-item {
 		align-items: center;
 		gap: var(--spacing-sm);
-	}
-	.view-name {
-		flex: 1 1 auto;
-		min-width: 0;
-		color: var(--color-text-primary);
-		font-family: var(--font-family-heading);
-		font-size: var(--font-size-md);
-	}
-	.keys,
-	.add {
+		padding: var(--spacing-sm);
+		border-radius: var(--radius-sm);
+		background: transparent;
+		color: var(--color-text-secondary);
 		font-size: var(--font-size-sm);
-		padding: var(--spacing-xs) var(--spacing-sm);
+		margin-bottom: var(--spacing-xs);
+		border-bottom: 1px solid var(--color-border-subtle);
 	}
-	.keys.active,
-	.add.active {
-		font-weight: bold;
+	
+	.secrets-item:hover {
+		background-color: var(--color-hover);
+		color: var(--color-text-accent);
+	}
+	.secrets-item.selected {
+		background-color: var(--color-selected);
 		color: var(--color-text-primary);
 	}
-	.create-form {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-xs);
-		font-size: var(--font-size-sm);
+	.secrets-item.selected:hover {
+		background-color: var(--color-hover);
 	}
-	.create-actions {
-		display: flex;
-		gap: var(--spacing-sm);
+	.secrets-item:focus-visible {
+		outline: none;
+		box-shadow: 0 0 0 2px var(--color-focus);
 	}
-	.create-error {
-		color: var(--color-text-error, #c0392b);
-	}
+
 	.empty {
+		margin: 0;
+		padding: var(--spacing-sm);
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
+	}
+	.empty-pane {
 		flex: 1;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		font-size: var(--font-size-sm);
-		opacity: 0.6;
+		color: var(--color-text-muted);
 	}
 </style>

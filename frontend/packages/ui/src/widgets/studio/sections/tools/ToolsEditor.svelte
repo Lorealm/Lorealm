@@ -7,7 +7,7 @@
 	import WeaverEditor from '$lib/weaver/editor/WeaverEditor.svelte';
 	import FieldShell from '$lib/components/FieldShell.svelte';
 	import ContextField from '$lib/components/ContextField.svelte';
-	import StudioSidebar from '../StudioSidebar.svelte';
+	import ListSidebar from '$lib/components/ListSidebar.svelte';
 
 	const SAVE_MS = 500;
 	const MAX_DEPTH = 3; // UI cap on array nesting
@@ -124,7 +124,7 @@
 {/snippet}
 
 <div class="tool-editor">
-	<StudioSidebar
+	<ListSidebar
 		title="Tools"
 		oncreate={newTool}
 		bind:query
@@ -184,7 +184,7 @@
 				</div>
 			{/each}
 		{/if}
-	</StudioSidebar>
+	</ListSidebar>
 
 	<section class="col-content">
 		{#if shown}
