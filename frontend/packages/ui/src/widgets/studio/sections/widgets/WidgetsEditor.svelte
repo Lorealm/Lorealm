@@ -6,7 +6,7 @@
 	import type { WidgetMode, WidgetPlacement } from '$lib/types/widgets.js';
 	import { onDestroy } from 'svelte';
 	import ContextField from '$lib/components/ContextField.svelte';
-	import StudioSidebar from '../StudioSidebar.svelte';
+	import ListSidebar from '$lib/components/ListSidebar.svelte';
 	import { LayoutDashboard, Paperclip } from '@lucide/svelte';
 
 	const SAVE_MS = 500;
@@ -193,7 +193,7 @@ ${'</'}script>
 </script>
 
 <div class="widgets-editor">
-	<StudioSidebar
+	<ListSidebar
 		title="Widgets"
 		oncreate={newWidget}
 		{creating}
@@ -245,7 +245,7 @@ ${'</'}script>
 				/>
 			</div>
 		{/each}
-	</StudioSidebar>
+	</ListSidebar>
 
 	<section class="col-content">
 		{#if selected}

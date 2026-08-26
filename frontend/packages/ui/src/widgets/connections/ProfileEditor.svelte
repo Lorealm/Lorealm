@@ -8,6 +8,7 @@
 	} from '$lib/types/schema.js';
 	import type { JsonValue, Snowflake } from '$lib/types/core.js';
 	import NumberParam from './NumberParam.svelte';
+	import SearchSelect from '$lib/components/SearchSelect.svelte';
 
 	let {
 		draft,
@@ -26,7 +27,18 @@
 	$effect(() => {
 		void connectionStore.loadModels(draft.id);
 	});
-	const models = $derived(connectionStore.modelsByProfile.get(draft.id) ?? []);
+	const models = $derived(connectionStore.modelsByProfile.get(draft.id));
+	const modelOptions = $derived(
+		(models ?? []).map((m) => ({
+			value: m.id,
+			label: m.name ?? m.id,
+			hint: m.name ? m.id : undefined
+		}))
+	);
+	
+	const modelEmptyText = $derived(
+		models === undefined ? 'Loading models…' : 'No models listed — type an ID.'
+	);
 
 	const hasSampling = $derived(!!(c.temperature || c.top_p || c.top_k || c.min_p));
 	const hasOutput = $derived(!!(c.max_tokens || c.stop));
@@ -184,15 +196,21 @@
 				{/each}
 			</select>
 		</label>
-		<label class="field">
+		<div class="field">
 			<span>Model</span>
-			<input type="text" bind:value={draft.model} oninput={requestSave} list="models-{draft.id}" />
-			<datalist id="models-{draft.id}">
-				{#each models as m (m.id)}
-					<option value={m.id} label={m.name ?? ''}></option>
-				{/each}
-			</datalist>
-		</label>
+			<SearchSelect
+				value={draft.model}
+				options={modelOptions}
+				onchange={(v) => {
+					draft.model = v;
+					requestSave();
+				}}
+				placeholder="Search or type a model ID…"
+				emptyText={modelEmptyText}
+				allowCustom
+				ariaLabel="Model"
+			/>
+		</div>
 		<label class="field">
 			<span>API key</span>
 			<select value={draft.secret_id ?? ''} onchange={changeSecret}>
@@ -233,10 +251,6 @@
 					onchange={setBaseUrl}
 				/>
 			</label>
-			<p class="hint">
-				Any OpenAI-compatible server, including the version segment — e.g. http://localhost:5001/v1
-				for KoboldCPP. Leave it empty for OpenAI itself. A local server usually needs no API key.
-			</p>
 		</section>
 	{/if}
 
@@ -399,6 +413,9 @@
 		flex-direction: column;
 		gap: var(--spacing-xs);
 		font-size: var(--font-size-sm);
+	}
+	.field > span {
+		color: var(--color-text-secondary);
 	}
 	.check {
 		display: flex;

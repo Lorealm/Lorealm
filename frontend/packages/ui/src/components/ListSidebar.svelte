@@ -22,9 +22,9 @@
 		sort?: string;
 		sortOptions?: Array<{ value: string; label: string }>;
 		searchPlaceholder?: string;
-		/** Save indicator and the like, under the filters. */
+		/** Save indicator and the like */
 		status?: Snippet;
-		/** The list rows. Styled by the caller, which declares them. */
+		/** The list rows. Styled by the caller. */
 		children: Snippet;
 	} = $props();
 </script>
@@ -107,7 +107,6 @@
 		opacity: 0.6;
 	}
 
-	/* stacked rather than side by side: 240px doesn't fit both legibly */
 	.filters {
 		display: flex;
 		flex-direction: column;
@@ -132,7 +131,7 @@
 	.sort {
 		padding-right: 0;
 	}
-	/* Undo the global `select { width: 100% }` so the icon keeps its place */
+
 	.sort select {
 		flex: 1 1 auto;
 		min-width: 0;
