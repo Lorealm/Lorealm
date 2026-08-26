@@ -1,7 +1,10 @@
+use std::borrow::Cow;
+
+use axum::http::StatusCode;
 use lorealm_storage::{StorageError, models::Snowflake};
 use thiserror::Error;
 
-use crate::errors::TargetType;
+use crate::errors::{DomainError, ErrorDetails, TargetType, impl_app_error, sentence};
 
 #[derive(Debug, Error)]
 pub enum UserWidgetError {
@@ -15,15 +18,40 @@ pub enum UserWidgetError {
     Storage(#[from] StorageError),
 }
 
-impl UserWidgetError {
-    pub fn client_message(&self) -> String {
+impl DomainError for UserWidgetError {
+    fn code(&self) -> &'static str {
         match self {
-            UserWidgetError::NotFound(target_type, snowflake) => {
-                format!("{target_type} not found: {snowflake}")
+            Self::NotFound(_, _) | Self::NotOwned => "widget.not_found",
+            Self::Invalid(_) => "widget.invalid",
+            Self::Storage(_) => "internal",
+        }
+    }
+
+    fn status(&self) -> StatusCode {
+        match self {
+            Self::NotFound(_, _) | Self::NotOwned => StatusCode::NOT_FOUND,
+            Self::Invalid(_) => StatusCode::BAD_REQUEST,
+            Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+
+    fn message(&self) -> Cow<'static, str> {
+        match self {
+            Self::NotFound(_, _) | Self::NotOwned => "That widget no longer exists.".into(),
+            Self::Invalid(reason) => sentence(format!("Invalid widget: {reason}")),
+            Self::Storage(_) => "An internal error occurred".into(),
+        }
+    }
+
+    fn details(&self) -> Option<ErrorDetails> {
+        match self {
+            Self::NotFound(target, id) => Some(ErrorDetails::target(*target, *id)),
+            Self::NotOwned | Self::Invalid(_) => {
+                Some(ErrorDetails::resource(TargetType::UserWidget))
             }
-            UserWidgetError::NotOwned => "you don't own this resource".to_string(),
-            UserWidgetError::Invalid(msg) => format!("invalid widget: {msg}"),
-            UserWidgetError::Storage(storage_error) => storage_error.to_string(),
+            Self::Storage(_) => None,
         }
     }
 }
+
+impl_app_error!(UserWidgetError);

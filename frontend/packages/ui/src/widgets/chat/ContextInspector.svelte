@@ -2,8 +2,9 @@
 	import { tick } from 'svelte';
 	import { useApi } from '$lib/api/client.js';
 	import { contextInspector } from '$lib/stores/contextInspector.svelte.js';
+	import { keyLayer } from '$lib/keys/layers.svelte.js';
 	import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
-	import { showError } from '$lib/stores/errorToast.svelte.js';
+	import { showApiError } from '$lib/stores/errorActions.js';
 	import { parseContextBlocks, groupAdjacentBlocks, type TracedBlock } from '$lib/types/context.js';
 	import { resolveBlockContent } from '$lib/types/content.js';
 	import type { JsonValue } from '$lib/types/core.js';
@@ -131,7 +132,7 @@
 					typeof res.total_tokens === 'number' ? res.total_tokens : norm.reduce((a, b) => a + b, 0);
 				tokenData = { unit: 'tokens', counts: norm, total };
 			})
-			.catch((e) => showError(e, { title: 'Token count failed' }));
+			.catch((e) => showApiError(e, { title: 'Token count failed' }));
 	});
 
 	let templateName = $state<string | null>(null);
@@ -201,7 +202,7 @@
 			.catch((e) => {
 				if (contextInspector.message?.id !== msgId) return;
 				reconLoading = false;
-				showError(e, { title: 'Failed to load state' });
+				showApiError(e, { title: 'Failed to load state' });
 			});
 	});
 
@@ -361,6 +362,7 @@
 
 {#if contextInspector.message}
 	<div
+		use:keyLayer={{ id: 'chat.contextInspector', blocking: true }}
 		class="backdrop"
 		role="presentation"
 		onclick={(e) => {

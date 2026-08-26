@@ -189,6 +189,20 @@ pub async fn get_message_state(
     Ok(Json(state))
 }
 
+/// Render one stream item as an SSE frame.
+fn sse_event<T, E>(item: Result<T, E>) -> Result<Event, axum::Error>
+where
+    T: serde::Serialize,
+    E: Into<AppError>,
+{
+    match item {
+        Ok(event) => Event::default().json_data(event),
+        Err(err) => Event::default()
+            .event("error")
+            .json_data(err.into().response_body()),
+    }
+}
+
 pub async fn completions(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
@@ -206,14 +220,7 @@ pub async fn completions(
         )
         .await?;
 
-    let sse = events.map(|item| match item {
-        Ok(event) => Event::default().json_data(event),
-        Err(err) => Event::default()
-            .event("error")
-            .json_data(serde_json::json!({ "message": err.to_string() })),
-    });
-
-    Ok(Sse::new(sse).keep_alive(KeepAlive::default()))
+    Ok(Sse::new(events.map(sse_event)).keep_alive(KeepAlive::default()))
 }
 
 pub async fn cancel_completion(
@@ -259,14 +266,7 @@ pub async fn run_turn(
         .run_turn_stream(conversation_id, session.user_id, request.target)
         .await?;
 
-    let sse = events.map(|item| match item {
-        Ok(event) => Event::default().json_data(event),
-        Err(err) => Event::default()
-            .event("error")
-            .json_data(serde_json::json!({ "message": err.client_message() })),
-    });
-
-    Ok(Sse::new(sse).keep_alive(KeepAlive::default()))
+    Ok(Sse::new(events.map(sse_event)).keep_alive(KeepAlive::default()))
 }
 
 pub async fn player_turn(
@@ -369,4 +369,37 @@ pub async fn list_agent_actions(
         .await?;
 
     Ok(Json(actions))
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::response::IntoResponse;
+    use futures_util::stream;
+
+    use super::*;
+    use crate::errors::ChatError;
+
+    #[tokio::test]
+    async fn a_failed_stream_emits_an_error_frame() {
+        let events = stream::iter(vec![
+            Ok(serde_json::json!({"type": "delta", "content": "Hel"})),
+            Err(ChatError::Connection("no api key".into())),
+        ]);
+
+        let response = Sse::new(events.map(sse_event)).into_response();
+        let body = axum::body::to_bytes(response.into_body(), 64 * 1024)
+            .await
+            .unwrap();
+        let body = String::from_utf8(body.to_vec()).unwrap();
+
+        assert!(
+            body.contains(r#"data: {"type":"delta","content":"Hel"}"#),
+            "{body}"
+        );
+        assert!(body.contains("event: error"), "{body}");
+        assert!(
+            body.contains(r#""error_code":"chat.provider_failed""#),
+            "{body}"
+        );
+    }
 }

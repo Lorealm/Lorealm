@@ -1,17 +1,16 @@
 import { SvelteMap } from "svelte/reactivity";
+import type { Component } from 'svelte';
 
-export type ToastAction =
-	| {
-			kind: 'callback';
-			label: string;
-			run: () => void;
-	  }
-	| {
-			kind: 'scroll';
-			label: string;
-			selector: string;
-			behavior?: ScrollBehavior;
-	  };
+export type ToastActionTone = 'neutral' | 'primary' | 'danger';
+
+export type ToastAction = {
+	label: string;
+	/** A Lucide icon component, e.g. `Plug` from `@lucide/svelte`. */
+	icon?: Component;
+	/** Defaults to `neutral`. */
+	tone?: ToastActionTone;
+	run: () => void;
+};
 
 export type ToastVariant = 'error' | 'info' | 'warning' | 'success';
 
@@ -21,7 +20,7 @@ export type Toast = {
 	message: string;
 	variant: ToastVariant;
 	durationMs: number; // 0 = sticky
-	action?: ToastAction;
+	actions: ToastAction[];
 };
 
 type ShowToastInput = {
@@ -29,7 +28,7 @@ type ShowToastInput = {
 	message: string;
 	variant?: ToastVariant;
 	durationMs?: number;
-	action?: ToastAction;
+	actions?: ToastAction[];
 };
 
 let nextId = 1;
@@ -54,7 +53,7 @@ export function showToast(input: ShowToastInput) {
 		message: input.message,
 		variant: input.variant ?? 'info',
 		durationMs: input.durationMs ?? 6000,
-		action: input.action
+		actions: input.actions ?? []
 	};
 
 	toasts.push(toast);

@@ -69,6 +69,7 @@
         "@fontsource-variable/karla": "^5.2.8",
         "@fontsource-variable/nunito": "^5.2.7",
         "@fontsource-variable/quicksand": "^5.2.10",
+        "w3c-keyname": "^2.2.8",
         "yaml": "^2.9.0",
       },
       "devDependencies": {

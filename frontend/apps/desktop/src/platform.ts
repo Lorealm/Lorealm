@@ -51,7 +51,8 @@ export class ApiError extends Error {
 		readonly status: number,
 		readonly code: string | undefined,
 		message: string,
-		readonly body: unknown
+		readonly body: unknown,
+		readonly details?: { resource?: string; id?: string }
 	) {
 		super(message);
 		this.name = "ApiError";
@@ -63,15 +64,17 @@ function check<T>(res: HttpResponse): T {
 		const body = res.body;
 		let code: string | undefined;
 		let message: string;
+		let details: { resource?: string; id?: string } | undefined;
 		if (body && typeof body === "object") {
 			code = (body as { error_code?: string }).error_code;
 			message = (body as { message?: string }).message ?? `HTTP ${res.status}`;
+			details = (body as { details?: { resource?: string; id?: string } }).details;
 		} else if (typeof body === "string" && body.trim() !== "") {
 			message = body; // plain-text framework error (e.g. serde deserialize message)
 		} else {
 			message = `HTTP ${res.status}`;
 		}
-		throw new ApiError(res.status, code, message, body);
+		throw new ApiError(res.status, code, message, body, details);
 	}
 	return res.body as T;
 }
@@ -91,7 +94,7 @@ function sniffMime(b: Uint8Array): string {
 
 type StreamEvent<T> =
 	| { kind: "message"; data: T }
-	| { kind: "error"; message: string }
+	| { kind: "error"; message: string; body?: unknown }
 	| { kind: "done" };
 
 	async function* stream<T>(path: string, body?: unknown): AsyncGenerator<T> {
@@ -107,11 +110,6 @@ type StreamEvent<T> =
 			wake = null;
 		};
 
-		// Resolves when the command returns; rejects ONLY on a pre-flight HTTP error
-		// (before any message). We do NOT use resolution to end the stream — the
-		// in-band `done`/`error` events are the authoritative terminators, and they
-		// are ordered within the channel after all data. `.finally` only unparks the
-		// generator so a pre-flight `failure` surfaces promptly.
 		invoke<void>("http_stream", { path, body: body ?? null, onEvent: channel })
 			.catch((e) => {
 				const err = (e as { HttpStatus?: { status: number; body: unknown } }).HttpStatus;
@@ -134,8 +132,11 @@ type StreamEvent<T> =
 			if (queue.length > 0) {
 				const msg = queue.shift()!;
 				if (msg.kind === "message") yield msg.data;
-				else if (msg.kind === "error") throw new Error(msg.message);
-				else return; // in-band "done": the authoritative terminator
+				else if (msg.kind === "error") {
+					if (msg.body) check<never>({ status: 500, body: msg.body });
+					throw new Error(msg.message);
+				}
+				else return;
 			} else if (failure) {
 				throw failure; // pre-flight HTTP error, queued before any message
 			} else {

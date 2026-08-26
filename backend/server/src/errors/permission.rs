@@ -1,7 +1,13 @@
+use std::borrow::Cow;
+
+use axum::http::StatusCode;
 use lorealm_storage::StorageError;
 use thiserror::Error;
 
-use crate::services::permission::Permissions;
+use crate::{
+    errors::{DomainError, impl_app_error},
+    services::permission::Permissions,
+};
 
 #[derive(Debug, Error)]
 pub enum PermissionError {
@@ -11,11 +17,27 @@ pub enum PermissionError {
     Storage(#[from] StorageError),
 }
 
-impl PermissionError {
-    pub fn client_message(&self) -> &'static str {
+impl DomainError for PermissionError {
+    fn code(&self) -> &'static str {
         match self {
-            PermissionError::Missing(_) => "You are not allowed to perform this action.",
-            PermissionError::Storage(_) => "Unknown error",
+            Self::Missing(_) => "permission.denied",
+            Self::Storage(_) => "internal",
+        }
+    }
+
+    fn status(&self) -> StatusCode {
+        match self {
+            Self::Missing(_) => StatusCode::FORBIDDEN,
+            Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+
+    fn message(&self) -> Cow<'static, str> {
+        match self {
+            Self::Missing(_) => "You are not allowed to perform this action.".into(),
+            Self::Storage(_) => "An internal error occurred".into(),
         }
     }
 }
+
+impl_app_error!(PermissionError);

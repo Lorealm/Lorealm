@@ -3,6 +3,7 @@
 	import type { ClientSection } from '$lib/navigation/routes.js';
 	import EditorSection from './client/EditorSection.svelte';
 	import InspectorSection from './client/InspectorSection.svelte';
+	import KeybindsSection from './client/KeybindsSection.svelte';
 
 	let { section }: { section: ClientSection } = $props();
 
@@ -16,6 +17,11 @@
 			id: 'inspector',
 			label: 'Inspector',
 			go: () => navigator.start().settings().client().inspector()
+		},
+		{
+			id: 'keybinds',
+			label: 'Keybinds',
+			go: () => navigator.start().settings().client().keybinds()
 		}
 	];
 </script>
@@ -33,6 +39,8 @@
 		<EditorSection />
 	{:else if section === 'inspector'}
 		<InspectorSection />
+	{:else if section === 'keybinds'}
+		<KeybindsSection />
 	{/if}
 </div>
 

@@ -19,7 +19,10 @@ pub struct HttpResponse {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum StreamEvent {
     Message { data: serde_json::Value },
-    Error { message: String },
+    Error {
+        message: String,
+        body: Option<serde_json::Value>,
+    },
     Done,
 }
 
@@ -187,7 +190,10 @@ pub async fn http_stream(
                         .and_then(|m| m.as_str())
                         .unwrap_or("stream error")
                         .to_string();
-                    let _ = on_event.send(StreamEvent::Error { message });
+                    let _ = on_event.send(StreamEvent::Error {
+                        message,
+                        body: Some(data),
+                    });
                     return Ok(());
                 }
 
@@ -197,6 +203,7 @@ pub async fn http_stream(
                 // Transport-level break mid-stream
                 let _ = on_event.send(StreamEvent::Error {
                     message: e.to_string(),
+                    body: None,
                 });
                 return Ok(());
             }

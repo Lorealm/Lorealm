@@ -1,3 +1,4 @@
+import { extractError } from '$lib/types/error.js';
 import { useApi } from '$lib/api/client.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type {
@@ -452,20 +453,6 @@ function arrayEq(a: string[], b: string[]): boolean {
 function swap<T>(arr: T[] | undefined, i: number, j: number) {
 	if (!arr || i < 0 || j < 0 || i >= arr.length || j >= arr.length) return;
 	[arr[i], arr[j]] = [arr[j], arr[i]];
-}
-
-function extractError(e: unknown): { message: string; code?: string } {
-	if (e instanceof Error) {
-		const code = (e as { code?: unknown }).code;
-		return { message: e.message, code: typeof code === 'string' ? code : undefined };
-	}
-	if (e && typeof e === 'object') {
-		const err = e as Record<string, unknown>;
-		const code = typeof err.error_code === 'string' ? err.error_code : undefined;
-		const message = typeof err.message === 'string' ? err.message : JSON.stringify(err);
-		return { message, code };
-	}
-	return { message: String(e) };
 }
 
 export const characterStore = new CharacterStore();

@@ -1,7 +1,10 @@
+use std::borrow::Cow;
+
+use axum::http::StatusCode;
 use lorealm_storage::{StorageError, models::Snowflake};
 use thiserror::Error;
 
-use crate::errors::TargetType;
+use crate::errors::{DomainError, ErrorDetails, TargetType, impl_app_error};
 
 #[derive(Debug, Error)]
 pub enum StateError {
@@ -21,18 +24,56 @@ pub enum StateError {
     NoActiveTokenizer,
 }
 
-impl StateError {
-    pub fn client_message(&self) -> String {
+impl DomainError for StateError {
+    fn code(&self) -> &'static str {
         match self {
-            StateError::Storage(storage_error) => storage_error.to_string(),
-            StateError::NoActiveTemplate => "no active context template".to_string(),
-            StateError::NotFound(target_type, snowflake) => {
-                format!("{target_type} not found: {snowflake}")
+            Self::NoActiveTemplate => "state.no_active_template",
+            Self::NotFound(_, _) => "state.not_found",
+            Self::NoActivePersona => "state.no_active_persona",
+            Self::NoActiveConnectionProfile => "state.no_active_connection_profile",
+            Self::NoActiveTokenizer => "state.no_active_tokenizer",
+            Self::Storage(_) | Self::TemplateConversion(_) => "internal",
+        }
+    }
+
+    fn status(&self) -> StatusCode {
+        match self {
+            Self::NotFound(_, _) => StatusCode::NOT_FOUND,
+            // The request is well-formed; the workspace just isn't configured
+            // for it yet.
+            Self::NoActiveTemplate
+            | Self::NoActivePersona
+            | Self::NoActiveConnectionProfile
+            | Self::NoActiveTokenizer => StatusCode::CONFLICT,
+            Self::Storage(_) | Self::TemplateConversion(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+
+    fn message(&self) -> Cow<'static, str> {
+        match self {
+            Self::NoActiveTemplate => "No context template is selected.".into(),
+            Self::NotFound(target, _) => {
+                Cow::Owned(format!("That {} no longer exists.", target.label()))
             }
-            StateError::TemplateConversion(msg) => msg.to_string(),
-            StateError::NoActivePersona => "no active persona".to_string(),
-            StateError::NoActiveConnectionProfile => "no active connection template".to_string(),
-            StateError::NoActiveTokenizer => "no active tokenizer".to_string(),
+            Self::NoActivePersona => "No persona is selected.".into(),
+            Self::NoActiveConnectionProfile => "No connection profile is selected.".into(),
+            Self::NoActiveTokenizer => "No tokenizer is selected.".into(),
+            Self::Storage(_) | Self::TemplateConversion(_) => "An internal error occurred".into(),
+        }
+    }
+
+    fn details(&self) -> Option<ErrorDetails> {
+        match self {
+            Self::NotFound(target, id) => Some(ErrorDetails::target(*target, *id)),
+            Self::NoActiveTemplate => Some(ErrorDetails::resource(TargetType::ContextTemplate)),
+            Self::NoActivePersona => Some(ErrorDetails::resource(TargetType::Persona)),
+            Self::NoActiveConnectionProfile => {
+                Some(ErrorDetails::resource(TargetType::ConnectionProfile))
+            }
+            Self::NoActiveTokenizer => Some(ErrorDetails::resource(TargetType::Tokenizer)),
+            Self::Storage(_) | Self::TemplateConversion(_) => None,
         }
     }
 }
+
+impl_app_error!(StateError);
