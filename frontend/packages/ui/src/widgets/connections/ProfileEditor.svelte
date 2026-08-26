@@ -24,9 +24,9 @@
 	const providerSecrets = $derived(connectionStore.secretsFor(draft.provider));
 
 	$effect(() => {
-		void connectionStore.loadModels(draft.provider);
+		void connectionStore.loadModels(draft.id);
 	});
-	const models = $derived(connectionStore.modelsByProvider.get(draft.provider) ?? []);
+	const models = $derived(connectionStore.modelsByProfile.get(draft.id) ?? []);
 
 	const hasSampling = $derived(!!(c.temperature || c.top_p || c.top_k || c.min_p));
 	const hasOutput = $derived(!!(c.max_tokens || c.stop));
@@ -75,6 +75,17 @@
 	}
 
 	const isOpenRouter = $derived(draft.provider === 'openrouter');
+	const isOpenAi = $derived(draft.provider === 'openai');
+
+	const baseUrl = $derived(
+		typeof draft.provider_params.base_url === 'string' ? draft.provider_params.base_url : ''
+	);
+	function setBaseUrl(e: Event) {
+		const v = (e.currentTarget as HTMLInputElement).value.trim();
+		if (v === '') delete draft.provider_params.base_url;
+		else draft.provider_params.base_url = v;
+		requestSave();
+	}
 
 	interface Reasoning {
 		effort?: string;
@@ -209,6 +220,25 @@
 			}}
 		/>
 	</section>
+
+	{#if isOpenAi}
+		<section class="group">
+			<h3>Endpoint</h3>
+			<label class="field">
+				<span>Base URL</span>
+				<input
+					type="text"
+					value={baseUrl}
+					placeholder="https://api.openai.com/v1"
+					onchange={setBaseUrl}
+				/>
+			</label>
+			<p class="hint">
+				Any OpenAI-compatible server, including the version segment — e.g. http://localhost:5001/v1
+				for KoboldCPP. Leave it empty for OpenAI itself. A local server usually needs no API key.
+			</p>
+		</section>
+	{/if}
 
 	{#if !schema}
 		<p class="hint">No settings schema for provider “{draft.provider}” — only base fields shown.</p>

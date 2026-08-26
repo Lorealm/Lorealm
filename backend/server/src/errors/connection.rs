@@ -23,6 +23,10 @@ pub enum ConnectionError {
     #[error("secret {0} payload is corrupted")]
     Corrupted(Snowflake),
 
+    /// The provider's own API failed or was unreachable.
+    #[error("provider error: {0}")]
+    Provider(#[from] lorealm_providers::Error),
+
     #[error(transparent)]
     Storage(#[from] StorageError),
 
@@ -38,6 +42,7 @@ impl DomainError for ConnectionError {
             Self::NotFound(_, _) | Self::NotOwned(_, _) => "connection.not_found",
             Self::Validation(_) => "connection.invalid_profile",
             Self::Corrupted(_) => "connection.secret_corrupted",
+            Self::Provider(_) => "connection.provider_failed",
             Self::Storage(_) | Self::Encryption(_) => "internal",
         }
     }
@@ -48,6 +53,7 @@ impl DomainError for ConnectionError {
             Self::Validation(_) => StatusCode::BAD_REQUEST,
             // Recoverable by re-entering the key, so it stays a client error.
             Self::Corrupted(_) => StatusCode::CONFLICT,
+            Self::Provider(_) => StatusCode::BAD_GATEWAY,
             Self::Storage(_) | Self::Encryption(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -61,6 +67,7 @@ impl DomainError for ConnectionError {
             Self::Corrupted(_) => {
                 "This API key could not be decrypted and needs to be entered again.".into()
             }
+            Self::Provider(err) => sentence(format!("The model provider failed: {err}")),
             Self::Storage(_) | Self::Encryption(_) => "An internal error occurred".into(),
         }
     }
@@ -71,7 +78,9 @@ impl DomainError for ConnectionError {
                 Some(ErrorDetails::target(*target, *id))
             }
             Self::Corrupted(id) => Some(ErrorDetails::target(TargetType::Secret, *id)),
-            Self::Validation(_) => Some(ErrorDetails::resource(TargetType::ConnectionProfile)),
+            Self::Validation(_) | Self::Provider(_) => {
+                Some(ErrorDetails::resource(TargetType::ConnectionProfile))
+            }
             Self::Storage(_) | Self::Encryption(_) => None,
         }
     }

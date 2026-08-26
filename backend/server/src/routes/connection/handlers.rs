@@ -4,6 +4,7 @@ use axum::{
     Json,
     extract::{Path, State},
 };
+use lorealm_providers::ModelInfo;
 use lorealm_storage::models::{ConnectionProfile, SecretMetadata, Snowflake};
 
 use crate::{core::AppState, errors::AppError, extract::AuthenticatedSession};
@@ -108,6 +109,21 @@ pub async fn get_profile(
         .await?;
 
     Ok(Json(profile))
+}
+
+/// Models the profile's endpoint offers
+pub async fn list_models(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(profile_id): Path<Snowflake>,
+) -> Result<Json<Vec<ModelInfo>>, AppError> {
+    let models = state
+        .services()
+        .connections()
+        .list_models(session.user_id, profile_id)
+        .await?;
+
+    Ok(Json(models))
 }
 
 pub async fn update_profile(
