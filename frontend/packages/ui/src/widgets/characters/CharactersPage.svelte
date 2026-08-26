@@ -3,7 +3,7 @@
 	import { ArrowUpDown, Plus, Upload } from '@lucide/svelte';
 	import CharacterCard from './CharacterCard.svelte';
 	import { showToast } from '$lib/stores/errorToast.svelte.js';
-	import type { ImportedLorebook } from '$lib/types/character.js';
+	import type { ImportedLorebook, ImportResult } from '$lib/types/character.js';
 
 	type SortKey = 'name-asc' | 'name-desc' | 'updated' | 'created';
 
@@ -58,27 +58,19 @@
 
 	async function onPick(e: Event) {
 		const input = e.currentTarget as HTMLInputElement;
-		const files = input.files;
-		if (!files) return;
-
-		const lorebooks: ImportedLorebook[] = [];
-
-		for (var file of files) {
-			if (!file) return;
-
-			busy = true;
-			try {
-				const results = await characterStore.import(file);
-				for (const result of results) {
-					if (result.status === 'ok' && result.lorebook) lorebooks.push(result.lorebook);
-				}
-			} finally {
-				busy = false;
-			}
-		}
+		const files = Array.from(input.files ?? []);
 		input.value = '';
-		await characterStore.loadList();
+		if (files.length === 0) return;
 
+		let results: ImportResult[];
+		busy = true;
+		try {
+			results = await characterStore.import(files, true);
+		} finally {
+			busy = false;
+		}
+
+		const lorebooks = results.flatMap((r) => (r.status === 'ok' && r.lorebook ? [r.lorebook] : []));
 		reportImportedLorebooks(lorebooks);
 	}
 

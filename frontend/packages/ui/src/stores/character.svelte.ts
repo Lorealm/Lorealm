@@ -11,6 +11,8 @@ import type {
 	ImportResult
 } from '$lib/types/character.js';
 
+const MAX_IMPORT_BATCH_BYTES = 24 * 1024 * 1024;
+
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 export interface SaveState {
@@ -182,12 +184,13 @@ class CharacterStore {
 		if (this.#baseline) this.#baseline.metadata.avatar_uri = avatar_uri;
 	}
 
-	/**
-	 * Import one card. Returns the per-file results so callers can report on
-	 * what came in.
-	 */
-	async import(card: Blob, reloadList: boolean = false): Promise<ImportResult[]> {
-		const { results } = await this.#api.characters.import(card);
+	/** Import cards in bulk. */
+	async import(cards: Blob[], reloadList: boolean = false): Promise<ImportResult[]> {
+		const results: ImportResult[] = [];
+		for (const batch of batchBySize(cards, MAX_IMPORT_BATCH_BYTES)) {
+			const response = await this.#api.characters.importBatch(batch);
+			results.push(...response.results);
+		}
 		if (reloadList) await this.loadList();
 		return results;
 	}
@@ -453,6 +456,28 @@ function arrayEq(a: string[], b: string[]): boolean {
 function swap<T>(arr: T[] | undefined, i: number, j: number) {
 	if (!arr || i < 0 || j < 0 || i >= arr.length || j >= arr.length) return;
 	[arr[i], arr[j]] = [arr[j], arr[i]];
+}
+
+/**
+ * Group cards into batches that each stay under `maxBytes`.
+ */
+function batchBySize(cards: Blob[], maxBytes: number): Blob[][] {
+	const batches: Blob[][] = [];
+	let batch: Blob[] = [];
+	let size = 0;
+
+	for (const card of cards) {
+		if (batch.length > 0 && size + card.size > maxBytes) {
+			batches.push(batch);
+			batch = [];
+			size = 0;
+		}
+		batch.push(card);
+		size += card.size;
+	}
+	if (batch.length > 0) batches.push(batch);
+
+	return batches;
 }
 
 export const characterStore = new CharacterStore();

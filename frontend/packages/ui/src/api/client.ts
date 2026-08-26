@@ -110,6 +110,31 @@ import type {
 import type { User } from '$lib/types/user.js';
 import type { StatusCodes } from 'http-status-codes';
 
+/**
+ * Encode cards as a `multipart/form-data` body.
+ * 
+ * NOTE: This function was written with the help of AI
+ */
+function encodeCardBatch(cards: Blob[]): Blob {
+	const boundary = `----lorealmcards${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+	const parts: BlobPart[] = [];
+
+	cards.forEach((card, i) => {
+		// The server skips fields without a filename, so every part needs one.
+		const name = (card instanceof File ? card.name : `card-${i}`).replace(/["\r\n]/g, '_');
+		parts.push(
+			`--${boundary}\r\n` +
+				`Content-Disposition: form-data; name="files"; filename="${name}"\r\n` +
+				`Content-Type: ${card.type || 'application/octet-stream'}\r\n\r\n`
+		);
+		parts.push(card);
+		parts.push('\r\n');
+	});
+	parts.push(`--${boundary}--\r\n`);
+
+	return new Blob(parts, { type: `multipart/form-data; boundary=${boundary}` });
+}
+
 export function createApiClient(platform: PlatformAPI) {
 	const { http } = platform;
 
@@ -187,6 +212,9 @@ export function createApiClient(platform: PlatformAPI) {
 			updateAvatar: (characterId: Snowflake, update: Blob) =>
 				http.putBlob<AvatarUpdateResponse>(`/api/v1/characters/${characterId}/image`, update),
 			import: (card: Blob) => http.putBlob<ImportCharResponse>(`/api/v1/characters/import`, card),
+			/** Imports every card in one request. Results come back in the order given. */
+			importBatch: (cards: Blob[]) =>
+				http.putBlob<ImportCharResponse>(`/api/v1/characters/importBatch`, encodeCardBatch(cards)),
 			chats: (characterId: Snowflake) =>
 				http.get<Array<ConversationMetadata>>(`/api/v1/characters/${characterId}/chats`),
 			versions: {
