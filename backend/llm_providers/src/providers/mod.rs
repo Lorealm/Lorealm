@@ -27,8 +27,11 @@ pub trait LlmProvider: Send + Sync {
     }
 }
 
+mod openai;
+mod openai_wire;
 mod openrouter;
 
+pub use openai::{OPENAI_DEFAULT_BASE_URL, OpenAiOptions, OpenAiProvider};
 pub use openrouter::{
     OpenRouterOptions, OpenRouterProvider, OpenRouterProviderPreference, OpenRouterReasoning,
 };

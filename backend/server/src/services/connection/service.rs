@@ -3,6 +3,9 @@ use std::sync::Arc;
 use lorealm_encryption::{
     EncryptedData, EncryptionContext, decrypt_bytes, encrypt_bytes, traits::KeyManager,
 };
+use lorealm_providers::{
+    LlmProvider, ModelInfo, OpenAiOptions, OpenAiProvider, OpenRouterProvider,
+};
 use lorealm_storage::{
     Storage,
     models::{ConnectionProfile, Secret, SecretMetadata, Snowflake},
@@ -268,6 +271,58 @@ impl ConnectionService {
         Ok(ResolvedConnection { profile, api_key })
     }
 
+    /// Ask the profile's provider which models it offers. Providers that
+    /// don't support listing yield an empty list rather than an error, so
+    /// the caller can always treat this as "suggestions, possibly none".
+    pub async fn list_models(
+        &self,
+        user_id: Snowflake,
+        profile_id: Snowflake,
+    ) -> Result<Vec<ModelInfo>, ConnectionError> {
+        let connection = self.resolve_connection(user_id, profile_id).await?;
+        let http_client = Arc::new(reqwest::Client::new());
+
+        // A listing request carries no model, hence the empty model name.
+        let models = match connection.profile.provider.as_str() {
+            // OpenRouter's catalogue is public, so a profile with no key
+            // attached yet can still populate the model field.
+            "openrouter" => {
+                let api_key = connection.api_key.map(|key| key.to_string());
+                OpenRouterProvider::new(http_client, api_key.unwrap_or_default(), "")
+                    .list_models()
+                    .await?
+            }
+            "openai" => {
+                let options: OpenAiOptions = serde_json::from_value(
+                    connection.profile.provider_params.clone(),
+                )
+                .map_err(|e| ConnectionError::Validation(format!("invalid openai params: {e}")))?;
+                // A profile with neither an endpoint nor a key is still being
+                // filled in. Asking anyway would send an unauthenticated
+                // request to the OpenAI default and report its 401 as if the
+                // profile were broken.
+                if options.base_url.is_none() && connection.api_key.is_none() {
+                    return Ok(Vec::new());
+                }
+                OpenAiProvider::new(
+                    http_client,
+                    "",
+                    options.base_url,
+                    connection.api_key.map(|key| key.to_string()),
+                )
+                .list_models()
+                .await?
+            }
+            other => {
+                return Err(ConnectionError::Validation(format!(
+                    "unsupported provider: {other}"
+                )));
+            }
+        };
+
+        Ok(models.unwrap_or_default())
+    }
+
     /// Secret exists AND belongs to this user.
     async fn owned_secret(
         &self,
@@ -352,6 +407,20 @@ fn validate_provider(provider: &str) -> Result<(), ConnectionError> {
     }
 }
 
+/// An endpoint URL the server will POST to. Only the scheme and a non-empty
+/// remainder are checked here; anything past that is the operator's problem.
+fn validate_base_url(base_url: &str) -> Result<(), ConnectionError> {
+    let rest = base_url
+        .strip_prefix("http://")
+        .or_else(|| base_url.strip_prefix("https://"));
+    match rest {
+        Some(rest) if !rest.trim().is_empty() => Ok(()),
+        _ => Err(ConnectionError::Validation(
+            "base URL must start with http:// or https://, e.g. http://localhost:5001/v1".into(),
+        )),
+    }
+}
+
 /// Strict on write: unknown fields and out-of-range values are rejected,
 /// and what's stored is the normalized re-serialization
 fn validate_common_params(value: &serde_json::Value) -> Result<serde_json::Value, ConnectionError> {
@@ -428,7 +497,14 @@ fn validate_provider_params(
                 })?;
             Ok(serde_json::to_value(&typed).expect("options serialization cannot fail"))
         }
-        "openai" | "anthropic" => Ok(value.clone()),
+        "openai" => {
+            let typed: lorealm_providers::OpenAiOptions = serde_json::from_value(value.clone())
+                .map_err(|e| ConnectionError::Validation(format!("invalid openai params: {e}")))?;
+            if let Some(base_url) = &typed.base_url {
+                validate_base_url(base_url)?;
+            }
+            Ok(serde_json::to_value(&typed).expect("options serialization cannot fail"))
+        }
         other => Err(ConnectionError::Validation(format!(
             "unsupported provider: {other}"
         ))),

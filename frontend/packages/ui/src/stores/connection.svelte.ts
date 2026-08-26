@@ -30,7 +30,7 @@ class ConnectionStore {
 
 	profiles = $state<ConnectionProfile[]>();
 	secrets = $state<SecretMetadata[]>();
-	modelsByProvider = new SvelteMap<string, ProviderModel[]>();
+	modelsByProfile = new SvelteMap<Snowflake, ProviderModel[]>();
 	activeProfile = $state<Snowflake | null>();
 
 	private _draft = $state<ProfileDraft | null>(null);
@@ -55,26 +55,13 @@ class ConnectionStore {
 		this.secrets = await this.#api.connection.secrets.list();
 	}
 
-	/**
-	 * NOTE: requires a new api client method (and server route) backed by
-	 * LlmProvider::list_models() — this will not compile until you add it:
-	 *
-	 *   providers: {
-	 *     models: (provider: string) =>
-	 *       http.get<Array<ProviderModel>>(`/api/v1/connections/providers/${provider}/models`)
-	 *   }
-	 *
-	 * Failure (or a provider returning None) degrades to an empty list, so the
-	 * model field simply has no suggestions.
-	 */
-	async loadModels(provider: string) {
-		if (!provider || this.modelsByProvider.has(provider)) return;
+	async loadModels(profileId: Snowflake) {
+		if (this.modelsByProfile.has(profileId)) return;
 		try {
-			const models = null; //await this.#api.connection.providers.models(provider);
-			this.modelsByProvider.set(provider, models ?? []);
+			this.modelsByProfile.set(profileId, await this.#api.connection.profiles.models(profileId));
 		} catch (e) {
 			console.error(e);
-			this.modelsByProvider.set(provider, []);
+			this.modelsByProfile.set(profileId, []);
 		}
 	}
 
@@ -114,7 +101,12 @@ class ConnectionStore {
 			};
 			const saved = await this.#api.connection.profiles.update(draft.id, req);
 			const i = this.profiles?.findIndex((p) => p.id === saved.id) ?? -1;
-			if (this.profiles && i !== -1) this.profiles[i] = saved;
+			if (this.profiles && i !== -1) {
+				if (endpointOf(this.profiles[i]) !== endpointOf(saved)) {
+					this.modelsByProfile.delete(saved.id);
+				}
+				this.profiles[i] = saved;
+			}
 			this.saveState = { status: 'saved' };
 		} catch (e) {
 			this.saveState = { status: 'error', ...extractError(e) };
@@ -182,6 +174,10 @@ class ConnectionStore {
 		await this.#api.connection.profiles.active.set({ id });
 		this.activeProfile = id;
 	}
+}
+
+function endpointOf(profile: ConnectionProfile): string {
+	return JSON.stringify([profile.provider, profile.secret_id, profile.provider_params]);
 }
 
 function buildDraft(base: ConnectionProfile): ProfileDraft {

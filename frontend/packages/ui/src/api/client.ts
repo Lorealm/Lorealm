@@ -29,6 +29,7 @@ import type {
 	StartChatRequest
 } from '$lib/types/conversation.js';
 import type { Snowflake } from '$lib/types/core.js';
+import type { ProviderModel } from '$lib/types/schema.js';
 import type {
 	Lorebook,
 	LorebookMetadata,
@@ -297,6 +298,8 @@ export function createApiClient(platform: PlatformAPI) {
 					http.put<ConnectionProfile>(`/api/v1/connections/profiles/${profile_id}`, update),
 				delete: (profile_id: Snowflake) =>
 					http.delete(`/api/v1/connections/profiles/${profile_id}`),
+				models: (profile_id: Snowflake) =>
+					http.get<Array<ProviderModel>>(`/api/v1/connections/profiles/${profile_id}/models`),
 				active: {
 					get: () => http.get<Snowflake>('/api/v1/connections/profiles/active'),
 					set: (request: SetActiveProfileRequest) =>
