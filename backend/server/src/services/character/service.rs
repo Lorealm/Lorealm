@@ -86,6 +86,15 @@ impl CharacterService {
             .save_character(&char, VersionedSaveMode::NewVersion)
             .await?;
 
+        // A new character will likely be edited directly after creation
+        self.editing_sessions.write().await.insert(
+            char.id,
+            EditingSession {
+                version_id: char.current_version_id,
+                last_touched: Instant::now(),
+            },
+        );
+
         Ok(char)
     }
 
@@ -610,6 +619,10 @@ impl CharacterService {
         self.storage
             .save_character(&character, VersionedSaveMode::NewVersion)
             .await?;
+
+        // An imported character is already complete, and should
+        // therefore not be marked as editable immediately.
+        // A new edit should create a new version on top of the imported card.
 
         Ok(ImportedCard {
             id: character_id,
