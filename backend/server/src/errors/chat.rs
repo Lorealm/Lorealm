@@ -39,6 +39,8 @@ pub enum ChatError {
     Tokenizer(#[from] TokenizerError),
     #[error("conversation {0} is a realm playthrough")]
     RealmConversation(Snowflake),
+    #[error("message {0} is not an assistant reply")]
+    NotContinuable(Snowflake),
 }
 
 impl DomainError for ChatError {
@@ -56,6 +58,7 @@ impl DomainError for ChatError {
             // Both are failures of the upstream LLM call.
             Self::Provider(_) | Self::Connection(_) => "chat.provider_failed",
             Self::RealmConversation(_) => "chat.realm_conversation",
+            Self::NotContinuable(_) => "chat.not_continuable",
             Self::Storage(_) => "internal",
         }
     }
@@ -72,7 +75,7 @@ impl DomainError for ChatError {
             Self::Tokenizer(err) => err.status(),
             Self::NotFound(_, _) | Self::NotOwned(_, _) => StatusCode::NOT_FOUND,
             Self::Provider(_) | Self::Connection(_) => StatusCode::BAD_GATEWAY,
-            Self::RealmConversation(_) => StatusCode::CONFLICT,
+            Self::RealmConversation(_) | Self::NotContinuable(_) => StatusCode::CONFLICT,
             Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -97,6 +100,7 @@ impl DomainError for ChatError {
             Self::RealmConversation(_) => {
                 "Realm conversations advance through their turn endpoints.".into()
             }
+            Self::NotContinuable(_) => "Only a reply from the model can be continued.".into(),
             Self::Storage(_) => "An internal error occurred".into(),
         }
     }
@@ -117,6 +121,7 @@ impl DomainError for ChatError {
             Self::RealmConversation(id) => {
                 Some(ErrorDetails::target(TargetType::Conversation, *id))
             }
+            Self::NotContinuable(id) => Some(ErrorDetails::target(TargetType::Message, *id)),
             Self::Provider(_) | Self::Connection(_) => {
                 Some(ErrorDetails::resource(TargetType::ConnectionProfile))
             }

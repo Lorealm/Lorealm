@@ -52,6 +52,12 @@ export interface SendMessageRequest {
 export interface CompletionsRequest {
 	content?: string | null;
 	target?: Snowflake | null;
+	/**
+	 * Write on from an existing assistant reply instead of starting a new one,
+	 * for when the provider cut it short. `target` picks the message; without
+	 * it the active leaf is continued, and `content` is ignored.
+	 */
+	continue?: boolean;
 }
 
 export type ChatEdit =

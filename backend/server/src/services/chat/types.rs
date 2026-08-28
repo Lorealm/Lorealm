@@ -30,6 +30,8 @@ pub struct PromptMessage {
 pub(super) enum Persist {
     Child(Snowflake),
     Sibling(Snowflake),
+    /// Extend an existing assistant message in place
+    Append(ConversationMessage),
 }
 
 pub(super) struct TurnPlan {
@@ -92,6 +94,26 @@ pub struct TurnAccumulator {
 }
 
 impl TurnAccumulator {
+    /// Resume an interrupted turn.
+    pub fn resuming(prior: &ConversationMessage) -> Self {
+        fn field<T: serde::de::DeserializeOwned + Default>(
+            metadata: &serde_json::Value,
+            key: &str,
+        ) -> T {
+            metadata
+                .get(key)
+                .cloned()
+                .and_then(|v| serde_json::from_value(v).ok())
+                .unwrap_or_default()
+        }
+        Self {
+            spoken: prior.content.clone(),
+            reasoning: field(&prior.metadata, "reasoning"),
+            widgets: field(&prior.metadata, "widgets"),
+            tool_calls: field(&prior.metadata, "tool_calls"),
+        }
+    }
+
     pub fn text(&mut self, s: &str) {
         self.spoken.push_str(s);
     }

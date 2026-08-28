@@ -21,6 +21,8 @@ pub trait WeaverStateStorage: Send + Sync {
         message_ids: &[Snowflake],
     ) -> Result<HashMap<Snowflake, MessageState>, StorageError>;
 
-    /// Persist the state produced by one assistant message's assembly.
+    /// Persist the state produced by one assistant message's assembly,
+    /// replacing any record the message already has — a re-run over an
+    /// existing message rewrites its state rather than adding to it.
     async fn put_message_state(&self, state: &MessageState) -> Result<(), StorageError>;
 }

@@ -359,7 +359,24 @@ impl ChatService {
         convo: &Conversation,
         content: Option<String>,
         target: Option<Snowflake>,
+        continued: bool,
     ) -> Result<TurnPlan, ChatError> {
+        // Continuing extends an existing reply rather than starting a new one
+        if continued {
+            let id = target
+                .or(convo.active_leaf_id)
+                .ok_or(ChatError::NotFound(TargetType::Message, convo.id))?;
+            let msg = self.owned_message(id, convo.id).await?;
+            if msg.role != ChatRole::Assistant {
+                return Err(ChatError::NotContinuable(id));
+            }
+            return Ok(TurnPlan {
+                assembly_leaf: Some(msg.id),
+                persist: Persist::Append(msg),
+                created_user: None,
+            });
+        }
+
         Ok(match (content, target) {
             (Some(text), None) => {
                 let user = self
@@ -579,6 +596,7 @@ impl ChatService {
         user_id: Snowflake,
         content: Option<String>,
         target: Option<Snowflake>,
+        continued: bool,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<ChatStreamEvent, ChatError>> + Send>>, ChatError>
     {
         let convo = self.get_conversation(convo_id, user_id).await?;
@@ -593,7 +611,9 @@ impl ChatService {
             assembly_leaf,
             created_user,
             persist,
-        } = self.resolve_turn(&convo, content, target).await?;
+        } = self
+            .resolve_turn(&convo, content, target, continued)
+            .await?;
 
         let thread = self.build_prompt(convo_id, assembly_leaf).await?;
         let turns: Vec<PromptTurn> = thread.iter().map(PromptTurn::from_message).collect();
@@ -623,8 +643,12 @@ impl ChatService {
             .assemble_context(&spec, None, &turns, &baseline, &widget_prompts)
             .await?;
 
-        let ids: Vec<Snowflake> = thread.iter().map(|m| m.id).collect();
-        let baseline = self.state.reconstruct(&ids).await?.persistent;
+        // A continuation rewrites the state row of the message it extends
+        let diff_chain = match persist {
+            Persist::Append(_) => &ids[..ids.len().saturating_sub(1)],
+            _ => &ids[..],
+        };
+        let baseline = self.state.reconstruct(diff_chain).await?.persistent;
         let mut working = baseline.clone();
         let (activation, had_assembly) = match captured {
             Some(c) => {
@@ -639,6 +663,15 @@ impl ChatService {
             .stage_cx(user_id, Self::convo_character(&convo)?.0)
             .await?;
         let mut chain_tf = self.schedule.outbound(&mut prompt, &cx);
+
+        if continued {
+            prompt.push(PromptMessage {
+                role: PromptRole::Assistant,
+                // TODO: Should be folded into a config
+                content: "[Continue your latest message without repeating its content]".into(),
+            });
+        }
+
         let token_stream = self
             .infer(
                 &spec,
@@ -661,7 +694,10 @@ impl ChatService {
 
         let stream = async_stream::try_stream! {
             let _cancel_guard = cancel_guard;   // give the stream ownership
-            let mut acc = TurnAccumulator::default();
+            let mut acc = match &persist {
+                Persist::Append(prior) => TurnAccumulator::resuming(prior),
+                _ => TurnAccumulator::default(),
+            };
             futures_util::pin_mut!(token_stream);
 
             if let Some(user) = created_user {
@@ -731,6 +767,7 @@ impl ChatService {
             let message = match persist {
                 Persist::Child(parent)    => conversations.branch_from(convo_id, parent, ChatRole::Assistant, outcome.spoken, meta).await?,
                 Persist::Sibling(sibling) => conversations.create_alternate(convo_id, sibling, ChatRole::Assistant, outcome.spoken, meta).await?,
+                Persist::Append(prior)    => conversations.rewrite_message(prior.id, outcome.spoken, meta).await?,
             };
 
             let delta = {

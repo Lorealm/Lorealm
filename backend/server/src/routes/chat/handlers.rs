@@ -217,6 +217,7 @@ pub async fn completions(
             session.user_id,
             request.content,
             request.target,
+            request.continued,
         )
         .await?;
 

@@ -11,7 +11,7 @@ import type {
 } from '$lib/types/conversation.js';
 import type { Greeting } from '$lib/types/character.js';
 import type { PlayerAction, RealmAgent, RealmCast, TurnResult } from '$lib/types/realm.js';
-import type { WidgetInstance } from '$lib/types/widgets.js';
+import { parseReasoning, parseWidgets, type WidgetInstance } from '$lib/types/widgets.js';
 import { SvelteMap } from 'svelte/reactivity';
 import { messageStateStore } from './messageState.svelte.ts';
 import { type ToastAction } from './errorToast.svelte.ts';
@@ -369,7 +369,7 @@ class ChatStore {
 		await this.#runCompletion(content, null);
 	}
 
-	/** Continue or regenerate from the current leaf. */
+	/** Regenerate from the current leaf as a new sibling. */
 	async regenerate() {
 		if (this.isStreaming) return;
 		if (this.isRealm) {
@@ -381,6 +381,19 @@ class ChatStore {
 			return;
 		}
 		await this.#runCompletion(null, null);
+	}
+
+	/**
+	 * Write on from an existing assistant reply rather than starting a new
+	 * one — the fix for a provider that cut the reply short. Defaults to the
+	 * message at the current leaf.
+	 */
+	async continueMessage(id: Snowflake | null = null) {
+		if (this.isStreaming || this.isRealm) return;
+		const target = id ?? this._activeLeafId;
+		if (!target || isTemp(target)) return;
+		if (this._messages.get(target)?.role !== 'assistant') return;
+		await this.#runCompletion(null, target, true);
 	}
 
 	/** Stop the in-flight generation. */
@@ -464,56 +477,70 @@ class ChatStore {
 		return leaf.role === 'user' ? leaf.id : leaf.parent;
 	}
 
-	async #runCompletion(content: string | null, target: Snowflake | null) {
+	async #runCompletion(content: string | null, target: Snowflake | null, continued = false) {
 		const convId = this.conversationId;
 		if (!convId) return; // can't stream without a persisted conversation
 
 		const prevLeaf = this._activeLeafId;
 		let provisionalUserId: Snowflake | null = null;
+		let assistantId: Snowflake;
 
-		let assistantParent = this.#provisionalParent(content, target);
-		if (content !== null) {
-			provisionalUserId = this.#tempId();
-			this._messages.set(provisionalUserId, {
-				id: provisionalUserId,
+		if (continued) {
+			// The bubble already exists and keeps its id; the stream picks up
+			// where its stored content, reasoning and widgets left off.
+			const prior = target ? this._messages.get(target) : undefined;
+			if (!prior) return;
+			assistantId = prior.id;
+			this._streamBuffer = prior.content;
+			this._streamReasoning = parseReasoning(prior.metadata);
+			this._streamWidgets = parseWidgets(prior.metadata);
+		} else {
+			let assistantParent = this.#provisionalParent(content, target);
+			if (content !== null) {
+				provisionalUserId = this.#tempId();
+				this._messages.set(provisionalUserId, {
+					id: provisionalUserId,
+					conversation_id: convId,
+					parent: assistantParent,
+					role: 'user',
+					content,
+					order: Number.MAX_SAFE_INTEGER,
+					metadata: null,
+					created_at: new Date().toISOString(),
+					updated_at: new Date().toISOString()
+				});
+				assistantParent = provisionalUserId;
+			}
+
+			assistantId = this.#tempId();
+			this._messages.set(assistantId, {
+				id: assistantId,
 				conversation_id: convId,
 				parent: assistantParent,
-				role: 'user',
-				content,
+				role: 'assistant',
+				content: '',
 				order: Number.MAX_SAFE_INTEGER,
 				metadata: null,
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString()
 			});
-			assistantParent = provisionalUserId;
+
+			this._activeLeafId = assistantId;
+			this._streamBuffer = '';
+			this._streamReasoning = '';
+			this._streamWidgets = [];
 		}
 
-		const assistantId = this.#tempId();
-		this._messages.set(assistantId, {
-			id: assistantId,
-			conversation_id: convId,
-			parent: assistantParent,
-			role: 'assistant',
-			content: '',
-			order: Number.MAX_SAFE_INTEGER,
-			metadata: null,
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString()
-		});
-
-		this._activeLeafId = assistantId;
 		this._streamingId = assistantId;
 		this._streamingConvId = convId;
-		this._streamBuffer = '';
-		this._streamReasoning = '';
-		this._streamWidgets = [];
 		this._cancelling = false;
 		this.streamState = { status: 'streaming' };
 
 		try {
 			const stream = this.#api.chat.completions(convId, {
 				content: content ?? undefined,
-				target: target ?? undefined
+				target: target ?? undefined,
+				continue: continued || undefined
 			});
 
 			let committedUser: ConversationMessage | null = null;
@@ -543,11 +570,12 @@ class ChatStore {
 
 			// Reconcile locally from the messages the stream carried
 			if (provisionalUserId) this._messages.delete(provisionalUserId);
-			this._messages.delete(assistantId);
+			if (!continued) this._messages.delete(assistantId);
 			if (committedUser) this._messages.set(committedUser.id, committedUser);
 			if (committedAssistant) this._messages.set(committedAssistant.id, committedAssistant);
 
-			this._activeLeafId = committedAssistant?.id ?? this.#deriveLeaf();
+			// A continuation never moved the leaf; it rewrote a message in place.
+			this._activeLeafId = continued ? prevLeaf : (committedAssistant?.id ?? this.#deriveLeaf());
 			this._streamingId = null;
 			this._streamingConvId = null;
 			this._cancelling = false;
@@ -561,9 +589,11 @@ class ChatStore {
 				messageStateStore.inspect(committedAssistant?.id, committedAssistant?.conversation_id);
 			}
 		} catch (e) {
-			// Roll the provisional bubbles back so a failed stream leaves no ghosts.
+			// Roll the provisional bubbles back so a failed stream leaves no
+			// ghosts. A continued message is already persisted — clearing the
+			// buffer below is enough to restore what it held.
 			if (provisionalUserId) this._messages.delete(provisionalUserId);
-			this._messages.delete(assistantId);
+			if (!continued) this._messages.delete(assistantId);
 			this._activeLeafId = prevLeaf;
 			this._streamingId = null;
 			this._streamingConvId = null;

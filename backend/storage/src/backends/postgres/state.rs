@@ -47,7 +47,10 @@ impl WeaverStateStorage for PostgresStorage {
     async fn put_message_state(&self, state: &MessageState) -> Result<(), StorageError> {
         sqlx::query(
             "INSERT INTO weaver_message_state (message_id, activation, persistent_delta)
-             VALUES ($1, $2, $3)",
+             VALUES ($1, $2, $3)
+             ON CONFLICT (message_id) DO UPDATE
+             SET activation = EXCLUDED.activation,
+                 persistent_delta = EXCLUDED.persistent_delta",
         )
         .bind(state.message_id)
         .bind(sqlx::types::Json(&state.activation))
