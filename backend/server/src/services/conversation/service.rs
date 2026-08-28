@@ -176,6 +176,33 @@ impl ConversationService {
         }
     }
 
+    /// Replace a message's content and metadata.
+    pub async fn rewrite_message(
+        &self,
+        message_id: Snowflake,
+        content: String,
+        metadata: serde_json::Value,
+    ) -> Result<ConversationMessage, ConversationError> {
+        let original = self
+            .storage
+            .get_message(message_id)
+            .await?
+            .ok_or(ConversationError::MessageNotFound(message_id))?;
+
+        let edit = MessageEdit {
+            content: Some(content.clone()),
+            metadata: Some(metadata.clone()),
+        };
+        self.storage.update_message(message_id, &edit).await?;
+
+        Ok(ConversationMessage {
+            content,
+            metadata,
+            updated_at: Utc::now(),
+            ..original
+        })
+    }
+
     /// Delete `message_id` and its subtree
     pub async fn delete_subtree(
         &self,

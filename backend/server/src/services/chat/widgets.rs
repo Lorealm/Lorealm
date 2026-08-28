@@ -13,7 +13,7 @@ use crate::util::weaver::{ConversionError, weaver_to_json};
 
 pub type WidgetSink = Arc<Mutex<Vec<WidgetInstance>>>;
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct ToolCallRecord {
     pub round: usize,
     pub id: String,

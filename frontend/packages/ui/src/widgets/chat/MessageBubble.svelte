@@ -5,7 +5,7 @@
 	import TransportImage from '$lib/components/TransportImage.svelte';
 	import ChatWidget from '$lib/components/ChatWidget.svelte';
 	import StaticWidgets from '$lib/components/StaticWidgets.svelte';
-	import { ChevronLeft, ChevronRight, Layers, Pencil, Trash2 } from '@lucide/svelte';
+	import { ChevronLeft, ChevronRight, Layers, Pencil, StepForward, Trash2 } from '@lucide/svelte';
 	import { contextInspector } from '$lib/stores/contextInspector.svelte.js';
 	import { parseContextBlocks } from '$lib/types/context.js';
 	import { parseReasoning, parseWidgets, splitWidgetMarkers } from '$lib/types/widgets.js';
@@ -35,6 +35,10 @@
 	let editing = $state(false);
 	let editMode = $state<'edit' | 'branch'>('edit');
 	let editText = $state('');
+
+	// Picking up a reply the provider cut short only makes sense on the newest
+	// one; earlier replies have turns built on top of them already.
+	let canContinue = $derived(last && message.role === 'assistant' && !chatStore.isRealm);
 
 	let hasContext = $derived(parseContextBlocks(message.metadata) !== null);
 	let reasoning = $derived(parseReasoning(message.metadata));
@@ -105,6 +109,16 @@
 							onclick={() => contextInspector.open(message)}
 						>
 							<Layers />
+						</button>
+					{/if}
+					{#if canContinue}
+						<button
+							class="icon-btn"
+							title="Continue this reply"
+							disabled={busy}
+							onclick={() => chatStore.continueMessage(message.id)}
+						>
+							<StepForward />
 						</button>
 					{/if}
 					<button class="icon-btn" title="Edit" disabled={busy} onclick={() => startEdit('edit')}>

@@ -42,4 +42,7 @@ pub struct CompletionsRequest {
     pub content: Option<String>,
     #[serde(default)]
     pub target: Option<Snowflake>,
+    /// Write on from an existing assistant reply instead of starting a new one.
+    #[serde(default, rename = "continue")]
+    pub continued: bool,
 }
