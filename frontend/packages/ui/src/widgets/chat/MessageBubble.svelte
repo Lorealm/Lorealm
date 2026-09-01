@@ -11,6 +11,7 @@
 	import { parseReasoning, parseWidgets, splitWidgetMarkers } from '$lib/types/widgets.js';
 	import { marked } from '$lib/assets/scripts/marked-rp.js';
 	import DOMPurify from 'dompurify';
+	import { createPresentable } from '$lib/assets/scripts/variable-replace.js';
 
 	let { message, last = false }: { message: ConversationMessage; last?: boolean } = $props();
 
@@ -49,6 +50,7 @@
 	);
 
 	const renderMd = (text: string) => DOMPurify.sanitize(marked.parse(text).toString().trim());
+	const presentedText = (text: string) => createPresentable(characterStore.activeCharacter!.id, text);
 
 	function startEdit(mode: 'edit' | 'branch') {
 		editMode = mode;
@@ -159,7 +161,7 @@
 				{#each segments as seg, i (i)}
 					{#if seg.type === 'text'}
 						<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-						{@html renderMd(seg.text)}
+						{@html presentedText(renderMd(seg.text))}
 					{:else if widgets[seg.index]}
 						<div class="inline-widget">
 							<ChatWidget widget={widgets[seg.index]} />
