@@ -1,10 +1,8 @@
 <script lang="ts">
 	import { str } from '../util.js';
 
-	let {
-		direction,
-		props
-	}: { direction: 'outgoing' | 'incoming'; props: Record<string, unknown> } = $props();
+	let { direction, props }: { direction: 'outgoing' | 'incoming'; props: Record<string, unknown> } =
+		$props();
 </script>
 
 <div class="widget sms {direction}">

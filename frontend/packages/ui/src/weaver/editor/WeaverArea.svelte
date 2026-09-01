@@ -7,8 +7,10 @@
 	import { weaverHover } from './weaver-hover.js';
 	import { weaverCompletion } from './weaver-complete.js';
 	import { weaverTheme } from './weaver-theme.js';
+	import { weaverDiagnostics } from './weaver-diagnostics.js';
 	import { weaverReferences } from './weaver-reflinks.js';
 	import type { ReferenceSource } from './weaver-references.js';
+	import type { WeaverDialect } from '$lib/types/weaver.js';
 	import { weaverVocabularyStore } from '$lib/stores/weaverVocabulary.svelte.js';
 
 	let {
@@ -20,7 +22,8 @@
 		hint = '',
 		autofocus = false,
 		fill = false,
-		surface = 'elevated'
+		surface = 'elevated',
+		dialect = 'template'
 	}: {
 		doc?: string;
 		onChange?: (value: string) => void;
@@ -37,6 +40,8 @@
 		 * container is already elevated, so the editor doesn't vanish into it.
 		 */
 		surface?: 'elevated' | 'sunken';
+		/** Which compiler to check source against. Condition fields hold an `expression`. */
+		dialect?: WeaverDialect;
 	} = $props();
 
 	let host: HTMLDivElement;
@@ -90,6 +95,7 @@
 					weaverHover,
 					weaverCompletion,
 					weaverTheme,
+					weaverDiagnostics(dialect),
 					...(hint ? [placeholder(hint)] : []),
 					...(readOnly ? [EditorState.readOnly.of(true), EditorView.editable.of(false)] : []),
 					...(references ? [weaverReferences(references)] : []),

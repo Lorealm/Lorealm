@@ -13,7 +13,7 @@ export interface UpdateTemplateRequest {
 }
 
 export interface SetActiveRequest {
-  id: Snowflake
+	id: Snowflake;
 }
 
 export interface CreateNodeRequest {

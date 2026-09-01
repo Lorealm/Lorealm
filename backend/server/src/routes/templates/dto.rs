@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::services::context::{
     ContextNode, CreateNode, MoveNode, MovedNode, NodeContent, NodePath, NodeWithPath, UpdateNode,
+    weaver::check::{Diagnostic, Dialect},
 };
 
 #[derive(Deserialize)]
@@ -41,6 +42,22 @@ pub(super) struct CreateNodeRequest {
 pub(super) struct NodeResponse {
     pub node: ContextNode,
     pub path: NodePath,
+}
+
+/// Weaver source to check, as the editor currently holds it.
+#[derive(Deserialize)]
+pub(super) struct WeaverCheckRequest {
+    pub source: String,
+    /// Defaults to `template`; condition fields send `expression`.
+    #[serde(default)]
+    pub dialect: Dialect,
+}
+
+/// Problems found in that source. An empty list means it is clean, not
+/// that it would evaluate — only the parser and the registries ran.
+#[derive(Serialize)]
+pub(super) struct WeaverCheckResponse {
+    pub diagnostics: Vec<Diagnostic>,
 }
 
 /// Every weaver command and processor an editor can offer

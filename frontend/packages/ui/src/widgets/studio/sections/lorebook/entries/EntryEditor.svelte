@@ -127,6 +127,7 @@
 			<WeaverField
 				doc={entry.meta.condition ?? ''}
 				onChange={(v) => setOptStr('condition', v)}
+				dialect="expression"
 				hint="weaver expression, e.g. {'{{state:level}}'} > 5"
 				{references}
 			/>
@@ -319,7 +320,7 @@
 		flex-direction: column;
 		min-height: 0;
 	}
-	
+
 	.content-editor.fill {
 		flex: 1 1 auto;
 		height: 100%;

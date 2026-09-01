@@ -50,7 +50,8 @@
 	);
 
 	const renderMd = (text: string) => DOMPurify.sanitize(marked.parse(text).toString().trim());
-	const presentedText = (text: string) => createPresentable(characterStore.activeCharacter!.id, text);
+	const presentedText = (text: string) =>
+		createPresentable(characterStore.activeCharacter!.id, text);
 
 	function startEdit(mode: 'edit' | 'branch') {
 		editMode = mode;

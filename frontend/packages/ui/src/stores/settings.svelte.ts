@@ -9,16 +9,16 @@ export interface ClientSettings {
 	weaverSuggestCrossBookIds: boolean;
 
 	/** Let cmd/ctrl-click on a cross-book id switch to the book that owns it. */
-  weaverFollowCrossBookIds: boolean;
+	weaverFollowCrossBookIds: boolean;
 
-  /** Automatically expand the advanced section of a lorebook entry. */
-  autoExpandLorebookAdvanced: boolean;
+	/** Automatically expand the advanced section of a lorebook entry. */
+	autoExpandLorebookAdvanced: boolean;
 }
 
 const DEFAULTS: ClientSettings = {
 	weaverSuggestCrossBookIds: true,
-  weaverFollowCrossBookIds: true,
-  autoExpandLorebookAdvanced: false
+	weaverFollowCrossBookIds: true,
+	autoExpandLorebookAdvanced: false
 };
 
 export const settings = new PersistedRecord<ClientSettings>('settings', DEFAULTS);

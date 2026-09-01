@@ -52,8 +52,8 @@ class KeybindManager {
 			default:
 				return !inputEnvironment.touchOnly;
 		}
-  }
-	
+	}
+
 	install(): () => void {
 		const onKeyDown = (event: KeyboardEvent) => this.handle(event);
 		window.addEventListener('keydown', onKeyDown);

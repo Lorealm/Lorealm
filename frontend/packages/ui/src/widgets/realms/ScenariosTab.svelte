@@ -339,7 +339,7 @@
 	.scriptBox {
 		display: flex;
 	}
-	
+
 	.scriptBox.fill {
 		flex: 1 1 auto;
 		min-height: 0;

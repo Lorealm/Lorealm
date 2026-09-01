@@ -2,7 +2,7 @@
 	// Loads an image through the app's HttpTransport instead of letting the
 	// browser issue an unauthenticated GET, then renders it via a real <img>.
 	// Required for proper authentication.
-	// 
+	//
 	// This file should be considered a wholesale replacement for <img />.
 
 	import { getPlatformApi } from '$lib/core/context.js';

@@ -64,10 +64,7 @@ function optionsFor(ctx: Exclude<ReturnType<typeof activeConstruct>, null>): Com
 	}
 }
 
-function idCompletions(
-	context: CompletionContext,
-	site: IdSite
-): CompletionResult | null {
+function idCompletions(context: CompletionContext, site: IdSite): CompletionResult | null {
 	const refs = context.state.facet(referenceSource)?.entries() ?? [];
 	const options = refs
 		.filter((ref) => writableAt(site, ref.id))

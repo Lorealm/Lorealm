@@ -26,7 +26,7 @@
 	const isGroup = $derived(node.content.type === 'group');
 
 	let menuEl: HTMLDivElement;
-	let pos = $state<{ x: number, y: number }>({x: 0, y: 0});
+	let pos = $state<{ x: number; y: number }>({ x: 0, y: 0 });
 	let confirmingDelete = $state(false);
 	let submenuOpen = $state(false);
 

@@ -3,9 +3,9 @@
 </script>
 
 <div class="container">
-    {#if view === 'roles'}
-        Roles view
-    {/if}
+	{#if view === 'roles'}
+		Roles view
+	{/if}
 </div>
 
 <style>

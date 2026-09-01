@@ -308,6 +308,7 @@
 				<WeaverField
 					doc={agent.run_condition ?? ''}
 					onChange={(v) => edit((a) => (a.run_condition = v.trim() || null))}
+					dialect="expression"
 				/>
 			</div>
 

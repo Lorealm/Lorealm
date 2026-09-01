@@ -19,5 +19,21 @@ export const keywords: Record<string, DocEntry> = {
 	in: {
 		signature: 'foreach <name> in <array>',
 		doc: 'Separates the loop binding from the iterable.'
+	},
+	break: {
+		signature: '{# break #}',
+		doc: 'Immediately break out of the innermost `foreach`.'
+	},
+	continue: {
+		signature: '{# continue #}',
+		doc: 'Skip to the next iteration of the innermost `foreach`.'
+	},
+	return: {
+		signature: '{# return <expr> #}',
+		doc: 'End evaluation immediately and return the value of `<expr>`.'
+	},
+	stop: {
+		signature: '{# stop #}',
+		doc: 'End evaluation immediately, keeping the text rendered so far.'
 	}
 };

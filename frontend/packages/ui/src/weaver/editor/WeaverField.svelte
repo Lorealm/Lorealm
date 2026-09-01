@@ -7,15 +7,18 @@
 	import { weaverHover } from './weaver-hover.js';
 	import { weaverCompletion } from './weaver-complete.js';
 	import { weaverTheme } from './weaver-theme.js';
+	import { weaverDiagnostics } from './weaver-diagnostics.js';
 	import { weaverReferences } from './weaver-reflinks.js';
 	import type { ReferenceSource } from './weaver-references.js';
+	import type { WeaverDialect } from '$lib/types/weaver.js';
 	import { weaverVocabularyStore } from '$lib/stores/weaverVocabulary.svelte.js';
 
 	let {
 		doc = '',
 		onChange,
 		references,
-		hint = ''
+		hint = '',
+		dialect = 'template'
 	}: {
 		doc?: string;
 		onChange?: (value: string) => void;
@@ -23,6 +26,8 @@
 		references?: ReferenceSource;
 		/** Placeholder shown while the field is empty. */
 		hint?: string;
+		/** Which compiler to check source against. Condition fields hold an `expression`. */
+		dialect?: WeaverDialect;
 	} = $props();
 
 	let host: HTMLDivElement;
@@ -69,6 +74,7 @@
 					weaverHover,
 					weaverCompletion,
 					weaverTheme,
+					weaverDiagnostics(dialect),
 					...(hint ? [placeholder(hint)] : []),
 					...(references ? [weaverReferences(references)] : []),
 					fieldSizing,

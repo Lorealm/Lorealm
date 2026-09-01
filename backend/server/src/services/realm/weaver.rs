@@ -16,7 +16,7 @@ use crate::{
             Actor, EmitEventCommand, EmittedEvent, EventSink, ToolContext, build_tool_registry,
         },
     },
-    util::weaver::json_to_weaver,
+    util::weaver::{describe_parse_errors, json_to_weaver},
 };
 
 /// The scopes an agent may read
@@ -113,7 +113,10 @@ pub(super) async fn run_scoped(
     let before = world.clone();
 
     let body = CompiledTemplate::compile(source).map_err(|errors| {
-        RealmError::ActionFailed(format!("body failed to compile: {errors:?}"))
+        RealmError::ActionFailed(format!(
+            "body failed to compile: {}",
+            describe_parse_errors(source, &errors)
+        ))
     })?;
 
     // Bind declared params into the `cmd:` namespace the source reads. Scripts
@@ -162,7 +165,10 @@ pub(super) async fn run_scoped(
 /// Compile and run weaver `source`
 pub(super) fn run_seed(source: &str, pool: StatePool) -> Result<StatePool, RealmError> {
     let body = CompiledTemplate::compile(source).map_err(|errors| {
-        RealmError::InvalidScenario(format!("seed script failed to compile: {errors:?}"))
+        RealmError::InvalidScenario(format!(
+            "seed script failed to compile: {}",
+            describe_parse_errors(source, &errors)
+        ))
     })?;
     let shared = Arc::new(StdMutex::new(pool));
     let mut ctx = ToolContext::new(HashMap::new(), Arc::clone(&shared));

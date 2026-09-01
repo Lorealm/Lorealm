@@ -246,7 +246,7 @@
 		background: transparent;
 		color: var(--color-text-muted);
 	}
-	
+
 	.toggle:hover {
 		background-color: var(--color-bg-elevated-3);
 		color: var(--color-text-accent);

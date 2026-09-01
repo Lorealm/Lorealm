@@ -17,20 +17,28 @@ interface State {
 
 const IDENT = /^[A-Za-z_]\w*/;
 const DOTTED = /^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*/; // e.g. core.weaver.rng
-const KEYWORD = /^(?:if|elif|else|endif|foreach|endforeach|in)\b/;
+const KEYWORD = /^(?:if|elif|else|endif|foreach|endforeach|in|break|continue|return|stop)\b/;
+
+const OPEN_VAR = /^\{\{-?/;
+const CLOSE_VAR = /^-?\}\}/;
+const OPEN_TAG = /^\{#-?/;
+const CLOSE_TAG = /^-?#\}/;
+const OPEN_PROC = /^@\[-?/;
+const OPEN_CMD = /^\$\[-?/;
+const CLOSE_CALL = /^-?\]/; // shared by `@[ … ]` and `$[ … ]`
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function exprAtom(stream: any, state: State): string | null {
 	// Nested constructs
-	if (stream.match('{{')) {
+	if (stream.match(OPEN_VAR)) {
 		state.stack.push({ k: 'var' });
 		return 'delimiter';
 	}
-	if (stream.match('@[')) {
+	if (stream.match(OPEN_PROC)) {
 		state.stack.push({ k: 'proc', named: false });
 		return 'bracket';
 	}
-	if (stream.match('$[')) {
+	if (stream.match(OPEN_CMD)) {
 		state.stack.push({ k: 'cmd', named: false });
 		return 'bracket';
 	}
@@ -71,19 +79,19 @@ const parser: StreamParser<State> = {
 		const top = state.stack[state.stack.length - 1];
 
 		if (!top) {
-			if (stream.match('{{')) {
+			if (stream.match(OPEN_VAR)) {
 				state.stack.push({ k: 'var' });
 				return 'delimiter';
 			}
-			if (stream.match('{#')) {
+			if (stream.match(OPEN_TAG)) {
 				state.stack.push({ k: 'tag' });
 				return 'delimiter';
 			}
-			if (stream.match('@[')) {
+			if (stream.match(OPEN_PROC)) {
 				state.stack.push({ k: 'proc', named: false });
 				return 'bracket';
 			}
-			if (stream.match('$[')) {
+			if (stream.match(OPEN_CMD)) {
 				state.stack.push({ k: 'cmd', named: false });
 				return 'bracket';
 			}
@@ -105,7 +113,7 @@ const parser: StreamParser<State> = {
 		switch (top.k) {
 			// {{ scope:name }}
 			case 'var': {
-				if (stream.match('}}')) {
+				if (stream.match(CLOSE_VAR)) {
 					state.stack.pop();
 					return 'delimiter';
 				}
@@ -118,7 +126,7 @@ const parser: StreamParser<State> = {
 
 			// {# if ... #} / {# foreach x in y #}
 			case 'tag': {
-				if (stream.match('#}')) {
+				if (stream.match(CLOSE_TAG)) {
 					state.stack.pop();
 					return 'delimiter';
 				}
@@ -128,7 +136,7 @@ const parser: StreamParser<State> = {
 
 			// @[ namespace.name(key: value) ]
 			case 'proc': {
-				if (stream.match(']')) {
+				if (stream.match(CLOSE_CALL)) {
 					state.stack.pop();
 					return 'bracket';
 				}
@@ -142,7 +150,7 @@ const parser: StreamParser<State> = {
 
 			// $[ name(arg1, arg2) ]
 			case 'cmd': {
-				if (stream.match(']')) {
+				if (stream.match(CLOSE_CALL)) {
 					state.stack.pop();
 					return 'bracket';
 				}

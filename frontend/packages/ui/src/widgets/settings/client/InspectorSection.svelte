@@ -39,14 +39,18 @@
 	<div class="body">
 		<h2>Inspector</h2>
 		<p class="hint">
-			A profile is one column of the inspector: it decides which widgets each view shows, and in what
-			order. Profiles appear as icon buttons above the inspector; ones with nothing configured for
-			the current view are greyed out and sorted last.
+			A profile is one column of the inspector: it decides which widgets each view shows, and in
+			what order. Profiles appear as icon buttons above the inspector; ones with nothing configured
+			for the current view are greyed out and sorted last.
 		</p>
 
 		<div class="profiles">
 			{#each inspectorMatrix.profiles as p (p.id)}
-				<button class="chip" class:active={p.id === profile?.id} onclick={() => (selectedId = p.id)}>
+				<button
+					class="chip"
+					class:active={p.id === profile?.id}
+					onclick={() => (selectedId = p.id)}
+				>
 					{p.name}
 				</button>
 			{/each}
@@ -129,10 +133,7 @@
 				</div>
 				<div class="results">
 					{#each available as key (key)}
-						<button
-							class="result"
-							onclick={() => inspectorMatrix.addWidget(profile.id, view, key)}
-						>
+						<button class="result" onclick={() => inspectorMatrix.addWidget(profile.id, view, key)}>
 							<Plus size={13} />
 							{inspectorRegistry[key].label}
 						</button>

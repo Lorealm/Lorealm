@@ -139,5 +139,5 @@ export interface CreateCharacterRequest {
 }
 
 export interface AvatarUpdateResponse {
-  avatar_uri: string;
+	avatar_uri: string;
 }
