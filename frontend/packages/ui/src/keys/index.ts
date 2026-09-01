@@ -4,12 +4,7 @@ export { commandRegistry, type Conflict } from './registry.svelte.js';
 export { keybindConfig, type KeybindMode, type KeybindSettings } from './config.svelte.js';
 export { inputEnvironment } from './environment.svelte.js';
 export { keybinds } from './manager.svelte.js';
-export {
-	builtInCommands,
-	CHAT_COMPOSER_LAYER,
-	INSPECTOR_LAYER,
-	type ChatComposerLayer
-} from './commands.js';
+export { builtInCommands, CHAT_COMPOSER_LAYER, type ChatComposerLayer } from './commands.js';
 export type {
 	Command,
 	CommandContext,
