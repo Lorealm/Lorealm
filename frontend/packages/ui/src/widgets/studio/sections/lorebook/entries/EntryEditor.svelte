@@ -9,6 +9,7 @@
 	import NumberInput from '$lib/components/NumberInput.svelte';
 	import WeaverEditor from '$lib/weaver/editor/WeaverEditor.svelte';
 	import FieldShell from '$lib/components/FieldShell.svelte';
+	import { settings } from '$lib/stores/settings.svelte.js';
 
 	let {
 		entry,
@@ -21,6 +22,8 @@
 		saveState: SaveState;
 		requestSave: () => void;
 	} = $props();
+
+	let openAdvanced = $derived(settings.current.autoExpandLorebookAdvanced);
 
 	// Read through the store rather than off a snapshot, so ids stay current as
 	// entries are added or renamed while this editor is open.
@@ -152,7 +155,7 @@
 		</div>
 	</fieldset>
 
-	<details class="block advanced">
+	<details class="block advanced" bind:open={openAdvanced}>
 		<summary>Advanced</summary>
 
 		<div class="field-row">

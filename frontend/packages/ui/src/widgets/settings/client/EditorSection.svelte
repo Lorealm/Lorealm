@@ -29,6 +29,18 @@
 				<span class="hint">Cmd/ctrl-click an id to open the book that owns it.</span>
 			</span>
 		</label>
+
+		<label class="check">
+			<input
+				type="checkbox"
+				checked={settings.current.autoExpandLorebookAdvanced}
+				onchange={(e) => settings.set('autoExpandLorebookAdvanced', e.currentTarget.checked)}
+			/>
+			<span>
+				Auto-expand advanced controls
+				<span class="hint">Automatically expands the advanced details in the Lorebook editor.</span>
+			</span>
+		</label>
 	</div>
 </section>
 
