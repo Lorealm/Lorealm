@@ -2,8 +2,6 @@
 	import { iconFor } from '$lib/assets/icons/catalogue.js';
 	import { router } from '$lib/navigation/router.svelte.js';
 	import { inspectorMatrix } from '$lib/stores/inspectorMatrix.svelte.js';
-	import { INSPECTOR_LAYER } from '$lib/keys/commands.js';
-	import { keyLayer } from '$lib/keys/layers.svelte.js';
 	import { inspectorRegistry } from './registry.js';
 
 	const view = $derived(router.current.view);
@@ -11,7 +9,7 @@
 	const widgets = $derived(inspectorMatrix.widgetsFor(view));
 </script>
 
-<div class="container" use:keyLayer={{ id: INSPECTOR_LAYER }}>
+<div class="container">
 	<div class="topBar">
 		{#each profiles as profile (profile.id)}
 			{@const Icon = iconFor(profile.icon)}

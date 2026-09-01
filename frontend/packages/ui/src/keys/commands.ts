@@ -12,8 +12,6 @@ export interface ChatComposerLayer {
 	send(): void;
 }
 
-export const INSPECTOR_LAYER = 'inspector';
-
 function composer(): ChatComposerLayer | undefined {
 	return layers.get(CHAT_COMPOSER_LAYER)?.data as ChatComposerLayer | undefined;
 }
@@ -23,10 +21,12 @@ function branchTarget() {
 	return chatStore.lastMessage;
 }
 
-function cycleInspectorProfile(delta: 1 | -1) {
-	const profiles = inspectorMatrix.ordered(router.current.view);
-	if (profiles.length < 2) return;
+function inspectorProfiles() {
+	return inspectorMatrix.ordered(router.current.view);
+}
 
+function cycleInspectorProfile(delta: 1 | -1) {
+	const profiles = inspectorProfiles();
 	const at = profiles.findIndex((profile) => profile.id === inspectorMatrix.activeId);
 	const next = (at + delta + profiles.length) % profiles.length;
 	void inspectorMatrix.select(profiles[next].id);
@@ -186,18 +186,20 @@ export const builtInCommands: Command[] = [
 		id: 'inspector.nextProfile',
 		title: 'Next inspector profile',
 		group: 'Inspector',
-		scope: 'module',
-		layer: INSPECTOR_LAYER,
+		scope: 'global',
+		layer: GLOBAL_LAYER,
 		keys: [']'],
+		enabled: () => inspectorProfiles().length > 1,
 		run: () => cycleInspectorProfile(1)
 	},
 	{
 		id: 'inspector.prevProfile',
 		title: 'Previous inspector profile',
 		group: 'Inspector',
-		scope: 'module',
-		layer: INSPECTOR_LAYER,
+		scope: 'global',
+		layer: GLOBAL_LAYER,
 		keys: ['['],
+		enabled: () => inspectorProfiles().length > 1,
 		run: () => cycleInspectorProfile(-1)
 	}
 ];
