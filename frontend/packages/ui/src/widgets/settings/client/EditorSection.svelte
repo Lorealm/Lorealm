@@ -41,6 +41,20 @@
 				<span class="hint">Automatically expands the advanced details in the Lorebook editor.</span>
 			</span>
 		</label>
+
+		<label class="check">
+			<input
+				type="checkbox"
+				checked={settings.current.weaverHighlightTrimMarkers}
+				onchange={(e) => settings.set('weaverHighlightTrimMarkers', e.currentTarget.checked)}
+			/>
+			<span>
+				Highlight trim markers
+				<span class="hint">
+					Colour the `-` in {'{#- … -#}'} apart from the delimiter around it.
+				</span>
+			</span>
+		</label>
 	</div>
 </section>
 

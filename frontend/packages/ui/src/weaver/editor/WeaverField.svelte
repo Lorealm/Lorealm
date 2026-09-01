@@ -6,7 +6,7 @@
 	import { weaverSyntax } from './weaver-lang.js';
 	import { weaverHover } from './weaver-hover.js';
 	import { weaverCompletion } from './weaver-complete.js';
-	import { weaverTheme } from './weaver-theme.js';
+	import { trimMarkerStyle, weaverTheme } from './weaver-theme.js';
 	import { weaverDiagnostics } from './weaver-diagnostics.js';
 	import { weaverReferences } from './weaver-reflinks.js';
 	import type { ReferenceSource } from './weaver-references.js';
@@ -99,4 +99,4 @@
 	onDestroy(() => view?.destroy());
 </script>
 
-<div bind:this={host}></div>
+<div bind:this={host} style={trimMarkerStyle()}></div>

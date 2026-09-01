@@ -1,4 +1,11 @@
 import { EditorView } from '@codemirror/view';
+import { settings } from '$lib/stores/settings.svelte.js';
+import { DELIMITER_COLOR } from './weaver-lang.js';
+
+export function trimMarkerStyle(): string | undefined {
+	if (settings.current.weaverHighlightTrimMarkers) return undefined;
+	return `--weaver-trim-color: ${DELIMITER_COLOR}`;
+}
 
 export const weaverTheme = EditorView.theme(
 	{
