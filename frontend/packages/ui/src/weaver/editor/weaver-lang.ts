@@ -3,43 +3,54 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { tags as t } from '@lezer/highlight';
 
 type Frame =
-	| { k: 'var' }
-	| { k: 'tag' }
+	| { k: 'var'; opened?: boolean }
+	| { k: 'tag'; opened?: boolean }
 	| { k: 'doc' }
 	| { k: 'trigger' }
 	| { k: 'array' }
-	| { k: 'proc'; named: boolean }
-	| { k: 'cmd'; named: boolean };
+	| { k: 'proc'; named: boolean; opened?: boolean }
+	| { k: 'cmd'; named: boolean; opened?: boolean };
 
 interface State {
 	stack: Frame[];
 }
 
+export const DELIMITER_COLOR = '#7c8a9e';
+const TRIM_COLOR = '#d782a8';
+
 const IDENT = /^[A-Za-z_]\w*/;
 const DOTTED = /^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*/; // e.g. core.weaver.rng
 const KEYWORD = /^(?:if|elif|else|endif|foreach|endforeach|in|break|continue|return|stop)\b/;
 
-const OPEN_VAR = /^\{\{-?/;
-const CLOSE_VAR = /^-?\}\}/;
-const OPEN_TAG = /^\{#-?/;
-const CLOSE_TAG = /^-?#\}/;
-const OPEN_PROC = /^@\[-?/;
-const OPEN_CMD = /^\$\[-?/;
-const CLOSE_CALL = /^-?\]/; // shared by `@[ … ]` and `$[ … ]`
+const OPEN_VAR = /^\{\{/;
+const CLOSE_VAR = /^\}\}/;
+const OPEN_TAG = /^\{#/;
+const CLOSE_TAG = /^#\}/;
+const OPEN_PROC = /^@\[/;
+const OPEN_CMD = /^\$\[/;
+const CLOSE_CALL = /^\]/; // shared by `@[ … ]` and `$[ … ]`
+
+const TRIM_VAR = /^-(?=\}\})/;
+const TRIM_TAG = /^-(?=#\})/;
+const TRIM_CALL = /^-(?=\])/;
+
+function trimmable(frame: Frame): frame is Extract<Frame, { opened?: boolean }> {
+	return frame.k === 'var' || frame.k === 'tag' || frame.k === 'proc' || frame.k === 'cmd';
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function exprAtom(stream: any, state: State): string | null {
 	// Nested constructs
 	if (stream.match(OPEN_VAR)) {
-		state.stack.push({ k: 'var' });
+		state.stack.push({ k: 'var', opened: true });
 		return 'delimiter';
 	}
 	if (stream.match(OPEN_PROC)) {
-		state.stack.push({ k: 'proc', named: false });
+		state.stack.push({ k: 'proc', named: false, opened: true });
 		return 'bracket';
 	}
 	if (stream.match(OPEN_CMD)) {
-		state.stack.push({ k: 'cmd', named: false });
+		state.stack.push({ k: 'cmd', named: false, opened: true });
 		return 'bracket';
 	}
 	if (stream.match(/^<\/?trigger\b/)) {
@@ -80,19 +91,19 @@ const parser: StreamParser<State> = {
 
 		if (!top) {
 			if (stream.match(OPEN_VAR)) {
-				state.stack.push({ k: 'var' });
+				state.stack.push({ k: 'var', opened: true });
 				return 'delimiter';
 			}
 			if (stream.match(OPEN_TAG)) {
-				state.stack.push({ k: 'tag' });
+				state.stack.push({ k: 'tag', opened: true });
 				return 'delimiter';
 			}
 			if (stream.match(OPEN_PROC)) {
-				state.stack.push({ k: 'proc', named: false });
+				state.stack.push({ k: 'proc', named: false, opened: true });
 				return 'bracket';
 			}
 			if (stream.match(OPEN_CMD)) {
-				state.stack.push({ k: 'cmd', named: false });
+				state.stack.push({ k: 'cmd', named: false, opened: true });
 				return 'bracket';
 			}
 			if (stream.match('[[')) {
@@ -108,11 +119,17 @@ const parser: StreamParser<State> = {
 			return null;
 		}
 
+		if (trimmable(top) && top.opened) {
+			top.opened = false;
+			if (!stream.sol() && stream.match('-')) return 'trim';
+		}
+
 		if (stream.eatSpace()) return null;
 
 		switch (top.k) {
 			// {{ scope:name }}
 			case 'var': {
+				if (stream.match(TRIM_VAR)) return 'trim';
 				if (stream.match(CLOSE_VAR)) {
 					state.stack.pop();
 					return 'delimiter';
@@ -126,6 +143,7 @@ const parser: StreamParser<State> = {
 
 			// {# if ... #} / {# foreach x in y #}
 			case 'tag': {
+				if (stream.match(TRIM_TAG)) return 'trim';
 				if (stream.match(CLOSE_TAG)) {
 					state.stack.pop();
 					return 'delimiter';
@@ -136,6 +154,7 @@ const parser: StreamParser<State> = {
 
 			// @[ namespace.name(key: value) ]
 			case 'proc': {
+				if (stream.match(TRIM_CALL)) return 'trim';
 				if (stream.match(CLOSE_CALL)) {
 					state.stack.pop();
 					return 'bracket';
@@ -150,6 +169,7 @@ const parser: StreamParser<State> = {
 
 			// $[ name(arg1, arg2) ]
 			case 'cmd': {
+				if (stream.match(TRIM_CALL)) return 'trim';
 				if (stream.match(CLOSE_CALL)) {
 					state.stack.pop();
 					return 'bracket';
@@ -211,6 +231,7 @@ const parser: StreamParser<State> = {
 
 	tokenTable: {
 		delimiter: t.brace,
+		trim: t.modifier,
 		bracket: t.squareBracket,
 		keyword: t.controlKeyword,
 		scope: t.namespace,
@@ -232,7 +253,8 @@ const parser: StreamParser<State> = {
 export const weaverLanguage = StreamLanguage.define(parser);
 
 const weaverHighlight = HighlightStyle.define([
-	{ tag: t.brace, color: '#7c8a9e', fontWeight: '600' }, // {{ }} {# #}
+	{ tag: t.brace, color: DELIMITER_COLOR, fontWeight: '600' }, // {{ }} {# #}
+	{ tag: t.modifier, color: `var(--weaver-trim-color, ${TRIM_COLOR})`, fontWeight: '700' },
 	{ tag: t.squareBracket, color: '#c98a3a', fontWeight: '600' }, // @[ ] $[ ] [[ ]]
 	{ tag: t.controlKeyword, color: '#c678dd', fontWeight: '600' },
 	{ tag: t.namespace, color: '#56b6c2' }, // scope before colon

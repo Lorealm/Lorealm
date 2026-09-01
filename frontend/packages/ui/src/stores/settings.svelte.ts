@@ -13,12 +13,16 @@ export interface ClientSettings {
 
 	/** Automatically expand the advanced section of a lorebook entry. */
 	autoExpandLorebookAdvanced: boolean;
+
+	/** Give `{#- … -#}` trim markers their own colour, apart from the delimiter. */
+	weaverHighlightTrimMarkers: boolean;
 }
 
 const DEFAULTS: ClientSettings = {
 	weaverSuggestCrossBookIds: true,
 	weaverFollowCrossBookIds: true,
-	autoExpandLorebookAdvanced: false
+	autoExpandLorebookAdvanced: false,
+	weaverHighlightTrimMarkers: true
 };
 
 export const settings = new PersistedRecord<ClientSettings>('settings', DEFAULTS);
