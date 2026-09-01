@@ -224,9 +224,9 @@
 
 <div class="stage">
 	<div class="lede">
-		Everything in this realm and how it connects: agents, state pools, tools, lorebooks,
-		characters, and templates. Click a filter to hide a type, click a node to trace its
-		neighborhood. Dashed nodes are imported but unused.
+		Everything in this realm and how it connects: agents, state pools, tools, lorebooks, characters,
+		and templates. Click a filter to hide a type, click a node to trace its neighborhood. Dashed
+		nodes are imported but unused.
 	</div>
 
 	<div class="filters">

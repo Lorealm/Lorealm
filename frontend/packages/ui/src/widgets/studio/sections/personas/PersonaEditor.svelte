@@ -440,7 +440,7 @@
 		background: transparent;
 		color: var(--color-text-muted);
 	}
-	
+
 	.icon-button:hover {
 		background-color: var(--color-bg-elevated-3);
 		color: var(--color-text-accent);

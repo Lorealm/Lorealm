@@ -179,7 +179,7 @@
 		margin-bottom: var(--spacing-xs);
 		border-bottom: 1px solid var(--color-border-subtle);
 	}
-	
+
 	.secrets-item:hover {
 		background-color: var(--color-hover);
 		color: var(--color-text-accent);

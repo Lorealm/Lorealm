@@ -127,8 +127,8 @@ class Router {
 			else if (route.scope === 'user') this.#userSection = route.section;
 			else this.#serverSection = route.section;
 		}
-  }
-	
+	}
+
 	#schedule(previous: Route | null, route: Route) {
 		if (this.#pending) {
 			this.#pending.route = route;

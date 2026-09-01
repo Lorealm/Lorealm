@@ -204,7 +204,10 @@ class ToolStore {
 		} catch (e) {
 			const { message, code } = extractError(e);
 			this.saveState = { status: 'error', message, code };
-			if (message !== this.#lastError) {
+			// A body that doesn't compile is already underlined in the editor
+			// and spelled out in the save row. A toast would be the third copy,
+			// raised again on every pause in typing.
+			if (code !== 'tool.invalid_body' && message !== this.#lastError) {
 				showError(message, { title: 'Save failed' });
 				this.#lastError = message;
 			}

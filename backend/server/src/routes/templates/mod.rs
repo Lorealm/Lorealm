@@ -23,6 +23,11 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         .route("/{template_id}", get(handlers::get_template))
         .route("/sources", get(handlers::list_sources))
         .route("/weaver-vocabulary", get(handlers::list_weaver_vocabulary))
+        // A POST because the source goes in the body, but it changes no
+        // state, so it stays out of the CSRF group: an editor checks on
+        // every pause in typing, and that is a lot of traffic to put
+        // through token verification for no state to protect.
+        .route("/weaver-check", post(handlers::check_weaver))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
             session_auth_middleware,

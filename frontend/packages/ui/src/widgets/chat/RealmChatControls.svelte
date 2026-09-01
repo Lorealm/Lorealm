@@ -71,12 +71,20 @@
 			{/if}
 			{#if streaming}
 				{#if chatStore.realmAutoRun}
-					<button type="button" onclick={() => chatStore.pauseRealm()} title="Finish this turn, then stop">
+					<button
+						type="button"
+						onclick={() => chatStore.pauseRealm()}
+						title="Finish this turn, then stop"
+					>
 						<Pause size={14} />
 						Pause
 					</button>
 				{/if}
-				<button type="button" onclick={() => chatStore.cancelStream()} title="Cancel the in-flight turn">
+				<button
+					type="button"
+					onclick={() => chatStore.cancelStream()}
+					title="Cancel the in-flight turn"
+				>
 					<Square size={14} />
 					Stop
 				</button>

@@ -12,7 +12,7 @@ use crate::{
     errors::AppError,
     extract::AuthenticatedSession,
     routes::templates::{SetActiveRequest, WeaverVocabulary},
-    services::context::{ContextTemplate, SourceDefinition},
+    services::context::{ContextTemplate, SourceDefinition, weaver::check::check},
     services::tools::build_tool_registry,
 };
 
@@ -123,6 +123,15 @@ pub async fn list_weaver_vocabulary() -> Json<WeaverVocabulary> {
     Json(WeaverVocabulary {
         commands,
         processors,
+    })
+}
+
+/// Check weaver source and report what is wrong with it.
+pub async fn check_weaver(
+    Json(request): Json<super::WeaverCheckRequest>,
+) -> Json<super::WeaverCheckResponse> {
+    Json(super::WeaverCheckResponse {
+        diagnostics: check(&request.source, request.dialect),
     })
 }
 
@@ -282,5 +291,36 @@ mod tests {
         let json = serde_json::to_value(&vocab).unwrap();
         assert!(json["commands"].is_array());
         assert!(json["processors"].is_array());
+    }
+
+    async fn check_json(body: serde_json::Value) -> serde_json::Value {
+        let request = serde_json::from_value(body).expect("request shape the client sends");
+        serde_json::to_value(check_weaver(Json(request)).await.0).unwrap()
+    }
+
+    #[tokio::test]
+    async fn check_reports_problems_in_the_body_not_as_an_error() {
+        let json = check_json(serde_json::json!({ "source": "{# break #}" })).await;
+
+        // Positions and severity arrive in the shape CodeMirror wants.
+        let diagnostic = &json["diagnostics"][0];
+        assert_eq!(diagnostic["from"], 0);
+        assert_eq!(diagnostic["to"], 11);
+        assert_eq!(diagnostic["severity"], "error");
+        assert!(diagnostic["message"].is_string());
+    }
+
+    #[tokio::test]
+    async fn check_defaults_to_the_template_dialect() {
+        let json = check_json(serde_json::json!({ "source": "just prose" })).await;
+        assert_eq!(json["diagnostics"].as_array().unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn check_accepts_the_expression_dialect_by_name() {
+        let json =
+            check_json(serde_json::json!({ "source": "just prose", "dialect": "expression" }))
+                .await;
+        assert_eq!(json["diagnostics"].as_array().unwrap().len(), 1);
     }
 }

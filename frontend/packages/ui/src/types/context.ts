@@ -60,7 +60,8 @@ function parseContentRef(v: unknown): ContentRef {
 	if (isRecord(v)) {
 		if (typeof v.Message === 'string') return { kind: 'message', id: v.Message };
 		if ('Character' in v) return { kind: 'character', part: parseCharacterPart(v.Character) };
-		if (isRecord(v.Persona)) return { kind: 'persona', persona: v.Persona as unknown as UserPersona };
+		if (isRecord(v.Persona))
+			return { kind: 'persona', persona: v.Persona as unknown as UserPersona };
 		if (isRecord(v.Plugin)) {
 			return {
 				kind: 'plugin',

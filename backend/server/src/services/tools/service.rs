@@ -13,6 +13,7 @@ use crate::{
         snowflake::SnowflakeService,
         tools::{CreateUserTool, UpdateUserTool},
     },
+    util::weaver::describe_parse_errors,
 };
 
 pub struct UserToolService {
@@ -141,6 +142,6 @@ impl UserToolService {
     fn validate_body(body: &str) -> Result<(), UserToolError> {
         CompiledTemplate::compile(body)
             .map(drop)
-            .map_err(|errs| UserToolError::InvalidBody(format!("{errs:?}")))
+            .map_err(|errs| UserToolError::InvalidBody(describe_parse_errors(body, &errs)))
     }
 }

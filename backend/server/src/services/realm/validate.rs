@@ -10,6 +10,7 @@ use crate::{
     errors::{RealmError, TargetType},
     routes::CreateAgentRequest,
     services::{realm::RealmService, tools::builtin_tool},
+    util::weaver::describe_parse_errors,
 };
 
 /// The identity bundle a validated create/update agent request resolves to.
@@ -228,7 +229,10 @@ impl RealmService {
         // edit time
         if let Some(src) = req.run_condition.as_ref().filter(|s| !s.trim().is_empty()) {
             CompiledExpr::compile(src).map_err(|errors| {
-                RealmError::InvalidAgent(format!("run_condition failed to compile: {errors:?}"))
+                RealmError::InvalidAgent(format!(
+                    "run condition failed to compile: {}",
+                    describe_parse_errors(src, &errors)
+                ))
             })?;
         }
 
@@ -290,7 +294,10 @@ pub(super) fn validate_scenario(
     }
     if !req.seed_script.trim().is_empty() {
         weaver_lang::CompiledTemplate::compile(&req.seed_script).map_err(|errors| {
-            RealmError::InvalidScenario(format!("seed script failed to compile: {errors:?}"))
+            RealmError::InvalidScenario(format!(
+                "seed script failed to compile: {}",
+                describe_parse_errors(&req.seed_script, &errors)
+            ))
         })?;
     }
     for (handle, props) in &req.agent_overrides {

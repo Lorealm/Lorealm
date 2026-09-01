@@ -56,7 +56,7 @@ export interface LayerOptions {
 	 * Anchors the layer to the DOM: it is active while focus is inside this
 	 * element, and nested layers beat it. Set for you by `keyLayer`.
 	 */
-  element?: HTMLElement;
+	element?: HTMLElement;
 	active?: () => boolean;
 	/** Dispatch stops here rather than falling through to the layers behind it. */
 	blocking?: boolean;

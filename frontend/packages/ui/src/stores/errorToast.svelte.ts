@@ -1,4 +1,4 @@
-import { SvelteMap } from "svelte/reactivity";
+import { SvelteMap } from 'svelte/reactivity';
 import type { Component } from 'svelte';
 
 export type ToastActionTone = 'neutral' | 'primary' | 'danger';

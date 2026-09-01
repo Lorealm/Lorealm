@@ -101,7 +101,37 @@ export const weaverTheme = EditorView.theme(
 			backgroundColor: 'var(--color-bg-base)',
 			padding: '0 3px',
 			borderRadius: '3px'
-		}
+		},
+		'.cm-lintRange-error, .cm-lintRange-warning': {
+			backgroundImage: 'none',
+			textDecoration: 'underline wavy',
+			textDecorationThickness: '1px',
+			textUnderlineOffset: '3px'
+		},
+		'.cm-lintRange-error': { textDecorationColor: 'var(--color-error)' },
+		'.cm-lintRange-warning': { textDecorationColor: 'var(--color-warning)' },
+		// `cm-tooltip-lint` is the inner list, not the `.cm-tooltip` wrapper,
+		// so the panel has to be painted here — the wrapper is transparent by
+		// the rule above.
+		'.cm-tooltip-lint': {
+			backgroundColor: 'var(--color-bg-elevated-2)',
+			border: '1px solid var(--color-border-subtle)',
+			borderRadius: '6px',
+			boxShadow: '0 6px 20px rgba(0, 0, 0, 0.45)',
+			maxWidth: '360px',
+			// Clip the diagnostic's left border to the rounded corner.
+			overflow: 'hidden'
+		},
+		'.cm-diagnostic': {
+			padding: '8px 10px',
+			borderLeftWidth: '3px',
+			fontFamily: 'var(--font-family-code)',
+			// The hint arrives as a second paragraph of the message.
+			whiteSpace: 'pre-wrap',
+			color: 'var(--color-text-primary)'
+		},
+		'.cm-diagnostic-error': { borderLeftColor: 'var(--color-error-text)' },
+		'.cm-diagnostic-warning': { borderLeftColor: 'var(--color-warning-text)' }
 	},
 	{ dark: true }
 );

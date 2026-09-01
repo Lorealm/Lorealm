@@ -1,3 +1,4 @@
+pub mod check;
 mod std;
 pub mod stdlib;
 

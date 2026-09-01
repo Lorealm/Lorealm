@@ -191,9 +191,9 @@ export interface CreateAgentRequest {
 
 	// character: llm only, both-or-neither
 	character_id?: Snowflake | null;
-  char_version_id?: Snowflake | null;
+	char_version_id?: Snowflake | null;
 
-  // llm or player
+	// llm or player
 	template_id?: Snowflake | null;
 	profile_id?: Snowflake | null;
 	persona_id?: Snowflake | null;

@@ -40,7 +40,7 @@ import type {
 	SetActiveLorebooksRequest
 } from '$lib/types/lorebook.js';
 import type { SourceDefinition } from '$lib/types/node.js';
-import type { WeaverVocabulary } from '$lib/types/weaver.js';
+import type { WeaverCheckResponse, WeaverDialect, WeaverVocabulary } from '$lib/types/weaver.js';
 import type {
 	UserPersona,
 	UpdatePersona,
@@ -112,7 +112,7 @@ import type { StatusCodes } from 'http-status-codes';
 
 /**
  * Encode cards as a `multipart/form-data` body.
- * 
+ *
  * NOTE: This function was written with the help of AI
  */
 function encodeCardBatch(cards: Blob[]): Blob {
@@ -156,6 +156,8 @@ export function createApiClient(platform: PlatformAPI) {
 			delete: (id: Snowflake) => http.delete(`/api/v1/templates/${id}`),
 			sources: () => http.get<Array<SourceDefinition>>('/api/v1/templates/sources'),
 			weaverVocabulary: () => http.get<WeaverVocabulary>('/api/v1/templates/weaver-vocabulary'),
+			weaverCheck: (source: string, dialect: WeaverDialect) =>
+				http.post<WeaverCheckResponse>('/api/v1/templates/weaver-check', { source, dialect }),
 			active: {
 				get: () => http.get<Snowflake | null>('/api/v1/templates/active'),
 				set: (request: SetActiveTemplateRequest) => http.put('/api/v1/templates/active', request),

@@ -33,7 +33,7 @@ export function orderLayers(
 				front.push(layer);
 			}
 			continue;
-    }
+		}
 
 		if (layer.active && !layer.active()) continue;
 		if (layer.blocking) front.push(layer);

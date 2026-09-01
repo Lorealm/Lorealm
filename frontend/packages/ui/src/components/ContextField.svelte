@@ -1,6 +1,7 @@
 <script lang="ts">
 	import WeaverArea from '$lib/weaver/editor/WeaverArea.svelte';
 	import WeaverField from '$lib/weaver/editor/WeaverField.svelte';
+	import type { WeaverDialect } from '$lib/types/weaver.js';
 	import type { ReferenceSource } from '$lib/weaver/editor/weaver-references.js';
 	import FieldShell from './FieldShell.svelte';
 
@@ -17,7 +18,8 @@
 		tokens = true,
 		maximizable = true,
 		weaver = true,
-		surface = 'elevated'
+		surface = 'elevated',
+		dialect = 'template'
 	}: {
 		label?: string;
 		value: string;
@@ -39,6 +41,8 @@
 		weaver?: boolean;
 		/** See {@link WeaverArea}'s `surface`. Multiline weaver fields only. */
 		surface?: 'elevated' | 'sunken';
+		/** See {@link WeaverArea}'s `dialect`. Weaver fields only. */
+		dialect?: WeaverDialect;
 	} = $props();
 </script>
 
@@ -62,11 +66,12 @@
 			{rows}
 			{fill}
 			{surface}
+			{dialect}
 			hint={placeholder}
 			autofocus={fill}
 		/>
 	{:else}
-		<WeaverField doc={value} onChange={readOnly ? undefined : onchange} {references} />
+		<WeaverField doc={value} onChange={readOnly ? undefined : onchange} {references} {dialect} />
 	{/if}
 {/snippet}
 

@@ -35,7 +35,7 @@
 			hint: m.name ? m.id : undefined
 		}))
 	);
-	
+
 	const modelEmptyText = $derived(
 		models === undefined ? 'Loading models…' : 'No models listed — type an ID.'
 	);

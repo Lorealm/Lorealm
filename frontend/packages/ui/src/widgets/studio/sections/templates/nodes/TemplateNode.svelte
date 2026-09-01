@@ -3,11 +3,7 @@
 	import { flip } from 'svelte/animate';
 	import { dndzone, SHADOW_ITEM_MARKER_PROPERTY_NAME, type DndEvent } from 'svelte-dnd-action';
 	import { templateStore } from '$lib/stores/template.svelte.js';
-	import type {
-		ContextNode,
-		NodeContentGroup,
-		NodePath
-	} from '$lib/types/node.js';
+	import type { ContextNode, NodeContentGroup, NodePath } from '$lib/types/node.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import Self from './TemplateNode.svelte';
 	import DropGhost from './DropGhost.svelte';
