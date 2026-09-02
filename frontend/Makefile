@@ -50,7 +50,8 @@ build-all: build-ui build-web build-tauri ## Build everything
 
 check: ## Run type checking across workspaces
 	cd packages/ui && bun run check
-	cd apps/tauri && bun run check
+	cd apps/desktop && bun run check
+	cd apps/web && bun run check
 
 lint: ## Run linters
 	cd packages/ui && bun run lint
