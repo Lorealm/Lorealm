@@ -1,7 +1,7 @@
 use std::sync::LazyLock;
 
 use chrono::DateTime;
-use lorealm_storage::models::{Param, ParamType, Snowflake, UserTool};
+use lorealm_storage::models::{Param, ParamType, Snowflake, ToolSurface, UserTool};
 
 /// Well-known builtin ids.
 pub const SPEAK_TO_ID: Snowflake = Snowflake(1);
@@ -106,6 +106,7 @@ fn builtin(
         description: description.into(),
         params,
         body: body.into(),
+        surface: ToolSurface::Tool,
         enabled: true,
         created_at: DateTime::UNIX_EPOCH,
         updated_at: DateTime::UNIX_EPOCH,

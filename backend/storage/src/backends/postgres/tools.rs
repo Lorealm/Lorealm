@@ -5,7 +5,7 @@ use sqlx::types::Json;
 use crate::{
     StorageError, UserToolStorage,
     backends::PostgresStorage,
-    models::{Param, Snowflake, UserTool},
+    models::{Param, Snowflake, ToolSurface, UserTool},
 };
 
 #[derive(sqlx::FromRow)]
@@ -17,6 +17,7 @@ struct PgUserTool {
     description: String,
     params: Json<Vec<Param>>,
     body: String,
+    surface: ToolSurface,
     enabled: bool,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
@@ -32,6 +33,7 @@ impl From<PgUserTool> for UserTool {
             description: r.description,
             params: r.params.0,
             body: r.body,
+            surface: r.surface,
             enabled: r.enabled,
             created_at: r.created_at,
             updated_at: r.updated_at,
@@ -73,14 +75,15 @@ impl UserToolStorage for PostgresStorage {
     async fn save_tool(&self, tool: UserTool) -> Result<(), StorageError> {
         sqlx::query(
             r#"INSERT INTO user_tools
-                (id, user_id, name, display_name, description, params, body, enabled)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                (id, user_id, name, display_name, description, params, body, surface, enabled)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             ON CONFLICT (id) DO UPDATE SET
                 name = EXCLUDED.name,
                 display_name = EXCLUDED.display_name,
                 description = EXCLUDED.description,
                 params = EXCLUDED.params,
                 body = EXCLUDED.body,
+                surface = EXCLUDED.surface,
                 enabled = EXCLUDED.enabled,
                 updated_at = now()"#,
         )
@@ -91,6 +94,7 @@ impl UserToolStorage for PostgresStorage {
         .bind(&tool.description)
         .bind(Json(&tool.params))
         .bind(&tool.body)
+        .bind(tool.surface)
         .bind(tool.enabled)
         .execute(&self.pool)
         .await?;

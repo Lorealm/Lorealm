@@ -10,7 +10,10 @@ use crate::{
     core::AppState,
     errors::AppError,
     extract::AuthenticatedSession,
-    services::tools::{CreateUserTool, UpdateUserTool, builtin_tools},
+    services::{
+        commands::{CommandRun, RunCommandRequest},
+        tools::{CreateUserTool, UpdateUserTool, builtin_tools},
+    },
 };
 
 /// Server-shipped builtin tools
@@ -29,6 +32,40 @@ pub async fn list_tools(
         .await?;
 
     Ok(Json(tools))
+}
+
+/// The subset callable as `/name` from the composer.
+pub async fn list_commands(
+    State(app_state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+) -> Result<Json<Vec<UserTool>>, AppError> {
+    let commands = app_state
+        .services()
+        .commands()
+        .list(session.user_id)
+        .await?;
+
+    Ok(Json(commands))
+}
+
+pub async fn run_command(
+    State(app_state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(tool_id): Path<Snowflake>,
+    Json(request): Json<RunCommandRequest>,
+) -> Result<Json<CommandRun>, AppError> {
+    let run = app_state
+        .services()
+        .commands()
+        .run(
+            session.user_id,
+            request.conversation_id,
+            tool_id,
+            request.args,
+        )
+        .await?;
+
+    Ok(Json(run))
 }
 
 pub async fn get_tool(

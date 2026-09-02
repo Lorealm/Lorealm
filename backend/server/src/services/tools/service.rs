@@ -48,8 +48,22 @@ impl UserToolService {
         Ok(self.storage.list_tools(user_id).await?)
     }
 
+    /// Enabled rows the model may call on a turn.
     pub async fn list_enabled(&self, user_id: Snowflake) -> Result<Vec<UserTool>, UserToolError> {
-        Ok(self.storage.list_enabled_tools(user_id).await?)
+        let tools = self.storage.list_enabled_tools(user_id).await?;
+        Ok(tools
+            .into_iter()
+            .filter(|t| t.surface.callable_by_model())
+            .collect())
+    }
+
+    /// Enabled rows the user may invoke as `/name`.
+    pub async fn list_commands(&self, user_id: Snowflake) -> Result<Vec<UserTool>, UserToolError> {
+        let tools = self.storage.list_enabled_tools(user_id).await?;
+        Ok(tools
+            .into_iter()
+            .filter(|t| t.surface.callable_by_user())
+            .collect())
     }
 
     pub async fn create_tool(
@@ -69,6 +83,7 @@ impl UserToolService {
             description: create.description,
             params: create.params,
             body: create.body,
+            surface: create.surface.unwrap_or_default(),
             enabled: true,
             created_at: Utc::now(),
             updated_at: Utc::now(),
@@ -102,6 +117,9 @@ impl UserToolService {
         if let Some(body) = update.body {
             Self::validate_body(&body)?;
             tool.body = body;
+        }
+        if let Some(surface) = update.surface {
+            tool.surface = surface;
         }
 
         self.storage.save_tool(tool.clone()).await?;

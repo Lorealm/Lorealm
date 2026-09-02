@@ -1,7 +1,13 @@
 import { extractError } from '$lib/types/error.js';
 import { useApi } from '$lib/api/client.js';
 import type { Snowflake } from '$lib/types/core.js';
-import type { CreateUserTool, Param, UpdateUserTool, UserTool } from '$lib/types/tools.js';
+import type {
+	CreateUserTool,
+	Param,
+	ToolSurface,
+	UpdateUserTool,
+	UserTool
+} from '$lib/types/tools.js';
 import { showError } from '$lib/stores/errorToast.svelte.js';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -19,6 +25,7 @@ export interface ToolDraft {
 	description: string;
 	params: Param[];
 	body: string;
+	surface: ToolSurface;
 }
 
 const NAME_RE = /^[a-zA-Z0-9_-]{1,64}$/;
@@ -114,7 +121,8 @@ class ToolStore {
 			display_name: null,
 			description: '',
 			params: [],
-			body: ''
+			body: '',
+			surface: 'tool'
 		};
 		try {
 			const id = await this.#api.tools.create(create);
@@ -236,7 +244,8 @@ function buildDraft(t: UserTool): ToolDraft {
 		display_name: t.display_name ?? '',
 		description: t.description,
 		params: $state.snapshot(t.params),
-		body: t.body
+		body: t.body,
+		surface: t.surface
 	};
 }
 
@@ -250,6 +259,7 @@ function diffTool(base: UserTool, draft: ToolDraft): UpdateUserTool {
 	if (draft.description !== base.description) patch.description = draft.description;
 	if (!paramsEqual(draft.params, base.params)) patch.params = draft.params;
 	if (draft.body !== base.body) patch.body = draft.body;
+	if (draft.surface !== base.surface) patch.surface = draft.surface;
 	return patch;
 }
 

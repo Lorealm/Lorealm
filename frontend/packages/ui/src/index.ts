@@ -17,6 +17,24 @@ export type {
 	ResourceKind
 } from './types/error.js';
 
+/* Slash commands — the composer's dispatch surface. */
+export {
+	builtInSlashCommands,
+	dispatch,
+	parseArgs,
+	parseInput,
+	serverCommands,
+	slashCommands,
+	usage
+} from './commands/index.js';
+export type {
+	CommandArgs,
+	ParsedInput,
+	RegisteredSlashCommand,
+	SlashCommand,
+	SlashParam
+} from './commands/index.js';
+
 /* Keybinds — also the surface a future plugin host registers through. */
 export {
 	builtInCommands,

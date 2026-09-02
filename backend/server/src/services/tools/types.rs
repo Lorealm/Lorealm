@@ -4,14 +4,14 @@ use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use lorealm_providers::Error as ProviderError;
 use lorealm_providers::{Tool, ToolDef};
-use lorealm_storage::models::{Param, Snowflake};
+use lorealm_storage::models::{Param, Snowflake, ToolSurface};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use weaver_lang::{CompiledTemplate, Registry, Value as WeaverValue};
 
 use crate::services::chat::AttachmentSpec;
 use crate::services::tools::{Actor, EventSink, ToolContext, ToolStatePool};
-use crate::util::weaver::json_to_weaver;
+use crate::util::weaver::{json_to_weaver, weaver_to_json};
 
 /// Which tools a turn exposes and on whose behalf they run.
 #[derive(Default)]
@@ -30,6 +30,8 @@ pub struct CreateUserTool {
     pub description: String,
     pub params: Vec<Param>,
     pub body: String,
+    #[serde(default)]
+    pub surface: Option<ToolSurface>,
 }
 
 #[derive(Default, Deserialize)]
@@ -39,6 +41,7 @@ pub struct UpdateUserTool {
     pub description: Option<String>,
     pub params: Option<Vec<Param>>,
     pub body: Option<String>,
+    pub surface: Option<ToolSurface>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -122,11 +125,13 @@ impl Tool for CompiledUserTool {
         }
 
         let mut ctx = ToolContext::new(cmd, Arc::clone(&self.state)).with_actor(self.actor.clone());
+        // A body without `{# return #}` yields its rendered output as a string
         let out = self
             .body
-            .evaluate(&mut ctx, &self.registry)
+            .evaluate_value(&mut ctx, &self.registry)
             .map_err(|e| ProviderError::Tool(format!("tool '{}' failed: {e}", self.sig.name)))?;
-        Ok(serde_json::Value::String(out))
+        weaver_to_json(&out)
+            .map_err(|e| ProviderError::Tool(format!("tool '{}' returned {e}", self.sig.name)))
     }
 }
 
@@ -145,5 +150,52 @@ impl ToolSignature {
             }
         }
         json!({ "type": "object", "properties": props, "required": required })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::services::tools::build_tool_registry;
+
+    async fn call(body: &str) -> serde_json::Value {
+        let tool = CompiledUserTool::build(
+            ToolSignature {
+                name: "t".into(),
+                description: String::new(),
+                params: Vec::new(),
+                body: body.into(),
+            },
+            Arc::new(build_tool_registry()),
+            Arc::new(Mutex::new(ToolStatePool::default())),
+            None,
+        )
+        .expect("body compiles");
+        tool.call(json!({})).await.expect("body evaluates")
+    }
+
+    #[tokio::test]
+    async fn a_body_without_a_return_still_hands_back_its_rendered_text() {
+        assert_eq!(call("Hello").await, json!("Hello"));
+    }
+
+    #[tokio::test]
+    async fn a_returned_array_reaches_the_model_as_an_array() {
+        assert_eq!(
+            call(r#"ignored{# return ["sword", "cursed"] #}"#).await,
+            json!(["sword", "cursed"])
+        );
+    }
+
+    #[tokio::test]
+    async fn returned_numbers_objects_and_none_keep_their_types() {
+        assert_eq!(call("{# return 42 #}").await, json!(42));
+        assert_eq!(call("{# return true #}").await, json!(true));
+        assert_eq!(call("{# return #}").await, json!(null));
+    }
+
+    #[tokio::test]
+    async fn stop_keeps_the_output_rendered_before_it() {
+        assert_eq!(call("kept{# stop #}dropped").await, json!("kept"));
     }
 }
