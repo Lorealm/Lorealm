@@ -11,7 +11,7 @@ use weaver_lang::{
 
 use crate::services::{
     chat::register_attachment_commands,
-    commands::{GenerateRawCommand, register_effect_commands},
+    commands::{GenerateCommand, GenerateRawCommand, register_effect_commands},
     tools::EmitEventCommand,
     tools::build_tool_registry,
 };
@@ -53,8 +53,8 @@ fn known_registry() -> Registry {
     register_attachment_commands(&mut registry, Vec::new());
     registry.register_command(EmitEventCommand::new(Arc::new(Mutex::new(Vec::new()))));
     register_effect_commands(&mut registry);
-    // Declaration only: the editor resolves the name, nothing calls it.
     registry.register_command(GenerateRawCommand::declaration());
+    registry.register_command(GenerateCommand::declaration());
     registry
 }
 
@@ -245,6 +245,7 @@ mod tests {
         assert!(template(r#"$[sys("done")]"#).is_empty());
         assert!(template(r#"$[toast("done", "success")]"#).is_empty());
         assert!(template(r#"$[generate_raw("what happened?")]"#).is_empty());
+        assert!(template(r#"$[generate("what happened?")]"#).is_empty());
     }
 
     #[test]

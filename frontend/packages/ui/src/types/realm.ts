@@ -1,6 +1,6 @@
 import type { ConversationMessage } from './conversation.ts';
 import type { JsonValue, PromptRole, Snowflake } from './core.ts';
-import type { Param } from './tools.ts';
+import type { CommandEffect, Param } from './tools.ts';
 import type { WidgetInstance } from './widgets.ts';
 
 export interface Realm {
@@ -249,5 +249,6 @@ export type RealmStreamEvent =
 	| { type: 'delta'; content: string }
 	| { type: 'reasoning'; content: string }
 	| { type: 'widget'; widget: WidgetInstance }
+	| { type: 'effect'; effect: CommandEffect }
 	| { type: 'action'; name: string; is_error: boolean }
 	| { type: 'committed'; message: ConversationMessage; events: RealmEvent[] };

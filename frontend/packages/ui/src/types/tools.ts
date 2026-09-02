@@ -3,11 +3,33 @@ import type { ConversationMessage } from './conversation.ts';
 
 export type ParamType = 'string' | 'number' | 'bool' | 'object' | { array: ParamType };
 
+/**
+ * A kind of stored thing a parameter can name.
+ *
+ * A subset of {@link import('./error.js').ResourceKind} that enumerates
+ * everything an error can point at, most of which is not pickable from a list.
+ */
+export type PickableResource =
+	| 'character'
+	| 'persona'
+	| 'connection_profile'
+	| 'context_template'
+	| 'lorebook'
+	| 'tokenizer'
+	| 'user_tool'
+	| 'user_widget'
+	| 'realm';
+
 export interface Param {
 	name: string;
 	ty: ParamType;
 	description: string | null;
 	required: boolean;
+	/**
+	 * What the value identifies. The value is still a Snowflake in a string —
+	 * this only tells the client to offer a search and hand back an id.
+	 */
+	resource?: PickableResource;
 }
 
 /** Where a row is callable from: by the model, by the user, or both. */

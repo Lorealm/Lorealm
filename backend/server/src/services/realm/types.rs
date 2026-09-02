@@ -2,6 +2,7 @@ use lorealm_storage::models::{ConversationMessage, Param, RealmAgent, RealmEvent
 use serde::Serialize;
 
 use crate::services::chat::WidgetInstance;
+use crate::services::commands::CommandEffect;
 
 pub trait TurnPolicy: Send + Sync {
     fn next<'a>(&self, slot: usize, agents: &'a [RealmAgent]) -> Option<&'a RealmAgent>;
@@ -61,6 +62,9 @@ pub enum RealmStreamEvent {
     },
     Widget {
         widget: WidgetInstance,
+    },
+    Effect {
+        effect: CommandEffect,
     },
     Action {
         name: String,

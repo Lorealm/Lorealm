@@ -7,6 +7,7 @@ use lorealm_storage::models::{Param, ParamType, Snowflake, ToolSurface, UserTool
 pub const SPEAK_TO_ID: Snowflake = Snowflake(1);
 pub const SEARCH_ATTACHMENTS_ID: Snowflake = Snowflake(2);
 pub const ATTACH_ID: Snowflake = Snowflake(3);
+pub const IMPERSONATE_ID: Snowflake = Snowflake(4);
 
 /// The attachment tools, offered on every chat turn rather than being bound
 /// per agent — the model needs both to discover and place an attachment.
@@ -30,15 +31,17 @@ static CATALOG: LazyLock<Vec<UserTool>> = LazyLock::new(|| {
                     ty: ParamType::String,
                     description: Some("The channel to speak on".into()),
                     required: true,
+                    resource: None,
                 },
                 Param {
                     name: "message".into(),
                     ty: ParamType::String,
                     description: Some("What to say".into()),
                     required: true,
+                    resource: None,
                 },
             ],
-            r#"$[emit_event({{cmd:channel}}, {{cmd:message}})]Sent on "{{cmd:channel}}"."#,
+            "$[emit_event({{cmd:channel}}, {{cmd:message}})-]\nSent on \"{{cmd:channel}}\".",
         ),
         builtin(
             SEARCH_ATTACHMENTS_ID,
@@ -52,6 +55,7 @@ static CATALOG: LazyLock<Vec<UserTool>> = LazyLock::new(|| {
                 ty: ParamType::Array(Box::new(ParamType::String)),
                 description: Some("Words describing what you want to show".into()),
                 required: true,
+                resource: None,
             }],
             "$[search_attachments({{cmd:keywords}})]",
         ),
@@ -77,18 +81,35 @@ static CATALOG: LazyLock<Vec<UserTool>> = LazyLock::new(|| {
                     ty: ParamType::String,
                     description: Some("An id obtained from search_attachments".into()),
                     required: true,
+                    resource: None,
                 },
                 Param {
                     name: "props".into(),
                     ty: ParamType::Object,
                     description: Some("Property values, keyed by prop name".into()),
                     required: true,
+                    resource: None,
                 },
             ],
             "$[attach({{cmd:id}}, {{cmd:props}})]",
         ),
+        command(builtin(
+            IMPERSONATE_ID,
+            "impersonate",
+            "Impersonate",
+            "Ask the AI to generate a response for you using the relevant context up until this point.",
+            Vec::new(),
+            r#"$[compose($[generate("Continue the scene by writing my next message, in my own voice. Reply with only the message text and no commentary about it. " + {{cmd:rest}})])]"#,
+        )),
     ]
 });
+
+/// Move a row onto the command surface: invoked by the user as `/name`,
+/// never offered to the model.
+fn command(mut tool: UserTool) -> UserTool {
+    tool.surface = ToolSurface::Command;
+    tool
+}
 
 fn builtin(
     id: Snowflake,
@@ -135,6 +156,34 @@ mod tests {
                 tool.name
             );
         }
+    }
+
+    #[test]
+    fn shipped_commands_are_user_callable_and_never_offered_to_the_model() {
+        let impersonate = builtin_tool(IMPERSONATE_ID).unwrap();
+        assert!(impersonate.surface.callable_by_user());
+        assert!(!impersonate.surface.callable_by_model());
+    }
+
+    #[test]
+    fn shipped_tools_stay_off_the_command_surface() {
+        for id in [SPEAK_TO_ID, SEARCH_ATTACHMENTS_ID, ATTACH_ID] {
+            let tool = builtin_tool(id).unwrap();
+            assert!(
+                !tool.surface.callable_by_user(),
+                "'{}' is a tool, not a command",
+                tool.name
+            );
+        }
+    }
+
+    #[test]
+    fn builtin_names_are_unique() {
+        let mut names: Vec<&str> = builtin_tools().iter().map(|t| t.name.as_str()).collect();
+        names.sort_unstable();
+        let count = names.len();
+        names.dedup();
+        assert_eq!(names.len(), count, "two builtins share a name");
     }
 
     #[test]

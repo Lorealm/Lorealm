@@ -216,6 +216,8 @@ impl Agent for LlmAgent {
             event_sink: Some(Arc::new(std::sync::Mutex::new(Vec::new()))),
             // Realm agents do not offer attachments yet.
             attachments: Vec::new(),
+            conversation: None,
+            cancel: None,
         };
         let baseline = ReconstructedState {
             persistent: baseline_slice,

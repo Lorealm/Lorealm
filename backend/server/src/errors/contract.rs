@@ -75,6 +75,10 @@ fn contract_surface() -> Vec<(&'static str, Vec<Box<dyn DomainError>>)> {
                 Box::new(UserToolError::NotOwned),
                 Box::new(UserToolError::InvalidName("must be snake_case".into())),
                 Box::new(UserToolError::InvalidBody("unexpected token".into())),
+                Box::new(UserToolError::InvalidParam {
+                    name: "profile".into(),
+                    reason: "only a string parameter can name a resource".into(),
+                }),
             ],
         ),
         (

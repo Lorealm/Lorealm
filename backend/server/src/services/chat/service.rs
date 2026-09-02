@@ -1,4 +1,8 @@
-use std::{collections::HashMap, pin::Pin, sync::Arc};
+use std::{
+    collections::HashMap,
+    pin::Pin,
+    sync::{Arc, OnceLock, Weak},
+};
 
 use chrono::Utc;
 use dashmap::DashMap;
@@ -30,6 +34,10 @@ use crate::{
                 AttachmentSpec, InferEvent, ToolCallRecord, WidgetInstance, WidgetSink,
                 register_attachment_commands,
             },
+        },
+        commands::{
+            CommandEffect, EffectSink, GenerateBridge, GenerateCommand, GenerateRawCommand,
+            Generation, register_effect_commands,
         },
         connection::ConnectionService,
         context::{
@@ -64,6 +72,11 @@ pub struct ChatService {
     variables: Arc<VariableRegistry>,
     schedule: Arc<Schedule>,
     cancellations: Arc<DashMap<Snowflake, CancellationToken>>,
+    /// A handle back to itself, for the `$[generate]` a tool body may call.
+    ///
+    /// The generate commands hold an owned `'static` handle, which `&self`
+    /// cannot provide, and a strong reference here would be a cycle.
+    me: OnceLock<Weak<ChatService>>,
 }
 
 impl ChatService {
@@ -94,7 +107,18 @@ impl ChatService {
             variables,
             schedule: Arc::new(Schedule::new(vec![Box::new(PrivacyStage)])),
             cancellations: Arc::new(DashMap::new()),
+            me: OnceLock::new(),
         }
+    }
+
+    /// Hand the service a weak handle to its own `Arc`. Called once, right
+    /// after construction; see [`ChatService::me`].
+    pub fn set_self(&self, me: Weak<ChatService>) {
+        let _ = self.me.set(me);
+    }
+
+    fn generation(&self) -> Option<Arc<dyn Generation>> {
+        Some(self.me.get()?.upgrade()? as Arc<dyn Generation>)
     }
 
     pub async fn list_conversations(
@@ -681,6 +705,8 @@ impl ChatService {
                 &ToolPolicy {
                     extra_tool_ids: widget_tools,
                     attachments,
+                    conversation: Some(convo_id),
+                    cancel: Some(cancel.clone()),
                     ..Default::default()
                 },
             )
@@ -699,6 +725,7 @@ impl ChatService {
                 Persist::Append(prior) => TurnAccumulator::resuming(prior),
                 _ => TurnAccumulator::default(),
             };
+            let mut system_notes: Vec<String> = Vec::new();
             futures_util::pin_mut!(token_stream);
 
             if let Some(user) = created_user {
@@ -735,6 +762,11 @@ impl ChatService {
                         yield ChatStreamEvent::Delta { content: marker };
                     }
                     InferEvent::ToolCall(rec) => acc.tool_call(rec),
+                    // `$[sys]` writes to the conversation, so it waits for the
+                    // reply to be persisted and lands after it. The rest are
+                    // the client's to carry out and go straight through.
+                    InferEvent::Effect(CommandEffect::Sys { content }) => system_notes.push(content),
+                    InferEvent::Effect(effect) => yield ChatStreamEvent::Effect { effect },
                 }
             }
             let tail = chain_tf.finish();
@@ -782,6 +814,13 @@ impl ChatService {
             }
 
             yield ChatStreamEvent::Done { message };
+
+            for content in system_notes {
+                let note = conversations
+                    .append_message(convo_id, ChatRole::System, content, json!({ "tool_note": true }))
+                    .await?;
+                yield ChatStreamEvent::SystemMessage { message: note };
+            }
         };
 
         Ok(Box::pin(stream))
@@ -868,11 +907,32 @@ impl ChatService {
         let mut registry = lorealm_providers::ToolRegistry::new();
 
         let widget_sink;
+        let effect_sink;
         let weaver_registry = {
             let mut r = build_tool_registry();
             widget_sink = register_attachment_commands(&mut r, policy.attachments.clone());
+            effect_sink = register_effect_commands(&mut r);
             if let Some(sink) = &policy.event_sink {
                 r.register_command(EmitEventCommand::new(Arc::clone(sink)));
+            }
+
+            match (self.generation(), policy.conversation) {
+                (Some(chat), Some(conversation)) => {
+                    let bridge = || GenerateBridge {
+                        handle: tokio::runtime::Handle::current(),
+                        chat: Arc::clone(&chat),
+                        state: Arc::clone(&self.state),
+                        owner,
+                        conversation,
+                        cancel: policy.cancel.clone().unwrap_or_default(),
+                    };
+                    r.register_command(GenerateRawCommand::new(bridge()));
+                    r.register_command(GenerateCommand::new(bridge()));
+                }
+                _ => {
+                    r.register_command(GenerateRawCommand::declaration());
+                    r.register_command(GenerateCommand::declaration());
+                }
             }
             Arc::new(r)
         };
@@ -940,7 +1000,16 @@ impl ChatService {
                         b.header("X-OpenRouter-Title", "Lorealm")
                             .header("HTTP-Referer", "https://github.com/Lorealm/Lorealm")
                     });
-                run_inference(provider, messages, common, pp, registry, widget_sink).await
+                run_inference(
+                    provider,
+                    messages,
+                    common,
+                    pp,
+                    registry,
+                    widget_sink,
+                    effect_sink,
+                )
+                .await
             }
             // Any OpenAI-compatible endpoint, including local servers such as
             // KoboldCPP, which need no key at all.
@@ -954,7 +1023,16 @@ impl ChatService {
                     pp.base_url.clone(),
                     api_key.map(|key| key.to_string()),
                 );
-                run_inference(provider, messages, common, pp, registry, widget_sink).await
+                run_inference(
+                    provider,
+                    messages,
+                    common,
+                    pp,
+                    registry,
+                    widget_sink,
+                    effect_sink,
+                )
+                .await
             }
             other => Err(ChatError::Connection(format!(
                 "unsupported provider: {other}"
@@ -996,11 +1074,53 @@ impl ChatService {
             match event? {
                 InferEvent::Text(delta) => out.push_str(&delta),
                 // Reasoning is the model thinking, not the model answering;
-                // widgets and tool calls cannot arise with no tools offered.
-                InferEvent::Reasoning(_) | InferEvent::Widget(_) | InferEvent::ToolCall(_) => {}
+                // widgets, tool calls and effects cannot arise with no tools
+                // offered.
+                InferEvent::Reasoning(_)
+                | InferEvent::Widget(_)
+                | InferEvent::ToolCall(_)
+                | InferEvent::Effect(_) => {}
             }
         }
         Ok(out)
+    }
+
+    /// Assemble the conversation's context, append `ask`, and answer it.
+    pub async fn complete_with_context(
+        &self,
+        owner: Snowflake,
+        conversation_id: Snowflake,
+        ask: String,
+        profile_id: Snowflake,
+        cancel: CancellationToken,
+    ) -> Result<String, ChatError> {
+        let convo = self.get_conversation(conversation_id, owner).await?;
+        if convo.realm_id.is_some() {
+            return Err(ChatError::RealmConversation(conversation_id));
+        }
+
+        let spec = self.active_spec(owner, &convo).await?;
+        let thread = self
+            .build_prompt(conversation_id, convo.active_leaf_id)
+            .await?;
+        let turns: Vec<PromptTurn> = thread.iter().map(PromptTurn::from_message).collect();
+        let ids: Vec<Snowflake> = thread.iter().map(|m| m.id).collect();
+        let baseline = self.state.reconstruct(&ids).await?;
+
+        // `captured` dropped on purpose — see the note above.
+        let Prepared {
+            prompt: mut messages,
+            ..
+        } = self
+            .assemble_context(&spec, None, &turns, &baseline, &[])
+            .await?;
+
+        messages.push(PromptMessage {
+            role: PromptRole::User,
+            content: ask,
+        });
+
+        self.complete(owner, profile_id, messages, cancel).await
     }
 
     /// Assemble context and start inference
@@ -1068,6 +1188,7 @@ async fn run_inference<P>(
     provider_params: P::ProviderParams,
     registry: lorealm_providers::ToolRegistry,
     widget_sink: WidgetSink,
+    effect_sink: EffectSink,
 ) -> Result<Pin<Box<dyn Stream<Item = Result<InferEvent, ChatError>> + Send>>, ChatError>
 where
     P: LlmProvider + 'static,
@@ -1174,6 +1295,14 @@ where
                     widget_sink.lock().unwrap().drain(..).collect();
                 for widget in attached {
                     yield InferEvent::Widget(widget);
+                }
+
+                // Drained per call, like widgets, so a tool's effects reach the
+                // client while the turn is still running.
+                let effects: Vec<CommandEffect> =
+                    effect_sink.lock().unwrap().drain(..).collect();
+                for effect in effects {
+                    yield InferEvent::Effect(effect);
                 }
             }
             messages.push(lorealm_providers::Message {

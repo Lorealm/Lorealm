@@ -168,7 +168,7 @@ impl AppError {
     ///
     /// `500` variants collapse into [`AppError::Internal`] to ensure their details
     /// are logged but never reaches the client.
-    /// 
+    ///
     /// Other 5xx keep their own code and message.
     pub fn from_domain<E: DomainError>(err: &E) -> Self {
         if err.status() == StatusCode::INTERNAL_SERVER_ERROR {

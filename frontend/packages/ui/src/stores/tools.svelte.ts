@@ -133,6 +133,30 @@ class ToolStore {
 		}
 	}
 
+	/**
+	 * Copy a shipped row into one of your own under the same name.
+	 */
+	async forkBuiltin(id: Snowflake): Promise<Snowflake | undefined> {
+		if (!this.builtinTools) await this.loadBuiltins();
+		const source = this.builtinTools?.find((t) => t.id === id);
+		if (!source) return;
+
+		try {
+			const forked = await this.#api.tools.create({
+				name: source.name,
+				display_name: source.display_name,
+				description: source.description,
+				params: $state.snapshot(source.params),
+				body: source.body,
+				surface: source.surface
+			});
+			await this.loadTools();
+			return forked;
+		} catch (e) {
+			showError(e, { title: 'Could not create your version' });
+		}
+	}
+
 	async deleteTool(id: Snowflake) {
 		const previous = this.loadedTools;
 		if (this.loadedTools) this.loadedTools = this.loadedTools.filter((t) => t.id !== id);

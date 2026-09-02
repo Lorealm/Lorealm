@@ -24,6 +24,7 @@ use crate::{
     core::CleanableService,
     errors::{RealmError, TargetType},
     routes::{CreateAgentRequest, CreateScenarioRequest, PlayerTurnRequest, UpdateRealmRequest},
+    services::commands::CommandEffect,
     services::{
         character::CharacterService,
         chat::{AgentOutcome, ChatService, FullConversation, InferEvent, TurnAccumulator},
@@ -809,6 +810,15 @@ impl RealmService {
                         yield RealmStreamEvent::Widget { widget: w.clone() };
                         let marker = acc.widget(w);
                         yield RealmStreamEvent::Delta { content: marker };
+                    }
+                    InferEvent::Effect(CommandEffect::Sys { content }) => {
+                        tracing::warn!(
+                            %content,
+                            "ignoring $[sys] from a realm tool body; use $[emit_event]"
+                        );
+                    }
+                    InferEvent::Effect(effect) => {
+                        yield RealmStreamEvent::Effect { effect };
                     }
                     InferEvent::ToolCall(r) => {
                         yield RealmStreamEvent::Action {
