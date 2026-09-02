@@ -12,7 +12,7 @@ export type { Layer, LayerOptions };
  * Registration only; the ordering rule lives in {@link orderLayers}.
  */
 class LayerStack {
-	#layers = $state<Layer[]>([]);
+	#layers = $state.raw<Layer[]>([]);
 	#seq = 0;
 
 	/** Add a layer. Call the returned function to remove it. */
