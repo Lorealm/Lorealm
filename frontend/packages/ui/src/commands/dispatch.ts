@@ -1,4 +1,5 @@
 import { showToast } from '$lib/stores/errorToast.svelte.js';
+import { extractError } from '$lib/types/error.js';
 import { parseArgs, parseInput } from './parse.js';
 import { slashCommands } from './registry.svelte.js';
 
@@ -37,6 +38,7 @@ async function invoke(name: string, rest: string): Promise<void> {
 	try {
 		await command.run(command.raw ? { named: {}, rest } : parseArgs(rest));
 	} catch (error) {
+		if (extractError(error).code === 'command.cancelled') return;
 		showToast({
 			title: `/${command.name} failed`,
 			message: error instanceof Error ? error.message : String(error),

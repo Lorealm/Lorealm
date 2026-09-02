@@ -12,8 +12,8 @@ use crate::{
     errors::AppError,
     extract::AuthenticatedSession,
     routes::templates::{SetActiveRequest, WeaverVocabulary},
+    services::commands::{GenerateRawCommand, register_effect_commands},
     services::context::{ContextTemplate, SourceDefinition, weaver::check::check},
-    services::commands::register_effect_commands,
     services::tools::build_tool_registry,
 };
 
@@ -112,6 +112,7 @@ pub async fn list_sources(
 pub async fn list_weaver_vocabulary() -> Json<WeaverVocabulary> {
     let mut registry = build_tool_registry();
     register_effect_commands(&mut registry);
+    registry.register_command(GenerateRawCommand::declaration());
 
     let mut commands = registry.command_signatures();
     commands.extend(context_weaver::host_command_signatures());

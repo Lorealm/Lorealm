@@ -78,6 +78,24 @@ fn contract_surface() -> Vec<(&'static str, Vec<Box<dyn DomainError>>)> {
             ],
         ),
         (
+            "command",
+            vec![
+                Box::new(CommandError::NotFound(id())),
+                Box::new(CommandError::NotOwned(id())),
+                Box::new(CommandError::RealmConversation(id())),
+                Box::new(CommandError::NotACommand("summarize".into())),
+                Box::new(CommandError::BadArgument {
+                    name: "sides".into(),
+                    reason: "'twenty' is not a number".into(),
+                }),
+                Box::new(CommandError::Failed {
+                    name: "summarize".into(),
+                    reason: "undefined variable".into(),
+                }),
+                Box::new(CommandError::Cancelled("summarize".into())),
+            ],
+        ),
+        (
             "widget",
             vec![
                 Box::new(UserWidgetError::NotFound(TargetType::UserWidget, id())),

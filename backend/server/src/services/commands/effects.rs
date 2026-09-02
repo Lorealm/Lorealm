@@ -11,7 +11,7 @@ use weaver_lang::{
 /// An effect is produced by an explicit weaver command in the tool
 /// body. Note that this differs from the tool's return value in the
 /// sense that effects are purely visual.
-/// 
+///
 /// NOTE: [`CommandEffect::Sys`] should be consumed in the server and
 /// should never reach the client.
 #[derive(Debug, Clone, Serialize)]
@@ -21,6 +21,18 @@ pub enum CommandEffect {
     Sys { content: String },
     /// A transient notice, executed by the client.
     Toast { content: String, variant: String },
+    /// Text for the client to put in the composer
+    Compose { content: String, mode: ComposerMode },
+}
+
+/// What [`CommandEffect::Compose`] does to whatever is already typed.
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ComposerMode {
+    /// Discard the current draft and put this in its place.
+    Replace,
+    /// Add to the end of the current draft.
+    Append,
 }
 
 pub type EffectSink = Arc<Mutex<Vec<CommandEffect>>>;
@@ -33,6 +45,9 @@ pub fn register_effect_commands(registry: &mut Registry) -> EffectSink {
         sink: Arc::clone(&sink),
     });
     registry.register_command(ToastCommand {
+        sink: Arc::clone(&sink),
+    });
+    registry.register_command(ComposeCommand {
         sink: Arc::clone(&sink),
     });
     sink
@@ -144,6 +159,67 @@ impl WeaverCommand for ToastCommand {
     }
 }
 
+const MODES: [&str; 2] = ["replace", "append"];
+
+/// `$[compose(content, mode?)]`: put text in the composer for the user to
+/// edit and send. `mode` is `"replace"` (default) or `"append"`.
+struct ComposeCommand {
+    sink: EffectSink,
+}
+
+impl WeaverCommand for ComposeCommand {
+    fn call(
+        &self,
+        args: Vec<Value>,
+        _ctx: &mut dyn EvalContext,
+        _registry: &Registry,
+    ) -> Result<Option<Value>, EvalError> {
+        let mut args = args.into_iter();
+        let content = text_arg("compose", &mut args)?;
+        let mode = match args.next() {
+            None | Some(Value::None) => ComposerMode::Replace,
+            Some(Value::String(m)) if m == "replace" => ComposerMode::Replace,
+            Some(Value::String(m)) if m == "append" => ComposerMode::Append,
+            Some(other) => {
+                return Err(EvalError::host_error(format!(
+                    "compose: mode must be one of {}, got {other:?}",
+                    MODES.join(", ")
+                )));
+            }
+        };
+        self.sink
+            .lock()
+            .unwrap()
+            .push(CommandEffect::Compose { content, mode });
+        Ok(None)
+    }
+
+    fn signature(&self) -> CommandSignature {
+        CommandSignature {
+            name: "compose".into(),
+            description: "Put text in the composer for the user to edit and send".into(),
+            returns: ValueType::None,
+            params: vec![
+                ParamDef {
+                    name: "content".into(),
+                    description: "The text to put there".into(),
+                    expected_type: Some(ValueType::String),
+                    required: true,
+                },
+                ParamDef {
+                    name: "mode".into(),
+                    description:
+                        "\"replace\" (default) discards the current draft; \"append\" adds to it"
+                            .into(),
+                    expected_type: Some(ValueType::String),
+                    required: false,
+                },
+            ],
+            mutates_context: true,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -185,6 +261,30 @@ mod tests {
                 CommandEffect::Toast { variant: b, .. }
             ] if a == "info" && b == "error"
         ));
+    }
+
+    #[test]
+    fn compose_defaults_to_replacing_and_accepts_append() {
+        let (out, effects) = run(r#"$[compose("hi")]$[compose(" there", "append")]"#).unwrap();
+        assert_eq!(out, "", "the composer is the destination, not the output");
+        assert!(matches!(
+            effects.as_slice(),
+            [
+                CommandEffect::Compose {
+                    mode: ComposerMode::Replace,
+                    content: a
+                },
+                CommandEffect::Compose {
+                    mode: ComposerMode::Append,
+                    content: b
+                }
+            ] if a == "hi" && b == " there"
+        ));
+    }
+
+    #[test]
+    fn an_unknown_compose_mode_is_rejected() {
+        assert!(run(r#"$[compose("x", "prepend")]"#).is_err());
     }
 
     #[test]
