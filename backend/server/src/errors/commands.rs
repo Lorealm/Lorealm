@@ -29,6 +29,9 @@ pub enum CommandError {
     BadArgument { name: String, reason: String },
     #[error("command '{name}' failed: {reason}")]
     Failed { name: String, reason: String },
+    /// The user stopped it. Not a failure of the body.
+    #[error("command '{0}' was cancelled")]
+    Cancelled(String),
     #[error(transparent)]
     Storage(#[from] StorageError),
 }
@@ -44,6 +47,7 @@ impl DomainError for CommandError {
             Self::NotACommand(_) => "command.not_a_command",
             Self::BadArgument { .. } => "command.bad_argument",
             Self::Failed { .. } => "command.failed",
+            Self::Cancelled(_) => "command.cancelled",
             Self::Storage(_) => "internal",
         }
     }
@@ -58,6 +62,8 @@ impl DomainError for CommandError {
             Self::BadArgument { .. } => StatusCode::BAD_REQUEST,
             // The body itself is at fault, not the request that ran it.
             Self::Failed { .. } => StatusCode::UNPROCESSABLE_ENTITY,
+            // The client asked for this, so it is not an error condition.
+            Self::Cancelled(_) => StatusCode::from_u16(499).expect("valid status"),
             Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -71,7 +77,8 @@ impl DomainError for CommandError {
             Self::RealmConversation(_) => "Commands cannot run in a realm playthrough yet.".into(),
             Self::NotACommand(name) => sentence(format!("'{name}' is a tool, not a command")),
             Self::BadArgument { name, reason } => sentence(format!("Argument '{name}': {reason}")),
-            Self::Failed { name, reason } => sentence(format!("/{name} failed: {reason}")),
+            Self::Failed { name, reason } => sentence(format!("Command /{name} failed: {reason}")),
+            Self::Cancelled(name) => sentence(format!("Command /{name} was stopped")),
             Self::Storage(_) => "An internal error occurred".into(),
         }
     }
@@ -84,9 +91,10 @@ impl DomainError for CommandError {
             Self::NotFound(id) | Self::NotOwned(id) | Self::RealmConversation(id) => {
                 Some(ErrorDetails::target(TargetType::Conversation, *id))
             }
-            Self::NotACommand(_) | Self::BadArgument { .. } | Self::Failed { .. } => {
-                Some(ErrorDetails::resource(TargetType::UserTool))
-            }
+            Self::NotACommand(_)
+            | Self::BadArgument { .. }
+            | Self::Failed { .. }
+            | Self::Cancelled(_) => Some(ErrorDetails::resource(TargetType::UserTool)),
             Self::Storage(_) => None,
         }
     }

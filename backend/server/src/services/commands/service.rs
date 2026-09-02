@@ -1,6 +1,9 @@
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex as StdMutex},
+    sync::{
+        Arc, Mutex as StdMutex,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 use lorealm_storage::{
@@ -8,12 +11,15 @@ use lorealm_storage::{
     models::{ChatRole, Param, ParamType, Snowflake, UserTool},
 };
 use serde_json::json;
-use weaver_lang::{CompiledTemplate, Value as WeaverValue};
+use weaver_lang::{CompiledTemplate, EvalOptions, Value as WeaverValue};
 
 use crate::{
     errors::CommandError,
     services::{
-        commands::{CommandArgs, CommandEffect, CommandRun, register_effect_commands},
+        commands::{
+            CommandArgs, CommandEffect, CommandRun, GenerateBridge, GenerateRawCommand, Generation,
+            register_effect_commands,
+        },
         conversation::ConversationService,
         state::{CapturedState, StateService},
         tools::{ToolContext, UserToolService, build_tool_registry},
@@ -21,11 +27,16 @@ use crate::{
     util::weaver::{describe_parse_errors, json_to_weaver, weaver_to_json},
 };
 
+/// Ceilings on one command body.
+const MAX_NODE_EVALUATIONS: u64 = 1_000_000;
+const MAX_ITERATIONS: u64 = 10_000;
+
 pub struct CommandService {
     storage: Arc<dyn Storage>,
     conversations: Arc<ConversationService>,
     state: Arc<StateService>,
     tools: Arc<UserToolService>,
+    chat: Arc<dyn Generation>,
 }
 
 impl CommandService {
@@ -34,12 +45,14 @@ impl CommandService {
         conversations: Arc<ConversationService>,
         state: Arc<StateService>,
         tools: Arc<UserToolService>,
+        chat: Arc<dyn Generation>,
     ) -> Self {
         Self {
             storage,
             conversations,
             state,
             tools,
+            chat,
         }
     }
 
@@ -90,13 +103,62 @@ impl CommandService {
         let mut registry = build_tool_registry();
         let sink = register_effect_commands(&mut registry);
 
-        let mut ctx = ToolContext::new(bound, Arc::clone(&pool));
-        let output =
-            body.evaluate_value(&mut ctx, &registry)
-                .map_err(|e| CommandError::Failed {
+        let (cancel, _cancel_guard) = self.chat.begin_cancel(conversation_id);
+        registry.register_command(GenerateRawCommand::new(GenerateBridge {
+            handle: tokio::runtime::Handle::current(),
+            chat: Arc::clone(&self.chat),
+            state: Arc::clone(&self.state),
+            owner: user_id,
+            cancel: cancel.clone(),
+        }));
+
+        // The evaluator polls this between nodes
+        let stop = Arc::new(AtomicBool::new(false));
+        let watcher = tokio::spawn({
+            let stop = Arc::clone(&stop);
+            let cancel = cancel.clone();
+            async move {
+                cancel.cancelled().await;
+                stop.store(true, Ordering::Relaxed);
+            }
+        });
+
+        // Weaver evaluates synchronously and `$[generate_raw]` blocks on a
+        // future, so the body must not run on a runtime worker thread.
+        let ctx = ToolContext::new(bound, Arc::clone(&pool));
+        let options = EvalOptions::new()
+            .max_node_evaluations(MAX_NODE_EVALUATIONS)
+            .max_iterations(MAX_ITERATIONS)
+            .cancellation_token(Arc::clone(&stop));
+
+        let evaluated = tokio::task::spawn_blocking(move || {
+            let mut ctx = ctx;
+            body.evaluate_value_with_options(&mut ctx, &registry, options)
+        })
+        .await;
+        watcher.abort();
+
+        // Checked on the token rather than on the evaluator's error, because
+        // the two race: a body unblocked by a cancelled generation can reach
+        // its end before the watcher sets the flag, and would otherwise report
+        // success carrying whatever the interrupted call returned.
+        if cancel.is_cancelled() {
+            return Err(CommandError::Cancelled(command.name.clone()));
+        }
+
+        let output = match evaluated {
+            Ok(result) => result.map_err(|e| CommandError::Failed {
+                name: command.name.clone(),
+                reason: e.to_string(),
+            })?,
+            // The blocking thread panicked or was aborted mid-body.
+            Err(e) => {
+                return Err(CommandError::Failed {
                     name: command.name.clone(),
-                    reason: e.to_string(),
-                })?;
+                    reason: format!("evaluation did not finish: {e}"),
+                });
+            }
+        };
         let output = weaver_to_json(&output).map_err(|e| CommandError::Failed {
             name: command.name.clone(),
             reason: format!("returned {e}"),
@@ -216,13 +278,94 @@ mod tests {
     use crate::services::snowflake::SnowflakeService;
     use chrono::Utc;
     use lorealm_storage::{
-        ConversationStorage, UserToolStorage,
+        ConnectionStorage, ConversationStorage, UserToolStorage,
         backends::MemoryStorage,
-        models::{Conversation, ToolSurface},
+        models::{ConnectionProfile, Conversation, ToolSurface},
     };
+
+    /// Answers every completion with a fixed string, recording what it was
+    /// asked.
+    struct StubGenerator {
+        reply: String,
+        seen: StdMutex<Vec<String>>,
+        cancellations: dashmap::DashMap<Snowflake, tokio_util::sync::CancellationToken>,
+        /// Wait for cancellation instead of answering
+        hang: bool,
+    }
+
+    impl StubGenerator {
+        fn new(reply: &str) -> Arc<Self> {
+            Arc::new(Self {
+                reply: reply.into(),
+                seen: StdMutex::new(Vec::new()),
+                cancellations: dashmap::DashMap::new(),
+                hang: false,
+            })
+        }
+
+        fn hanging() -> Arc<Self> {
+            Arc::new(Self {
+                reply: String::new(),
+                seen: StdMutex::new(Vec::new()),
+                cancellations: dashmap::DashMap::new(),
+                hang: true,
+            })
+        }
+
+        /// Cancel whatever run is in flight for `conversation_id` the way the
+        /// `DELETE /chat/{id}/completions` handler does.
+        fn cancel(&self, conversation_id: Snowflake) -> bool {
+            match self.cancellations.get(&conversation_id) {
+                Some(token) => {
+                    token.cancel();
+                    true
+                }
+                None => false,
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl Generation for StubGenerator {
+        fn begin_cancel(
+            &self,
+            conversation_id: Snowflake,
+        ) -> (
+            tokio_util::sync::CancellationToken,
+            crate::services::chat::CancelGuard,
+        ) {
+            let token = tokio_util::sync::CancellationToken::new();
+            self.cancellations.insert(conversation_id, token.clone());
+            (
+                token,
+                crate::services::chat::CancelGuard {
+                    map: Arc::new(dashmap::DashMap::new()),
+                    key: conversation_id,
+                },
+            )
+        }
+
+        async fn complete(
+            &self,
+            _owner: Snowflake,
+            _profile_id: Snowflake,
+            prompt: Vec<crate::services::chat::PromptMessage>,
+            cancel: tokio_util::sync::CancellationToken,
+        ) -> Result<String, crate::errors::ChatError> {
+            self.seen
+                .lock()
+                .unwrap()
+                .extend(prompt.into_iter().map(|m| m.content));
+            if self.hang {
+                cancel.cancelled().await;
+            }
+            Ok(self.reply.clone())
+        }
+    }
 
     struct Harness {
         service: CommandService,
+        generator: Arc<StubGenerator>,
         store: Arc<MemoryStorage>,
         snow: Arc<SnowflakeService>,
         user: Snowflake,
@@ -230,6 +373,18 @@ mod tests {
     }
 
     async fn harness() -> Harness {
+        harness_replying("").await
+    }
+
+    async fn harness_replying(reply: &str) -> Harness {
+        build(StubGenerator::new(reply)).await
+    }
+
+    async fn hanging_harness() -> Harness {
+        build(StubGenerator::hanging()).await
+    }
+
+    async fn build(generator: Arc<StubGenerator>) -> Harness {
         let snow = Arc::new(SnowflakeService::new(0));
         let store = Arc::new(MemoryStorage::new());
         let user = snow.generate();
@@ -251,9 +406,36 @@ mod tests {
         let conversations = Arc::new(ConversationService::new(store.clone(), snow.clone()));
         let state = Arc::new(StateService::new(store.clone()));
         let tools = Arc::new(UserToolService::new(store.clone(), snow.clone()));
+        // `$[generate_raw]` resolves the active profile at the moment of use,
+        // so only the generation tests need this to exist.
+        let profile = ConnectionProfile {
+            id: snow.generate(),
+            user_id: user,
+            secret_id: None,
+            name: "test".into(),
+            provider: "openai".into(),
+            model: Some("stub".into()),
+            token_budget: 4096,
+            common_params: serde_json::json!({}),
+            provider_params: serde_json::json!({}),
+            created_at: now,
+            updated_at: now,
+        };
+        store.save_profile(&profile).await.unwrap();
+        store
+            .set_active_profile(user, Some(profile.id))
+            .await
+            .unwrap();
 
         Harness {
-            service: CommandService::new(store.clone(), conversations, state, tools),
+            service: CommandService::new(
+                store.clone(),
+                conversations,
+                state,
+                tools,
+                Arc::clone(&generator) as Arc<dyn Generation>,
+            ),
+            generator,
             store,
             snow,
             user,
@@ -450,6 +632,139 @@ mod tests {
                 .run(h.user, realm_id, id, CommandArgs::default())
                 .await,
             Err(CommandError::RealmConversation(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn a_body_blocks_on_generation_and_gets_the_text_back() {
+        let h = harness_replying("The Rusty Tankard").await;
+        let id = h
+            .define(
+                "tavern",
+                r#"{# return $[generate_raw("Name a tavern")] #}"#,
+                ToolSurface::Command,
+            )
+            .await;
+
+        assert_eq!(
+            h.run(id, "").await.unwrap().output,
+            json!("The Rusty Tankard")
+        );
+        assert_eq!(
+            h.generator.seen.lock().unwrap().as_slice(),
+            ["Name a tavern"]
+        );
+    }
+
+    #[tokio::test]
+    async fn generated_text_can_be_stored_and_read_back_by_the_next_run() {
+        let h = harness_replying("a sudden hush").await;
+        let write = h
+            .define(
+                "note",
+                r#"$[set_var("global:mood", $[generate_raw("Describe the mood")])]"#,
+                ToolSurface::Command,
+            )
+            .await;
+        let read = h
+            .define("mood", "{# return {{global:mood}} #}", ToolSurface::Command)
+            .await;
+
+        h.run(write, "").await.unwrap();
+        assert_eq!(
+            h.run(read, "").await.unwrap().output,
+            json!("a sudden hush")
+        );
+    }
+
+    #[tokio::test]
+    async fn generation_composes_with_the_output_commands() {
+        let h = harness_replying("three coins").await;
+        let id = h
+            .define(
+                "loot",
+                r#"$[sys($[generate_raw("What is in the chest?")])]"#,
+                ToolSurface::Command,
+            )
+            .await;
+
+        let message = h.run(id, "").await.unwrap().message.expect("sys anchors");
+        assert_eq!(message.content, "three coins");
+    }
+
+    #[tokio::test]
+    async fn impersonate_drafts_into_the_composer_without_touching_the_conversation() {
+        let h = harness_replying("I draw my sword.").await;
+        let id = h
+            .define(
+                "impersonate",
+                r#"$[compose($[generate_raw("Write my next message")])]"#,
+                ToolSurface::Command,
+            )
+            .await;
+
+        let run = h.run(id, "").await.unwrap();
+        assert!(
+            run.message.is_none(),
+            "a draft is not committed to the conversation"
+        );
+        // Asserted as JSON because that is what the client actually receives;
+        // this pins the wire shape the frontend's CommandEffect union expects.
+        assert_eq!(
+            serde_json::to_value(&run.effects).unwrap(),
+            json!([{
+                "type": "compose",
+                "content": "I draw my sword.",
+                "mode": "replace",
+            }])
+        );
+    }
+
+    #[tokio::test]
+    async fn cancelling_the_conversation_interrupts_a_body_blocked_on_generation() {
+        let h = hanging_harness().await;
+        let id = h
+            .define(
+                "slow",
+                r#"{# return $[generate_raw("takes forever")] #}"#,
+                ToolSurface::Command,
+            )
+            .await;
+
+        let conversation = h.conversation;
+        let generator = Arc::clone(&h.generator);
+        let canceller = tokio::spawn(async move {
+            // Wait for the body to reach the hanging completion.
+            while !generator.cancel(conversation) {
+                tokio::task::yield_now().await;
+            }
+        });
+
+        // Completes rather than hanging: the run is interruptible even while
+        // the blocking thread is parked on a network call
+        let run = h.run(id, "").await;
+        canceller.await.unwrap();
+        assert!(
+            matches!(run, Err(CommandError::Cancelled(ref name)) if name == "slow"),
+            "expected a cancellation, got {run:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_runaway_loop_stops_at_the_iteration_ceiling() {
+        let h = harness().await;
+        // 10_001 iterations, one past MAX_ITERATIONS.
+        let id = h
+            .define(
+                "spin",
+                "{# foreach n in @[array.range(start: 0, end: 10001)] #}.{# endforeach #}",
+                ToolSurface::Command,
+            )
+            .await;
+
+        assert!(matches!(
+            h.run(id, "").await,
+            Err(CommandError::Failed { ref name, .. }) if name == "spin"
         ));
     }
 

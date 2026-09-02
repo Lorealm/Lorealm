@@ -1,22 +1,22 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import CommandAutocomplete from './CommandAutocomplete.svelte';
 	import PopupMenu from '$lib/components/PopupMenu.svelte';
-	import { dispatch, slashCommands, type RegisteredSlashCommand } from '$lib/commands/index.js';
+	import {
+		dispatch,
+		serverCommands,
+		slashCommands,
+		type RegisteredSlashCommand
+	} from '$lib/commands/index.js';
 	import { characterStore } from '$lib/stores/character.svelte.js';
 	import { chatStore } from '$lib/stores/chat.svelte.js';
 	import { conversationManager } from '$lib/stores/conversationManager.svelte.js';
-	import {
-		FilePlus,
-		MessagesSquare,
-		Paperclip,
-		Send,
-		Sparkles,
-		Square
-	} from '@lucide/svelte';
+	import { FilePlus, MessagesSquare, Paperclip, Send, Sparkles, Square } from '@lucide/svelte';
 	import { CHAT_COMPOSER_LAYER, type ChatComposerLayer } from '$lib/keys/commands.js';
 	import { keyLayer } from '$lib/keys/layers.svelte.js';
 
-	let busy = $derived(chatStore.isStreaming);
+	let runningCommand = $derived(serverCommands.running);
+	let busy = $derived(chatStore.isStreaming || runningCommand !== null);
 
 	let inputText = $state('');
 	let textareaEl: HTMLTextAreaElement;
@@ -87,7 +87,17 @@
 
 	const composerLayer: ChatComposerLayer = {
 		focus: () => textareaEl?.focus(),
-		send
+		send,
+		draft: (content, mode) => {
+			inputText = mode === 'append' ? inputText + content : content;
+			dismissed = false;
+			cursor = 0;
+			// Ensure the text area resizes accordingly
+			tick().then(() => {
+				textareaEl?.focus();
+				if (textareaEl) resize();
+			});
+		}
 	};
 
 	async function startNewChat() {
@@ -104,6 +114,10 @@
 	}
 
 	async function cancelGeneration() {
+		if (runningCommand) {
+			await serverCommands.cancel();
+			return;
+		}
 		if (chatStore.isStreaming && !chatStore.isCancelling) {
 			await chatStore.cancelStream();
 		}
@@ -150,7 +164,11 @@
 		{#if !busy}
 			<button class="send-button" onclick={send}><Send /></button>
 		{:else}
-			<button class="send-button" onclick={cancelGeneration}><Square /></button>
+			<button
+				class="send-button"
+				title={runningCommand ? `Stop /${runningCommand.name}` : 'Stop generating'}
+				onclick={cancelGeneration}><Square /></button
+			>
 		{/if}
 	</div>
 </div>

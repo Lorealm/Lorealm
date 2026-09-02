@@ -674,7 +674,8 @@ impl ChatService {
 
         let token_stream = self
             .infer(
-                &spec,
+                spec.owner,
+                spec.profile_id,
                 prompt,
                 Arc::clone(&state_pool),
                 &ToolPolicy {
@@ -833,18 +834,16 @@ impl ChatService {
     /// calls, they are executed, fed back, and another round is streamed.
     async fn infer(
         &self,
-        spec: &AgentSpec,
+        owner: Snowflake,
+        profile_id: Snowflake,
         prompt: Vec<super::PromptMessage>,
         state: Arc<StdMutex<StatePool>>,
         policy: &ToolPolicy,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<InferEvent, ChatError>> + Send>>, ChatError> {
-        let profile = self
-            .connection
-            .get_profile(spec.owner, spec.profile_id)
-            .await?;
+        let profile = self.connection.get_profile(owner, profile_id).await?;
         let connection = self
             .connection
-            .resolve_connection(spec.owner, profile.id)
+            .resolve_connection(owner, profile.id)
             .await?;
 
         let api_key = connection.api_key;
@@ -879,13 +878,13 @@ impl ChatService {
         };
 
         let mut rows = match &policy.tool_ids {
-            None => self.tools.list_enabled(spec.owner).await?,
+            None => self.tools.list_enabled(owner).await?,
             Some(ids) => {
                 let mut rows = Vec::with_capacity(ids.len());
                 for id in ids {
                     rows.push(match builtin_tool(*id) {
                         Some(tool) => tool,
-                        None => self.tools.get_tool(*id, spec.owner).await?,
+                        None => self.tools.get_tool(*id, owner).await?,
                     });
                 }
                 rows
@@ -907,7 +906,7 @@ impl ChatService {
             }
             rows.push(match builtin_tool(*id) {
                 Some(tool) => tool,
-                None => self.tools.get_tool(*id, spec.owner).await?,
+                None => self.tools.get_tool(*id, owner).await?,
             });
         }
 
@@ -923,7 +922,7 @@ impl ChatService {
                     tracing::info!("Registering tool: {}", sig.name);
                     registry.register(tool)
                 }
-                Err(e) => tracing::warn!(%spec.owner, "skipping uncompilable user tool: {e}"),
+                Err(e) => tracing::warn!(%owner, "skipping uncompilable user tool: {e}"),
             }
         }
 
@@ -963,6 +962,47 @@ impl ChatService {
         }
     }
 
+    /// Run one completion to its end and hand back the text.
+    ///
+    /// Persists nothing, streams nothing to a client, and exposes no tools.
+    pub async fn complete(
+        &self,
+        owner: Snowflake,
+        profile_id: Snowflake,
+        prompt: Vec<PromptMessage>,
+        cancel: CancellationToken,
+    ) -> Result<String, ChatError> {
+        // Assembly writes state; a bare completion has no assembly, so the
+        // pool exists only to satisfy `infer` and is discarded.
+        let state = Arc::new(StdMutex::new(StatePool::new()));
+        let policy = ToolPolicy {
+            tool_ids: Some(Vec::new()),
+            ..Default::default()
+        };
+
+        let stream = self
+            .infer(owner, profile_id, prompt, state, &policy)
+            .await?;
+        futures_util::pin_mut!(stream);
+
+        let mut out = String::new();
+        loop {
+            let next = tokio::select! {
+                biased;
+                _ = cancel.cancelled() => None,
+                next = stream.next() => next,
+            };
+            let Some(event) = next else { break };
+            match event? {
+                InferEvent::Text(delta) => out.push_str(&delta),
+                // Reasoning is the model thinking, not the model answering;
+                // widgets and tool calls cannot arise with no tools offered.
+                InferEvent::Reasoning(_) | InferEvent::Widget(_) | InferEvent::ToolCall(_) => {}
+            }
+        }
+        Ok(out)
+    }
+
     /// Assemble context and start inference
     pub async fn open_agent_turn(
         &self,
@@ -993,7 +1033,13 @@ impl ChatService {
         let state_pool = Arc::new(StdMutex::new(working));
 
         let stream = self
-            .infer(spec, prompt, Arc::clone(&state_pool), policy)
+            .infer(
+                spec.owner,
+                spec.profile_id,
+                prompt,
+                Arc::clone(&state_pool),
+                policy,
+            )
             .await?;
 
         Ok(OpenAgentTurn {

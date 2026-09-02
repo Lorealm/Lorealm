@@ -50,11 +50,17 @@ export interface ToolEnabledRequest {
 }
 
 /** Something a command body asked the client to do. */
-export type CommandEffect = {
-	type: 'toast';
-	content: string;
-	variant: 'info' | 'success' | 'warning' | 'error';
-};
+export type CommandEffect =
+	| {
+			type: 'toast';
+			content: string;
+			variant: 'info' | 'success' | 'warning' | 'error';
+	  }
+	| {
+			type: 'compose';
+			content: string;
+			mode: 'replace' | 'append';
+	  };
 
 export interface RunCommandRequest {
 	conversation_id: Snowflake;

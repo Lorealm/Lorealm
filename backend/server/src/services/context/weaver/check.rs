@@ -10,8 +10,10 @@ use weaver_lang::{
 };
 
 use crate::services::{
-    chat::register_attachment_commands, commands::register_effect_commands,
-    tools::EmitEventCommand, tools::build_tool_registry,
+    chat::register_attachment_commands,
+    commands::{GenerateRawCommand, register_effect_commands},
+    tools::EmitEventCommand,
+    tools::build_tool_registry,
 };
 use crate::util::weaver::summarize_parser_text;
 
@@ -51,6 +53,8 @@ fn known_registry() -> Registry {
     register_attachment_commands(&mut registry, Vec::new());
     registry.register_command(EmitEventCommand::new(Arc::new(Mutex::new(Vec::new()))));
     register_effect_commands(&mut registry);
+    // Declaration only: the editor resolves the name, nothing calls it.
+    registry.register_command(GenerateRawCommand::declaration());
     registry
 }
 
@@ -240,6 +244,7 @@ mod tests {
     fn the_output_commands_resolve_rather_than_underlining_as_unknown() {
         assert!(template(r#"$[sys("done")]"#).is_empty());
         assert!(template(r#"$[toast("done", "success")]"#).is_empty());
+        assert!(template(r#"$[generate_raw("what happened?")]"#).is_empty());
     }
 
     #[test]

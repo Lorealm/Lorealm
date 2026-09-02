@@ -10,7 +10,7 @@ use crate::{
     services::{
         character::CharacterService,
         chat::ChatService,
-        commands::CommandService,
+        commands::{CommandService, Generation},
         connection::ConnectionService,
         context::{ContextService, SourceRegistry, builtin::register_builtin_sources},
         conversation::ConversationService,
@@ -167,6 +167,7 @@ impl ServiceManager {
             Arc::clone(&conversation),
             Arc::clone(&state),
             Arc::clone(&tools),
+            Arc::clone(&chat) as Arc<dyn Generation>,
         ));
 
         let realms = Arc::new(RealmService::new(
