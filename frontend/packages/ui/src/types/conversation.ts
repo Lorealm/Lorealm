@@ -1,4 +1,5 @@
 import type { JsonValue, PromptRole, Snowflake } from './core.ts';
+import type { CommandEffect } from './tools.ts';
 import type { WidgetInstance } from './widgets.ts';
 
 export interface Conversation {
@@ -79,4 +80,9 @@ export type ChatStreamEvent =
 	| { type: 'delta'; content: string }
 	| { type: 'widget'; widget: WidgetInstance }
 	| { type: 'reasoning'; content: string }
-	| { type: 'done'; message: ConversationMessage };
+	/** A tool asked the client to do something */
+	| { type: 'effect'; effect: CommandEffect }
+	| { type: 'done'; message: ConversationMessage }
+	/** A system message a tool wrote with `$[sys]`. Arrives *after* `done`,
+	 *  since it is persisted as a child of the reply. */
+	| { type: 'system_message'; message: ConversationMessage };

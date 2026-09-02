@@ -5,17 +5,20 @@ import { chatStore } from '$lib/stores/chat.svelte.js';
 import { showToast } from '$lib/stores/errorToast.svelte.js';
 import { messageStateStore } from '$lib/stores/messageState.svelte.js';
 import type { Snowflake } from '$lib/types/core.js';
-import type { CommandRun, UserTool } from '$lib/types/tools.js';
+import type { CommandEffect, CommandRun, UserTool } from '$lib/types/tools.js';
 import { slashCommands } from './registry.svelte.js';
 import type { SlashCommand } from './types.js';
+
+/**
+ * Names a server command may not take, mirroring the server's own rule.
+ */
+const RESERVED_NAMES = new Set(['send']);
 
 /**
  * Server-backed weaver commands, mirrored into the composer's registry.
  *
  * The composer does not distinguish these from client commands — a `/name`
  * either resolves locally or round-trips, and the dispatcher cannot tell.
- * Client names win a collision, because `unregister` here never touches an
- * entry it did not add.
  */
 class ServerCommands {
 	#unregister: (() => void) | null = null;
@@ -50,12 +53,10 @@ class ServerCommands {
 			return;
 		}
 
+		// Restores any built-in a previous load was shadowing, then re-shadows.
 		this.#unregister?.();
-		const claimed = new Set(
-			slashCommands.all.filter((c) => c.source === 'core').map((c) => c.name)
-		);
 		this.#unregister = slashCommands.register(
-			tools.filter((tool) => !claimed.has(tool.name)).map(toSlashCommand)
+			tools.filter((tool) => !RESERVED_NAMES.has(tool.name)).map(toSlashCommand)
 		);
 	}
 
@@ -73,7 +74,8 @@ function toSlashCommand(tool: UserTool): SlashCommand {
 		params: tool.params.map((p) => ({
 			name: p.name,
 			description: p.description ?? '',
-			required: p.required
+			required: p.required,
+			resource: p.resource
 		})),
 		restLabel: 'text',
 		// One at a time per conversation: cancellation tokens are keyed by
@@ -103,19 +105,21 @@ function toSlashCommand(tool: UserTool): SlashCommand {
 }
 
 /** Carry out whatever the body asked for. */
-function applyRun(run: CommandRun): void {
-	for (const effect of run.effects) {
-		switch (effect.type) {
-			case 'toast':
-				showToast({ message: effect.content, variant: effect.variant });
-				break;
-			case 'compose': {
-				const composer = layers.get(CHAT_COMPOSER_LAYER)?.data as ChatComposerLayer | undefined;
-				composer?.draft(effect.content, effect.mode);
-				break;
-			}
+export function applyEffect(effect: CommandEffect): void {
+	switch (effect.type) {
+		case 'toast':
+			showToast({ message: effect.content, variant: effect.variant });
+			break;
+		case 'compose': {
+			const composer = layers.get(CHAT_COMPOSER_LAYER)?.data as ChatComposerLayer | undefined;
+			composer?.draft(effect.content, effect.mode);
+			break;
 		}
 	}
+}
+
+function applyRun(run: CommandRun): void {
+	for (const effect of run.effects) applyEffect(effect);
 
 	if (run.message) {
 		chatStore.ingestServerMessage(run.message);

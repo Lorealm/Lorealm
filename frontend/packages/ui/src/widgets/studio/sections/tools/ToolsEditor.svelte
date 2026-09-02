@@ -3,7 +3,15 @@
 	import { navigator } from '$lib/navigation/navigator.js';
 	import { toolStore } from '$lib/stores/tools.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
-	import type { Param, ParamType, ToolSurface, UserTool } from '$lib/types/tools.js';
+	import type {
+		Param,
+		ParamType,
+		PickableResource,
+		ToolSurface,
+		UserTool
+	} from '$lib/types/tools.js';
+	import { RESOURCE_KINDS, resourceLabel } from '$lib/commands/index.js';
+	import { builtInSlashCommands } from '$lib/commands/index.js';
 	import WeaverEditor from '$lib/weaver/editor/WeaverEditor.svelte';
 	import FieldShell from '$lib/components/FieldShell.svelte';
 	import ContextField from '$lib/components/ContextField.svelte';
@@ -90,13 +98,25 @@
 		return ty;
 	}
 
+	/** Whether `resource` can apply: the server rejects it on anything else. */
+	function nameable(p: Param): boolean {
+		const flat = flatten(p.ty);
+		return flat.base === 'string' && flat.depth === 0;
+	}
+
 	function setBase(p: Param, base: Base) {
 		p.ty = buildType(base, flatten(p.ty).depth);
+		if (!nameable(p)) p.resource = undefined;
 		requestSave();
 	}
 	function setDepth(p: Param, depth: number) {
 		const clamped = Math.max(0, Math.min(MAX_DEPTH, depth));
 		p.ty = buildType(flatten(p.ty).base, clamped);
+		if (!nameable(p)) p.resource = undefined;
+		requestSave();
+	}
+	function setResource(p: Param, kind: string) {
+		p.resource = kind === '' ? undefined : (kind as PickableResource);
 		requestSave();
 	}
 	function addParam() {
@@ -106,6 +126,36 @@
 	function removeParam(i: number) {
 		draft?.params.splice(i, 1);
 		requestSave();
+	}
+
+	const CLIENT_COMMAND_NAMES = new Set(builtInSlashCommands.map((c) => c.name));
+
+	/** Every name a command of your own would take over: the client built-ins
+	 *  and the shipped command rows. */
+	const overridable = $derived(
+		new Set([
+			...CLIENT_COMMAND_NAMES,
+			...builtins.filter((t) => t.surface !== 'tool').map((t) => t.name)
+		])
+	);
+
+	/** A command taking one of those names replaces it, which is supported but
+	 *  worth saying out loud before someone loses /newchat by accident. */
+	const shadowed = $derived(
+		draft && draft.surface !== 'tool' && overridable.has(draft.name) && draft.name !== 'send'
+			? draft.name
+			: null
+	);
+
+	/** A shipped row you have not already taken over. */
+	const forkable = $derived(
+		readOnly && shown && !tools.some((t) => t.name === shown.name) ? shown : null
+	);
+
+	async function forkBuiltin() {
+		if (!forkable) return;
+		const id = await toolStore.forkBuiltin(forkable.id);
+		if (id) navigator.start().studio().tools(id);
 	}
 
 	const saveLabel = $derived(
@@ -199,10 +249,20 @@
 				</div>
 
 				{#if readOnly}
-					<p class="readonly-note">
-						Ships with the server and is available to every realm without an import. Read-only —
-						copy it into a tool of your own to change how it behaves.
-					</p>
+					<div class="readonly-note">
+						<p>
+							Ships with the server and is available to every realm without an import. Read-only —
+							make a copy to change how it behaves.
+						</p>
+						{#if forkable}
+							<button type="button" class="fork" onclick={forkBuiltin}> Create my version </button>
+						{:else if shown}
+							<p class="already-forked">
+								You already have a <code>{shown.name}</code> of your own, which takes precedence over
+								this one.
+							</p>
+						{/if}
+					</div>
 				{/if}
 
 				<div class="field">
@@ -253,6 +313,13 @@
 						<option value="both">Both</option>
 					</select>
 				</div>
+
+				{#if shadowed}
+					<p class="shadow-note">
+						Overrides the built-in <code>/{shadowed}</code>. Delete or rename this command to get
+						the original back.
+					</p>
+				{/if}
 
 				{#key shown.id}
 					<ContextField
@@ -306,6 +373,20 @@
 										<option value="bool">bool</option>
 										<option value="object">object</option>
 									</select>
+									{#if nameable(param)}
+										<select
+											class="param-resource"
+											title="Offer a search for this kind and store its id"
+											value={param.resource ?? ''}
+											disabled={readOnly}
+											onchange={(e) => setResource(param, e.currentTarget.value)}
+										>
+											<option value="">free text</option>
+											{#each RESOURCE_KINDS as kind (kind)}
+												<option value={kind}>{resourceLabel(kind)}</option>
+											{/each}
+										</select>
+									{/if}
 									<div class="depth" title="Array nesting">
 										{#if !readOnly}
 											<button
@@ -527,7 +608,14 @@
 		font-size: var(--font-size-sm);
 		color: var(--color-error-text);
 	}
+	.readonly-note p {
+		margin: 0;
+	}
 	.readonly-note {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--spacing-sm);
 		margin: 0;
 		padding: var(--spacing-sm) var(--spacing-md);
 		border: 1px solid var(--color-border-subtle);
@@ -614,6 +702,26 @@
 		flex: 0 0 auto;
 		width: auto;
 		min-width: 7rem;
+	}
+	.fork {
+		width: auto;
+	}
+	.already-forked {
+		color: var(--color-text-muted);
+	}
+	.shadow-note {
+		margin: 0;
+		padding: var(--spacing-sm);
+		border-left: 2px solid var(--color-warning-border);
+		background-color: var(--color-warning-bg);
+		color: var(--color-warning-text);
+		border-radius: var(--radius-sm, 6px);
+		font-size: var(--font-size-sm, 0.85rem);
+	}
+	.param-resource {
+		flex: 0 0 auto;
+		width: auto;
+		min-width: 9rem;
 	}
 	.depth {
 		flex: 0 0 auto;

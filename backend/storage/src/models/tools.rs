@@ -14,12 +14,34 @@ pub enum ParamType {
     Object,
 }
 
+/// A kind of stored thing a parameter can name.
+///
+/// Purely a hint: the parameter's value is still a [`Snowflake`] in a
+/// [`ParamType::String`]. It tells the client to offer a search over that
+/// kind and hand back an id, rather than making the author paste one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ResourceKind {
+    Character,
+    Persona,
+    ConnectionProfile,
+    ContextTemplate,
+    Lorebook,
+    Tokenizer,
+    UserTool,
+    UserWidget,
+    Realm,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Param {
     pub name: String,
     pub ty: ParamType,
     pub description: Option<String>,
     pub required: bool,
+    /// What the value identifies, when it is an id rather than free text.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource: Option<ResourceKind>,
 }
 
 /// Where a row is callable from.

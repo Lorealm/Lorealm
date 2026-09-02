@@ -9,6 +9,7 @@ use weaver_lang::{
 
 use lorealm_storage::models::UserWidget;
 
+use crate::services::commands::CommandEffect;
 use crate::util::weaver::{ConversionError, weaver_to_json};
 
 pub type WidgetSink = Arc<Mutex<Vec<WidgetInstance>>>;
@@ -30,6 +31,8 @@ pub enum InferEvent {
     Reasoning(String),
     Widget(WidgetInstance),
     ToolCall(ToolCallRecord),
+    /// Something a tool body asked the host to do
+    Effect(CommandEffect),
 }
 
 /// A widget the model attached to its reply.
@@ -238,7 +241,7 @@ impl WeaverCommand for AttachCommand {
 
 /// Marker embedded into message content at the position a widget was
 /// attached.
-/// 
+///
 /// A model should never see these
 pub fn widget_marker(index: usize) -> String {
     format!("\u{E000}widget:{index}\u{E001}")

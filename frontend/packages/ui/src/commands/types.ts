@@ -1,4 +1,5 @@
 import type { CommandSource } from '$lib/keys/types.js';
+import type { PickableResource } from '$lib/types/tools.js';
 
 /**
  * A command's arguments: leading `key=value` pairs, then whatever text
@@ -17,6 +18,7 @@ export interface SlashParam {
 	name: string;
 	description: string;
 	required: boolean;
+	resource?: PickableResource;
 }
 
 /**

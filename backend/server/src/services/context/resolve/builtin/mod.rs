@@ -113,7 +113,13 @@ mod tests {
             .collect();
 
         assert_eq!(ids.len(), 5);
-        for id in ["chat_history", "character", "persona", "world_info", "widgets"] {
+        for id in [
+            "chat_history",
+            "character",
+            "persona",
+            "world_info",
+            "widgets",
+        ] {
             assert!(ids.contains(&id.to_string()), "missing {id}");
             assert!(registry.get(id).is_some(), "{id} listed but not resolvable");
         }

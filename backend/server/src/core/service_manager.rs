@@ -162,6 +162,10 @@ impl ServiceManager {
             Arc::clone(&variables),
         ));
 
+        // The generate commands a tool body may call need an owned handle to
+        // the service that runs them.
+        chat.set_self(Arc::downgrade(&chat));
+
         let commands = Arc::new(CommandService::new(
             Arc::clone(&storage),
             Arc::clone(&conversation),

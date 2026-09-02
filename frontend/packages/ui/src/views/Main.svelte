@@ -15,7 +15,7 @@
 		const unregister = commandRegistry.register(builtInCommands);
 		const unregisterSlash = slashCommands.register(builtInSlashCommands);
 		const uninstall = keybinds.install();
-		// Client commands register first, so they win a name collision.
+		// Registered after the built-ins, and so able to shadow them.
 		void serverCommands.load();
 		return () => {
 			uninstall();

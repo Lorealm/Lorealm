@@ -1,19 +1,25 @@
 <script lang="ts">
-	import { usage, type RegisteredSlashCommand } from '$lib/commands/index.js';
+	import type { Suggestion } from '$lib/commands/index.js';
 
 	let {
 		items,
 		activeIndex,
+		heading,
 		onSelect
 	}: {
-		items: RegisteredSlashCommand[];
+		items: Suggestion[];
 		activeIndex: number;
-		onSelect: (command: RegisteredSlashCommand) => void;
+		/** Names what is being offered when it is not commands. */
+		heading?: string;
+		onSelect: (suggestion: Suggestion) => void;
 	} = $props();
 </script>
 
-<div class="suggestions" role="listbox" aria-label="Commands">
-	{#each items as command, i (command.name)}
+<div class="suggestions" role="listbox" aria-label={heading ?? 'Commands'}>
+	{#if heading}
+		<p class="heading">{heading}</p>
+	{/if}
+	{#each items as suggestion, i (suggestion.key)}
 		<button
 			class="entry"
 			class:active={i === activeIndex}
@@ -22,11 +28,11 @@
 			tabindex="-1"
 			onmousedown={(e) => {
 				e.preventDefault(); // keep focus in the composer
-				onSelect(command);
+				onSelect(suggestion);
 			}}
 		>
-			<span class="usage">{usage(command)}</span>
-			<span class="description">{command.description}</span>
+			<span class="primary">{suggestion.primary}</span>
+			<span class="secondary">{suggestion.secondary}</span>
 		</button>
 	{/each}
 </div>
@@ -49,6 +55,12 @@
 		border-radius: var(--radius-md);
 		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 	}
+	.heading {
+		margin: 0;
+		padding: var(--spacing-xs) var(--spacing-sm);
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm, 0.85rem);
+	}
 	.entry {
 		display: flex;
 		flex-direction: column;
@@ -66,12 +78,12 @@
 	.entry.active {
 		background-color: var(--color-bg-base);
 	}
-	.usage {
+	.primary {
 		color: var(--color-text-accent);
 		font-family: var(--font-mono, monospace);
 		font-size: var(--font-size-sm, 0.85rem);
 	}
-	.description {
+	.secondary {
 		color: var(--color-text-secondary);
 		font-size: var(--font-size-sm, 0.85rem);
 	}

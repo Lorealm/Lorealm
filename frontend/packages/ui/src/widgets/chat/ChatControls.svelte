@@ -3,10 +3,12 @@
 	import CommandAutocomplete from './CommandAutocomplete.svelte';
 	import PopupMenu from '$lib/components/PopupMenu.svelte';
 	import {
+		completionAt,
 		dispatch,
+		resourceCatalog,
+		resourceLabel,
 		serverCommands,
-		slashCommands,
-		type RegisteredSlashCommand
+		type Suggestion
 	} from '$lib/commands/index.js';
 	import { characterStore } from '$lib/stores/character.svelte.js';
 	import { chatStore } from '$lib/stores/chat.svelte.js';
@@ -29,22 +31,44 @@
 
 	function resize() {
 		dismissed = false;
+		syncCaret();
 		textareaEl.style.height = 'auto';
 		textareaEl.style.height = textareaEl.scrollHeight + 'px';
 	}
 
-	// The popup is only up while the whole input is a bare command name.
-	let suggestions = $derived.by(() => {
-		if (dismissed) return [];
-		const typing = /^\/([A-Za-z_-]*)$/.exec(inputText);
-		return typing ? slashCommands.matching(typing[1]) : [];
-	});
+	/** Where the caret is. */
+	let caret = $state(0);
+
+	function syncCaret() {
+		caret = textareaEl?.selectionStart ?? inputText.length;
+	}
+
+	let completion = $derived(dismissed ? { kind: 'none' as const } : completionAt(inputText, caret));
+	let suggestions = $derived<Suggestion[]>(
+		completion.kind === 'none' ? [] : completion.suggestions
+	);
+	let heading = $derived(
+		completion.kind === 'resource' ? resourceLabel(completion.resource) : undefined
+	);
 	let active = $derived(Math.min(cursor, Math.max(0, suggestions.length - 1)));
 
-	function accept(command: RegisteredSlashCommand) {
-		inputText = `/${command.name} `;
+	// Listings load lazily, so asking for them is what starts the fetch.
+	$effect(() => {
+		if (completion.kind === 'resource') void resourceCatalog.prime(completion.resource);
+	});
+
+	function accept(suggestion: Suggestion) {
+		if (completion.kind === 'none') return;
+		const { from, to } = completion;
+		inputText = inputText.slice(0, from) + suggestion.insert + inputText.slice(to);
+		const at = from + suggestion.insert.length;
 		cursor = 0;
-		textareaEl?.focus();
+		tick().then(() => {
+			textareaEl?.focus();
+			textareaEl?.setSelectionRange(at, at);
+			syncCaret();
+			resize();
+		});
 	}
 
 	function send() {
@@ -92,6 +116,7 @@
 			inputText = mode === 'append' ? inputText + content : content;
 			dismissed = false;
 			cursor = 0;
+			caret = inputText.length;
 			// Ensure the text area resizes accordingly
 			tick().then(() => {
 				textareaEl?.focus();
@@ -127,7 +152,7 @@
 <div class="container">
 	<div class="control-container">
 		{#if suggestions.length > 0}
-			<CommandAutocomplete items={suggestions} activeIndex={active} onSelect={accept} />
+			<CommandAutocomplete items={suggestions} activeIndex={active} {heading} onSelect={accept} />
 		{/if}
 		<PopupMenu
 			title="Functions"
@@ -159,6 +184,8 @@
 			bind:value={inputText}
 			bind:this={textareaEl}
 			onkeydown={handleMessageSend}
+			onkeyup={syncCaret}
+			onclick={syncCaret}
 			oninput={resize}
 		></textarea>
 		{#if !busy}

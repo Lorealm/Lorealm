@@ -17,12 +17,12 @@ use crate::{
     errors::CommandError,
     services::{
         commands::{
-            CommandArgs, CommandEffect, CommandRun, GenerateBridge, GenerateRawCommand, Generation,
-            register_effect_commands,
+            CommandArgs, CommandEffect, CommandRun, GenerateBridge, GenerateCommand,
+            GenerateRawCommand, Generation, register_effect_commands,
         },
         conversation::ConversationService,
         state::{CapturedState, StateService},
-        tools::{ToolContext, UserToolService, build_tool_registry},
+        tools::{ToolContext, UserToolService, build_tool_registry, builtin_tool},
     },
     util::weaver::{describe_parse_errors, json_to_weaver, weaver_to_json},
 };
@@ -81,7 +81,12 @@ impl CommandService {
             return Err(CommandError::RealmConversation(conversation_id));
         }
 
-        let command = self.tools.get_tool(command_id, user_id).await?;
+        // Shipped rows belong to no user, so the ownership gate in `get_tool`
+        // would reject them; `infer` resolves the model's builtins the same way.
+        let command = match builtin_tool(command_id) {
+            Some(shipped) => shipped,
+            None => self.tools.get_tool(command_id, user_id).await?,
+        };
         if !command.surface.callable_by_user() {
             return Err(CommandError::NotACommand(command.name));
         }
@@ -104,13 +109,16 @@ impl CommandService {
         let sink = register_effect_commands(&mut registry);
 
         let (cancel, _cancel_guard) = self.chat.begin_cancel(conversation_id);
-        registry.register_command(GenerateRawCommand::new(GenerateBridge {
+        let bridge = || GenerateBridge {
             handle: tokio::runtime::Handle::current(),
             chat: Arc::clone(&self.chat),
             state: Arc::clone(&self.state),
             owner: user_id,
+            conversation: conversation_id,
             cancel: cancel.clone(),
-        }));
+        };
+        registry.register_command(GenerateRawCommand::new(bridge()));
+        registry.register_command(GenerateCommand::new(bridge()));
 
         // The evaluator polls this between nodes
         let stop = Arc::new(AtomicBool::new(false));
@@ -288,6 +296,9 @@ mod tests {
     struct StubGenerator {
         reply: String,
         seen: StdMutex<Vec<String>>,
+        /// Which profile each completion was asked to answer with.
+        profiles: StdMutex<Vec<Snowflake>>,
+        in_context: StdMutex<Vec<String>>,
         cancellations: dashmap::DashMap<Snowflake, tokio_util::sync::CancellationToken>,
         /// Wait for cancellation instead of answering
         hang: bool,
@@ -298,6 +309,8 @@ mod tests {
             Arc::new(Self {
                 reply: reply.into(),
                 seen: StdMutex::new(Vec::new()),
+                profiles: StdMutex::new(Vec::new()),
+                in_context: StdMutex::new(Vec::new()),
                 cancellations: dashmap::DashMap::new(),
                 hang: false,
             })
@@ -307,6 +320,8 @@ mod tests {
             Arc::new(Self {
                 reply: String::new(),
                 seen: StdMutex::new(Vec::new()),
+                profiles: StdMutex::new(Vec::new()),
+                in_context: StdMutex::new(Vec::new()),
                 cancellations: dashmap::DashMap::new(),
                 hang: true,
             })
@@ -348,7 +363,7 @@ mod tests {
         async fn complete(
             &self,
             _owner: Snowflake,
-            _profile_id: Snowflake,
+            profile_id: Snowflake,
             prompt: Vec<crate::services::chat::PromptMessage>,
             cancel: tokio_util::sync::CancellationToken,
         ) -> Result<String, crate::errors::ChatError> {
@@ -356,16 +371,39 @@ mod tests {
                 .lock()
                 .unwrap()
                 .extend(prompt.into_iter().map(|m| m.content));
+            self.profiles.lock().unwrap().push(profile_id);
             if self.hang {
                 cancel.cancelled().await;
             }
             Ok(self.reply.clone())
+        }
+
+        async fn complete_with_context(
+            &self,
+            owner: Snowflake,
+            _conversation_id: Snowflake,
+            ask: String,
+            profile_id: Snowflake,
+            cancel: tokio_util::sync::CancellationToken,
+        ) -> Result<String, crate::errors::ChatError> {
+            self.in_context.lock().unwrap().push(ask.clone());
+            self.complete(
+                owner,
+                profile_id,
+                vec![crate::services::chat::PromptMessage {
+                    role: crate::services::context::PromptRole::User,
+                    content: ask,
+                }],
+                cancel,
+            )
+            .await
         }
     }
 
     struct Harness {
         service: CommandService,
         generator: Arc<StubGenerator>,
+        active_profile: Snowflake,
         store: Arc<MemoryStorage>,
         snow: Arc<SnowflakeService>,
         user: Snowflake,
@@ -436,6 +474,7 @@ mod tests {
                 Arc::clone(&generator) as Arc<dyn Generation>,
             ),
             generator,
+            active_profile: profile.id,
             store,
             snow,
             user,
@@ -463,6 +502,26 @@ mod tests {
                 })
                 .await
                 .unwrap();
+            id
+        }
+
+        async fn add_profile(&self, name: &str) -> Snowflake {
+            let now = Utc::now();
+            let profile = ConnectionProfile {
+                id: self.snow.generate(),
+                user_id: self.user,
+                secret_id: None,
+                name: name.into(),
+                provider: "openai".into(),
+                model: Some(name.into()),
+                token_budget: 4096,
+                common_params: serde_json::json!({}),
+                provider_params: serde_json::json!({}),
+                created_at: now,
+                updated_at: now,
+            };
+            let id = profile.id;
+            self.store.save_profile(&profile).await.unwrap();
             id
         }
 
@@ -693,6 +752,147 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn generation_uses_the_active_profile_unless_the_body_names_one() {
+        let h = harness_replying("ok").await;
+        let id = h
+            .define(
+                "ask",
+                r#"$[generate_raw("anything")]"#,
+                ToolSurface::Command,
+            )
+            .await;
+
+        h.run(id, "").await.unwrap();
+        assert_eq!(
+            h.generator.profiles.lock().unwrap().as_slice(),
+            [h.active_profile]
+        );
+    }
+
+    #[tokio::test]
+    async fn a_named_profile_answers_instead_of_the_active_one() {
+        let h = harness_replying("ok").await;
+        // A second profile, so "cheap model for summaries" is a real choice.
+        let cheap = h.add_profile("cheap").await;
+        let id = h
+            .define(
+                "summarize",
+                &format!(r#"$[generate_raw("recap", "{cheap}")]"#),
+                ToolSurface::Command,
+            )
+            .await;
+
+        h.run(id, "").await.unwrap();
+        assert_eq!(h.generator.profiles.lock().unwrap().as_slice(), [cheap]);
+    }
+
+    #[tokio::test]
+    async fn generate_goes_through_the_context_assembled_path() {
+        let h = harness_replying("They argued, then left.").await;
+        let id = h
+            .define(
+                "recap",
+                r#"{# return $[generate("Summarize the scene")] #}"#,
+                ToolSurface::Command,
+            )
+            .await;
+
+        assert_eq!(
+            h.run(id, "").await.unwrap().output,
+            json!("They argued, then left.")
+        );
+        assert_eq!(
+            h.generator.in_context.lock().unwrap().as_slice(),
+            ["Summarize the scene"]
+        );
+    }
+
+    #[tokio::test]
+    async fn generate_raw_does_not_take_the_context_path() {
+        let h = harness_replying("ok").await;
+        let id = h
+            .define("ask", r#"$[generate_raw("hello")]"#, ToolSurface::Command)
+            .await;
+
+        h.run(id, "").await.unwrap();
+        assert!(
+            h.generator.in_context.lock().unwrap().is_empty(),
+            "generate_raw must not assemble the conversation"
+        );
+    }
+
+    #[tokio::test]
+    async fn both_generate_commands_honour_a_named_profile() {
+        let h = harness_replying("ok").await;
+        let cheap = h.add_profile("cheap").await;
+        let id = h
+            .define(
+                "both",
+                &format!(r#"$[generate_raw("a", "{cheap}")]$[generate("b", "{cheap}")]"#),
+                ToolSurface::Command,
+            )
+            .await;
+
+        h.run(id, "").await.unwrap();
+        assert_eq!(
+            h.generator.profiles.lock().unwrap().as_slice(),
+            [cheap, cheap]
+        );
+    }
+
+    #[tokio::test]
+    async fn generate_rejects_a_bad_profile_the_same_way_generate_raw_does() {
+        let h = harness_replying("ok").await;
+        let id = h
+            .define(
+                "bad",
+                r#"$[generate("x", "not-an-id")]"#,
+                ToolSurface::Command,
+            )
+            .await;
+
+        assert!(matches!(
+            h.run(id, "").await,
+            Err(CommandError::Failed { ref reason, .. }) if reason.contains("not a profile id")
+        ));
+    }
+
+    #[tokio::test]
+    async fn a_profile_that_is_not_an_id_is_refused_before_generating() {
+        let h = harness_replying("ok").await;
+        let id = h
+            .define(
+                "bad",
+                r#"$[generate_raw("x", "haiku-cheap")]"#,
+                ToolSurface::Command,
+            )
+            .await;
+
+        assert!(matches!(
+            h.run(id, "").await,
+            Err(CommandError::Failed { ref reason, .. }) if reason.contains("not a profile id")
+        ));
+        assert!(h.generator.profiles.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn an_unquoted_profile_id_is_refused_rather_than_silently_rounded() {
+        let h = harness_replying("ok").await;
+        let id = h
+            .define(
+                "rounded",
+                r#"$[generate_raw("x", 353622362832240640)]"#,
+                ToolSurface::Command,
+            )
+            .await;
+
+        assert!(matches!(
+            h.run(id, "").await,
+            Err(CommandError::Failed { ref reason, .. }) if reason.contains("loses precision")
+        ));
+    }
+
+    #[tokio::test]
     async fn impersonate_drafts_into_the_composer_without_touching_the_conversation() {
         let h = harness_replying("I draw my sword.").await;
         let id = h
@@ -769,6 +969,78 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_shipped_command_runs_although_it_belongs_to_no_user() {
+        let h = harness_replying("I draw my blade.").await;
+        // Owned by BUILTIN_OWNER, so the ownership gate would reject it.
+        let run = h
+            .run(crate::services::tools::IMPERSONATE_ID, "")
+            .await
+            .unwrap();
+
+        assert_eq!(
+            serde_json::to_value(&run.effects).unwrap(),
+            json!([{ "type": "compose", "content": "I draw my blade.", "mode": "replace" }])
+        );
+        assert!(run.message.is_none(), "a draft is not committed");
+    }
+
+    #[tokio::test]
+    async fn trailing_text_steers_a_shipped_command() {
+        let h = harness_replying("ok").await;
+        h.run(crate::services::tools::IMPERSONATE_ID, "be furious")
+            .await
+            .unwrap();
+
+        let asked = h.generator.in_context.lock().unwrap().clone();
+        assert!(
+            asked.iter().any(|p| p.ends_with("be furious")),
+            "the steer reaches the prompt: {asked:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn shipped_commands_are_listed_before_a_users_own() {
+        let h = harness().await;
+        h.define("zzz_mine", "x", ToolSurface::Command).await;
+
+        let listed = h.service.list(h.user).await.unwrap();
+        let shipped = listed
+            .iter()
+            .position(|t| t.name == "impersonate")
+            .expect("shipped commands are listed");
+        let mine = listed.iter().position(|t| t.name == "zzz_mine").unwrap();
+
+        assert!(shipped < mine, "shipped rows must come first");
+    }
+
+    #[tokio::test]
+    async fn a_users_row_of_the_same_name_is_listed_after_the_shipped_one() {
+        let h = harness().await;
+        h.define("impersonate", "mine", ToolSurface::Command).await;
+
+        let listed = h.service.list(h.user).await.unwrap();
+        let both: Vec<&UserTool> = listed.iter().filter(|t| t.name == "impersonate").collect();
+        assert_eq!(
+            both.len(),
+            2,
+            "both are listed; the client resolves which wins"
+        );
+        assert_eq!(
+            both[1].body, "mine",
+            "the user's own comes last, so it shadows"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_shipped_tool_is_still_not_invocable_as_a_command() {
+        let h = harness().await;
+        assert!(matches!(
+            h.run(crate::services::tools::SPEAK_TO_ID, "").await,
+            Err(CommandError::NotACommand(ref name)) if name == "speak_to"
+        ));
+    }
+
+    #[tokio::test]
     async fn another_users_conversation_is_not_reachable() {
         let h = harness().await;
         let id = h.define("noop", "hi", ToolSurface::Command).await;
@@ -788,6 +1060,7 @@ mod tests {
             ty,
             description: None,
             required,
+            resource: None,
         }
     }
 
