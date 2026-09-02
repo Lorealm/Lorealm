@@ -1,11 +1,13 @@
 import { navigator } from '$lib/navigation/navigator.js';
 import { router } from '$lib/navigation/router.svelte.js';
 import { chatStore } from '$lib/stores/chat.svelte.js';
+import { conversationManager } from '$lib/stores/conversationManager.svelte.js';
 import { inspectorMatrix } from '$lib/stores/inspectorMatrix.svelte.js';
 import { GLOBAL_LAYER, layers } from './layers.svelte.js';
 import type { Command } from './types.js';
 
 export const CHAT_COMPOSER_LAYER = 'chat.composer';
+export const CONVERSATION_MANAGER_LAYER = 'chat.conversationManager';
 
 export interface ChatComposerLayer {
 	focus(): void;
@@ -144,6 +146,31 @@ export const builtInCommands: Command[] = [
 		keys: ['mod+Enter'],
 		allowInEditable: true,
 		run: () => composer()?.send()
+	},
+	{
+		id: 'chat.conversations',
+		title: 'Conversations',
+		description: 'List the chats with the active character.',
+		group: 'Chat',
+		scope: 'global',
+		layer: GLOBAL_LAYER,
+		keys: ['mod+k'],
+		allowInEditable: true,
+		enabled: () => chatStore.characterId !== null,
+		run: () => {
+			const characterId = chatStore.characterId;
+			if (characterId) conversationManager.open(characterId);
+		}
+	},
+	{
+		id: 'chat.conversations.close',
+		title: 'Close conversations',
+		group: 'Chat',
+		scope: 'module',
+		layer: CONVERSATION_MANAGER_LAYER,
+		keys: ['mod+k'],
+		allowInEditable: true,
+		run: () => conversationManager.close()
 	},
 	{
 		id: 'chat.branchPrev',

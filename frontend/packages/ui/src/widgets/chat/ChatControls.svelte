@@ -2,8 +2,17 @@
 	import PopupMenu from '$lib/components/PopupMenu.svelte';
 	import { characterStore } from '$lib/stores/character.svelte.js';
 	import { chatStore } from '$lib/stores/chat.svelte.js';
+	import { conversationManager } from '$lib/stores/conversationManager.svelte.js';
 	import { messageStateStore } from '$lib/stores/messageState.svelte.js';
-	import { FilePlus, ListStart, Paperclip, Send, Sparkles, Square } from '@lucide/svelte';
+	import {
+		FilePlus,
+		ListStart,
+		MessagesSquare,
+		Paperclip,
+		Send,
+		Sparkles,
+		Square
+	} from '@lucide/svelte';
 	import { CHAT_COMPOSER_LAYER, type ChatComposerLayer } from '$lib/keys/commands.js';
 	import { keyLayer } from '$lib/keys/layers.svelte.js';
 
@@ -69,6 +78,14 @@
 			title="Functions"
 			items={[
 				{ label: 'Run function', icon: ListStart, onSelect: () => console.log('function') },
+				{
+					label: 'Conversations',
+					icon: MessagesSquare,
+					onSelect: () => {
+						if (activeCharacter) conversationManager.open(activeCharacter);
+					},
+					disabled: activeCharacter === null
+				},
 				{
 					label: 'Start new chat',
 					icon: FilePlus,

@@ -5,6 +5,7 @@
 	import MainViewRouter from '$lib/widgets/routers/MainViewRouter.svelte';
 
 	import ErrorToast from '$lib/components/ErrorToast.svelte';
+	import ConversationManager from '$lib/widgets/chat/ConversationManager.svelte';
 	import { builtInCommands } from '$lib/keys/commands.js';
 	import { keybinds } from '$lib/keys/manager.svelte.js';
 	import { commandRegistry } from '$lib/keys/registry.svelte.js';
@@ -28,6 +29,7 @@
 	<Inspector />
 </div>
 <ErrorToast />
+<ConversationManager />
 
 <style>
 	.container {
