@@ -3,7 +3,7 @@
 	import { navigator } from '$lib/navigation/navigator.js';
 	import { toolStore } from '$lib/stores/tools.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
-	import type { Param, ParamType, UserTool } from '$lib/types/tools.js';
+	import type { Param, ParamType, ToolSurface, UserTool } from '$lib/types/tools.js';
 	import WeaverEditor from '$lib/weaver/editor/WeaverEditor.svelte';
 	import FieldShell from '$lib/components/FieldShell.svelte';
 	import ContextField from '$lib/components/ContextField.svelte';
@@ -152,9 +152,9 @@
 			<div class="tool-item" class:selected={tool.id === selectedId} class:disabled={!tool.enabled}>
 				<button class="tool-open" type="button" onclick={() => select(tool.id)}>
 					<span class="tool-text">
-						<span class="tool-name">{tool.name || 'Untitled'}</span>
+						<span class="tool-name">{tool.display_name || tool.name}</span>
 						{#if tool.display_name}
-							<span class="tool-sub">{tool.display_name}</span>
+							<span class="tool-sub">{tool.name}</span>
 						{/if}
 					</span>
 				</button>
@@ -231,6 +231,27 @@
 						bind:value={shown.display_name}
 						oninput={requestSave}
 					/>
+				</div>
+
+				<div class="field">
+					<label for="t-surface">
+						Callable from {@render hint(
+							'A tool is offered to the model on a turn.\nA command is invoked by you as /name in the composer.\nThe same body can serve both.'
+						)}
+					</label>
+					<select
+						id="t-surface"
+						disabled={readOnly}
+						value={shown.surface}
+						onchange={(e) => {
+							shown.surface = e.currentTarget.value as ToolSurface;
+							requestSave();
+						}}
+					>
+						<option value="tool">The model, as a tool</option>
+						<option value="command">You, as /{shown.name || 'name'}</option>
+						<option value="both">Both</option>
+					</select>
 				</div>
 
 				{#key shown.id}

@@ -29,6 +29,9 @@
 					: (characterStore.activeCharacter?.definition.name ?? 'Assistant'))
 	);
 
+	/** A command run's anchor message */
+	let commandName = $derived((message.metadata as { command?: string } | null)?.command ?? null);
+
 	let committed = $derived(!message.id.startsWith('tmp_'));
 	let typing = $derived(last && chatStore.isStreaming && message.content.length === 0);
 	let busy = $derived(chatStore.isStreaming);
@@ -91,122 +94,157 @@
 	}
 </script>
 
-<div class="message" data-role={message.role}>
-	<div class="avatar">
-		{#if message.role === 'assistant' && chatStore.characterId}
-			<TransportImage src={`/api/v1/characters/${chatStore.characterId}/image`} alt={name} />
-		{:else}
-			<div class="avatar-placeholder"></div>
+{#if commandName !== null}
+	<!-- A command run reads as a mark in the timeline, not as someone speaking:
+	     it may carry no text at all and exist only to anchor its state writes. -->
+	<div class="command-mark" title={`Ran /${commandName}`}>
+		<span class="command-name">/{commandName}</span>
+		{#if message.content}
+			<span class="command-output">{message.content}</span>
 		{/if}
 	</div>
+{:else}
+	<div class="message" data-role={message.role}>
+		<div class="avatar">
+			{#if message.role === 'assistant' && chatStore.characterId}
+				<TransportImage src={`/api/v1/characters/${chatStore.characterId}/image`} alt={name} />
+			{:else}
+				<div class="avatar-placeholder"></div>
+			{/if}
+		</div>
 
-	<div class="box">
-		<div class="box-header">
-			<span class="name">{name}</span>
-			{#if committed}
-				<div class="actions">
-					{#if hasContext}
-						<button
-							class="icon-btn"
-							title="Inspect context"
-							onclick={() => contextInspector.open(message)}
-						>
-							<Layers />
+		<div class="box">
+			<div class="box-header">
+				<span class="name">{name}</span>
+				{#if committed}
+					<div class="actions">
+						{#if hasContext}
+							<button
+								class="icon-btn"
+								title="Inspect context"
+								onclick={() => contextInspector.open(message)}
+							>
+								<Layers />
+							</button>
+						{/if}
+						{#if canContinue}
+							<button
+								class="icon-btn"
+								title="Continue this reply"
+								disabled={busy}
+								onclick={() => chatStore.continueMessage(message.id)}
+							>
+								<StepForward />
+							</button>
+						{/if}
+						<button class="icon-btn" title="Edit" disabled={busy} onclick={() => startEdit('edit')}>
+							<Pencil />
 						</button>
-					{/if}
-					{#if canContinue}
 						<button
 							class="icon-btn"
-							title="Continue this reply"
+							title="Delete"
 							disabled={busy}
-							onclick={() => chatStore.continueMessage(message.id)}
+							onclick={() => chatStore.deleteMessage(message.id)}
 						>
-							<StepForward />
+							<Trash2 />
 						</button>
-					{/if}
-					<button class="icon-btn" title="Edit" disabled={busy} onclick={() => startEdit('edit')}>
-						<Pencil />
-					</button>
-					<button
-						class="icon-btn"
-						title="Delete"
-						disabled={busy}
-						onclick={() => chatStore.deleteMessage(message.id)}
+					</div>
+				{/if}
+			</div>
+
+			{#if !editing && reasoning.length > 0}
+				<details class="reasoning" open={false}>
+					<summary>{committed ? 'Thoughts' : 'Thinking…'}</summary>
+					<div class="reasoning-body">{reasoning}</div>
+				</details>
+			{/if}
+
+			{#if editing}
+				<textarea class="editor" bind:value={editText} use:autosize></textarea>
+				<div class="edit-actions">
+					<button disabled={busy} onclick={saveEdit}
+						>{editMode === 'edit' ? 'Save' : 'Swipe'}</button
 					>
-						<Trash2 />
-					</button>
+					<button onclick={() => (editing = false)}>Cancel</button>
+				</div>
+			{:else if typing}
+				<div class="body">
+					<!-- YUMMYYYYYY (this is a trick for the animated message indicator btw. `<span />` is apparently illegal) -->
+					<span class="typing"><span></span><span></span><span></span></span>
+				</div>
+			{:else}
+				<div class="body md">
+					{#each segments as seg, i (i)}
+						{#if seg.type === 'text'}
+							<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+							{@html presentedText(renderMd(seg.text))}
+						{:else if widgets[seg.index]}
+							<div class="inline-widget">
+								<ChatWidget widget={widgets[seg.index]} />
+							</div>
+						{/if}
+					{/each}
 				</div>
 			{/if}
-		</div>
 
-		{#if !editing && reasoning.length > 0}
-			<details class="reasoning" open={false}>
-				<summary>{committed ? 'Thoughts' : 'Thinking…'}</summary>
-				<div class="reasoning-body">{reasoning}</div>
-			</details>
-		{/if}
-
-		{#if editing}
-			<textarea class="editor" bind:value={editText} use:autosize></textarea>
-			<div class="edit-actions">
-				<button disabled={busy} onclick={saveEdit}>{editMode === 'edit' ? 'Save' : 'Swipe'}</button>
-				<button onclick={() => (editing = false)}>Cancel</button>
-			</div>
-		{:else if typing}
-			<div class="body">
-				<!-- YUMMYYYYYY (this is a trick for the animated message indicator btw. `<span />` is apparently illegal) -->
-				<span class="typing"><span></span><span></span><span></span></span>
-			</div>
-		{:else}
-			<div class="body md">
-				{#each segments as seg, i (i)}
-					{#if seg.type === 'text'}
-						<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-						{@html presentedText(renderMd(seg.text))}
-					{:else if widgets[seg.index]}
-						<div class="inline-widget">
-							<ChatWidget widget={widgets[seg.index]} />
-						</div>
-					{/if}
-				{/each}
-			</div>
-		{/if}
-
-		<!-- Static widgets currently only appear on assistant messages, and not on the opening message. -->
-		{#if !editing && trailing.length > 0 && message.role === 'assistant' && message.parent !== null}
-			<div class="widgets">
-				{#each trailing as widget, i (i)}
-					<ChatWidget {widget} />
-				{/each}
-			</div>
-		{/if}
-
-		{#if !editing && !busy && message.role === 'assistant' && message.parent !== null}
-			<div class="widgets">
-				<StaticWidgets messageId={message.id} {last} />
-			</div>
-		{/if}
-
-		<div class="slides">
-			<button
-				class="icon-btn"
-				title="Previous"
-				disabled={busy || info.index === 0}
-				onclick={() => chatStore.swipePrev(message.id)}
-			>
-				<ChevronLeft />
-			</button>
-			{#if info.count > 1}
-				<span class="counter">{info.index + 1}/{info.count}</span>
+			<!-- Static widgets currently only appear on assistant messages, and not on the opening message. -->
+			{#if !editing && trailing.length > 0 && message.role === 'assistant' && message.parent !== null}
+				<div class="widgets">
+					{#each trailing as widget, i (i)}
+						<ChatWidget {widget} />
+					{/each}
+				</div>
 			{/if}
-			<button class="icon-btn" title="Next" disabled={busy} onclick={onRight}>
-				<ChevronRight />
-			</button>
+
+			{#if !editing && !busy && message.role === 'assistant' && message.parent !== null}
+				<div class="widgets">
+					<StaticWidgets messageId={message.id} {last} />
+				</div>
+			{/if}
+
+			<div class="slides">
+				<button
+					class="icon-btn"
+					title="Previous"
+					disabled={busy || info.index === 0}
+					onclick={() => chatStore.swipePrev(message.id)}
+				>
+					<ChevronLeft />
+				</button>
+				{#if info.count > 1}
+					<span class="counter">{info.index + 1}/{info.count}</span>
+				{/if}
+				<button class="icon-btn" title="Next" disabled={busy} onclick={onRight}>
+					<ChevronRight />
+				</button>
+			</div>
 		</div>
 	</div>
-</div>
+{/if}
 
 <style>
+	.command-mark {
+		display: flex;
+		align-items: baseline;
+		gap: var(--spacing-sm);
+		align-self: center;
+		max-width: 100%;
+		padding: var(--spacing-xs) var(--spacing-sm);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius-sm, 6px);
+		background-color: var(--color-bg-elevated);
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-sm, 0.85rem);
+	}
+	.command-name {
+		color: var(--color-role-system-text);
+		font-family: var(--font-mono, monospace);
+	}
+	.command-output {
+		white-space: pre-wrap;
+		word-break: break-word;
+	}
+
 	.message {
 		display: flex;
 		flex-direction: row;

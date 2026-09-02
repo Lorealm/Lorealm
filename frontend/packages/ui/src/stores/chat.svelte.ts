@@ -238,6 +238,18 @@ class ChatStore {
 		this._pending = null;
 	}
 
+	/**
+	 * Fold in a message the server already appended and made the active leaf.
+	 *
+	 * Used by command runs, which persist their own anchor message rather than
+	 * streaming one back.
+	 */
+	ingestServerMessage(message: ConversationMessage) {
+		if (message.conversation_id !== this.conversationId) return;
+		this._messages.set(message.id, message);
+		this._activeLeafId = message.id;
+	}
+
 	async loadList() {
 		this.metadataList = await this.#api.chat.list();
 	}

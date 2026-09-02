@@ -1,12 +1,12 @@
 <script lang="ts">
+	import CommandAutocomplete from './CommandAutocomplete.svelte';
 	import PopupMenu from '$lib/components/PopupMenu.svelte';
+	import { dispatch, slashCommands, type RegisteredSlashCommand } from '$lib/commands/index.js';
 	import { characterStore } from '$lib/stores/character.svelte.js';
 	import { chatStore } from '$lib/stores/chat.svelte.js';
 	import { conversationManager } from '$lib/stores/conversationManager.svelte.js';
-	import { messageStateStore } from '$lib/stores/messageState.svelte.js';
 	import {
 		FilePlus,
-		ListStart,
 		MessagesSquare,
 		Paperclip,
 		Send,
@@ -23,24 +23,62 @@
 
 	let activeCharacter = $derived(chatStore.characterId);
 
+	/** Set by Escape; cleared as soon as the input changes again. */
+	let dismissed = $state(false);
+	let cursor = $state(0);
+
 	function resize() {
+		dismissed = false;
 		textareaEl.style.height = 'auto';
 		textareaEl.style.height = textareaEl.scrollHeight + 'px';
 	}
 
+	// The popup is only up while the whole input is a bare command name.
+	let suggestions = $derived.by(() => {
+		if (dismissed) return [];
+		const typing = /^\/([A-Za-z_-]*)$/.exec(inputText);
+		return typing ? slashCommands.matching(typing[1]) : [];
+	});
+	let active = $derived(Math.min(cursor, Math.max(0, suggestions.length - 1)));
+
+	function accept(command: RegisteredSlashCommand) {
+		inputText = `/${command.name} `;
+		cursor = 0;
+		textareaEl?.focus();
+	}
+
 	function send() {
 		const text = inputText.trim();
-		if (!text || chatStore.isStreaming) return;
+		if (!text) return;
 		inputText = '';
+		dismissed = false;
+		cursor = 0;
 		textareaEl.style.height = 'auto';
-		chatStore.sendMessage(text).then(() => {
-			const lastMsg = chatStore.activePath[-1];
-			console.log('last message: ', lastMsg);
-			messageStateStore.inspect(lastMsg.id, lastMsg.conversation_id);
-		});
+		void dispatch(text);
 	}
 
 	function handleMessageSend(event: KeyboardEvent) {
+		if (suggestions.length > 0) {
+			switch (event.key) {
+				case 'ArrowDown':
+					event.preventDefault();
+					cursor = (active + 1) % suggestions.length;
+					return;
+				case 'ArrowUp':
+					event.preventDefault();
+					cursor = (active - 1 + suggestions.length) % suggestions.length;
+					return;
+				case 'Tab':
+				case 'Enter':
+					event.preventDefault();
+					accept(suggestions[active]);
+					return;
+				case 'Escape':
+					event.preventDefault();
+					dismissed = true;
+					return;
+			}
+		}
 		if (event.key === 'Enter' && !event.shiftKey) {
 			event.preventDefault();
 			send();
@@ -74,10 +112,12 @@
 
 <div class="container">
 	<div class="control-container">
+		{#if suggestions.length > 0}
+			<CommandAutocomplete items={suggestions} activeIndex={active} onSelect={accept} />
+		{/if}
 		<PopupMenu
 			title="Functions"
 			items={[
-				{ label: 'Run function', icon: ListStart, onSelect: () => console.log('function') },
 				{
 					label: 'Conversations',
 					icon: MessagesSquare,
@@ -126,6 +166,7 @@
 		align-items: center;
 	}
 	.control-container {
+		position: relative; /* anchors the command autocomplete */
 		display: flex;
 		flex-direction: row;
 		background-color: var(--color-bg-elevated);

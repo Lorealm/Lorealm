@@ -13,6 +13,7 @@ use crate::{
     extract::AuthenticatedSession,
     routes::templates::{SetActiveRequest, WeaverVocabulary},
     services::context::{ContextTemplate, SourceDefinition, weaver::check::check},
+    services::commands::register_effect_commands,
     services::tools::build_tool_registry,
 };
 
@@ -109,7 +110,8 @@ pub async fn list_sources(
 
 /// Lists every weaver command and processor available to editors
 pub async fn list_weaver_vocabulary() -> Json<WeaverVocabulary> {
-    let registry = build_tool_registry();
+    let mut registry = build_tool_registry();
+    register_effect_commands(&mut registry);
 
     let mut commands = registry.command_signatures();
     commands.extend(context_weaver::host_command_signatures());

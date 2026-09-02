@@ -10,6 +10,7 @@ use crate::{
     services::{
         character::CharacterService,
         chat::ChatService,
+        commands::CommandService,
         connection::ConnectionService,
         context::{ContextService, SourceRegistry, builtin::register_builtin_sources},
         conversation::ConversationService,
@@ -39,6 +40,7 @@ pub struct ServiceManager {
     lorebook: Arc<LorebookService>,
     state: Arc<StateService>,
     chat: Arc<ChatService>,
+    commands: Arc<CommandService>,
     persona: Arc<PersonaService>,
     connection: Arc<ConnectionService>,
     tools: Arc<UserToolService>,
@@ -160,6 +162,13 @@ impl ServiceManager {
             Arc::clone(&variables),
         ));
 
+        let commands = Arc::new(CommandService::new(
+            Arc::clone(&storage),
+            Arc::clone(&conversation),
+            Arc::clone(&state),
+            Arc::clone(&tools),
+        ));
+
         let realms = Arc::new(RealmService::new(
             Arc::clone(&storage),
             Arc::clone(&snowflake),
@@ -189,6 +198,7 @@ impl ServiceManager {
             lorebook,
             state,
             chat,
+            commands,
             persona,
             connection,
             tools,
@@ -276,6 +286,10 @@ impl ServiceManager {
 
     pub fn chat(&self) -> &Arc<ChatService> {
         &self.chat
+    }
+
+    pub fn commands(&self) -> &Arc<CommandService> {
+        &self.commands
     }
 
     pub fn state(&self) -> &Arc<StateService> {
