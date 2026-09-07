@@ -278,6 +278,13 @@
 	type Tab = 'context' | 'state' | 'tools';
 	let tab = $state<Tab>('context');
 
+	/** Context tab: show the blocks as one continuous transcript instead of cards. */
+	let raw = $state(false);
+
+	let rawText = $derived.by(() =>
+		flat.map((f, i) => `[${f.block.role}]\n${flatTexts[i]}`).join('\n\n')
+	);
+
 	let collapsedGroups = new SvelteSet<number>();
 	let openLore = $state<string | null>(null);
 	let openPool = $state<string | null>(null);
@@ -295,6 +302,7 @@
 		openLore = null;
 		openPool = null;
 		tab = 'context';
+		raw = false;
 	});
 
 	function toggleCall(key: string) {
@@ -311,6 +319,7 @@
 		const gi = flat[i]?.gi;
 		if (gi !== undefined) collapsedGroups.delete(gi);
 		tab = 'context';
+		raw = false;
 		selected = i;
 		await tick();
 		blockEls[i]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -458,6 +467,17 @@
 							Tools
 							{#if toolCalls.length > 0}<span class="tab-count">{toolCalls.length}</span>{/if}
 						</button>
+						{#if tab === 'context'}
+							<button
+								class="raw-toggle"
+								class:active={raw}
+								aria-pressed={raw}
+								title="Show the context as raw text"
+								onclick={() => (raw = !raw)}
+							>
+								Raw
+							</button>
+						{/if}
 					</div>
 
 					<div class="pane">
@@ -469,6 +489,8 @@
 								</div>
 							{:else if groups.length === 0}
 								<div class="empty">The pipeline produced no context blocks for this turn.</div>
+							{:else if raw}
+								<pre class="raw">{rawText}</pre>
 							{:else}
 								{#each groups as group, gi (gi)}
 									{#if group.blocks.length > 1}
@@ -840,6 +862,26 @@
 		letter-spacing: 0;
 	}
 
+	.raw-toggle {
+		flex: 0 0 auto;
+		align-self: center;
+		margin-right: var(--spacing-sm);
+		background-color: transparent;
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius-sm);
+		padding: 2px var(--spacing-sm);
+		color: var(--color-text-muted);
+		font-size: var(--font-size-xs);
+		text-transform: uppercase;
+		letter-spacing: var(--letter-spacing-uppercase);
+		cursor: pointer;
+	}
+	.raw-toggle.active {
+		background: var(--color-bg-base);
+		border-color: var(--color-text-accent);
+		color: var(--color-text-primary);
+	}
+
 	.pane {
 		display: flex;
 		flex-direction: column;
@@ -966,6 +1008,19 @@
 
 	.content {
 		margin: var(--spacing-xs) 0 0;
+		padding: var(--spacing-sm) var(--spacing-md);
+		background: var(--color-bg-base);
+		border-radius: var(--radius-sm);
+		color: var(--color-text-primary);
+		font-family: var(--font-family-mono);
+		font-size: var(--font-size-sm);
+		line-height: var(--line-height-snug);
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+
+	.raw {
+		margin: 0;
 		padding: var(--spacing-sm) var(--spacing-md);
 		background: var(--color-bg-base);
 		border-radius: var(--radius-sm);
