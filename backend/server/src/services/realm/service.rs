@@ -903,7 +903,6 @@ impl RealmService {
                 .await?
                 .ok_or(RealmError::NotFound(TargetType::UserTool, binding.tool_id))?;
             let (output, d, e) = weaver::run_scoped(
-                &self.state,
                 &tool.body,
                 &tool.params,
                 action.args.clone(),

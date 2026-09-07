@@ -311,7 +311,8 @@ pub fn register_attachment_commands(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::services::tools::{ToolContext, ToolStatePool, build_tool_registry};
+    use crate::services::tools::{ToolContext, ToolStatePool};
+    use crate::services::weaver::WeaverHost;
     use crate::util::weaver::json_to_weaver;
     use std::collections::HashMap;
     use weaver_lang::CompiledTemplate;
@@ -365,7 +366,7 @@ mod tests {
         source: &str,
         cmd: &[(&str, serde_json::Value)],
     ) -> Result<(String, Vec<WidgetInstance>), EvalError> {
-        let mut registry = build_tool_registry();
+        let mut registry = WeaverHost::base().into_registry();
         let sink = register_attachment_commands(&mut registry, catalog());
 
         let bound: HashMap<String, Value> = cmd

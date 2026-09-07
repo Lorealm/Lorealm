@@ -1,35 +1,23 @@
-use std::{
-    collections::HashMap,
-    sync::{
-        Arc, Mutex as StdMutex,
-        atomic::{AtomicBool, Ordering},
-    },
-};
+use std::{collections::HashMap, sync::Arc, sync::Mutex as StdMutex};
 
 use lorealm_storage::{
     Storage,
     models::{ChatRole, Param, ParamType, Snowflake, UserTool},
 };
 use serde_json::json;
-use weaver_lang::{CompiledTemplate, EvalOptions, Value as WeaverValue};
+use weaver_lang::Value as WeaverValue;
 
 use crate::{
     errors::CommandError,
     services::{
-        commands::{
-            CommandArgs, CommandEffect, CommandRun, GenerateBridge, GenerateCommand,
-            GenerateRawCommand, Generation, register_effect_commands,
-        },
+        commands::{CommandArgs, CommandEffect, CommandRun, GenerateBridge, Generation},
         conversation::ConversationService,
         state::{CapturedState, StateService},
-        tools::{ToolContext, UserToolService, build_tool_registry, builtin_tool},
+        tools::{UserToolService, builtin_tool},
+        weaver::{WeaverHost, WeaverProfile, compile_template},
     },
-    util::weaver::{describe_parse_errors, json_to_weaver, weaver_to_json},
+    util::weaver::json_to_weaver,
 };
-
-/// Ceilings on one command body.
-const MAX_NODE_EVALUATIONS: u64 = 1_000_000;
-const MAX_ITERATIONS: u64 = 10_000;
 
 pub struct CommandService {
     storage: Arc<dyn Storage>,
@@ -91,92 +79,47 @@ impl CommandService {
             return Err(CommandError::NotACommand(command.name));
         }
 
-        let body =
-            CompiledTemplate::compile(&command.body).map_err(|errors| CommandError::Failed {
-                name: command.name.clone(),
-                reason: describe_parse_errors(&command.body, &errors),
-            })?;
-
-        let bound = bind_args(&command.name, &command.params, &args)?;
-
         let thread = self.conversations.active_thread(conversation_id).await?;
         let ids: Vec<Snowflake> = thread.iter().map(|m| m.id).collect();
         let reconstructed = self.state.reconstruct(&ids).await?;
         let baseline = reconstructed.persistent;
-        let pool = Arc::new(StdMutex::new(baseline.clone()));
-
-        let mut registry = build_tool_registry();
-        let sink = register_effect_commands(&mut registry);
 
         let (cancel, _cancel_guard) = self.chat.begin_cancel(conversation_id);
-        let bridge = || GenerateBridge {
-            handle: tokio::runtime::Handle::current(),
-            chat: Arc::clone(&self.chat),
-            state: Arc::clone(&self.state),
-            owner: user_id,
-            conversation: conversation_id,
-            cancel: cancel.clone(),
+
+        let failed = |reason: String| CommandError::Failed {
+            name: command.name.clone(),
+            reason,
         };
-        registry.register_command(GenerateRawCommand::new(bridge()));
-        registry.register_command(GenerateCommand::new(bridge()));
 
-        // The evaluator polls this between nodes
-        let stop = Arc::new(AtomicBool::new(false));
-        let watcher = tokio::spawn({
-            let stop = Arc::clone(&stop);
-            let cancel = cancel.clone();
-            async move {
-                cancel.cancelled().await;
-                stop.store(true, Ordering::Relaxed);
-            }
-        });
+        let host = WeaverHost::builder()
+            .profile(WeaverProfile::Command)
+            .args(bind_args(&command.name, &command.params, &args)?)
+            .pool(Arc::new(StdMutex::new(baseline.clone())))
+            .generation(GenerateBridge {
+                handle: tokio::runtime::Handle::current(),
+                chat: Arc::clone(&self.chat),
+                state: Arc::clone(&self.state),
+                owner: user_id,
+                conversation: conversation_id,
+                cancel: cancel.clone(),
+            })
+            .cancel(cancel.clone())
+            .build();
 
-        // Weaver evaluates synchronously and `$[generate_raw]` blocks on a
-        // future, so the body must not run on a runtime worker thread.
-        let ctx = ToolContext::new(bound, Arc::clone(&pool));
-        let options = EvalOptions::new()
-            .max_node_evaluations(MAX_NODE_EVALUATIONS)
-            .max_iterations(MAX_ITERATIONS)
-            .cancellation_token(Arc::clone(&stop));
+        let body = compile_template(&command.body).map_err(|e| failed(e.to_string()))?;
+        let evaluated = host.evaluate(body).await;
 
-        let evaluated = tokio::task::spawn_blocking(move || {
-            let mut ctx = ctx;
-            body.evaluate_value_with_options(&mut ctx, &registry, options)
-        })
-        .await;
-        watcher.abort();
-
-        // Checked on the token rather than on the evaluator's error, because
-        // the two race: a body unblocked by a cancelled generation can reach
-        // its end before the watcher sets the flag, and would otherwise report
-        // success carrying whatever the interrupted call returned.
         if cancel.is_cancelled() {
             return Err(CommandError::Cancelled(command.name.clone()));
         }
 
-        let output = match evaluated {
-            Ok(result) => result.map_err(|e| CommandError::Failed {
-                name: command.name.clone(),
-                reason: e.to_string(),
-            })?,
-            // The blocking thread panicked or was aborted mid-body.
-            Err(e) => {
-                return Err(CommandError::Failed {
-                    name: command.name.clone(),
-                    reason: format!("evaluation did not finish: {e}"),
-                });
-            }
-        };
-        let output = weaver_to_json(&output).map_err(|e| CommandError::Failed {
-            name: command.name.clone(),
-            reason: format!("returned {e}"),
-        })?;
-
-        let effects = std::mem::take(&mut *sink.lock().unwrap());
-        let delta = {
-            let after = pool.lock().unwrap();
-            self.state.diff(&baseline, &after)
-        };
+        let outcome = evaluated.map_err(|e| failed(e.to_string()))?;
+        let output = outcome
+            .to_json()
+            .map_err(|e| failed(format!("returned {e}")))?;
+        let wrote_state = outcome.wrote_state();
+        let effects = outcome.effects;
+        let delta = outcome.delta;
 
         // Apply all sys effects
         let sys: Vec<&str> = effects
@@ -186,8 +129,6 @@ impl CommandService {
                 _ => None,
             })
             .collect();
-        let wrote_state = !delta.writes.is_empty() || !delta.deletes.is_empty();
-
         let message = if sys.is_empty() && !wrote_state {
             None
         } else {

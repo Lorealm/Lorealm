@@ -14,8 +14,7 @@ use crate::{
     services::{
         context::{
             ContentRef, PromptTurn, SettingDefinition, SettingType, SourceDefinition,
-            SourceNodeDefinition, SourceType, to_weaver_lorebook,
-            weaver::{LorealmWeaverPlugin, stdlib::StdlibPlugin},
+            SourceNodeDefinition, SourceType, to_weaver_lorebook, weaver::stdlib::StdlibPlugin,
         },
         state::{CapturedState, StatePool, StateService},
     },
@@ -198,7 +197,6 @@ impl WorldInfoResolver {
 
         weaver.set_tokenizer(Box::new(tokenizer));
         weaver.register_plugin(StdlibPlugin)?;
-        weaver.register_plugin(LorealmWeaverPlugin)?;
 
         book_ids.insert(first_sf, BookId(0)); // The first BookId is always 0
 

@@ -7,7 +7,7 @@ use lorealm_storage::models::AGENTS_SCOPE;
 use weaver_lang::{EvalContext, EvalError, Registry, Value as WeaverValue};
 
 use crate::{
-    services::{context::weaver::stdlib, state::write_var},
+    services::state::write_var,
     util::weaver::{json_to_weaver, weaver_to_json},
 };
 
@@ -165,12 +165,6 @@ impl EvalContext for ToolContext {
             "documents are currently not supported in tool bodies",
         ))
     }
-}
-
-pub fn build_tool_registry() -> Registry {
-    let mut r = Registry::new();
-    stdlib::register_all(&mut r);
-    r
 }
 
 #[cfg(test)]

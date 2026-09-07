@@ -223,12 +223,13 @@ impl WeaverCommand for ComposeCommand {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::services::tools::{ToolContext, ToolStatePool, build_tool_registry};
+    use crate::services::tools::{ToolContext, ToolStatePool};
+    use crate::services::weaver::WeaverHost;
     use std::collections::HashMap;
     use weaver_lang::CompiledTemplate;
 
     fn run(source: &str) -> Result<(String, Vec<CommandEffect>), EvalError> {
-        let mut registry = build_tool_registry();
+        let mut registry = WeaverHost::base().into_registry();
         let sink = register_effect_commands(&mut registry);
         let mut ctx = ToolContext::new(
             HashMap::new(),
