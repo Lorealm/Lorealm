@@ -40,9 +40,6 @@ class PersonaStore {
 
 	saveState = $state<SaveState>({ status: 'idle' });
 
-	/** Bumped after each upload to force <TransportImage> to refetch the avatar. */
-	avatarVersion = $state(0);
-
 	#saving = false;
 	#resaveQueued = false;
 
@@ -143,12 +140,12 @@ class PersonaStore {
 		if (!draft) return;
 		const id = draft.id;
 
-		await this.#api.personas.setAvatar(id, image);
+		const { avatar_uri } = await this.#api.personas.setAvatar(id, image);
 		if (this.editingId !== id) return; // session moved on mid-upload
 
-		// The GET path is unchanged, so bump a version to bust the cache and
-		// make <TransportImage> refetch the freshly uploaded bytes.
-		this.avatarVersion += 1;
+		const listed = this.loadedPersonas?.find((p) => p.id === id);
+		if (listed) listed.avatar_uri = avatar_uri;
+		if (this.#baseline) this.#baseline.avatar_uri = avatar_uri;
 	}
 
 	#resetSession() {
@@ -156,7 +153,6 @@ class PersonaStore {
 		this.#baseline = null;
 		this.saveState = { status: 'idle' };
 		this.#resaveQueued = false;
-		this.avatarVersion = 0;
 	}
 
 	async save() {

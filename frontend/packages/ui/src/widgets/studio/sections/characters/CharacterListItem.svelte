@@ -1,6 +1,7 @@
 <script lang="ts">
 	import PopupMenu from '$lib/components/PopupMenu.svelte';
 	import TransportImage from '$lib/components/TransportImage.svelte';
+	import { blobUrl } from '$lib/api/blobs.js';
 	import { navigator } from '$lib/navigation/navigator.js';
 	import type { CharacterSummary } from '$lib/types/character.js';
 	import { Copy, Ellipsis, MessageSquarePlus, Pencil, Trash2, Upload } from '@lucide/svelte';
@@ -8,7 +9,7 @@
 
 	let { summary }: { summary: CharacterSummary } = $props();
 	const relative = $derived(DateTime.fromISO(summary.updated_at).toRelative() ?? '');
-	let imageEndpoint = $derived(`/api/v1/characters/${summary.id}/image`);
+	let imageEndpoint = $derived(blobUrl(summary.avatar_uri));
 
 	const unavailable = 'Not available yet';
 </script>

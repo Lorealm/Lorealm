@@ -1,10 +1,12 @@
 <script lang="ts">
 	import TransportImage from '$lib/components/TransportImage.svelte';
+	import { blobUrl } from '$lib/api/blobs.js';
 	import { chatStore } from '$lib/stores/chat.svelte.js';
+	import { characterStore } from '$lib/stores/character.svelte.js';
 	import { ChevronDown } from '@lucide/svelte';
 
 	let activeCharacter = $derived(chatStore.characterId);
-	let imageEndpoint = $derived(`/api/v1/characters/${activeCharacter}/image`);
+	let imageEndpoint = $derived(blobUrl(characterStore.activeCharacter?.metadata.avatar_uri));
 	let collapsed = $state(false);
 </script>
 

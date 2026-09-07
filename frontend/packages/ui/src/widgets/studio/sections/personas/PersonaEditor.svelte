@@ -5,6 +5,7 @@
 	import { characterStore } from '$lib/stores/character.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import TransportImage from '$lib/components/TransportImage.svelte';
+	import { blobUrl } from '$lib/api/blobs.js';
 	import ContextField from '$lib/components/ContextField.svelte';
 	import ListSidebar from '$lib/components/ListSidebar.svelte';
 	import { Star, X } from '@lucide/svelte';
@@ -38,14 +39,8 @@
 		return out.sort((a, b) => a.name.localeCompare(b.name));
 	});
 
-	// Same path as the avatar PUT, GET-side. The version query busts the cache
-	// for the persona being edited so TransportImage refetches after an upload.
-	function avatarSrc(id: Snowflake): string {
-		const bust =
-			id === personaStore.editingId && personaStore.avatarVersion
-				? `?v=${personaStore.avatarVersion}`
-				: '';
-		return `/api/v1/persona/${id}/avatar${bust}`;
+	function avatarSrc(id: Snowflake): string | null {
+		return blobUrl(personas.find((p) => p.id === id)?.avatar_uri);
 	}
 
 	let inputEl: HTMLInputElement;
@@ -327,7 +322,7 @@
 							{#each boundCharacters as character (character.id)}
 								<li class="bound-item">
 									<span class="bound-avatar">
-										<TransportImage src={`/api/v1/characters/${character.id}/image`} alt="" />
+										<TransportImage src={blobUrl(character.avatar_uri)} alt="" />
 									</span>
 									<span class="bound-name">{character.name}</span>
 									<button

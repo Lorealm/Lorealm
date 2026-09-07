@@ -3,6 +3,7 @@
 	import { characterStore } from '$lib/stores/character.svelte.js';
 	import type { ConversationMessage } from '$lib/types/conversation.js';
 	import TransportImage from '$lib/components/TransportImage.svelte';
+	import { blobUrl } from '$lib/api/blobs.js';
 	import ChatWidget from '$lib/components/ChatWidget.svelte';
 	import StaticWidgets from '$lib/components/StaticWidgets.svelte';
 	import { ChevronLeft, ChevronRight, Layers, Pencil, StepForward, Trash2 } from '@lucide/svelte';
@@ -28,6 +29,8 @@
 					? 'System'
 					: (characterStore.activeCharacter?.definition.name ?? 'Assistant'))
 	);
+
+	let avatarUrl = $derived(blobUrl(characterStore.activeCharacter?.metadata.avatar_uri));
 
 	/** A command run's anchor message */
 	let commandName = $derived((message.metadata as { command?: string } | null)?.command ?? null);
@@ -107,7 +110,7 @@
 	<div class="message" data-role={message.role}>
 		<div class="avatar">
 			{#if message.role === 'assistant' && chatStore.characterId}
-				<TransportImage src={`/api/v1/characters/${chatStore.characterId}/image`} alt={name} />
+				<TransportImage src={avatarUrl} alt={name} />
 			{:else}
 				<div class="avatar-placeholder"></div>
 			{/if}
