@@ -12,6 +12,8 @@ export const CONVERSATION_MANAGER_LAYER = 'chat.conversationManager';
 export interface ChatComposerLayer {
 	focus(): void;
 	send(): void;
+	/** Put text in the box, replacing the draft or adding to it. */
+	draft(content: string, mode: 'replace' | 'append'): void;
 }
 
 function composer(): ChatComposerLayer | undefined {

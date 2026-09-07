@@ -14,12 +14,57 @@ pub enum ParamType {
     Object,
 }
 
+/// A kind of stored thing a parameter can name.
+///
+/// Purely a hint: the parameter's value is still a [`Snowflake`] in a
+/// [`ParamType::String`]. It tells the client to offer a search over that
+/// kind and hand back an id, rather than making the author paste one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ResourceKind {
+    Character,
+    Persona,
+    ConnectionProfile,
+    ContextTemplate,
+    Lorebook,
+    Tokenizer,
+    UserTool,
+    UserWidget,
+    Realm,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Param {
     pub name: String,
     pub ty: ParamType,
     pub description: Option<String>,
     pub required: bool,
+    /// What the value identifies, when it is an id rather than free text.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource: Option<ResourceKind>,
+}
+
+/// Where a row is callable from.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(type_name = "TEXT", rename_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
+pub enum ToolSurface {
+    #[default]
+    Tool,
+    Command,
+    Both,
+}
+
+impl ToolSurface {
+    /// Whether the model may call it on a turn.
+    pub fn callable_by_model(self) -> bool {
+        matches!(self, Self::Tool | Self::Both)
+    }
+
+    /// Whether the user may invoke it as `/name`.
+    pub fn callable_by_user(self) -> bool {
+        matches!(self, Self::Command | Self::Both)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
@@ -31,6 +76,8 @@ pub struct UserTool {
     pub description: String,
     pub params: Vec<Param>,
     pub body: String,
+    #[serde(default)]
+    pub surface: ToolSurface,
     pub enabled: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

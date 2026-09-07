@@ -16,6 +16,7 @@ use crate::{
     errors::ChatError,
     services::{
         chat::widgets::{InferEvent, ToolCallRecord, WidgetInstance, widget_marker},
+        commands::CommandEffect,
         context::{PromptRole, TracedBlock},
         state::{CapturedState, StatePool, StateService},
     },
@@ -68,8 +69,16 @@ pub enum ChatStreamEvent {
     Widget {
         widget: WidgetInstance,
     },
-    /// Terminal: the persisted assistant message, carrying its real id so the
-    /// client can reconcile the provisional bubble and fetch branch_info.
+    /// A tool asked the client to do something
+    Effect {
+        effect: CommandEffect,
+    },
+    /// A system message a tool wrote with `$[sys]`, persisted after the reply
+    /// it accompanied and therefore arriving after [`ChatStreamEvent::Done`].
+    SystemMessage {
+        message: ConversationMessage,
+    },
+    /// The persisted assistant message.
     Done {
         message: ConversationMessage,
     },

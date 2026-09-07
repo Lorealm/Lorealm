@@ -6,15 +6,21 @@
 
 	import ErrorToast from '$lib/components/ErrorToast.svelte';
 	import ConversationManager from '$lib/widgets/chat/ConversationManager.svelte';
+	import { builtInSlashCommands, serverCommands, slashCommands } from '$lib/commands/index.js';
 	import { builtInCommands } from '$lib/keys/commands.js';
 	import { keybinds } from '$lib/keys/manager.svelte.js';
 	import { commandRegistry } from '$lib/keys/registry.svelte.js';
 
 	$effect(() => {
 		const unregister = commandRegistry.register(builtInCommands);
+		const unregisterSlash = slashCommands.register(builtInSlashCommands);
 		const uninstall = keybinds.install();
+		// Registered after the built-ins, and so able to shadow them.
+		void serverCommands.load();
 		return () => {
 			uninstall();
+			serverCommands.clear();
+			unregisterSlash();
 			unregister();
 		};
 	});

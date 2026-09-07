@@ -97,7 +97,9 @@ import type {
 	TokenizerShare
 } from '$lib/types/tokenizer.js';
 import type {
+	CommandRun,
 	CreateUserTool,
+	RunCommandRequest,
 	ToolEnabledRequest,
 	UpdateUserTool,
 	UserTool
@@ -340,6 +342,9 @@ export function createApiClient(platform: PlatformAPI) {
 		tools: {
 			list: () => http.get<Array<UserTool>>('/api/v1/tools'),
 			builtins: () => http.get<Array<UserTool>>('/api/v1/tools/builtin'),
+			commands: () => http.get<Array<UserTool>>('/api/v1/tools/commands'),
+			run: (tool_id: Snowflake, request: RunCommandRequest) =>
+				http.post<CommandRun>(`/api/v1/tools/${tool_id}/run`, request),
 			get: (tool_id: Snowflake) => http.get<UserTool>(`/api/v1/tools/${tool_id}`),
 			create: (create: CreateUserTool) => http.post<Snowflake>('/api/v1/tools', create),
 			update: (tool_id: Snowflake, update: UpdateUserTool) =>

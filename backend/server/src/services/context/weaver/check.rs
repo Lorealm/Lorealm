@@ -10,7 +10,10 @@ use weaver_lang::{
 };
 
 use crate::services::{
-    chat::register_attachment_commands, tools::EmitEventCommand, tools::build_tool_registry,
+    chat::register_attachment_commands,
+    commands::{GenerateCommand, GenerateRawCommand, register_effect_commands},
+    tools::EmitEventCommand,
+    tools::build_tool_registry,
 };
 use crate::util::weaver::summarize_parser_text;
 
@@ -49,6 +52,9 @@ fn known_registry() -> Registry {
     // Both take runtime plumbing they never touch during name lookup.
     register_attachment_commands(&mut registry, Vec::new());
     registry.register_command(EmitEventCommand::new(Arc::new(Mutex::new(Vec::new()))));
+    register_effect_commands(&mut registry);
+    registry.register_command(GenerateRawCommand::declaration());
+    registry.register_command(GenerateCommand::declaration());
     registry
 }
 
@@ -232,6 +238,14 @@ mod tests {
         assert!(template("Hello, {{global:name}}! $[set_var(\"global:x\", 1)]").is_empty());
         assert!(template("{# foreach x in {{global:items}} #}{{x}}{# endforeach #}").is_empty());
         assert!(expression("{{global:hp}} > 5").is_empty());
+    }
+
+    #[test]
+    fn the_output_commands_resolve_rather_than_underlining_as_unknown() {
+        assert!(template(r#"$[sys("done")]"#).is_empty());
+        assert!(template(r#"$[toast("done", "success")]"#).is_empty());
+        assert!(template(r#"$[generate_raw("what happened?")]"#).is_empty());
+        assert!(template(r#"$[generate("what happened?")]"#).is_empty());
     }
 
     #[test]

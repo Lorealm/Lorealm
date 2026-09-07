@@ -1,7 +1,13 @@
 import { extractError } from '$lib/types/error.js';
 import { useApi } from '$lib/api/client.js';
 import type { Snowflake } from '$lib/types/core.js';
-import type { CreateUserTool, Param, UpdateUserTool, UserTool } from '$lib/types/tools.js';
+import type {
+	CreateUserTool,
+	Param,
+	ToolSurface,
+	UpdateUserTool,
+	UserTool
+} from '$lib/types/tools.js';
 import { showError } from '$lib/stores/errorToast.svelte.js';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -19,6 +25,7 @@ export interface ToolDraft {
 	description: string;
 	params: Param[];
 	body: string;
+	surface: ToolSurface;
 }
 
 const NAME_RE = /^[a-zA-Z0-9_-]{1,64}$/;
@@ -114,7 +121,8 @@ class ToolStore {
 			display_name: null,
 			description: '',
 			params: [],
-			body: ''
+			body: '',
+			surface: 'tool'
 		};
 		try {
 			const id = await this.#api.tools.create(create);
@@ -122,6 +130,30 @@ class ToolStore {
 			return id;
 		} catch (e) {
 			showError(e, { title: 'Create failed' });
+		}
+	}
+
+	/**
+	 * Copy a shipped row into one of your own under the same name.
+	 */
+	async forkBuiltin(id: Snowflake): Promise<Snowflake | undefined> {
+		if (!this.builtinTools) await this.loadBuiltins();
+		const source = this.builtinTools?.find((t) => t.id === id);
+		if (!source) return;
+
+		try {
+			const forked = await this.#api.tools.create({
+				name: source.name,
+				display_name: source.display_name,
+				description: source.description,
+				params: $state.snapshot(source.params),
+				body: source.body,
+				surface: source.surface
+			});
+			await this.loadTools();
+			return forked;
+		} catch (e) {
+			showError(e, { title: 'Could not create your version' });
 		}
 	}
 
@@ -236,7 +268,8 @@ function buildDraft(t: UserTool): ToolDraft {
 		display_name: t.display_name ?? '',
 		description: t.description,
 		params: $state.snapshot(t.params),
-		body: t.body
+		body: t.body,
+		surface: t.surface
 	};
 }
 
@@ -250,6 +283,7 @@ function diffTool(base: UserTool, draft: ToolDraft): UpdateUserTool {
 	if (draft.description !== base.description) patch.description = draft.description;
 	if (!paramsEqual(draft.params, base.params)) patch.params = draft.params;
 	if (draft.body !== base.body) patch.body = draft.body;
+	if (draft.surface !== base.surface) patch.surface = draft.surface;
 	return patch;
 }
 
