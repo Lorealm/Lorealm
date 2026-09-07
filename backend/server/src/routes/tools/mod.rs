@@ -19,6 +19,7 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
     let session_only_routes = Router::new()
         .route("/", get(handlers::list_tools))
         .route("/builtin", get(handlers::list_builtin_tools))
+        .route("/commands", get(handlers::list_commands))
         .route("/{tool_id}", get(handlers::get_tool))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
@@ -30,6 +31,7 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         .route("/{tool_id}", put(handlers::update_tool))
         .route("/{tool_id}", patch(handlers::toggle_tool_enabled))
         .route("/{tool_id}", delete(handlers::delete_tool))
+        .route("/{tool_id}/run", post(handlers::run_command))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
             session_csrf_middleware,

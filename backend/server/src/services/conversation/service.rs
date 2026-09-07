@@ -287,7 +287,6 @@ impl ConversationService {
     }
 
     /// The current visible thread, root -> leaf. Empty if there is no active leaf.
-    #[cfg(test)] // temporary until needed
     pub async fn active_thread(
         &self,
         conversation_id: Snowflake,

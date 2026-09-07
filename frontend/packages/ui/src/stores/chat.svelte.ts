@@ -16,6 +16,7 @@ import { SvelteMap } from 'svelte/reactivity';
 import { messageStateStore } from './messageState.svelte.ts';
 import { type ToastAction } from './errorToast.svelte.ts';
 import { showApiError } from './errorActions.js';
+import { applyEffect } from '$lib/commands/server.svelte.js';
 
 export type StreamStatus = 'idle' | 'streaming' | 'error';
 
@@ -236,6 +237,18 @@ class ChatStore {
 		this._conversation = full.metadata;
 		this._activeLeafId = full.metadata.active_leaf_id ?? this.#deriveLeaf();
 		this._pending = null;
+	}
+
+	/**
+	 * Fold in a message the server already appended and made the active leaf.
+	 *
+	 * Used by command runs, which persist their own anchor message rather than
+	 * streaming one back.
+	 */
+	ingestServerMessage(message: ConversationMessage) {
+		if (message.conversation_id !== this.conversationId) return;
+		this._messages.set(message.id, message);
+		this._activeLeafId = message.id;
 	}
 
 	async loadList() {
@@ -545,6 +558,9 @@ class ChatStore {
 
 			let committedUser: ConversationMessage | null = null;
 			let committedAssistant: ConversationMessage | null = null;
+			// `$[sys]` notes from tools; they arrive after `done` because the
+			// server persists them as children of the reply.
+			const systemNotes: ConversationMessage[] = [];
 			for await (const event of stream as AsyncIterable<ChatStreamEvent>) {
 				switch (event.type) {
 					case 'delta':
@@ -562,8 +578,14 @@ class ChatStore {
 						committedUser = event.message;
 						console.log('user message');
 						break;
+					case 'effect':
+						applyEffect(event.effect);
+						break;
 					case 'done':
 						committedAssistant = event.message;
+						break;
+					case 'system_message':
+						systemNotes.push(event.message);
 						break;
 				}
 			}
@@ -576,6 +598,12 @@ class ChatStore {
 
 			// A continuation never moved the leaf; it rewrote a message in place.
 			this._activeLeafId = continued ? prevLeaf : (committedAssistant?.id ?? this.#deriveLeaf());
+
+			// Chained under the reply, so each one advances the leaf past it.
+			for (const note of systemNotes) {
+				this._messages.set(note.id, note);
+				this._activeLeafId = note.id;
+			}
 			this._streamingId = null;
 			this._streamingConvId = null;
 			this._cancelling = false;
@@ -666,9 +694,10 @@ class ChatStore {
 					case 'widget':
 						this._streamWidgets = [...this._streamWidgets, event.widget];
 						break;
+					case 'effect':
+						applyEffect(event.effect);
+						break;
 					case 'action':
-						// Thin by design: observers only learn *that* the agent
-						// acted; the result lands in the actor's private feed.
 						break;
 					case 'committed':
 						committed = event.message;

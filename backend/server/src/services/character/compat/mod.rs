@@ -166,7 +166,10 @@ pub(super) fn convert_from_ccv2(
         .and_then(|raw| match serde_json::from_value::<CharacterBook>(raw) {
             Ok(book) => Some(book),
             Err(e) => {
-                tracing::warn!("character '{}' has an unreadable character_book: {e}", data.name);
+                tracing::warn!(
+                    "character '{}' has an unreadable character_book: {e}",
+                    data.name
+                );
                 None
             }
         })

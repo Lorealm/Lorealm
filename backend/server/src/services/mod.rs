@@ -1,5 +1,6 @@
 pub mod character;
 pub mod chat;
+pub mod commands;
 pub mod connection;
 pub mod context;
 pub mod conversation;
