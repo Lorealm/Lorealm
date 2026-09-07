@@ -11,7 +11,6 @@ use lorealm_storage::{
 use crate::{
     errors::{StateError, TargetType},
     services::{
-        context::ContextTemplate,
         state::{CapturedState, ReconstructedState, StatePool, apply_delta},
     },
 };
@@ -150,38 +149,9 @@ impl StateService {
         })
     }
 
-    /// Per-turn changes
+    /// Per-turn changes. A wrapper over [`diff`].
     pub fn diff(&self, input: &StatePool, output: &StatePool) -> StateDelta {
-        let mut writes: HashMap<String, HashMap<String, serde_json::Value>> = HashMap::new();
-        for (ns, out_vars) in output {
-            for (name, value) in out_vars {
-                let unchanged = input
-                    .get(ns)
-                    .and_then(|vars| vars.get(name))
-                    .is_some_and(|prev| prev == value);
-                if !unchanged {
-                    writes
-                        .entry(ns.clone())
-                        .or_default()
-                        .insert(name.clone(), value.clone());
-                }
-            }
-        }
-
-        let mut deletes: HashMap<String, Vec<String>> = HashMap::new();
-        for (ns, in_vars) in input {
-            for name in in_vars.keys() {
-                let gone = output
-                    .get(ns)
-                    .map(|vars| !vars.contains_key(name))
-                    .unwrap_or(false);
-                if gone {
-                    deletes.entry(ns.clone()).or_default().push(name.clone());
-                }
-            }
-        }
-
-        StateDelta { writes, deletes }
+        diff(input, output)
     }
 
     /// Write the state produced by one assistant message.
@@ -302,4 +272,38 @@ impl StateService {
 
         Ok(())
     }
+}
+
+/// Per-turn changes: what `output` writes or deletes relative to `input`.
+pub fn diff(input: &StatePool, output: &StatePool) -> StateDelta {
+    let mut writes: HashMap<String, HashMap<String, serde_json::Value>> = HashMap::new();
+    for (ns, out_vars) in output {
+        for (name, value) in out_vars {
+            let unchanged = input
+                .get(ns)
+                .and_then(|vars| vars.get(name))
+                .is_some_and(|prev| prev == value);
+            if !unchanged {
+                writes
+                    .entry(ns.clone())
+                    .or_default()
+                    .insert(name.clone(), value.clone());
+            }
+        }
+    }
+
+    let mut deletes: HashMap<String, Vec<String>> = HashMap::new();
+    for (ns, in_vars) in input {
+        for name in in_vars.keys() {
+            let gone = output
+                .get(ns)
+                .map(|vars| !vars.contains_key(name))
+                .unwrap_or(false);
+            if gone {
+                deletes.entry(ns.clone()).or_default().push(name.clone());
+            }
+        }
+    }
+
+    StateDelta { writes, deletes }
 }

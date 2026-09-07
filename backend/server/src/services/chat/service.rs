@@ -30,15 +30,9 @@ use crate::{
         chat::{
             CancelGuard, ChatStreamEvent, FullConversation, OpenAgentTurn, Persist, Prepared,
             PromptMessage, TurnAccumulator, TurnPlan,
-            widgets::{
-                AttachmentSpec, InferEvent, ToolCallRecord, WidgetInstance, WidgetSink,
-                register_attachment_commands,
-            },
+            widgets::{AttachmentSpec, InferEvent, ToolCallRecord, WidgetInstance, WidgetSink},
         },
-        commands::{
-            CommandEffect, EffectSink, GenerateBridge, GenerateCommand, GenerateRawCommand,
-            Generation, register_effect_commands,
-        },
+        commands::{CommandEffect, EffectSink, GenerateBridge, Generation},
         connection::ConnectionService,
         context::{
             ContextTemplate, PromptRole, PromptTurn, ResolveContext, SourceRegistry, TracedBlock,
@@ -51,10 +45,11 @@ use crate::{
         state::{CapturedState, ReconstructedState, StatePool, StateService, apply_delta},
         tokenizer::TokenizerService,
         tools::{
-            ATTACHMENT_TOOL_IDS, CompiledUserTool, EmitEventCommand, ToolPolicy, ToolSignature,
-            UserToolService, build_tool_registry, builtin_tool,
+            ATTACHMENT_TOOL_IDS, CompiledUserTool, ToolPolicy, ToolSignature, UserToolService,
+            builtin_tool,
         },
         variables::{VariableContext, VariableRegistry},
+        weaver::{WeaverHost, WeaverProfile},
     },
 };
 
@@ -906,36 +901,33 @@ impl ChatService {
 
         let mut registry = lorealm_providers::ToolRegistry::new();
 
-        let widget_sink;
-        let effect_sink;
-        let weaver_registry = {
-            let mut r = build_tool_registry();
-            widget_sink = register_attachment_commands(&mut r, policy.attachments.clone());
-            effect_sink = register_effect_commands(&mut r);
-            if let Some(sink) = &policy.event_sink {
-                r.register_command(EmitEventCommand::new(Arc::clone(sink)));
-            }
+        let mut host = WeaverHost::builder()
+            .profile(WeaverProfile::ChatTurn)
+            .attachments(policy.attachments.clone())
+            .pool(Arc::clone(&state));
 
-            match (self.generation(), policy.conversation) {
-                (Some(chat), Some(conversation)) => {
-                    let bridge = || GenerateBridge {
-                        handle: tokio::runtime::Handle::current(),
-                        chat: Arc::clone(&chat),
-                        state: Arc::clone(&self.state),
-                        owner,
-                        conversation,
-                        cancel: policy.cancel.clone().unwrap_or_default(),
-                    };
-                    r.register_command(GenerateRawCommand::new(bridge()));
-                    r.register_command(GenerateCommand::new(bridge()));
-                }
-                _ => {
-                    r.register_command(GenerateRawCommand::declaration());
-                    r.register_command(GenerateCommand::declaration());
-                }
-            }
-            Arc::new(r)
-        };
+        // Realm turns hand over a sink so the events a tool emits are read
+        // back by the realm that scheduled the turn.
+        if let Some(sink) = &policy.event_sink {
+            host = host.events(Arc::clone(sink));
+        }
+
+        // A tool body's `$[generate]` needs a handle back to this service and
+        // a conversation to assemble context from.
+        if let (Some(chat), Some(conversation)) = (self.generation(), policy.conversation) {
+            host = host.generation(GenerateBridge {
+                handle: tokio::runtime::Handle::current(),
+                chat,
+                state: Arc::clone(&self.state),
+                owner,
+                conversation,
+                cancel: policy.cancel.clone().unwrap_or_default(),
+            });
+        }
+
+        let (weaver_registry, sinks, state) = host.build().into_shared();
+        let widget_sink = sinks.widgets;
+        let effect_sink = sinks.effects;
 
         let mut rows = match &policy.tool_ids {
             None => self.tools.list_enabled(owner).await?,

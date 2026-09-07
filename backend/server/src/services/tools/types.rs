@@ -169,11 +169,11 @@ impl ToolSignature {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::services::tools::build_tool_registry;
+    use crate::services::weaver::WeaverHost;
     use weaver_lang::Registry;
 
     fn turn_registry() -> Registry {
-        let mut registry = build_tool_registry();
+        let mut registry = WeaverHost::base().into_registry();
         crate::services::commands::register_effect_commands(&mut registry);
         registry.register_command(crate::services::commands::GenerateRawCommand::declaration());
         registry.register_command(crate::services::commands::GenerateCommand::declaration());
@@ -207,7 +207,7 @@ mod tests {
                 params: Vec::new(),
                 body: body.into(),
             },
-            Arc::new(build_tool_registry()),
+            WeaverHost::base().into_shared().0,
             Arc::new(Mutex::new(ToolStatePool::default())),
             None,
         )

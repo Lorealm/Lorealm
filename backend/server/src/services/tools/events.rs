@@ -111,13 +111,14 @@ impl WeaverCommand for EmitEventCommand {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::services::tools::{ToolContext, ToolStatePool, build_tool_registry};
+    use crate::services::tools::{ToolContext, ToolStatePool};
+    use crate::services::weaver::WeaverHost;
     use std::collections::HashMap;
     use weaver_lang::CompiledTemplate;
 
     fn run(source: &str) -> Result<Vec<EmittedEvent>, EvalError> {
         let sink: EventSink = Arc::new(Mutex::new(Vec::new()));
-        let mut registry = build_tool_registry();
+        let mut registry = WeaverHost::base().into_registry();
         registry.register_command(EmitEventCommand::new(Arc::clone(&sink)));
 
         let mut ctx = ToolContext::new(

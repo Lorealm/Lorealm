@@ -1,7 +1,4 @@
-use std::{
-    collections::HashSet,
-    sync::{Arc, Mutex},
-};
+use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
 use weaver_lang::{
@@ -9,12 +6,7 @@ use weaver_lang::{
     ast::{Expr, ExprKind, Node, NodeKind, Template},
 };
 
-use crate::services::{
-    chat::register_attachment_commands,
-    commands::{GenerateCommand, GenerateRawCommand, register_effect_commands},
-    tools::EmitEventCommand,
-    tools::build_tool_registry,
-};
+use crate::services::weaver::WeaverHost;
 use crate::util::weaver::summarize_parser_text;
 
 /// Which compiler the source belongs to.
@@ -46,16 +38,8 @@ pub struct Diagnostic {
     pub hint: Option<String>,
 }
 
-/// Every callable the editor treats as real.
-fn known_registry() -> Registry {
-    let mut registry = build_tool_registry();
-    // Both take runtime plumbing they never touch during name lookup.
-    register_attachment_commands(&mut registry, Vec::new());
-    registry.register_command(EmitEventCommand::new(Arc::new(Mutex::new(Vec::new()))));
-    register_effect_commands(&mut registry);
-    registry.register_command(GenerateRawCommand::declaration());
-    registry.register_command(GenerateCommand::declaration());
-    registry
+fn known_host() -> WeaverHost {
+    WeaverHost::builder().declarations_only().build()
 }
 
 fn host_commands() -> HashSet<String> {
@@ -70,10 +54,10 @@ pub fn check(source: &str, dialect: Dialect) -> Vec<Diagnostic> {
         return Vec::new();
     }
 
-    let registry = known_registry();
+    let host = known_host();
     let mut checker = Checker {
         source,
-        registry: &registry,
+        registry: host.registry(),
         host_commands: host_commands(),
         out: Vec::new(),
     };

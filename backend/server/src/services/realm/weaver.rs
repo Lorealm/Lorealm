@@ -6,17 +6,16 @@ use std::{
 use lorealm_storage::models::{
     AGENTS_SCOPE, AgentGrant, Param, RealmAgent, ScopePattern, StateDelta,
 };
-use weaver_lang::{CompiledExpr, CompiledTemplate, Value as WeaverValue};
 
 use crate::{
     errors::RealmError,
     services::{
-        state::{StatePool, StateService},
-        tools::{
-            Actor, EmitEventCommand, EmittedEvent, EventSink, ToolContext, build_tool_registry,
+        state::StatePool,
+        tools::{Actor, EmittedEvent},
+        weaver::{
+            WeaverError, WeaverHost, WeaverProfile, bind_json_args, compile_expr, compile_template,
         },
     },
-    util::weaver::{describe_parse_errors, json_to_weaver},
 };
 
 /// The scopes an agent may read
@@ -103,79 +102,49 @@ pub(super) fn slice(world: &StatePool, read: &[ScopePattern]) -> StatePool {
 /// Compile and run weaver `source` against the WHOLE pool on behalf of
 /// `agent`
 pub(super) async fn run_scoped(
-    state: &StateService,
     source: &str,
     params: &[Param],
     args: serde_json::Value,
     agent: &RealmAgent,
     world: &StatePool,
 ) -> Result<(String, StateDelta, Vec<EmittedEvent>), RealmError> {
-    let before = world.clone();
-
-    let body = CompiledTemplate::compile(source).map_err(|errors| {
-        RealmError::ActionFailed(format!(
-            "body failed to compile: {}",
-            describe_parse_errors(source, &errors)
-        ))
-    })?;
-
-    // Bind declared params into the `cmd:` namespace the source reads. Scripts
+    // Declared params land in the `cmd:` namespace the source reads. Scripts
     // declare none, so this is a no-op for them.
-    let args = args.as_object().cloned().unwrap_or_default();
-    let mut cmd = HashMap::new();
-    for p in params {
-        match args.get(&p.name) {
-            Some(v) => {
-                let value = json_to_weaver(v).map_err(|e| {
-                    RealmError::ActionFailed(format!("parameter '{}': {e}", p.name))
-                })?;
-                cmd.insert(p.name.clone(), value);
-            }
-            None if p.required => {
-                return Err(RealmError::ActionFailed(format!(
-                    "missing required parameter '{}'",
-                    p.name
-                )));
-            }
-            None => {
-                cmd.insert(p.name.clone(), WeaverValue::None);
-            }
-        }
-    }
+    let host = WeaverHost::builder()
+        .profile(WeaverProfile::RealmScript)
+        .args(bind_json_args(params, &args).map_err(action_failed)?)
+        .actor(Some(actor_of(agent)))
+        .pool(Arc::new(StdMutex::new(world.clone())))
+        .build();
 
-    let pool = Arc::new(StdMutex::new(before.clone()));
-    let mut ctx = ToolContext::new(cmd, Arc::clone(&pool)).with_actor(Some(actor_of(agent)));
+    let outcome = host
+        .evaluate(compile_template(source).map_err(action_failed)?)
+        .await
+        .map_err(action_failed)?;
 
-    let sink: EventSink = Arc::new(StdMutex::new(Vec::new()));
-    let mut registry = build_tool_registry();
-    registry.register_command(EmitEventCommand::new(Arc::clone(&sink)));
-
-    let output = body
-        .evaluate(&mut ctx, &registry)
-        .map_err(|e| RealmError::ActionFailed(e.to_string()))?;
-
-    let delta = {
-        let after = pool.lock().unwrap();
-        state.diff(&before, &after)
-    };
-    let events = std::mem::take(&mut *sink.lock().unwrap());
-    Ok((output, delta, events))
+    Ok((outcome.to_output_string(), outcome.delta, outcome.events))
 }
 
-/// Compile and run weaver `source`
+/// Compile and run a scenario's seed script, returning the pool it built.
 pub(super) fn run_seed(source: &str, pool: StatePool) -> Result<StatePool, RealmError> {
-    let body = CompiledTemplate::compile(source).map_err(|errors| {
-        RealmError::InvalidScenario(format!(
-            "seed script failed to compile: {}",
-            describe_parse_errors(source, &errors)
-        ))
-    })?;
-    let shared = Arc::new(StdMutex::new(pool));
-    let mut ctx = ToolContext::new(HashMap::new(), Arc::clone(&shared));
-    body.evaluate(&mut ctx, &build_tool_registry())
-        .map_err(|e| RealmError::InvalidScenario(format!("seed script failed: {e}")))?;
-    drop(ctx);
-    Ok(Arc::try_unwrap(shared).unwrap().into_inner().unwrap())
+    let host = WeaverHost::builder()
+        .profile(WeaverProfile::RealmSeed)
+        .pool(Arc::new(StdMutex::new(pool)))
+        .build();
+
+    let outcome = host
+        .evaluate_inline(compile_template(source).map_err(invalid_scenario)?)
+        .map_err(invalid_scenario)?;
+
+    Ok(outcome.pool)
+}
+
+fn action_failed(e: WeaverError) -> RealmError {
+    RealmError::ActionFailed(e.to_string())
+}
+
+fn invalid_scenario(e: WeaverError) -> RealmError {
+    RealmError::InvalidScenario(format!("seed script: {e}"))
 }
 
 /// Whether an agent should run on its turn
@@ -187,20 +156,20 @@ pub(super) fn run_condition_passes(agent: &RealmAgent, world: &StatePool) -> boo
     else {
         return true;
     };
-    let Ok(expr) = CompiledExpr::compile(src) else {
+    let Ok(expr) = compile_expr(src) else {
         return false;
     };
 
     let read = slice(world, &read_scopes_of(agent));
-    let pool = Arc::new(StdMutex::new(read));
-    let mut ctx = ToolContext::new(HashMap::new(), pool)
-        .read_only()
-        .with_actor(Some(actor_of(agent)));
+    let host = WeaverHost::builder()
+        .profile(WeaverProfile::RealmCondition)
+        .actor(Some(actor_of(agent)))
+        .pool(Arc::new(StdMutex::new(read)))
+        .build();
 
-    match expr.evaluate(&mut ctx, &build_tool_registry()) {
-        Ok(v) => v.is_truthy(),
-        Err(_) => false,
-    }
+    host.evaluate_inline(expr)
+        .map(|outcome| outcome.is_truthy())
+        .unwrap_or(false)
 }
 
 #[cfg(test)]

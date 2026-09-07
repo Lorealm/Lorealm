@@ -79,6 +79,7 @@ impl Generation for ChatService {
 /// [`CommandService::run`] builds one, and only ever inside `spawn_blocking`.
 ///
 /// [`CommandService::run`]: crate::services::commands::CommandService::run
+#[derive(Clone)]
 pub struct GenerateBridge {
     pub handle: Handle,
     pub chat: Arc<dyn Generation>,
@@ -243,8 +244,7 @@ impl WeaverCommand for GenerateRawCommand {
     fn signature(&self) -> CommandSignature {
         CommandSignature {
             name: "generate_raw".into(),
-            description: "Send a barebones prompt to the model."
-                .into(),
+            description: "Send a barebones prompt to the model.".into(),
             returns: ValueType::String,
             params: vec![
                 ParamDef {
@@ -291,8 +291,7 @@ impl WeaverCommand for GenerateCommand {
     fn signature(&self) -> CommandSignature {
         CommandSignature {
             name: "generate".into(),
-            description: "Send a prompt to the model with the relevant context included."
-                .into(),
+            description: "Send a prompt to the model with the relevant context included.".into(),
             returns: ValueType::String,
             params: vec![
                 ParamDef {
@@ -311,7 +310,8 @@ impl WeaverCommand for GenerateCommand {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::services::tools::{ToolContext, ToolStatePool, build_tool_registry};
+    use crate::services::tools::{ToolContext, ToolStatePool};
+    use crate::services::weaver::WeaverHost;
     use std::{collections::HashMap, sync::Mutex};
     use weaver_lang::CompiledTemplate;
 
@@ -329,7 +329,7 @@ mod tests {
 
     #[test]
     fn without_a_bridge_the_call_is_refused_but_the_name_still_resolves() {
-        let mut registry = build_tool_registry();
+        let mut registry = WeaverHost::base().into_registry();
         registry.register_command(GenerateRawCommand::declaration());
         registry.register_command(GenerateCommand::declaration());
         let names: Vec<String> = registry
@@ -353,7 +353,7 @@ mod tests {
 
     #[test]
     fn generate_is_refused_without_a_bridge_too() {
-        let mut registry = build_tool_registry();
+        let mut registry = WeaverHost::base().into_registry();
         registry.register_command(GenerateCommand::declaration());
         let mut ctx = ToolContext::new(
             HashMap::new(),
@@ -368,7 +368,7 @@ mod tests {
 
     #[test]
     fn an_empty_prompt_is_rejected_before_any_network_call() {
-        let mut registry = build_tool_registry();
+        let mut registry = WeaverHost::base().into_registry();
         registry.register_command(GenerateRawCommand::declaration());
         let mut ctx = ToolContext::new(
             HashMap::new(),

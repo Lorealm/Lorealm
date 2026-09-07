@@ -129,7 +129,6 @@ impl Agent for ScriptAgent {
         } = cx;
 
         let (output, delta, emitted) = weaver::run_scoped(
-            &service.state,
             agent.script.as_deref().unwrap_or_default(),
             &[],
             json!({}),
