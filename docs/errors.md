@@ -101,6 +101,7 @@ Messages containing quoted values are examples; the interpolated part varies.
 | `persona.not_found` | 404 | That persona no longer exists. |
 | `persona.unsupported_media_type` | 415 | That image format isn't supported. |
 | `realm.action_failed` | 400 | Action failed: roll failed. |
+| `realm.director_failed` | 400 | The realm could not decide who acts next: unknown handle. |
 | `realm.import_in_use` | 409 | This lorebook is still used by agent "Narrator" — unbind it there first. |
 | `realm.invalid_agent` | 400 | Invalid agent: no name. |
 | `realm.invalid_scenario` | 400 | Invalid scenario: no opening. |

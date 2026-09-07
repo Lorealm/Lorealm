@@ -196,6 +196,7 @@ fn contract_surface() -> Vec<(&'static str, Vec<Box<dyn DomainError>>)> {
                 )),
                 Box::new(RealmError::ActionFailed("roll failed".into())),
                 Box::new(RealmError::InvalidScenario("no opening".into())),
+                Box::new(RealmError::DirectorFailed("unknown handle".into())),
             ],
         ),
     ]

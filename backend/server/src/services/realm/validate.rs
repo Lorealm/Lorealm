@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use lorealm_storage::models::{
-    AgentGrant, AgentKind, ImportKind, ImportRule, RealmAgent, ScopePattern, Snowflake,
-    is_identifier,
+    AgentFilter, AgentGrant, AgentKind, Director, ImportKind, ImportRule, RealmAgent, ScopePattern,
+    Snowflake, is_identifier,
 };
 use weaver_lang::CompiledExpr;
 
@@ -311,6 +311,63 @@ pub(super) fn validate_scenario(
     Ok(())
 }
 
+/// A director must compile, and must be able to reach the cast it schedules.
+pub(super) fn validate_director(
+    director: &Director,
+    cast: &[RealmAgent],
+) -> Result<(), RealmError> {
+    let over = match director {
+        Director::Script { source } => {
+            if source.trim().is_empty() {
+                return Ok(());
+            }
+            weaver_lang::CompiledTemplate::compile(source).map_err(|errors| {
+                RealmError::DirectorFailed(format!(
+                    "body failed to compile: {}",
+                    describe_parse_errors(source, &errors)
+                ))
+            })?;
+            return Ok(());
+        }
+        Director::RoundRobin { over } | Director::Random { over } => over,
+    };
+
+    if let AgentFilter::Handles { handles } = over {
+        for handle in handles {
+            if !cast.iter().any(|a| &a.handle == handle) {
+                return Err(RealmError::DirectorFailed(format!(
+                    "no cast member holds the handle '{handle}'"
+                )));
+            }
+        }
+    }
+
+    if !cast.is_empty() && !cast.iter().any(|a| over.admits(a)) {
+        return Err(RealmError::DirectorFailed(
+            "this filter admits nobody in the cast".into(),
+        ));
+    }
+
+    let players = cast.iter().filter(|a| a.kind == AgentKind::Player);
+    if players.clone().count() > 0 && !players.clone().any(|a| over.admits(a)) {
+        return Err(RealmError::DirectorFailed(
+            "this filter excludes every player, so no one could ever take a turn".into(),
+        ));
+    }
+
+    Ok(())
+}
+
+/// A realm about to be played needs a director that can actually answer.
+pub(super) fn validate_playable(director: &Director) -> Result<(), RealmError> {
+    match director {
+        Director::Script { source } if source.trim().is_empty() => Err(RealmError::DirectorFailed(
+            "the script director has no body yet".into(),
+        )),
+        _ => Ok(()),
+    }
+}
+
 /// Grants must be weaver `scope[:name]` patterns ([`ScopePattern::validate`]).
 pub(super) fn validate_grants(grants: &[AgentGrant]) -> Result<(), RealmError> {
     for g in grants {
@@ -552,6 +609,45 @@ mod tests {
         apply_turn_order(&mut agents, &[sf(3), sf(1), sf(2)]).unwrap();
         let got: Vec<(Snowflake, i32)> = agents.iter().map(|a| (a.id, a.turn_order)).collect();
         assert_eq!(got, vec![(sf(3), 0), (sf(1), 1), (sf(2), 2)]);
+    }
+
+    #[test]
+    fn a_blank_script_director_saves_but_will_not_play() {
+        let blank = Director::Script {
+            source: String::new(),
+        };
+        assert!(validate_director(&blank, &[]).is_ok());
+        assert!(validate_playable(&blank).is_err());
+
+        let written = Director::Script {
+            source: "alice".into(),
+        };
+        assert!(validate_director(&written, &[]).is_ok());
+        assert!(validate_playable(&written).is_ok());
+    }
+
+    #[test]
+    fn a_director_body_that_does_not_compile_is_rejected_on_save() {
+        let broken = Director::Script {
+            source: "{# if #}".into(),
+        };
+        assert!(validate_director(&broken, &[]).is_err());
+    }
+
+    #[test]
+    fn a_filter_may_not_starve_the_players() {
+        let mut player = agent("you");
+        player.kind = AgentKind::Player;
+        let cast = vec![agent("alice"), player];
+
+        let llm_only = Director::RoundRobin {
+            over: AgentFilter::Kind {
+                kind: AgentKind::Llm,
+            },
+        };
+        assert!(validate_director(&llm_only, &cast).is_err());
+        // The same filter is fine when there is no player to strand.
+        assert!(validate_director(&llm_only, &[agent("alice")]).is_ok());
     }
 
     #[test]

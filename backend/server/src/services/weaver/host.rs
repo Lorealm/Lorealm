@@ -14,7 +14,7 @@ use crate::services::{
     },
     context::weaver::stdlib,
     state::{StatePool, diff},
-    tools::{Actor, EmitEventCommand, EmittedEvent, EventSink, ToolContext},
+    tools::{Actor, EmitEventCommand, EmittedEvent, EventSink, RealmView, ToolContext},
     weaver::{
         Caps, WeaverProfile,
         eval::{Evaluable, Limits, Outcome, WeaverError, cancellation_flag},
@@ -66,6 +66,7 @@ pub struct WeaverHost {
     pool: Arc<Mutex<StatePool>>,
     cmd: HashMap<String, WeaverValue>,
     actor: Option<Actor>,
+    realm: Option<RealmView>,
     read_only: bool,
     limits: Limits,
     cancel: Option<CancellationToken>,
@@ -142,7 +143,8 @@ impl WeaverHost {
     /// A fresh context over this host's pool, args and actor.
     fn context(&self) -> ToolContext {
         let ctx = ToolContext::new(self.cmd.clone(), Arc::clone(&self.pool))
-            .with_actor(self.actor.clone());
+            .with_actor(self.actor.clone())
+            .with_realm(self.realm.clone());
         if self.read_only { ctx.read_only() } else { ctx }
     }
 
@@ -180,6 +182,7 @@ pub struct WeaverBuilder {
     pool: Option<Arc<Mutex<StatePool>>>,
     cmd: HashMap<String, WeaverValue>,
     actor: Option<Actor>,
+    realm: Option<RealmView>,
     read_only: bool,
     limits: Limits,
     cancel: Option<CancellationToken>,
@@ -243,6 +246,12 @@ impl WeaverBuilder {
         self
     }
 
+    /// The realm the body runs inside, mounting `cast:` and `turn:`.
+    pub fn realm(mut self, realm: RealmView) -> Self {
+        self.realm = Some(realm);
+        self
+    }
+
     #[cfg(test)] // Gated to mute clippy errors
     pub fn limits(mut self, limits: Limits) -> Self {
         self.limits = limits;
@@ -298,6 +307,7 @@ impl WeaverBuilder {
             pool: self.pool.unwrap_or_default(),
             cmd: self.cmd,
             actor: self.actor,
+            realm: self.realm,
             read_only: self.read_only,
             limits: self.limits,
             cancel: self.cancel,

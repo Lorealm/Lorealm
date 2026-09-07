@@ -11,7 +11,7 @@ use tokio_util::sync::CancellationToken;
 use weaver_lang::{CompiledTemplate, Registry, Value as WeaverValue};
 
 use crate::services::chat::AttachmentSpec;
-use crate::services::tools::{Actor, EventSink, ToolContext, ToolStatePool};
+use crate::services::tools::{Actor, EventSink, RealmView, ToolContext, ToolStatePool};
 use crate::util::weaver::{json_to_weaver, weaver_to_json};
 
 /// Which tools a turn exposes and on whose behalf they run.
@@ -20,6 +20,7 @@ pub struct ToolPolicy {
     pub tool_ids: Option<Vec<Snowflake>>,
     pub extra_tool_ids: Vec<Snowflake>,
     pub actor: Option<Actor>,
+    pub realm: Option<RealmView>,
     pub event_sink: Option<EventSink>,
     pub attachments: Vec<AttachmentSpec>,
     pub conversation: Option<Snowflake>,
@@ -61,6 +62,7 @@ pub struct CompiledUserTool {
     registry: Arc<Registry>,
     state: Arc<Mutex<ToolStatePool>>,
     actor: Option<Actor>,
+    realm: Option<RealmView>,
 }
 
 impl From<lorealm_storage::models::UserTool> for ToolSignature {
@@ -80,6 +82,7 @@ impl CompiledUserTool {
         registry: Arc<Registry>,
         state: Arc<Mutex<ToolStatePool>>,
         actor: Option<Actor>,
+        realm: Option<RealmView>,
     ) -> Result<Self, ProviderError> {
         let body = CompiledTemplate::compile(&sig.body).map_err(|e| {
             ProviderError::Tool(format!("'{}' body failed to compile: {e:?}", sig.name))
@@ -90,6 +93,7 @@ impl CompiledUserTool {
             registry,
             state,
             actor,
+            realm,
         })
     }
 }
@@ -127,7 +131,9 @@ impl Tool for CompiledUserTool {
             }
         }
 
-        let ctx = ToolContext::new(cmd, Arc::clone(&self.state)).with_actor(self.actor.clone());
+        let ctx = ToolContext::new(cmd, Arc::clone(&self.state))
+            .with_actor(self.actor.clone())
+            .with_realm(self.realm.clone());
 
         let body = Arc::clone(&self.body);
         let registry = Arc::clone(&self.registry);
@@ -191,6 +197,7 @@ mod tests {
             Arc::new(turn_registry()),
             Arc::new(Mutex::new(ToolStatePool::default())),
             None,
+            None,
         )
         .expect("body compiles");
         match tool.call(json!({})).await {
@@ -209,6 +216,7 @@ mod tests {
             },
             WeaverHost::base().into_shared().0,
             Arc::new(Mutex::new(ToolStatePool::default())),
+            None,
             None,
         )
         .expect("body compiles");

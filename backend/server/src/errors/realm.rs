@@ -41,6 +41,8 @@ pub enum RealmError {
     ActionFailed(String),
     #[error("invalid scenario: {0}")]
     InvalidScenario(String),
+    #[error("director failed: {0}")]
+    DirectorFailed(String),
     #[error(transparent)]
     Chat(#[from] ChatError),
     #[error(transparent)]
@@ -84,6 +86,7 @@ impl DomainError for RealmError {
             Self::ImportInUse(_, _, _) => "realm.import_in_use",
             Self::ActionFailed(_) => "realm.action_failed",
             Self::InvalidScenario(_) => "realm.invalid_scenario",
+            Self::DirectorFailed(_) => "realm.director_failed",
             Self::Storage(_) | Self::Serialization(_) => "internal",
         }
     }
@@ -109,7 +112,8 @@ impl DomainError for RealmError {
             | Self::InvalidTurn(_)
             | Self::ToolNotBound(_)
             | Self::ActionFailed(_)
-            | Self::InvalidScenario(_) => StatusCode::BAD_REQUEST,
+            | Self::InvalidScenario(_)
+            | Self::DirectorFailed(_) => StatusCode::BAD_REQUEST,
             Self::Storage(_) | Self::Serialization(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -150,6 +154,9 @@ impl DomainError for RealmError {
             )),
             Self::ActionFailed(hint) => sentence(format!("Action failed: {hint}")),
             Self::InvalidScenario(hint) => sentence(format!("Invalid scenario: {hint}")),
+            Self::DirectorFailed(hint) => {
+                sentence(format!("The realm could not decide who acts next: {hint}"))
+            }
             Self::Storage(_) | Self::Serialization(_) => "An internal error occurred".into(),
         }
     }
@@ -177,9 +184,10 @@ impl DomainError for RealmError {
             }
             Self::InvalidAgent(_) => Some(ErrorDetails::resource(TargetType::RealmAgent)),
             Self::InvalidScenario(_) => Some(ErrorDetails::resource(TargetType::Scenario)),
-            Self::NoRunnableAgent | Self::InvalidTurn(_) | Self::ActionFailed(_) => {
-                Some(ErrorDetails::resource(TargetType::Realm))
-            }
+            Self::NoRunnableAgent
+            | Self::InvalidTurn(_)
+            | Self::ActionFailed(_)
+            | Self::DirectorFailed(_) => Some(ErrorDetails::resource(TargetType::Realm)),
             Self::Storage(_) | Self::Serialization(_) => None,
         }
     }

@@ -969,6 +969,7 @@ impl ChatService {
                 Arc::clone(&weaver_registry),
                 Arc::clone(&state),
                 policy.actor.clone(),
+                policy.realm.clone(),
             ) {
                 Ok(tool) => {
                     tracing::info!("Registering tool: {}", sig.name);

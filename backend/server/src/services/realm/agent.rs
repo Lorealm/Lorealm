@@ -13,7 +13,7 @@ use crate::{
         context::PromptTurn,
         realm::{RealmService, weaver},
         state::{CapturedState, ReconstructedState},
-        tools::{EmittedEvent, ToolPolicy},
+        tools::{EmittedEvent, RealmView, ToolPolicy},
     },
 };
 
@@ -86,6 +86,8 @@ pub(super) struct PlanCx<'a> {
     pub cast: RealmCast,
     /// The cast member whose turn it is.
     pub agent: RealmAgent,
+    /// The `cast:`/`turn:` mount every body on this turn reads.
+    pub view: RealmView,
     /// Message ids along the active path (turn history + observation scope).
     pub path_ids: Vec<Snowflake>,
     /// The reconstructed world at the turn's baseline.
@@ -123,6 +125,7 @@ impl Agent for ScriptAgent {
             convo,
             cast,
             agent,
+            view,
             world,
             persist,
             ..
@@ -134,6 +137,7 @@ impl Agent for ScriptAgent {
             json!({}),
             &agent,
             &world.persistent,
+            &view,
         )
         .await?;
 
@@ -179,6 +183,7 @@ impl Agent for LlmAgent {
             convo,
             cast,
             agent,
+            view,
             path_ids,
             world,
             persist,
@@ -212,6 +217,7 @@ impl Agent for LlmAgent {
             tool_ids: Some(bindings.iter().map(|b| b.tool_id).collect()),
             extra_tool_ids: Vec::new(),
             actor: Some(weaver::actor_of(&agent)),
+            realm: Some(view),
             event_sink: Some(Arc::new(std::sync::Mutex::new(Vec::new()))),
             // Realm agents do not offer attachments yet.
             attachments: Vec::new(),

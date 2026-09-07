@@ -46,6 +46,60 @@ pub struct RealmDefinition {
     /// Named openings; instantiation picks one (see [`Scenario`]).
     #[serde(default)]
     pub scenarios: Vec<Scenario>,
+    /// How the realm decides who acts next. `None` = [`Director::default`].
+    #[serde(default)]
+    pub director: Option<Director>,
+}
+
+/// How a realm decides who acts next.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum Director {
+    /// Rotate through the cast in turn order, resuming after whoever acted
+    /// last.
+    RoundRobin {
+        #[serde(default)]
+        over: AgentFilter,
+    },
+    /// Pick in a random order.
+    Random {
+        #[serde(default)]
+        over: AgentFilter,
+    },
+    /// A weaver expression naming who acts next
+    Script { source: String },
+}
+
+impl Default for Director {
+    fn default() -> Self {
+        Self::RoundRobin {
+            over: AgentFilter::All,
+        }
+    }
+}
+
+/// Which cast members a director draws from.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(tag = "match", rename_all = "snake_case")]
+pub enum AgentFilter {
+    #[default]
+    All,
+    Kind {
+        kind: AgentKind,
+    },
+    Handles {
+        handles: Vec<String>,
+    },
+}
+
+impl AgentFilter {
+    pub fn admits(&self, agent: &RealmAgent) -> bool {
+        match self {
+            Self::All => true,
+            Self::Kind { kind } => &agent.kind == kind,
+            Self::Handles { handles } => handles.contains(&agent.handle),
+        }
+    }
 }
 
 /// A named opening for a realm, analogous to a character greeting: a seed
@@ -326,6 +380,8 @@ pub struct RealmCast {
     #[serde(default)]
     pub version_id: Option<Snowflake>,
     pub agents: Vec<RealmAgent>,
+    #[serde(default)]
+    pub director: Option<Director>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]

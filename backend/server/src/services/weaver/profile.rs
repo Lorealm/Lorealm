@@ -36,6 +36,8 @@ pub enum WeaverProfile {
     RealmSeed,
     /// An agent's `run_condition`, evaluated to decide whether it acts.
     RealmCondition,
+    /// A realm's `Director::Script`, evaluated to decide who acts.
+    RealmDirector,
 }
 
 impl WeaverProfile {
@@ -46,6 +48,7 @@ impl WeaverProfile {
         Self::RealmScript,
         Self::RealmSeed,
         Self::RealmCondition,
+        Self::RealmDirector,
     ];
 
     pub const fn caps(self) -> Caps {
@@ -64,12 +67,14 @@ impl WeaverProfile {
             Self::RealmSeed => Caps::empty(),
             // A condition only reads.
             Self::RealmCondition => Caps::empty(),
+            // A director only reads, and answers with a handle.
+            Self::RealmDirector => Caps::empty(),
         }
     }
 
     /// Whether this profile writes state.
     pub const fn read_only(self) -> bool {
-        matches!(self, Self::RealmCondition)
+        matches!(self, Self::RealmCondition | Self::RealmDirector)
     }
 }
 
