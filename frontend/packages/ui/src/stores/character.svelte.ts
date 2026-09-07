@@ -179,9 +179,11 @@ class CharacterStore {
 		this.avatarUrl = URL.createObjectURL(image);
 		if (previous) URL.revokeObjectURL(previous);
 
-		// Keep the in-memory snapshot truthful. avatar_uri isn't part of the
-		// diff, but leaving a stale value on the baseline is a latent trap.
 		if (this.#baseline) this.#baseline.metadata.avatar_uri = avatar_uri;
+
+		if (this.activeCharacter?.id === id) this.activeCharacter.metadata.avatar_uri = avatar_uri;
+		const listed = this.metadataList.find((c) => c.id === id);
+		if (listed) listed.avatar_uri = avatar_uri;
 	}
 
 	/** Import cards in bulk. */

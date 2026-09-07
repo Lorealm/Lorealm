@@ -7,6 +7,7 @@ use crate::{
     middleware::{PermissionMiddlewareState, SessionMiddlewareState},
 };
 
+mod blobs;
 mod characters;
 mod chat;
 mod config;
@@ -31,6 +32,10 @@ pub async fn api_routes(
     permission_state: PermissionMiddlewareState,
 ) -> Router {
     Router::new()
+        .nest(
+            "/blobs",
+            blobs::router(Arc::clone(&app_state), session_state.clone()),
+        )
         .nest(
             "/users",
             users::router(Arc::clone(&app_state), session_state.clone()),

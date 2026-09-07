@@ -91,6 +91,15 @@ impl BlobId {
         uri.strip_prefix("sha256:").map(|hex| Self(hex.to_string()))
     }
 
+    /// Parse a bare hex digest, rejecting anything that isn't a well-formed
+    /// sha256. Ids taken from client input MUST come through here.
+    pub fn from_hex(hex: &str) -> Option<Self> {
+        let well_formed =
+            hex.len() == 64 && hex.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'));
+
+        well_formed.then(|| Self(hex.to_string()))
+    }
+
     /// Relative location under the blobs root: `<ab>/<full-hex>`.
     pub fn relative_path(&self) -> PathBuf {
         Path::new(&self.0[..2]).join(&self.0)
