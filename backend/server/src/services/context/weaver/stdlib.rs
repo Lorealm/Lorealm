@@ -240,6 +240,7 @@ fn register_array(registry: &mut Registry) {
     registry.register_processor(ArrayContainsProcessor);
     registry.register_processor(ArrayFirstProcessor);
     registry.register_processor(ArrayLastProcessor);
+    registry.register_processor(ArrayAtProcessor);
     registry.register_processor(ArrayReverseProcessor);
     registry.register_processor(ArraySliceProcessor);
     registry.register_processor(ArrayRangeProcessor);
@@ -268,6 +269,22 @@ fn array_first(items: Vec<Value>) -> Result<Value, EvalError> {
 #[weaver_processor(namespace = "array", name = "last", returns = "any")]
 fn array_last(items: Vec<Value>) -> Result<Value, EvalError> {
     Ok(items.into_iter().last().unwrap_or(Value::None))
+}
+
+/// `@[array.at(items: ["a", "b", "c"], index: 1)]` → `"b"`. `none` when the
+/// index falls outside the array; negative indices count from the end.
+#[weaver_processor(namespace = "array", name = "at", returns = "any")]
+fn array_at(items: Vec<Value>, index: f64) -> Result<Value, EvalError> {
+    let index = index as i64;
+    let resolved = if index < 0 {
+        items.len() as i64 + index
+    } else {
+        index
+    };
+    Ok(usize::try_from(resolved)
+        .ok()
+        .and_then(|i| items.into_iter().nth(i))
+        .unwrap_or(Value::None))
 }
 
 /// `@[array.reverse(items: [1, 2, 3])]` → `[3, 2, 1]`

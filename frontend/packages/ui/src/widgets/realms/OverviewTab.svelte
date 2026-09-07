@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { realmStore } from '$lib/stores/realm.svelte.js';
+	import DirectorField from './DirectorField.svelte';
 	import Tag from './Tag.svelte';
 
 	const def = realmStore.realm!.definition;
@@ -54,6 +55,8 @@
 			oninput={saveSoon}
 		></textarea>
 	</div>
+
+	<DirectorField />
 
 	<div class="field">
 		<div class="label">Tags</div>

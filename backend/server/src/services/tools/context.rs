@@ -25,12 +25,49 @@ pub struct Actor {
     pub kind: &'static str,
 }
 
+/// The realm a weaver body runs inside, as the `cast:` and `turn:` namespaces
+/// see it.
+#[derive(Clone, Default)]
+pub struct RealmView(Arc<ToolStatePool>);
+
+/// The namespaces [`RealmView`] owns. Reserved in every [`ToolContext`], with
+/// or without a view behind them, the way `actor:` is.
+pub const REALM_SCOPES: [&str; 2] = ["cast", "turn"];
+
+impl RealmView {
+    pub fn new(pool: ToolStatePool) -> Self {
+        Self(Arc::new(pool))
+    }
+
+    fn get(&self, scope: &str, name: &str) -> Option<&serde_json::Value> {
+        lookup(self.0.get(scope)?, name)
+    }
+}
+
+/// Follow a dotted `name` into one namespace of a pool.
+fn lookup<'a>(
+    ns: &'a std::collections::HashMap<String, serde_json::Value>,
+    name: &str,
+) -> Option<&'a serde_json::Value> {
+    match name.split_once('.') {
+        None => ns.get(name),
+        Some((root, rest)) => {
+            let mut cur = ns.get(root);
+            for segment in rest.split('.') {
+                cur = cur.and_then(|v| v.get(segment));
+            }
+            cur
+        }
+    }
+}
+
 pub struct ToolContext {
     cmd: HashMap<String, WeaverValue>,
     local: HashMap<String, WeaverValue>,
     state: Arc<Mutex<ToolStatePool>>,
     read_only: bool,
     actor: Option<Actor>,
+    realm: Option<RealmView>,
 }
 
 impl ToolContext {
@@ -41,6 +78,7 @@ impl ToolContext {
             state,
             read_only: false,
             actor: None,
+            realm: None,
         }
     }
 
@@ -53,6 +91,12 @@ impl ToolContext {
 
     pub fn with_actor(mut self, actor: Option<Actor>) -> Self {
         self.actor = actor;
+        self
+    }
+
+    /// Mount `cast:` and `turn:` for a body running inside a realm.
+    pub fn with_realm(mut self, realm: Option<RealmView>) -> Self {
+        self.realm = realm;
         self
     }
 
@@ -70,17 +114,17 @@ impl ToolContext {
         let Some(ns) = pool.get(scope) else {
             return Ok(None);
         };
-        let found = match name.split_once('.') {
-            None => ns.get(name),
-            Some((root, rest)) => {
-                let mut cur = ns.get(root);
-                for segment in rest.split('.') {
-                    cur = cur.and_then(|v| v.get(segment));
-                }
-                cur
-            }
-        };
-        found
+        lookup(ns, name)
+            .map(|v| json_to_weaver(v).map_err(|e| EvalError::host_error(e.to_string())))
+            .transpose()
+    }
+
+    /// A `cast:`/`turn:` read. Absent without a mounted view, the same way
+    /// `actor:` is absent without an actor.
+    fn realm_var(&self, scope: &str, name: &str) -> Result<Option<WeaverValue>, EvalError> {
+        self.realm
+            .as_ref()
+            .and_then(|r| r.get(scope, name))
             .map(|v| json_to_weaver(v).map_err(|e| EvalError::host_error(e.to_string())))
             .transpose()
     }
@@ -108,6 +152,7 @@ impl EvalContext for ToolContext {
                 },
                 None => Ok(None),
             },
+            _ if REALM_SCOPES.contains(&scope) => self.realm_var(scope, name),
             other => self.state_var(other, name),
         }
     }
@@ -137,6 +182,9 @@ impl EvalContext for ToolContext {
             }
             "user" | "char" | "actor" => Err(EvalError::host_error(format!(
                 "namespace '{scope}' is a reserved namespace"
+            ))),
+            _ if REALM_SCOPES.contains(&scope) => Err(EvalError::host_error(format!(
+                "namespace '{scope}' is the realm's own, and is read-only"
             ))),
             other => {
                 if self.read_only {
@@ -222,6 +270,57 @@ mod tests {
             c.resolve_variable("self", "gold").unwrap(),
             Some(WeaverValue::Number(5.0))
         );
+    }
+
+    fn realm_ctx() -> ToolContext {
+        ctx().with_realm(Some(RealmView::new(ToolStatePool::from([
+            (
+                "cast".to_string(),
+                std::collections::HashMap::from([
+                    ("count".to_string(), serde_json::json!(2)),
+                    (
+                        "llm".to_string(),
+                        serde_json::json!({ "count": 1, "handles": ["alice"] }),
+                    ),
+                ]),
+            ),
+            (
+                "turn".to_string(),
+                std::collections::HashMap::from([("index".to_string(), serde_json::json!(3))]),
+            ),
+        ]))))
+    }
+
+    #[test]
+    fn the_realm_view_reads_through_dotted_paths() {
+        let c = realm_ctx();
+        assert_eq!(
+            c.resolve_variable("cast", "count").unwrap(),
+            Some(WeaverValue::Number(2.0))
+        );
+        assert_eq!(
+            c.resolve_variable("cast", "llm.count").unwrap(),
+            Some(WeaverValue::Number(1.0))
+        );
+        assert_eq!(
+            c.resolve_variable("turn", "index").unwrap(),
+            Some(WeaverValue::Number(3.0))
+        );
+        assert_eq!(c.resolve_variable("cast", "llm.missing").unwrap(), None);
+    }
+
+    #[test]
+    fn the_realm_scopes_are_reserved_with_or_without_a_view() {
+        assert_eq!(ctx().resolve_variable("cast", "count").unwrap(), None);
+
+        for scope in REALM_SCOPES {
+            assert!(
+                realm_ctx()
+                    .set_variable(scope, "count", WeaverValue::Number(9.0))
+                    .is_err(),
+                "{scope} accepted a write"
+            );
+        }
     }
 
     #[test]

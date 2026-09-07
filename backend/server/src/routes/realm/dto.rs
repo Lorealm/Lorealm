@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use lorealm_storage::models::{AgentGrant, AgentKind, AgentToolBinding, Snowflake};
+use lorealm_storage::models::{AgentGrant, AgentKind, AgentToolBinding, Director, Snowflake};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -13,6 +13,10 @@ pub struct UpdateRealmRequest {
     pub name: Option<String>,
     pub description: Option<String>,
     pub tags: Option<Vec<String>>,
+    /// Outer `None` leaves the director alone; inner `None` resets it to the
+    /// default rotation.
+    #[serde(default, deserialize_with = "crate::util::double_option")]
+    pub director: Option<Option<Director>>,
 }
 
 #[derive(Deserialize)]

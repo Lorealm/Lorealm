@@ -57,7 +57,7 @@
 
 	const renderMd = (text: string) => DOMPurify.sanitize(marked.parse(text).toString().trim());
 	const presentedText = (text: string) =>
-		createPresentable(characterStore.activeCharacter!.id, text);
+		createPresentable(characterStore.activeCharacter?.id ?? null, text);
 
 	function startEdit(mode: 'edit' | 'branch') {
 		editMode = mode;

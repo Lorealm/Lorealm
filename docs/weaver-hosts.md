@@ -63,6 +63,7 @@ cargo test -p lorealm_server --bin lorealm_server dump_weaver_vocabulary -- --ig
 | `RealmScript` | `events` | `emit_event` |
 | `RealmSeed` | none | — |
 | `RealmCondition` | none | — |
+| `RealmDirector` | none | — |
 
 Where each one is built:
 
@@ -73,6 +74,7 @@ Where each one is built:
 | `RealmScript` | `services/realm/weaver.rs` | A script agent's body, and realm actions |
 | `RealmSeed` | `services/realm/weaver.rs` | A scenario's seed script, once at instantiation |
 | `RealmCondition` | `services/realm/weaver.rs` | An agent's `run_condition` |
+| `RealmDirector` | `services/realm/weaver.rs` | A realm's `Director::Script`, rendering the handle of whoever acts next |
 
 The editor's two endpoints — `check` in `services/context/weaver/check.rs` and
 `list_weaver_vocabulary` in `routes/templates/handlers.rs` — both build
@@ -85,8 +87,31 @@ The stdlib is present in every host and is not a capability:
 
 `default_var`, `get_var`, `inc_var`, `push_var`, `set_var`, `var_exists`
 
-Along with 34 processors: `array.*` (8), `math.*` (12), `random.*` (2),
+Along with 35 processors: `array.*` (9), `math.*` (12), `random.*` (2),
 `text.*` (12).
+
+### Inside a realm
+
+The four realm hosts also mount two read-only namespaces describing the realm
+itself, so a body never has to restate what the engine already knows. They are
+derived per evaluation from the pinned cast and the active path — deliberately
+not kept in the state pool, which is persisted as per-message deltas and would
+freeze a stale copy into history.
+
+| | |
+| --- | --- |
+| `cast:count`, `cast:handles`, `cast:names` | The whole roster, in turn order |
+| `cast:llm.*`, `cast:player.*`, `cast:script.*` | The same three, per kind |
+| `cast:agents.<handle>.name` / `.kind` / `.turn_order` | One cast member |
+| `turn:index` | Turns already committed on this path |
+| `turn:last.handle` / `.name` / `.kind` / `.said` | Who acted last; absent on the opening turn |
+
+Only agents with a handle appear: an unhandled agent has no `agents:` subtree
+and no `self:`, so listing it would name an identity nothing can address.
+
+`cast:` and `turn:` are reserved in every host, the way `actor:` is — a state
+namespace cannot shadow them, and writing to one is an error rather than a
+write that goes nowhere.
 
 ## Running a body
 

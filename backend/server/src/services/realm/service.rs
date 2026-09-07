@@ -10,13 +10,14 @@ use futures_util::{Stream, StreamExt};
 use lorealm_storage::{
     Storage,
     models::{
-        AGENTS_SCOPE, ActivationState, AgentGrant, AgentKind, AgentObservation, AgentSpec,
-        AgentToolBinding, ChatRole, Conversation, ConversationMessage, EventKind, ImportRule,
-        Realm, RealmAgent, RealmCast, RealmConfig, RealmDefinition, RealmEvent, RealmSummary,
-        RealmVersionInfo, ResolvedRealmConfig, Scenario, Snowflake, StateDelta, TurnCommit,
-        UserTool, VersionedSaveMode,
+        AGENTS_SCOPE, ActivationState, AgentFilter, AgentGrant, AgentKind, AgentObservation,
+        AgentSpec, AgentToolBinding, ChatRole, Conversation, ConversationMessage, Director,
+        EventKind, ImportRule, Realm, RealmAgent, RealmCast, RealmConfig, RealmDefinition,
+        RealmEvent, RealmSummary, RealmVersionInfo, ResolvedRealmConfig, Scenario, Snowflake,
+        StateDelta, TurnCommit, UserTool, VersionedSaveMode,
     },
 };
+use rand::seq::SliceRandom;
 use serde_json::json;
 use tokio::{sync::RwLock, time::Instant};
 
@@ -32,10 +33,10 @@ use crate::{
         context::{ContextService, TracedBlock},
         conversation::ConversationService,
         persona::PersonaService,
-        realm::{ActionSpec, RealmStreamEvent, RoundRobin, TurnPolicy, TurnResult},
+        realm::{ActionSpec, RealmStreamEvent, TurnResult},
         snowflake::SnowflakeService,
         state::{CapturedState, StatePool, StateService, write_var},
-        tools::{EmittedEvent, builtin_tool},
+        tools::{EmittedEvent, RealmView, builtin_tool},
     },
 };
 
@@ -44,7 +45,10 @@ use super::{
         AgentRegistry, EventDraft, MAIN_CHANNEL, PersistPlan, PlanCx, Production, ReadyTurn,
         TurnPlan, capture, push_emitted_events, push_state_events, speech_channel,
     },
-    validate::{agent_required_imports, apply_turn_order, validate_grants, validate_scenario},
+    validate::{
+        agent_required_imports, apply_turn_order, validate_director, validate_grants,
+        validate_playable, validate_scenario,
+    },
     weaver,
 };
 
@@ -76,7 +80,6 @@ pub struct RealmService {
     pub(super) personas: Arc<PersonaService>,
     pub(super) state: Arc<StateService>,
     conversations: Arc<ConversationService>,
-    policy: Arc<dyn TurnPolicy>,
     agents: AgentRegistry,
     editing_sessions: RwLock<HashMap<Snowflake, EditingSession>>,
 }
@@ -104,7 +107,6 @@ impl RealmService {
             personas,
             state,
             conversations,
-            policy: Arc::new(RoundRobin),
             agents: AgentRegistry::with_defaults(),
             editing_sessions: RwLock::new(HashMap::new()),
         }
@@ -187,6 +189,12 @@ impl RealmService {
         }
         if let Some(tags) = req.tags {
             edit.realm.tags = tags;
+        }
+        if let Some(director) = req.director {
+            if let Some(d) = &director {
+                validate_director(d, &edit.realm.definition.agents)?;
+            }
+            edit.realm.definition.director = director;
         }
 
         self.storage.save_realm(&edit.realm, edit.save_mode).await?;
@@ -573,6 +581,11 @@ impl RealmService {
         if realm.definition.agents.is_empty() {
             return Err(RealmError::NoAgents(realm_id));
         }
+        // The cast may have moved under the director since it was set
+        if let Some(director) = &realm.definition.director {
+            validate_director(director, &realm.definition.agents)?;
+            validate_playable(director)?;
+        }
         let scenario = match scenario_id {
             Some(id) => Some(
                 realm
@@ -615,6 +628,7 @@ impl RealmService {
                     realm_id,
                     version_id: Some(realm.current_version_id),
                     agents: agents.clone(),
+                    director: realm.definition.director.clone(),
                 },
             )
             .await?;
@@ -664,7 +678,8 @@ impl RealmService {
             .map(|s| s.seed_script.as_str())
             .filter(|s| !s.trim().is_empty())
         {
-            pool = weaver::run_seed(script, pool)?;
+            let view = weaver::realm_view(agents, &weaver::TurnInfo::opening());
+            pool = weaver::run_seed(script, pool, &view)?;
         }
 
         let opening = scenario
@@ -864,14 +879,12 @@ impl RealmService {
         let ids: Vec<Snowflake> = path.iter().map(|m| m.id).collect();
         let reconstructed = self.state.reconstruct(&ids).await?;
 
-        let agent = runnable_agent(
-            self.policy.as_ref(),
-            turn_start(&path, &cast.agents),
-            &cast.agents,
-            &reconstructed.persistent,
-        )
-        .ok_or(RealmError::NoRunnableAgent)?
-        .clone();
+        let stage = Stage::new(&cast, &path, &reconstructed.persistent);
+        let agent = stage
+            .runnable()?
+            .ok_or(RealmError::NoRunnableAgent)?
+            .clone();
+        let view = stage.view.clone();
 
         if !matches!(agent.kind, AgentKind::Player) || agent.user_id != Some(user_id) {
             return Err(RealmError::NotYourTurn(agent.id));
@@ -908,6 +921,7 @@ impl RealmService {
                 action.args.clone(),
                 &agent,
                 &reconstructed.persistent,
+                &view,
             )
             .await?;
 
@@ -984,13 +998,9 @@ impl RealmService {
         let ids: Vec<Snowflake> = path.iter().map(|m| m.id).collect();
         let world = self.state.reconstruct(&ids).await?;
 
-        Ok(runnable_agent(
-            self.policy.as_ref(),
-            turn_start(&path, &cast.agents),
-            &cast.agents,
-            &world.persistent,
-        )
-        .map(|a| a.id))
+        Ok(Stage::new(&cast, &path, &world.persistent)
+            .runnable()?
+            .map(|a| a.id))
     }
 
     /// The playthrough's objective timeline (owner view).
@@ -1120,14 +1130,12 @@ impl RealmService {
         let path_ids: Vec<Snowflake> = path.iter().map(|m| m.id).collect();
         let world = self.state.reconstruct(&path_ids).await?;
 
-        let agent = runnable_agent(
-            self.policy.as_ref(),
-            turn_start(&path, &cast.agents),
-            &cast.agents,
-            &world.persistent,
-        )
-        .ok_or(RealmError::NoRunnableAgent)?
-        .clone();
+        let stage = Stage::new(&cast, &path, &world.persistent);
+        let agent = stage
+            .runnable()?
+            .ok_or(RealmError::NoRunnableAgent)?
+            .clone();
+        let view = stage.view.clone();
 
         self.agents
             .get(&agent.kind)
@@ -1136,6 +1144,7 @@ impl RealmService {
                 convo,
                 cast,
                 agent,
+                view,
                 path_ids,
                 world,
                 persist,
@@ -1611,32 +1620,103 @@ fn message_agent_id(message: &ConversationMessage) -> Option<Snowflake> {
     serde_json::from_value(message.metadata.get("agent_id")?.clone()).ok()
 }
 
-fn turn_start(path: &[ConversationMessage], agents: &[RealmAgent]) -> usize {
-    let Some(last) = path.last() else { return 0 };
+/// The cast member whose turn produced the last message on the path.
+fn last_actor<'a>(
+    path: &[ConversationMessage],
+    agents: &'a [RealmAgent],
+) -> Option<&'a RealmAgent> {
+    let last = path.last()?;
 
-    match message_agent_id(last).and_then(|id| agents.iter().position(|a| a.id == id)) {
-        Some(slot) => slot + 1,
-        None if last.metadata.get("realm_seed").is_some() => 0,
+    match message_agent_id(last).and_then(|id| agents.iter().find(|a| a.id == id)) {
+        Some(agent) => Some(agent),
+        None if last.metadata.get("realm_seed").is_some() => None,
         None => {
             tracing::warn!(
                 message = %last.id,
                 "realm message has no resolvable agent; restarting the turn rotation"
             );
-            0
+            None
         }
     }
 }
 
-fn runnable_agent<'a>(
-    policy: &dyn TurnPolicy,
-    start: usize,
+/// One turn's worth of scheduling context: who is on stage, who just acted,
+/// and the world they are acting in.
+struct Stage<'a> {
+    director: Director,
     agents: &'a [RealmAgent],
-    world: &StatePool,
-) -> Option<&'a RealmAgent> {
-    (0..agents.len()).find_map(|k| {
-        let a = policy.next(start + k, agents)?;
-        weaver::run_condition_passes(a, world).then_some(a)
-    })
+    last: Option<&'a RealmAgent>,
+    world: &'a StatePool,
+    /// The `cast:`/`turn:` mount every body on this turn reads.
+    view: RealmView,
+}
+
+impl<'a> Stage<'a> {
+    fn new(cast: &'a RealmCast, path: &'a [ConversationMessage], world: &'a StatePool) -> Self {
+        let last = last_actor(path, &cast.agents);
+        let view = weaver::realm_view(
+            &cast.agents,
+            &weaver::TurnInfo {
+                index: path
+                    .iter()
+                    .filter(|m| message_agent_id(m).is_some())
+                    .count(),
+                last: last.zip(path.last().map(|m| m.content.as_str())),
+            },
+        );
+
+        Self {
+            director: cast.director.clone().unwrap_or_default(),
+            agents: &cast.agents,
+            last,
+            world,
+            view,
+        }
+    }
+
+    /// Who the director offers this turn, in preference order.
+    fn candidates(&self) -> Result<Vec<&'a RealmAgent>, RealmError> {
+        let drawn = |over: &AgentFilter| -> Vec<&'a RealmAgent> {
+            self.agents.iter().filter(|a| over.admits(a)).collect()
+        };
+
+        Ok(match &self.director {
+            Director::RoundRobin { over } => {
+                let pool = drawn(over);
+                // Resume after whoever acted last
+                let start = self
+                    .last
+                    .and_then(|l| pool.iter().position(|a| a.turn_order > l.turn_order))
+                    .unwrap_or(0);
+                (0..pool.len())
+                    .map(|k| pool[(start + k) % pool.len()])
+                    .collect()
+            }
+            Director::Random { over } => {
+                let mut pool = drawn(over);
+                pool.shuffle(&mut rand::rng());
+                pool
+            }
+            Director::Script { source } => weaver::run_director(source, self.world, &self.view)?
+                .into_iter()
+                .map(|handle| {
+                    self.agents.iter().find(|a| a.handle == handle).ok_or(
+                        RealmError::DirectorFailed(format!(
+                            "no cast member holds the handle '{handle}'"
+                        )),
+                    )
+                })
+                .collect::<Result<_, _>>()?,
+        })
+    }
+
+    /// The first candidate its run condition lets through.
+    fn runnable(&self) -> Result<Option<&'a RealmAgent>, RealmError> {
+        Ok(self
+            .candidates()?
+            .into_iter()
+            .find(|a| weaver::run_condition_passes(a, self.world, &self.view)))
+    }
 }
 
 #[async_trait]
@@ -1728,13 +1808,45 @@ mod tests {
         }
     }
 
-    #[test]
-    fn empty_path_starts_at_the_top_of_the_cast() {
-        assert_eq!(turn_start(&[], &cast()), 0);
+    fn casting(agents: Vec<RealmAgent>, director: Option<Director>) -> RealmCast {
+        RealmCast {
+            realm_id: Snowflake(99),
+            version_id: None,
+            agents,
+            director,
+        }
+    }
+
+    /// Who acts after `last_slot` (`None` = nothing has acted), with the world
+    /// at `index`.
+    fn next_after(
+        agents: &[RealmAgent],
+        director: Option<Director>,
+        last_slot: Option<usize>,
+        index: i64,
+    ) -> Option<String> {
+        let path: Vec<ConversationMessage> = last_slot
+            .map(|slot| vec![message(0, Some(&agents[slot]))])
+            .unwrap_or_default();
+        let cast = casting(agents.to_vec(), director);
+        let world = world(index);
+
+        Stage::new(&cast, &path, &world)
+            .runnable()
+            .unwrap()
+            .map(|a| a.name.clone())
     }
 
     #[test]
-    fn start_follows_the_last_actor_not_the_path_length() {
+    fn an_empty_path_starts_at_the_top_of_the_cast() {
+        assert_eq!(
+            next_after(&cast(), None, None, 0).as_deref(),
+            Some("Player")
+        );
+    }
+
+    #[test]
+    fn the_rotation_follows_the_last_actor_not_the_path_length() {
         let cast = cast();
         let path: Vec<ConversationMessage> = [0, 1, 2, 3, 0, 1, 2, 0]
             .iter()
@@ -1743,41 +1855,50 @@ mod tests {
             .collect();
 
         assert_eq!(path.len(), 8);
-        assert_eq!(turn_start(&path, &cast), 1);
+        let casting = casting(cast.clone(), None);
+        let world = world(1);
         assert_eq!(
-            runnable_agent(&RoundRobin, turn_start(&path, &cast), &cast, &world(1))
+            Stage::new(&casting, &path, &world)
+                .runnable()
+                .unwrap()
                 .map(|a| a.name.as_str()),
             Some("Script"),
         );
     }
 
     #[test]
-    fn unattributable_last_turn_restarts_the_rotation() {
-        assert_eq!(turn_start(&[message(0, None)], &cast()), 0);
+    fn an_unattributable_last_turn_restarts_the_rotation() {
+        let path = [message(0, None)];
+        let casting = casting(cast(), None);
+        let world = world(0);
+        assert_eq!(
+            Stage::new(&casting, &path, &world)
+                .runnable()
+                .unwrap()
+                .map(|a| a.name.as_str()),
+            Some("Player"),
+        );
     }
 
     #[test]
     fn a_gated_agent_is_skipped_without_stalling_the_rotation() {
         let cast = cast();
-        let ran = |start| runnable_agent(&RoundRobin, start, &cast, &world(1)).map(|a| a.id);
-        assert_eq!(ran(2), Some(cast[2].id));
-        assert_eq!(ran(3), Some(cast[0].id));
-    }
-
-    #[test]
-    fn no_runnable_agent_when_every_condition_is_false() {
-        let cast = cast();
-        assert!(runnable_agent(&RoundRobin, 0, &cast[2..], &world(9)).is_none());
+        // After the script agent, #1 is ungated at index 1 and runs.
+        assert_eq!(
+            next_after(&cast, None, Some(1), 1).as_deref(),
+            Some("Agent #1")
+        );
+        // After #1, #2 is gated at index 1, so the rotation wraps to the player.
+        assert_eq!(
+            next_after(&cast, None, Some(2), 1).as_deref(),
+            Some("Player")
+        );
     }
 
     #[test]
     fn skips_keep_the_group_chat_cycle_aligned() {
         let cast = cast();
-        let next = |last_slot: usize, index: i64| {
-            let path = [message(0, Some(&cast[last_slot]))];
-            runnable_agent(&RoundRobin, turn_start(&path, &cast), &cast, &world(index))
-                .map(|a| a.name.clone())
-        };
+        let next = |last_slot: usize, index: i64| next_after(&cast, None, Some(last_slot), index);
 
         // index 0: nobody is gated, so the whole cast speaks in order.
         assert_eq!(next(0, 0).as_deref(), Some("Script"));
@@ -1785,11 +1906,105 @@ mod tests {
         assert_eq!(next(2, 0).as_deref(), Some("Agent #2"));
         assert_eq!(next(3, 0).as_deref(), Some("Player"));
 
-        // index 1: Agent #2 sits out and the player is up straight after #1.
-        assert_eq!(next(2, 1).as_deref(), Some("Player"));
-
         // index 2: Agent #1 sits out and Agent #2 speaks in its place.
         assert_eq!(next(1, 2).as_deref(), Some("Agent #2"));
         assert_eq!(next(3, 2).as_deref(), Some("Player"));
+    }
+
+    #[test]
+    fn no_runnable_agent_when_every_condition_is_false() {
+        let llms = cast()[2..].to_vec();
+        assert_eq!(next_after(&llms, None, None, 9), None);
+    }
+
+    #[test]
+    fn a_filter_narrows_the_rotation_to_the_agents_it_admits() {
+        let cast = cast();
+        let llm_only = || {
+            Some(Director::RoundRobin {
+                over: AgentFilter::Kind {
+                    kind: AgentKind::Llm,
+                },
+            })
+        };
+
+        assert_eq!(
+            next_after(&cast, llm_only(), Some(2), 0).as_deref(),
+            Some("Agent #2")
+        );
+        // Wrapping from the end of the pool comes back to its start.
+        assert_eq!(
+            next_after(&cast, llm_only(), Some(3), 0).as_deref(),
+            Some("Agent #1")
+        );
+        // A last actor outside the pool resumes at the next member after it.
+        assert_eq!(
+            next_after(&cast, llm_only(), Some(1), 0).as_deref(),
+            Some("Agent #1")
+        );
+    }
+
+    #[test]
+    fn a_script_director_names_who_acts() {
+        let cast = cast();
+        let pick = |source: &str| {
+            next_after(
+                &cast,
+                Some(Director::Script {
+                    source: source.into(),
+                }),
+                Some(0),
+                0,
+            )
+        };
+
+        assert_eq!(pick("a3").as_deref(), Some("Agent #2"));
+        // An array is a preference order, and the first entry wins when its
+        // run condition passes.
+        assert_eq!(
+            pick(r#"{# return ["a2", "a3"] #}"#).as_deref(),
+            Some("Agent #1")
+        );
+        // Naming nobody is a legal answer: no one acts.
+        assert_eq!(pick(""), None);
+    }
+
+    #[test]
+    fn a_script_director_that_names_a_stranger_fails_loudly() {
+        let casting = casting(
+            cast(),
+            Some(Director::Script {
+                source: "nobody".into(),
+            }),
+        );
+        let world = world(0);
+        let err = Stage::new(&casting, &[], &world).runnable().unwrap_err();
+        assert!(matches!(err, RealmError::DirectorFailed(_)), "{err}");
+    }
+
+    #[test]
+    fn a_script_director_reads_the_realm_it_schedules() {
+        let cast = cast();
+        let source = r#"@[array.at(
+            items: {{cast:llm.handles}},
+            index: @[math.mod(a: {{turn:index}}, b: {{cast:llm.count}})]
+        )]"#;
+
+        let path: Vec<ConversationMessage> = vec![message(0, Some(&cast[0]))];
+        let casting = casting(
+            cast,
+            Some(Director::Script {
+                source: source.into(),
+            }),
+        );
+        let world = world(0);
+        // One turn on the path, two LLMs: 1 % 2 picks the second.
+        assert_eq!(
+            Stage::new(&casting, &path, &world)
+                .runnable()
+                .unwrap()
+                .map(|a| a.name.as_str()),
+            Some("Agent #2"),
+        );
     }
 }

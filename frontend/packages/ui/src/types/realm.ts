@@ -17,7 +17,23 @@ export interface RealmDefinition {
 	imports: ImportRule[];
 	agents: RealmAgent[];
 	scenarios: Scenario[];
+	/** How the realm picks who acts next. Null = round-robin over the whole cast. */
+	director?: Director | null;
 }
+
+/**
+ * How a realm decides who acts next.
+ */
+export type Director =
+	| { kind: 'round_robin'; over: AgentFilter }
+	| { kind: 'random'; over: AgentFilter }
+	/** A weaver expression naming a handle, or an array of handles to try in order. */
+	| { kind: 'script'; source: string };
+
+export type AgentFilter =
+	| { match: 'all' }
+	| { match: 'kind'; kind: AgentKind }
+	| { match: 'handles'; handles: string[] };
 
 export interface Scenario {
 	id: Snowflake;
@@ -113,6 +129,7 @@ export interface RealmCast {
 	realm_id: Snowflake;
 	version_id: Snowflake | null;
 	agents: RealmAgent[];
+	director?: Director | null;
 }
 
 export type EventKind = 'spoke' | 'acted' | 'state_changed' | 'system';
@@ -158,6 +175,8 @@ export interface UpdateRealmRequest {
 	name?: string | null;
 	description?: string | null;
 	tags?: string[] | null;
+	/** Omitted leaves the director alone; null resets it to the default rotation. */
+	director?: Director | null;
 }
 
 export interface RealmConfig {

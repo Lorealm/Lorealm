@@ -1,23 +1,8 @@
-use lorealm_storage::models::{ConversationMessage, Param, RealmAgent, RealmEvent, Snowflake};
+use lorealm_storage::models::{ConversationMessage, Param, RealmEvent, Snowflake};
 use serde::Serialize;
 
 use crate::services::chat::WidgetInstance;
 use crate::services::commands::CommandEffect;
-
-pub trait TurnPolicy: Send + Sync {
-    fn next<'a>(&self, slot: usize, agents: &'a [RealmAgent]) -> Option<&'a RealmAgent>;
-}
-
-pub struct RoundRobin;
-
-impl TurnPolicy for RoundRobin {
-    fn next<'a>(&self, slot: usize, agents: &'a [RealmAgent]) -> Option<&'a RealmAgent> {
-        if agents.is_empty() {
-            return None;
-        }
-        agents.get(slot % agents.len())
-    }
-}
 
 #[derive(Serialize)]
 pub struct NextTurn {
