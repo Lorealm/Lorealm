@@ -126,7 +126,7 @@ export const builtInCommands: Command[] = [
 		scope: 'global',
 		layer: GLOBAL_LAYER,
 		keys: ['F1'],
-		run: () => navigator.start().settings().client().keybinds()
+		run: () => navigator.start().settings().user().keybinds()
 	},
 	{
 		id: 'chat.focus',

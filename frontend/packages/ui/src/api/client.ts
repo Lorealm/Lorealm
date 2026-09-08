@@ -109,7 +109,7 @@ import type {
 	UpdateUserWidgetRequest,
 	UserWidget
 } from '$lib/types/widgets.js';
-import type { User } from '$lib/types/user.js';
+import type { UpdateProfileRequest, User, UserSession } from '$lib/types/user.js';
 import type { StatusCodes } from 'http-status-codes';
 
 /**
@@ -146,7 +146,16 @@ export function createApiClient(platform: PlatformAPI) {
 		},
 		users: {
 			me: () => http.get<User>('/api/v1/users/me'),
-			get: (id: Snowflake) => http.get<User>(`/api/v1/users/${id}`)
+			get: (id: Snowflake) => http.get<User>(`/api/v1/users/${id}`),
+			updateProfile: (update: UpdateProfileRequest) => http.patch<User>('/api/v1/users/me', update),
+			setAvatar: (avatar: Blob) =>
+				http.putBlob<AvatarUpdateResponse>('/api/v1/users/me/avatar', avatar),
+			sessions: {
+				list: () => http.get<Array<UserSession>>('/api/v1/users/me/sessions'),
+				revoke: (id: Snowflake) => http.delete(`/api/v1/users/me/sessions/${id}`),
+				/** Sign out every device except this one. */
+				revokeOthers: () => http.delete('/api/v1/users/me/sessions')
+			}
 		},
 		templates: {
 			list: () => http.get<Array<TemplateMetadata>>('/api/v1/templates'),

@@ -10,7 +10,6 @@ import type { Snowflake } from '$lib/types/core.js';
 import { navigator } from './navigator.js';
 import {
 	SECRETS,
-	type ClientSection,
 	type Route,
 	type ServerSection,
 	type StudioSection,
@@ -44,20 +43,17 @@ export const STUDIO_LABEL: Record<StudioSection, string> = {
 	widgets: 'Widgets'
 };
 
-const SCOPE_LABEL: Record<'client' | 'user' | 'server', string> = {
-	client: 'Client',
-	user: 'User',
+const SCOPE_LABEL: Record<'user' | 'server', string> = {
+	user: 'You',
 	server: 'Server'
 };
 
-const CLIENT_LABEL: Record<ClientSection, string> = {
+const USER_LABEL: Record<UserSection, string> = {
+	profile: 'Profile',
+	tokenizers: 'Tokenizers',
 	editor: 'Editor',
 	inspector: 'Inspector',
 	keybinds: 'Keybinds'
-};
-
-const USER_LABEL: Record<UserSection, string> = {
-	tokenizers: 'Tokenizers'
 };
 
 const SERVER_LABEL: Record<ServerSection, string> = {
@@ -142,11 +138,7 @@ export function crumbsFor(route: Route): Crumb[] {
 
 		case 'settings': {
 			const section =
-				route.scope === 'client'
-					? CLIENT_LABEL[route.section]
-					: route.scope === 'user'
-						? USER_LABEL[route.section]
-						: SERVER_LABEL[route.section];
+				route.scope === 'user' ? USER_LABEL[route.section] : SERVER_LABEL[route.section];
 			return [
 				{ label: VIEW_LABEL.settings },
 				{ label: SCOPE_LABEL[route.scope] },

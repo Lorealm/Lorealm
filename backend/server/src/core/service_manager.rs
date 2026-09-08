@@ -68,6 +68,7 @@ impl ServiceManager {
 
         let users = Arc::new(UserService::new(
             Arc::clone(&storage),
+            Arc::clone(&blob),
             Arc::clone(&snowflake),
             config.get::<UserConfig>(),
             Arc::clone(&sessions),

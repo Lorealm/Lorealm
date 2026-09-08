@@ -9,6 +9,7 @@ pub trait SessionStorage: Send + Sync {
     async fn get_session_by_token(&self, token: &str) -> Result<Option<Session>, StorageError>;
     async fn delete_session(&self, token: &str) -> Result<bool, StorageError>;
     async fn delete_user_sessions(&self, user_id: Snowflake) -> Result<u64, StorageError>;
+    async fn list_user_sessions(&self, user_id: Snowflake) -> Result<Vec<Session>, StorageError>;
     async fn cleanup_expired(&self) -> Result<u64, StorageError>;
     async fn rotate_session_token(
         &self,

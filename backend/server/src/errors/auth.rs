@@ -37,6 +37,10 @@ pub enum AuthError {
     UsernameTaken(String),
     #[error("Email taken: {0}")]
     EmailTaken(String),
+    #[error("Display name too long")]
+    DisplayNameTooLong,
+    #[error("Unsupported avatar media type")]
+    UnsupportedAvatarType,
 }
 
 impl DomainError for AuthError {
@@ -52,6 +56,8 @@ impl DomainError for AuthError {
             }
             Self::UsernameTaken(_) => "auth.username_taken",
             Self::EmailTaken(_) => "auth.email_taken",
+            Self::DisplayNameTooLong => "user.display_name_too_long",
+            Self::UnsupportedAvatarType => "user.unsupported_avatar_type",
             Self::TokenGenerationFailed | Self::Encryption(_) | Self::Storage(_) => "internal",
         }
     }
@@ -59,6 +65,8 @@ impl DomainError for AuthError {
     fn status(&self) -> StatusCode {
         match self {
             Self::UsernameTaken(_) | Self::EmailTaken(_) => StatusCode::CONFLICT,
+            Self::DisplayNameTooLong => StatusCode::BAD_REQUEST,
+            Self::UnsupportedAvatarType => StatusCode::UNSUPPORTED_MEDIA_TYPE,
             Self::TokenGenerationFailed | Self::Encryption(_) | Self::Storage(_) => {
                 StatusCode::INTERNAL_SERVER_ERROR
             }
@@ -80,6 +88,8 @@ impl DomainError for AuthError {
             }
             Self::UsernameTaken(_) => "That username is already taken.".into(),
             Self::EmailTaken(_) => "That email is already registered.".into(),
+            Self::DisplayNameTooLong => "That display name is too long.".into(),
+            Self::UnsupportedAvatarType => "Avatars must be a PNG, JPEG, WebP or GIF image.".into(),
             Self::TokenGenerationFailed | Self::Encryption(_) | Self::Storage(_) => {
                 "An internal error occurred".into()
             }
