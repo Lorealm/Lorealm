@@ -45,13 +45,66 @@ pub enum CharacterPart {
     Example { order: i64 },
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct BlockPart {
+    pub content: String,
+    /// Higher survives longer under budget pressure.
+    pub priority: i32,
+}
+
+/// How far a block can be shrunk before it has to be dropped outright.
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(tag = "trim", rename_all = "snake_case")]
+pub enum Trim {
+    /// All or nothing.
+    #[default]
+    Atomic,
+    /// Stays valid when rebuilt from any subset of `parts`.
+    Joined {
+        parts: Vec<BlockPart>,
+        separator: String,
+    },
+}
+
 /// One resolved piece of context, tagged with the role it occupies.
-/// Tree order is preserved by the walk.
 #[derive(Debug, Clone, Serialize)]
 pub struct ResolvedBlock {
     pub role: PromptRole,
     pub content: String,
     pub content_ref: ContentRef,
+    #[serde(flatten)]
+    pub trim: Trim,
+}
+
+impl ResolvedBlock {
+    pub fn atomic(role: PromptRole, content: impl Into<String>, content_ref: ContentRef) -> Self {
+        Self {
+            role,
+            content: content.into(),
+            content_ref,
+            trim: Trim::Atomic,
+        }
+    }
+
+    pub fn joined(
+        role: PromptRole,
+        parts: Vec<BlockPart>,
+        separator: impl Into<String>,
+        content_ref: ContentRef,
+    ) -> Self {
+        let separator = separator.into();
+        let content = parts
+            .iter()
+            .map(|p| p.content.as_str())
+            .collect::<Vec<_>>()
+            .join(&separator);
+        Self {
+            role,
+            content,
+            content_ref,
+            trim: Trim::Joined { parts, separator },
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -86,18 +139,15 @@ pub struct ResolveContext<'a> {
     pub user_id: Snowflake,
     pub state: &'a ReconstructedState,
     pub lorebook_state: Mutex<Option<CapturedState>>,
-    /// `None` = the user's active lorebooks; `Some` = exactly these books
-    /// (realm turns feed the agent's bound imports here).
+    /// `None` = the user's active lorebooks; `Some` = exactly these books.
     pub lorebook_ids: Option<&'a [Snowflake]>,
     pub tokenizer: &'a Arc<kitoken::Kitoken>,
-    /// Host variables for this turn, materialized once so the lorebook host and
-    /// block substitution cannot disagree. See [`crate::services::variables`].
+    /// Host variables for this turn
     pub variables: Variables,
     pub widget_prompts: &'a [String],
 }
 
-/// A single prompt-visible turn, source-agnostic. Both conversation
-/// messages and agent observations map into this before assembly.
+/// A single prompt-visible turn, source-agnostic
 pub struct PromptTurn {
     pub role: PromptRole,
     pub content: String,
@@ -107,8 +157,7 @@ pub struct PromptTurn {
 
 impl PromptTurn {
     pub fn from_message(m: &ConversationMessage) -> Self {
-        // Widget markers live in stored content (the client needs their
-        // positions) but must never reach a prompt.
+        // Widget markers live in stored content but must never reach a prompt.
         let content = if m.content.contains('\u{E000}') {
             let widgets: Vec<WidgetInstance> = m
                 .metadata
@@ -120,7 +169,7 @@ impl PromptTurn {
             m.content.clone()
         };
         Self {
-            role: chat_role_to_prompt_role(&m.role), // reuse whatever the chat resolver uses today
+            role: chat_role_to_prompt_role(&m.role),
             content,
             content_ref: ContentRef::Message(m.id),
         }

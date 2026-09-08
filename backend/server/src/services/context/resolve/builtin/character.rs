@@ -149,12 +149,14 @@ fn resolve_examples(character: &Character, max: Option<usize>) -> Vec<ResolvedBl
     examples
         .into_iter()
         .filter(|e| !e.content.is_empty())
-        .map(|e| ResolvedBlock {
-            role: PromptRole::System,
-            content: e.content.clone(),
-            content_ref: ContentRef::Character(CharacterPart::Example {
-                order: e.order as i64,
-            }),
+        .map(|e| {
+            ResolvedBlock::atomic(
+                PromptRole::System,
+                e.content.clone(),
+                ContentRef::Character(CharacterPart::Example {
+                    order: e.order as i64,
+                }),
+            )
         })
         .collect()
 }

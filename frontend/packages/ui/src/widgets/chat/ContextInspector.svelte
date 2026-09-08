@@ -5,10 +5,20 @@
 	import { keyLayer } from '$lib/keys/layers.svelte.js';
 	import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
 	import { showApiError } from '$lib/stores/errorActions.js';
-	import { parseContextBlocks, groupAdjacentBlocks, type TracedBlock } from '$lib/types/context.js';
+	import {
+		parseContextBlocks,
+		groupAdjacentBlocks,
+		parseUsageReport,
+		sourceOf,
+		rankSources,
+		countsTotal,
+		SOURCE_LABELS,
+		type SourceCounts,
+		type TracedBlock
+	} from '$lib/types/context.js';
 	import { resolveBlockContent } from '$lib/types/content.js';
 	import type { JsonValue } from '$lib/types/core.js';
-	import { ChevronDown, X } from '@lucide/svelte';
+	import { ChevronDown, Info, X } from '@lucide/svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 	const api = useApi();
@@ -107,6 +117,43 @@
 		return m;
 	});
 
+	/** The same per-block sizes, folded by budgeting source instead of by node. */
+	let sourceTotals = $derived.by<SourceCounts>(() => {
+		const out: SourceCounts = {};
+		flat.forEach((f, i) => {
+			const key = sourceOf(f.block.origin);
+			out[key] = (out[key] ?? 0) + (display.counts[i] ?? 0);
+		});
+		return out;
+	});
+	let sourceRows = $derived(rankSources(sourceTotals));
+
+	/** What the server counted at assembly time. */
+	let recorded = $derived(
+		contextInspector.message ? parseUsageReport(contextInspector.message.metadata) : null
+	);
+	let trimmedRows = $derived(recorded ? rankSources(recorded.trimmed) : []);
+	/** Trimmed tokens aren't part of the visible total, so these bars are scaled
+	 *  against the largest shed source instead. */
+	let trimmedMax = $derived(trimmedRows.reduce((m, [, n]) => Math.max(m, n), 0));
+
+	function pct(n: number, of: number): number {
+		return of > 0 ? Math.min(100, (n / of) * 100) : 0;
+	}
+
+	/**
+	 * The panel recounts the trace live, but rehydrates message and character
+	 * blocks from whatever is current — so an edit since this turn shows up as a
+	 * gap against the recorded total. Only flagged once it is worth explaining.
+	 */
+	let drift = $derived.by(() => {
+		if (!recorded || display.unit !== 'tokens') return null;
+		const then = countsTotal(recorded.kept);
+		if (then === 0) return null;
+		const gap = Math.abs(then - display.total) / then;
+		return gap > 0.02 ? then : null;
+	});
+
 	$effect(() => {
 		const msg = contextInspector.message;
 		const texts = flatTexts;
@@ -136,14 +183,22 @@
 	});
 
 	let templateName = $state<string | null>(null);
+	let templateDesc = $state<string | null>(null);
 	let profileName = $state<string | null>(null);
 	let modelName = $state<string | null>(null);
+	let profileBudget = $state<number | null>(null);
+	let profileParams = $state<Record<string, JsonValue>>({});
+	let profileFailed = $state(false);
 
 	$effect(() => {
 		const msg = contextInspector.message;
 		templateName = null;
+		templateDesc = null;
 		profileName = null;
 		modelName = null;
+		profileBudget = null;
+		profileParams = {};
+		profileFailed = false;
 		if (!msg) return;
 
 		const msgId = msg.id;
@@ -154,7 +209,10 @@
 			api.templates
 				.get(tid)
 				.then((t) => {
-					if (contextInspector.message?.id === msgId) templateName = t.name;
+					if (contextInspector.message?.id === msgId) {
+						templateName = t.name;
+						templateDesc = t.description || null;
+					}
 				})
 				.catch(() => {});
 		if (pid)
@@ -164,10 +222,44 @@
 					if (contextInspector.message?.id === msgId) {
 						profileName = p.name;
 						modelName = p.model;
+						profileBudget = p.token_budget;
+						profileParams =
+							p.common_params &&
+							typeof p.common_params === 'object' &&
+							!Array.isArray(p.common_params)
+								? (p.common_params as Record<string, JsonValue>)
+								: {};
 					}
 				})
-				.catch(() => {});
+				// Deliberately not a toast: a hover hint failing shouldn't
+				// interrupt, but it mustn't render as a table of dashes either.
+				.catch(() => {
+					if (contextInspector.message?.id === msgId) profileFailed = true;
+				});
 	});
+
+	/** The Sampling group as ProfileEditor defines it. */
+	const SAMPLING: [string, string][] = [
+		['temperature', 'Temperature'],
+		['top_p', 'Top P'],
+		['top_k', 'Top K'],
+		['min_p', 'Min P']
+	];
+
+	let samplingRows = $derived(
+		SAMPLING.map(([key, label]) => {
+			const v = profileParams[key];
+			return { label, value: typeof v === 'number' ? String(v) : '—' };
+		})
+	);
+
+	/**
+	 * Prefer the budget the turn was actually fitted to. Profiles are mutable
+	 * and unversioned, so the live one can disagree with the counts beside it.
+	 */
+	let budgetShown = $derived(recorded?.budget ?? profileBudget);
+	let budgetIsLive = $derived(recorded?.budget == null && profileBudget !== null);
+	let hintReady = $derived(templateName !== null || profileName !== null || profileFailed);
 
 	type Recon = {
 		activation: Record<
@@ -388,7 +480,55 @@
 						{:else}
 							{blocks.length} block{blocks.length === 1 ? '' : 's'} · {fmtCount(display.total)}
 							{display.unit}
-							{#if templateName}<span class="sep">·</span>{templateName}{/if}
+							{#if templateName}
+								<span class="sep">·</span>{templateName}
+								{#if hintReady}
+									<span class="hint-anchor">
+										<button
+											type="button"
+											class="hint-btn"
+											aria-label="Generation settings"
+											aria-describedby="ctx-setup-hint"
+										>
+											<Info />
+										</button>
+										<span class="hint-card" id="ctx-setup-hint" role="tooltip">
+											{#if templateDesc}
+												<span class="hint-desc">{templateDesc}</span>
+											{/if}
+											<dl>
+												<div>
+													<dt>Token budget</dt>
+													<dd>
+														{budgetShown === null
+															? '—'
+															: budgetShown === 0
+																? 'unlimited'
+																: fmtCount(budgetShown)}
+														{#if budgetIsLive}<em
+																title="Not recorded on this turn — showing the
+																profile's current value.">now</em
+															>{/if}
+													</dd>
+												</div>
+												{#if !profileFailed}
+													{#each samplingRows as row (row.label)}
+														<div>
+															<dt>{row.label}</dt>
+															<dd>{row.value}</dd>
+														</div>
+													{/each}
+												{/if}
+											</dl>
+											{#if profileFailed}
+												<span class="hint-src">couldn't load the connection profile</span>
+											{:else if profileName}
+												<span class="hint-src">from {profileName}</span>
+											{/if}
+										</span>
+									</span>
+								{/if}
+							{/if}
 							{#if modelName}<span class="sep">·</span><span class="mono">{modelName}</span
 								>{:else if profileName}<span class="sep">·</span>{profileName}{/if}
 						{/if}
@@ -431,6 +571,55 @@
 						<span class="swatch accent-user"></span>user
 						<span class="swatch accent-assistant"></span>assistant
 					</div>
+
+					{#if sourceRows.length > 0}
+						<div class="left-head">
+							<span>By source</span>
+							{#if drift !== null}
+								<span
+									class="drift"
+									title="Recorded {fmtCount(drift)} tokens when this turn was sent. The
+									difference is content edited since — the panel recounts what those blocks
+									say now."
+								>
+									was {fmtCount(drift)}
+								</span>
+							{/if}
+						</div>
+						<ul class="sources">
+							{#each sourceRows as [source, n] (source)}
+								<li
+									style="--share: {pct(n, display.total)}%"
+									title="{SOURCE_LABELS[source]} · {fmtCount(n)} {display.unit} · {pct(
+										n,
+										display.total
+									).toFixed(1)}%"
+								>
+									<span class="fill" aria-hidden="true"></span>
+									<span class="src-name">{SOURCE_LABELS[source]}</span>
+									<span class="num">{fmtCount(n)}</span>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+
+					{#if trimmedRows.length > 0}
+						<div class="left-head">
+							<span>Trimmed to fit</span>
+						</div>
+						<ul class="sources trimmed">
+							{#each trimmedRows as [source, n] (source)}
+								<li
+									style="--share: {pct(n, trimmedMax)}%"
+									title="{SOURCE_LABELS[source]} · {fmtCount(n)} tokens shed to fit the budget"
+								>
+									<span class="fill" aria-hidden="true"></span>
+									<span class="src-name">{SOURCE_LABELS[source]}</span>
+									<span class="num">−{fmtCount(n)}</span>
+								</li>
+							{/each}
+						</ul>
+					{/if}
 				</aside>
 
 				<section class="right">
@@ -683,6 +872,7 @@
 		border-bottom: 1px solid var(--color-border-subtle);
 	}
 	.titles {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-xs);
@@ -803,6 +993,154 @@
 		flex: 0 0 auto;
 		color: var(--color-text-muted);
 		font-size: var(--font-size-xs);
+	}
+	.sources {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	/* The column is a fixed 200px, so a name/meter/number three-column layout
+	   squeezes the number off the end. Each row is instead one full-width track
+	   with the label and count sitting on top of it: the count is never the
+	   thing that gets cut, and the name ellipsizes if anything has to give. */
+	.sources li {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--spacing-xs);
+		height: 1.375rem;
+		padding: 0 var(--spacing-xs);
+		border-radius: var(--radius-sm);
+		background: var(--color-bg-base);
+		overflow: hidden;
+		font-size: var(--font-size-xs);
+	}
+	.sources .fill {
+		position: absolute;
+		inset: 0 auto 0 0;
+		width: var(--share);
+		/* A tint rather than a solid: the text crosses the fill edge, so it has
+		   to stay legible on both sides of it. */
+		background: var(--color-text-accent);
+		opacity: 0.28;
+	}
+	.src-name {
+		position: relative;
+		min-width: 0;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		color: var(--color-text-secondary);
+	}
+	.sources .num {
+		position: relative;
+		flex: 0 0 auto;
+		font-family: var(--font-family-mono);
+	}
+	.sources.trimmed .fill {
+		background: var(--color-text-muted);
+		opacity: 0.22;
+	}
+	.sources.trimmed .num {
+		color: var(--color-text-muted);
+	}
+	/* Deliberately unpositioned: the card anchors to `.titles` instead, so its
+	   placement doesn't drift with the length of the template and model names
+	   and can't run past the modal, which clips overflow. */
+	.hint-anchor {
+		display: inline-flex;
+		align-items: center;
+	}
+	.hint-btn {
+		display: inline-flex;
+		padding: 0;
+		border: none;
+		background: none;
+		color: var(--color-text-muted);
+		cursor: help;
+		line-height: 0;
+	}
+	.hint-btn :global(svg) {
+		width: 0.85em;
+		height: 0.85em;
+	}
+	.hint-btn:hover,
+	.hint-btn:focus-visible {
+		color: var(--color-text-accent);
+	}
+
+	/* CSS-only: the panel has no popover primitive, and a hover hint doesn't
+	   warrant one. */
+	.hint-card {
+		position: absolute;
+		top: calc(100% + var(--spacing-xs));
+		left: 0;
+		z-index: 1;
+		display: none;
+		flex-direction: column;
+		gap: var(--spacing-xs);
+		min-width: 13rem;
+		padding: var(--spacing-sm);
+		border: 1px solid var(--color-border-medium);
+		border-radius: var(--radius-lg);
+		background: var(--color-bg-elevated);
+		box-shadow: var(--shadow-xl);
+		text-transform: none;
+		letter-spacing: normal;
+		cursor: default;
+	}
+	.hint-anchor:hover .hint-card,
+	.hint-anchor:focus-within .hint-card {
+		display: flex;
+	}
+	.hint-desc {
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-xs);
+	}
+	.hint-card dl {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		margin: 0;
+	}
+	.hint-card dl div {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: var(--spacing-md);
+		font-size: var(--font-size-xs);
+	}
+	.hint-card dt {
+		color: var(--color-text-muted);
+	}
+	.hint-card dd {
+		margin: 0;
+		font-family: var(--font-family-mono);
+		color: var(--color-text-primary);
+	}
+	.hint-card dd em {
+		margin-left: var(--spacing-xs);
+		color: var(--color-text-muted);
+		font-family: var(--font-family-base, inherit);
+		font-style: normal;
+		cursor: help;
+	}
+	.hint-src {
+		color: var(--color-text-muted);
+		font-size: var(--font-size-xs);
+	}
+	.drift {
+		font-family: var(--font-family-mono);
+		font-size: var(--font-size-xs);
+		text-transform: none;
+		letter-spacing: normal;
+		color: var(--color-text-muted);
+		cursor: help;
 	}
 	.swatch {
 		display: inline-block;

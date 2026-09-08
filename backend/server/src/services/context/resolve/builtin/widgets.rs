@@ -43,11 +43,7 @@ impl ContextSource for WidgetPromptsResolver {
             .widget_prompts
             .iter()
             .filter(|p| !p.trim().is_empty())
-            .map(|p| ResolvedBlock {
-                role: PromptRole::System,
-                content: p.clone(),
-                content_ref: ContentRef::Verbatim,
-            })
+            .map(|p| ResolvedBlock::atomic(PromptRole::System, p.clone(), ContentRef::Verbatim))
             .collect())
     }
 }

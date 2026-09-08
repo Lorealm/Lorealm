@@ -20,11 +20,7 @@ mod types;
 pub use convert::to_weaver_lorebook;
 pub use types::*;
 
-/// A source of context blocks. [`definition`](ContextSource::definition)
-/// describes the source to the template editor;
-/// [`resolve`](ContextSource::resolve) produces its blocks at assembly time.
-/// Both faces live on one trait so a source cannot be described without being
-/// resolvable, or vice versa.
+/// A source of context blocks.
 #[async_trait]
 pub trait ContextSource: Send + Sync {
     fn definition(&self) -> SourceDefinition;
@@ -86,11 +82,11 @@ fn resolve_nodes<'a>(
             }
             match &node.content {
                 NodeContent::Text { content, role } => out.push(TracedBlock {
-                    block: ResolvedBlock {
-                        role: role.clone(),
-                        content: content.clone(),
-                        content_ref: ContentRef::Verbatim,
-                    },
+                    block: ResolvedBlock::atomic(
+                        role.clone(),
+                        content.clone(),
+                        ContentRef::Verbatim,
+                    ),
                     origin: BlockOrigin {
                         node_id: node.id,
                         node_title: node.title.clone(),
@@ -163,11 +159,7 @@ fn wrapper_block(
     content: String,
 ) -> TracedBlock {
     TracedBlock {
-        block: ResolvedBlock {
-            role,
-            content,
-            content_ref: ContentRef::Verbatim,
-        },
+        block: ResolvedBlock::atomic(role, content, ContentRef::Verbatim),
         origin: BlockOrigin {
             node_id: node.id,
             node_title: node.title.clone(),

@@ -13,7 +13,7 @@ use crate::{
     errors::ContextError,
     services::{
         context::{
-            ContentRef, PromptTurn, SettingDefinition, SettingType, SourceDefinition,
+            BlockPart, ContentRef, PromptTurn, SettingDefinition, SettingType, SourceDefinition,
             SourceNodeDefinition, SourceType, to_weaver_lorebook, weaver::stdlib::StdlibPlugin,
         },
         state::{CapturedState, StatePool, StateService},
@@ -127,10 +127,13 @@ impl ContextSource for WorldInfoResolver {
             .and_then(|v| v.as_u64())
             .map(|n| n as usize);
 
-        let mut entries: Vec<&str> = blocks
+        let mut entries: Vec<BlockPart> = blocks
             .iter()
             .filter(|b| b.slot == slot)
-            .map(|b| b.content.as_str())
+            .map(|b| BlockPart {
+                content: b.content.clone(),
+                priority: b.priority,
+            })
             .collect();
 
         if let Some(n) = max_entries {
@@ -145,11 +148,12 @@ impl ContextSource for WorldInfoResolver {
 
         *ctx.lorebook_state.lock().await = persistent;
 
-        Ok(vec![ResolvedBlock {
-            role: PromptRole::System,
-            content: entries.join(separator),
-            content_ref: ContentRef::Verbatim,
-        }])
+        Ok(vec![ResolvedBlock::joined(
+            PromptRole::System,
+            entries,
+            separator,
+            ContentRef::Verbatim,
+        )])
     }
 }
 

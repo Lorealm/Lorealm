@@ -1,4 +1,4 @@
-mod context_eval;
+pub mod context_eval;
 mod register;
 mod replacement;
 mod serialize;

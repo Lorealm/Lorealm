@@ -146,11 +146,7 @@ impl ContextSource for ChatHistoryResolver {
             .into_iter()
             .map(|i| {
                 let t = kept[i];
-                ResolvedBlock {
-                    role: t.role.clone(),
-                    content: t.content.clone(),
-                    content_ref: t.content_ref.clone(),
-                }
+                ResolvedBlock::atomic(t.role.clone(), t.content.clone(), t.content_ref.clone())
             })
             .collect();
 

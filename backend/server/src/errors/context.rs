@@ -72,6 +72,13 @@ pub enum ContextError {
     Tokenizer(#[from] TokenizerError),
     #[error("No active context template")]
     NoActiveTemplate,
+    #[error("context budget exceeded: {required} tokens required, {budget} available")]
+    BudgetExceeded {
+        budget: u32,
+        required: u32,
+        /// Per-source token counts, largest first.
+        breakdown: Vec<(String, u32)>,
+    },
 }
 
 impl DomainError for ContextError {
@@ -85,6 +92,7 @@ impl DomainError for ContextError {
             Self::ResolverNotFound(_) => "context.resolver_not_found",
             Self::NoActiveCharacter => "context.no_active_character",
             Self::NoActiveTemplate => "context.no_active_template",
+            Self::BudgetExceeded { .. } => "context.budget_exceeded",
             Self::UnknownSourceNode { .. } => "context.unknown_source_node",
             Self::ContextWeaver(_) => "context.evaluation_failed",
             Self::ContextWeaverPlugin(_) => "context.plugin_failed",
@@ -104,6 +112,7 @@ impl DomainError for ContextError {
             Self::NotFound(_, _) => StatusCode::NOT_FOUND,
             Self::NoActiveCharacter => StatusCode::CONFLICT,
             Self::NoActiveTemplate => StatusCode::CONFLICT,
+            Self::BudgetExceeded { .. } => StatusCode::UNPROCESSABLE_ENTITY,
             Self::ResolverNotFound(_)
             | Self::UnknownSourceNode { .. }
             | Self::ContextWeaver(_)
@@ -129,6 +138,22 @@ impl DomainError for ContextError {
             }
             Self::NoActiveCharacter => "No character is selected.".into(),
             Self::NoActiveTemplate => "No template selected".into(),
+            Self::BudgetExceeded {
+                budget,
+                required,
+                breakdown,
+            } => {
+                let parts = breakdown
+                    .iter()
+                    .map(|(name, n)| format!("{name} {n}"))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                Cow::Owned(format!(
+                    "This turn needs at least {required} tokens that can't be trimmed, \
+                     but the budget is {budget}. Raise the profile's token budget, \
+                     or shorten the parts that can't shrink ({parts})."
+                ))
+            }
             Self::UnknownSourceNode { source_id, node_id } => Cow::Owned(format!(
                 "This template references an unknown node '{source_id}:{node_id}'."
             )),
@@ -151,6 +176,9 @@ impl DomainError for ContextError {
             Self::NotFound(kind, id) => Some(ErrorDetails::target(kind.target(), *id)),
             Self::NoActiveCharacter => Some(ErrorDetails::resource(TargetType::Character)),
             Self::NoActiveTemplate => Some(ErrorDetails::resource(TargetType::ContextTemplate)),
+            Self::BudgetExceeded { .. } => {
+                Some(ErrorDetails::resource(TargetType::ContextTemplate))
+            }
             Self::ResolverNotFound(_)
             | Self::UnknownSourceNode { .. }
             | Self::ContextWeaver(_)

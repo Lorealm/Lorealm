@@ -38,6 +38,7 @@ use crate::{
         state::{CapturedState, StatePool, StateService, write_var},
         tools::{EmittedEvent, RealmView, builtin_tool},
     },
+    util::context_eval::UsageReport,
 };
 
 use super::{
@@ -848,6 +849,7 @@ impl RealmService {
             let delta = open.delta(&service.state);
             let activation = std::mem::take(&mut open.activation);
             let trace = std::mem::take(&mut open.trace);
+            let usage = std::mem::take(&mut open.usage);
             let emitted = llm
                 .policy
                 .event_sink
@@ -855,7 +857,7 @@ impl RealmService {
                 .map(|s| std::mem::take(&mut *s.lock().unwrap()))
                 .unwrap_or_default();
             let production = service
-                .llm_production(&llm.agent, &llm.spec, trace, llm.persist, acc.finish(), delta, emitted, activation, open.had_assembly, &config)
+                .llm_production(&llm.agent, &llm.spec, trace, usage, llm.persist, acc.finish(), delta, emitted, activation, open.had_assembly, &config)
                 .await?;
             let TurnResult { message, events } =
                 service.commit(&llm.convo, &llm.cast, &config, production).await?;
@@ -1185,6 +1187,7 @@ impl RealmService {
         agent: &RealmAgent,
         spec: &AgentSpec,
         trace: Vec<TracedBlock>,
+        usage: UsageReport,
         persist: PersistPlan,
         outcome: AgentOutcome,
         delta: StateDelta,
@@ -1195,6 +1198,7 @@ impl RealmService {
     ) -> Result<Production, RealmError> {
         let meta = json!({
             "context": trace,
+            "context_usage": usage,
             "reasoning": outcome.reasoning,
             "tool_calls": outcome.tool_calls,
             "widgets": outcome.widgets,
