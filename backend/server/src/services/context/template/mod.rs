@@ -724,6 +724,38 @@ impl ContextTemplate {
         search(&self.nodes, source_id, node_id, exclude_node_id)
     }
 
+    /// Check if a source node exists in the *active* tree, i.e. the node itself
+    /// is enabled and every group above it is enabled too.
+    pub fn is_source_node_active(&self, source_id: &str, node_id: &str) -> bool {
+        fn search(nodes: &[ContextNode], source_id: &str, node_id: &str) -> bool {
+            for node in nodes {
+                if !node.enabled {
+                    continue;
+                }
+                match &node.content {
+                    NodeContent::Source {
+                        source_id: sid,
+                        node_id: nid,
+                        ..
+                    } => {
+                        if sid == source_id && nid == node_id {
+                            return true;
+                        }
+                    }
+                    NodeContent::Group { children, .. } => {
+                        if search(children, source_id, node_id) {
+                            return true;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            false
+        }
+
+        search(&self.nodes, source_id, node_id)
+    }
+
     /// Count total number of nodes in the template
     pub fn node_count(&self) -> usize {
         fn count(nodes: &[ContextNode]) -> usize {

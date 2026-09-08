@@ -70,6 +70,8 @@ pub enum ContextError {
     StateConversion(#[from] crate::util::weaver::ConversionError),
     #[error("Tokenizer: {0}")]
     Tokenizer(#[from] TokenizerError),
+    #[error("No active context template")]
+    NoActiveTemplate,
 }
 
 impl DomainError for ContextError {
@@ -82,6 +84,7 @@ impl DomainError for ContextError {
             Self::NotFound(_, _) => "context.not_found",
             Self::ResolverNotFound(_) => "context.resolver_not_found",
             Self::NoActiveCharacter => "context.no_active_character",
+            Self::NoActiveTemplate => "context.no_active_template",
             Self::UnknownSourceNode { .. } => "context.unknown_source_node",
             Self::ContextWeaver(_) => "context.evaluation_failed",
             Self::ContextWeaverPlugin(_) => "context.plugin_failed",
@@ -100,6 +103,7 @@ impl DomainError for ContextError {
             Self::Tokenizer(err) => err.status(),
             Self::NotFound(_, _) => StatusCode::NOT_FOUND,
             Self::NoActiveCharacter => StatusCode::CONFLICT,
+            Self::NoActiveTemplate => StatusCode::CONFLICT,
             Self::ResolverNotFound(_)
             | Self::UnknownSourceNode { .. }
             | Self::ContextWeaver(_)
@@ -124,6 +128,7 @@ impl DomainError for ContextError {
                 Cow::Owned(format!("Unknown resolver '{name}' in this template."))
             }
             Self::NoActiveCharacter => "No character is selected.".into(),
+            Self::NoActiveTemplate => "No template selected".into(),
             Self::UnknownSourceNode { source_id, node_id } => Cow::Owned(format!(
                 "This template references an unknown node '{source_id}:{node_id}'."
             )),
@@ -145,6 +150,7 @@ impl DomainError for ContextError {
             Self::Tokenizer(err) => err.details(),
             Self::NotFound(kind, id) => Some(ErrorDetails::target(kind.target(), *id)),
             Self::NoActiveCharacter => Some(ErrorDetails::resource(TargetType::Character)),
+            Self::NoActiveTemplate => Some(ErrorDetails::resource(TargetType::ContextTemplate)),
             Self::ResolverNotFound(_)
             | Self::UnknownSourceNode { .. }
             | Self::ContextWeaver(_)
