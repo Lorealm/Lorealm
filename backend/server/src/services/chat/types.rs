@@ -20,6 +20,7 @@ use crate::{
         context::{PromptRole, TracedBlock},
         state::{CapturedState, StatePool, StateService},
     },
+    util::context_eval::UsageReport,
 };
 
 #[derive(Debug, Clone)]
@@ -45,6 +46,7 @@ pub(super) struct Prepared {
     pub prompt: Vec<PromptMessage>,
     pub trace: Vec<TracedBlock>,
     pub captured: Option<CapturedState>,
+    pub usage: UsageReport,
 }
 
 #[derive(Serialize)]
@@ -133,8 +135,6 @@ impl TurnAccumulator {
         self.tool_calls.push(r);
     }
 
-    /// Inserts the placeholder marker into the spoken text and stores the
-    /// widget. Returns the marker so the caller can forward it as a Delta.
     pub fn widget(&mut self, w: WidgetInstance) -> String {
         let marker = widget_marker(self.widgets.len());
         self.spoken.push_str(&marker);
@@ -159,13 +159,11 @@ pub struct AgentOutcome {
     pub tool_calls: Vec<ToolCallRecord>,
 }
 
-/// An agent turn with the inference stream still live, for callers that
-/// forward events to a client while accumulating. Exhaust (or abandon) the
-/// stream, then call [`Self::delta`] for the turn's state writes.
 pub struct OpenAgentTurn {
     pub stream: Pin<Box<dyn Stream<Item = Result<InferEvent, ChatError>> + Send>>,
     /// The assembled context trace, for stamping into the turn's metadata.
     pub trace: Vec<TracedBlock>,
+    pub usage: UsageReport,
     pub(super) state_pool: Arc<StdMutex<StatePool>>,
     pub(super) diff_base: StatePool,
     /// Full activation snapshot captured by assembly, keyed by lorebook id.
@@ -176,10 +174,6 @@ pub struct OpenAgentTurn {
 }
 
 impl OpenAgentTurn {
-    /// Everything the turn wrote relative to the pre-assembly baseline:
-    /// assembly (lorebook weaver expressions) and tool writes both count —
-    /// with no stored seed, assembly writes ARE how a realm's opening state
-    /// materializes.
     pub fn delta(&self, state: &StateService) -> StateDelta {
         let pool = self.state_pool.lock().unwrap();
         state.diff(&self.diff_base, &pool)

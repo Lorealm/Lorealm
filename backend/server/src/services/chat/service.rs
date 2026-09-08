@@ -51,6 +51,7 @@ use crate::{
         variables::{VariableContext, VariableRegistry},
         weaver::{WeaverHost, WeaverProfile},
     },
+    util::context_eval::{ContextEvalResult, ContextEvaluator, TokenCounter},
 };
 
 pub struct ChatService {
@@ -540,18 +541,28 @@ impl ChatService {
             trace
         };
 
-        let prompt = trace
-            .iter()
-            .map(|t| PromptMessage {
-                role: t.block.role.clone(),
-                content: t.block.content.clone(),
-            })
-            .collect();
+        let budget = self
+            .connection
+            .get_profile(spec.owner, spec.profile_id)
+            .await?
+            .token_budget;
+
+        let mut evaluator =
+            ContextEvaluator::builder(Arc::clone(&tokenizer) as Arc<dyn TokenCounter>);
+        if budget > 0 {
+            evaluator = evaluator.budget(budget as u32);
+        }
+        let ContextEvalResult {
+            messages,
+            trace,
+            usage,
+        } = evaluator.build().evaluate(trace)?;
 
         Ok(Prepared {
-            prompt,
+            prompt: messages,
             trace,
             captured,
+            usage,
         })
     }
 
@@ -658,6 +669,7 @@ impl ChatService {
             mut prompt,
             trace,
             captured,
+            usage,
         } = self
             .assemble_context(&spec, None, &turns, &baseline, &widget_prompts)
             .await?;
@@ -784,6 +796,7 @@ impl ChatService {
             // meta/persist now read from `outcome`:
             let meta = json!({
                 "context": stored,
+                "context_usage": usage,
                 "reasoning": outcome.reasoning,
                 "tool_calls": outcome.tool_calls,
                 "widgets": outcome.widgets,
@@ -1130,6 +1143,7 @@ impl ChatService {
             prompt,
             trace,
             captured,
+            usage,
         } = self
             .assemble_context(spec, Some(realm), turns, baseline, widget_prompts)
             .await?;
@@ -1158,6 +1172,7 @@ impl ChatService {
         Ok(OpenAgentTurn {
             stream,
             trace,
+            usage,
             state_pool,
             diff_base,
             activation,

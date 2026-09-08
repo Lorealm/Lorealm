@@ -34,11 +34,7 @@ pub(super) fn text_block(
     if content.is_empty() {
         Vec::new()
     } else {
-        vec![ResolvedBlock {
-            role,
-            content: content.to_string(),
-            content_ref,
-        }]
+        vec![ResolvedBlock::atomic(role, content, content_ref)]
     }
 }
 

@@ -130,3 +130,88 @@ export function groupAdjacentBlocks(blocks: TracedBlock[]): BlockGroup[] {
 	}
 	return groups;
 }
+
+/**
+ * Which budgeting bucket a block belongs to. Mirrors `ContextSource` in
+ * backend/server/src/util/context_eval.rs — keep the two in step.
+ */
+export type ContextSource =
+	| 'conversation'
+	| 'context_template'
+	| 'lorebook'
+	| 'character'
+	| 'character_examples'
+	| 'miscellaneous'
+	| 'plugin';
+
+export const SOURCE_LABELS: Record<ContextSource, string> = {
+	conversation: 'chat history',
+	context_template: 'template',
+	lorebook: 'lorebook',
+	character: 'character',
+	character_examples: 'example messages',
+	miscellaneous: 'system prompts',
+	plugin: 'plugins'
+};
+
+/** Mirrors `ContextSource::of`. Derived from origin alone, so it works on a
+ *  persisted trace whose block contents were cleared. */
+export function sourceOf(origin: BlockOrigin): ContextSource {
+	if (origin.kind.kind !== 'source') return 'context_template';
+	const { source_id, node_id } = origin.kind;
+	switch (source_id) {
+		case 'chat_history':
+			return 'conversation';
+		case 'world_info':
+			return 'lorebook';
+		case 'character':
+			return node_id === 'example_messages' ? 'character_examples' : 'character';
+		case 'persona':
+		case 'widgets':
+			return 'miscellaneous';
+		default:
+			return 'plugin';
+	}
+}
+
+export type SourceCounts = Partial<Record<ContextSource, number>>;
+
+/** The token counts the server recorded when the turn was assembled. Ground
+ *  truth: the persisted trace can't be re-counted, since recoverable blocks
+ *  have their content cleared. */
+export interface UsageReport {
+	/** The budget the turn was fitted to. `null` = unlimited, or not recorded. */
+	budget: number | null;
+	kept: SourceCounts;
+	trimmed: SourceCounts;
+}
+
+function parseCounts(v: unknown): SourceCounts {
+	if (!isRecord(v)) return {};
+	const out: SourceCounts = {};
+	for (const [key, n] of Object.entries(v)) {
+		if (key in SOURCE_LABELS && typeof n === 'number') out[key as ContextSource] = n;
+	}
+	return out;
+}
+
+export function parseUsageReport(metadata: unknown): UsageReport | null {
+	if (!isRecord(metadata) || !isRecord(metadata.context_usage)) return null;
+	const budget = metadata.context_usage.budget;
+	return {
+		budget: typeof budget === 'number' ? budget : null,
+		kept: parseCounts(metadata.context_usage.kept),
+		trimmed: parseCounts(metadata.context_usage.trimmed)
+	};
+}
+
+export function countsTotal(counts: SourceCounts): number {
+	return Object.values(counts).reduce((a: number, b) => a + (b ?? 0), 0);
+}
+
+/** Sources with a non-zero count, largest first. */
+export function rankSources(counts: SourceCounts): [ContextSource, number][] {
+	return (Object.entries(counts) as [ContextSource, number][])
+		.filter(([, n]) => n > 0)
+		.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
