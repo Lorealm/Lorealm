@@ -4,33 +4,24 @@
 	import { configStore } from '$lib/stores/serverConfig.svelte';
 	import UserSettings from './UserSettings.svelte';
 	import ServerSettings from './ServerSettings.svelte';
-	import ClientSettings from './ClientSettings.svelte';
 
 	const route = $derived(router.current);
 	const settings = $derived(route.view === 'settings' ? route : null);
 	const scope = $derived(settings?.scope ?? 'user');
-	const clientSection = $derived(settings?.scope === 'client' ? settings.section : 'editor');
-	const userSection = $derived(settings?.scope === 'user' ? settings.section : 'tokenizers');
+	const userSection = $derived(settings?.scope === 'user' ? settings.section : 'profile');
 	const serverSection = $derived(settings?.scope === 'server' ? settings.section : 'hosting');
 </script>
 
 <div class="settings">
-	<nav class="scopeNav">
-		<button
-			class="tab"
-			class:active={scope === 'client'}
-			onclick={() => navigator.start().settings().client()}
-		>
-			Client
-		</button>
-		<button
-			class="tab"
-			class:active={scope === 'user'}
-			onclick={() => navigator.start().settings().user()}
-		>
-			User
-		</button>
-		{#if configStore.canEditServer}
+	{#if configStore.canEditServer}
+		<nav class="scopeNav">
+			<button
+				class="tab"
+				class:active={scope === 'user'}
+				onclick={() => navigator.start().settings().user()}
+			>
+				You
+			</button>
 			<button
 				class="tab"
 				class:active={scope === 'server'}
@@ -38,12 +29,10 @@
 			>
 				Server
 			</button>
-		{/if}
-	</nav>
+		</nav>
+	{/if}
 
-	{#if scope === 'client'}
-		<ClientSettings section={clientSection} />
-	{:else if scope === 'server' && configStore.canEditServer}
+	{#if scope === 'server' && configStore.canEditServer}
 		<ServerSettings section={serverSection} />
 	{:else}
 		<UserSettings section={userSection} />

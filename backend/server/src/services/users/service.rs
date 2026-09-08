@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
+use bytes::Bytes;
 use lorealm_encryption::Hashable;
 use lorealm_storage::{
-    Storage,
-    models::{CreateUser, User},
+    BlobStore, Storage,
+    models::{CreateUser, Session, Snowflake, UpdateUser, User},
 };
 use secrecy::SecretString;
 
@@ -14,8 +15,11 @@ use crate::{
     services::{session::SessionService, snowflake::SnowflakeService, users::LoginResult},
 };
 
+const MAX_DISPLAY_NAME_CHARS: usize = 64;
+
 pub struct UserService {
     storage: Arc<dyn Storage>,
+    blob: Arc<dyn BlobStore>,
     snowflake: Arc<SnowflakeService>,
     config: UserConfig,
     session_service: Arc<SessionService>,
@@ -24,12 +28,14 @@ pub struct UserService {
 impl UserService {
     pub fn new(
         storage: Arc<dyn Storage>,
+        blob: Arc<dyn BlobStore>,
         snowflake: Arc<SnowflakeService>,
         config: UserConfig,
         session_service: Arc<SessionService>,
     ) -> Self {
         Self {
             storage,
+            blob,
             snowflake,
             config,
             session_service,
@@ -116,5 +122,81 @@ impl UserService {
             return Ok(user);
         }
         return Err(AuthError::UserNotFound);
+    }
+
+    /// Rename a user. A blank name clears it.
+    pub async fn set_display_name(
+        &self,
+        user_id: Snowflake,
+        display_name: Option<String>,
+    ) -> Result<User, AuthError> {
+        let display_name = display_name.and_then(|name| {
+            let trimmed = name.trim();
+            (!trimmed.is_empty()).then(|| trimmed.to_string())
+        });
+
+        if let Some(name) = &display_name {
+            if name.chars().count() > MAX_DISPLAY_NAME_CHARS {
+                return Err(AuthError::DisplayNameTooLong);
+            }
+        }
+
+        let update = UpdateUser {
+            display_name: Some(display_name),
+            ..Default::default()
+        };
+
+        Ok(self.storage.update_user(user_id, &update).await?)
+    }
+
+    pub async fn set_avatar(
+        &self,
+        user_id: Snowflake,
+        image_bytes: Bytes,
+    ) -> Result<String, AuthError> {
+        let avatar_uri = self.blob.put(&image_bytes).await?.to_uri();
+
+        let update = UpdateUser {
+            avatar_uri: Some(avatar_uri.clone()),
+            ..Default::default()
+        };
+        self.storage.update_user(user_id, &update).await?;
+
+        Ok(avatar_uri)
+    }
+
+    /// The user's live sessions, newest first.
+    pub async fn list_sessions(&self, user_id: Snowflake) -> Result<Vec<Session>, AuthError> {
+        Ok(self.storage.list_user_sessions(user_id).await?)
+    }
+
+    /// Sign one device out.
+    pub async fn revoke_session(
+        &self,
+        user_id: Snowflake,
+        session_id: Snowflake,
+    ) -> Result<(), AuthError> {
+        let sessions = self.storage.list_user_sessions(user_id).await?;
+        if !sessions.iter().any(|s| s.id == session_id) {
+            return Err(AuthError::InvalidSession);
+        }
+
+        Ok(self.storage.revoke_session(session_id).await?)
+    }
+
+    pub async fn revoke_other_sessions(
+        &self,
+        user_id: Snowflake,
+        keep: Snowflake,
+    ) -> Result<u64, AuthError> {
+        let sessions = self.storage.list_user_sessions(user_id).await?;
+
+        let mut revoked = 0;
+        for session in sessions.iter().filter(|s| s.id != keep) {
+            self.storage.revoke_session(session.id).await?;
+            revoked += 1;
+        }
+
+        Ok(revoked)
     }
 }

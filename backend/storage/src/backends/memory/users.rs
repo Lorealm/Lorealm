@@ -31,6 +31,8 @@ impl UserStorage for MemoryStorage {
             id: input.id,
             username: input.username.clone(),
             email: input.email.clone(),
+            display_name: None,
+            avatar_uri: None,
             password_hash: input.password_hash.clone(),
             created_at: now,
             updated_at: now,
@@ -73,6 +75,12 @@ impl UserStorage for MemoryStorage {
 
         if let Some(ref email) = input.email {
             user.email = Some(email.clone());
+        }
+        if let Some(ref display_name) = input.display_name {
+            user.display_name = display_name.clone();
+        }
+        if let Some(ref avatar_uri) = input.avatar_uri {
+            user.avatar_uri = Some(avatar_uri.clone());
         }
         if let Some(ref hash) = input.password_hash {
             user.password_hash = hash.clone();

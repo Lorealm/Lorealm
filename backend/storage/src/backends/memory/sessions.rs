@@ -51,6 +51,20 @@ impl SessionStorage for MemoryStorage {
         Ok((before - sessions.len()) as u64)
     }
 
+    async fn list_user_sessions(&self, user_id: Snowflake) -> Result<Vec<Session>, StorageError> {
+        let sessions = self.sessions.read().await;
+        let now = Utc::now();
+
+        let mut live: Vec<Session> = sessions
+            .values()
+            .filter(|s| s.user_id == user_id && s.revoked_at.is_none() && s.expires_at > now)
+            .cloned()
+            .collect();
+        live.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+
+        Ok(live)
+    }
+
     async fn cleanup_expired(&self) -> Result<u64, StorageError> {
         let mut sessions = self.sessions.write().await;
         let now = Utc::now();

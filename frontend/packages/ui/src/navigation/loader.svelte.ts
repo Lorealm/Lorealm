@@ -1,5 +1,6 @@
 import { characterStore } from '$lib/stores/character.svelte.js';
 import { connectionStore } from '$lib/stores/connection.svelte.js';
+import { currentUser } from '$lib/stores/currentUser.svelte.js';
 import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
 import { personaStore } from '$lib/stores/persona.svelte.js';
 import { realmStore } from '$lib/stores/realm.svelte.js';
@@ -45,6 +46,7 @@ const resources = {
 	connectionSecrets: new Resource(() => connectionStore.loadSecrets()),
 	connectionActive: new Resource(() => connectionStore.getActiveProfile()),
 	realmList: new Resource(() => realmStore.loadList()),
+	currentUser: new Resource(() => currentUser.load()),
 	serverConfig: new Resource(() => configStore.load()),
 	tokenizerList: new Resource(() => tokenizerStore.load())
 } satisfies Record<string, Resource>;
@@ -140,6 +142,9 @@ const SPECS: Record<string, RouteSpec> = {
 
 	'studio:widgets': studio({ needs: ['widgetList', 'toolList', 'builtinTools'] }),
 
+	'settings:user:profile': {
+		needs: ['currentUser', 'characterList', 'lorebookList', 'realmList']
+	},
 	'settings:user:tokenizers': { needs: ['tokenizerList'] },
 
 	'settings:server:hosting': { needs: ['serverConfig'] },

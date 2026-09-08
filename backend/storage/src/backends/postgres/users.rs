@@ -58,12 +58,28 @@ impl UserStorage for PostgresStorage {
 
         let user = sqlx::query_as::<_, User>(
             "UPDATE users
-                         email = $2, password_hash = $3, updated_at = now()
+                         SET email = $2,
+                             display_name = $3,
+                             avatar_uri = $4,
+                             password_hash = $5,
+                             updated_at = now()
                          WHERE id = $1
                          RETURNING *",
         )
         .bind(id)
         .bind(input.email.as_deref().or(current.email.as_deref()))
+        .bind(
+            input
+                .display_name
+                .as_ref()
+                .map_or(current.display_name.as_deref(), |name| name.as_deref()),
+        )
+        .bind(
+            input
+                .avatar_uri
+                .as_deref()
+                .or(current.avatar_uri.as_deref()),
+        )
         .bind(
             input
                 .password_hash

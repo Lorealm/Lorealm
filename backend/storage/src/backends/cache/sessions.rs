@@ -35,6 +35,11 @@ impl SessionStorage for CachedStorage {
         self.backend.delete_user_sessions(user_id).await
     }
 
+    async fn list_user_sessions(&self, user_id: Snowflake) -> Result<Vec<Session>, StorageError> {
+        // Keyed by token, so a per-user listing can only come from the backend.
+        self.backend.list_user_sessions(user_id).await
+    }
+
     async fn cleanup_expired(&self) -> Result<u64, StorageError> {
         self.backend.cleanup_expired().await
     }

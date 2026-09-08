@@ -56,6 +56,19 @@ impl SessionStorage for PostgresStorage {
         Ok(result.rows_affected())
     }
 
+    async fn list_user_sessions(&self, user_id: Snowflake) -> Result<Vec<Session>, StorageError> {
+        let sessions = sqlx::query_as::<_, Session>(
+            "SELECT * FROM sessions
+             WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now()
+             ORDER BY created_at DESC",
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(sessions)
+    }
+
     async fn cleanup_expired(&self) -> Result<u64, StorageError> {
         let result = sqlx::query("DELETE FROM sessions WHERE expires_at <= now()")
             .execute(&self.pool)

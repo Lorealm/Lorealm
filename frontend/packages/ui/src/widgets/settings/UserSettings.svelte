@@ -1,32 +1,59 @@
 <script lang="ts">
 	import { navigator } from '$lib/navigation/navigator.js';
 	import type { UserSection } from '$lib/navigation/routes.js';
+	import ProfileSection from './user/ProfileSection.svelte';
 	import TokenizersSection from './user/TokenizersSection.svelte';
+	import EditorSection from './client/EditorSection.svelte';
+	import InspectorSection from './client/InspectorSection.svelte';
+	import KeybindsSection from './client/KeybindsSection.svelte';
 
 	let { section }: { section: UserSection } = $props();
 
-	// Inline nav while there's one section. Extract a UserSettingsNav (mirroring
-	// ServerSettingsNav) once more sections land.
-	const sections: Array<{ id: UserSection; label: string; go: () => void }> = [
+	type Tab = { id: UserSection; label: string; go: () => void };
+
+	const account: Tab[] = [
+		{ id: 'profile', label: 'Profile', go: () => navigator.start().settings().user().profile() },
 		{
 			id: 'tokenizers',
 			label: 'Tokenizers',
 			go: () => navigator.start().settings().user().tokenizers()
 		}
 	];
+
+	const device: Tab[] = [
+		{ id: 'editor', label: 'Editor', go: () => navigator.start().settings().user().editor() },
+		{
+			id: 'inspector',
+			label: 'Inspector',
+			go: () => navigator.start().settings().user().inspector()
+		},
+		{ id: 'keybinds', label: 'Keybinds', go: () => navigator.start().settings().user().keybinds() }
+	];
 </script>
 
 <div class="user">
 	<nav class="nav">
-		{#each sections as { id, label, go } (id)}
-			<button class="tab" class:active={section === id} onclick={go}>
-				{label}
-			</button>
+		{#each account as { id, label, go } (id)}
+			<button class="tab" class:active={section === id} onclick={go}>{label}</button>
+		{/each}
+
+		<span class="divider" role="separator"></span>
+
+		{#each device as { id, label, go } (id)}
+			<button class="tab" class:active={section === id} onclick={go}>{label}</button>
 		{/each}
 	</nav>
 
-	{#if section === 'tokenizers'}
+	{#if section === 'profile'}
+		<ProfileSection />
+	{:else if section === 'tokenizers'}
 		<TokenizersSection />
+	{:else if section === 'editor'}
+		<EditorSection />
+	{:else if section === 'inspector'}
+		<InspectorSection />
+	{:else if section === 'keybinds'}
+		<KeybindsSection />
 	{/if}
 </div>
 
@@ -39,6 +66,7 @@
 	}
 	.nav {
 		display: flex;
+		align-items: center;
 		flex-wrap: wrap;
 		gap: var(--spacing-sm);
 		padding: var(--spacing-sm) 0;
@@ -53,5 +81,11 @@
 	}
 	.tab.active {
 		border-color: currentColor;
+	}
+	.divider {
+		width: 1px;
+		align-self: stretch;
+		margin: 2px var(--spacing-xs);
+		background: var(--color-border-medium);
 	}
 </style>
