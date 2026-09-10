@@ -86,7 +86,10 @@
 		}
 	}
 
-	/** "Firefox on Linux" out of a user-agent string, or a plain fallback. */
+	/**
+	 * "Firefox on Linux" or "Lorealm Desktop 0.3.0 on macOS" out of a user-agent
+	 * string, or a plain fallback.
+	 */
 	function describe(session: UserSession): string {
 		const ua = session.user_agent;
 		if (!ua) return 'Unknown device';
@@ -103,20 +106,26 @@
 							? 'Safari'
 							: null;
 
-		const os = /Windows/.test(ua)
+		// Non-browser clients lead with their own product token, e.g. "Lorealm-Desktop/0.3.0".
+		const [, name, version] = ua.match(/^([\w.-]+)\/(\S+)/) ?? [];
+		const product = name && name !== 'Mozilla' ? `${name.replace(/[-_]/g, ' ')} ${version}` : null;
+		const client = browser ?? product;
+
+		// Case-insensitive so Rust's std::env::consts::OS values ("macos", "windows", ...) match too.
+		const os = /windows/i.test(ua)
 			? 'Windows'
-			: /Android/.test(ua)
+			: /android/i.test(ua)
 				? 'Android'
-				: /(iPhone|iPad)/.test(ua)
+				: /iphone|ipad/i.test(ua)
 					? 'iOS'
-					: /Mac OS X/.test(ua)
+					: /mac os x|macos/i.test(ua)
 						? 'macOS'
-						: /Linux/.test(ua)
+						: /linux/i.test(ua)
 							? 'Linux'
 							: null;
 
-		if (browser && os) return `${browser} on ${os}`;
-		return browser ?? os ?? 'Unknown device';
+		if (client && os) return `${client} on ${os}`;
+		return client ?? os ?? 'Unknown device';
 	}
 
 	const otherSessions = $derived(currentUser.sessions.filter((s) => !s.current).length);

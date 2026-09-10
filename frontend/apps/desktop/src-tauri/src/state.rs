@@ -11,7 +11,14 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(config: AppConfig) -> Self {
+        let user_agent = format!(
+            "Lorealm-Desktop/{} ({}; {})",
+            env!("CARGO_PKG_VERSION"),
+            std::env::consts::OS,
+            std::env::consts::ARCH,
+        );
         let api_client = ClientBuilder::new()
+            .user_agent(user_agent)
             .build()
             .expect("should be able to create reqwest client");
         AppState {
