@@ -180,7 +180,7 @@
 					{#each segments as seg, i (i)}
 						{#if seg.type === 'text'}
 							<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-							{@html presentedText(renderMd(seg.text))}
+							{@html renderMd(presentedText(seg.text))}
 						{:else if widgets[seg.index]}
 							<div class="inline-widget">
 								<ChatWidget widget={widgets[seg.index]} />
