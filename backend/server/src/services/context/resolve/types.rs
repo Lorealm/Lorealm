@@ -145,6 +145,8 @@ pub struct ResolveContext<'a> {
     /// Host variables for this turn
     pub variables: Variables,
     pub widget_prompts: &'a [String],
+    /// The conversation's author's note. Empty when unset.
+    pub author_note: &'a str,
 }
 
 /// A single prompt-visible turn, source-agnostic

@@ -33,6 +33,8 @@ export interface NewConversationOptions {
 
 interface PendingState extends NewConversationOptions {
 	selected: number;
+	/** Author's note typed before the conversation row exists. */
+	authorNote: string;
 }
 
 const TEMP_PREFIX = 'tmp_';
@@ -86,6 +88,13 @@ class ChatStore {
 	}
 	get conversationId(): Snowflake | null {
 		return this._conversation?.id ?? null;
+	}
+	/** True while a greeting is on screen but no conversation row exists yet. */
+	get isPending(): boolean {
+		return this._pending !== null;
+	}
+	get pendingAuthorNote(): string {
+		return this._pending?.authorNote ?? '';
 	}
 	/** The character this chat is bound to */
 	get characterId(): Snowflake | null {
@@ -301,7 +310,7 @@ class ChatStore {
 		this.#resetSession();
 		if (opts.greetings.length === 0) return;
 		const greetings = [...opts.greetings].sort((a, b) => a.order - b.order);
-		this._pending = { ...opts, greetings, selected: 0 };
+		this._pending = { ...opts, greetings, selected: 0, authorNote: '' };
 
 		const id = this.#tempId();
 		this._pendingGreetingId = id;
@@ -371,7 +380,8 @@ class ChatStore {
 				character_id: p.characterId,
 				version_id: p.versionId,
 				greeting_id: greeting.id,
-				content
+				content,
+				author_note: p.authorNote
 			});
 			this.#ingestFull(full);
 			await this.loadList();
@@ -883,6 +893,26 @@ class ChatStore {
 			);
 
 			throw e;
+		}
+	}
+
+	/** Held until `start` creates the row; there is nothing to PATCH yet. */
+	setPendingAuthorNote(note: string) {
+		if (this._pending) this._pending.authorNote = note;
+	}
+
+	async setAuthorNote(id: Snowflake, note: string) {
+		const previous = this._conversation;
+		if (previous?.id === id) this._conversation = { ...previous, author_note: note };
+
+		try {
+			await this.#api.chat.setAuthorNote(id, note);
+		} catch (e) {
+			const current = this._conversation;
+			if (previous && current?.id === id) {
+				this._conversation = { ...current, author_note: previous.author_note };
+			}
+			showApiError(e, { title: 'Failed to save the author’s note' });
 		}
 	}
 

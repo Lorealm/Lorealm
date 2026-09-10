@@ -245,6 +245,8 @@ export function createApiClient(platform: PlatformAPI) {
 			get: (conversation_id: Snowflake, full: boolean) =>
 				http.get<FullConversation>(`/api/v1/chat/${conversation_id}?full=${full}`),
 			delete: (conversation_id: Snowflake) => http.delete(`/api/v1/chat/${conversation_id}`),
+			setAuthorNote: (conversation_id: Snowflake, author_note: string) =>
+				http.patch(`/api/v1/chat/${conversation_id}/author-note`, { author_note }),
 			completions: (conversation_id: Snowflake, request: CompletionsRequest) =>
 				http.stream<ChatStreamEvent>(`/api/v1/chat/${conversation_id}/completions`, request),
 			cancel: (conversation_id: Snowflake) =>

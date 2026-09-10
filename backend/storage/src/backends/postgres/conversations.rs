@@ -111,6 +111,16 @@ impl ConversationStorage for PostgresStorage {
         Ok(())
     }
 
+    async fn set_author_note(&self, id: Snowflake, note: &str) -> Result<(), StorageError> {
+        sqlx::query("UPDATE conversations SET author_note = $2, updated_at = now() WHERE id = $1")
+            .bind(id)
+            .bind(note)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
     async fn delete_conversation(&self, id: Snowflake) -> Result<bool, StorageError> {
         let result = sqlx::query("DELETE FROM conversations WHERE id = $1")
             .bind(id)

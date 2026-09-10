@@ -42,6 +42,13 @@ impl ConversationStorage for CachedStorage {
         Ok(())
     }
 
+    async fn set_author_note(&self, id: Snowflake, note: &str) -> Result<(), StorageError> {
+        self.backend.set_author_note(id, note).await?;
+        self.cache_del(&self.key("conversation", &id.to_string()))
+            .await;
+        Ok(())
+    }
+
     async fn delete_conversation(&self, id: Snowflake) -> Result<bool, StorageError> {
         let deleted = self.backend.delete_conversation(id).await?;
         if deleted {

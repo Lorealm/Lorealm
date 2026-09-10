@@ -361,6 +361,7 @@ mod tests {
             realm_id: None,
             active_leaf_id: None,
             title: Some("Test".into()),
+            author_note: String::new(),
             created_at: now,
             updated_at: now,
         };

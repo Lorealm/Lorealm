@@ -7,12 +7,14 @@ use crate::services::{
 
 use super::SourceRegistry;
 
+mod author_note;
 mod character;
 mod chat_history;
 mod persona;
 mod widgets;
 mod world_info;
 
+pub use author_note::AuthorNoteResolver;
 pub use character::CharacterResolver;
 pub use chat_history::ChatHistoryResolver;
 pub use widgets::WidgetPromptsResolver;
@@ -24,6 +26,7 @@ pub fn register_builtin_sources(registry: &mut SourceRegistry, state: Arc<StateS
     registry.register(Arc::new(PersonaResolver));
     registry.register(Arc::new(WorldInfoResolver::new(Arc::clone(&state))));
     registry.register(Arc::new(WidgetPromptsResolver));
+    registry.register(Arc::new(AuthorNoteResolver));
 }
 
 pub(super) fn text_block(
@@ -85,6 +88,7 @@ mod tests {
         assert!(has_node(&registry, "chat_history", "main"));
         assert!(has_node(&registry, "character", "definition"));
         assert!(has_node(&registry, "widgets", "main"));
+        assert!(has_node(&registry, "author_note", "main"));
 
         assert!(has_node(&registry, "world_info", "prelude"));
         assert!(has_node(&registry, "world_info", "preamble"));
@@ -108,13 +112,14 @@ mod tests {
             .map(|d| d.source_id)
             .collect();
 
-        assert_eq!(ids.len(), 5);
+        assert_eq!(ids.len(), 6);
         for id in [
             "chat_history",
             "character",
             "persona",
             "world_info",
             "widgets",
+            "author_note",
         ] {
             assert!(ids.contains(&id.to_string()), "missing {id}");
             assert!(registry.get(id).is_some(), "{id} listed but not resolvable");

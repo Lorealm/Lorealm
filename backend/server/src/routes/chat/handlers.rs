@@ -22,7 +22,10 @@ use crate::{
         PlayerTurnRequest, RunTurnRequest,
         chat::{
             StartChatRequest,
-            dto::{ChatEdit, CompletionsRequest, GetConversationQuery, StartRealmChatRequest},
+            dto::{
+                ChatEdit, CompletionsRequest, GetConversationQuery, SetAuthorNoteRequest,
+                StartRealmChatRequest,
+            },
         },
         realm::dto::{AgentStateQuery, EventsQuery, ObservationsQuery},
     },
@@ -89,6 +92,7 @@ pub async fn start_chat(
             session.user_id,
             request.greeting_id,
             request.content,
+            request.author_note,
         )
         .await?;
 
@@ -370,6 +374,21 @@ pub async fn list_agent_actions(
         .await?;
 
     Ok(Json(actions))
+}
+
+pub async fn set_author_note(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(conversation_id): Path<Snowflake>,
+    Json(request): Json<SetAuthorNoteRequest>,
+) -> Result<(), AppError> {
+    state
+        .services()
+        .chat()
+        .set_author_note(conversation_id, session.user_id, request.author_note)
+        .await?;
+
+    Ok(())
 }
 
 #[cfg(test)]
