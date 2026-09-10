@@ -31,6 +31,9 @@ pub trait ConversationStorage: Send + Sync {
         active_leaf_id: Option<Snowflake>,
     ) -> Result<(), StorageError>;
 
+    /// Replace a conversation's author's note.
+    async fn set_author_note(&self, id: Snowflake, note: &str) -> Result<(), StorageError>;
+
     /// Hard-delete a conversation
     async fn delete_conversation(&self, id: Snowflake) -> Result<bool, StorageError>;
 

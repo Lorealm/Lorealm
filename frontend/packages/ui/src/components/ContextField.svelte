@@ -17,6 +17,7 @@
 		readOnly = false,
 		tokens = true,
 		maximizable = true,
+		fill = false,
 		weaver = true,
 		surface = 'elevated',
 		dialect = 'template'
@@ -35,6 +36,8 @@
 		/** Show the running token cost. */
 		tokens?: boolean;
 		maximizable?: boolean;
+		/** Stretch to the parent's height instead of sizing to `rows`. */
+		fill?: boolean;
 		/**
 		 * Highlight and complete weaver syntax.
 		 */
@@ -46,11 +49,12 @@
 	} = $props();
 </script>
 
-{#snippet editor(fill: boolean)}
+{#snippet editor(maximized: boolean)}
+	{@const stretch = maximized || fill}
 	{#if !weaver}
 		<textarea
 			class="plain"
-			class:fill
+			class:fill={stretch}
 			rows={multiline ? rows : 1}
 			{placeholder}
 			readonly={readOnly}
@@ -64,18 +68,18 @@
 			{references}
 			{readOnly}
 			{rows}
-			{fill}
+			fill={stretch}
 			{surface}
 			{dialect}
 			hint={placeholder}
-			autofocus={fill}
+			autofocus={maximized}
 		/>
 	{:else}
 		<WeaverField doc={value} onChange={readOnly ? undefined : onchange} {references} {dialect} />
 	{/if}
 {/snippet}
 
-<FieldShell {label} {hint} {maximizable} tokenText={tokens ? value : undefined} {editor} />
+<FieldShell {label} {hint} {maximizable} {fill} tokenText={tokens ? value : undefined} {editor} />
 
 <style>
 	.plain {

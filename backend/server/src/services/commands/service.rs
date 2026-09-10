@@ -376,6 +376,7 @@ mod tests {
             realm_id: None,
             active_leaf_id: None,
             title: None,
+            author_note: String::new(),
             created_at: now,
             updated_at: now,
         };
@@ -620,6 +621,7 @@ mod tests {
             realm_id: Some(h.snow.generate()),
             active_leaf_id: None,
             title: None,
+            author_note: String::new(),
             created_at: now,
             updated_at: now,
         };

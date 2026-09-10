@@ -618,6 +618,7 @@ impl RealmService {
             realm_id: Some(realm_id),
             active_leaf_id: None,
             title: Some(realm.definition.name.clone()),
+            author_note: String::new(),
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
         };
@@ -791,6 +792,7 @@ impl RealmService {
                 &llm.baseline,
                 &llm.policy,
                 &llm.widget_prompts,
+                &convo.author_note,
             )
             .await?;
 

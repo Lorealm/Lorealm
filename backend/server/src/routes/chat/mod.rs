@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     Router,
-    routing::{delete, get, post, put},
+    routing::{delete, get, patch, post, put},
 };
 use tower_cookies::CookieManagerLayer;
 
@@ -56,6 +56,10 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         .route("/", post(handlers::start_chat))
         .route("/realm", post(handlers::start_realm_chat))
         .route("/{conversation_id}", delete(handlers::delete_conversation))
+        .route(
+            "/{conversation_id}/author-note",
+            patch(handlers::set_author_note),
+        )
         .route("/{conversation_id}/messages", put(handlers::edit_message))
         .route(
             "/{conversation_id}/messages/{message_id}",

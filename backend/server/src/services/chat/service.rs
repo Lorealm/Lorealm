@@ -215,6 +215,7 @@ impl ChatService {
         user_id: Snowflake,
         greeting_id: Snowflake,
         content: String,
+        author_note: String,
     ) -> Result<FullConversation, ChatError> {
         let v_id = version_id.unwrap_or(self.characters.get_latest_version_id(character_id).await?);
         let char = self
@@ -230,6 +231,7 @@ impl ChatService {
             realm_id: None,
             active_leaf_id: None,
             title: None,
+            author_note,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
@@ -354,6 +356,18 @@ impl ChatService {
         self.get_conversation(convo_id, user_id).await?;
 
         self.storage.delete_conversation(convo_id).await?;
+        Ok(())
+    }
+
+    pub async fn set_author_note(
+        &self,
+        convo_id: Snowflake,
+        user_id: Snowflake,
+        note: String,
+    ) -> Result<(), ChatError> {
+        self.get_conversation(convo_id, user_id).await?;
+
+        self.storage.set_author_note(convo_id, &note).await?;
         Ok(())
     }
 
@@ -493,6 +507,7 @@ impl ChatService {
         thread: &[PromptTurn],
         baseline: &ReconstructedState,
         widget_prompts: &[String],
+        author_note: &str,
     ) -> Result<Prepared, ChatError> {
         let character = match spec.character {
             Some((cid, cvid)) => Some(self.characters.load_version(cid, cvid, spec.owner).await?),
@@ -535,6 +550,7 @@ impl ChatService {
                     realm,
                 }),
                 widget_prompts,
+                author_note,
             };
             let trace = assemble(&template, &self.sources, &ctx).await?;
             captured = ctx.lorebook_state.lock().await.take();
@@ -671,7 +687,14 @@ impl ChatService {
             captured,
             usage,
         } = self
-            .assemble_context(&spec, None, &turns, &baseline, &widget_prompts)
+            .assemble_context(
+                &spec,
+                None,
+                &turns,
+                &baseline,
+                &widget_prompts,
+                &convo.author_note,
+            )
             .await?;
 
         // A continuation rewrites the state row of the message it extends
@@ -1118,7 +1141,7 @@ impl ChatService {
             prompt: mut messages,
             ..
         } = self
-            .assemble_context(&spec, None, &turns, &baseline, &[])
+            .assemble_context(&spec, None, &turns, &baseline, &[], &convo.author_note)
             .await?;
 
         messages.push(PromptMessage {
@@ -1138,6 +1161,7 @@ impl ChatService {
         baseline: &ReconstructedState,
         policy: &ToolPolicy,
         widget_prompts: &[String],
+        author_note: &str,
     ) -> Result<OpenAgentTurn, ChatError> {
         let Prepared {
             prompt,
@@ -1145,7 +1169,14 @@ impl ChatService {
             captured,
             usage,
         } = self
-            .assemble_context(spec, Some(realm), turns, baseline, widget_prompts)
+            .assemble_context(
+                spec,
+                Some(realm),
+                turns,
+                baseline,
+                widget_prompts,
+                author_note,
+            )
             .await?;
 
         let diff_base = baseline.persistent.clone();

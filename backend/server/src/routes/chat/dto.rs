@@ -13,6 +13,9 @@ pub struct StartChatRequest {
     pub version_id: Option<Snowflake>,
     pub greeting_id: Snowflake,
     pub content: String,
+    /// Seeds the new conversation's author's note. Empty for none.
+    #[serde(default)]
+    pub author_note: String,
 }
 
 /// Instantiate a realm preset into a fresh playthrough conversation.
@@ -45,4 +48,9 @@ pub struct CompletionsRequest {
     /// Write on from an existing assistant reply instead of starting a new one.
     #[serde(default, rename = "continue")]
     pub continued: bool,
+}
+
+#[derive(Deserialize)]
+pub struct SetAuthorNoteRequest {
+    pub author_note: String,
 }

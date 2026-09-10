@@ -12,6 +12,7 @@ export interface Conversation {
 	realm_id: Snowflake | null;
 	active_leaf_id: Snowflake | null;
 	title: string | null;
+	author_note: string;
 	created_at: string;
 	updated_at: string;
 }
@@ -44,6 +45,8 @@ export interface StartChatRequest {
 	version_id?: Snowflake | null;
 	greeting_id: Snowflake;
 	content: string;
+	/** Seeds the new conversation's author's note. */
+	author_note?: string;
 }
 
 export interface SendMessageRequest {

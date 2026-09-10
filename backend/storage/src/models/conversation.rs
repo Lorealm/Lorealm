@@ -38,6 +38,8 @@ pub struct Conversation {
     pub realm_id: Option<Snowflake>,
     pub active_leaf_id: Option<Snowflake>,
     pub title: Option<String>,
+    /// Free-form prompt the user keeps alongside the chat.
+    pub author_note: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

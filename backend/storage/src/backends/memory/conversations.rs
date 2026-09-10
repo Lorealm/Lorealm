@@ -69,6 +69,17 @@ impl ConversationStorage for MemoryStorage {
         Ok(())
     }
 
+    async fn set_author_note(&self, id: Snowflake, note: &str) -> Result<(), StorageError> {
+        let mut conversations = self.conversations.write().await;
+        let conv = conversations
+            .get_mut(&id)
+            .ok_or_else(|| StorageError::NotFound(format!("Conversation {id} not found")))?;
+
+        conv.author_note = note.to_string();
+        conv.updated_at = Utc::now();
+        Ok(())
+    }
+
     async fn delete_conversation(&self, id: Snowflake) -> Result<bool, StorageError> {
         let removed = self.conversations.write().await.remove(&id).is_some();
         if removed {
