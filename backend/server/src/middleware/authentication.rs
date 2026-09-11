@@ -32,7 +32,11 @@ pub struct SessionMiddlewareState {
 }
 
 impl SessionMiddlewareState {
-    pub fn new(session_service: Arc<SessionService>, server_secret: SecretString) -> Self {
+    pub fn new(
+        session_service: Arc<SessionService>,
+        server_secret: SecretString,
+        cookie_secure: bool,
+    ) -> Self {
         Self {
             session_service,
             server_secret,
@@ -40,8 +44,7 @@ impl SessionMiddlewareState {
             csrf_cookie_name: "csrf_token".to_string(),
             csrf_header_name: "X-CSRF-Token".to_string(),
             cookie_domain: None,
-            // In development mode we use non-secure cookies. Release mode enforces secure cookies.
-            cookie_secure: !cfg!(debug_assertions),
+            cookie_secure,
         }
     }
 
