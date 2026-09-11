@@ -52,6 +52,10 @@ Every plugin must ship with a manifest.toml file. A manifest file ships the plug
 - recommends (for the marketplace)
 - conflicts
 
+#### Structure (optional)
+- backend_path (the relative path to the backend code, defaults to "backend")
+- frontend_path (same, but for frontend, defaults to "frontend")
+
 Here's an example:
 ```toml
 [plugin]
@@ -61,7 +65,7 @@ description = "Live-renders Markdown files in a side panel as you type."
 tags = ["markdown", "preview", "editor"]
 author = "Jane Doe <jane@example.com>"
 version = "1.2.0"
-permissions = ["fs:read", "ui:panel", "network:none"]
+permissions = ["fs:read", "ui:modal"]
 
 [compatibility]
 loaded_before = ["mermaid_render"]
@@ -69,6 +73,10 @@ loaded_after = ["markdown_extensions"]
 requires = { markdown_extensions = "^1.4" }
 recommends = ["syntax_highlight"]
 conflicts = ["other_md_preview"]
+
+[structure]
+backend_path = "src/backend"
+frontend_path = "src/frontend"
 ```
 
 ### Marketplace
@@ -121,6 +129,18 @@ Apart from hook registering, a plugin will need to ship with a variety of comman
 - `generate()`
 - `get_character`, `get_lorebook`, `get_context_template`, `etc.`
 - `update_character`, `update_lorebook`, `update_context_template`, `etc.`
+
+### Proposed Plugin Structure
+```
+plugin
+├── .gitignore
+├── manifest.toml
+├── backend
+│   ├── pkg (extism/custom PDK types and wrappers)
+│   └── src
+└── frontend
+    └── src
+```
 
 ## Open Questions
 1. The frontend in this project is the official one, but is only one of potentially many. Clients will naturally have different ways of handling plugins. How do we want to handle these cases semantically? The two main options are:
