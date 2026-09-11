@@ -14,7 +14,7 @@ use tower_cookies::{
 };
 
 use crate::{
-    config::UserConfig,
+    config::{HostingConfig, UserConfig},
     core::AppState,
     errors::{AppError, AuthError},
     extract::{AuthenticatedSession, UserDevice},
@@ -76,12 +76,13 @@ pub async fn login(
         .await?;
 
     let max_age = (result.expires_at - Utc::now()).num_seconds().max(0);
+    let cookie_secure = state.config().get::<HostingConfig>().cookie_secure;
 
     cookies.add(
         Cookie::build(("session_token", result.session_token.clone()))
             .path("/")
             .http_only(true)
-            .secure(true)
+            .secure(cookie_secure)
             .same_site(SameSite::Lax)
             .max_age(time::Duration::seconds(max_age))
             .build(),
@@ -91,7 +92,7 @@ pub async fn login(
         Cookie::build(("csrf_token", result.csrf_token.clone()))
             .path("/")
             .http_only(false)
-            .secure(true)
+            .secure(cookie_secure)
             .same_site(SameSite::Lax)
             .max_age(time::Duration::seconds(max_age))
             .build(),

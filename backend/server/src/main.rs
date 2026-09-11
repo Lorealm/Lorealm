@@ -4,8 +4,16 @@ use std::{
     time::Duration,
 };
 
-use axum::Router;
-use tower_http::cors::{Any, CorsLayer};
+use anyhow::Context;
+use axum::{
+    Router,
+    http::{HeaderValue, header},
+};
+use tower_http::{
+    cors::{Any, CorsLayer},
+    services::{ServeDir, ServeFile},
+    set_header::SetResponseHeaderLayer,
+};
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::{
@@ -44,9 +52,13 @@ async fn main() -> anyhow::Result<()> {
 
     run_setup(Arc::clone(&state)).await?;
 
+    let cfg_host = state.config().get::<HostingConfig>();
+    let cfg_task = state.config().get::<TaskConfig>();
+
     let session_service = Arc::clone(state.services().sessions());
     let permission_service = Arc::clone(state.services().permissions());
-    let session_state = SessionMiddlewareState::new(session_service, state.secret());
+    let session_state =
+        SessionMiddlewareState::new(session_service, state.secret(), cfg_host.cookie_secure);
     let permission_state = PermissionMiddlewareState::new(permission_service);
 
     // Extremely open for testing purposes
@@ -63,14 +75,43 @@ async fn main() -> anyhow::Result<()> {
         )
         .layer(cors);
 
-    let cfg_host = state.config().get::<HostingConfig>();
-    let cfg_task = state.config().get::<TaskConfig>();
-
     let _cleanup = state
         .services()
         .start_cleanup_task(Duration::from_secs(cfg_task.cleanup_interval));
 
+    let app = if cfg_host.serve_frontend {
+        let dir = cfg_host.frontend_dir.canonicalize().with_context(|| {
+            format!("serve_frontend is on but {:?} does not exist (cwd {:?})",
+                    cfg_host.frontend_dir, std::env::current_dir().unwrap())
+        })?;
+        tracing::debug!("serving frontend from {}", dir.display());
+
+        let assets = Router::new()
+            .fallback_service(ServeDir::new(dir.join("assets")))
+            .layer(SetResponseHeaderLayer::overriding(
+                header::CACHE_CONTROL,
+                HeaderValue::from_static("public, max-age=31536000, immutable"),
+            ));
+
+        let shell = Router::new()
+            .fallback_service(
+                ServeDir::new(&dir).fallback(ServeFile::new(dir.join("index.html"))),
+            )
+            .layer(SetResponseHeaderLayer::overriding(
+                header::CACHE_CONTROL,
+                HeaderValue::from_static("no-cache"),
+            ));
+
+        app.nest("/assets", assets).fallback_service(shell)
+    } else { app };
+    
     let ip: IpAddr = cfg_host.ip.parse()?;
+    if !cfg_host.cookie_secure && !ip.is_loopback() {
+        tracing::warn!(
+            "hosting.cookie_secure is off and the server is bound to {ip}: session cookies \
+             will travel unencrypted. This is fine on a trusted LAN, but not for public exposure."
+        );
+    }
     let addr = SocketAddr::from((ip, cfg_host.port));
     tracing::info!("Server starting on {}", addr);
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();

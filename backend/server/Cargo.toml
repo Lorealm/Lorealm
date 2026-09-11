@@ -17,7 +17,7 @@ reqwest = { workspace = true }
 # Project-specific dependencies
 axum = { version = "0.8.8", features = ["macros", "multipart"] }
 tokio = { version = "1.51.0", features = ["full"] }
-tower-http = { version = "0.6.8", features = ["cors"] }
+tower-http = { version = "0.6.8", features = ["cors", "fs", "set-header"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = { version = "1.0.149", features = ["preserve_order"] }
 tracing = "0.1.44"
