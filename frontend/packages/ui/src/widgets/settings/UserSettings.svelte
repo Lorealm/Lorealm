@@ -3,6 +3,7 @@
 	import type { UserSection } from '$lib/navigation/routes.js';
 	import ProfileSection from './user/ProfileSection.svelte';
 	import TokenizersSection from './user/TokenizersSection.svelte';
+	import AppearanceSection from './client/AppearanceSection.svelte';
 	import EditorSection from './client/EditorSection.svelte';
 	import InspectorSection from './client/InspectorSection.svelte';
 	import KeybindsSection from './client/KeybindsSection.svelte';
@@ -21,6 +22,11 @@
 	];
 
 	const device: Tab[] = [
+		{
+			id: 'appearance',
+			label: 'Appearance',
+			go: () => navigator.start().settings().user().appearance()
+		},
 		{ id: 'editor', label: 'Editor', go: () => navigator.start().settings().user().editor() },
 		{
 			id: 'inspector',
@@ -48,6 +54,8 @@
 		<ProfileSection />
 	{:else if section === 'tokenizers'}
 		<TokenizersSection />
+	{:else if section === 'appearance'}
+		<AppearanceSection />
 	{:else if section === 'editor'}
 		<EditorSection />
 	{:else if section === 'inspector'}

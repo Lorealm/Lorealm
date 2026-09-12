@@ -6,6 +6,7 @@ export interface PlatformAPI {
 	auth: AuthApi;
 	http: HttpTransport;
 	store: LocalStore;
+	files: FileTransfer;
 	capabilities: Set<KnownCapability | (string & {})>;
 	window?: WindowControls;
 	server?: ServerControls;
@@ -38,6 +39,33 @@ export interface WindowControls {
 	minimize(): Promise<void>;
 	toggleMaximize(): Promise<void>;
 	close(): Promise<void>;
+}
+
+/**
+ * Files the user hands us, and files we hand back.
+ *
+ * Both ends go through the platform because the two clients disagree about what
+ * a file dialog is: the browser has a hidden input and a download, the desktop
+ * has the real thing. Text only — the formats that travel this way (styles for
+ * now) are ones a person can read and edit.
+ */
+export interface FileTransfer {
+	/** Ask for a file and read it. Null when the user picked nothing. */
+	open(options: FileDialog): Promise<string | null>;
+
+	/** Ask where to put `contents` and write it. False when the user cancelled. */
+	save(contents: string, options: FileDialog): Promise<boolean>;
+}
+
+export interface FileDialog {
+	/** What the dialog calls this kind of file, e.g. "Lorealm style". */
+	label: string;
+
+	/** Accepted extensions, without the dot. */
+	extensions: string[];
+
+	/** The name to offer when saving. */
+	suggestedName?: string;
 }
 
 /**

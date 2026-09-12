@@ -1,4 +1,13 @@
-import type { AuthApi, HttpTransport, LocalStore, PlatformAPI, Session, User } from "@lorealm/ui";
+import type {
+	AuthApi,
+	FileDialog,
+	FileTransfer,
+	HttpTransport,
+	LocalStore,
+	PlatformAPI,
+	Session,
+	User,
+} from "@lorealm/ui";
 import { SvelteSet } from "svelte/reactivity";
 
 const BASE = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -265,9 +274,41 @@ const store: LocalStore = {
 	},
 };
 
+const files: FileTransfer = {
+	open(options: FileDialog): Promise<string | null> {
+		return new Promise((resolve, reject) => {
+			const input = document.createElement("input");
+			input.type = "file";
+			input.accept = options.extensions.map((e) => `.${e}`).join(",");
+
+			input.oncancel = () => resolve(null);
+			input.onchange = () => {
+				const file = input.files?.[0];
+				if (!file) return resolve(null);
+				file.text().then(resolve, reject);
+			};
+
+			input.click();
+		});
+	},
+
+	async save(contents: string, options: FileDialog): Promise<boolean> {
+		const url = URL.createObjectURL(new Blob([contents], { type: "application/json" }));
+		const link = document.createElement("a");
+		link.href = url;
+		link.download = options.suggestedName ?? `download.${options.extensions[0] ?? "txt"}`;
+		link.click();
+
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+		
+		return true;
+	},
+};
+
 export const webPlatform: PlatformAPI = {
 	auth: webAuth,
 	http,
 	store,
+	files,
 	capabilities: new SvelteSet([]),
 };

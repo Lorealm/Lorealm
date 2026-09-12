@@ -6,6 +6,7 @@ use crate::{config::AppConfig, state::AppState};
 
 mod auth;
 mod config;
+mod files;
 mod http;
 mod snowflake;
 mod state;
@@ -35,6 +36,7 @@ pub enum Error {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
@@ -54,7 +56,9 @@ pub fn run() {
             config::store_set,
             config::store_delete,
             config::get_server_url,
-            config::set_server_url
+            config::set_server_url,
+            files::pick_file,
+            files::save_file
         ])
         .setup(|app| {
             match AppConfig::load(app.handle()) {

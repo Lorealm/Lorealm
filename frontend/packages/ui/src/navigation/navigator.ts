@@ -52,6 +52,7 @@ class UserSettingsStage {
 
 	profile = () => this.#section('profile');
 	tokenizers = () => this.#section('tokenizers');
+	appearance = () => this.#section('appearance');
 	editor = () => this.#section('editor');
 	inspector = () => this.#section('inspector');
 	keybinds = () => this.#section('keybinds');

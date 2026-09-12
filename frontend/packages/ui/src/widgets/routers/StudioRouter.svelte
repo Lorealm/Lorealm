@@ -13,7 +13,7 @@
 	let { section, id }: { section: StudioSection; id?: Snowflake } = $props();
 </script>
 
-<div style="display:flex; flex-direction:column; flex:1; min-height:0; padding:var(--spacing-sm)">
+<div style="display:flex; flex-direction:column; flex:1; min-height: 0;">
 	<StudioNav {section} />
 
 	{#if section === 'lorebooks'}

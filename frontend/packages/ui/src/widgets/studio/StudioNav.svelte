@@ -44,12 +44,13 @@
 <style>
 	.studioNav {
 		display: flex;
-		gap: 8px;
-		padding: 8px 0;
+		gap: var(--spacing-xs);
+		padding: var(--spacing-md);
 	}
 	.tab {
-		padding: 6px 14px;
-		border-radius: 999px;
+		justify-content: center;
+		padding: var(--spacing-xs) var(--spacing-md);
+		border-radius: var(--radius-full);
 		border: 1px solid transparent;
 		background: none;
 		cursor: pointer;

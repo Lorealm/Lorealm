@@ -1,6 +1,8 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import type {
 	AuthApi,
+	FileDialog,
+	FileTransfer,
 	HttpTransport,
 	LocalStore,
 	PlatformAPI,
@@ -191,6 +193,21 @@ const store: LocalStore = {
 	delete: (key) => invoke("store_delete", { key }),
 };
 
+const files: FileTransfer = {
+	open: (options: FileDialog) =>
+		invoke<string | null>("pick_file", {
+			label: options.label,
+			extensions: options.extensions,
+		}),
+	save: (contents: string, options: FileDialog) =>
+		invoke<boolean>("save_file", {
+			contents,
+			label: options.label,
+			extensions: options.extensions,
+			suggestedName: options.suggestedName ?? null,
+		}),
+};
+
 const server: ServerControls = {
 	url: () => invoke<string>("get_server_url"),
 	setUrl: (url) => invoke("set_server_url", { url }),
@@ -200,6 +217,7 @@ export const tauriPlatform: PlatformAPI = {
 	auth: tauriAuth,
 	http,
 	store,
+	files,
 	server,
 	window: isMac
 		? undefined
