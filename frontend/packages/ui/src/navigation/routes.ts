@@ -11,7 +11,7 @@ export type StudioSection =
 	| 'widgets';
 
 /** The sections under "You" that live on this device only, never on the account. */
-export type ClientSection = 'editor' | 'inspector' | 'keybinds';
+export type ClientSection = 'appearance' | 'editor' | 'inspector' | 'keybinds';
 
 /** Everything about you: the account itself, plus this device's preferences. */
 export type UserSection = 'profile' | 'tokenizers' | ClientSection;

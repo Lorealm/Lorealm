@@ -51,6 +51,7 @@ const SCOPE_LABEL: Record<'user' | 'server', string> = {
 const USER_LABEL: Record<UserSection, string> = {
 	profile: 'Profile',
 	tokenizers: 'Tokenizers',
+	appearance: 'Appearance',
 	editor: 'Editor',
 	inspector: 'Inspector',
 	keybinds: 'Keybinds'

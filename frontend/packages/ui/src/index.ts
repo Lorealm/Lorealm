@@ -2,6 +2,8 @@ export { default as App } from './App.svelte';
 export type {
 	PlatformAPI,
 	AuthApi,
+	FileDialog,
+	FileTransfer,
 	HttpTransport,
 	LocalStore,
 	ServerControls
@@ -17,7 +19,6 @@ export type {
 	ResourceKind
 } from './types/error.js';
 
-/* Slash commands — the composer's dispatch surface. */
 export {
 	builtInSlashCommands,
 	dispatch,
@@ -35,7 +36,6 @@ export type {
 	SlashParam
 } from './commands/index.js';
 
-/* Keybinds — also the surface a future plugin host registers through. */
 export {
 	builtInCommands,
 	chordsFromEvent,
