@@ -199,6 +199,11 @@ const files: FileTransfer = {
 			label: options.label,
 			extensions: options.extensions,
 		}),
+	openBinary: (options: FileDialog) =>
+		invoke<string | null>("pick_file_binary", {
+			label: options.label,
+			extensions: options.extensions,
+		}),
 	save: (contents: string, options: FileDialog) =>
 		invoke<boolean>("save_file", {
 			contents,

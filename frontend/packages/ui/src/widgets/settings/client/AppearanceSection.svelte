@@ -2,6 +2,9 @@
 	import { usePlatform } from '$lib/api/client.js';
 	import { BUILT_IN_STYLES, CLASSIC_NAME } from '$lib/assets/styles/builtin.js';
 	import NumberInput from '$lib/components/NumberInput.svelte';
+	import { fitImageForStorage } from '$lib/assets/scripts/image.js';
+	import { backdrop } from '$lib/stores/backdrop.svelte.js';
+	import TransportImage from '$lib/components/TransportImage.svelte';
 	import { showError, showToast } from '$lib/stores/errorToast.svelte.js';
 	import {
 		parseStyle,
@@ -11,9 +14,20 @@
 		tokenCatalogue
 	} from '$lib/stores/styles.svelte.js';
 	import { APPEARANCE_GROUPS, FONT_CHOICES, type TokenField } from './appearanceTokens.js';
-	import { Download, Plus, RotateCcw, Search, Trash2, Undo2, Upload } from '@lucide/svelte';
+	import {
+		Download,
+		Image as ImageIcon,
+		Plus,
+		RotateCcw,
+		Search,
+		Trash2,
+		Undo2,
+		Upload,
+		X
+	} from '@lucide/svelte';
 
 	const FILE = { label: 'Lorealm style', extensions: ['json'] };
+	const IMAGE = { label: 'Image', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif'] };
 
 	const shipped = tokenCatalogue();
 
@@ -50,6 +64,16 @@
 			showToast({ message: `“${style.name}” is now in force.`, title: 'Style imported' });
 		} catch (e) {
 			showError(e, { title: 'Could not import that style' });
+		}
+	}
+
+	async function chooseBackdrop(): Promise<void> {
+		try {
+			const picked = await usePlatform().files.openBinary(IMAGE);
+			if (picked === null) return; // Nothing picked.
+			await backdrop.set(await fitImageForStorage(picked));
+		} catch (e) {
+			showError(e, { title: 'Could not load that image' });
 		}
 	}
 
@@ -223,6 +247,29 @@
 			</div>
 		{/if}
 
+		<h3>Backdrop</h3>
+		<div class="library">
+			{#if backdrop.image}
+				<span class="preview">
+					<TransportImage
+						src={backdrop.image}
+						alt="The current backdrop"
+						style="display:block;width:100%;height:100%"
+					/>
+				</span>
+			{/if}
+			<button class="action" onclick={chooseBackdrop}>
+				<ImageIcon size={14} />
+				{backdrop.image ? 'Replace image' : 'Choose image'}
+			</button>
+			{#if backdrop.image}
+				<button class="action" onclick={() => backdrop.clear()}>
+					<X size={14} />
+					Remove
+				</button>
+			{/if}
+		</div>
+
 		<div class="toolbar">
 			<div class="searchRow">
 				<Search size={14} />
@@ -330,6 +377,14 @@
 		flex: 1 1 auto;
 		width: auto;
 		min-width: 0;
+	}
+	.preview {
+		flex: 0 0 auto;
+		width: 84px;
+		height: 48px;
+		overflow: hidden;
+		border: 1px solid var(--color-border-medium);
+		border-radius: var(--radius-md);
 	}
 	.action {
 		display: inline-flex;
