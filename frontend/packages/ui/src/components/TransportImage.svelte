@@ -3,6 +3,12 @@
 	// browser issue an unauthenticated GET, then renders it via a real <img>.
 	// Required for proper authentication.
 	//
+	// A `data:` or `blob:` src carries its own bytes and is rendered as-is: it
+	// needs no server, and asking the transport for one would send the whole
+	// thing to the backend as a path. That is what lets something held locally
+	// — a backdrop the user picked off their disk — move to server storage
+	// later by changing nothing but the string it is given.
+	//
 	// This file should be considered a wholesale replacement for <img />.
 
 	type Entry = {
@@ -13,6 +19,11 @@
 
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	const cache = new Map<string, Entry>();
+
+	/** Sources that are already the image, rather than somewhere to fetch it. */
+	function isSelfContained(src: string): boolean {
+		return src.startsWith('data:') || src.startsWith('blob:');
+	}
 
 	const idle: string[] = [];
 
@@ -78,6 +89,12 @@
 		}
 
 		status = 'loading';
+
+		if (isSelfContained(currentSrc)) {
+			objectUrl = currentSrc;
+			status = 'loaded';
+			return;
+		}
 
 		acquire(currentSrc, (s) => transport.http.getBlob(s)).then(
 			(url) => {

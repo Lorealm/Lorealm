@@ -207,6 +207,12 @@
 	--backdrop-blur-sm: blur(4px);
 	--backdrop-blur-lg: blur(20px);
 
+	--surface-blur: none;
+
+	/* The user's backdrop image */
+	--backdrop-opacity: 1;
+	--backdrop-image-filter: none;
+
 	/* OVERLAY */
 	--color-overlay-bg: rgba(0, 0, 0, 0.6);
 	--color-overlay-light: rgba(0, 0, 0, 0.3);

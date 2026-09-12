@@ -41,17 +41,14 @@ export interface WindowControls {
 	close(): Promise<void>;
 }
 
-/**
- * Files the user hands us, and files we hand back.
- *
- * Both ends go through the platform because the two clients disagree about what
- * a file dialog is: the browser has a hidden input and a download, the desktop
- * has the real thing. Text only — the formats that travel this way (styles for
- * now) are ones a person can read and edit.
- */
 export interface FileTransfer {
 	/** Ask for a file and read it. Null when the user picked nothing. */
 	open(options: FileDialog): Promise<string | null>;
+
+	/**
+	 * Ask for a file and read it as a `data:` URI, bytes and all.
+	 */
+	openBinary(options: FileDialog): Promise<string | null>;
 
 	/** Ask where to put `contents` and write it. False when the user cancelled. */
 	save(contents: string, options: FileDialog): Promise<boolean>;

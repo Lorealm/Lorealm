@@ -292,6 +292,27 @@ const files: FileTransfer = {
 		});
 	},
 
+	openBinary(options: FileDialog): Promise<string | null> {
+		return new Promise((resolve, reject) => {
+			const input = document.createElement("input");
+			input.type = "file";
+			input.accept = options.extensions.map((e) => `.${e}`).join(",");
+
+			input.oncancel = () => resolve(null);
+			input.onchange = () => {
+				const file = input.files?.[0];
+				if (!file) return resolve(null);
+
+				const reader = new FileReader();
+				reader.onload = () => resolve(reader.result as string);
+				reader.onerror = () => reject(reader.error);
+				reader.readAsDataURL(file);
+			};
+
+			input.click();
+		});
+	},
+
 	async save(contents: string, options: FileDialog): Promise<boolean> {
 		const url = URL.createObjectURL(new Blob([contents], { type: "application/json" }));
 		const link = document.createElement("a");
