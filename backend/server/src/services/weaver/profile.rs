@@ -38,6 +38,8 @@ pub enum WeaverProfile {
     RealmCondition,
     /// A realm's `Director::Script`, evaluated to decide who acts.
     RealmDirector,
+    /// A widget's `render`, evaluated during prompt assembly.
+    WidgetRender,
 }
 
 impl WeaverProfile {
@@ -49,6 +51,7 @@ impl WeaverProfile {
         Self::RealmSeed,
         Self::RealmCondition,
         Self::RealmDirector,
+        Self::WidgetRender,
     ];
 
     pub const fn caps(self) -> Caps {
@@ -69,12 +72,17 @@ impl WeaverProfile {
             Self::RealmCondition => Caps::empty(),
             // A director only reads, and answers with a handle.
             Self::RealmDirector => Caps::empty(),
+            // A render only reads, and answers with text.
+            Self::WidgetRender => Caps::empty(),
         }
     }
 
     /// Whether this profile writes state.
     pub const fn read_only(self) -> bool {
-        matches!(self, Self::RealmCondition | Self::RealmDirector)
+        matches!(
+            self,
+            Self::RealmCondition | Self::RealmDirector | Self::WidgetRender
+        )
     }
 }
 

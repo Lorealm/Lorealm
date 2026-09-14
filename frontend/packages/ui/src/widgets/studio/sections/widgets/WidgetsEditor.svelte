@@ -69,6 +69,7 @@ ${'</'}script>
 	let draftDescription = $state('');
 	let draftSource = $state('');
 	let draftPrompt = $state('');
+	let draftRender = $state('');
 	let draftTools = $state<Snowflake[]>([]);
 	let draftPlacement = $state<WidgetPlacement>('widget');
 	let draftMode = $state<WidgetMode>('latest');
@@ -86,6 +87,7 @@ ${'</'}script>
 			draftDescription = selected.description;
 			draftSource = selected.source;
 			draftPrompt = selected.prompt;
+			draftRender = selected.render;
 			draftTools = [...selected.tools];
 			draftPlacement = selected.placement;
 			draftMode = selected.mode;
@@ -112,6 +114,7 @@ ${'</'}script>
 			description: draftDescription,
 			source: draftSource,
 			prompt: draftPrompt,
+			render: draftRender,
 			tools: draftTools,
 			placement: draftPlacement,
 			mode: draftMode,
@@ -349,6 +352,26 @@ ${'</'}script>
 					{/key}
 				</div>
 
+				<div class="prompt">
+					{#key syncedId}
+						<ContextField
+							label="Text rendering"
+							value={draftRender}
+							hint={isAttachment
+								? 'What the model reads in place of this attachment. Props arrive as {{props:name}}. Leave empty to show [widget: id].'
+								: 'What the model reads for this widget, inserted wherever the node exists. Reads state as {{namespace:name}}.'}
+							rows={3}
+							placeholder={isAttachment
+								? 'A handwritten note: \\{\\{props:content\\}\\}"'
+								: 'Affection \\{\\{relationship:affection\\}\\}/10, trust \\{\\{;relationship:trust\\}\\}/10.'}
+							onchange={(v) => {
+								draftRender = v;
+								requestSave();
+							}}
+						/>
+					{/key}
+				</div>
+
 				<div class="tools">
 					<span class="toolsLabel">
 						Tools — made available to the model whenever this widget is active. Imported into a
@@ -388,6 +411,7 @@ ${'</'}script>
 		display: flex;
 		flex: 1 0 0;
 		min-height: 0;
+		overflow-y: auto;
 	}
 	.col-content {
 		flex: 1 1 auto;
@@ -480,6 +504,7 @@ ${'</'}script>
 		min-width: 0;
 		min-height: 0;
 		gap: var(--spacing-md);
+		overflow-y: auto;
 	}
 	.pane-head {
 		display: flex;
@@ -523,9 +548,15 @@ ${'</'}script>
 
 	.split {
 		display: flex;
-		flex: 1;
-		min-height: 0;
+		flex: 1 0 auto;
+		min-height: 300px;
 		gap: var(--spacing-md);
+	}
+
+	.prompt,
+	.tools,
+	.props {
+		flex-shrink: 0;
 	}
 
 	.tools,

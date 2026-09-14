@@ -21,13 +21,22 @@ impl ContextSource for WidgetPromptsResolver {
             name: "Widgets".into(),
             description: "Prompts injected by widgets".into(),
             source_type: SourceType::BuiltIn,
-            nodes: vec![SourceNodeDefinition {
-                node_id: "main".into(),
-                title: "Widget Prompts".into(),
-                description: "Insert the active widgets' prompts at this position".into(),
-                icon: Some("layout-dashboard".into()),
-                settings: Vec::new(),
-            }],
+            nodes: vec![
+                SourceNodeDefinition {
+                    node_id: "main".into(),
+                    title: "Widget Prompts".into(),
+                    description: "Insert the active widgets' prompts at this position".into(),
+                    icon: Some("layout-dashboard".into()),
+                    settings: Vec::new(),
+                },
+                SourceNodeDefinition {
+                    node_id: "state".into(),
+                    title: "Widget State".into(),
+                    description: "Insert what the active widgets currently show, as text".into(),
+                    icon: Some("gauge".into()),
+                    settings: Vec::new(),
+                },
+            ],
         }
     }
 
@@ -37,10 +46,12 @@ impl ContextSource for WidgetPromptsResolver {
         _settings: &HashMap<String, serde_json::Value>,
         ctx: &ResolveContext<'_>,
     ) -> Result<Vec<ResolvedBlock>, ContextError> {
-        debug_assert_eq!(node_id, "main");
+        let texts = match node_id {
+            "state" => ctx.widget_renders,
+            _ => ctx.widget_prompts,
+        };
 
-        Ok(ctx
-            .widget_prompts
+        Ok(texts
             .iter()
             .filter(|p| !p.trim().is_empty())
             .map(|p| ResolvedBlock::atomic(PromptRole::System, p.clone(), ContentRef::Verbatim))

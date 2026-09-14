@@ -7,7 +7,7 @@ use serde::Serialize;
 use tokio::sync::Mutex;
 
 use crate::services::{
-    chat::{WidgetInstance, sanitize_widget_markers},
+    chat::{WidgetInstance, WidgetRenderer, sanitize_widget_markers},
     context::PromptRole,
     state::{CapturedState, ReconstructedState},
     variables::Variables,
@@ -145,6 +145,8 @@ pub struct ResolveContext<'a> {
     /// Host variables for this turn
     pub variables: Variables,
     pub widget_prompts: &'a [String],
+    /// Already-evaluated `render` output, one per widget that produced any.
+    pub widget_renders: &'a [String],
     /// The conversation's author's note. Empty when unset.
     pub author_note: &'a str,
 }
@@ -158,15 +160,14 @@ pub struct PromptTurn {
 }
 
 impl PromptTurn {
-    pub fn from_message(m: &ConversationMessage) -> Self {
-        // Widget markers live in stored content but must never reach a prompt.
+    pub fn from_message(m: &ConversationMessage, widgets: &mut WidgetRenderer) -> Self {
         let content = if m.content.contains('\u{E000}') {
-            let widgets: Vec<WidgetInstance> = m
+            let attached: Vec<WidgetInstance> = m
                 .metadata
                 .get("widgets")
                 .and_then(|v| serde_json::from_value(v.clone()).ok())
                 .unwrap_or_default();
-            sanitize_widget_markers(&m.content, &widgets)
+            widgets.apply(&m.content, &attached)
         } else {
             m.content.clone()
         };
@@ -215,7 +216,7 @@ mod tests {
             updated_at: chrono::Utc::now(),
         };
         assert_eq!(
-            PromptTurn::from_message(&m).content,
+            PromptTurn::from_message(&m, &mut WidgetRenderer::default()).content,
             "here you go: [widget: note]"
         );
     }

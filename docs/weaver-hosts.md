@@ -64,6 +64,7 @@ cargo test -p lorealm_server --bin lorealm_server dump_weaver_vocabulary -- --ig
 | `RealmSeed` | none | — |
 | `RealmCondition` | none | — |
 | `RealmDirector` | none | — |
+| `WidgetRender` | none | — |
 
 Where each one is built:
 
@@ -75,6 +76,7 @@ Where each one is built:
 | `RealmSeed` | `services/realm/weaver.rs` | A scenario's seed script, once at instantiation |
 | `RealmCondition` | `services/realm/weaver.rs` | An agent's `run_condition` |
 | `RealmDirector` | `services/realm/weaver.rs` | A realm's `Director::Script`, rendering the handle of whoever acts next |
+| `WidgetRender` | `services/chat/widgets.rs` | A widget's `render`, turning it into prompt text during assembly |
 
 The editor's two endpoints — `check` in `services/context/weaver/check.rs` and
 `list_weaver_vocabulary` in `routes/templates/handlers.rs` — both build

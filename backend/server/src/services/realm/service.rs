@@ -792,6 +792,7 @@ impl RealmService {
                 &llm.baseline,
                 &llm.policy,
                 &llm.widget_prompts,
+                &llm.widget_renders,
                 &convo.author_note,
             )
             .await?;
@@ -1533,8 +1534,9 @@ impl RealmService {
     pub(super) async fn widget_directives(
         &self,
         agent: &RealmAgent,
-    ) -> Result<(Vec<String>, Vec<Snowflake>), RealmError> {
+    ) -> Result<(Vec<String>, Vec<String>, Vec<Snowflake>), RealmError> {
         let mut prompts = Vec::new();
+        let mut renders = Vec::new();
         let mut tools = Vec::new();
         for &widget_id in &agent.widgets {
             let Some(widget) = self.storage.get_widget(widget_id).await? else {
@@ -1543,13 +1545,16 @@ impl RealmService {
             if !widget.prompt.trim().is_empty() {
                 prompts.push(widget.prompt);
             }
+            if !widget.render.trim().is_empty() {
+                renders.push(widget.render);
+            }
             for id in widget.tools {
                 if !tools.contains(&id) {
                     tools.push(id);
                 }
             }
         }
-        Ok((prompts, tools))
+        Ok((prompts, renders, tools))
     }
 
     async fn action_scopes(
