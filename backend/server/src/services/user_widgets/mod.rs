@@ -22,6 +22,8 @@ pub struct CreateUserWidget {
     #[serde(default)]
     pub prompt: String,
     #[serde(default)]
+    pub render: String,
+    #[serde(default)]
     pub tools: Vec<Snowflake>,
     #[serde(default)]
     pub placement: WidgetPlacement,
@@ -37,6 +39,7 @@ pub struct UpdateUserWidget {
     pub description: Option<String>,
     pub source: Option<String>,
     pub prompt: Option<String>,
+    pub render: Option<String>,
     pub tools: Option<Vec<Snowflake>>,
     pub placement: Option<WidgetPlacement>,
     pub mode: Option<WidgetMode>,
@@ -93,6 +96,7 @@ impl UserWidgetService {
             description: create.description,
             source: create.source,
             prompt: create.prompt,
+            render: create.render,
             tools: create.tools,
             enabled: false,
             placement: create.placement,
@@ -126,6 +130,9 @@ impl UserWidgetService {
         }
         if let Some(prompt) = update.prompt {
             widget.prompt = prompt;
+        }
+        if let Some(render) = update.render {
+            widget.render = render;
         }
         if let Some(tools) = update.tools {
             self.validate_tools(user_id, &tools).await?;

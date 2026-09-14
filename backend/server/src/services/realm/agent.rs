@@ -67,6 +67,7 @@ pub(super) struct LlmTurn {
     pub persist: PersistPlan,
     pub turns: Vec<PromptTurn>,
     pub widget_prompts: Vec<String>,
+    pub widget_renders: Vec<String>,
 }
 
 /// The resolved turn before execution; the turn loop matches on the shape.
@@ -211,7 +212,7 @@ impl Agent for LlmAgent {
 
         // The agent's bound tools plus the tools its widgets bundle.
         let bindings = service.effective_bindings(&agent).await?;
-        let (widget_prompts, _) = service.widget_directives(&agent).await?;
+        let (widget_prompts, widget_renders, _) = service.widget_directives(&agent).await?;
 
         let policy = ToolPolicy {
             tool_ids: Some(bindings.iter().map(|b| b.tool_id).collect()),
@@ -239,6 +240,7 @@ impl Agent for LlmAgent {
             persist,
             turns,
             widget_prompts,
+            widget_renders,
         })))
     }
 }

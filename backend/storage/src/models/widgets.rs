@@ -33,6 +33,9 @@ pub struct UserWidget {
     pub description: String,
     pub source: String,
     pub prompt: String,
+    /// Weaver template rendering this widget as text for the model.
+    #[serde(default)]
+    pub render: String,
     pub tools: Vec<Snowflake>,
     pub enabled: bool,
     #[serde(default)]

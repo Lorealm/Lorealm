@@ -16,6 +16,7 @@ struct PgUserWidget {
     description: String,
     source: String,
     prompt: String,
+    render: String,
     tools: Json<Vec<Snowflake>>,
     enabled: bool,
     placement: WidgetPlacement,
@@ -34,6 +35,7 @@ impl From<PgUserWidget> for UserWidget {
             description: r.description,
             source: r.source,
             prompt: r.prompt,
+            render: r.render,
             tools: r.tools.0,
             enabled: r.enabled,
             placement: r.placement,
@@ -81,14 +83,15 @@ impl UserWidgetStorage for PostgresStorage {
     async fn save_widget(&self, widget: UserWidget) -> Result<(), StorageError> {
         sqlx::query(
             r#"INSERT INTO user_widgets
-                (id, user_id, name, description, source, prompt, tools, enabled,
-                 placement, mode, props)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                (id, user_id, name, description, source, prompt, render, tools,
+                 enabled, placement, mode, props)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             ON CONFLICT (id) DO UPDATE SET
                 name = EXCLUDED.name,
                 description = EXCLUDED.description,
                 source = EXCLUDED.source,
                 prompt = EXCLUDED.prompt,
+                render = EXCLUDED.render,
                 tools = EXCLUDED.tools,
                 enabled = EXCLUDED.enabled,
                 placement = EXCLUDED.placement,
@@ -102,6 +105,7 @@ impl UserWidgetStorage for PostgresStorage {
         .bind(&widget.description)
         .bind(&widget.source)
         .bind(&widget.prompt)
+        .bind(&widget.render)
         .bind(Json(&widget.tools))
         .bind(widget.enabled)
         .bind(widget.placement)

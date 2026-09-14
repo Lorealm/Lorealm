@@ -1,0 +1,2 @@
+ALTER TABLE user_widgets
+    ADD COLUMN render TEXT NOT NULL DEFAULT '';

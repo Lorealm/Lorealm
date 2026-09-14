@@ -12,7 +12,6 @@ export type WidgetPlacement =
 	/** Placed inline by the model through the `attach` tool. */
 	| 'attachment';
 
-/** Which messages a `widget`-placement row renders on. */
 export type WidgetMode =
 	/** Only the newest message — one iframe, however long the chat runs. */
 	| 'latest'
@@ -29,6 +28,8 @@ export interface UserWidget {
 	source: string;
 	/** The prompt included with this widget. */
 	prompt: string;
+	/** Weaver template standing in for this widget in the prompt. */
+	render: string;
 	tools: Snowflake[];
 	enabled: boolean;
 	placement: WidgetPlacement;
@@ -44,6 +45,7 @@ export interface CreateUserWidgetRequest {
 	description?: string;
 	source?: string;
 	prompt?: string;
+	render?: string;
 	tools?: Snowflake[];
 	placement?: WidgetPlacement;
 	mode?: WidgetMode;
@@ -55,6 +57,7 @@ export interface UpdateUserWidgetRequest {
 	description?: string;
 	source?: string;
 	prompt?: string;
+	render?: string;
 	tools?: Snowflake[];
 	placement?: WidgetPlacement;
 	mode?: WidgetMode;

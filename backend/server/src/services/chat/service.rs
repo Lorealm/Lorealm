@@ -30,7 +30,10 @@ use crate::{
         chat::{
             CancelGuard, ChatStreamEvent, FullConversation, OpenAgentTurn, Persist, Prepared,
             PromptMessage, TurnAccumulator, TurnPlan,
-            widgets::{AttachmentSpec, InferEvent, ToolCallRecord, WidgetInstance, WidgetSink},
+            widgets::{
+                AttachmentSpec, InferEvent, ToolCallRecord, WidgetInstance, WidgetRenderer,
+                WidgetSink, render_widgets,
+            },
         },
         commands::{CommandEffect, EffectSink, GenerateBridge, Generation},
         connection::ConnectionService,
@@ -461,7 +464,15 @@ impl ChatService {
         &self,
         user_id: Snowflake,
         attached: &[Snowflake],
-    ) -> Result<(Vec<String>, Vec<Snowflake>, Vec<AttachmentSpec>), ChatError> {
+    ) -> Result<
+        (
+            Vec<String>,
+            Vec<String>,
+            Vec<Snowflake>,
+            Vec<AttachmentSpec>,
+        ),
+        ChatError,
+    > {
         let mut widgets = self.storage.list_enabled_widgets(user_id).await?;
         for &id in attached {
             if widgets.iter().any(|w| w.id == id) {
@@ -481,6 +492,7 @@ impl ChatService {
         }
 
         let mut prompts = Vec::new();
+        let mut renders = Vec::new();
         let mut tools = Vec::new();
         let mut catalog = Vec::new();
         for w in widgets {
@@ -491,13 +503,16 @@ impl ChatService {
             if !w.prompt.trim().is_empty() {
                 prompts.push(w.prompt);
             }
+            if !w.render.trim().is_empty() {
+                renders.push(w.render);
+            }
             for id in w.tools {
                 if !tools.contains(&id) {
                     tools.push(id);
                 }
             }
         }
-        Ok((prompts, tools, catalog))
+        Ok((prompts, renders, tools, catalog))
     }
 
     async fn assemble_context(
@@ -507,6 +522,7 @@ impl ChatService {
         thread: &[PromptTurn],
         baseline: &ReconstructedState,
         widget_prompts: &[String],
+        widget_renders: &[String],
         author_note: &str,
     ) -> Result<Prepared, ChatError> {
         let character = match spec.character {
@@ -533,6 +549,8 @@ impl ChatService {
             .load_kitoken_tokenizer(spec.tokenizer_id, spec.owner)
             .await?;
 
+        let widget_renders = render_widgets(widget_renders, &baseline.persistent);
+
         let captured;
         let trace = {
             let ctx = ResolveContext {
@@ -550,6 +568,7 @@ impl ChatService {
                     realm,
                 }),
                 widget_prompts,
+                widget_renders: &widget_renders,
                 author_note,
             };
             let trace = assemble(&template, &self.sources, &ctx).await?;
@@ -662,7 +681,6 @@ impl ChatService {
             .await?;
 
         let thread = self.build_prompt(convo_id, assembly_leaf).await?;
-        let turns: Vec<PromptTurn> = thread.iter().map(PromptTurn::from_message).collect();
         let ids: Vec<Snowflake> = thread.iter().map(|m| m.id).collect();
         let baseline = self.state.reconstruct(&ids).await?;
 
@@ -678,8 +696,17 @@ impl ChatService {
             }
             None => Vec::new(),
         };
-        let (widget_prompts, widget_tools, attachments) =
+        let (widget_prompts, widget_renders, widget_tools, attachments) =
             self.active_widgets(user_id, &attached).await?;
+
+        // Newest first
+        let mut renderer = WidgetRenderer::new(&attachments, baseline.persistent.clone());
+        let mut turns: Vec<PromptTurn> = thread
+            .iter()
+            .rev()
+            .map(|m| PromptTurn::from_message(m, &mut renderer))
+            .collect();
+        turns.reverse();
 
         let Prepared {
             mut prompt,
@@ -693,6 +720,7 @@ impl ChatService {
                 &turns,
                 &baseline,
                 &widget_prompts,
+                &widget_renders,
                 &convo.author_note,
             )
             .await?;
@@ -1132,7 +1160,11 @@ impl ChatService {
         let thread = self
             .build_prompt(conversation_id, convo.active_leaf_id)
             .await?;
-        let turns: Vec<PromptTurn> = thread.iter().map(PromptTurn::from_message).collect();
+        let mut renderer = WidgetRenderer::default();
+        let turns: Vec<PromptTurn> = thread
+            .iter()
+            .map(|m| PromptTurn::from_message(m, &mut renderer))
+            .collect();
         let ids: Vec<Snowflake> = thread.iter().map(|m| m.id).collect();
         let baseline = self.state.reconstruct(&ids).await?;
 
@@ -1141,7 +1173,7 @@ impl ChatService {
             prompt: mut messages,
             ..
         } = self
-            .assemble_context(&spec, None, &turns, &baseline, &[], &convo.author_note)
+            .assemble_context(&spec, None, &turns, &baseline, &[], &[], &convo.author_note)
             .await?;
 
         messages.push(PromptMessage {
@@ -1161,6 +1193,7 @@ impl ChatService {
         baseline: &ReconstructedState,
         policy: &ToolPolicy,
         widget_prompts: &[String],
+        widget_renders: &[String],
         author_note: &str,
     ) -> Result<OpenAgentTurn, ChatError> {
         let Prepared {
@@ -1175,6 +1208,7 @@ impl ChatService {
                 turns,
                 baseline,
                 widget_prompts,
+                widget_renders,
                 author_note,
             )
             .await?;

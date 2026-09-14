@@ -140,7 +140,8 @@ impl ToolContext {
 impl EvalContext for ToolContext {
     fn resolve_variable(&self, scope: &str, name: &str) -> Result<Option<WeaverValue>, EvalError> {
         match scope {
-            "cmd" => Ok(self.cmd.get(name).cloned()),
+            // `props:` is the widget-render spelling of the same bound map.
+            "cmd" | "props" => Ok(self.cmd.get(name).cloned()),
             "local" => Ok(self.local.get(name).cloned()),
             "self" => self.own_state_var(name),
             "actor" => match &self.actor {

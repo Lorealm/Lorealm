@@ -1,16 +1,19 @@
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use weaver_lang::{
-    EvalContext, EvalError, Registry, Value, WeaverCommand,
+    CompiledTemplate, EvalContext, EvalError, Registry, Value, WeaverCommand,
     registry::{CommandSignature, ParamDef, ValueType},
 };
 
-use lorealm_storage::models::UserWidget;
+use lorealm_storage::models::{UserWidget, WidgetMode};
 
 use crate::services::commands::CommandEffect;
-use crate::util::weaver::{ConversionError, weaver_to_json};
+use crate::services::state::StatePool;
+use crate::services::weaver::{WeaverHost, WeaverProfile};
+use crate::util::weaver::{ConversionError, json_to_weaver, weaver_to_json};
 
 pub type WidgetSink = Arc<Mutex<Vec<WidgetInstance>>>;
 
@@ -69,6 +72,10 @@ pub struct AttachmentSpec {
     pub id: String,
     pub desc: String,
     pub props: Vec<String>,
+    /// Weaver template standing in for the widget in the prompt.
+    pub render: String,
+    /// Under [`WidgetMode::Latest`] only the newest instance renders.
+    pub mode: WidgetMode,
 }
 
 impl From<&UserWidget> for AttachmentSpec {
@@ -77,6 +84,8 @@ impl From<&UserWidget> for AttachmentSpec {
             id: w.id.to_string(),
             desc: w.description.clone(),
             props: w.props.clone(),
+            render: w.render.clone(),
+            mode: w.mode,
         }
     }
 }
@@ -247,15 +256,10 @@ pub fn widget_marker(index: usize) -> String {
     format!("\u{E000}widget:{index}\u{E001}")
 }
 
-/// Replaces [`widget_marker`] spans with a plain-text stand-in
-/// (`[widget: <id>]`, or `[widget]` when the index can't be resolved
-/// against `widgets`).
-///
-/// If not applied, models can and will start imitating this pattern.
-///
-/// TODO: In the future, this will be changed to return whatever the widget
-/// returns, if anything.
-pub fn sanitize_widget_markers(content: &str, widgets: &[WidgetInstance]) -> String {
+/// Walks [`widget_marker`] spans, replacing each with `f(index)`. A span that
+/// is not a widget marker is dropped: if not applied, models can and will
+/// start imitating this pattern.
+fn replace_markers(content: &str, mut f: impl FnMut(usize) -> String) -> String {
     const START: char = '\u{E000}';
     const END: char = '\u{E001}';
 
@@ -271,23 +275,109 @@ pub fn sanitize_widget_markers(content: &str, widgets: &[WidgetInstance]) -> Str
             rest = after;
             continue;
         };
-        let index = after[..end]
+        if let Some(index) = after[..end]
             .strip_prefix("widget:")
-            .and_then(|n| n.parse::<usize>().ok());
-        if let Some(i) = index {
-            match widgets.get(i) {
-                Some(w) => {
-                    out.push_str("[widget: ");
-                    out.push_str(&w.widget_id);
-                    out.push(']');
-                }
-                None => out.push_str("[widget]"),
-            }
+            .and_then(|n| n.parse::<usize>().ok())
+        {
+            out.push_str(&f(index));
         }
         rest = &after[end + END.len_utf8()..];
     }
     out.push_str(rest);
     out
+}
+
+/// What the model reads in place of a widget it cannot be shown.
+fn stand_in(widget: Option<&WidgetInstance>) -> String {
+    match widget {
+        Some(w) => format!("[widget: {}]", w.widget_id),
+        None => "[widget]".to_string(),
+    }
+}
+
+/// Replaces [`widget_marker`] spans with a plain-text stand-in.
+pub fn sanitize_widget_markers(content: &str, widgets: &[WidgetInstance]) -> String {
+    replace_markers(content, |i| stand_in(widgets.get(i)))
+}
+
+/// Turns attached widgets into the text the model reads, by evaluating each
+/// one's `render` template over the props it was attached with.
+#[derive(Default)]
+pub struct WidgetRenderer {
+    specs: HashMap<String, AttachmentSpec>,
+    pool: Arc<Mutex<StatePool>>,
+    rendered: HashSet<String>,
+}
+
+impl WidgetRenderer {
+    pub fn new(catalog: &[AttachmentSpec], pool: StatePool) -> Self {
+        Self {
+            specs: catalog.iter().map(|s| (s.id.clone(), s.clone())).collect(),
+            pool: Arc::new(Mutex::new(pool)),
+            rendered: HashSet::new(),
+        }
+    }
+
+    /// One message's content, with every marker resolved.
+    pub fn apply(&mut self, content: &str, widgets: &[WidgetInstance]) -> String {
+        replace_markers(content, |i| match widgets.get(i) {
+            Some(w) => self.render(w).unwrap_or_else(|| stand_in(Some(w))),
+            None => stand_in(None),
+        })
+    }
+
+    fn render(&mut self, widget: &WidgetInstance) -> Option<String> {
+        let spec = self.specs.get(&widget.widget_id)?;
+        if spec.mode == WidgetMode::Latest && self.rendered.contains(&widget.widget_id) {
+            return None;
+        }
+        let props = widget
+            .props
+            .iter()
+            .filter_map(|(k, v)| Some((k.clone(), json_to_weaver(v).ok()?)))
+            .collect();
+        let text = eval_render(&spec.id, &spec.render, Arc::clone(&self.pool), props)?;
+
+        self.rendered.insert(widget.widget_id.clone());
+        Some(text)
+    }
+}
+
+/// Evaluate one widget `render` template.
+fn eval_render(
+    id: &str,
+    template: &str,
+    pool: Arc<Mutex<StatePool>>,
+    props: HashMap<String, Value>,
+) -> Option<String> {
+    if template.trim().is_empty() {
+        return None;
+    }
+    let body = CompiledTemplate::compile(template)
+        .inspect_err(|e| tracing::warn!("widget {id} has an invalid render: {e:?}"))
+        .ok()?;
+    let text = WeaverHost::builder()
+        .profile(WeaverProfile::WidgetRender)
+        .pool(pool)
+        .args(props)
+        .build()
+        .evaluate_inline(body)
+        .inspect_err(|e| tracing::warn!("widget {id} failed to render: {e}"))
+        .ok()?
+        .to_output_string();
+    Some(text)
+}
+
+pub fn render_widgets(templates: &[String], pool: &StatePool) -> Vec<String> {
+    if templates.is_empty() {
+        return Vec::new();
+    }
+    let pool = Arc::new(Mutex::new(pool.clone()));
+    templates
+        .iter()
+        .filter_map(|t| eval_render("", t, Arc::clone(&pool), HashMap::new()))
+        .filter(|text| !text.trim().is_empty())
+        .collect()
 }
 
 /// Register the attachment commands onto a weaver registry, returning the
@@ -329,6 +419,8 @@ mod tests {
             id: id.into(),
             desc: desc.into(),
             props: props.iter().map(|p| (*p).to_string()).collect(),
+            render: String::new(),
+            mode: WidgetMode::Every,
         }
     }
 
@@ -341,6 +433,7 @@ mod tests {
             description: "A handwritten note".into(),
             source: String::new(),
             prompt: String::new(),
+            render: String::new(),
             tools: Vec::new(),
             enabled: true,
             placement: lorealm_storage::models::WidgetPlacement::Attachment,
@@ -501,5 +594,137 @@ mod tests {
     #[test]
     fn text_without_markers_is_unchanged() {
         assert_eq!(sanitize_widget_markers("plain text", &[]), "plain text");
+    }
+
+    fn rendering(render: &str, mode: WidgetMode) -> AttachmentSpec {
+        AttachmentSpec {
+            render: render.into(),
+            mode,
+            ..spec("101", "a tracker", &["level"])
+        }
+    }
+
+    fn instance(id: &str, level: i64) -> WidgetInstance {
+        WidgetInstance {
+            widget_id: id.into(),
+            props: serde_json::Map::from_iter([("level".into(), serde_json::json!(level))]),
+        }
+    }
+
+    #[test]
+    fn a_marker_renders_from_the_props_it_was_attached_with() {
+        let mut r = WidgetRenderer::new(
+            &[rendering(
+                "Affection {{props:level}}/10.",
+                WidgetMode::Every,
+            )],
+            StatePool::new(),
+        );
+        assert_eq!(
+            r.apply(&widget_marker(0), &[instance("101", 4)]),
+            "Affection 4/10."
+        );
+    }
+
+    #[test]
+    fn a_render_reads_the_state_pool() {
+        let pool = StatePool::from_iter([(
+            "relationship".to_string(),
+            HashMap::from_iter([("trust".to_string(), serde_json::json!(7))]),
+        )]);
+        let mut r = WidgetRenderer::new(
+            &[rendering(
+                "Trust {{relationship:trust}}.",
+                WidgetMode::Every,
+            )],
+            pool,
+        );
+        assert_eq!(
+            r.apply(&widget_marker(0), &[instance("101", 0)]),
+            "Trust 7."
+        );
+    }
+
+    #[test]
+    fn latest_mode_renders_only_the_first_message_it_is_fed() {
+        let mut r = WidgetRenderer::new(
+            &[rendering("Affection {{props:level}}.", WidgetMode::Latest)],
+            StatePool::new(),
+        );
+        // Fed newest first, so the newer instance is the one that renders.
+        assert_eq!(
+            r.apply(&widget_marker(0), &[instance("101", 9)]),
+            "Affection 9."
+        );
+        assert_eq!(
+            r.apply(&widget_marker(0), &[instance("101", 4)]),
+            "[widget: 101]"
+        );
+    }
+
+    #[test]
+    fn every_mode_renders_the_whole_history() {
+        let mut r = WidgetRenderer::new(
+            &[rendering("Affection {{props:level}}.", WidgetMode::Every)],
+            StatePool::new(),
+        );
+        assert_eq!(
+            r.apply(&widget_marker(0), &[instance("101", 9)]),
+            "Affection 9."
+        );
+        assert_eq!(
+            r.apply(&widget_marker(0), &[instance("101", 4)]),
+            "Affection 4."
+        );
+    }
+
+    #[test]
+    fn a_widget_without_a_render_falls_back_to_the_stand_in() {
+        let mut r = WidgetRenderer::new(&[rendering("", WidgetMode::Every)], StatePool::new());
+        assert_eq!(
+            r.apply(&widget_marker(0), &[instance("101", 4)]),
+            "[widget: 101]"
+        );
+    }
+
+    #[test]
+    fn a_broken_render_falls_back_rather_than_leaking_a_sentinel() {
+        let mut r = WidgetRenderer::new(
+            &[rendering("$[no_such_command()]", WidgetMode::Every)],
+            StatePool::new(),
+        );
+        let out = r.apply(&widget_marker(0), &[instance("101", 4)]);
+        assert_eq!(out, "[widget: 101]");
+        assert!(!out.contains('\u{E000}'));
+    }
+
+    #[test]
+    fn a_render_cannot_write_the_pool() {
+        let mut r = WidgetRenderer::new(
+            &[rendering(
+                "$[set_var(\"ns\", \"x\", 1)]ok",
+                WidgetMode::Every,
+            )],
+            StatePool::new(),
+        );
+        assert_eq!(
+            r.apply(&widget_marker(0), &[instance("101", 4)]),
+            "[widget: 101]"
+        );
+    }
+
+    #[test]
+    fn always_on_renders_drop_the_ones_that_produce_nothing() {
+        let pool = StatePool::from_iter([(
+            "n".to_string(),
+            HashMap::from_iter([("gold".to_string(), serde_json::json!(3))]),
+        )]);
+        assert_eq!(
+            render_widgets(
+                &["Gold: {{n:gold}}".into(), String::new(), "   ".into()],
+                &pool
+            ),
+            vec!["Gold: 3".to_string()]
+        );
     }
 }
