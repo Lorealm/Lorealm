@@ -203,11 +203,11 @@
 	--z-index-toast: 2000;
 
 	/* BACKDROP */
-	--backdrop-blur: blur(10px);
-	--backdrop-blur-sm: blur(4px);
-	--backdrop-blur-lg: blur(20px);
-
 	--surface-blur: none;
+	--overlay-blur: none;
+
+	/* The ground behind the backdrop. */
+	--backdrop-ground: #141018;
 
 	/* The user's backdrop image */
 	--backdrop-opacity: 1;
@@ -233,4 +233,20 @@
 	--grid-gap: var(--spacing-lg);
 
 	--avatar-aspect-ratio: 3 / 4;
+}
+
+/*
+ * Honour the OS "reduce transparency" setting.
+ *
+ * `:root:root` is deliberate. The active style is injected as a plain
+ * `:root { ... }` block in a <style> appended to the end of <head>, which beats
+ * this file on document order at equal specificity. A media query adds no
+ * specificity of its own, so repeating the selector is what lets the user's
+ * accessibility preference win over whatever the style asked for.
+ */
+@media (prefers-reduced-transparency: reduce) {
+	:root:root {
+		--surface-blur: none;
+		--overlay-blur: none;
+	}
 }

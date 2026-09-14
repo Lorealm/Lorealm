@@ -88,6 +88,8 @@
 		height: 100%;
 		width: var(--width-sidebar-full);
 		background-color: var(--color-bg-elevated);
+		-webkit-backdrop-filter: var(--surface-blur);
+		backdrop-filter: var(--surface-blur);
 		border-right: 1px solid var(--color-border-subtle);
 	}
 	.top-container {

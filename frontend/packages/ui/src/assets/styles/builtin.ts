@@ -207,4 +207,105 @@ const catppuccinMocha: Style = {
 	}
 };
 
-export const BUILT_IN_STYLES: Style[] = [githubDark, catppuccinMocha];
+const frostedGlass: Style = {
+	id: `${BUILT_IN_PREFIX}frosted-glass`,
+	name: 'Frosted Glass',
+	author: 'Lorealm',
+	css: '.backdrop {\n\tfilter: blur(4px);\n}',
+	tokens: {
+		'--surface-blur': 'blur(16px)',
+		'--overlay-blur': 'blur(4px)',
+
+		'--backdrop-ground': '#05070c',
+
+		'--color-bg-base': 'rgba(4, 6, 11, 0.84)',
+		'--color-bg-elevated': 'rgba(30, 36, 48, 0.55)',
+		'--color-bg-elevated-2': 'rgba(40, 48, 62, 0.6)',
+		'--color-bg-elevated-3': 'rgba(54, 64, 80, 0.64)',
+		'--color-bg-panel': 'rgba(2, 3, 7, 0.58)',
+		'--color-bg-panel-solid': 'rgba(2, 3, 7, 0.86)',
+		'--color-bg-overlay': 'rgba(2, 3, 7, 0.4)',
+		'--color-bg-input': 'rgba(0, 0, 0, 0.38)',
+		'--color-bg-modal': 'rgba(10, 13, 20, 0.93)',
+		'--color-bg-disabled': 'rgba(255, 255, 255, 0.04)',
+
+		'--color-border-subtle': 'rgba(255, 255, 255, 0.07)',
+		'--color-border-medium': 'rgba(255, 255, 255, 0.13)',
+		'--color-border-strong': 'rgba(255, 255, 255, 0.22)',
+		'--color-border-active': 'rgba(185, 140, 245, 0.6)',
+		'--color-border-default': 'rgba(255, 255, 255, 0.1)',
+
+		'--color-hover': 'rgba(255, 255, 255, 0.07)',
+		'--color-active': 'rgba(255, 255, 255, 0.12)',
+		'--color-focus': 'rgba(185, 140, 245, 0.45)',
+		'--color-selected': 'rgba(185, 140, 245, 0.2)',
+
+		'--color-text-primary': '#eef2f8',
+		'--color-text-secondary': '#b6c0cf',
+		'--color-text-muted': '#7b8494',
+		'--color-text-disabled': '#4e5666',
+		'--color-text-accent': '#d6b4ff',
+		'--color-text-inverse': '#05070c',
+
+		'--color-primary': '#b98cf5',
+		'--color-primary-light': '#cfaefb',
+		'--color-primary-lighter': '#e4d2ff',
+		'--color-primary-dark': '#9a6ad8',
+		'--color-primary-darker': '#7a4bb5',
+		'--color-primary-dark-hover': 'rgba(185, 140, 245, 0.47)',
+
+		'--color-success': '#4ef17e',
+		'--color-success-bg': 'rgba(78, 241, 126, 0.14)',
+		'--color-success-text': '#7ef5a1',
+		'--color-success-border': 'rgba(78, 241, 126, 0.3)',
+
+		'--color-error': '#ff6b8a',
+		'--color-error-bg': 'rgba(255, 107, 138, 0.14)',
+		'--color-error-text': '#ff93aa',
+		'--color-error-border': 'rgba(255, 107, 138, 0.3)',
+
+		'--color-warning': '#ffd166',
+		'--color-warning-bg': 'rgba(255, 209, 102, 0.14)',
+		'--color-warning-text': '#ffdf94',
+		'--color-warning-border': 'rgba(255, 209, 102, 0.3)',
+
+		'--color-info': '#72d8ff',
+		'--color-info-bg': 'rgba(114, 216, 255, 0.14)',
+		'--color-info-text': '#9ce5ff',
+		'--color-info-border': 'rgba(114, 216, 255, 0.3)',
+
+		'--color-role-system': '#72e8e0',
+		'--color-role-system-bg': 'rgba(114, 232, 224, 0.14)',
+		'--color-role-system-text': '#9cf0ea',
+
+		'--color-role-user': '#ff8ae0',
+		'--color-role-user-bg': 'rgba(255, 138, 224, 0.14)',
+		'--color-role-user-text': '#ffb0ea',
+
+		'--color-role-assistant': '#b98cf5',
+		'--color-role-assistant-bg': 'rgba(185, 140, 245, 0.14)',
+		'--color-role-assistant-text': '#cfaefb',
+
+		'--gradient-primary': 'linear-gradient(135deg, #b98cf5 0%, #7a4bb5 100%)',
+		'--gradient-bg':
+			'linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%)',
+		'--gradient-portrait': 'linear-gradient(135deg, #cfaefb 0%, #9a6ad8 100%)',
+		'--gradient-subtle':
+			'linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 100%)',
+
+		'--shadow-sm': '0 2px 6px rgba(0, 0, 0, 0.5)',
+		'--shadow-md': '0 6px 18px rgba(0, 0, 0, 0.55)',
+		'--shadow-lg': '0 12px 32px rgba(0, 0, 0, 0.6)',
+		'--shadow-xl': '0 20px 48px rgba(0, 0, 0, 0.65)',
+		'--shadow-inset': 'inset 0 1px 0 rgba(255, 255, 255, 0.06)',
+		'--shadow-glow': '0 0 20px rgba(185, 140, 245, 0.35)',
+
+		'--color-overlay-bg': 'rgba(0, 0, 0, 0.6)',
+		'--color-overlay-light': 'rgba(0, 0, 0, 0.35)',
+
+		'--scrollbar-thumb': 'rgba(255, 255, 255, 0.16)',
+		'--scrollbar-thumb-hover': 'rgba(255, 255, 255, 0.28)'
+	}
+};
+
+export const BUILT_IN_STYLES: Style[] = [githubDark, catppuccinMocha, frostedGlass];

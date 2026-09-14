@@ -46,6 +46,9 @@
 		display: flex;
 		gap: var(--spacing-xs);
 		padding: var(--spacing-md);
+		background-color: var(--color-bg-panel);
+		-webkit-backdrop-filter: var(--surface-blur);
+		backdrop-filter: var(--surface-blur);
 	}
 	.tab {
 		justify-content: center;
