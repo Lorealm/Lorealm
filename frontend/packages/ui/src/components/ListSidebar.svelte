@@ -76,6 +76,9 @@
 		flex-direction: column;
 		min-height: 0;
 		min-width: 0;
+		background-color: var(--color-bg-panel);
+		-webkit-backdrop-filter: var(--surface-blur);
+		backdrop-filter: var(--surface-blur);
 		border-right: 1px solid var(--color-border-subtle);
 	}
 	.list-header {

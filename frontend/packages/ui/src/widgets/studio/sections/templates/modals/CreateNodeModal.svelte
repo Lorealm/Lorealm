@@ -249,7 +249,8 @@
 		justify-content: center;
 		padding: var(--spacing-lg);
 		background-color: var(--color-overlay-bg);
-		backdrop-filter: var(--backdrop-blur-sm);
+		-webkit-backdrop-filter: var(--overlay-blur);
+		backdrop-filter: var(--overlay-blur);
 	}
 
 	.panel {

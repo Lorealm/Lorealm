@@ -99,8 +99,8 @@
 		z-index: var(--z-index-elevated);
 
 		background: var(--color-overlay-bg);
-		backdrop-filter: var(--backdrop-blur-sm);
-		-webkit-backdrop-filter: var(--backdrop-blur-sm);
+		-webkit-backdrop-filter: var(--overlay-blur);
+		backdrop-filter: var(--overlay-blur);
 
 		-webkit-mask-image: linear-gradient(to top, #000 97%, transparent);
 		mask-image: linear-gradient(to top, #000 97%, transparent);

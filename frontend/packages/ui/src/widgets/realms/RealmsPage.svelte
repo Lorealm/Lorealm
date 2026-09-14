@@ -120,7 +120,6 @@
 		flex-direction: column;
 		flex: 1;
 		min-height: 0;
-		background: var(--color-bg-base);
 		color: var(--color-text-primary);
 	}
 

@@ -73,7 +73,8 @@
 		padding: var(--spacing-md) var(--spacing-lg);
 		border-top: 1px solid var(--color-border-subtle);
 		background-color: var(--color-bg-panel);
-		backdrop-filter: var(--backdrop-blur);
+		-webkit-backdrop-filter: var(--surface-blur);
+		backdrop-filter: var(--surface-blur);
 	}
 	.spacer {
 		flex: 1 1 auto;

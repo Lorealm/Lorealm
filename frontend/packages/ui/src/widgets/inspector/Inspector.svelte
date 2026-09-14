@@ -44,6 +44,8 @@
 		height: 100%;
 		width: var(--width-sidebar-small);
 		background-color: var(--color-bg-elevated);
+		-webkit-backdrop-filter: var(--surface-blur);
+		backdrop-filter: var(--surface-blur);
 		border-left: 1px solid var(--color-border-subtle);
 	}
 	.topBar {

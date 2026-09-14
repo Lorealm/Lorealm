@@ -60,6 +60,8 @@
 		padding: 0 var(--spacing-sm);
 		box-sizing: border-box;
 		background-color: var(--color-bg-elevated);
+		-webkit-backdrop-filter: var(--surface-blur);
+		backdrop-filter: var(--surface-blur);
 		border-bottom: 1px solid var(--color-border-subtle);
 	}
 	.history {
