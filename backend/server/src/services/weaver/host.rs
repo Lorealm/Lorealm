@@ -363,7 +363,7 @@ mod tests {
     #[tokio::test]
     async fn del_var_removes_through_a_real_host() {
         let host = WeaverHost::builder()
-            .profile(WeaverProfile::RealmSeed)
+            .profile(WeaverProfile::RealmScript)
             .build();
 
         let outcome = host
@@ -398,7 +398,7 @@ $[del_var("nation:oda.gold")]
     #[test]
     fn a_profile_registers_only_what_it_declares() {
         let seed = WeaverHost::builder()
-            .profile(WeaverProfile::RealmSeed)
+            .profile(WeaverProfile::RealmScript)
             .build();
         assert!(seed.registry().command_signature("toast").is_none());
         assert!(seed.registry().command_signature("emit_event").is_none());
@@ -422,7 +422,7 @@ $[del_var("nation:oda.gold")]
     #[tokio::test]
     async fn an_evaluation_reports_its_writes_as_a_delta() {
         let host = WeaverHost::builder()
-            .profile(WeaverProfile::RealmSeed)
+            .profile(WeaverProfile::RealmScript)
             .build();
 
         let outcome = host
@@ -469,7 +469,7 @@ $[del_var("nation:oda.gold")]
     #[tokio::test]
     async fn a_runaway_loop_hits_the_ceiling_instead_of_hanging() {
         let host = WeaverHost::builder()
-            .profile(WeaverProfile::RealmSeed)
+            .profile(WeaverProfile::RealmScript)
             .limits(Limits {
                 max_iterations: Some(10),
                 ..Limits::default()

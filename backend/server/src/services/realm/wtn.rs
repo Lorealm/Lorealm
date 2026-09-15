@@ -207,12 +207,7 @@ $[inc_var("self:gold", -150)]
                 id: Snowflake(70),
                 name: "Spring".into(),
                 description: String::new(),
-                seed_script: r#"$[set_var("world:season", "spring")]"#.into(),
                 opening: Some("The thaw comes early this year.".into()),
-                agent_overrides: HashMap::from([(
-                    "regent_ito".to_string(),
-                    HashMap::from([("gold".to_string(), json!(300))]),
-                )]),
             }],
             director: Some(Director::Script {
                 source: r#"{{cast:handles}}"#.into(),

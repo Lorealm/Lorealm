@@ -99,9 +99,9 @@ impl AgentFilter {
     }
 }
 
-/// A named opening for a realm, analogous to a character greeting: a seed
-/// script committed as the turn-zero state delta, optional opening narration
-/// (a `System` event on `main`), and per-agent property overrides.
+/// A named opening for a realm, analogous to a character greeting: which one
+/// a playthrough starts from, and the narration it opens on (a `System`
+/// event on `main`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Scenario {
     pub id: Snowflake,
@@ -109,11 +109,7 @@ pub struct Scenario {
     #[serde(default)]
     pub description: String,
     #[serde(default)]
-    pub seed_script: String,
-    #[serde(default)]
     pub opening: Option<String>,
-    #[serde(default)]
-    pub agent_overrides: HashMap<String, HashMap<String, serde_json::Value>>,
 }
 
 /// A kind of owner-scoped resource a realm's cast can reference.
@@ -407,6 +403,8 @@ pub struct RealmCast {
     pub agents: Vec<RealmAgent>,
     #[serde(default)]
     pub director: Option<Director>,
+    #[serde(default)]
+    pub scenario: Option<Scenario>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]

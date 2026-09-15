@@ -61,7 +61,6 @@ cargo test -p lorealm_server --bin lorealm_server dump_weaver_vocabulary -- --ig
 | `ChatTurn` | `effects`, `events`, `attachments`, `generation` | `attach`, `compose`, `emit_event`, `generate`, `generate_raw`, `search_attachments`, `sys`, `toast` |
 | `Command` | `effects`, `generation` | `compose`, `generate`, `generate_raw`, `sys`, `toast` |
 | `RealmScript` | `events` | `emit_event` |
-| `RealmSeed` | none | — |
 | `RealmCondition` | none | — |
 | `RealmDirector` | none | — |
 | `WidgetRender` | none | — |
@@ -74,7 +73,6 @@ Where each one is built:
 | `ChatTurn` | `services/chat/service.rs` | A user tool body the model invokes mid-turn |
 | `Command` | `services/commands/service.rs` | A `/slash` command body |
 | `RealmScript` | `services/realm/weaver.rs` | A script agent's body, and realm actions |
-| `RealmSeed` | `services/realm/weaver.rs` | A scenario's seed script, once at instantiation |
 | `RealmCondition` | `services/realm/weaver.rs` | An agent's `run_condition` |
 | `RealmDirector` | `services/realm/weaver.rs` | A realm's `Director::Script`, rendering the handle of whoever acts next |
 | `WidgetRender` | `services/chat/widgets.rs` | A widget's `render`, turning it into prompt text during assembly |
@@ -124,7 +122,7 @@ handles from it.
 
 ### Inside a realm
 
-The four realm hosts also mount two read-only namespaces describing the realm
+The realm hosts also mount three read-only namespaces describing the realm
 itself, so a body never has to restate what the engine already knows. They are
 derived per evaluation from the pinned cast and the active path — deliberately
 not kept in the state pool, which is persisted as per-message deltas and would
@@ -137,15 +135,23 @@ freeze a stale copy into history.
 | `cast:agents.<handle>.name` / `.kind` / `.turn_order` | One cast member |
 | `turn:index` | Turns already committed on this path |
 | `turn:last.handle` / `.name` / `.kind` / `.said` | Who acted last; absent on the opening turn |
+| `scenario:id`, `scenario:name` | The opening this playthrough started from; absent when the realm has none |
 
 Only agents with a handle appear: an unhandled agent has no `agents:` subtree
 and no `self:`, so listing it would name an identity nothing can address.
 
 `RealmTemplate` is the exception among the realm hosts: a document is expanded
-before there is a playthrough, so it mounts neither `cast:` nor `turn:` — there
-is no roster to describe yet. It is the document that *produces* the roster.
+before there is a playthrough, so it mounts none of these — there is no roster
+or opening to describe yet. It is the document that *produces* them.
 
-`cast:` and `turn:` are reserved in every host, the way `actor:` is — a state
+`scenario:` is how an opening sets itself up now that a scenario carries no
+script of its own. A script agent gated on `{{turn:index}} == 0` branches on
+`{{scenario:name}}` and writes whatever state that opening needs — the same
+effect as a seed script, in a place the cast can see. The one thing it gives
+up is ordering: a seed ran before anything else, while a script agent runs
+when the director says so, so put it first and keep turn zero deterministic.
+
+`cast:`, `turn:` and `scenario:` are reserved in every host, the way `actor:` is — a state
 namespace cannot shadow them, and writing to one is an error rather than a
 write that goes nowhere.
 
