@@ -11,12 +11,14 @@ use lorealm_storage::models::{
 
 use crate::{
     core::AppState,
-    errors::AppError,
+    errors::{AppError, RealmError},
     extract::AuthenticatedSession,
     routes::realm::dto::{
-        CreateAgentRequest, CreateRealmRequest, CreateScenarioRequest, UpdateRealmRequest,
+        CreateAgentRequest, CreateRealmRequest, CreateScenarioRequest, ImportRealmRequest,
+        UpdateRealmRequest,
     },
     services::realm::ActionSpec,
+    util::weaver::json_to_weaver,
 };
 
 pub async fn list_realms(
@@ -276,6 +278,44 @@ pub async fn set_grants(
         .await?;
 
     Ok(())
+}
+
+/// Create a realm from a WTN document.
+pub async fn import_realm(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Json(payload): Json<ImportRealmRequest>,
+) -> Result<Json<Realm>, AppError> {
+    let inputs = payload
+        .inputs
+        .iter()
+        .map(|(name, value)| {
+            json_to_weaver(value)
+                .map(|v| (name.clone(), v))
+                .map_err(|e| RealmError::InvalidTemplate(format!("input '{name}': {e}")))
+        })
+        .collect::<Result<_, _>>()?;
+
+    let realm = state
+        .services()
+        .realm()
+        .import(session.user_id, &payload.source, inputs)
+        .await?;
+
+    Ok(Json(realm))
+}
+
+/// The realm as a WTN document: the form it is distributed in.
+pub async fn export_realm(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(realm_id): Path<Snowflake>,
+) -> Result<String, AppError> {
+    Ok(state
+        .services()
+        .realm()
+        .export(realm_id, session.user_id)
+        .await?)
 }
 
 pub async fn list_resources(

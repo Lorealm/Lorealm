@@ -10,7 +10,7 @@
 	const filter = $derived<AgentFilter>(
 		director.kind === 'script' ? { match: 'all' } : director.over
 	);
-	const agents = $derived([...realmStore.agents].sort((a, b) => a.turn_order - b.turn_order));
+	const agents = $derived(realmStore.agents);
 
 	/** `match` collapsed to a flat select value: `all`, a kind, or `handles`. */
 	const drawsFrom = $derived(

@@ -10,7 +10,7 @@
 	let newProfileId = $state<Snowflake | ''>('');
 	let adding = $state(false);
 
-	const agents = $derived([...realmStore.agents].sort((a, b) => a.turn_order - b.turn_order));
+	const agents = $derived(realmStore.agents);
 
 	const templates = $derived(catalogItems('template'));
 	const profiles = $derived(catalogItems('connection_profile'));

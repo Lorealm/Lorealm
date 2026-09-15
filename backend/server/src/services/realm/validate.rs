@@ -236,6 +236,76 @@ impl RealmService {
     }
 }
 
+impl RealmService {
+    /// Everything an expanded document must satisfy before it becomes a
+    /// realm.
+    pub(super) async fn validate_definition(
+        &self,
+        user_id: Snowflake,
+        definition: &RealmDefinition,
+    ) -> Result<(), RealmError> {
+        for (i, agent) in definition.agents.iter().enumerate() {
+            // Checked against the members before it, so no pair collides.
+            validate_handle(&agent.handle, &definition.agents[..i], None)?;
+            validate_properties(&agent.properties)?;
+            validate_grants(&agent.grants)?;
+            validate_channel("speech_channel", agent.speech_channel.as_deref())?;
+            for binding in &agent.tools {
+                validate_channel("event_channel", binding.event_channel.as_deref())?;
+            }
+            if let Some(src) = agent
+                .run_condition
+                .as_ref()
+                .filter(|s| !s.trim().is_empty())
+            {
+                CompiledExpr::compile(src).map_err(|errors| {
+                    RealmError::InvalidAgent(format!(
+                        "run condition of '{}' failed to compile: {}",
+                        agent.handle,
+                        describe_parse_errors(src, &errors)
+                    ))
+                })?;
+            }
+            // The shapes that would otherwise fail at play time instead.
+            match agent.kind {
+                AgentKind::Llm if agent.template_id.is_none() || agent.profile_id.is_none() => {
+                    return Err(RealmError::InvalidAgent(format!(
+                        "llm agent '{}' needs a template and a connection profile",
+                        agent.handle
+                    )));
+                }
+                AgentKind::Script if agent.script.as_ref().is_none_or(|s| s.trim().is_empty()) => {
+                    return Err(RealmError::InvalidAgent(format!(
+                        "script agent '{}' needs inline script content",
+                        agent.handle
+                    )));
+                }
+                _ => {}
+            }
+        }
+
+        for resource in realm_resources(definition) {
+            self.validate_resource(user_id, resource.kind, resource.resource_id)
+                .await?;
+        }
+
+        for scenario in &definition.scenarios {
+            validate_scenario(
+                &scenario.name,
+                &scenario.seed_script,
+                &scenario.agent_overrides,
+                &definition.agents,
+            )?;
+        }
+
+        if let Some(director) = &definition.director {
+            validate_director(director, &definition.agents)?;
+        }
+
+        Ok(())
+    }
+}
+
 pub(super) fn validate_handle(
     handle: &str,
     cast: &[RealmAgent],
@@ -274,23 +344,25 @@ pub(super) fn validate_properties(
 /// A scenario needs a name, its seed script must compile and its overrides must
 /// target current cast handles with valid property keys.
 pub(super) fn validate_scenario(
-    req: &crate::routes::CreateScenarioRequest,
+    name: &str,
+    seed_script: &str,
+    agent_overrides: &HashMap<String, HashMap<String, serde_json::Value>>,
     cast: &[RealmAgent],
 ) -> Result<(), RealmError> {
-    if req.name.trim().is_empty() {
+    if name.trim().is_empty() {
         return Err(RealmError::InvalidScenario(
             "a scenario needs a name".into(),
         ));
     }
-    if !req.seed_script.trim().is_empty() {
-        weaver_lang::CompiledTemplate::compile(&req.seed_script).map_err(|errors| {
+    if !seed_script.trim().is_empty() {
+        weaver_lang::CompiledTemplate::compile(seed_script).map_err(|errors| {
             RealmError::InvalidScenario(format!(
                 "seed script failed to compile: {}",
-                describe_parse_errors(&req.seed_script, &errors)
+                describe_parse_errors(seed_script, &errors)
             ))
         })?;
     }
-    for (handle, props) in &req.agent_overrides {
+    for (handle, props) in agent_overrides {
         if !cast.iter().any(|a| &a.handle == handle) {
             return Err(RealmError::InvalidScenario(format!(
                 "override targets unknown agent handle '{handle}'"
@@ -451,9 +523,6 @@ pub(super) fn apply_turn_order(
     }
 
     agents.sort_by_key(|a| positions[a.handle.as_str()]);
-    for (index, agent) in agents.iter_mut().enumerate() {
-        agent.turn_order = index as i32;
-    }
     Ok(())
 }
 
@@ -478,7 +547,6 @@ mod tests {
             profile_id: Some(sf(30)),
             user_id: None,
             persona_id: Some(sf(60)),
-            turn_order: 0,
             properties: HashMap::new(),
             grants: Vec::new(),
             tools: vec![AgentToolBinding {
@@ -612,15 +680,7 @@ mod tests {
     }
 
     fn cast_of(handles: &[&str]) -> Vec<RealmAgent> {
-        handles
-            .iter()
-            .enumerate()
-            .map(|(i, h)| {
-                let mut a = agent(h);
-                a.turn_order = i as i32;
-                a
-            })
-            .collect()
+        handles.iter().map(|h| agent(h)).collect()
     }
 
     fn order(handles: &[&str]) -> Vec<String> {
@@ -631,11 +691,8 @@ mod tests {
     fn reorder_applies_permutation_and_reindexes() {
         let mut agents = cast_of(&["a", "b", "c"]);
         apply_turn_order(&mut agents, &order(&["c", "a", "b"])).unwrap();
-        let got: Vec<(&str, i32)> = agents
-            .iter()
-            .map(|a| (a.handle.as_str(), a.turn_order))
-            .collect();
-        assert_eq!(got, vec![("c", 0), ("a", 1), ("b", 2)]);
+        let got: Vec<&str> = agents.iter().map(|a| a.handle.as_str()).collect();
+        assert_eq!(got, vec!["c", "a", "b"]);
     }
 
     #[test]
@@ -688,10 +745,10 @@ mod tests {
         // unknown handle in place of a real one
         let mut agents = cast_of(&["a", "b", "c"]);
         assert!(apply_turn_order(&mut agents, &order(&["a", "b", "nobody"])).is_err());
-        // failures leave turn_order untouched
+        // failures leave the cast in the order it already had
         assert_eq!(
-            agents.iter().map(|a| a.turn_order).collect::<Vec<_>>(),
-            vec![0, 1, 2]
+            agents.iter().map(|a| a.handle.as_str()).collect::<Vec<_>>(),
+            vec!["a", "b", "c"]
         );
     }
 }

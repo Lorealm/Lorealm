@@ -64,13 +64,14 @@ pub(super) fn realm_view(agents: &[RealmAgent], turn: &TurnInfo) -> RealmView {
         "agents".to_string(),
         roster
             .iter()
-            .map(|a| {
+            .enumerate()
+            .map(|(index, a)| {
                 (
                     a.handle.clone(),
                     json!({
                         "name": a.name,
                         "kind": a.kind.as_str(),
-                        "turn_order": a.turn_order,
+                        "turn_order": index,
                     }),
                 )
             })
@@ -335,7 +336,6 @@ mod tests {
             profile_id: None,
             user_id: None,
             persona_id: None,
-            turn_order: 0,
             properties: HashMap::new(),
             grants,
             tools: Vec::new(),
@@ -498,20 +498,16 @@ mod tests {
     /// A player, one script agent and two LLMs. The shape of a group chat.
     fn troupe() -> Vec<RealmAgent> {
         let mut agents = Vec::new();
-        for (i, (handle, kind)) in [
+        for (handle, kind) in [
             ("you", lorealm_storage::models::AgentKind::Player),
             ("clock", lorealm_storage::models::AgentKind::Script),
             ("alice", lorealm_storage::models::AgentKind::Llm),
             ("bob", lorealm_storage::models::AgentKind::Llm),
-        ]
-        .into_iter()
-        .enumerate()
-        {
+        ] {
             let mut a = agent(vec![], None);
             a.handle = handle.into();
             a.name = handle.to_uppercase();
             a.kind = kind;
-            a.turn_order = i as i32;
             agents.push(a);
         }
         agents

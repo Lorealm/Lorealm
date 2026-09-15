@@ -34,6 +34,8 @@ pub enum RealmError {
     ToolNotBound(Snowflake),
     #[error("action failed: {0}")]
     ActionFailed(String),
+    #[error("invalid template: {0}")]
+    InvalidTemplate(String),
     #[error("invalid scenario: {0}")]
     InvalidScenario(String),
     #[error("director failed: {0}")]
@@ -80,6 +82,7 @@ impl DomainError for RealmError {
             Self::ToolNotBound(_) => "realm.tool_not_bound",
             Self::ActionFailed(_) => "realm.action_failed",
             Self::InvalidScenario(_) => "realm.invalid_scenario",
+            Self::InvalidTemplate(_) => "realm.invalid_template",
             Self::DirectorFailed(_) => "realm.director_failed",
             Self::Storage(_) | Self::Serialization(_) => "internal",
         }
@@ -105,6 +108,7 @@ impl DomainError for RealmError {
             | Self::ToolNotBound(_)
             | Self::ActionFailed(_)
             | Self::InvalidScenario(_)
+            | Self::InvalidTemplate(_)
             | Self::DirectorFailed(_) => StatusCode::BAD_REQUEST,
             Self::Storage(_) | Self::Serialization(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -141,6 +145,7 @@ impl DomainError for RealmError {
             Self::ToolNotBound(_) => "This action isn't available to the agent.".into(),
             Self::ActionFailed(hint) => sentence(format!("Action failed: {hint}")),
             Self::InvalidScenario(hint) => sentence(format!("Invalid scenario: {hint}")),
+            Self::InvalidTemplate(hint) => sentence(format!("Invalid template: {hint}")),
             Self::DirectorFailed(hint) => {
                 sentence(format!("The realm could not decide who acts next: {hint}"))
             }
@@ -173,6 +178,7 @@ impl DomainError for RealmError {
             Self::NoRunnableAgent
             | Self::InvalidTurn(_)
             | Self::ActionFailed(_)
+            | Self::InvalidTemplate(_)
             | Self::DirectorFailed(_) => Some(ErrorDetails::resource(TargetType::Realm)),
             Self::Storage(_) | Self::Serialization(_) => None,
         }

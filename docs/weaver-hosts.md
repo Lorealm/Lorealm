@@ -65,6 +65,7 @@ cargo test -p lorealm_server --bin lorealm_server dump_weaver_vocabulary -- --ig
 | `RealmCondition` | none | — |
 | `RealmDirector` | none | — |
 | `WidgetRender` | none | — |
+| `RealmTemplate` | none | — |
 
 Where each one is built:
 
@@ -77,6 +78,7 @@ Where each one is built:
 | `RealmCondition` | `services/realm/weaver.rs` | An agent's `run_condition` |
 | `RealmDirector` | `services/realm/weaver.rs` | A realm's `Director::Script`, rendering the handle of whoever acts next |
 | `WidgetRender` | `services/chat/widgets.rs` | A widget's `render`, turning it into prompt text during assembly |
+| `RealmTemplate` | `services/realm/wtn.rs` | A WTN document, expanded once into a realm definition |
 
 The editor's two endpoints — `check` in `services/context/weaver/check.rs` and
 `list_weaver_vocabulary` in `routes/templates/handlers.rs` — both build
@@ -119,6 +121,10 @@ freeze a stale copy into history.
 
 Only agents with a handle appear: an unhandled agent has no `agents:` subtree
 and no `self:`, so listing it would name an identity nothing can address.
+
+`RealmTemplate` is the exception among the realm hosts: a document is expanded
+before there is a playthrough, so it mounts neither `cast:` nor `turn:` — there
+is no roster to describe yet. It is the document that *produces* the roster.
 
 `cast:` and `turn:` are reserved in every host, the way `actor:` is — a state
 namespace cannot shadow them, and writing to one is an error rather than a

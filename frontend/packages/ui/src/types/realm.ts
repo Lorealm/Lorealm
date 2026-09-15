@@ -14,6 +14,7 @@ export interface Realm {
 export interface RealmDefinition {
 	name: string;
 	description: string;
+	/** Array order is turn order. */
 	agents: RealmAgent[];
 	scenarios: Scenario[];
 	/** How the realm picks who acts next. Null = round-robin over the whole cast. */
@@ -99,7 +100,6 @@ export interface RealmAgent {
 	user_id: Snowflake | null;
 
 	persona_id: Snowflake | null;
-	turn_order: number;
 
 	/** Seeded as `agents:<handle>.<key>` at instantiation. Keys are dotted paths. */
 	properties: Record<string, JsonValue>;
