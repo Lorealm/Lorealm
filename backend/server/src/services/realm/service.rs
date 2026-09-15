@@ -13,8 +13,8 @@ use lorealm_storage::{
         AGENTS_SCOPE, ActivationState, AgentFilter, AgentGrant, AgentKind, AgentObservation,
         AgentSpec, AgentToolBinding, ChatRole, Conversation, ConversationMessage, Director,
         EventKind, Realm, RealmAgent, RealmCast, RealmConfig, RealmDefinition, RealmEvent,
-        RealmResourceRef, RealmSummary, RealmVersionInfo, ResolvedRealmConfig, Scenario, Snowflake,
-        StateDelta, TurnCommit, UserTool, VersionedSaveMode,
+        RealmOrigin, RealmResourceRef, RealmSummary, RealmVersionInfo, ResolvedRealmConfig,
+        Scenario, Snowflake, StateDelta, TurnCommit, UserTool, VersionedSaveMode,
     },
 };
 use rand::seq::SliceRandom;
@@ -166,6 +166,7 @@ impl RealmService {
                 ..Default::default()
             },
             tags: Vec::new(),
+            origin: None,
         };
 
         self.storage
@@ -519,6 +520,7 @@ impl RealmService {
         user_id: Snowflake,
         source: &str,
         inputs: BTreeMap<String, WeaverValue>,
+        origin: Option<RealmOrigin>,
     ) -> Result<Realm, RealmError> {
         let doc = wtn::compile(source)?;
         let inputs = self
@@ -534,6 +536,7 @@ impl RealmService {
             current_version_id: self.snowflake.generate(),
             definition,
             tags: Vec::new(),
+            origin,
         };
         self.storage
             .save_realm(&realm, VersionedSaveMode::NewVersion)

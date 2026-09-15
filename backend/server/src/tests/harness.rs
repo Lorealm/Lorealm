@@ -19,6 +19,7 @@ use lorealm_storage::{
 };
 
 use crate::services::{
+    blueprint::BlueprintService,
     character::CharacterService,
     chat::ChatService,
     connection::ConnectionService,
@@ -60,6 +61,7 @@ impl BlobStore for MemoryBlobs {
 /// A [`RealmService`] over in-memory storage
 pub(crate) struct Harness {
     pub realms: Arc<RealmService>,
+    pub blueprints: Arc<BlueprintService>,
     pub store: Arc<MemoryStorage>,
     pub snow: Arc<SnowflakeService>,
     /// The caller in every test unless one says otherwise.
@@ -149,8 +151,15 @@ impl Harness {
             conversation,
         ));
 
+        let blueprints = Arc::new(BlueprintService::new(
+            Arc::clone(&storage),
+            Arc::clone(&snow),
+            Arc::clone(&realms),
+        ));
+
         Self {
             realms,
+            blueprints,
             store,
             user: snow.generate(),
             stranger: snow.generate(),

@@ -41,7 +41,7 @@ impl RealmStorage for PostgresStorage {
     async fn get_realm(&self, id: Snowflake) -> Result<Option<Realm>, StorageError> {
         let head: Option<RealmHeadRow> = sqlx::query_as(
             r#"
-            SELECT r.id, r.owner_id, r.current_version_id, v.snapshot
+            SELECT r.id, r.owner_id, r.current_version_id, r.origin, v.snapshot
             FROM realms r
             JOIN realm_versions v ON v.id = r.current_version_id
             WHERE r.id = $1
@@ -64,7 +64,7 @@ impl RealmStorage for PostgresStorage {
     ) -> Result<Option<Realm>, StorageError> {
         let row: Option<RealmVersionRow> = sqlx::query_as(
             r#"
-            SELECT v.id AS version_id, v.realm_id, v.snapshot, r.owner_id
+            SELECT v.id AS version_id, v.realm_id, v.snapshot, r.owner_id, r.origin
             FROM realm_versions v
             JOIN realms r ON r.id = v.realm_id
             WHERE v.realm_id = $1 AND v.id = $2
@@ -92,16 +92,24 @@ impl RealmStorage for PostgresStorage {
 
         sqlx::query(
             r#"
-            INSERT INTO realms (id, owner_id, current_version_id, created_at, updated_at)
-            VALUES ($1, $2, $3, now(), now())
+            INSERT INTO realms (id, owner_id, current_version_id, origin, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, now(), now())
             ON CONFLICT (id) DO UPDATE SET
                 current_version_id = EXCLUDED.current_version_id,
+                origin = EXCLUDED.origin,
                 updated_at = now()
             "#,
         )
         .bind(realm.id)
         .bind(realm.owner_id)
         .bind(realm.current_version_id)
+        .bind(
+            realm
+                .origin
+                .as_ref()
+                .map(serde_json::to_value)
+                .transpose()?,
+        )
         .execute(&mut *tx)
         .await?;
 
@@ -446,18 +454,21 @@ struct RealmHeadRow {
     id: Snowflake,
     owner_id: Snowflake,
     current_version_id: Snowflake,
+    origin: Option<serde_json::Value>,
     snapshot: serde_json::Value,
 }
 
 impl RealmHeadRow {
     fn into_realm(self, tags: Vec<String>) -> Result<Realm, StorageError> {
         let definition: RealmDefinition = serde_json::from_value(self.snapshot)?;
+        let origin = self.origin.map(serde_json::from_value).transpose()?;
         Ok(Realm {
             id: self.id,
             owner_id: self.owner_id,
             current_version_id: self.current_version_id,
             definition,
             tags,
+            origin,
         })
     }
 }
@@ -468,17 +479,20 @@ struct RealmVersionRow {
     realm_id: Snowflake,
     owner_id: Snowflake,
     snapshot: serde_json::Value,
+    origin: Option<serde_json::Value>,
 }
 
 impl RealmVersionRow {
     fn into_realm(self, tags: Vec<String>) -> Result<Realm, StorageError> {
         let definition: RealmDefinition = serde_json::from_value(self.snapshot)?;
+        let origin = self.origin.map(serde_json::from_value).transpose()?;
         Ok(Realm {
             id: self.realm_id,
             owner_id: self.owner_id,
             current_version_id: self.version_id,
             definition,
             tags,
+            origin,
         })
     }
 }

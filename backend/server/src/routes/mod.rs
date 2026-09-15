@@ -8,6 +8,7 @@ use crate::{
 };
 
 mod blobs;
+mod blueprints;
 mod characters;
 mod chat;
 mod config;
@@ -95,5 +96,9 @@ pub async fn api_routes(
         .nest(
             "/realms",
             realm::router(Arc::clone(&app_state), session_state.clone()),
+        )
+        .nest(
+            "/blueprints",
+            blueprints::router(Arc::clone(&app_state), session_state.clone()),
         )
 }

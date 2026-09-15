@@ -1,3 +1,4 @@
+pub mod blueprints;
 pub mod characters;
 pub mod connection;
 pub mod conversation;

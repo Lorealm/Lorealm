@@ -1,3 +1,4 @@
+mod blueprints;
 mod characters;
 mod common;
 mod connection;
@@ -14,6 +15,7 @@ mod tools;
 mod users;
 mod widgets;
 
+pub use blueprints::*;
 pub use characters::*;
 pub use common::*;
 pub use connection::*;

@@ -61,7 +61,7 @@ async fn a_document_becomes_a_realm_built_from_the_characters_it_was_given() {
 
     let realm = h
         .realms
-        .import(h.user, REGENTS, inputs)
+        .import(h.user, REGENTS, inputs, None)
         .await
         .expect("imports");
 
@@ -81,7 +81,7 @@ async fn a_document_becomes_a_realm_built_from_the_characters_it_was_given() {
             ("regent_house_m_ri", "House Mōri"),
         ]
     );
-    
+
     assert_eq!(realm.definition.agents[0].character_id, Some(ito));
     assert_eq!(realm.definition.agents[1].character_id, Some(mori));
     assert_eq!(realm.definition.agents[0].template_id, Some(template));
@@ -104,7 +104,11 @@ async fn a_template_cannot_reach_a_character_the_importer_does_not_own() {
         ("profile".to_string(), profile.to_string().into()),
     ]);
 
-    let err = h.realms.import(h.user, REGENTS, inputs).await.unwrap_err();
+    let err = h
+        .realms
+        .import(h.user, REGENTS, inputs, None)
+        .await
+        .unwrap_err();
     assert!(
         matches!(err, RealmError::NotOwned(_, id) if id == theirs),
         "{err:?}"
@@ -124,7 +128,11 @@ async fn an_id_that_resolves_to_nothing_is_refused() {
         ("profile".to_string(), profile.to_string().into()),
     ]);
 
-    let err = h.realms.import(h.user, REGENTS, inputs).await.unwrap_err();
+    let err = h
+        .realms
+        .import(h.user, REGENTS, inputs, None)
+        .await
+        .unwrap_err();
     assert!(
         matches!(err, RealmError::NotFound(_, id) if id == missing),
         "{err:?}"
@@ -192,7 +200,7 @@ widget: Ref<Widget>
 
     let realm = h
         .realms
-        .import(h.user, source, inputs)
+        .import(h.user, source, inputs, None)
         .await
         .expect("imports");
 
@@ -253,7 +261,11 @@ regents: [Ref<Character>]
         ids(&[&character.to_string(), &character.to_string()]),
     )]);
 
-    let err = h.realms.import(h.user, source, inputs).await.unwrap_err();
+    let err = h
+        .realms
+        .import(h.user, source, inputs, None)
+        .await
+        .unwrap_err();
     assert!(
         matches!(&err, RealmError::InvalidAgent(hint) if hint.contains("already taken")),
         "{err:?}"
@@ -287,7 +299,7 @@ async fn an_llm_agent_without_a_template_is_caught_at_import() {
 
     let err = h
         .realms
-        .import(h.user, source, BTreeMap::new())
+        .import(h.user, source, BTreeMap::new(), None)
         .await
         .unwrap_err();
     assert!(
@@ -308,13 +320,17 @@ async fn a_realm_exports_to_a_document_that_imports_back() {
         ("template".to_string(), template.to_string().into()),
         ("profile".to_string(), profile.to_string().into()),
     ]);
-    let original = h.realms.import(h.user, REGENTS, inputs).await.unwrap();
+    let original = h
+        .realms
+        .import(h.user, REGENTS, inputs, None)
+        .await
+        .unwrap();
 
     // The export has no inputs left as it's now a concrete realm, no longer a blueprint.
     let document = h.realms.export(original.id, h.user).await.unwrap();
     let copy = h
         .realms
-        .import(h.user, &document, BTreeMap::new())
+        .import(h.user, &document, BTreeMap::new(), None)
         .await
         .expect("re-imports");
 

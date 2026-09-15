@@ -65,7 +65,7 @@ pub(super) fn needs(input: &str, ty: &InputType) -> Result<Needs, RealmError> {
 }
 
 /// An entity input cannot carry a default.
-pub(super) fn reject_defaulted_entities(
+pub fn reject_defaulted_entities(
     declarations: &[weaver_lang::InputDecl],
 ) -> Result<(), RealmError> {
     for declaration in declarations {
