@@ -63,7 +63,7 @@ pub fn write_var(
 }
 
 /// Remove one name from a namespace, following a dotted path if present.
-fn delete_var(ns: &mut HashMap<String, serde_json::Value>, name: &str) {
+pub fn delete_var(ns: &mut HashMap<String, serde_json::Value>, name: &str) {
     match name.split_once('.') {
         None => {
             ns.remove(name);

@@ -4,10 +4,13 @@ use std::{
 };
 
 use lorealm_storage::models::AGENTS_SCOPE;
-use weaver_lang::{EvalContext, EvalError, Registry, Value as WeaverValue};
+use weaver_lang::{
+    EvalContext, EvalError, Registry, Value as WeaverValue, WeaverCommand,
+    registry::{CommandSignature, ParamDef, ValueType},
+};
 
 use crate::{
-    services::state::write_var,
+    services::state::{delete_var, write_var},
     util::weaver::{json_to_weaver, weaver_to_json},
 };
 
@@ -107,6 +110,46 @@ impl ToolContext {
             .as_ref()
             .filter(|a| !a.handle.is_empty())
             .map(|a| format!("{}.{name}", a.handle))
+    }
+
+    /// Remove `scope:name` from the pool, following a dotted path into an
+    /// object if one is present.
+    pub fn delete_variable(&mut self, scope: &str, name: &str) -> Result<(), EvalError> {
+        let (scope, name) = match scope {
+            "self" => match self.own_var(name) {
+                Some(var) => (AGENTS_SCOPE, var),
+                None => {
+                    return Err(EvalError::host_error(
+                        "'self:' has no bound agent identity here",
+                    ));
+                }
+            },
+            other => (other, name.to_string()),
+        };
+        match scope {
+            "local" => {
+                self.local.remove(&name);
+                Ok(())
+            }
+            "user" | "char" | "actor" => Err(EvalError::host_error(format!(
+                "namespace '{scope}' is a reserved namespace"
+            ))),
+            _ if REALM_SCOPES.contains(&scope) => Err(EvalError::host_error(format!(
+                "namespace '{scope}' is the realm's own, and is read-only"
+            ))),
+            other => {
+                if self.read_only {
+                    return Err(EvalError::host_error(format!(
+                        "'{other}:{name}' cannot be deleted in a read-only evaluation"
+                    )));
+                }
+                let mut pool = self.state.lock().unwrap();
+                if let Some(ns) = pool.get_mut(other) {
+                    delete_var(ns, &name);
+                }
+                Ok(())
+            }
+        }
     }
 
     fn state_var(&self, scope: &str, name: &str) -> Result<Option<WeaverValue>, EvalError> {
@@ -213,6 +256,55 @@ impl EvalContext for ToolContext {
         Err(EvalError::host_error(
             "documents are currently not supported in tool bodies",
         ))
+    }
+}
+
+/// `$[del_var("scope:name")]`: remove a variable, or one key inside it when
+/// the name carries a dotted path.
+pub struct DelVarCommand;
+
+impl WeaverCommand for DelVarCommand {
+    fn call(
+        &self,
+        args: Vec<WeaverValue>,
+        ctx: &mut dyn EvalContext,
+        _registry: &Registry,
+    ) -> Result<Option<WeaverValue>, EvalError> {
+        let key = match args.into_iter().next() {
+            Some(WeaverValue::String(s)) => s,
+            other => {
+                return Err(EvalError::host_error(format!(
+                    "del_var: key must be a \"scope:name\" string, got {other:?}"
+                )));
+            }
+        };
+        let (scope, name) = key.split_once(':').ok_or_else(|| {
+            EvalError::host_error(format!(
+                "del_var: invalid variable key \"{key}\": expected \"scope:name\" format"
+            ))
+        })?;
+
+        let any: &mut dyn std::any::Any = ctx;
+        any.downcast_mut::<ToolContext>()
+            .ok_or_else(|| EvalError::host_error("del_var: not available in this context"))?
+            .delete_variable(scope, name)?;
+        Ok(None)
+    }
+
+    fn signature(&self) -> CommandSignature {
+        CommandSignature {
+            name: "del_var".into(),
+            description: "Remove a variable, or one key inside it when the name is a dotted path"
+                .into(),
+            returns: ValueType::None,
+            params: vec![ParamDef {
+                name: "key".into(),
+                description: "The variable to remove, as \"scope:name\"".into(),
+                expected_type: Some(ValueType::String),
+                required: true,
+            }],
+            mutates_context: true,
+        }
     }
 }
 
@@ -352,5 +444,98 @@ mod tests {
         let mut c = ctx();
         assert_eq!(c.resolve_variable("self", "gold").unwrap(), None);
         assert!(c.set_variable("self", "gold", WeaverValue::None).is_err());
+    }
+
+    /// A context holding `nation:oda = { gold: 10, men: 5 }`.
+    fn nation_ctx() -> ToolContext {
+        let mut c = ctx();
+        c.set_variable("nation", "oda.gold", WeaverValue::Number(10.0))
+            .unwrap();
+        c.set_variable("nation", "oda.men", WeaverValue::Number(5.0))
+            .unwrap();
+        c
+    }
+
+    #[test]
+    fn deleting_a_dotted_path_leaves_its_siblings() {
+        let mut c = nation_ctx();
+        c.delete_variable("nation", "oda.gold").unwrap();
+
+        assert_eq!(c.resolve_variable("nation", "oda.gold").unwrap(), None);
+        assert_eq!(
+            c.resolve_variable("nation", "oda.men").unwrap(),
+            Some(WeaverValue::Number(5.0))
+        );
+    }
+
+    #[test]
+    fn deleting_a_bare_name_takes_the_whole_variable() {
+        let mut c = nation_ctx();
+        c.delete_variable("nation", "oda").unwrap();
+        assert_eq!(c.resolve_variable("nation", "oda").unwrap(), None);
+    }
+
+    #[test]
+    fn deleting_something_absent_is_a_no_op() {
+        let mut c = nation_ctx();
+        c.delete_variable("nation", "takeda").unwrap();
+        c.delete_variable("nation", "oda.rice").unwrap();
+        c.delete_variable("void", "anything").unwrap();
+        assert_eq!(
+            c.resolve_variable("nation", "oda.gold").unwrap(),
+            Some(WeaverValue::Number(10.0))
+        );
+    }
+
+    #[test]
+    fn deletes_refuse_where_writes_do() {
+        let mut c = nation_ctx();
+        assert!(c.delete_variable("user", "name").is_err());
+        assert!(c.delete_variable("char", "name").is_err());
+        assert!(c.delete_variable("cast", "count").is_err());
+        assert!(c.delete_variable("self", "gold").is_err()); // no actor bound
+    }
+
+    #[test]
+    fn read_only_blocks_state_deletes_but_not_local() {
+        let mut c = nation_ctx().read_only();
+        assert!(c.delete_variable("nation", "oda").is_err());
+        assert!(c.delete_variable("local", "scratch").is_ok());
+    }
+
+    #[test]
+    fn self_deletes_land_on_the_own_agents_subtree() {
+        let mut c = actor_ctx();
+        c.set_variable("self", "gold", WeaverValue::Number(5.0))
+            .unwrap();
+        c.delete_variable("self", "gold").unwrap();
+        assert_eq!(c.resolve_variable("agents", "h.gold").unwrap(), None);
+    }
+
+    #[test]
+    fn del_var_runs_through_the_command() {
+        let registry = Registry::new();
+        let mut c = nation_ctx();
+
+        DelVarCommand
+            .call(
+                vec![WeaverValue::String("nation:oda.gold".into())],
+                &mut c,
+                &registry,
+            )
+            .unwrap();
+        assert_eq!(c.resolve_variable("nation", "oda.gold").unwrap(), None);
+
+        // A key with no scope half, and a key that is not a string at all.
+        assert!(
+            DelVarCommand
+                .call(vec![WeaverValue::String("oda".into())], &mut c, &registry)
+                .is_err()
+        );
+        assert!(
+            DelVarCommand
+                .call(vec![WeaverValue::Number(1.0)], &mut c, &registry)
+                .is_err()
+        );
     }
 }
