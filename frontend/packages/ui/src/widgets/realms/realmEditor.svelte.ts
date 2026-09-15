@@ -6,11 +6,10 @@ import { templateStore } from '$lib/stores/template.svelte.js';
 import { toolStore } from '$lib/stores/tools.svelte.js';
 import { userWidgetStore } from '$lib/stores/userWidgets.svelte.js';
 import type { Snowflake } from '$lib/types/core.js';
-import type { ImportKind, Realm } from '$lib/types/realm.js';
+import type { Realm, RealmDefinition, RealmResourceKind, RealmResourceRef } from '$lib/types/realm.js';
 
 export type EditorTab =
 	| 'overview'
-	| 'imports'
 	| 'cast'
 	| 'scenarios'
 	| 'access'
@@ -20,7 +19,6 @@ export type EditorTab =
 
 export const EDITOR_TABS: Array<{ value: EditorTab; label: string }> = [
 	{ value: 'overview', label: 'Overview' },
-	{ value: 'imports', label: 'Imports' },
 	{ value: 'cast', label: 'Cast' },
 	{ value: 'scenarios', label: 'Scenarios' },
 	{ value: 'access', label: 'Access Map' },
@@ -28,26 +26,6 @@ export const EDITOR_TABS: Array<{ value: EditorTab; label: string }> = [
 	{ value: 'formatting', label: 'Formatting' },
 	{ value: 'history', label: 'History' }
 ];
-
-export const IMPORT_KINDS: ImportKind[] = [
-	'character',
-	'lorebook',
-	'tool',
-	'template',
-	'persona',
-	'connection_profile',
-	'widget'
-];
-
-export const IMPORT_LABEL: Record<ImportKind, string> = {
-	character: 'Characters',
-	lorebook: 'Lorebooks',
-	tool: 'Tools',
-	template: 'Templates',
-	persona: 'Personas',
-	connection_profile: 'Connection Profiles',
-	widget: 'Widgets'
-};
 
 /** A catalog resource projected to the shape the editor renders. */
 export interface CatalogItem {
@@ -57,7 +35,7 @@ export interface CatalogItem {
 }
 
 /** The owner's resources of one kind, read from the catalog stores. */
-export function catalogItems(kind: ImportKind): CatalogItem[] {
+export function catalogItems(kind: RealmResourceKind): CatalogItem[] {
 	switch (kind) {
 		case 'character':
 			return (characterStore.metadataList ?? []).map((c) => ({
@@ -104,7 +82,7 @@ export function catalogItems(kind: ImportKind): CatalogItem[] {
 	}
 }
 
-export function catalogItem(kind: ImportKind, id: Snowflake): CatalogItem | undefined {
+export function catalogItem(kind: RealmResourceKind, id: Snowflake): CatalogItem | undefined {
 	return catalogItems(kind).find((c) => c.id === id);
 }
 
@@ -115,6 +93,31 @@ export function builtinToolItems(): CatalogItem[] {
 		name: t.display_name ?? t.name,
 		description: t.description ?? ''
 	}));
+}
+
+/**
+ * Every resource the cast references, deduplicated, in cast order.
+ */
+export function realmResources(definition: RealmDefinition): RealmResourceRef[] {
+	const seen = new Set<string>();
+	const out: RealmResourceRef[] = [];
+	const push = (kind: RealmResourceKind, resource_id: Snowflake) => {
+		const key = `${kind}:${resource_id}`;
+		if (seen.has(key)) return;
+		seen.add(key);
+		out.push({ kind, resource_id });
+	};
+
+	for (const a of definition.agents) {
+		if (a.character_id) push('character', a.character_id);
+		if (a.template_id) push('template', a.template_id);
+		if (a.profile_id) push('connection_profile', a.profile_id);
+		if (a.persona_id) push('persona', a.persona_id);
+		for (const b of a.tools) push('tool', b.tool_id);
+		for (const l of a.lorebooks ?? []) push('lorebook', l);
+		for (const w of a.widgets ?? []) push('widget', w);
+	}
+	return out;
 }
 
 export const scopeRoot = (scope: string): string => scope.split(':')[0];
@@ -237,21 +240,18 @@ let graphCache: { sig: string; model: GraphModel } = {
 /** Build (and cache) the realm's resource graph and its node positions */
 export function buildGraph(realm: Realm): GraphModel {
 	const agents = realm.definition.agents;
-	const importedOf = (kind: ImportKind): CatalogItem[] =>
-		realm.definition.imports
+	const resources = realmResources(realm.definition);
+	const referenced = (kind: RealmResourceKind): CatalogItem[] =>
+		resources
 			.filter((r) => r.kind === kind)
 			.map(
-				(r) =>
-					catalogItem(kind, r.resource_id) ?? {
-						id: r.resource_id,
-						name: `#${r.resource_id}`,
-						description: ''
-					}
+				({ resource_id: id }) =>
+					catalogItem(kind, id) ?? { id, name: `#${id}`, description: '' }
 			);
-	const tools = importedOf('tool');
-	const lorebooks = importedOf('lorebook');
-	const characters = importedOf('character');
-	const templates = importedOf('template');
+	const tools = referenced('tool');
+	const lorebooks = referenced('lorebook');
+	const characters = referenced('character');
+	const templates = referenced('template');
 
 	const scopeList: string[] = [];
 	agents.forEach((a) =>
@@ -281,7 +281,7 @@ export function buildGraph(realm: Realm): GraphModel {
 			id: 'tool:' + t.id,
 			type: 'tool',
 			label: t.name,
-			unused: !agents.some((a) => a.tools.some((tb) => tb.tool_id === t.id))
+			unused: false
 		})
 	);
 	lorebooks.forEach((lb) =>
@@ -289,7 +289,7 @@ export function buildGraph(realm: Realm): GraphModel {
 			id: 'lorebook:' + lb.id,
 			type: 'lorebook',
 			label: lb.name,
-			unused: !agents.some((a) => a.lorebooks.includes(lb.id))
+			unused: false
 		})
 	);
 	characters.forEach((c) =>
@@ -297,7 +297,7 @@ export function buildGraph(realm: Realm): GraphModel {
 			id: 'character:' + c.id,
 			type: 'character',
 			label: c.name,
-			unused: !agents.some((a) => a.character_id === c.id)
+			unused: false
 		})
 	);
 	templates.forEach((t) =>
@@ -305,7 +305,7 @@ export function buildGraph(realm: Realm): GraphModel {
 			id: 'template:' + t.id,
 			type: 'template',
 			label: t.name,
-			unused: !agents.some((a) => a.template_id === t.id)
+			unused: false
 		})
 	);
 
@@ -382,7 +382,6 @@ export function buildGraph(realm: Realm): GraphModel {
 class RealmEditorUi {
 	tab = $state<EditorTab>('overview');
 	expandedAgentId = $state<Snowflake | null>(null);
-	selectedImportKey = $state<string | null>(null);
 	selectedAccessNode = $state<{ type: 'agent' | 'scope'; id: string } | null>(null);
 	graphFilters = $state<Record<GraphType, boolean>>({
 		agent: true,
@@ -393,15 +392,12 @@ class RealmEditorUi {
 		template: true
 	});
 	graphSelectedNode = $state<string | null>(null);
-	pickerKind = $state<ImportKind | null>(null);
 
 	reset() {
 		this.tab = 'overview';
 		this.expandedAgentId = null;
-		this.selectedImportKey = null;
 		this.selectedAccessNode = null;
 		this.graphSelectedNode = null;
-		this.pickerKind = null;
 		this.graphFilters = {
 			agent: true,
 			scope: true,
@@ -414,15 +410,10 @@ class RealmEditorUi {
 
 	setTab(tab: EditorTab) {
 		this.tab = tab;
-		if (tab !== 'imports') this.selectedImportKey = null;
 	}
 
 	toggleAgent(id: Snowflake) {
 		this.expandedAgentId = this.expandedAgentId === id ? null : id;
-	}
-
-	selectImport(kind: ImportKind, id: Snowflake) {
-		this.selectedImportKey = `${kind}:${id}`;
 	}
 
 	toggleAccessNode(type: 'agent' | 'scope', id: string) {

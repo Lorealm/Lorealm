@@ -30,6 +30,7 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
             get(handlers::get_version),
         )
         .route("/{realm_id}/agents", get(handlers::list_agents))
+        .route("/{realm_id}/resources", get(handlers::list_resources))
         .route(
             "/{realm_id}/agents/{agent_id}/grants",
             get(handlers::get_grants),
@@ -64,7 +65,6 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
             "/{realm_id}/agents/{agent_id}/grants",
             put(handlers::set_grants),
         )
-        .route("/{realm_id}/imports", put(handlers::set_imports))
         .route("/{realm_id}/scenarios", post(handlers::create_scenario))
         .route(
             "/{realm_id}/scenarios/{scenario_id}",

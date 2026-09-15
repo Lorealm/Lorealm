@@ -1,10 +1,7 @@
 use std::borrow::Cow;
 
 use axum::http::StatusCode;
-use lorealm_storage::{
-    StorageError,
-    models::{ImportKind, Snowflake},
-};
+use lorealm_storage::{StorageError, models::Snowflake};
 
 use crate::errors::{
     CharacterError, ChatError, ConnectionError, ContextError, ConversationError, DomainError,
@@ -33,10 +30,6 @@ pub enum RealmError {
     InvalidTurn(String),
     #[error("tool not bound to agent: {0}")]
     ToolNotBound(Snowflake),
-    #[error("{} {1} is not imported into the realm", .0.as_str())]
-    NotImported(ImportKind, Snowflake),
-    #[error("{} {1} is still referenced by agent \"{2}\"", .0.as_str())]
-    ImportInUse(ImportKind, Snowflake, String),
     #[error("action failed: {0}")]
     ActionFailed(String),
     #[error("invalid scenario: {0}")]
@@ -82,8 +75,6 @@ impl DomainError for RealmError {
             Self::InvalidAgent(_) => "realm.invalid_agent",
             Self::InvalidTurn(_) => "realm.invalid_turn",
             Self::ToolNotBound(_) => "realm.tool_not_bound",
-            Self::NotImported(_, _) => "realm.not_imported",
-            Self::ImportInUse(_, _, _) => "realm.import_in_use",
             Self::ActionFailed(_) => "realm.action_failed",
             Self::InvalidScenario(_) => "realm.invalid_scenario",
             Self::DirectorFailed(_) => "realm.director_failed",
@@ -101,10 +92,7 @@ impl DomainError for RealmError {
             Self::Persona(err) => err.status(),
             Self::Connection(err) => err.status(),
             Self::NotFound(_, _) | Self::NotOwned(_, _) => StatusCode::NOT_FOUND,
-            Self::NotYourTurn(_)
-            | Self::NoRunnableAgent
-            | Self::ImportInUse(_, _, _)
-            | Self::NotImported(_, _) => StatusCode::CONFLICT,
+            Self::NotYourTurn(_) | Self::NoRunnableAgent => StatusCode::CONFLICT,
             Self::NotRealmConversation(_)
             | Self::NoAgents(_)
             | Self::MalformedAgent(_, _)
@@ -144,14 +132,6 @@ impl DomainError for RealmError {
             Self::InvalidAgent(hint) => sentence(format!("Invalid agent: {hint}")),
             Self::InvalidTurn(hint) => sentence(format!("Invalid turn: {hint}")),
             Self::ToolNotBound(_) => "This action isn't available to the agent.".into(),
-            Self::NotImported(kind, _) => Cow::Owned(format!(
-                "This {} isn't imported into the realm — import it first.",
-                kind.as_str()
-            )),
-            Self::ImportInUse(kind, _, agent) => Cow::Owned(format!(
-                "This {} is still used by agent \"{agent}\" — unbind it there first.",
-                kind.as_str()
-            )),
             Self::ActionFailed(hint) => sentence(format!("Action failed: {hint}")),
             Self::InvalidScenario(hint) => sentence(format!("Invalid scenario: {hint}")),
             Self::DirectorFailed(hint) => {
@@ -179,9 +159,6 @@ impl DomainError for RealmError {
             Self::NoAgents(id) => Some(ErrorDetails::target(TargetType::Realm, *id)),
             Self::MalformedAgent(id, _) => Some(ErrorDetails::target(TargetType::RealmAgent, *id)),
             Self::ToolNotBound(id) => Some(ErrorDetails::target(TargetType::UserTool, *id)),
-            Self::NotImported(kind, id) | Self::ImportInUse(kind, id, _) => {
-                Some(ErrorDetails::target(import_target(*kind), *id))
-            }
             Self::InvalidAgent(_) => Some(ErrorDetails::resource(TargetType::RealmAgent)),
             Self::InvalidScenario(_) => Some(ErrorDetails::resource(TargetType::Scenario)),
             Self::NoRunnableAgent
@@ -190,18 +167,6 @@ impl DomainError for RealmError {
             | Self::DirectorFailed(_) => Some(ErrorDetails::resource(TargetType::Realm)),
             Self::Storage(_) | Self::Serialization(_) => None,
         }
-    }
-}
-
-fn import_target(kind: ImportKind) -> TargetType {
-    match kind {
-        ImportKind::Character => TargetType::Character,
-        ImportKind::Lorebook => TargetType::Lorebook,
-        ImportKind::Template => TargetType::ContextTemplate,
-        ImportKind::Tool => TargetType::UserTool,
-        ImportKind::Persona => TargetType::Persona,
-        ImportKind::ConnectionProfile => TargetType::ConnectionProfile,
-        ImportKind::Widget => TargetType::UserWidget,
     }
 }
 

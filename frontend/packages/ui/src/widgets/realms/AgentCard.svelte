@@ -7,7 +7,7 @@
 	import WeaverField from '$lib/weaver/editor/WeaverField.svelte';
 	import FieldShell from '$lib/components/FieldShell.svelte';
 	import Badge from './Badge.svelte';
-	import { builtinToolItems, catalogItem, realmEditor } from './realmEditor.svelte.js';
+	import { builtinToolItems, catalogItem, catalogItems, realmEditor } from './realmEditor.svelte.js';
 
 	/** Placeholder for property/override value inputs. */
 	const VALUE_HINT = 'value — JSON, e.g. 3 or "shy"';
@@ -23,28 +23,15 @@
 	const meta = $derived(KIND[agent.kind]);
 	const expanded = $derived(realmEditor.expandedAgentId === agent.id);
 
-	const imports = $derived(realmStore.realm?.definition.imports ?? []);
-	const importedOf = (
-		kind:
-			| 'character'
-			| 'template'
-			| 'tool'
-			| 'lorebook'
-			| 'persona'
-			| 'connection_profile'
-			| 'widget'
-	) =>
-		imports
-			.filter((r) => r.kind === kind)
-			.map((r) => catalogItem(kind, r.resource_id))
-			.filter((c) => c !== undefined);
-	const characters = $derived(importedOf('character'));
-	const templates = $derived(importedOf('template'));
-	const tools = $derived(importedOf('tool'));
-	const lorebooks = $derived(importedOf('lorebook'));
-	const personas = $derived(importedOf('persona'));
-	const profiles = $derived(importedOf('connection_profile'));
-	const importedWidgets = $derived(importedOf('widget'));
+	// Anything the owner has is bindable: a realm has no manifest to declare
+	// a resource into before an agent can reach it.
+	const characters = $derived(catalogItems('character'));
+	const templates = $derived(catalogItems('template'));
+	const tools = $derived(catalogItems('tool'));
+	const lorebooks = $derived(catalogItems('lorebook'));
+	const personas = $derived(catalogItems('persona'));
+	const profiles = $derived(catalogItems('connection_profile'));
+	const bindableWidgets = $derived(catalogItems('widget'));
 
 	const builtins = $derived(builtinToolItems());
 	const boundToolIds = $derived(new Set(agent.tools.map((t) => t.tool_id)));
@@ -483,7 +470,7 @@
 					<div class="sectionLabel">
 						Widgets <em>— shown when this agent is the viewer</em>
 					</div>
-					{#each importedWidgets as w (w.id)}
+					{#each bindableWidgets as w (w.id)}
 						<label class="check">
 							<input
 								type="checkbox"

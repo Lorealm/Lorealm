@@ -3,7 +3,7 @@
 	import type { Snowflake } from '$lib/types/core.js';
 	import type { AgentKind } from '$lib/types/realm.js';
 	import AgentCard from './AgentCard.svelte';
-	import { catalogItem, realmEditor } from './realmEditor.svelte.js';
+	import { catalogItems, realmEditor } from './realmEditor.svelte.js';
 
 	let newKind = $state<AgentKind>('llm');
 	let newTemplateId = $state<Snowflake | ''>('');
@@ -12,19 +12,8 @@
 
 	const agents = $derived([...realmStore.agents].sort((a, b) => a.turn_order - b.turn_order));
 
-	const imports = $derived(realmStore.realm?.definition.imports ?? []);
-	const importedTemplates = $derived(
-		imports
-			.filter((r) => r.kind === 'template')
-			.map((r) => catalogItem('template', r.resource_id))
-			.filter((c) => c !== undefined)
-	);
-	const importedProfiles = $derived(
-		imports
-			.filter((r) => r.kind === 'connection_profile')
-			.map((r) => catalogItem('connection_profile', r.resource_id))
-			.filter((c) => c !== undefined)
-	);
+	const templates = $derived(catalogItems('template'));
+	const profiles = $derived(catalogItems('connection_profile'));
 
 	const canAdd = $derived(newKind !== 'llm' || (newTemplateId !== '' && newProfileId !== ''));
 
@@ -70,13 +59,13 @@
 		{#if newKind === 'llm'}
 			<select bind:value={newTemplateId}>
 				<option value="">Template…</option>
-				{#each importedTemplates as t (t.id)}
+				{#each templates as t (t.id)}
 					<option value={t.id}>{t.name}</option>
 				{/each}
 			</select>
 			<select bind:value={newProfileId}>
 				<option value="">Connection profile…</option>
-				{#each importedProfiles as p (p.id)}
+				{#each profiles as p (p.id)}
 					<option value={p.id}>{p.name}</option>
 				{/each}
 			</select>
@@ -85,7 +74,7 @@
 			+ Add agent
 		</button>
 	</div>
-	{#if newKind === 'llm' && (importedTemplates.length === 0 || importedProfiles.length === 0)}
+	{#if newKind === 'llm' && (templates.length === 0 || profiles.length === 0)}
 		<div class="hint">Import a template and a connection profile first.</div>
 	{/if}
 

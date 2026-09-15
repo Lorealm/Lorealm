@@ -5,7 +5,7 @@ use axum::{
     extract::{Path, State},
 };
 use lorealm_storage::models::{
-    AgentGrant, ImportRule, Realm, RealmAgent, RealmConfig, RealmSummary, RealmVersionInfo,
+    AgentGrant, Realm, RealmAgent, RealmConfig, RealmResourceRef, RealmSummary, RealmVersionInfo,
     Scenario, Snowflake,
 };
 
@@ -278,19 +278,18 @@ pub async fn set_grants(
     Ok(())
 }
 
-pub async fn set_imports(
+pub async fn list_resources(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
     Path(realm_id): Path<Snowflake>,
-    Json(payload): Json<Vec<ImportRule>>,
-) -> Result<Json<Vec<ImportRule>>, AppError> {
-    let imports = state
+) -> Result<Json<Vec<RealmResourceRef>>, AppError> {
+    let resources = state
         .services()
         .realm()
-        .set_imports(realm_id, session.user_id, payload)
+        .list_resources(realm_id, session.user_id)
         .await?;
 
-    Ok(Json(imports))
+    Ok(Json(resources))
 }
 
 pub async fn get_config(

@@ -7,8 +7,7 @@ import type {
 	AgentObservation,
 	CreateAgentRequest,
 	CreateScenarioRequest,
-	ImportKind,
-	ImportRule,
+	RealmResourceKind,
 	PlayerAction,
 	Realm,
 	RealmAgent,
@@ -23,7 +22,6 @@ import type {
 	UpdateRealmRequest
 } from '$lib/types/realm.js';
 import type { WidgetInstance } from '$lib/types/widgets.js';
-import { SvelteSet } from 'svelte/reactivity';
 import { showApiError } from './errorActions.js';
 
 export type RunStatus = 'idle' | 'streaming' | 'error';
@@ -144,12 +142,6 @@ class RealmStore {
 		}
 	}
 
-	async setImports(imports: ImportRule[]): Promise<void> {
-		const realm = this.realm;
-		if (!realm) return;
-		realm.definition.imports = await this.#api.realms.imports.set(realm.id, imports);
-	}
-
 	config = $state<RealmConfig>({});
 
 	async loadConfig() {
@@ -172,7 +164,8 @@ class RealmStore {
 		}
 	}
 
-	importUsers(kind: ImportKind, resourceId: Snowflake): RealmAgent[] {
+	/** The agents that reference one resource. */
+	resourceUsers(kind: RealmResourceKind, resourceId: Snowflake): RealmAgent[] {
 		const agents = this.realm?.definition.agents ?? [];
 		return agents.filter((a) => {
 			switch (kind) {
@@ -192,29 +185,7 @@ class RealmStore {
 		});
 	}
 
-	get missingImports(): ImportRule[] {
-		const definition = this.realm?.definition;
-		if (!definition) return [];
-		const have = new SvelteSet(definition.imports.map((r) => `${r.kind}:${r.resource_id}`));
-		const missing: ImportRule[] = [];
-		const need = (kind: ImportKind, resource_id: Snowflake) => {
-			const key = `${kind}:${resource_id}`;
-			if (have.has(key)) return;
-			have.add(key);
-			missing.push({ kind, resource_id });
-		};
-		for (const agent of definition.agents) {
-			if (agent.character_id) need('character', agent.character_id);
-			if (agent.template_id) need('template', agent.template_id);
-			if (agent.profile_id) need('connection_profile', agent.profile_id);
-			if (agent.persona_id) need('persona', agent.persona_id);
-			for (const b of agent.tools) need('tool', b.tool_id);
-			for (const l of agent.lorebooks ?? []) need('lorebook', l);
-		}
-		return missing;
-	}
-
-	async createAgent(req: CreateAgentRequest): Promise<RealmAgent | null> {
+async createAgent(req: CreateAgentRequest): Promise<RealmAgent | null> {
 		if (!this.realm) return null;
 		const agent = await this.#api.realms.agents.create(this.realm.id, req);
 		this.realm.definition.agents = [...this.realm.definition.agents, agent];
