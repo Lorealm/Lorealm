@@ -187,6 +187,7 @@ pub(super) async fn run_scoped(
         .args(bind_json_args(params, &args).map_err(action_failed)?)
         .actor(Some(actor_of(agent)))
         .realm(view.clone())
+        .events(Default::default())
         .pool(Arc::new(StdMutex::new(world.clone())))
         .build();
 

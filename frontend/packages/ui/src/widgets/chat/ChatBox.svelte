@@ -20,12 +20,11 @@
 		pinned = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight < THRESHOLD;
 	}
 
-	// In a realm, render the playthrough from the player's vantage
-	const path = $derived(chatStore.renderedPath);
+	const feed = $derived(chatStore.renderedFeed);
 
 	$effect(() => {
-		void path.length;
-		void path.at(-1)?.content;
+		void feed.length;
+		void feed.at(-1)?.message.content;
 		void chatStore.hiddenTurnActive;
 		if (!pinned) return;
 		tick().then(() => scrollEl?.scrollTo({ top: scrollEl.scrollHeight }));
@@ -33,7 +32,7 @@
 </script>
 
 <div class="container" bind:this={scrollEl} onscroll={onScroll}>
-	{#if path.length === 0}
+	{#if feed.length === 0}
 		<div class="empty">
 			{#if chatStore.isRealm}
 				A fresh playthrough — run the first turn below.
@@ -42,8 +41,13 @@
 			{/if}
 		</div>
 	{:else}
-		{#each path as message, i (message.id)}
-			<MessageBubble {message} last={i === path.length - 1} />
+		{#each feed as entry, i (entry.message.id)}
+			{#if entry.audible}
+				<MessageBubble message={entry.message} last={i === feed.length - 1} />
+			{/if}
+			{#each entry.observations as observation (observation.id)}
+				<div class="dispatch">{observation.content}</div>
+			{/each}
 		{/each}
 	{/if}
 
@@ -67,6 +71,17 @@
 	.empty {
 		margin: auto;
 		color: var(--color-text-muted);
+	}
+	.dispatch {
+		align-self: stretch;
+		white-space: pre-wrap;
+		color: var(--color-text-secondary);
+		background: var(--color-role-system);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius-md);
+		padding: var(--spacing-sm) var(--spacing-md);
+		font-size: var(--font-size-sm);
+		line-height: var(--line-height-normal);
 	}
 	.stir {
 		align-self: center;
