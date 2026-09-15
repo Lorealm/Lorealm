@@ -1,4 +1,5 @@
 mod blob;
+mod blueprints;
 mod characters;
 mod connection;
 mod conversations;
@@ -16,6 +17,7 @@ mod users;
 mod widgets;
 
 pub use blob::BlobStore;
+pub use blueprints::BlueprintStorage;
 pub use characters::CharacterStorage;
 pub use connection::{ConnectionStorage, SecretStorage};
 pub use conversations::ConversationStorage;
@@ -49,6 +51,7 @@ pub trait Storage:
     + UserWidgetStorage
     + TokenizerStorage
     + RealmStorage
+    + BlueprintStorage
 {
 }
 
@@ -69,5 +72,7 @@ impl<T> Storage for T where
         + UserWidgetStorage
         + TokenizerStorage
         + RealmStorage
+        + BlueprintStorage
+        + BlueprintStorage
 {
 }

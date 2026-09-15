@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
 
-use crate::models::{ChatRole, Snowflake};
+use crate::models::{ChatRole, RealmOrigin, Snowflake};
 
 /// The state namespace holding per-agent variables: an agent with handle `h`
 /// owns `agents:h.*`.
@@ -29,6 +29,9 @@ pub struct Realm {
     pub current_version_id: Snowflake,
     pub definition: RealmDefinition,
     pub tags: Vec<String>,
+    /// The blueprint this realm was expanded from
+    #[serde(default)]
+    pub origin: Option<RealmOrigin>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
