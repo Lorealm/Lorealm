@@ -6,6 +6,8 @@ use serde_json::{Map, json};
 use crate::{
     errors::RealmError,
     services::blueprint::{InputSpec, InputSpecType},
+    services::context::weaver::check::{Dialect, Severity, check},
+    services::weaver::WeaverProfile,
     tests::Harness,
 };
 
@@ -175,6 +177,42 @@ lead: Ref<Character> = "12345"
         matches!(&err, RealmError::InvalidTemplate(hint) if hint.contains("cannot have a default")),
         "{err:?}"
     );
+}
+
+#[tokio::test]
+async fn the_editor_and_the_save_gate_agree() {
+    let h = Harness::new().await;
+    let sources = [
+        SOURCE,
+        "{ name: ",
+        r#"#inputs
+lead: Ref<Character> = "12345"
+
+{ name: r"x" }"#,
+        r#"#inputs
+who: Ref<Wizard>
+
+{ name: r"x" }"#,
+        r#"{ name: r"fine" }"#,
+    ];
+
+    for source in sources {
+        let underlined = check(
+            source,
+            Dialect::Document,
+            Some(WeaverProfile::RealmTemplate),
+        )
+        .iter()
+        .any(|d| d.severity == Severity::Error);
+
+        let saved = h
+            .blueprints
+            .create(h.user, "probe".into(), source.into())
+            .await
+            .is_ok();
+
+        assert_eq!(underlined, !saved, "disagreed about:\n{source}");
+    }
 }
 
 #[tokio::test]

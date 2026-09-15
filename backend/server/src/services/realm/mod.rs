@@ -6,7 +6,6 @@ mod validate;
 mod weaver;
 pub mod wtn;
 
-pub use project::reject_defaulted_entities;
 pub use service::RealmService;
 pub use types::*;
 

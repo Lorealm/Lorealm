@@ -24,7 +24,8 @@ bitflags! {
 /// instance of it does. `$[emit_event]` needs a sink to report into and
 /// `$[generate]` needs a live chat handle; without them the builder leaves the
 /// command unregistered or registers a declaration that errors on call
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum WeaverProfile {
     /// A user tool body invoked by the model mid-turn.
     ChatTurn,

@@ -15,7 +15,7 @@ pub struct UpdateBlueprintRequest {
 }
 
 /// Values for the blueprint's declared inputs.
-/// 
+///
 /// Note: A `Ref<..>` is always represented by IDs.
 #[derive(Deserialize)]
 pub struct ExpandBlueprintRequest {
