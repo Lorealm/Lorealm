@@ -10,13 +10,25 @@ import type {
 	FullConversation
 } from '$lib/types/conversation.js';
 import type { Greeting } from '$lib/types/character.js';
-import type { PlayerAction, RealmAgent, RealmCast, TurnResult } from '$lib/types/realm.js';
+import type {
+	AgentObservation,
+	PlayerAction,
+	RealmAgent,
+	RealmCast,
+	TurnResult
+} from '$lib/types/realm.js';
 import { parseReasoning, parseWidgets, type WidgetInstance } from '$lib/types/widgets.js';
 import { SvelteMap } from 'svelte/reactivity';
 import { messageStateStore } from './messageState.svelte.ts';
 import { type ToastAction } from './errorToast.svelte.ts';
 import { showApiError } from './errorActions.js';
 import { applyEffect } from '$lib/commands/server.svelte.js';
+
+export interface FeedEntry {
+	message: ConversationMessage;
+	audible: boolean;
+	observations: AgentObservation[];
+}
 
 export type StreamStatus = 'idle' | 'streaming' | 'error';
 
@@ -70,6 +82,7 @@ class ChatStore {
 	private _cancelling = $state(false);
 
 	private _realmCast = $state<RealmCast | null>(null);
+	private _observations = $state<AgentObservation[]>([]);
 	private _nextAgentId = $state<Snowflake | null>(null);
 	private _streamAgentName = $state<string | null>(null);
 	private _streamAgentId = $state<Snowflake | null>(null);
@@ -163,6 +176,40 @@ class ChatStore {
 	 */
 	get renderedPath(): ConversationMessage[] {
 		return this.isRealm ? this.visiblePath : this.activePath;
+	}
+
+	/**
+	 * The viewer's own observations, grouped by the turn they landed on.
+	 */
+	get viewerFeed(): Record<Snowflake, AgentObservation[]> {
+		const byMessage: Record<Snowflake, AgentObservation[]> = {};
+		for (const ob of this._observations) {
+			if (ob.role !== 'user') continue;
+			(byMessage[ob.message_id] ??= []).push(ob);
+		}
+		return byMessage;
+	}
+
+	/**
+	 * What the transcript renders. Outside a realm this is just the path.
+	 */
+	get renderedFeed(): FeedEntry[] {
+		if (!this.isRealm) {
+			return this.activePath.map((message) => ({
+				message,
+				audible: true,
+				observations: []
+			}));
+		}
+		const byMessage = this.viewerFeed;
+		const audible = this.visiblePath.map((m) => m.id);
+		return this.activePath
+			.map((message) => ({
+				message,
+				audible: audible.includes(message.id),
+				observations: byMessage[message.id] ?? []
+			}))
+			.filter((entry) => entry.audible || entry.observations.length > 0);
 	}
 
 	/** The newest message on screen */
@@ -276,6 +323,22 @@ class ChatStore {
 				this.#handleError(e, { title: 'Failed to load the realm cast' }, 5000);
 			}
 			await this.#refreshNextRealmAgent();
+			await this.#refreshViewerFeed();
+		}
+	}
+
+	/** Reload the viewer agent's private feed. */
+	async #refreshViewerFeed() {
+		const convId = this.conversationId;
+		const viewer = this.viewerAgent;
+		if (!convId || !viewer) {
+			this._observations = [];
+			return;
+		}
+		try {
+			this._observations = await this.#api.chat.realm.agents.observations(convId, viewer.id);
+		} catch {
+			this._observations = [];
 		}
 	}
 
@@ -356,6 +419,7 @@ class ChatStore {
 		this._streamReasoning = '';
 		this._streamWidgets = [];
 		this._realmCast = null;
+		this._observations = [];
 		this._nextAgentId = null;
 		this._streamAgentName = null;
 		this._streamAgentId = null;
@@ -722,6 +786,7 @@ class ChatStore {
 
 			if (committed) {
 				await this.#refreshNextRealmAgent();
+				await this.#refreshViewerFeed();
 				messageStateStore.inspect(committed.id, committed.conversation_id);
 				return 'committed';
 			}
@@ -769,6 +834,7 @@ class ChatStore {
 		this._messages.set(result.message.id, result.message);
 		this._activeLeafId = result.message.id;
 		await this.#refreshNextRealmAgent();
+		await this.#refreshViewerFeed();
 		if (this.realmAutoRun) await this.runRealmTurns();
 		return true;
 	}
