@@ -11,8 +11,8 @@ use thiserror::Error;
 use tokio_util::sync::CancellationToken;
 
 use weaver_lang::{
-    CompiledExpr, CompiledTemplate, EvalError, EvalOptions, Registry, Value as WeaverValue,
-    ValueDoc, evaluate_value_doc_with_options, parse_value_doc,
+    CompiledExpr, CompiledTemplate, EvalError, EvalOptions, InputDecl, Registry,
+    Value as WeaverValue, ValueDoc, evaluate_value_doc_with_options, parse_value_doc,
 };
 
 use crate::{
@@ -96,6 +96,17 @@ impl Evaluable for CompiledExpr {
 pub struct CompiledDoc {
     doc: ValueDoc,
     inputs: BTreeMap<String, WeaverValue>,
+}
+
+impl CompiledDoc {
+    pub fn declarations(&self) -> &[InputDecl] {
+        &self.doc.inputs
+    }
+
+    pub fn with_inputs(mut self, inputs: BTreeMap<String, WeaverValue>) -> Self {
+        self.inputs = inputs;
+        self
+    }
 }
 
 impl Evaluable for CompiledDoc {
@@ -182,13 +193,13 @@ pub fn compile_template(source: &str) -> Result<CompiledTemplate, WeaverError> {
 
 /// Parse a WTN document and bind its inputs, reporting failure as one
 /// readable sentence.
-pub fn compile_doc(
-    source: &str,
-    inputs: BTreeMap<String, WeaverValue>,
-) -> Result<CompiledDoc, WeaverError> {
+pub fn compile_doc(source: &str) -> Result<CompiledDoc, WeaverError> {
     let doc = parse_value_doc(source)
         .map_err(|errors| WeaverError::Compile(describe_parse_errors(source, &errors)))?;
-    Ok(CompiledDoc { doc, inputs })
+    Ok(CompiledDoc {
+        doc,
+        inputs: BTreeMap::new(),
+    })
 }
 
 /// Compile an expression, reporting failure as one readable sentence.

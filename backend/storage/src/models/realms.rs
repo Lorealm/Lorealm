@@ -130,6 +130,33 @@ pub enum RealmResourceKind {
 }
 
 impl RealmResourceKind {
+    pub const ALL: [Self; 7] = [
+        Self::Character,
+        Self::Lorebook,
+        Self::Template,
+        Self::Tool,
+        Self::Persona,
+        Self::ConnectionProfile,
+        Self::Widget,
+    ];
+
+    /// The name a WTN `Ref<...>` declaration writes.
+    pub fn ref_name(&self) -> &'static str {
+        match self {
+            Self::Character => "Character",
+            Self::Lorebook => "Lorebook",
+            Self::Template => "Template",
+            Self::Tool => "Tool",
+            Self::Persona => "Persona",
+            Self::ConnectionProfile => "ConnectionProfile",
+            Self::Widget => "Widget",
+        }
+    }
+
+    pub fn from_ref_name(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|k| k.ref_name() == name)
+    }
+
     pub fn as_str(&self) -> &'static str {
         match self {
             RealmResourceKind::Character => "character",

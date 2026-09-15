@@ -6,7 +6,7 @@ use weaver_lang::Value as WeaverValue;
 
 use crate::{
     errors::RealmError,
-    services::weaver::{WeaverHost, WeaverProfile, compile_doc},
+    services::weaver::{CompiledDoc, WeaverHost, WeaverProfile, compile_doc},
 };
 
 /// Two spaces per level
@@ -21,8 +21,13 @@ pub fn to_wtn(definition: &RealmDefinition) -> Result<String, RealmError> {
 }
 
 /// Expand a WTN document into a realm definition.
-pub fn from_wtn(
-    source: &str,
+pub fn compile(source: &str) -> Result<CompiledDoc, RealmError> {
+    compile_doc(source).map_err(bad_template)
+}
+
+/// Expand a parsed document against inputs that are already resolved.
+pub fn expand(
+    doc: CompiledDoc,
     inputs: BTreeMap<String, WeaverValue>,
 ) -> Result<RealmDefinition, RealmError> {
     let host = WeaverHost::builder()
@@ -30,12 +35,21 @@ pub fn from_wtn(
         .build();
 
     let outcome = host
-        .evaluate_inline(compile_doc(source, inputs).map_err(bad_template)?)
+        .evaluate_inline(doc.with_inputs(inputs))
         .map_err(bad_template)?;
 
     Ok(serde_json::from_value(
         outcome.to_json().map_err(|e| bad_template(e.to_string()))?,
     )?)
+}
+
+/// Parse and expand in one step, for a document with nothing to resolve.
+#[cfg(test)]
+pub fn from_wtn(
+    source: &str,
+    inputs: BTreeMap<String, WeaverValue>,
+) -> Result<RealmDefinition, RealmError> {
+    expand(compile(source)?, inputs)
 }
 
 fn bad_template(e: impl ToString) -> RealmError {
