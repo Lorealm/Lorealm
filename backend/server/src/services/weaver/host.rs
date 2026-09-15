@@ -14,7 +14,9 @@ use crate::services::{
     },
     context::weaver::stdlib,
     state::{StatePool, diff},
-    tools::{Actor, EmitEventCommand, EmittedEvent, EventSink, RealmView, ToolContext},
+    tools::{
+        Actor, DelVarCommand, EmitEventCommand, EmittedEvent, EventSink, RealmView, ToolContext,
+    },
     weaver::{
         Caps, WeaverProfile,
         eval::{Evaluable, Limits, Outcome, WeaverError, cancellation_flag},
@@ -267,6 +269,9 @@ impl WeaverBuilder {
     pub fn build(self) -> WeaverHost {
         let mut registry = Registry::new();
         stdlib::register_all(&mut registry);
+        // Not part of `register_all`: that also loads into the lorebook
+        // engine, whose context `del_var` cannot reach.
+        registry.register_command(DelVarCommand);
 
         let mut sinks = Sinks::default();
 
@@ -348,6 +353,41 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[tokio::test]
+    async fn del_var_removes_through_a_real_host() {
+        let host = WeaverHost::builder()
+            .profile(WeaverProfile::RealmSeed)
+            .build();
+
+        let outcome = host
+            .evaluate(
+                compile_template(
+                    r#"$[set_var("nation:oda", {gold: 10, men: 5})]
+$[del_var("nation:oda.gold")]
+@[object.keys(of: {{nation:oda}})]"#,
+                )
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(outcome.pool["nation"]["oda"], serde_json::json!({"men": 5}));
+        assert_eq!(outcome.to_output_string(), "men");
+    }
+
+    /// A read-only profile may not delete, the same way it may not write.
+    #[test]
+    fn a_read_only_host_refuses_del_var() {
+        let host = WeaverHost::builder()
+            .profile(WeaverProfile::RealmCondition)
+            .build();
+
+        assert!(
+            host.evaluate_inline(compile_template(r#"$[del_var("nation:oda")]"#).unwrap())
+                .is_err()
+        );
     }
 
     #[test]

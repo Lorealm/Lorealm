@@ -21,11 +21,12 @@ pub fn register_all(registry: &mut Registry) {
     register_processors(registry);
 }
 
-/// Registers the `text.*`, `math.*`, and `array.*` processors.
+/// Registers the `text.*`, `math.*`, `array.*` and `object.*` processors.
 pub fn register_processors(registry: &mut Registry) {
     register_text(registry);
     register_math(registry);
     register_array(registry);
+    register_object(registry);
     register_random(registry);
 }
 
@@ -324,6 +325,24 @@ fn array_concat(a: Vec<Value>, b: Vec<Value>) -> Result<Value, EvalError> {
     let mut result = a;
     result.extend(b);
     Ok(Value::Array(result))
+}
+
+fn register_object(registry: &mut Registry) {
+    registry.register_processor(ObjectKeysProcessor);
+}
+
+/// `@[object.keys(of: {b: 2, a: 1})]` → `["a", "b"]`.
+#[weaver_processor(namespace = "object", name = "keys", returns = "array")]
+fn object_keys(of: Value) -> Result<Value, EvalError> {
+    match of {
+        Value::Object(fields) => Ok(Value::Array(
+            fields.into_keys().map(Value::String).collect(),
+        )),
+        other => Err(EvalError::new(
+            EvalErrorKind::TypeError,
+            format!("object.keys: expected an object, got {}", other.type_name()),
+        )),
+    }
 }
 
 fn register_random(registry: &mut Registry) {
@@ -634,5 +653,35 @@ mod tests {
 
         assert_eq!(ok, None);
         assert!(bad.is_err());
+    }
+
+    fn keys_of(value: Value) -> Result<Value, EvalError> {
+        let mut r = Registry::new();
+        register_all(&mut r);
+        r.call_processor("object", "keys", HashMap::from([("of".to_string(), value)]))
+    }
+
+    #[test]
+    fn object_keys_come_back_sorted() {
+        let obj = Value::object([("b", Value::Number(2.0)), ("a", Value::Number(1.0))]);
+        assert_eq!(
+            keys_of(obj).unwrap(),
+            Value::Array(vec![Value::String("a".into()), Value::String("b".into())])
+        );
+    }
+
+    #[test]
+    fn an_empty_object_has_no_keys() {
+        assert_eq!(
+            keys_of(Value::Object(Default::default())).unwrap(),
+            Value::Array(vec![])
+        );
+    }
+
+    #[test]
+    fn object_keys_rejects_a_non_object() {
+        // An array is the near miss worth being loud about.
+        assert!(keys_of(Value::Array(vec![Value::Number(1.0)])).is_err());
+        assert!(keys_of(Value::None).is_err());
     }
 }

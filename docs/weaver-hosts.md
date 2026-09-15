@@ -87,10 +87,19 @@ with no machinery behind any of it.
 
 The stdlib is present in every host and is not a capability:
 
-`default_var`, `get_var`, `inc_var`, `push_var`, `set_var`, `var_exists`
+`default_var`, `del_var`, `get_var`, `inc_var`, `push_var`, `set_var`,
+`var_exists`
 
-Along with 35 processors: `array.*` (9), `math.*` (12), `random.*` (2),
-`text.*` (12).
+Along with 36 processors: `array.*` (9), `math.*` (12), `object.*` (1),
+`random.*` (2), `text.*` (12).
+
+All but `del_var` come from `context_weaver::stdlib`, which the lorebook
+engine loads too. `del_var` is Lorealm's own and is registered in
+`WeaverBuilder::build` instead: `EvalContext` has no delete, so the command
+reaches the pool by downcasting to `ToolContext`. Every host above evaluates
+against one; the lorebook engine does not, which is why the command is not in
+`register_all` alongside the rest. A read-only profile refuses it exactly as
+it refuses `set_var`.
 
 ### Inside a realm
 
