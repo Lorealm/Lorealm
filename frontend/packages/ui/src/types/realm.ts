@@ -83,12 +83,12 @@ export interface RealmSummary {
 export type AgentKind = 'llm' | 'player' | 'script';
 
 export interface RealmAgent {
-	id: Snowflake;
-	name: string;
 	/**
-	 * Stable weaver identity: the agent's state subtree is `agents:<handle>.*`.
+	 * The agent's identity, everywhere: its `agents:<handle>` state subtree,
+	 * the source of its events, and the key of its observation feed.
 	 */
 	handle: string;
+	name: string;
 	kind: AgentKind;
 
 	character_id: Snowflake | null;
@@ -139,7 +139,8 @@ export interface RealmEvent {
 	conversation_id: Snowflake;
 	message_id: Snowflake;
 	seq: number;
-	source: Snowflake | null;
+	/** Handle of the cast member that produced it; null for engine events. */
+	source: string | null;
 	channel: string;
 	kind: EventKind;
 	content: string;
@@ -150,7 +151,7 @@ export interface AgentObservation {
 	id: Snowflake;
 	conversation_id: Snowflake;
 	message_id: Snowflake;
-	agent_id: Snowflake;
+	agent_handle: string;
 	event_id: Snowflake | null;
 	role: PromptRole;
 	content: string;
@@ -259,12 +260,12 @@ export interface TurnResult {
 
 export interface NextTurn {
 	/** Null when every agent is gated off at the active leaf. */
-	agent_id: Snowflake | null;
+	handle: string | null;
 }
 
 export type RealmStreamEvent =
-	| { type: 'awaiting_player'; agent_id: Snowflake }
-	| { type: 'turn_started'; agent_id: Snowflake; name: string }
+	| { type: 'awaiting_player'; handle: string }
+	| { type: 'turn_started'; handle: string; name: string }
 	| { type: 'delta'; content: string }
 	| { type: 'reasoning'; content: string }
 	| { type: 'widget'; widget: WidgetInstance }

@@ -83,9 +83,9 @@ class ChatStore {
 
 	private _realmCast = $state<RealmCast | null>(null);
 	private _observations = $state<AgentObservation[]>([]);
-	private _nextAgentId = $state<Snowflake | null>(null);
+	private _nextHandle = $state<string | null>(null);
 	private _streamAgentName = $state<string | null>(null);
-	private _streamAgentId = $state<Snowflake | null>(null);
+	private _streamHandle = $state<string | null>(null);
 	realmAutoRun = $state(true);
 	realmDirectorView = $state(false);
 
@@ -128,9 +128,9 @@ class ChatStore {
 	}
 	/** Whose turn is next, as resolved by the server. */
 	get nextRealmAgent(): RealmAgent | null {
-		const id = this._nextAgentId;
-		if (!this.isRealm || id === null) return null;
-		return this._realmCast?.agents.find((a) => a.id === id) ?? null;
+		const handle = this._nextHandle;
+		if (!this.isRealm || handle === null) return null;
+		return this._realmCast?.agents.find((a) => a.handle === handle) ?? null;
 	}
 	/** Set when the next turn belongs to a player */
 	get awaitingRealmPlayer(): RealmAgent | null {
@@ -146,9 +146,9 @@ class ChatStore {
 		return this._realmCast?.agents.find((a) => a.kind === 'player') ?? null;
 	}
 
-	/** The source agent a realm message was committed by, via its metadata. */
-	#messageAgentId(m: ConversationMessage): Snowflake | null {
-		return (m.metadata as { agent_id?: Snowflake } | null)?.agent_id ?? null;
+	/** The handle a realm message was committed under, via its metadata. */
+	#messageHandle(m: ConversationMessage): string | null {
+		return (m.metadata as { handle?: string } | null)?.handle ?? null;
 	}
 
 	/** Can `viewer` hear speech carried on `scope`? */
@@ -163,9 +163,9 @@ class ChatStore {
 
 		const agents = this._realmCast?.agents ?? [];
 		return path.filter((m) => {
-			if (this.#messageAgentId(m) === viewer.id) return true; // own turn
+			if (this.#messageHandle(m) === viewer.handle) return true; // own turn
 			if (m.content.trim().length === 0) return false; // silent (script) turn
-			const src = agents.find((a) => a.id === this.#messageAgentId(m));
+			const src = agents.find((a) => a.handle === this.#messageHandle(m));
 			return this.#canHear(viewer, src?.speech_channel ?? 'main');
 		});
 	}
@@ -237,7 +237,7 @@ class ChatStore {
 								widgets: this._streamWidgets,
 								reasoning: this._streamReasoning,
 								agent_name: this._streamAgentName,
-								agent_id: this._streamAgentId
+								handle: this._streamHandle
 							} as unknown as ConversationMessage['metadata']
 						}
 					: cur;
@@ -336,7 +336,7 @@ class ChatStore {
 			return;
 		}
 		try {
-			this._observations = await this.#api.chat.realm.agents.observations(convId, viewer.id);
+			this._observations = await this.#api.chat.realm.agents.observations(convId, viewer.handle);
 		} catch {
 			this._observations = [];
 		}
@@ -347,9 +347,9 @@ class ChatStore {
 		const convId = this.conversationId;
 		if (!convId || !this.isRealm) return;
 		try {
-			this._nextAgentId = (await this.#api.chat.realm.nextTurn(convId)).agent_id;
+			this._nextHandle = (await this.#api.chat.realm.nextTurn(convId)).handle;
 		} catch {
-			this._nextAgentId = null;
+			this._nextHandle = null;
 		}
 	}
 
@@ -420,9 +420,9 @@ class ChatStore {
 		this._streamWidgets = [];
 		this._realmCast = null;
 		this._observations = [];
-		this._nextAgentId = null;
+		this._nextHandle = null;
 		this._streamAgentName = null;
-		this._streamAgentId = null;
+		this._streamHandle = null;
 		this.realmAutoRun = true;
 		this.streamState = { status: 'idle' };
 	}
@@ -740,7 +740,7 @@ class ChatStore {
 		this._streamReasoning = '';
 		this._streamWidgets = [];
 		this._streamAgentName = null;
-		this._streamAgentId = null;
+		this._streamHandle = null;
 		this._cancelling = false;
 		this.streamState = { status: 'streaming' };
 
@@ -753,11 +753,11 @@ class ChatStore {
 				switch (event.type) {
 					case 'awaiting_player':
 						awaiting = true;
-						this._nextAgentId = event.agent_id;
+						this._nextHandle = event.handle;
 						break;
 					case 'turn_started':
 						this._streamAgentName = event.name;
-						this._streamAgentId = event.agent_id;
+						this._streamHandle = event.handle;
 						break;
 					case 'delta':
 						this._streamBuffer += event.content;
@@ -847,7 +847,7 @@ class ChatStore {
 		this._streamReasoning = '';
 		this._streamWidgets = [];
 		this._streamAgentName = null;
-		this._streamAgentId = null;
+		this._streamHandle = null;
 		if (!failed) this.streamState = { status: 'idle' };
 	}
 

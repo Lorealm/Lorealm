@@ -36,15 +36,15 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
             get(handlers::list_realm_events),
         )
         .route(
-            "/{conversation_id}/agents/{agent_id}/observations",
+            "/{conversation_id}/agents/{handle}/observations",
             get(handlers::list_agent_observations),
         )
         .route(
-            "/{conversation_id}/agents/{agent_id}/state",
+            "/{conversation_id}/agents/{handle}/state",
             get(handlers::agent_state),
         )
         .route(
-            "/{conversation_id}/agents/{agent_id}/actions",
+            "/{conversation_id}/agents/{handle}/actions",
             get(handlers::list_agent_actions),
         )
         .layer(axum::middleware::from_fn_with_state(

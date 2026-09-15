@@ -294,13 +294,13 @@ pub async fn next_turn(
     session: AuthenticatedSession,
     Path(conversation_id): Path<Snowflake>,
 ) -> Result<Json<NextTurn>, AppError> {
-    let agent_id = state
+    let handle = state
         .services()
         .realm()
         .next_agent(conversation_id, session.user_id)
         .await?;
 
-    Ok(Json(NextTurn { agent_id }))
+    Ok(Json(NextTurn { handle }))
 }
 
 pub async fn get_cast(
@@ -335,13 +335,13 @@ pub async fn list_realm_events(
 pub async fn list_agent_observations(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
-    Path((conversation_id, agent_id)): Path<(Snowflake, Snowflake)>,
+    Path((conversation_id, handle)): Path<(Snowflake, String)>,
     Query(query): Query<ObservationsQuery>,
 ) -> Result<Json<Vec<AgentObservation>>, AppError> {
     let observations = state
         .services()
         .realm()
-        .list_observations(conversation_id, agent_id, session.user_id, query.before)
+        .list_observations(conversation_id, &handle, session.user_id, query.before)
         .await?;
 
     Ok(Json(observations))
@@ -350,13 +350,13 @@ pub async fn list_agent_observations(
 pub async fn agent_state(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
-    Path((conversation_id, agent_id)): Path<(Snowflake, Snowflake)>,
+    Path((conversation_id, handle)): Path<(Snowflake, String)>,
     Query(query): Query<AgentStateQuery>,
 ) -> Result<Json<StatePool>, AppError> {
     let slice = state
         .services()
         .realm()
-        .agent_state_slice(conversation_id, agent_id, session.user_id, query.at)
+        .agent_state_slice(conversation_id, &handle, session.user_id, query.at)
         .await?;
 
     Ok(Json(slice))
@@ -365,12 +365,12 @@ pub async fn agent_state(
 pub async fn list_agent_actions(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
-    Path((conversation_id, agent_id)): Path<(Snowflake, Snowflake)>,
+    Path((conversation_id, handle)): Path<(Snowflake, String)>,
 ) -> Result<Json<Vec<ActionSpec>>, AppError> {
     let actions = state
         .services()
         .realm()
-        .conversation_actions(conversation_id, agent_id, session.user_id)
+        .conversation_actions(conversation_id, &handle, session.user_id)
         .await?;
 
     Ok(Json(actions))

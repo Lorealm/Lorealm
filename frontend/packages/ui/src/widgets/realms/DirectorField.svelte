@@ -72,7 +72,7 @@
 
 	{#if director.kind !== 'script' && filter.match === 'handles'}
 		<div class="handles">
-			{#each agents as agent (agent.id)}
+			{#each agents as agent (agent.handle)}
 				<label class="pick">
 					<input
 						type="checkbox"

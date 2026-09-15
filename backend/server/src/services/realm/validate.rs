@@ -89,7 +89,7 @@ impl RealmService {
         user_id: Snowflake,
         req: &CreateAgentRequest,
         cast: &[RealmAgent],
-        exclude: Option<Snowflake>,
+        exclude: Option<&str>,
     ) -> Result<AgentParts, RealmError> {
         validate_handle(&req.handle, cast, exclude)?;
         validate_properties(&req.properties)?;
@@ -239,7 +239,7 @@ impl RealmService {
 pub(super) fn validate_handle(
     handle: &str,
     cast: &[RealmAgent],
-    exclude: Option<Snowflake>,
+    exclude: Option<&str>,
 ) -> Result<(), RealmError> {
     if !is_identifier(handle) {
         return Err(RealmError::InvalidAgent(format!(
@@ -248,7 +248,7 @@ pub(super) fn validate_handle(
     }
     if cast
         .iter()
-        .filter(|a| Some(a.id) != exclude)
+        .filter(|a| Some(a.handle.as_str()) != exclude)
         .any(|a| a.handle == handle)
     {
         return Err(RealmError::InvalidAgent(format!(
@@ -422,7 +422,7 @@ pub(super) fn realm_resources(definition: &RealmDefinition) -> Vec<RealmResource
 
 pub(super) fn apply_turn_order(
     agents: &mut [RealmAgent],
-    order: &[Snowflake],
+    order: &[String],
 ) -> Result<(), RealmError> {
     if order.len() != agents.len() {
         return Err(RealmError::InvalidAgent(format!(
@@ -431,20 +431,26 @@ pub(super) fn apply_turn_order(
             agents.len()
         )));
     }
-    let positions: HashMap<Snowflake, usize> =
-        order.iter().enumerate().map(|(i, &id)| (id, i)).collect();
+    let positions: HashMap<&str, usize> = order
+        .iter()
+        .enumerate()
+        .map(|(i, handle)| (handle.as_str(), i))
+        .collect();
     if positions.len() != order.len() {
         return Err(RealmError::InvalidAgent(
-            "order contains duplicate agent ids".into(),
+            "order contains duplicate handles".into(),
         ));
     }
-    if agents.iter().any(|a| !positions.contains_key(&a.id)) {
+    if agents
+        .iter()
+        .any(|a| !positions.contains_key(a.handle.as_str()))
+    {
         return Err(RealmError::InvalidAgent(
-            "order must list every cast agent exactly once".into(),
+            "order must list every cast member exactly once".into(),
         ));
     }
 
-    agents.sort_by_key(|a| positions[&a.id]);
+    agents.sort_by_key(|a| positions[a.handle.as_str()]);
     for (index, agent) in agents.iter_mut().enumerate() {
         agent.turn_order = index as i32;
     }
@@ -463,9 +469,8 @@ mod tests {
 
     fn agent(name: &str) -> RealmAgent {
         RealmAgent {
-            id: sf(1),
-            name: name.into(),
             handle: name.into(),
+            name: name.into(),
             kind: AgentKind::Llm,
             character_id: Some(sf(10)),
             char_version_id: Some(sf(11)),
@@ -606,24 +611,31 @@ mod tests {
         );
     }
 
-    fn cast_of(ids: &[i64]) -> Vec<RealmAgent> {
-        ids.iter()
+    fn cast_of(handles: &[&str]) -> Vec<RealmAgent> {
+        handles
+            .iter()
             .enumerate()
-            .map(|(i, &id)| {
-                let mut a = agent(&format!("a{id}"));
-                a.id = sf(id);
+            .map(|(i, h)| {
+                let mut a = agent(h);
                 a.turn_order = i as i32;
                 a
             })
             .collect()
     }
 
+    fn order(handles: &[&str]) -> Vec<String> {
+        handles.iter().map(|h| h.to_string()).collect()
+    }
+
     #[test]
     fn reorder_applies_permutation_and_reindexes() {
-        let mut agents = cast_of(&[1, 2, 3]);
-        apply_turn_order(&mut agents, &[sf(3), sf(1), sf(2)]).unwrap();
-        let got: Vec<(Snowflake, i32)> = agents.iter().map(|a| (a.id, a.turn_order)).collect();
-        assert_eq!(got, vec![(sf(3), 0), (sf(1), 1), (sf(2), 2)]);
+        let mut agents = cast_of(&["a", "b", "c"]);
+        apply_turn_order(&mut agents, &order(&["c", "a", "b"])).unwrap();
+        let got: Vec<(&str, i32)> = agents
+            .iter()
+            .map(|a| (a.handle.as_str(), a.turn_order))
+            .collect();
+        assert_eq!(got, vec![("c", 0), ("a", 1), ("b", 2)]);
     }
 
     #[test]
@@ -668,14 +680,14 @@ mod tests {
     #[test]
     fn reorder_rejects_non_permutations() {
         // wrong length
-        let mut agents = cast_of(&[1, 2, 3]);
-        assert!(apply_turn_order(&mut agents, &[sf(1), sf(2)]).is_err());
-        // duplicate id
-        let mut agents = cast_of(&[1, 2, 3]);
-        assert!(apply_turn_order(&mut agents, &[sf(1), sf(1), sf(2)]).is_err());
-        // unknown id in place of a real one
-        let mut agents = cast_of(&[1, 2, 3]);
-        assert!(apply_turn_order(&mut agents, &[sf(1), sf(2), sf(99)]).is_err());
+        let mut agents = cast_of(&["a", "b", "c"]);
+        assert!(apply_turn_order(&mut agents, &order(&["a", "b"])).is_err());
+        // duplicate handle
+        let mut agents = cast_of(&["a", "b", "c"]);
+        assert!(apply_turn_order(&mut agents, &order(&["a", "a", "b"])).is_err());
+        // unknown handle in place of a real one
+        let mut agents = cast_of(&["a", "b", "c"]);
+        assert!(apply_turn_order(&mut agents, &order(&["a", "b", "nobody"])).is_err());
         // failures leave turn_order untouched
         assert_eq!(
             agents.iter().map(|a| a.turn_order).collect::<Vec<_>>(),

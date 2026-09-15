@@ -39,7 +39,7 @@ impl TurnInfo<'_> {
 
 /// The `cast:` and `turn:` namespaces for one evaluation.
 pub(super) fn realm_view(agents: &[RealmAgent], turn: &TurnInfo) -> RealmView {
-    let roster: Vec<&RealmAgent> = agents.iter().filter(|a| !a.handle.is_empty()).collect();
+    let roster: Vec<&RealmAgent> = agents.iter().collect();
 
     let group = |of: &[&RealmAgent]| {
         json!({
@@ -107,7 +107,7 @@ pub(super) fn read_scopes(grants: &[AgentGrant]) -> Vec<ScopePattern> {
 
 pub(super) fn read_scopes_of(agent: &RealmAgent) -> Vec<ScopePattern> {
     let mut scopes = read_scopes(&agent.grants);
-    scopes.extend(agent.own_scope());
+    scopes.push(agent.own_scope());
     scopes
 }
 
@@ -120,9 +120,6 @@ pub(super) fn actor_of(agent: &RealmAgent) -> Actor {
 }
 
 pub(super) fn inject_self_alias(agent: &RealmAgent, slice: &mut StatePool) {
-    if agent.handle.is_empty() {
-        return;
-    }
     let own: HashMap<String, serde_json::Value> = slice
         .get(AGENTS_SCOPE)
         .and_then(|vars| vars.get(&agent.handle))
@@ -329,9 +326,8 @@ mod tests {
     /// run condition.
     fn agent(grants: Vec<AgentGrant>, run_condition: Option<&str>) -> RealmAgent {
         RealmAgent {
-            id: lorealm_storage::models::Snowflake(1),
-            name: "tester".into(),
             handle: "h".into(),
+            name: "tester".into(),
             kind: lorealm_storage::models::AgentKind::Script,
             character_id: None,
             char_version_id: None,
@@ -512,7 +508,6 @@ mod tests {
         .enumerate()
         {
             let mut a = agent(vec![], None);
-            a.id = lorealm_storage::models::Snowflake(i as i64);
             a.handle = handle.into();
             a.name = handle.to_uppercase();
             a.kind = kind;
@@ -555,18 +550,24 @@ mod tests {
     }
 
     #[test]
-    fn an_unhandled_agent_stays_out_of_the_roster() {
-        let mut agents = troupe();
-        agents[2].handle = String::new();
-
+    fn every_cast_member_is_addressable_by_handle() {
+        let agents = troupe();
         let view = realm_view(&agents, &TurnInfo::opening());
         let ctx = ToolContext::new(HashMap::new(), Default::default()).with_realm(Some(view));
 
+        for agent in &agents {
+            assert_eq!(
+                ctx.resolve_variable("cast", &format!("agents.{}.name", agent.handle))
+                    .unwrap(),
+                Some(weaver_lang::Value::String(agent.name.clone())),
+                "{} is missing from the roster",
+                agent.handle
+            );
+        }
         assert_eq!(
-            ctx.resolve_variable("cast", "llm.count").unwrap(),
-            Some(weaver_lang::Value::Number(1.0))
+            ctx.resolve_variable("cast", "count").unwrap(),
+            Some(weaver_lang::Value::Number(agents.len() as f64))
         );
-        assert_eq!(ctx.resolve_variable("cast", "agents.alice").unwrap(), None);
     }
 
     #[test]

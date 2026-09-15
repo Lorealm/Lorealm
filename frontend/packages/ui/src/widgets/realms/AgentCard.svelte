@@ -21,7 +21,7 @@
 	};
 
 	const meta = $derived(KIND[agent.kind]);
-	const expanded = $derived(realmEditor.expandedAgentId === agent.id);
+	const expanded = $derived(realmEditor.expandedHandle === agent.handle);
 
 	// Anything the owner has is bindable: a realm has no manifest to declare
 	// a resource into before an agent can reach it.
@@ -50,7 +50,7 @@
 				}`
 	);
 
-	const edit = (mutate: (a: RealmAgent) => void) => realmStore.editAgent(agent.id, mutate);
+	const edit = (mutate: (a: RealmAgent) => void) => realmStore.editAgent(agent.handle, mutate);
 
 	/** Clear the fields a kind can't carry */
 	function changeKind(kind: AgentKind) {
@@ -124,7 +124,7 @@
 <div class="card">
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="head" onclick={() => realmEditor.toggleAgent(agent.id)}>
+	<div class="head" onclick={() => realmEditor.toggleAgent(agent.handle)}>
 		<div class="reorder">
 			<button
 				type="button"
@@ -133,7 +133,7 @@
 				disabled={index === 0}
 				onclick={(e) => {
 					e.stopPropagation();
-					void realmStore.moveAgent(agent.id, -1);
+					void realmStore.moveAgent(agent.handle, -1);
 				}}
 			>
 				<ChevronUp size={12} />
@@ -145,7 +145,7 @@
 				disabled={index === total - 1}
 				onclick={(e) => {
 					e.stopPropagation();
-					void realmStore.moveAgent(agent.id, 1);
+					void realmStore.moveAgent(agent.handle, 1);
 				}}
 			>
 				<ChevronDown size={12} />
@@ -162,7 +162,7 @@
 			title="Remove agent"
 			onclick={(e) => {
 				e.stopPropagation();
-				void realmStore.deleteAgent(agent.id);
+				void realmStore.deleteAgent(agent.handle);
 			}}
 		>
 			<Trash2 size={14} />
@@ -213,7 +213,7 @@
 						<span>Character</span>
 						<select
 							value={agent.character_id ?? ''}
-							onchange={(e) => void realmStore.setAgentCharacter(agent.id, e.currentTarget.value)}
+							onchange={(e) => void realmStore.setAgentCharacter(agent.handle, e.currentTarget.value)}
 						>
 							<option value="">— none —</option>
 							{#each characters as c (c.id)}
@@ -491,7 +491,7 @@
 			{/if}
 
 			<div class="footer">
-				<button type="button" class="danger" onclick={() => void realmStore.deleteAgent(agent.id)}>
+				<button type="button" class="danger" onclick={() => void realmStore.deleteAgent(agent.handle)}>
 					Delete agent
 				</button>
 			</div>

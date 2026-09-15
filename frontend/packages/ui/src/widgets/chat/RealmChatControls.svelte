@@ -19,20 +19,20 @@
 	// The action space belongs to whoever the turn is waiting on.
 	$effect(() => {
 		const convId = chatStore.conversationId;
-		const agentId = awaiting?.id ?? null;
-		if (!convId || !agentId) {
+		const handle = awaiting?.handle ?? null;
+		if (!convId || !handle) {
 			actions = [];
 			return;
 		}
 		api.chat.realm.agents
-			.actions(convId, agentId)
+			.actions(convId, handle)
 			.then((a) => (actions = a))
 			.catch(() => (actions = []));
 	});
 </script>
 
 {#if awaiting}
-	{#key awaiting.id}
+	{#key awaiting.handle}
 		<PlayerTurnBar
 			agentName={awaiting.name}
 			{actions}

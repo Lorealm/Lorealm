@@ -287,11 +287,11 @@ pub enum AgentKind {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RealmAgent {
-    pub id: Snowflake,
-    pub name: String,
-    /// Stable weaver-addressable identity
-    #[serde(default)]
+    /// The agent's identity, everywhere: the `agents:<handle>` state subtree,
+    /// the `cast:agents.<handle>` view, the source of its events and the key
+    /// of its observation feed.
     pub handle: String,
+    pub name: String,
     pub kind: AgentKind,
 
     pub character_id: Option<Snowflake>,
@@ -334,13 +334,13 @@ pub struct RealmAgent {
 }
 
 impl RealmAgent {
-    /// The implicit grant every handled agent holds on its own subtree:
-    /// `agents:<handle>.*`. `None` for legacy agents without a handle.
-    pub fn own_scope(&self) -> Option<ScopePattern> {
-        (!self.handle.is_empty()).then(|| ScopePattern {
+    /// The implicit grant every agent holds on its own subtree:
+    /// `agents:<handle>.*`.
+    pub fn own_scope(&self) -> ScopePattern {
+        ScopePattern {
             scope: AGENTS_SCOPE.to_string(),
             name: NamePattern::Under(format!("{}.", self.handle)),
-        })
+        }
     }
 }
 
@@ -399,7 +399,9 @@ pub struct RealmEvent {
     pub conversation_id: Snowflake,
     pub message_id: Snowflake,
     pub seq: i32,
-    pub source: Option<Snowflake>,
+    /// The handle of the cast member that produced this event. `None` for
+    /// engine-authored events, such as a scenario's opening narration.
+    pub source: Option<String>,
     pub channel: String,
     pub kind: EventKind,
     pub content: String,
@@ -412,7 +414,7 @@ pub struct AgentObservation {
     pub id: Snowflake,
     pub conversation_id: Snowflake,
     pub message_id: Snowflake,
-    pub agent_id: Snowflake,
+    pub agent_handle: String,
     pub event_id: Option<Snowflake>,
     pub role: ChatRole,
     pub content: String,

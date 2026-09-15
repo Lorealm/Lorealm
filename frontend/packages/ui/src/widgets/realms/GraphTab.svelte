@@ -41,7 +41,7 @@
 	const filters = $derived(realmEditor.graphFilters);
 	const gsel = $derived(realmEditor.graphSelectedNode);
 
-	const agentKind = (id: string) => realm.definition.agents.find((a) => a.id === id)?.kind ?? 'llm';
+	const agentKind = (id: string) => realm.definition.agents.find((a) => a.handle === id)?.kind ?? 'llm';
 
 	function nodeIcon(type: GraphType, id: string) {
 		if (type === 'agent') return KIND_ICON[agentKind(id.slice('agent:'.length))];
@@ -57,7 +57,7 @@
 		const gid = rest.join(':');
 		const agents = realm.definition.agents;
 		if (gt === 'agent') {
-			const a = agents.find((x) => x.id === gid);
+			const a = agents.find((x) => x.handle === gid);
 			if (a) {
 				a.grants.forEach((g) => {
 					if (g.channel) {
@@ -73,21 +73,21 @@
 		} else if (gt === 'scope') {
 			add('pool:' + scopeRoot(gid));
 			agents.forEach((a) => {
-				if (a.grants.some((g) => g.channel === gid)) add('agent:' + a.id);
+				if (a.grants.some((g) => g.channel === gid)) add('agent:' + a.handle);
 			});
 		} else if (gt === 'pool') {
 			(model.poolScopes[gid] ?? []).forEach((sc) => add('scope:' + sc));
 			agents.forEach((a) => {
-				if (a.grants.some((g) => g.channel && scopeRoot(g.channel) === gid)) add('agent:' + a.id);
+				if (a.grants.some((g) => g.channel && scopeRoot(g.channel) === gid)) add('agent:' + a.handle);
 			});
 		} else if (gt === 'tool') {
-			agents.forEach((a) => a.tools.some((tb) => tb.tool_id === gid) && add('agent:' + a.id));
+			agents.forEach((a) => a.tools.some((tb) => tb.tool_id === gid) && add('agent:' + a.handle));
 		} else if (gt === 'lorebook') {
-			agents.forEach((a) => a.lorebooks.includes(gid) && add('agent:' + a.id));
+			agents.forEach((a) => a.lorebooks.includes(gid) && add('agent:' + a.handle));
 		} else if (gt === 'character') {
-			agents.forEach((a) => a.character_id === gid && add('agent:' + a.id));
+			agents.forEach((a) => a.character_id === gid && add('agent:' + a.handle));
 		} else if (gt === 'template') {
-			agents.forEach((a) => a.template_id === gid && add('agent:' + a.id));
+			agents.forEach((a) => a.template_id === gid && add('agent:' + a.handle));
 		}
 		return ids;
 	});
@@ -137,7 +137,7 @@
 		const attach = pools.scopeAttach;
 		realm.definition.agents.forEach((a) => {
 			if (!filters.agent) return;
-			const sp = pos('agent:' + a.id);
+			const sp = pos('agent:' + a.handle);
 			const push = (
 				targetId: string,
 				tp: { x: number; y: number },
@@ -145,7 +145,7 @@
 				width: number,
 				dash: string
 			) => {
-				const dim = !!gsel && !(isActive('agent:' + a.id) && isActive(targetId));
+				const dim = !!gsel && !(isActive('agent:' + a.handle) && isActive(targetId));
 				list.push({
 					x1: sp.x,
 					y1: sp.y,

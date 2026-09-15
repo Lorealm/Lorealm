@@ -24,13 +24,13 @@
 
 	function agentActive(a: RealmAgent): boolean {
 		if (!sel) return true;
-		if (sel.type === 'agent') return sel.id === a.id;
+		if (sel.type === 'agent') return sel.id === a.handle;
 		return a.grants.some((g) => g.channel === sel.id);
 	}
 	function scopeActive(scope: string): boolean {
 		if (!sel) return true;
 		if (sel.type === 'scope') return sel.id === scope;
-		const a = agents.find((x) => x.id === sel.id);
+		const a = agents.find((x) => x.handle === sel.id);
 		return a ? a.grants.some((g) => g.channel === scope) : false;
 	}
 
@@ -58,7 +58,7 @@
 				if (si < 0) return;
 				const active =
 					!sel ||
-					(sel.type === 'agent' && sel.id === a.id) ||
+					(sel.type === 'agent' && sel.id === a.handle) ||
 					(sel.type === 'scope' && sel.id === g.channel);
 				const rw = g.access === 'read_write';
 				list.push({
@@ -118,16 +118,16 @@
 					</button>
 				{/each}
 
-				{#each agents as agent, i (agent.id)}
+				{#each agents as agent, i (agent.handle)}
 					{@const Icon = KIND_ICON[agent.kind]}
-					{@const selectedSelf = sel?.type === 'agent' && sel.id === agent.id}
+					{@const selectedSelf = sel?.type === 'agent' && sel.id === agent.handle}
 					<button
 						type="button"
 						class="agent"
 						class:selectedSelf
 						class:dim={!agentActive(agent)}
 						style="top:{TOP + i * ROW_H}px"
-						onclick={() => realmEditor.toggleAccessNode('agent', agent.id)}
+						onclick={() => realmEditor.toggleAccessNode('agent', agent.handle)}
 					>
 						<div class="agentTop">
 							<span class="agentName">{agent.name}</span>

@@ -217,7 +217,7 @@ impl RealmStorage for MemoryStorage {
     async fn list_observations(
         &self,
         conversation_id: Snowflake,
-        agent_id: Snowflake,
+        agent_handle: &str,
         before: Option<Snowflake>,
         limit: i64,
     ) -> Result<Vec<AgentObservation>, StorageError> {
@@ -226,7 +226,7 @@ impl RealmStorage for MemoryStorage {
             .values()
             .filter(|o| {
                 o.conversation_id == conversation_id
-                    && o.agent_id == agent_id
+                    && o.agent_handle == agent_handle
                     && before.is_none_or(|b| o.id < b)
             })
             .cloned()
@@ -240,13 +240,13 @@ impl RealmStorage for MemoryStorage {
 
     async fn list_observations_for_messages(
         &self,
-        agent_id: Snowflake,
+        agent_handle: &str,
         message_ids: &[Snowflake],
     ) -> Result<Vec<AgentObservation>, StorageError> {
         let obs = self.agent_observations.read().await;
         let mut rows: Vec<AgentObservation> = obs
             .values()
-            .filter(|o| o.agent_id == agent_id && message_ids.contains(&o.message_id))
+            .filter(|o| o.agent_handle == agent_handle && message_ids.contains(&o.message_id))
             .cloned()
             .collect();
         rows.sort_by_key(|o| o.id);
