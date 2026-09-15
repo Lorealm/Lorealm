@@ -296,7 +296,6 @@ async createAgent(req: CreateAgentRequest): Promise<RealmAgent | null> {
 				handle,
 				this.agentRequest(agent)
 			);
-			agent.turn_order = saved.turn_order;
 			agent.char_version_id = saved.char_version_id;
 		} catch (e) {
 			this.#handleError(e, 'Failed to save agent');
@@ -325,8 +324,6 @@ async createAgent(req: CreateAgentRequest): Promise<RealmAgent | null> {
 		if (this.inspection?.handle === handle) this.inspection = null;
 		try {
 			await this.#api.realms.agents.delete(realm.id, handle);
-			// turn_order was re-derived server-side; resync the document.
-			await this.refreshRealm();
 		} catch (e) {
 			realm.definition.agents = prev;
 			this.#handleError(e, 'Failed to delete agent');

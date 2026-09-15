@@ -11,7 +11,7 @@
 
 	const KIND_ICON = { llm: Bot, player: User, script: Terminal };
 
-	const agents = $derived([...realmStore.agents].sort((a, b) => a.turn_order - b.turn_order));
+	const agents = $derived(realmStore.agents);
 
 	const scopeList = $derived.by(() => {
 		const list: string[] = [];

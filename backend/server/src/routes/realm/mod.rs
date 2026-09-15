@@ -31,6 +31,7 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         )
         .route("/{realm_id}/agents", get(handlers::list_agents))
         .route("/{realm_id}/resources", get(handlers::list_resources))
+        .route("/{realm_id}/export", get(handlers::export_realm))
         .route(
             "/{realm_id}/agents/{handle}/grants",
             get(handlers::get_grants),
@@ -46,6 +47,7 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
 
     let csrf_routes = Router::new()
         .route("/", post(handlers::create_realm))
+        .route("/import", post(handlers::import_realm))
         .route(
             "/{realm_id}",
             patch(handlers::update_realm).delete(handlers::delete_realm),

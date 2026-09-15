@@ -36,7 +36,8 @@ pub struct RealmDefinition {
     pub name: String,
     #[serde(default)]
     pub description: String,
-    /// The cast, run in the same order as defined in the array
+    /// The cast. Array order is turn order — a template's loop produces its
+    /// members in order, so there is nothing else to keep in sync.
     #[serde(default)]
     pub agents: Vec<RealmAgent>,
     /// Named openings; instantiation picks one (see [`Scenario`]).
@@ -302,7 +303,6 @@ pub struct RealmAgent {
     pub user_id: Option<Snowflake>,
 
     pub persona_id: Option<Snowflake>,
-    pub turn_order: i32,
 
     #[serde(default)]
     pub properties: HashMap<String, serde_json::Value>,

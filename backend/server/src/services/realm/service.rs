@@ -1,4 +1,9 @@
-use std::{collections::HashMap, pin::Pin, sync::Arc, time::Duration};
+use std::{
+    collections::{BTreeMap, HashMap},
+    pin::Pin,
+    sync::Arc,
+    time::Duration,
+};
 
 use async_trait::async_trait;
 use futures_util::{Stream, StreamExt};
@@ -15,6 +20,7 @@ use lorealm_storage::{
 use rand::seq::SliceRandom;
 use serde_json::json;
 use tokio::{sync::RwLock, time::Instant};
+use weaver_lang::Value as WeaverValue;
 
 use crate::{
     core::CleanableService,
@@ -45,7 +51,7 @@ use super::{
         apply_turn_order, realm_resources, validate_director, validate_grants, validate_playable,
         validate_scenario,
     },
-    weaver,
+    weaver, wtn,
 };
 
 const EVENT_WINDOW: i64 = 500;
@@ -310,7 +316,6 @@ impl RealmService {
             profile_id: parts.profile_id,
             user_id: parts.user_id,
             persona_id: req.persona_id,
-            turn_order: edit.realm.definition.agents.len() as i32,
             properties: req.properties,
             grants: req.grants,
             tools: req.tools,
@@ -359,7 +364,6 @@ impl RealmService {
             profile_id: parts.profile_id,
             user_id: parts.user_id,
             persona_id: req.persona_id,
-            turn_order: slot.turn_order,
             properties: req.properties,
             grants: req.grants,
             tools: req.tools,
@@ -390,10 +394,6 @@ impl RealmService {
         if agents.len() == before {
             return Err(RealmError::NoSuchAgent(handle.to_string()));
         }
-        for (index, agent) in agents.iter_mut().enumerate() {
-            agent.turn_order = index as i32;
-        }
-
         self.storage.save_realm(&edit.realm, edit.save_mode).await?;
 
         Ok(())
@@ -406,7 +406,12 @@ impl RealmService {
         req: CreateScenarioRequest,
     ) -> Result<Scenario, RealmError> {
         let mut edit = self.get_realm_for_edit(realm_id, user_id).await?;
-        validate_scenario(&req, &edit.realm.definition.agents)?;
+        validate_scenario(
+            &req.name,
+            &req.seed_script,
+            &req.agent_overrides,
+            &edit.realm.definition.agents,
+        )?;
 
         let scenario = Scenario {
             id: self.snowflake.generate(),
@@ -431,7 +436,12 @@ impl RealmService {
         req: CreateScenarioRequest,
     ) -> Result<Scenario, RealmError> {
         let mut edit = self.get_realm_for_edit(realm_id, user_id).await?;
-        validate_scenario(&req, &edit.realm.definition.agents)?;
+        validate_scenario(
+            &req.name,
+            &req.seed_script,
+            &req.agent_overrides,
+            &edit.realm.definition.agents,
+        )?;
 
         let slot = edit
             .realm
@@ -517,6 +527,40 @@ impl RealmService {
         Ok(edit.realm.definition.agents)
     }
 
+    /// Create a realm by expanding a WTN document.
+    pub async fn import(
+        &self,
+        user_id: Snowflake,
+        source: &str,
+        inputs: BTreeMap<String, WeaverValue>,
+    ) -> Result<Realm, RealmError> {
+        let definition = wtn::from_wtn(source, inputs)?;
+        self.validate_definition(user_id, &definition).await?;
+
+        let realm = Realm {
+            id: self.snowflake.generate(),
+            owner_id: user_id,
+            current_version_id: self.snowflake.generate(),
+            definition,
+            tags: Vec::new(),
+        };
+        self.storage
+            .save_realm(&realm, VersionedSaveMode::NewVersion)
+            .await?;
+
+        Ok(realm)
+    }
+
+    /// The realm as a WTN document.
+    pub async fn export(
+        &self,
+        realm_id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<String, RealmError> {
+        let realm = self.owned_realm(realm_id, user_id).await?;
+        wtn::to_wtn(&realm.definition)
+    }
+
     /// Everything the realm's cast references, derived from the cast itself.
     pub async fn list_resources(
         &self,
@@ -565,8 +609,7 @@ impl RealmService {
                 }
             },
         };
-        let mut agents = realm.definition.agents;
-        agents.sort_by_key(|a| a.turn_order);
+        let agents = realm.definition.agents;
 
         let convo = Conversation {
             id: self.snowflake.generate(),
@@ -1656,8 +1699,8 @@ impl<'a> Stage<'a> {
                 // Resume after whoever acted last
                 let start = self
                     .last
-                    .and_then(|l| pool.iter().position(|a| a.turn_order > l.turn_order))
-                    .unwrap_or(0);
+                    .and_then(|l| pool.iter().position(|a| a.handle == l.handle))
+                    .map_or(0, |i| i + 1);
                 (0..pool.len())
                     .map(|k| pool[(start + k) % pool.len()])
                     .collect()
@@ -1718,7 +1761,6 @@ mod tests {
             profile_id: None,
             user_id: None,
             persona_id: None,
-            turn_order: slot as i32,
             properties: HashMap::new(),
             grants: vec![AgentGrant {
                 channel: "state".into(),
