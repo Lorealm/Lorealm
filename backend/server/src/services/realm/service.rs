@@ -534,7 +534,12 @@ impl RealmService {
         source: &str,
         inputs: BTreeMap<String, WeaverValue>,
     ) -> Result<Realm, RealmError> {
-        let definition = wtn::from_wtn(source, inputs)?;
+        let doc = wtn::compile(source)?;
+        let inputs = self
+            .resolve_inputs(user_id, doc.declarations(), inputs)
+            .await?;
+
+        let definition = wtn::expand(doc, inputs)?;
         self.validate_definition(user_id, &definition).await?;
 
         let realm = Realm {

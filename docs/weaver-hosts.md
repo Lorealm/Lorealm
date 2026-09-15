@@ -103,6 +103,25 @@ against one; the lorebook engine does not, which is why the command is not in
 `register_all` alongside the rest. A read-only profile refuses it exactly as
 it refuses `set_var`.
 
+### Entity kinds
+
+Registered alongside the stdlib, for the `Ref<...>` declarations a WTN
+document's `#inputs` block may name:
+
+`Character`, `Lorebook`, `Template`, `Tool`, `Persona`, `ConnectionProfile`,
+`Widget`
+
+The list is `RealmResourceKind::ALL`, so it is the same vocabulary a realm's
+inferred resource set uses and cannot drift from it. A kind is a type rather
+than something callable, so it is not a capability and is inert in the hosts
+that never expand a document.
+
+Values arrive as ids and are bound as small objects — `id`, `name`,
+`description`, `slug` — resolved by `services/realm/project.rs` *before*
+expansion, because `validate_input` is synchronous and every lookup behind it
+is not. `slug` is the name reduced to an identifier, so a loop can mint
+handles from it.
+
 ### Inside a realm
 
 The four realm hosts also mount two read-only namespaces describing the realm

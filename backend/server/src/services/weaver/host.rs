@@ -3,6 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use lorealm_storage::models::RealmResourceKind;
 use tokio_util::sync::CancellationToken;
 use weaver_lang::{Registry, Value as WeaverValue};
 
@@ -269,6 +270,10 @@ impl WeaverBuilder {
     pub fn build(self) -> WeaverHost {
         let mut registry = Registry::new();
         stdlib::register_all(&mut registry);
+        // Entity kinds a WTN `Ref<...>` may name.
+        for kind in RealmResourceKind::ALL {
+            registry.register_kind(kind.ref_name());
+        }
         // Not part of `register_all`: that also loads into the lorebook
         // engine, whose context `del_var` cannot reach.
         registry.register_command(DelVarCommand);

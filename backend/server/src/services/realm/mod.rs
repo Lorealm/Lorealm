@@ -1,4 +1,5 @@
 mod agent;
+mod project;
 mod service;
 mod types;
 mod validate;
