@@ -132,7 +132,7 @@ pub async fn check_weaver(
     Json(request): Json<super::WeaverCheckRequest>,
 ) -> Json<super::WeaverCheckResponse> {
     Json(super::WeaverCheckResponse {
-        diagnostics: check(&request.source, request.dialect),
+        diagnostics: check(&request.source, request.dialect, request.profile),
     })
 }
 

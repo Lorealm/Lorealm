@@ -211,6 +211,11 @@ impl WeaverBuilder {
         self
     }
 
+    /// Declarations for one host's vocabulary
+    pub fn declarations_for(self, profile: WeaverProfile) -> Self {
+        self.declarations_only().profile(profile)
+    }
+
     /// Collect emitted events into a sink the caller already holds.
     pub fn events(mut self, sink: EventSink) -> Self {
         self.events = Some(sink);

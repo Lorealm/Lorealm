@@ -3,9 +3,13 @@ use std::collections::HashMap;
 use lorealm_storage::models::Snowflake;
 use serde::{Deserialize, Serialize};
 
-use crate::services::context::{
-    ContextNode, CreateNode, MoveNode, MovedNode, NodeContent, NodePath, NodeWithPath, UpdateNode,
-    weaver::check::{Diagnostic, Dialect},
+use crate::services::{
+    context::{
+        ContextNode, CreateNode, MoveNode, MovedNode, NodeContent, NodePath, NodeWithPath,
+        UpdateNode,
+        weaver::check::{Diagnostic, Dialect},
+    },
+    weaver::WeaverProfile,
 };
 
 #[derive(Deserialize)]
@@ -48,9 +52,12 @@ pub(super) struct NodeResponse {
 #[derive(Deserialize)]
 pub(super) struct WeaverCheckRequest {
     pub source: String,
-    /// Defaults to `template`; condition fields send `expression`.
+    /// Defaults to `template`
     #[serde(default)]
     pub dialect: Dialect,
+    /// Which host the source will run in.
+    #[serde(default)]
+    pub profile: Option<WeaverProfile>,
 }
 
 /// Problems found in that source. An empty list means it is clean, not

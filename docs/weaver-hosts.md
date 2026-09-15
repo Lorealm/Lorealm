@@ -79,9 +79,41 @@ Where each one is built:
 | `RealmTemplate` | `services/realm/wtn.rs` | A WTN document, expanded once into a realm definition |
 
 The editor's two endpoints — `check` in `services/context/weaver/check.rs` and
-`list_weaver_vocabulary` in `routes/templates/handlers.rs` — both build
+`list_weaver_vocabulary` in `routes/templates/handlers.rs` — build
 `WeaverHost::builder().declarations_only()`, which is every capability above
 with no machinery behind any of it.
+
+`check` also takes an optional `WeaverProfile`. Given one it builds
+`declarations_for(profile)` instead — that host's vocabulary rather than the
+union — so a body is checked against the host that will actually run it.
+Without one it falls back to the union, which accepts commands the real host
+will refuse. A caller that knows where the source runs should say so.
+
+### Dialects
+
+`check(source, dialect, profile)` picks the compiler from `dialect`:
+
+| Dialect | Compiler | What it is |
+| --- | --- | --- |
+| `template` | `CompiledTemplate` | Text with weaver embedded in it |
+| `expression` | `CompiledExpr` | A single value, the way a run condition is |
+| `document` | `parse_value_doc` | A WTN document: one value with holes, plus its `#inputs` |
+
+The dialect is not cosmetic. A WTN document fed to the `template` compiler
+parses *as prose* — `{ name: "x" }` is literal text and `{# foreach #}` is a
+valid template block — so it comes back clean with none of its real errors
+reported. Silence, not diagnostics.
+
+`document` additionally checks the `#inputs` block, which is the only place
+the other two dialects never reach:
+
+- a `Ref<Kind>` naming a kind the registry has no entry for
+- an entity input carrying a default, which cannot work: entity inputs are
+  resolved before the document runs, and a default has not been evaluated by
+  then
+
+`BlueprintService` saves through this same function rather than a validator of
+its own, so the editor cannot show a document clean that saving then refuses.
 
 ### Always available
 
@@ -221,7 +253,6 @@ carrying `generation` refuses to run inline.
 
 ## Known gap
 
-`check` validates against the union of every host rather than the one being
-edited, so `$[toast]` in a realm script is accepted by the editor and rejected
-at runtime. The fix is `check(source, dialect, Option<WeaverProfile>)`, which
-needs the frontend to send which context it is editing.
+The frontend still sends no profile, so everything it checks is validated
+against the union. The backend takes one now — `weaverCheck` needs to pass
+which context is being edited.

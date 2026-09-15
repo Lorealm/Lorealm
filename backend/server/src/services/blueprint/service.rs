@@ -11,8 +11,10 @@ use crate::{
     errors::{RealmError, TargetType},
     services::{
         blueprint::InputSpec,
+        context::weaver::check::{Dialect, Severity, check},
         realm::{RealmService, wtn},
         snowflake::SnowflakeService,
+        weaver::WeaverProfile,
     },
     util::weaver::json_to_weaver,
 };
@@ -148,7 +150,17 @@ impl BlueprintService {
     /// A blueprint's source must parse, and must declare inputs this server
     /// can actually satisfy.
     fn check(source: &str) -> Result<(), RealmError> {
-        let doc = wtn::compile(source)?;
-        crate::services::realm::reject_defaulted_entities(doc.declarations())
+        let refused = check(
+            source,
+            Dialect::Document,
+            Some(WeaverProfile::RealmTemplate),
+        )
+        .into_iter()
+        .find(|d| d.severity == Severity::Error);
+
+        match refused {
+            Some(d) => Err(RealmError::InvalidTemplate(d.message)),
+            None => Ok(()),
+        }
     }
 }
