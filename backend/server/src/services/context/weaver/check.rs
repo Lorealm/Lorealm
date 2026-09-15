@@ -3,7 +3,10 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use weaver_lang::{
     CompiledExpr, CompiledTemplate, Registry, Span,
-    ast::{Expr, ExprKind, Node, NodeKind, Template},
+    ast::{
+        ArrayItem, CallArg, Expr, ExprKind, Node, NodeKind, ObjectItem, Template, ValueForEach,
+        ValueIf,
+    },
 };
 
 use crate::services::weaver::WeaverHost;
@@ -68,7 +71,10 @@ pub fn check(source: &str, dialect: Dialect) -> Vec<Diagnostic> {
             Err(errors) => return checker.parse_errors(errors),
         },
         Dialect::Expression => match CompiledExpr::compile(source) {
-            Ok(compiled) => checker.expr(compiled.ast()),
+            Ok(compiled) => {
+                checker.expr(compiled.ast());
+                checker.trailing(compiled.ast().span.end);
+            }
             Err(errors) => return checker.parse_errors(errors),
         },
     }
@@ -107,6 +113,24 @@ impl Checker<'_> {
         });
     }
 
+    /// Text left over after the expression, reported where it starts.
+    fn trailing(&mut self, end: usize) {
+        let rest = &self.source[end..];
+        let leading_ws = rest.len() - rest.trim_start().len();
+        let rest = rest.trim();
+        if rest.is_empty() {
+            return;
+        }
+        let start = end + leading_ws;
+        self.out.push(Diagnostic {
+            from: utf16_offset(self.source, start),
+            to: utf16_offset(self.source, start + rest.len()),
+            severity: Severity::Error,
+            message: "unexpected text after the expression".to_string(),
+            hint: Some("an expression is a single value".to_string()),
+        });
+    }
+
     fn template(&mut self, template: &Template) {
         for node in &template.nodes {
             self.node(node);
@@ -119,9 +143,7 @@ impl Checker<'_> {
             NodeKind::Expression(kind) => self.expr_kind(kind, node.span),
             NodeKind::Command(call) => {
                 self.command(&call.name, node.span);
-                for arg in &call.args {
-                    self.expr(arg);
-                }
+                self.args(&call.args);
             }
             NodeKind::IfBlock(block) => {
                 self.expr(&block.condition);
@@ -147,12 +169,69 @@ impl Checker<'_> {
         self.expr_kind(&expr.node, expr.span);
     }
 
+    fn args(&mut self, args: &[CallArg]) {
+        for arg in args {
+            self.expr(&arg.value);
+        }
+    }
+
+    /// A loop standing in for items of an array or object literal.
+    fn value_foreach<T>(&mut self, block: &ValueForEach<T>, item: fn(&mut Self, &T)) {
+        self.expr(&block.iterable);
+        for entry in &block.body {
+            item(self, entry);
+        }
+    }
+
+    /// A conditional standing in for items of an array or object literal.
+    fn value_if<T>(&mut self, block: &ValueIf<T>, item: fn(&mut Self, &T)) {
+        for (condition, body) in &block.branches {
+            self.expr(condition);
+            for entry in body {
+                item(self, entry);
+            }
+        }
+        for entry in block.else_body.iter().flatten() {
+            item(self, entry);
+        }
+    }
+
+    fn array_item(&mut self, item: &ArrayItem) {
+        match item {
+            ArrayItem::Element(expr) => self.expr(expr),
+            ArrayItem::ForEach(block) => self.value_foreach(block, Self::array_item),
+            ArrayItem::If(block) => self.value_if(block, Self::array_item),
+        }
+    }
+
+    fn object_item(&mut self, item: &ObjectItem) {
+        match item {
+            ObjectItem::Entry(entry) => {
+                self.expr(&entry.key);
+                self.expr(&entry.value);
+            }
+            ObjectItem::ForEach(block) => self.value_foreach(block, Self::object_item),
+            ObjectItem::If(block) => self.value_if(block, Self::object_item),
+        }
+    }
+
     fn expr_kind(&mut self, kind: &ExprKind, span: Span) {
         match kind {
             ExprKind::Literal(_) | ExprKind::Variable(_) => {}
             ExprKind::ArrayLiteral(items) => {
                 for item in items {
-                    self.expr(item);
+                    self.array_item(item);
+                }
+            }
+            ExprKind::ObjectLiteral(items) => {
+                for item in items {
+                    self.object_item(item);
+                }
+            }
+            ExprKind::StringTemplate(template) => self.template(template),
+            ExprKind::Variant { values, .. } => {
+                for value in values {
+                    self.expr(value);
                 }
             }
             ExprKind::ProcessorCall(call) => {
@@ -164,15 +243,11 @@ impl Checker<'_> {
                     let name = format!("{}.{}", call.namespace, call.name);
                     self.warn(span, format!("unknown processor `{name}`"));
                 }
-                for property in &call.properties {
-                    self.expr(&property.value);
-                }
+                self.args(&call.args);
             }
             ExprKind::CommandCall(call) => {
                 self.command(&call.name, span);
-                for arg in &call.args {
-                    self.expr(arg);
-                }
+                self.args(&call.args);
             }
             ExprKind::Trigger(trigger) => self.expr(&trigger.entry_id),
             ExprKind::Document(document) => self.expr(&document.document_id),
@@ -181,6 +256,10 @@ impl Checker<'_> {
                 self.expr(right);
             }
             ExprKind::UnaryOp { operand, .. } => self.expr(operand),
+            ExprKind::Index { base, index } => {
+                self.expr(base);
+                self.expr(index);
+            }
         }
     }
 
@@ -326,6 +405,19 @@ mod tests {
     }
 
     #[test]
+    fn text_past_the_end_of_an_expression_is_reported_not_dropped() {
+        // A bare name is a reference, so the parser takes `alice` and
+        // stops; the rest has to be flagged here or it vanishes silently.
+        let source = "alice is here";
+        let found = expression(source);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].severity, Severity::Error);
+        assert_eq!(marked(source, &found[0]), "is here");
+
+        assert!(expression("{{global:hp}} > 5  ").is_empty());
+    }
+
+    #[test]
     fn offsets_count_utf16_units_not_bytes() {
         // "🜁 café" is 10 bytes before the call but 7 UTF-16 units, so a
         // byte offset would mark the wrong span in an editor.
@@ -341,3 +433,4 @@ mod tests {
         assert!(template("{{global:nothing}} {{bare.path.here}}").is_empty());
     }
 }
+
