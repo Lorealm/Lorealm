@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { realmStore } from '$lib/stores/realm.svelte.js';
+	import type { Component } from 'svelte';
 	import { navigator, type StudioResource } from '$lib/navigation/navigator.js';
 	import type { Snowflake } from '$lib/types/core.js';
-	import type { ImportKind } from '$lib/types/realm.js';
-	import type { Component } from 'svelte';
+	import type { RealmResourceKind } from '$lib/types/realm.js';
 	import {
 		BookOpen,
 		Bot,
@@ -21,31 +21,19 @@
 	} from '@lucide/svelte';
 	import Badge from './Badge.svelte';
 	import Tag from './Tag.svelte';
-	import { catalogItem, realmEditor, scopeRoot, type GraphType } from './realmEditor.svelte.js';
+	import {
+		catalogItem,
+		realmEditor,
+		realmResources,
+		scopeRoot,
+		type GraphType
+	} from './realmEditor.svelte.js';
 
 	type Tone = 'accent' | 'info' | 'warning';
 	const KIND = {
 		llm: { label: 'LLM', icon: Bot, tone: 'accent' as Tone },
 		player: { label: 'Player', icon: User, tone: 'info' as Tone },
 		script: { label: 'Script', icon: Terminal, tone: 'warning' as Tone }
-	};
-	const IMPORT_ICON: Record<ImportKind, Component> = {
-		character: User,
-		lorebook: BookOpen,
-		tool: Wrench,
-		template: FileText,
-		persona: CircleUser,
-		connection_profile: Plug,
-		widget: LayoutDashboard
-	};
-	const IMPORT_LABEL: Record<ImportKind, string> = {
-		character: 'Character',
-		lorebook: 'Lorebook',
-		tool: 'Tool',
-		template: 'Context template',
-		persona: 'Persona',
-		connection_profile: 'Connection profile',
-		widget: 'Widget'
 	};
 
 	interface Row {
@@ -78,14 +66,6 @@
 		character: 'var(--color-primary-light)',
 		template: 'var(--color-text-secondary)'
 	};
-
-	const resource = $derived.by(() => {
-		if (tab !== 'imports' || !realmEditor.selectedImportKey) return null;
-		const [kind, id] = realmEditor.selectedImportKey.split(':') as [ImportKind, Snowflake];
-		const item = catalogItem(kind, id);
-		if (!item) return null;
-		return { kind, id, item };
-	});
 
 	const agentInsp = $derived.by(() => {
 		if (tab !== 'cast' || !realmEditor.expandedAgentId) return null;
@@ -343,7 +323,7 @@
 			};
 		}
 
-		const item = catalogItem(gt as ImportKind, gid);
+		const item = catalogItem(gt as RealmResourceKind, gid);
 		const users =
 			gt === 'character'
 				? agents.filter((a) => a.character_id === gid)
@@ -381,7 +361,7 @@
 			name: realm.definition.name || 'Untitled Realm',
 			description: realm.definition.description || 'No description yet.',
 			agentCount: realm.definition.agents.length,
-			importTotal: realm.definition.imports.length,
+			resourceTotal: realmResources(realm.definition).length,
 			tags: realm.tags
 		};
 	});
@@ -391,11 +371,9 @@
 			? 'onboarding'
 			: graphInsp
 				? 'graph'
-				: resource
-					? 'resource'
-					: agentInsp
-						? 'agent'
-						: 'summary'
+				: agentInsp
+					? 'agent'
+					: 'summary'
 	);
 </script>
 
@@ -406,29 +384,6 @@
 			A reusable starting point for a world — a cast, the things they can know and do, and the rules
 			binding them. Playing it starts a fresh, private conversation each time.
 		</p>
-	</div>
-{:else if mode === 'resource' && resource}
-	{@const Icon = IMPORT_ICON[resource.kind]}
-	<div class="pane">
-		<div class="titleRow">
-			<Icon size={18} color="var(--color-text-accent)" />
-			<Badge tone="accent">{IMPORT_LABEL[resource.kind]}</Badge>
-		</div>
-		<div class="h">{resource.item.name}</div>
-		<p>{resource.item.description || 'No description.'}</p>
-		{#if resource.kind !== 'connection_profile'}
-			<button
-				type="button"
-				class="wide secondary"
-				onclick={() =>
-					navigator
-						.start()
-						.studio()
-						.resource(resource.kind as StudioResource, resource.id)}
-			>
-				<Pencil size={14} /> Edit in Studio
-			</button>
-		{/if}
 	</div>
 {:else if mode === 'agent' && agentInsp}
 	<div class="pane">
@@ -495,7 +450,7 @@
 		<p>{summary.description}</p>
 		<div class="stats">
 			<div class="stat"><span>Cast</span><span>{summary.agentCount} agents</span></div>
-			<div class="stat"><span>Imports</span><span>{summary.importTotal} resources</span></div>
+			<div class="stat"><span>Resources</span><span>{summary.resourceTotal} referenced</span></div>
 		</div>
 		{#if summary.tags.length > 0}
 			<div class="tags">

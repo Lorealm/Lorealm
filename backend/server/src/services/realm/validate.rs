@@ -1,8 +1,8 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use lorealm_storage::models::{
-    AgentFilter, AgentGrant, AgentKind, Director, ImportKind, ImportRule, RealmAgent, ScopePattern,
-    Snowflake, is_identifier,
+    AgentFilter, AgentGrant, AgentKind, Director, RealmAgent, RealmDefinition, RealmResourceKind,
+    RealmResourceRef, ScopePattern, Snowflake, is_identifier,
 };
 use weaver_lang::CompiledExpr;
 
@@ -23,15 +23,15 @@ pub(super) struct AgentParts {
 }
 
 impl RealmService {
-    /// One import rule points at an existing resource the caller owns.
-    pub(super) async fn validate_import(
+    /// The resource exists and the caller owns it.
+    pub(super) async fn validate_resource(
         &self,
         user_id: Snowflake,
-        rule: &ImportRule,
+        kind: RealmResourceKind,
+        id: Snowflake,
     ) -> Result<(), RealmError> {
-        let id = rule.resource_id;
-        match rule.kind {
-            ImportKind::Character => {
+        match kind {
+            RealmResourceKind::Character => {
                 let character = self
                     .storage
                     .get_character(id)
@@ -41,7 +41,7 @@ impl RealmService {
                     return Err(RealmError::NotOwned(TargetType::Character, id));
                 }
             }
-            ImportKind::Lorebook => {
+            RealmResourceKind::Lorebook => {
                 let lorebook = self
                     .storage
                     .get_lorebook(id)
@@ -51,10 +51,10 @@ impl RealmService {
                     return Err(RealmError::NotOwned(TargetType::Lorebook, id));
                 }
             }
-            ImportKind::Template => {
+            RealmResourceKind::Template => {
                 self.templates.get_template(id, user_id).await?;
             }
-            ImportKind::Tool => {
+            RealmResourceKind::Tool => {
                 let tool = self
                     .storage
                     .get_tool(id)
@@ -64,13 +64,13 @@ impl RealmService {
                     return Err(RealmError::NotOwned(TargetType::UserTool, id));
                 }
             }
-            ImportKind::Persona => {
+            RealmResourceKind::Persona => {
                 self.personas.get_persona(id, user_id).await?;
             }
-            ImportKind::ConnectionProfile => {
+            RealmResourceKind::ConnectionProfile => {
                 self.connection.get_profile(user_id, id).await?;
             }
-            ImportKind::Widget => {
+            RealmResourceKind::Widget => {
                 let widget = self
                     .storage
                     .get_widget(id)
@@ -88,7 +88,6 @@ impl RealmService {
         &self,
         user_id: Snowflake,
         req: &CreateAgentRequest,
-        imports: &[ImportRule],
         cast: &[RealmAgent],
         exclude: Option<Snowflake>,
     ) -> Result<AgentParts, RealmError> {
@@ -109,7 +108,6 @@ impl RealmService {
                 let profile_id = match req.profile_id {
                     Some(id) => {
                         self.connection.get_profile(user_id, id).await?;
-                        ensure_imported(imports, ImportKind::ConnectionProfile, id)?;
                         Some(id)
                     }
                     None => None,
@@ -156,7 +154,6 @@ impl RealmService {
                 let character = match (req.character_id, req.char_version_id) {
                     (Some(c), Some(v)) => {
                         self.characters.load_version(c, v, user_id).await?;
-                        ensure_imported(imports, ImportKind::Character, c)?;
                         (Some(c), Some(v))
                     }
                     (None, None) => (None, None),
@@ -171,16 +168,15 @@ impl RealmService {
                     RealmError::InvalidAgent("llm agents require an explicit template_id".into())
                 })?;
                 self.templates.get_template(template_id, user_id).await?;
-                ensure_imported(imports, ImportKind::Template, template_id)?;
 
                 let profile_id = req.profile_id.ok_or_else(|| {
                     RealmError::InvalidAgent("llm agents require an explicit profile_id".into())
                 })?;
                 self.connection.get_profile(user_id, profile_id).await?;
-                ensure_imported(imports, ImportKind::ConnectionProfile, profile_id)?;
 
                 for &lorebook_id in &req.lorebooks {
-                    ensure_imported(imports, ImportKind::Lorebook, lorebook_id)?;
+                    self.validate_resource(user_id, RealmResourceKind::Lorebook, lorebook_id)
+                        .await?;
                 }
 
                 AgentParts {
@@ -203,26 +199,20 @@ impl RealmService {
 
         if let Some(id) = req.persona_id {
             self.personas.get_persona(id, user_id).await?;
-            ensure_imported(imports, ImportKind::Persona, id)?;
         }
 
         for &widget_id in &req.widgets {
-            ensure_imported(imports, ImportKind::Widget, widget_id)?;
+            self.validate_resource(user_id, RealmResourceKind::Widget, widget_id)
+                .await?;
         }
 
+        // Builtins ship with the server and belong to nobody.
         for binding in &req.tools {
             if builtin_tool(binding.tool_id).is_some() {
                 continue;
             }
-            let tool = self
-                .storage
-                .get_tool(binding.tool_id)
-                .await?
-                .ok_or(RealmError::NotFound(TargetType::UserTool, binding.tool_id))?;
-            if tool.user_id != user_id {
-                return Err(RealmError::NotOwned(TargetType::UserTool, binding.tool_id));
-            }
-            ensure_imported(imports, ImportKind::Tool, binding.tool_id)?;
+            self.validate_resource(user_id, RealmResourceKind::Tool, binding.tool_id)
+                .await?;
         }
 
         // A run_condition must compile now so the author sees the error at
@@ -386,47 +376,48 @@ pub(super) fn validate_channel(field: &str, channel: Option<&str>) -> Result<(),
     }
 }
 
-/// One resource of `kind` is declared in the realm's imports.
-pub(super) fn ensure_imported(
-    imports: &[ImportRule],
-    kind: ImportKind,
-    id: Snowflake,
-) -> Result<(), RealmError> {
-    if imports
-        .iter()
-        .any(|r| r.kind == kind && r.resource_id == id)
-    {
-        Ok(())
-    } else {
-        Err(RealmError::NotImported(kind, id))
-    }
-}
+/// Every owner-scoped resource one agent references.
+pub(super) fn agent_resources(agent: &RealmAgent) -> Vec<RealmResourceRef> {
+    let mut refs = Vec::new();
+    let mut push = |kind, resource_id| refs.push(RealmResourceRef { kind, resource_id });
 
-/// Everything an agent references that the realm's imports must cover.
-pub(super) fn agent_required_imports(agent: &RealmAgent) -> Vec<(ImportKind, Snowflake)> {
-    let mut required = Vec::new();
     if let Some(c) = agent.character_id {
-        required.push((ImportKind::Character, c));
+        push(RealmResourceKind::Character, c);
     }
     if let Some(t) = agent.template_id {
-        required.push((ImportKind::Template, t));
+        push(RealmResourceKind::Template, t);
     }
     if let Some(p) = agent.profile_id {
-        required.push((ImportKind::ConnectionProfile, p));
+        push(RealmResourceKind::ConnectionProfile, p);
     }
     if let Some(p) = agent.persona_id {
-        required.push((ImportKind::Persona, p));
+        push(RealmResourceKind::Persona, p);
     }
-    required.extend(
-        agent
-            .tools
-            .iter()
-            .filter(|b| builtin_tool(b.tool_id).is_none())
-            .map(|b| (ImportKind::Tool, b.tool_id)),
-    );
-    required.extend(agent.lorebooks.iter().map(|&l| (ImportKind::Lorebook, l)));
-    required.extend(agent.widgets.iter().map(|&w| (ImportKind::Widget, w)));
-    required
+    for binding in agent
+        .tools
+        .iter()
+        .filter(|b| builtin_tool(b.tool_id).is_none())
+    {
+        push(RealmResourceKind::Tool, binding.tool_id);
+    }
+    for &l in &agent.lorebooks {
+        push(RealmResourceKind::Lorebook, l);
+    }
+    for &w in &agent.widgets {
+        push(RealmResourceKind::Widget, w);
+    }
+    refs
+}
+
+/// Everything the realm's cast references, deduplicated, in cast order.
+pub(super) fn realm_resources(definition: &RealmDefinition) -> Vec<RealmResourceRef> {
+    let mut seen = HashSet::new();
+    definition
+        .agents
+        .iter()
+        .flat_map(agent_resources)
+        .filter(|r| seen.insert(*r))
+        .collect()
 }
 
 pub(super) fn apply_turn_order(
@@ -497,31 +488,30 @@ mod tests {
         }
     }
 
-    fn rule(kind: ImportKind, id: i64) -> ImportRule {
-        ImportRule {
+    fn res(kind: RealmResourceKind, id: i64) -> RealmResourceRef {
+        RealmResourceRef {
             kind,
             resource_id: sf(id),
         }
     }
 
     #[test]
-    fn required_imports_cover_every_reference_kind() {
-        let required = agent_required_imports(&agent("spymaster"));
+    fn inference_covers_every_reference_kind() {
         assert_eq!(
-            required,
+            agent_resources(&agent("spymaster")),
             vec![
-                (ImportKind::Character, sf(10)),
-                (ImportKind::Template, sf(20)),
-                (ImportKind::ConnectionProfile, sf(30)),
-                (ImportKind::Persona, sf(60)),
-                (ImportKind::Tool, sf(40)),
-                (ImportKind::Lorebook, sf(50)),
+                res(RealmResourceKind::Character, 10),
+                res(RealmResourceKind::Template, 20),
+                res(RealmResourceKind::ConnectionProfile, 30),
+                res(RealmResourceKind::Persona, 60),
+                res(RealmResourceKind::Tool, 40),
+                res(RealmResourceKind::Lorebook, 50),
             ]
         );
     }
 
     #[test]
-    fn player_agents_require_only_their_tools() {
+    fn player_agents_reference_only_their_tools() {
         let mut player = agent("you");
         player.kind = AgentKind::Player;
         player.character_id = None;
@@ -532,13 +522,13 @@ mod tests {
         player.lorebooks.clear();
 
         assert_eq!(
-            agent_required_imports(&player),
-            vec![(ImportKind::Tool, sf(40))]
+            agent_resources(&player),
+            vec![res(RealmResourceKind::Tool, 40)]
         );
     }
 
     #[test]
-    fn player_agents_may_require_a_connection_profile() {
+    fn player_agents_may_reference_a_connection_profile() {
         let mut player = agent("you");
         player.kind = AgentKind::Player;
         player.character_id = None;
@@ -549,16 +539,16 @@ mod tests {
         // profile_id stays Some(sf(30)) from the fixture
 
         assert_eq!(
-            agent_required_imports(&player),
+            agent_resources(&player),
             vec![
-                (ImportKind::ConnectionProfile, sf(30)),
-                (ImportKind::Tool, sf(40))
+                res(RealmResourceKind::ConnectionProfile, 30),
+                res(RealmResourceKind::Tool, 40),
             ]
         );
     }
 
     #[test]
-    fn script_agents_depend_on_no_imports() {
+    fn script_agents_reference_nothing() {
         let mut script = agent("log-keeper");
         script.kind = AgentKind::Script;
         script.character_id = None;
@@ -568,27 +558,52 @@ mod tests {
         script.persona_id = None;
         script.tools.clear();
         script.lorebooks.clear();
-        script.script = Some("state.set('log.events', 'entries', [])".into());
+        script.script = Some("$[set_var(\"log:events\", [])]".into());
 
-        assert_eq!(agent_required_imports(&script), vec![]);
+        assert_eq!(agent_resources(&script), vec![]);
     }
 
     #[test]
-    fn ensure_imported_distinguishes_kinds() {
-        let imports = vec![rule(ImportKind::Tool, 50)];
-        assert!(ensure_imported(&imports, ImportKind::Tool, sf(50)).is_ok());
-        assert!(matches!(
-            ensure_imported(&imports, ImportKind::Lorebook, sf(50)),
-            Err(RealmError::NotImported(ImportKind::Lorebook, _))
-        ));
+    fn a_kind_bounds_a_reference() {
+        let mut a = agent("a");
+        a.tools = vec![AgentToolBinding {
+            tool_id: sf(50),
+            event_channel: None,
+        }];
+        a.lorebooks = vec![sf(50)];
+        a.character_id = None;
+        a.char_version_id = None;
+        a.template_id = None;
+        a.profile_id = None;
+        a.persona_id = None;
+
+        assert_eq!(
+            agent_resources(&a),
+            vec![
+                res(RealmResourceKind::Tool, 50),
+                res(RealmResourceKind::Lorebook, 50),
+            ]
+        );
     }
 
     #[test]
-    fn ensure_imported_rejects_missing() {
-        assert!(matches!(
-            ensure_imported(&[], ImportKind::Character, sf(10)),
-            Err(RealmError::NotImported(ImportKind::Character, _))
-        ));
+    fn a_realm_deduplicates_what_its_cast_shares() {
+        let definition = RealmDefinition {
+            agents: vec![agent("one"), agent("two")],
+            ..Default::default()
+        };
+
+        assert_eq!(
+            realm_resources(&definition),
+            vec![
+                res(RealmResourceKind::Character, 10),
+                res(RealmResourceKind::Template, 20),
+                res(RealmResourceKind::ConnectionProfile, 30),
+                res(RealmResourceKind::Persona, 60),
+                res(RealmResourceKind::Tool, 40),
+                res(RealmResourceKind::Lorebook, 50),
+            ]
+        );
     }
 
     fn cast_of(ids: &[i64]) -> Vec<RealmAgent> {

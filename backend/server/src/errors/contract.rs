@@ -1,7 +1,7 @@
 //! Verifies the error contract that the compiler can't check: code shape,
 //! per-domain namespacing, status/code agreement, and message hygiene.
 
-use lorealm_storage::models::{ImportKind, Snowflake};
+use lorealm_storage::models::Snowflake;
 
 use crate::errors::*;
 
@@ -188,12 +188,6 @@ fn contract_surface() -> Vec<(&'static str, Vec<Box<dyn DomainError>>)> {
                 Box::new(RealmError::InvalidAgent("no name".into())),
                 Box::new(RealmError::InvalidTurn("already ended".into())),
                 Box::new(RealmError::ToolNotBound(id())),
-                Box::new(RealmError::NotImported(ImportKind::Lorebook, id())),
-                Box::new(RealmError::ImportInUse(
-                    ImportKind::Lorebook,
-                    id(),
-                    "Narrator".into(),
-                )),
                 Box::new(RealmError::ActionFailed("roll failed".into())),
                 Box::new(RealmError::InvalidScenario("no opening".into())),
                 Box::new(RealmError::DirectorFailed("unknown handle".into())),

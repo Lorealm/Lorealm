@@ -1,9 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    pin::Pin,
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::HashMap, pin::Pin, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use futures_util::{Stream, StreamExt};
@@ -12,8 +7,8 @@ use lorealm_storage::{
     models::{
         AGENTS_SCOPE, ActivationState, AgentFilter, AgentGrant, AgentKind, AgentObservation,
         AgentSpec, AgentToolBinding, ChatRole, Conversation, ConversationMessage, Director,
-        EventKind, ImportRule, Realm, RealmAgent, RealmCast, RealmConfig, RealmDefinition,
-        RealmEvent, RealmSummary, RealmVersionInfo, ResolvedRealmConfig, Scenario, Snowflake,
+        EventKind, Realm, RealmAgent, RealmCast, RealmConfig, RealmDefinition, RealmEvent,
+        RealmResourceRef, RealmSummary, RealmVersionInfo, ResolvedRealmConfig, Scenario, Snowflake,
         StateDelta, TurnCommit, UserTool, VersionedSaveMode,
     },
 };
@@ -47,8 +42,8 @@ use super::{
         TurnPlan, capture, push_emitted_events, push_state_events, speech_channel,
     },
     validate::{
-        agent_required_imports, apply_turn_order, validate_director, validate_grants,
-        validate_playable, validate_scenario,
+        apply_turn_order, realm_resources, validate_director, validate_grants, validate_playable,
+        validate_scenario,
     },
     weaver,
 };
@@ -302,13 +297,7 @@ impl RealmService {
         let mut edit = self.get_realm_for_edit(realm_id, user_id).await?;
 
         let parts = self
-            .validate_agent(
-                user_id,
-                &req,
-                &edit.realm.definition.imports,
-                &edit.realm.definition.agents,
-                None,
-            )
+            .validate_agent(user_id, &req, &edit.realm.definition.agents, None)
             .await?;
 
         let agent = RealmAgent {
@@ -350,13 +339,7 @@ impl RealmService {
         let mut edit = self.get_realm_for_edit(realm_id, user_id).await?;
 
         let parts = self
-            .validate_agent(
-                user_id,
-                &req,
-                &edit.realm.definition.imports,
-                &edit.realm.definition.agents,
-                Some(agent_id),
-            )
+            .validate_agent(user_id, &req, &edit.realm.definition.agents, Some(agent_id))
             .await?;
 
         let slot = edit
@@ -536,37 +519,14 @@ impl RealmService {
         Ok(edit.realm.definition.agents)
     }
 
-    /// Full-replace edit of the realm's import manifest.
-    pub async fn set_imports(
+    /// Everything the realm's cast references, derived from the cast itself.
+    pub async fn list_resources(
         &self,
         realm_id: Snowflake,
         user_id: Snowflake,
-        imports: Vec<ImportRule>,
-    ) -> Result<Vec<ImportRule>, RealmError> {
-        let mut edit = self.get_realm_for_edit(realm_id, user_id).await?;
-
-        let mut seen = HashSet::new();
-        let imports: Vec<ImportRule> = imports
-            .into_iter()
-            .filter(|r| seen.insert((r.kind, r.resource_id)))
-            .collect();
-
-        for rule in &imports {
-            self.validate_import(user_id, rule).await?;
-        }
-
-        for agent in &edit.realm.definition.agents {
-            for (kind, id) in agent_required_imports(agent) {
-                if !seen.contains(&(kind, id)) {
-                    return Err(RealmError::ImportInUse(kind, id, agent.name.clone()));
-                }
-            }
-        }
-
-        edit.realm.definition.imports = imports.clone();
-        self.storage.save_realm(&edit.realm, edit.save_mode).await?;
-
-        Ok(imports)
+    ) -> Result<Vec<RealmResourceRef>, RealmError> {
+        let realm = self.owned_realm(realm_id, user_id).await?;
+        Ok(realm_resources(&realm.definition))
     }
 
     /// Instantiate a realm: create a conversation bound to it and pin the

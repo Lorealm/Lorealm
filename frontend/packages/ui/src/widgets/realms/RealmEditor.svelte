@@ -5,7 +5,6 @@
 	import FormattingTab from './FormattingTab.svelte';
 	import GraphTab from './GraphTab.svelte';
 	import HistoryTab from './HistoryTab.svelte';
-	import ImportsTab from './ImportsTab.svelte';
 	import OverviewTab from './OverviewTab.svelte';
 	import ScenariosTab from './ScenariosTab.svelte';
 	import { EDITOR_TABS, realmEditor, type EditorTab } from './realmEditor.svelte.js';
@@ -33,8 +32,6 @@
 	<div class="content">
 		{#if realmEditor.tab === 'overview'}
 			<OverviewTab />
-		{:else if realmEditor.tab === 'imports'}
-			<ImportsTab />
 		{:else if realmEditor.tab === 'cast'}
 			<CastTab />
 		{:else if realmEditor.tab === 'scenarios'}

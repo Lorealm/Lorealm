@@ -54,7 +54,7 @@ import type {
 	CreateAgentRequest,
 	CreateRealmRequest,
 	CreateScenarioRequest,
-	ImportRule,
+	RealmResourceRef,
 	NextTurn,
 	PlayerTurnRequest,
 	Realm,
@@ -409,11 +409,9 @@ export function createApiClient(platform: PlatformAPI) {
 			update: (realm_id: Snowflake, update: UpdateRealmRequest) =>
 				http.patch<Realm>(`/api/v1/realms/${realm_id}`, update),
 			delete: (realm_id: Snowflake) => http.delete(`/api/v1/realms/${realm_id}`),
-			imports: {
-				/** Full-replace of the realm's import manifest. */
-				set: (realm_id: Snowflake, imports: ImportRule[]) =>
-					http.put<Array<ImportRule>>(`/api/v1/realms/${realm_id}/imports`, imports)
-			},
+			/** Every resource the cast references, inferred server-side. */
+			resources: (realm_id: Snowflake) =>
+				http.get<Array<RealmResourceRef>>(`/api/v1/realms/${realm_id}/resources`),
 			/** A realm's formatting overrides. */
 			config: {
 				get: (realm_id: Snowflake) => http.get<RealmConfig>(`/api/v1/realms/${realm_id}/config`),

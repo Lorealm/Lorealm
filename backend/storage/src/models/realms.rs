@@ -36,10 +36,6 @@ pub struct RealmDefinition {
     pub name: String,
     #[serde(default)]
     pub description: String,
-    /// Which of the owner's resources exist inside the realm. Agents may only
-    /// reference imported resources.
-    #[serde(default)]
-    pub imports: Vec<ImportRule>,
     /// The cast, run in the same order as defined in the array
     #[serde(default)]
     pub agents: Vec<RealmAgent>,
@@ -119,9 +115,10 @@ pub struct Scenario {
     pub agent_overrides: HashMap<String, HashMap<String, serde_json::Value>>,
 }
 
+/// A kind of owner-scoped resource a realm's cast can reference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ImportKind {
+pub enum RealmResourceKind {
     Character,
     Lorebook,
     Template,
@@ -131,24 +128,25 @@ pub enum ImportKind {
     Widget,
 }
 
-impl ImportKind {
+impl RealmResourceKind {
     pub fn as_str(&self) -> &'static str {
         match self {
-            ImportKind::Character => "character",
-            ImportKind::Lorebook => "lorebook",
-            ImportKind::Template => "template",
-            ImportKind::Tool => "tool",
-            ImportKind::Persona => "persona",
-            ImportKind::ConnectionProfile => "connection profile",
-            ImportKind::Widget => "widget",
+            RealmResourceKind::Character => "character",
+            RealmResourceKind::Lorebook => "lorebook",
+            RealmResourceKind::Template => "template",
+            RealmResourceKind::Tool => "tool",
+            RealmResourceKind::Persona => "persona",
+            RealmResourceKind::ConnectionProfile => "connection profile",
+            RealmResourceKind::Widget => "widget",
         }
     }
 }
 
-/// Declares that a resource exists inside the realm.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ImportRule {
-    pub kind: ImportKind,
+/// One resource a realm references. Derived from the cast rather than
+/// declared: see `RealmDefinition::resources`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct RealmResourceRef {
+    pub kind: RealmResourceKind,
     pub resource_id: Snowflake,
 }
 

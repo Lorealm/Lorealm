@@ -14,7 +14,6 @@ export interface Realm {
 export interface RealmDefinition {
 	name: string;
 	description: string;
-	imports: ImportRule[];
 	agents: RealmAgent[];
 	scenarios: Scenario[];
 	/** How the realm picks who acts next. Null = round-robin over the whole cast. */
@@ -52,7 +51,7 @@ export interface CreateScenarioRequest {
 	agent_overrides?: Record<string, Record<string, JsonValue>>;
 }
 
-export type ImportKind =
+export type RealmResourceKind =
 	| 'character'
 	| 'lorebook'
 	| 'template'
@@ -61,8 +60,9 @@ export type ImportKind =
 	| 'connection_profile'
 	| 'widget';
 
-export interface ImportRule {
-	kind: ImportKind;
+/** One resource the realm references. Derived server-side from the cast. */
+export interface RealmResourceRef {
+	kind: RealmResourceKind;
 	resource_id: Snowflake;
 }
 
