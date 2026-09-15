@@ -1,32 +1,18 @@
 <script lang="ts">
 	import { realmStore } from '$lib/stores/realm.svelte.js';
-	import type { JsonValue, Snowflake } from '$lib/types/core.js';
+	import type { Snowflake } from '$lib/types/core.js';
 	import type { Scenario } from '$lib/types/realm.js';
-	import WeaverEditor from '$lib/weaver/editor/WeaverEditor.svelte';
 	import ContextField from '$lib/components/ContextField.svelte';
-	import FieldShell from '$lib/components/FieldShell.svelte';
-	import { ChevronDown, ChevronUp, Trash2, X } from '@lucide/svelte';
-
-	/** Placeholder for property/override value inputs. */
-	const VALUE_HINT = 'value — JSON, e.g. 3 or "shy"';
+	import { ChevronDown, ChevronUp, Trash2 } from '@lucide/svelte';
 
 	const scenarios = $derived(realmStore.realm?.definition.scenarios ?? []);
-	const agents = $derived(realmStore.agents.filter((a) => a.handle));
-
-	interface OverrideRow {
-		handle: string;
-		key: string;
-		value: string;
-	}
 
 	/** Explicit-save draft of the expanded scenario. */
 	interface Draft {
 		id: Snowflake;
 		name: string;
 		description: string;
-		seed_script: string;
 		opening: string;
-		overrides: OverrideRow[];
 	}
 
 	let expandedId = $state<Snowflake | null>(null);
@@ -34,28 +20,12 @@
 	let saving = $state(false);
 	let adding = $state(false);
 
-	const displayValue = (v: JsonValue) => (typeof v === 'string' ? v : JSON.stringify(v));
-	function parseValue(raw: string): JsonValue {
-		if (raw === '') return '';
-		try {
-			return JSON.parse(raw) as JsonValue;
-		} catch {
-			return raw;
-		}
-	}
-
 	function toDraft(s: Scenario): Draft {
-		const overrides: OverrideRow[] = [];
-		for (const [handle, props] of Object.entries(s.agent_overrides))
-			for (const [key, value] of Object.entries(props))
-				overrides.push({ handle, key, value: displayValue(value) });
 		return {
 			id: s.id,
 			name: s.name,
 			description: s.description,
-			seed_script: s.seed_script,
-			opening: s.opening ?? '',
-			overrides
+			opening: s.opening ?? ''
 		};
 	}
 
@@ -73,17 +43,10 @@
 		if (!draft || saving) return;
 		saving = true;
 		try {
-			const agent_overrides: Record<string, Record<string, JsonValue>> = {};
-			for (const row of draft.overrides) {
-				if (!row.handle || !row.key) continue;
-				(agent_overrides[row.handle] ??= {})[row.key] = parseValue(row.value);
-			}
 			await realmStore.updateScenario(draft.id, {
 				name: draft.name,
 				description: draft.description,
-				seed_script: draft.seed_script,
-				opening: draft.opening.trim() ? draft.opening : null,
-				agent_overrides
+				opening: draft.opening.trim() ? draft.opening : null
 			});
 		} finally {
 			saving = false;
@@ -120,9 +83,8 @@
 		<button type="button" class="primary" onclick={add} disabled={adding}>+ Add scenario</button>
 	</div>
 	<div class="hint">
-		A scenario is a named opening: its seed script writes the turn-zero world state (over the cast's
-		seeded properties), its opening narration lands in every main-channel feed, and its overrides
-		tweak agent properties for this opening only.
+		A scenario is a named opening, like a greeting on a character. Pick one to start a playthrough.
+		<code>{'{{turn:index}}'} == 0</code> can set up whatever this opening needs.
 	</div>
 
 	{#each scenarios as scenario (scenario.id)}
@@ -170,58 +132,6 @@
 						rows={4}
 						onchange={(v) => (draft!.opening = v)}
 					/>
-
-					<FieldShell label="Seed script" hint="weaver, committed as the turn-zero world state.">
-						{#snippet editor(fill: boolean)}
-							<div class="scriptBox" class:fill>
-								<WeaverEditor doc={draft!.seed_script} onChange={(v) => (draft!.seed_script = v)} />
-							</div>
-						{/snippet}
-					</FieldShell>
-
-					<div class="section">
-						<div class="sectionHead">
-							<span>
-								Agent overrides <em>— replace authored properties for this opening</em>
-							</span>
-							<button
-								type="button"
-								class="ghost"
-								disabled={agents.length === 0}
-								onclick={() =>
-									(draft!.overrides = [
-										...draft!.overrides,
-										{ handle: agents[0]?.handle ?? '', key: '', value: '' }
-									])}
-							>
-								+ Add override
-							</button>
-						</div>
-						{#each draft.overrides as row, i (i)}
-							<div class="overrideRow">
-								<select bind:value={row.handle}>
-									{#each agents as a (a.handle)}
-										<option value={a.handle}>{a.name} ({a.handle})</option>
-									{/each}
-								</select>
-								<input type="text" class="mono" placeholder="key" bind:value={row.key} />
-								<input type="text" class="mono" placeholder={VALUE_HINT} bind:value={row.value} />
-								<button
-									type="button"
-									class="icon"
-									title="Remove override"
-									onclick={() => (draft!.overrides = draft!.overrides.filter((_, j) => j !== i))}
-								>
-									<X size={14} />
-								</button>
-							</div>
-						{:else}
-							<div class="hint">No overrides — agents keep their authored properties.</div>
-						{/each}
-						{#if agents.length === 0}
-							<div class="hint">Overrides need cast agents with handles.</div>
-						{/if}
-					</div>
 
 					<div class="footer">
 						<button type="button" class="primary" onclick={save} disabled={saving}>
@@ -329,65 +239,6 @@
 	label > span {
 		font-size: var(--font-size-sm);
 		color: var(--color-text-secondary);
-	}
-
-	.sectionHead em {
-		color: var(--color-text-muted);
-		font-style: normal;
-	}
-
-	.scriptBox {
-		display: flex;
-	}
-
-	.scriptBox.fill {
-		flex: 1 1 auto;
-		min-height: 0;
-		height: 100%;
-	}
-
-	.mono {
-		font-family: var(--font-family-mono);
-	}
-
-	.section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-sm);
-	}
-
-	.sectionHead {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-
-	.sectionHead > span {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
-	}
-
-	.overrideRow {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-	}
-
-	.overrideRow > select {
-		width: 200px;
-		flex-shrink: 0;
-	}
-
-	.overrideRow > input {
-		flex: 1;
-		min-width: 0;
-	}
-
-	.ghost {
-		background: none;
-		border: none;
-		color: var(--color-text-accent);
-		padding: 2px 6px;
 	}
 
 	.hint {

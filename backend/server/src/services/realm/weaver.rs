@@ -4,7 +4,7 @@ use std::{
 };
 
 use lorealm_storage::models::{
-    AGENTS_SCOPE, AgentGrant, AgentKind, Param, RealmAgent, ScopePattern, StateDelta,
+    AGENTS_SCOPE, AgentGrant, AgentKind, Param, RealmAgent, Scenario, ScopePattern, StateDelta,
 };
 use serde_json::json;
 
@@ -28,7 +28,7 @@ pub(super) struct TurnInfo<'a> {
 }
 
 impl TurnInfo<'_> {
-    /// The turn a playthrough opens on: nothing has acted yet.
+    #[cfg(test)]
     pub(super) fn opening() -> Self {
         Self {
             index: 0,
@@ -37,8 +37,11 @@ impl TurnInfo<'_> {
     }
 }
 
-/// The `cast:` and `turn:` namespaces for one evaluation.
-pub(super) fn realm_view(agents: &[RealmAgent], turn: &TurnInfo) -> RealmView {
+pub(super) fn realm_view(
+    agents: &[RealmAgent],
+    turn: &TurnInfo,
+    scenario: Option<&Scenario>,
+) -> RealmView {
     let roster: Vec<&RealmAgent> = agents.iter().collect();
 
     let group = |of: &[&RealmAgent]| {
@@ -92,9 +95,20 @@ pub(super) fn realm_view(agents: &[RealmAgent], turn: &TurnInfo) -> RealmView {
         );
     }
 
+    // Absent when the realm has no openings
+    let scenario = scenario
+        .map(|s| {
+            HashMap::from([
+                ("id".to_string(), json!(s.id)),
+                ("name".to_string(), json!(s.name)),
+            ])
+        })
+        .unwrap_or_default();
+
     RealmView::new(HashMap::from([
         ("cast".to_string(), cast),
         ("turn".to_string(), this_turn),
+        ("scenario".to_string(), scenario),
     ]))
 }
 
@@ -197,31 +211,8 @@ pub(super) async fn run_scoped(
     Ok((outcome.to_output_string(), outcome.delta, outcome.events))
 }
 
-/// Compile and run a scenario's seed script, returning the pool it built.
-pub(super) fn run_seed(
-    source: &str,
-    pool: StatePool,
-    view: &RealmView,
-) -> Result<StatePool, RealmError> {
-    let host = WeaverHost::builder()
-        .profile(WeaverProfile::RealmSeed)
-        .realm(view.clone())
-        .pool(Arc::new(StdMutex::new(pool)))
-        .build();
-
-    let outcome = host
-        .evaluate_inline(compile_template(source).map_err(invalid_scenario)?)
-        .map_err(invalid_scenario)?;
-
-    Ok(outcome.pool)
-}
-
 fn action_failed(e: WeaverError) -> RealmError {
     RealmError::ActionFailed(e.to_string())
-}
-
-fn invalid_scenario(e: WeaverError) -> RealmError {
-    RealmError::InvalidScenario(format!("seed script: {e}"))
 }
 
 /// Whether an agent should run on its turn
@@ -349,7 +340,7 @@ mod tests {
 
     fn condition_passes(condition: &str, grants: Vec<AgentGrant>, world: &StatePool) -> bool {
         let a = agent(grants, Some(condition));
-        let view = realm_view(std::slice::from_ref(&a), &TurnInfo::opening());
+        let view = realm_view(std::slice::from_ref(&a), &TurnInfo::opening(), None);
         run_condition_passes(&a, world, &view)
     }
 
@@ -516,7 +507,7 @@ mod tests {
     #[test]
     fn the_roster_counts_the_cast_by_kind() {
         let agents = troupe();
-        let view = realm_view(&agents, &TurnInfo::opening());
+        let view = realm_view(&agents, &TurnInfo::opening(), None);
         let read = |scope: &str, name: &str| {
             ToolContext::new(HashMap::new(), Default::default())
                 .with_realm(Some(view.clone()))
@@ -548,7 +539,7 @@ mod tests {
     #[test]
     fn every_cast_member_is_addressable_by_handle() {
         let agents = troupe();
-        let view = realm_view(&agents, &TurnInfo::opening());
+        let view = realm_view(&agents, &TurnInfo::opening(), None);
         let ctx = ToolContext::new(HashMap::new(), Default::default()).with_realm(Some(view));
 
         for agent in &agents {
@@ -567,9 +558,40 @@ mod tests {
     }
 
     #[test]
+    fn the_picked_scenario_is_readable_and_gates_a_turn_zero_script() {
+        let scenario = lorealm_storage::models::Scenario {
+            id: lorealm_storage::models::Snowflake(70),
+            name: "Spring".into(),
+            description: String::new(),
+            opening: None,
+        };
+        let agents = troupe();
+        let view = realm_view(&agents, &TurnInfo::opening(), Some(&scenario));
+        let ctx = ToolContext::new(HashMap::new(), Default::default()).with_realm(Some(view));
+
+        assert_eq!(
+            ctx.resolve_variable("scenario", "name").unwrap(),
+            Some(weaver_lang::Value::String("Spring".into()))
+        );
+        assert_eq!(
+            ctx.resolve_variable("scenario", "id").unwrap(),
+            Some(weaver_lang::Value::String("70".into()))
+        );
+    }
+
+    #[test]
+    fn a_realm_without_an_opening_has_no_scenario_to_read() {
+        let agents = troupe();
+        let view = realm_view(&agents, &TurnInfo::opening(), None);
+        let ctx = ToolContext::new(HashMap::new(), Default::default()).with_realm(Some(view));
+
+        assert_eq!(ctx.resolve_variable("scenario", "name").unwrap(), None);
+    }
+
+    #[test]
     fn a_run_condition_reads_the_cast_around_it() {
         let agents = troupe();
-        let view = realm_view(&agents, &TurnInfo::opening());
+        let view = realm_view(&agents, &TurnInfo::opening(), None);
         let mut alice = agents[2].clone();
         alice.run_condition = Some("{{cast:llm.count}} == 2".into());
 
@@ -579,7 +601,7 @@ mod tests {
     #[test]
     fn a_director_names_a_handle() {
         let agents = troupe();
-        let view = realm_view(&agents, &TurnInfo::opening());
+        let view = realm_view(&agents, &TurnInfo::opening(), None);
         let world = StatePool::new();
 
         assert_eq!(
@@ -610,7 +632,7 @@ mod tests {
     #[tokio::test]
     async fn a_script_agent_reads_the_turn_it_runs_on() {
         let agents = troupe();
-        let view = realm_view(&agents, &TurnInfo::opening());
+        let view = realm_view(&agents, &TurnInfo::opening(), None);
         let (_, delta, _) = run_scoped(
             r#"$[set_var("run:idx", @[math.mod(a: {{turn:index}}, b: {{cast:llm.count}})])]"#,
             &[],
@@ -623,20 +645,6 @@ mod tests {
         .unwrap();
 
         assert_eq!(delta.writes["run"]["idx"], json!(0));
-    }
-
-    #[test]
-    fn run_seed_writes_into_the_pool_without_an_actor() {
-        let view = RealmView::default();
-        let pool = run_seed(
-            r#"$[set_var("world:season", "winter")]"#,
-            StatePool::new(),
-            &view,
-        )
-        .unwrap();
-        assert_eq!(pool["world"]["season"], json!("winter"));
-        // `self:` has no meaning in a seed script.
-        assert!(run_seed(r#"$[set_var("self:x", 1)]"#, StatePool::new(), &view).is_err());
     }
 
     #[test]

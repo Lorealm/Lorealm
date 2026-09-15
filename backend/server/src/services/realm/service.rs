@@ -406,20 +406,13 @@ impl RealmService {
         req: CreateScenarioRequest,
     ) -> Result<Scenario, RealmError> {
         let mut edit = self.get_realm_for_edit(realm_id, user_id).await?;
-        validate_scenario(
-            &req.name,
-            &req.seed_script,
-            &req.agent_overrides,
-            &edit.realm.definition.agents,
-        )?;
+        validate_scenario(&req.name)?;
 
         let scenario = Scenario {
             id: self.snowflake.generate(),
             name: req.name,
             description: req.description,
-            seed_script: req.seed_script,
             opening: req.opening,
-            agent_overrides: req.agent_overrides,
         };
         edit.realm.definition.scenarios.push(scenario.clone());
         self.storage.save_realm(&edit.realm, edit.save_mode).await?;
@@ -436,12 +429,7 @@ impl RealmService {
         req: CreateScenarioRequest,
     ) -> Result<Scenario, RealmError> {
         let mut edit = self.get_realm_for_edit(realm_id, user_id).await?;
-        validate_scenario(
-            &req.name,
-            &req.seed_script,
-            &req.agent_overrides,
-            &edit.realm.definition.agents,
-        )?;
+        validate_scenario(&req.name)?;
 
         let slot = edit
             .realm
@@ -455,9 +443,7 @@ impl RealmService {
             id: slot.id,
             name: req.name,
             description: req.description,
-            seed_script: req.seed_script,
             opening: req.opening,
-            agent_overrides: req.agent_overrides,
         };
         *slot = scenario.clone();
         self.storage.save_realm(&edit.realm, edit.save_mode).await?;
@@ -637,6 +623,7 @@ impl RealmService {
                     version_id: Some(realm.current_version_id),
                     agents: agents.clone(),
                     director: realm.definition.director.clone(),
+                    scenario: scenario.clone(),
                 },
             )
             .await?;
@@ -652,7 +639,12 @@ impl RealmService {
         })
     }
 
-    /// Commit the playthrough's scenario data
+    /// Commit the playthrough's opening: the cast's declared properties as
+    /// the turn-zero state delta, and the scenario's narration if it has one.
+    ///
+    /// Nothing scripted runs here. State an opening needs beyond the cast's
+    /// own properties is a script agent's job, gated on `{{turn:index}} == 0`
+    /// and branching on `scenario:`.
     async fn seed_commit(
         &self,
         convo: &Conversation,
@@ -660,34 +652,15 @@ impl RealmService {
         scenario: Option<&Scenario>,
     ) -> Result<Option<ConversationMessage>, RealmError> {
         let mut vars: HashMap<String, serde_json::Value> = HashMap::new();
-        for agent in agents.iter().filter(|a| !a.handle.is_empty()) {
+        for agent in agents {
             for (k, v) in &agent.properties {
                 write_var(&mut vars, &format!("{}.{k}", agent.handle), v);
-            }
-            if let Some(overrides) = scenario.and_then(|s| s.agent_overrides.get(&agent.handle)) {
-                for (k, v) in overrides {
-                    write_var(&mut vars, &format!("{}.{k}", agent.handle), v);
-                }
-            }
-        }
-        if let Some(s) = scenario {
-            for handle in s.agent_overrides.keys() {
-                if !agents.iter().any(|a| &a.handle == handle) {
-                    tracing::warn!(scenario = %s.id, handle, "scenario overrides an unknown handle");
-                }
             }
         }
 
         let mut pool = StatePool::new();
         if !vars.is_empty() {
             pool.insert(AGENTS_SCOPE.to_string(), vars);
-        }
-        if let Some(script) = scenario
-            .map(|s| s.seed_script.as_str())
-            .filter(|s| !s.trim().is_empty())
-        {
-            let view = weaver::realm_view(agents, &weaver::TurnInfo::opening());
-            pool = weaver::run_seed(script, pool, &view)?;
         }
 
         let opening = scenario
@@ -1681,6 +1654,7 @@ impl<'a> Stage<'a> {
                     .count(),
                 last: last.zip(path.last().map(|m| m.content.as_str())),
             },
+            cast.scenario.as_ref(),
         );
 
         Self {
@@ -1830,6 +1804,7 @@ mod tests {
             version_id: None,
             agents,
             director,
+            scenario: None,
         }
     }
 

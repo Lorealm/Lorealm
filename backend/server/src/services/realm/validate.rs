@@ -290,12 +290,7 @@ impl RealmService {
         }
 
         for scenario in &definition.scenarios {
-            validate_scenario(
-                &scenario.name,
-                &scenario.seed_script,
-                &scenario.agent_overrides,
-                &definition.agents,
-            )?;
+            validate_scenario(&scenario.name)?;
         }
 
         if let Some(director) = &definition.director {
@@ -341,34 +336,11 @@ pub(super) fn validate_properties(
     Ok(())
 }
 
-/// A scenario needs a name, its seed script must compile and its overrides must
-/// target current cast handles with valid property keys.
-pub(super) fn validate_scenario(
-    name: &str,
-    seed_script: &str,
-    agent_overrides: &HashMap<String, HashMap<String, serde_json::Value>>,
-    cast: &[RealmAgent],
-) -> Result<(), RealmError> {
+pub(super) fn validate_scenario(name: &str) -> Result<(), RealmError> {
     if name.trim().is_empty() {
         return Err(RealmError::InvalidScenario(
             "a scenario needs a name".into(),
         ));
-    }
-    if !seed_script.trim().is_empty() {
-        weaver_lang::CompiledTemplate::compile(seed_script).map_err(|errors| {
-            RealmError::InvalidScenario(format!(
-                "seed script failed to compile: {}",
-                describe_parse_errors(seed_script, &errors)
-            ))
-        })?;
-    }
-    for (handle, props) in agent_overrides {
-        if !cast.iter().any(|a| &a.handle == handle) {
-            return Err(RealmError::InvalidScenario(format!(
-                "override targets unknown agent handle '{handle}'"
-            )));
-        }
-        validate_properties(props)?;
     }
     Ok(())
 }

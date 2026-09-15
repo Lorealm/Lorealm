@@ -35,21 +35,20 @@ export type AgentFilter =
 	| { match: 'kind'; kind: AgentKind }
 	| { match: 'handles'; handles: string[] };
 
+/**
+ * A named opening, like a character greeting.
+ */
 export interface Scenario {
 	id: Snowflake;
 	name: string;
 	description: string;
-	seed_script: string;
 	opening?: string | null;
-	agent_overrides: Record<string, Record<string, JsonValue>>;
 }
 
 export interface CreateScenarioRequest {
 	name: string;
 	description?: string;
-	seed_script?: string;
 	opening?: string | null;
-	agent_overrides?: Record<string, Record<string, JsonValue>>;
 }
 
 export type RealmResourceKind =

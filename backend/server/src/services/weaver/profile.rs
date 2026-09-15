@@ -32,8 +32,6 @@ pub enum WeaverProfile {
     Command,
     /// A realm script agent's body, or a realm action.
     RealmScript,
-    /// A scenario's seed script, run once at instantiation.
-    RealmSeed,
     /// An agent's `run_condition`, evaluated to decide whether it acts.
     RealmCondition,
     /// A realm's `Director::Script`, evaluated to decide who acts.
@@ -50,7 +48,6 @@ impl WeaverProfile {
         Self::ChatTurn,
         Self::Command,
         Self::RealmScript,
-        Self::RealmSeed,
         Self::RealmCondition,
         Self::RealmDirector,
         Self::WidgetRender,
@@ -69,8 +66,6 @@ impl WeaverProfile {
             Self::Command => Caps::EFFECTS.union(Caps::GENERATION),
             // A script agent speaks through events only.
             Self::RealmScript => Caps::EVENTS,
-            // A seed script only writes the pool it is handed.
-            Self::RealmSeed => Caps::empty(),
             // A condition only reads.
             Self::RealmCondition => Caps::empty(),
             // A director only reads, and answers with a handle.

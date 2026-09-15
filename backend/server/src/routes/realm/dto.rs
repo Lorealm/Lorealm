@@ -72,12 +72,7 @@ pub struct CreateScenarioRequest {
     #[serde(default)]
     pub description: String,
     #[serde(default)]
-    pub seed_script: String,
-    #[serde(default)]
     pub opening: Option<String>,
-    /// Property overrides keyed by agent handle.
-    #[serde(default)]
-    pub agent_overrides: HashMap<String, HashMap<String, serde_json::Value>>,
 }
 
 #[derive(Deserialize)]
