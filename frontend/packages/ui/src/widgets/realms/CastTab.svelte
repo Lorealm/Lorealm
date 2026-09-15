@@ -39,7 +39,7 @@
 				script: newKind === 'script' ? '$[set_var("state:placeholder", "edit me")]' : null
 			});
 			if (saved) {
-				realmEditor.expandedAgentId = saved.id;
+				realmEditor.expandedHandle = saved.handle;
 				newTemplateId = '';
 				newProfileId = '';
 			}
@@ -78,7 +78,7 @@
 		<div class="hint">Import a template and a connection profile first.</div>
 	{/if}
 
-	{#each agents as agent, i (agent.id)}
+	{#each agents as agent, i (agent.handle)}
 		<AgentCard {agent} index={i} total={agents.length} />
 	{:else}
 		<div class="empty">No agents yet — add one to build the cast.</div>

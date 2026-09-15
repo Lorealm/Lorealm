@@ -16,10 +16,12 @@ pub enum RealmError {
     NoAgents(Snowflake),
     #[error("no agent's run condition passed this turn")]
     NoRunnableAgent,
-    #[error("not your turn: {0}")]
-    NotYourTurn(Snowflake),
+    #[error("not your turn: it is \"{0}\"'s")]
+    NotYourTurn(String),
     #[error("malformed agent: {1} ({0})")]
-    MalformedAgent(Snowflake, String),
+    MalformedAgent(String, String),
+    #[error("no cast member with handle \"{0}\"")]
+    NoSuchAgent(String),
     #[error("{0} not found: {1}")]
     NotFound(TargetType, Snowflake),
     #[error("{0} not owned: {1}")]
@@ -71,6 +73,7 @@ impl DomainError for RealmError {
             Self::NoRunnableAgent => "realm.no_runnable_agent",
             Self::NotYourTurn(_) => "realm.not_your_turn",
             Self::MalformedAgent(_, _) => "realm.malformed_agent",
+            Self::NoSuchAgent(_) => "realm.no_such_agent",
             Self::NotFound(_, _) | Self::NotOwned(_, _) => "realm.not_found",
             Self::InvalidAgent(_) => "realm.invalid_agent",
             Self::InvalidTurn(_) => "realm.invalid_turn",
@@ -96,6 +99,7 @@ impl DomainError for RealmError {
             Self::NotRealmConversation(_)
             | Self::NoAgents(_)
             | Self::MalformedAgent(_, _)
+            | Self::NoSuchAgent(_)
             | Self::InvalidAgent(_)
             | Self::InvalidTurn(_)
             | Self::ToolNotBound(_)
@@ -123,6 +127,9 @@ impl DomainError for RealmError {
                 "No agent could run this turn — every run condition was false.".into()
             }
             Self::NotYourTurn(_) => "It isn't this agent's turn.".into(),
+            Self::NoSuchAgent(handle) => {
+                Cow::Owned(format!("No cast member is called \"{handle}\"."))
+            }
             Self::MalformedAgent(_, hint) => {
                 sentence(format!("This agent is misconfigured: {hint}"))
             }
@@ -153,11 +160,13 @@ impl DomainError for RealmError {
             Self::NotFound(target, id) | Self::NotOwned(target, id) => {
                 Some(ErrorDetails::target(*target, *id))
             }
-            Self::NotRealmConversation(id) | Self::NotYourTurn(id) => {
+            Self::NotRealmConversation(id) => {
                 Some(ErrorDetails::target(TargetType::Conversation, *id))
             }
             Self::NoAgents(id) => Some(ErrorDetails::target(TargetType::Realm, *id)),
-            Self::MalformedAgent(id, _) => Some(ErrorDetails::target(TargetType::RealmAgent, *id)),
+            Self::NotYourTurn(_) | Self::MalformedAgent(_, _) | Self::NoSuchAgent(_) => {
+                Some(ErrorDetails::resource(TargetType::RealmAgent))
+            }
             Self::ToolNotBound(id) => Some(ErrorDetails::target(TargetType::UserTool, *id)),
             Self::InvalidAgent(_) => Some(ErrorDetails::resource(TargetType::RealmAgent)),
             Self::InvalidScenario(_) => Some(ErrorDetails::resource(TargetType::Scenario)),

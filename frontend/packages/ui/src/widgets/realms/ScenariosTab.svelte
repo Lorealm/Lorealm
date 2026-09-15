@@ -200,7 +200,7 @@
 						{#each draft.overrides as row, i (i)}
 							<div class="overrideRow">
 								<select bind:value={row.handle}>
-									{#each agents as a (a.id)}
+									{#each agents as a (a.handle)}
 										<option value={a.handle}>{a.name} ({a.handle})</option>
 									{/each}
 								</select>

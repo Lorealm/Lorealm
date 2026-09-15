@@ -272,18 +272,18 @@ export function createApiClient(platform: PlatformAPI) {
 				playerTurn: (conversation_id: Snowflake, turn: PlayerTurnRequest) =>
 					http.post<TurnResult>(`/api/v1/chat/${conversation_id}/turn`, turn),
 				agents: {
-					observations: (conversation_id: Snowflake, agent_id: Snowflake, before?: Snowflake) =>
+					observations: (conversation_id: Snowflake, handle: string, before?: Snowflake) =>
 						http.get<Array<AgentObservation>>(
-							`/api/v1/chat/${conversation_id}/agents/${agent_id}/observations${before !== undefined ? `?before=${before}` : ''}`
+							`/api/v1/chat/${conversation_id}/agents/${handle}/observations${before !== undefined ? `?before=${before}` : ''}`
 						),
-					actions: (conversation_id: Snowflake, agent_id: Snowflake) =>
+					actions: (conversation_id: Snowflake, handle: string) =>
 						http.get<Array<ActionSpec>>(
-							`/api/v1/chat/${conversation_id}/agents/${agent_id}/actions`
+							`/api/v1/chat/${conversation_id}/agents/${handle}/actions`
 						),
 					/** The agent's granted slice: at `at` when given, else the active leaf. */
-					state: (conversation_id: Snowflake, agent_id: Snowflake, at?: Snowflake) =>
+					state: (conversation_id: Snowflake, handle: string, at?: Snowflake) =>
 						http.get<StateSlice>(
-							`/api/v1/chat/${conversation_id}/agents/${agent_id}/state${at !== undefined ? `?at=${at}` : ''}`
+							`/api/v1/chat/${conversation_id}/agents/${handle}/state${at !== undefined ? `?at=${at}` : ''}`
 						)
 				}
 			},
@@ -431,22 +431,22 @@ export function createApiClient(platform: PlatformAPI) {
 					http.get<Array<RealmAgent>>(`/api/v1/realms/${realm_id}/agents`),
 				create: (realm_id: Snowflake, create: CreateAgentRequest) =>
 					http.post<RealmAgent>(`/api/v1/realms/${realm_id}/agents`, create),
-				update: (realm_id: Snowflake, agent_id: Snowflake, update: CreateAgentRequest) =>
-					http.put<RealmAgent>(`/api/v1/realms/${realm_id}/agents/${agent_id}`, update),
+				update: (realm_id: Snowflake, handle: string, update: CreateAgentRequest) =>
+					http.put<RealmAgent>(`/api/v1/realms/${realm_id}/agents/${handle}`, update),
 				/** Rewrite the turn order; must be a permutation of the cast's ids. */
-				reorder: (realm_id: Snowflake, order: Snowflake[]) =>
+				reorder: (realm_id: Snowflake, order: string[]) =>
 					http.put<Array<RealmAgent>>(`/api/v1/realms/${realm_id}/agents/order`, order),
-				delete: (realm_id: Snowflake, agent_id: Snowflake) =>
-					http.delete(`/api/v1/realms/${realm_id}/agents/${agent_id}`),
+				delete: (realm_id: Snowflake, handle: string) =>
+					http.delete(`/api/v1/realms/${realm_id}/agents/${handle}`),
 				grants: {
-					get: (realm_id: Snowflake, agent_id: Snowflake) =>
-						http.get<Array<AgentGrant>>(`/api/v1/realms/${realm_id}/agents/${agent_id}/grants`),
-					set: (realm_id: Snowflake, agent_id: Snowflake, grants: AgentGrant[]) =>
-						http.put(`/api/v1/realms/${realm_id}/agents/${agent_id}/grants`, grants)
+					get: (realm_id: Snowflake, handle: string) =>
+						http.get<Array<AgentGrant>>(`/api/v1/realms/${realm_id}/agents/${handle}/grants`),
+					set: (realm_id: Snowflake, handle: string, grants: AgentGrant[]) =>
+						http.put(`/api/v1/realms/${realm_id}/agents/${handle}/grants`, grants)
 				},
 				/** The agent's action space as currently authored in the preset. */
-				actions: (realm_id: Snowflake, agent_id: Snowflake) =>
-					http.get<Array<ActionSpec>>(`/api/v1/realms/${realm_id}/agents/${agent_id}/actions`)
+				actions: (realm_id: Snowflake, handle: string) =>
+					http.get<Array<ActionSpec>>(`/api/v1/realms/${realm_id}/agents/${handle}/actions`)
 			},
 			scenarios: {
 				create: (realm_id: Snowflake, create: CreateScenarioRequest) =>

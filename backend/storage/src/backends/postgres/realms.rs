@@ -272,20 +272,20 @@ impl RealmStorage for PostgresStorage {
     async fn list_observations(
         &self,
         conversation_id: Snowflake,
-        agent_id: Snowflake,
+        agent_handle: &str,
         before: Option<Snowflake>,
         limit: i64,
     ) -> Result<Vec<AgentObservation>, StorageError> {
         let mut rows = sqlx::query_as::<_, AgentObservation>(
-            "SELECT id, conversation_id, message_id, agent_id, event_id, role, content
+            "SELECT id, conversation_id, message_id, agent_handle, event_id, role, content
              FROM agent_observations
-             WHERE conversation_id = $1 AND agent_id = $2
+             WHERE conversation_id = $1 AND agent_handle = $2
                AND ($3::BIGINT IS NULL OR id < $3)
              ORDER BY id DESC
              LIMIT $4",
         )
         .bind(conversation_id)
-        .bind(agent_id)
+        .bind(agent_handle)
         .bind(before)
         .bind(limit)
         .fetch_all(&self.pool)
@@ -296,16 +296,16 @@ impl RealmStorage for PostgresStorage {
 
     async fn list_observations_for_messages(
         &self,
-        agent_id: Snowflake,
+        agent_handle: &str,
         message_ids: &[Snowflake],
     ) -> Result<Vec<AgentObservation>, StorageError> {
         Ok(sqlx::query_as::<_, AgentObservation>(
-            "SELECT id, conversation_id, message_id, agent_id, event_id, role, content
+            "SELECT id, conversation_id, message_id, agent_handle, event_id, role, content
              FROM agent_observations
-             WHERE agent_id = $1 AND message_id = ANY($2)
+             WHERE agent_handle = $1 AND message_id = ANY($2)
              ORDER BY id",
         )
-        .bind(agent_id)
+        .bind(agent_handle)
         .bind(message_ids)
         .fetch_all(&self.pool)
         .await?)
@@ -324,7 +324,7 @@ impl RealmStorage for PostgresStorage {
             .bind(e.conversation_id)
             .bind(e.message_id)
             .bind(e.seq)
-            .bind(e.source)
+            .bind(&e.source)
             .bind(&e.channel)
             .bind(&e.kind)
             .bind(&e.content)
@@ -336,13 +336,13 @@ impl RealmStorage for PostgresStorage {
         for o in &commit.observations {
             sqlx::query(
                 "INSERT INTO agent_observations
-                     (id, conversation_id, message_id, agent_id, event_id, role, content)
+                     (id, conversation_id, message_id, agent_handle, event_id, role, content)
                  VALUES ($1, $2, $3, $4, $5, $6, $7)",
             )
             .bind(o.id)
             .bind(o.conversation_id)
             .bind(o.message_id)
-            .bind(o.agent_id)
+            .bind(&o.agent_handle)
             .bind(o.event_id)
             .bind(&o.role)
             .bind(&o.content)

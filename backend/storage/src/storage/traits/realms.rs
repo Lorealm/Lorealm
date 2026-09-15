@@ -76,7 +76,7 @@ pub trait RealmStorage {
     async fn list_observations(
         &self,
         conversation_id: Snowflake,
-        agent_id: Snowflake,
+        agent_handle: &str,
         before: Option<Snowflake>,
         limit: i64,
     ) -> Result<Vec<AgentObservation>, StorageError>;
@@ -85,7 +85,7 @@ pub trait RealmStorage {
     /// oldest-first by observation id.
     async fn list_observations_for_messages(
         &self,
-        agent_id: Snowflake,
+        agent_handle: &str,
         message_ids: &[Snowflake],
     ) -> Result<Vec<AgentObservation>, StorageError>;
 

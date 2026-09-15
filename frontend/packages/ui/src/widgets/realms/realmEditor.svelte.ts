@@ -274,7 +274,7 @@ export function buildGraph(realm: Realm): GraphModel {
 
 	const nodes: GraphModel['nodes'] = [];
 	agents.forEach((a) =>
-		nodes.push({ id: 'agent:' + a.id, type: 'agent', label: a.name, unused: false })
+		nodes.push({ id: 'agent:' + a.handle, type: 'agent', label: a.name, unused: false })
 	);
 	tools.forEach((t) =>
 		nodes.push({
@@ -314,16 +314,21 @@ export function buildGraph(realm: Realm): GraphModel {
 	agents.forEach((a) => {
 		a.grants.forEach((g) => {
 			if (!g.channel) return;
-			const key = a.id + '|' + scopeRoot(g.channel);
+			const key = a.handle + '|' + scopeRoot(g.channel);
 			if (seenPool[key]) return;
 			seenPool[key] = true;
-			edges.push({ source: 'agent:' + a.id, target: 'pool:' + scopeRoot(g.channel) });
+			edges.push({ source: 'agent:' + a.handle, target: 'pool:' + scopeRoot(g.channel) });
 		});
-		a.tools.forEach((tb) => edges.push({ source: 'agent:' + a.id, target: 'tool:' + tb.tool_id }));
-		a.lorebooks.forEach((l) => edges.push({ source: 'agent:' + a.id, target: 'lorebook:' + l }));
+		a.tools.forEach((tb) =>
+			edges.push({ source: 'agent:' + a.handle, target: 'tool:' + tb.tool_id })
+		);
+		a.lorebooks.forEach((l) =>
+			edges.push({ source: 'agent:' + a.handle, target: 'lorebook:' + l })
+		);
 		if (a.character_id)
-			edges.push({ source: 'agent:' + a.id, target: 'character:' + a.character_id });
-		if (a.template_id) edges.push({ source: 'agent:' + a.id, target: 'template:' + a.template_id });
+			edges.push({ source: 'agent:' + a.handle, target: 'character:' + a.character_id });
+		if (a.template_id)
+			edges.push({ source: 'agent:' + a.handle, target: 'template:' + a.template_id });
 	});
 
 	const sig =
@@ -381,7 +386,8 @@ export function buildGraph(realm: Realm): GraphModel {
  * data lives in {@link realmStore}; this only tracks what's on screen. */
 class RealmEditorUi {
 	tab = $state<EditorTab>('overview');
-	expandedAgentId = $state<Snowflake | null>(null);
+	/** The cast member whose card is open, by handle. */
+	expandedHandle = $state<string | null>(null);
 	selectedAccessNode = $state<{ type: 'agent' | 'scope'; id: string } | null>(null);
 	graphFilters = $state<Record<GraphType, boolean>>({
 		agent: true,
@@ -395,7 +401,7 @@ class RealmEditorUi {
 
 	reset() {
 		this.tab = 'overview';
-		this.expandedAgentId = null;
+		this.expandedHandle = null;
 		this.selectedAccessNode = null;
 		this.graphSelectedNode = null;
 		this.graphFilters = {
@@ -412,8 +418,8 @@ class RealmEditorUi {
 		this.tab = tab;
 	}
 
-	toggleAgent(id: Snowflake) {
-		this.expandedAgentId = this.expandedAgentId === id ? null : id;
+	toggleAgent(handle: string) {
+		this.expandedHandle = this.expandedHandle === handle ? null : handle;
 	}
 
 	toggleAccessNode(type: 'agent' | 'scope', id: string) {

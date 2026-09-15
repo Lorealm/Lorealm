@@ -2,20 +2,16 @@
 	import { realmStore } from '$lib/stores/realm.svelte.js';
 	import type { Component } from 'svelte';
 	import { navigator, type StudioResource } from '$lib/navigation/navigator.js';
-	import type { Snowflake } from '$lib/types/core.js';
 	import type { RealmResourceKind } from '$lib/types/realm.js';
 	import {
 		BookOpen,
 		Bot,
 		Database,
 		FileText,
-		LayoutDashboard,
 		Pencil,
-		Plug,
 		Repeat,
 		Terminal,
 		User,
-		CircleUser,
 		Wrench,
 		X
 	} from '@lucide/svelte';
@@ -68,8 +64,8 @@
 	};
 
 	const agentInsp = $derived.by(() => {
-		if (tab !== 'cast' || !realmEditor.expandedAgentId) return null;
-		const a = realmStore.agents.find((x) => x.id === realmEditor.expandedAgentId);
+		if (tab !== 'cast' || !realmEditor.expandedHandle) return null;
+		const a = realmStore.agents.find((x) => x.handle === realmEditor.expandedHandle);
 		if (!a) return null;
 		const meta = KIND[a.kind];
 		return {
@@ -102,7 +98,7 @@
 		const select = (id: string) => realmEditor.selectGraphNode(id);
 
 		if (gt === 'agent') {
-			const a = agents.find((x) => x.id === gid);
+			const a = agents.find((x) => x.handle === gid);
 			if (!a) return null;
 			const meta = KIND[a.kind];
 			const groups: Group[] = [];
@@ -119,7 +115,7 @@
 							title: 'Toggle read / read-write',
 							run: () =>
 								realmStore.editAgent(
-									a.id,
+									a.handle,
 									(x) =>
 										(x.grants[gi].access = x.grants[gi].access === 'read' ? 'read_write' : 'read')
 								)
@@ -128,7 +124,10 @@
 							icon: X,
 							title: 'Remove grant',
 							run: () =>
-								realmStore.editAgent(a.id, (x) => (x.grants = x.grants.filter((_, j) => j !== gi)))
+								realmStore.editAgent(
+									a.handle,
+									(x) => (x.grants = x.grants.filter((_, j) => j !== gi))
+								)
 						}
 					]
 				}))
@@ -145,7 +144,7 @@
 							title: 'Unbind tool',
 							run: () =>
 								realmStore.editAgent(
-									a.id,
+									a.handle,
 									(x) => (x.tools = x.tools.filter((t) => t.tool_id !== tb.tool_id))
 								)
 						}
@@ -164,7 +163,7 @@
 							title: 'Unbind lorebook',
 							run: () =>
 								realmStore.editAgent(
-									a.id,
+									a.handle,
 									(x) => (x.lorebooks = x.lorebooks.filter((y) => y !== l))
 								)
 						}
@@ -208,7 +207,7 @@
 					label: 'Open in Cast',
 					run: () => {
 						realmEditor.setTab('cast');
-						realmEditor.expandedAgentId = a.id;
+						realmEditor.expandedHandle = a.handle;
 					}
 				},
 				groups
@@ -246,7 +245,7 @@
 					return {
 						label: a.name,
 						badge: g.access === 'read_write' ? 'R/W' : 'R',
-						onSelect: () => select('agent:' + a.id),
+						onSelect: () => select('agent:' + a.handle),
 						actions: isPool
 							? []
 							: [
@@ -255,7 +254,7 @@
 										title: 'Toggle read / read-write',
 										run: () =>
 											realmStore.editAgent(
-												a.id,
+												a.handle,
 												(x) =>
 													(x.grants[gi].access =
 														x.grants[gi].access === 'read' ? 'read_write' : 'read')
@@ -266,7 +265,7 @@
 										title: 'Remove grant',
 										run: () =>
 											realmStore.editAgent(
-												a.id,
+												a.handle,
 												(x) => (x.grants = x.grants.filter((_, j) => j !== gi))
 											)
 									}
@@ -304,13 +303,13 @@
 						empty: 'Imported, but no agent uses it',
 						rows: users.map((a) => ({
 							label: a.name,
-							onSelect: () => select('agent:' + a.id),
+							onSelect: () => select('agent:' + a.handle),
 							actions: [
 								{
 									icon: X,
 									title: 'Unbind',
 									run: () =>
-										realmStore.editAgent(a.id, (x) =>
+										realmStore.editAgent(a.handle, (x) =>
 											gt === 'tool'
 												? (x.tools = x.tools.filter((t) => t.tool_id !== gid))
 												: (x.lorebooks = x.lorebooks.filter((l) => l !== gid))
@@ -347,7 +346,7 @@
 					empty: 'Imported, but no agent uses it',
 					rows: users.map((a) => ({
 						label: a.name,
-						onSelect: () => select('agent:' + a.id),
+						onSelect: () => select('agent:' + a.handle),
 						actions: []
 					}))
 				}
@@ -367,13 +366,7 @@
 	});
 
 	const mode = $derived(
-		!realm
-			? 'onboarding'
-			: graphInsp
-				? 'graph'
-				: agentInsp
-					? 'agent'
-					: 'summary'
+		!realm ? 'onboarding' : graphInsp ? 'graph' : agentInsp ? 'agent' : 'summary'
 	);
 </script>
 

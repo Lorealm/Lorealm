@@ -32,11 +32,11 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         .route("/{realm_id}/agents", get(handlers::list_agents))
         .route("/{realm_id}/resources", get(handlers::list_resources))
         .route(
-            "/{realm_id}/agents/{agent_id}/grants",
+            "/{realm_id}/agents/{handle}/grants",
             get(handlers::get_grants),
         )
         .route(
-            "/{realm_id}/agents/{agent_id}/actions",
+            "/{realm_id}/agents/{handle}/actions",
             get(handlers::list_actions),
         )
         .layer(axum::middleware::from_fn_with_state(
@@ -58,11 +58,11 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         .route("/{realm_id}/agents", post(handlers::create_agent))
         .route("/{realm_id}/agents/order", put(handlers::reorder_agents))
         .route(
-            "/{realm_id}/agents/{agent_id}",
+            "/{realm_id}/agents/{handle}",
             put(handlers::update_agent).delete(handlers::delete_agent),
         )
         .route(
-            "/{realm_id}/agents/{agent_id}/grants",
+            "/{realm_id}/agents/{handle}/grants",
             put(handlers::set_grants),
         )
         .route("/{realm_id}/scenarios", post(handlers::create_scenario))
