@@ -5,9 +5,7 @@
 	import { navigator } from '$lib/navigation/navigator.js';
 	import { realmStore } from '$lib/stores/realm.svelte.js';
 	import { ArrowLeft, Play } from '@lucide/svelte';
-	import RealmEditor from './RealmEditor.svelte';
 	import RealmList from './RealmList.svelte';
-	import { realmEditor } from './realmEditor.svelte.js';
 
 	const api = useApi();
 
@@ -26,7 +24,6 @@
 		const id = realm?.id ?? null;
 		if (id !== lastRealmId) {
 			lastRealmId = id;
-			realmEditor.reset();
 		}
 	});
 
@@ -107,7 +104,6 @@
 			{/if}
 		</div>
 	</div>
-
 </div>
 
 <style>
