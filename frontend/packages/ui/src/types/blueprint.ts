@@ -1,5 +1,5 @@
 import type { Snowflake } from './core.js';
-import type { Director, RealmResourceKind } from './realm.js';
+import type { AgentAccess, Director, RealmResourceKind } from './realm.js';
 
 /** A WTN document with unbound `#inputs`. */
 export interface Blueprint {
@@ -85,8 +85,30 @@ export interface OutlineAgent {
 	persona: OutlineBinding | null;
 	profile: OutlineBinding | null;
 	lorebooks: OutlineBinding[];
+	widgets: OutlineBinding[];
+	tools: OutlineTool[];
+	grants: OutlineGrant[];
+	properties: OutlineProperty[];
+	speech_channel: string;
 	script: string;
 	run_condition: string;
+}
+
+export interface OutlineTool {
+	tool: OutlineBinding;
+	event_channel: string;
+}
+
+/** The grant's pattern text; the editor splits it into controls. */
+export interface OutlineGrant {
+	channel: string;
+	access: AgentAccess;
+}
+
+/** Text the editor can re-read; there is no type on the wire. */
+export interface OutlineProperty {
+	key: string;
+	value: string;
 }
 
 export type OutlineBinding =

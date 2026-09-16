@@ -1,6 +1,6 @@
 import type { AgentFilter, Director } from '$lib/types/realm.js';
 import type { AgentBlock, Binding, CastEntry, InputDecl, InputType } from './model.js';
-import { baseOf, declaredText, isList } from './model.js';
+import { baseOf, declaredText, grantChannel, isList } from './model.js';
 
 const INDENT = '  ';
 
@@ -47,6 +47,42 @@ function idField(binding: Binding | null): string {
 	}
 }
 
+/**
+ * A property key. `object_key` is `identifier | quoted_string` — a raw string
+ * is not a key at all — so a dotted path takes the quoted form, which parses
+ * as a template whose nodes happen to all be literal text.
+ */
+function key(name: string): string {
+	return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name) ? name : interpolated(name);
+}
+
+const NUMBER = /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
+const QUOTED = /^(["'])([\s\S]*)\1$/;
+
+/**
+ * A property's literal, read off the text the way a config file does it.
+ *
+ * There is no type to pick. `150` is a number, `true` is a boolean, `[1, 2]`
+ * and `{a: 1}` are weaver, and everything else is a string. Quoting forces a
+ * string, which is the escape for the one ambiguous case — a version like
+ * `"1.0"` that would otherwise become a number.
+ */
+export function literal(value: string): string {
+	const text = value.trim();
+	if (text === '') return raw('');
+	if (text === 'true' || text === 'false') return text;
+	if (NUMBER.test(text)) return text;
+
+	const quoted = QUOTED.exec(text);
+	if (quoted) return raw(quoted[2]);
+
+	// Left as written, so an array or object survives. A malformed one is the
+	// checker's to report rather than something to silently quote.
+	if (text.startsWith('[') || text.startsWith('{')) return text;
+
+	return raw(value);
+}
+
 function agent(block: AgentBlock, depth: number): string {
 	const pad = indent(depth + 1);
 	const lines: string[] = [];
@@ -62,14 +98,44 @@ function agent(block: AgentBlock, depth: number): string {
 	lines.push(`${pad}name: ${text(block.name)}`);
 	lines.push(`${pad}persona_id: ${idField(block.kind === 'player' ? block.persona : null)}`);
 	lines.push(`${pad}profile_id: ${idField(block.kind === 'script' ? null : block.profile)}`);
+	if (block.grants.length > 0) {
+		const rows = block.grants
+			.filter((g) => g.scope.trim())
+			.map(
+				(g) => `${indent(depth + 2)}{ channel: ${raw(grantChannel(g))}, access: ${raw(g.access)} }`
+			);
+		if (rows.length > 0) lines.push(`${pad}grants: [\n${rows.join('\n')}\n${pad}]`);
+	}
+	if (block.properties.length > 0) {
+		const rows = block.properties
+			.filter((p) => p.key.trim())
+			.map((p) => `${indent(depth + 2)}${key(p.key)}: ${literal(p.value)}`);
+		if (rows.length > 0) lines.push(`${pad}properties: {\n${rows.join('\n')}\n${pad}}`);
+	}
 	if (block.run_condition.trim()) {
 		lines.push(`${pad}run_condition: ${raw(block.run_condition)}`);
 	}
 	if (block.kind === 'script' && block.script.trim()) {
 		lines.push(`${pad}script: ${raw(block.script)}`);
 	}
+	if (block.speechChannel.trim()) {
+		lines.push(`${pad}speech_channel: ${raw(block.speechChannel.trim())}`);
+	}
 	lines.push(`${pad}template_id: ${idField(block.kind === 'script' ? null : block.template)}`);
+	if (block.tools.length > 0) {
+		const rows = block.tools.map((t) => {
+			const channel = t.eventChannel.trim();
+			return `${indent(depth + 2)}{ tool_id: ${idField(t.tool)}, event_channel: ${
+				channel ? raw(channel) : 'null'
+			} }`;
+		});
+		lines.push(`${pad}tools: [\n${rows.join('\n')}\n${pad}]`);
+	}
 	lines.push(`${pad}user_id: null`);
+	if (block.widgets.length > 0) {
+		const rows = block.widgets.map((w) => `${indent(depth + 2)}${idField(w)}`);
+		lines.push(`${pad}widgets: [\n${rows.join('\n')}\n${pad}]`);
+	}
 
 	return `${indent(depth)}{\n${lines.join('\n')}\n${indent(depth)}}`;
 }

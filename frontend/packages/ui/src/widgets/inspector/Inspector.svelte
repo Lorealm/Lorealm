@@ -4,13 +4,46 @@
 	import { inspectorMatrix } from '$lib/stores/inspectorMatrix.svelte.js';
 	import RealmInspector from '../realms/RealmInspector.svelte';
 	import { inspectorRegistry } from './registry.js';
+	import { inspectorWidth } from '$lib/stores/inspectorWidth.svelte.js';
 
 	const view = $derived(router.current.view);
+
+	$effect(() => {
+		void inspectorWidth.load();
+	});
+
+	function startResize(event: PointerEvent) {
+		event.preventDefault();
+		const startX = event.clientX;
+		const startWidth = inspectorWidth.value;
+		const move = (e: PointerEvent) => inspectorWidth.set(startWidth + (startX - e.clientX));
+		const stop = () => {
+			window.removeEventListener('pointermove', move);
+			window.removeEventListener('pointerup', stop);
+		};
+		window.addEventListener('pointermove', move);
+		window.addEventListener('pointerup', stop);
+	}
+
+	function nudge(event: KeyboardEvent) {
+		const step = event.shiftKey ? 48 : 16;
+		if (event.key === 'ArrowLeft') inspectorWidth.set(inspectorWidth.value + step);
+		else if (event.key === 'ArrowRight') inspectorWidth.set(inspectorWidth.value - step);
+		else return;
+		event.preventDefault();
+	}
 	const profiles = $derived(inspectorMatrix.ordered(view));
 	const widgets = $derived(inspectorMatrix.widgetsFor(view));
 </script>
 
-<div class="container">
+<div class="container" style="width: {inspectorWidth.value}px">
+	<button
+		type="button"
+		class="grip"
+		aria-label="Resize inspector, currently {inspectorWidth.value} pixels. Use arrow keys."
+		onpointerdown={startResize}
+		onkeydown={nudge}
+	></button>
 	<div class="topBar">
 		{#if view === 'realms'}
 			<button>Realm Placeholder</button>
@@ -48,15 +81,34 @@
 
 <style>
 	.container {
+		position: relative;
 		display: flex;
 		flex-direction: column;
+		flex: 0 0 auto;
 		height: 100%;
-		width: var(--width-sidebar-small);
+		min-width: 0;
 		background-color: var(--color-bg-elevated);
 		-webkit-backdrop-filter: var(--surface-blur);
 		backdrop-filter: var(--surface-blur);
 		border-left: 1px solid var(--color-border-subtle);
 	}
+	.grip {
+		position: absolute;
+		top: 0;
+		left: -3px;
+		width: 6px;
+		height: 100%;
+		z-index: 2;
+		padding: 0;
+		border: none;
+		cursor: col-resize;
+		background: transparent;
+	}
+	.grip:hover,
+	.grip:focus-visible {
+		background-color: var(--color-border-active);
+	}
+
 	.topBar {
 		display: flex;
 		flex-shrink: 0;

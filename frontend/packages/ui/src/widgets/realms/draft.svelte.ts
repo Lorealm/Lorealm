@@ -9,6 +9,7 @@ import type {
 } from '$lib/types/blueprint.js';
 import {
 	elementKind,
+	parseGrant,
 	emptyAgent,
 	freshKey,
 	isSingularRef,
@@ -93,6 +94,14 @@ class RealmDraft {
 			persona: bind(from.persona),
 			profile: bind(from.profile),
 			lorebooks: from.lorebooks.map(bind).filter((b): b is Binding => b !== null),
+			widgets: from.widgets.map(bind).filter((b): b is Binding => b !== null),
+			tools: from.tools.flatMap((t) => {
+				const tool = bind(t.tool);
+				return tool ? [{ tool, eventChannel: t.event_channel }] : [];
+			}),
+			grants: from.grants.map((g) => parseGrant(g.channel, g.access)),
+			properties: from.properties.map((p) => ({ ...p })),
+			speechChannel: from.speech_channel,
 			script: from.script,
 			run_condition: from.run_condition
 		});
