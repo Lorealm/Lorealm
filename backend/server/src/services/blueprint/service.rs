@@ -132,7 +132,7 @@ impl BlueprintService {
     ) -> Result<OutlineResult, RealmError> {
         let blueprint = self.get(id, user_id).await?;
         let doc = wtn::compile(&blueprint.source)?;
-        Ok(outline::outline(doc.document()).into())
+        Ok(outline::outline(doc.document(), &blueprint.source).into())
     }
 
     /// Expand/convert the blueprint into a realm

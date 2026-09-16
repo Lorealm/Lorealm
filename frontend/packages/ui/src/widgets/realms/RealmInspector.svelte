@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ExternalLink, Maximize2, Trash2 } from '@lucide/svelte';
+	import { ExternalLink, Maximize2, Plus, Trash2 } from '@lucide/svelte';
 	import ContextField from '$lib/components/ContextField.svelte';
 	import { navigator } from '$lib/navigation/navigator.js';
 	import type { StudioResource } from '$lib/navigation/navigator.js';
@@ -23,7 +23,8 @@
 		type AgentBlock,
 		type Binding,
 		type InputDecl,
-		type InputType
+		type InputType,
+		type Property
 	} from './model.js';
 	import { RESOURCE_KINDS } from './resources.svelte.js';
 
@@ -156,6 +157,20 @@
 		'Lets this agent take its turn only when this is true.\nLeave it empty and it always does.';
 
 	const noun = (kind: RealmResourceKind) => TYPE_NAME[kind].toLowerCase();
+
+	const blankProperty = (): Property => ({ key: '', value: '' });
+
+	function addGrant(agent: AgentBlock) {
+		agent.grants.push({ namespace: '', scope: '*', access: 'read' });
+	}
+
+	function editProperty(agent: AgentBlock, index: number, patch: Partial<Property>) {
+		if (index === agent.properties.length) {
+			agent.properties.push({ ...blankProperty(), ...patch });
+			return;
+		}
+		agent.properties[index] = { ...agent.properties[index], ...patch };
+	}
 
 	const PREVIEW_LINES = 4;
 
@@ -306,6 +321,210 @@
 				ariaLabel="Bind another lorebook"
 				onchange={(next) => next && a.lorebooks.push(next)}
 			/>
+		</div>
+
+		<div class="field">
+			<span>Widgets</span>
+			{#each a.widgets as widget, i (i)}
+				<RadioField
+					value={widget}
+					kinds={['widget']}
+					{scope}
+					{inputs}
+					ariaLabel="Widget {i + 1}"
+					onlocate={locate}
+					onchange={(next) => {
+						if (next) a.widgets[i] = next;
+						else a.widgets.splice(i, 1);
+					}}
+				/>
+			{/each}
+			<RadioField
+				value={null}
+				kinds={['widget']}
+				{scope}
+				{inputs}
+				placeholder="Bind a widget…"
+				ariaLabel="Bind another widget"
+				onchange={(next) => next && a.widgets.push(next)}
+			/>
+		</div>
+
+		<div class="field">
+			<span>Tools</span>
+			{#each a.tools as tool, i (i)}
+				<div class="stack">
+					<RadioField
+						value={tool.tool}
+						kinds={['tool']}
+						{scope}
+						{inputs}
+						ariaLabel="Tool {i + 1}"
+						onlocate={locate}
+						onchange={(next) => {
+							if (next) a.tools[i].tool = next;
+							else a.tools.splice(i, 1);
+						}}
+					/>
+					<label class="inline">
+						<span>announces on</span>
+						<input
+							class="mono channel"
+							value={tool.eventChannel}
+							placeholder="nobody"
+							spellcheck="false"
+							oninput={(e) => (a.tools[i].eventChannel = e.currentTarget.value)}
+						/>
+					</label>
+				</div>
+			{/each}
+			<RadioField
+				value={null}
+				kinds={['tool']}
+				{scope}
+				{inputs}
+				placeholder="Bind a tool…"
+				ariaLabel="Bind another tool"
+				onchange={(next) => next && a.tools.push({ tool: next, eventChannel: '' })}
+			/>
+		</div>
+
+		<label>
+			<span>Speaks on</span>
+			<input
+				class="mono"
+				value={a.speechChannel}
+				placeholder="main"
+				spellcheck="false"
+				oninput={(e) => (a.speechChannel = e.currentTarget.value)}
+			/>
+		</label>
+
+		<div class="field">
+			<span class="withAction">
+				Grants
+				<button type="button" aria-label="Add a grant" onclick={() => addGrant(a)}>
+					<Plus size={12} />
+				</button>
+			</span>
+			{#if a.grants.length > 0}
+				<table>
+					<thead>
+						<tr>
+							<th>Namespace</th>
+							<th>Scope</th>
+							<th class="narrow">Access</th>
+							<th></th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each a.grants as grant, i (i)}
+							<tr>
+								<td>
+									<input
+										class="mono"
+										value={grant.namespace}
+										placeholder="world"
+										spellcheck="false"
+										aria-label="Grant {i + 1} namespace"
+										oninput={(e) => (a.grants[i].namespace = e.currentTarget.value)}
+									/>
+								</td>
+								<td>
+									<input
+										class="mono"
+										value={grant.scope}
+										placeholder="*"
+										spellcheck="false"
+										aria-label="Grant {i + 1} scope"
+										oninput={(e) => (a.grants[i].scope = e.currentTarget.value)}
+									/>
+								</td>
+								<td>
+									<button
+										type="button"
+										class="access"
+										class:write={grant.access === 'read_write'}
+										title="Click to change what this agent may do"
+										onclick={() =>
+											(a.grants[i].access = grant.access === 'read' ? 'read_write' : 'read')}
+									>
+										{grant.access === 'read' ? 'read' : 'read/write'}
+									</button>
+								</td>
+								<td>
+									<button
+										type="button"
+										class="remove"
+										aria-label="Remove grant {i + 1}"
+										onclick={() => a.grants.splice(i, 1)}
+									>
+										<Trash2 size={12} />
+									</button>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			{:else}
+				<p class="note">Reads and writes only its own <code>agents:{a.handle || '…'}</code>.</p>
+			{/if}
+		</div>
+
+		<div class="field">
+			<span>Properties</span>
+			<table>
+				<thead>
+					<tr>
+						<th>Key</th>
+						<th>Value</th>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each [...a.properties, blankProperty()] as property, i (i)}
+						{@const trailing = i === a.properties.length}
+						<tr class:trailing>
+							<td>
+								<input
+									class="mono"
+									value={property.key}
+									placeholder="key"
+									spellcheck="false"
+									aria-label="Property {i + 1} key"
+									oninput={(e) => editProperty(a, i, { key: e.currentTarget.value })}
+								/>
+							</td>
+							<td>
+								<input
+									class="mono"
+									value={property.value}
+									placeholder="value"
+									spellcheck="false"
+									aria-label="Property {i + 1} value"
+									oninput={(e) => editProperty(a, i, { value: e.currentTarget.value })}
+								/>
+							</td>
+							<td>
+								{#if !trailing}
+									<button
+										type="button"
+										class="remove"
+										aria-label="Remove property {i + 1}"
+										onclick={() => a.properties.splice(i, 1)}
+									>
+										<Trash2 size={12} />
+									</button>
+								{/if}
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+			<p class="note">
+				Seeded as <code>agents:{a.handle || '…'}.&lt;key&gt;</code>. <code>150</code> is a number,
+				<code>true</code> a yes/no, <code>[1, 2]</code> weaver; quote anything that should stay text.
+			</p>
 		</div>
 
 		<ContextField
@@ -698,6 +917,125 @@
 	.scriptCard:hover .openOverlay,
 	.scriptCard:focus-visible .openOverlay {
 		opacity: 1;
+	}
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		table-layout: fixed;
+	}
+	th {
+		padding: 2px var(--spacing-xs);
+		text-align: left;
+		font-weight: var(--font-weight-normal);
+		color: var(--color-text-muted);
+		font-size: var(--font-size-xs);
+		border-bottom: 1px solid var(--color-border-subtle);
+	}
+	th:last-child {
+		width: 24px;
+	}
+	th.narrow {
+		width: 5.5em;
+	}
+	td {
+		padding: 0;
+		border-bottom: 1px solid var(--color-border-subtle);
+	}
+	td :global(input),
+	td :global(select) {
+		width: 100%;
+		min-width: 0;
+		padding: 3px var(--spacing-xs);
+		background-color: transparent;
+		border: none;
+		border-radius: 0;
+		font-size: var(--font-size-sm);
+	}
+	td :global(input:focus),
+	td :global(select:focus) {
+		background-color: var(--color-bg-input);
+	}
+	tbody tr:hover td {
+		background-color: var(--color-hover);
+	}
+	tr.trailing :global(input),
+	tr.trailing :global(select) {
+		color: var(--color-text-muted);
+	}
+	.access {
+		width: 100%;
+		padding: 2px 6px;
+		background: transparent;
+		border: none;
+		color: var(--color-text-muted);
+		font-size: var(--font-size-xs);
+		text-align: left;
+	}
+	.access.write {
+		color: var(--color-warning-text);
+	}
+	.access:hover {
+		color: var(--color-text-accent);
+	}
+
+	.remove {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		padding: var(--spacing-xs) 0;
+		background: transparent;
+		border: none;
+		color: var(--color-text-disabled);
+	}
+	.remove:hover {
+		color: var(--color-error-text);
+	}
+
+	.withAction {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+	.withAction button {
+		display: flex;
+		padding: 2px;
+		background: transparent;
+		border: none;
+		border-radius: var(--radius-sm);
+		color: var(--color-text-muted);
+	}
+	.withAction button:hover {
+		background-color: var(--color-hover);
+		color: var(--color-text-accent);
+	}
+	.stack {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+	.inline {
+		flex-direction: row;
+		align-items: center;
+		gap: var(--spacing-xs);
+		padding-left: var(--spacing-sm);
+	}
+	.inline > span {
+		flex: 0 0 auto;
+		color: var(--color-text-muted);
+		font-size: var(--font-size-xs);
+	}
+	.channel {
+		flex: 1 1 auto;
+		min-width: 0;
+		padding: 2px var(--spacing-xs);
+		background-color: transparent;
+		border-bottom: 1px solid var(--color-border-subtle);
+		border-radius: 0;
+		font-size: var(--font-size-xs);
+	}
+	.channel:focus {
+		border-bottom-color: var(--color-border-active);
 	}
 
 	.resourceName {

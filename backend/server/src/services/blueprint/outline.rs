@@ -107,8 +107,36 @@ pub struct AgentBlock {
     pub persona: Option<Binding>,
     pub profile: Option<Binding>,
     pub lorebooks: Vec<Binding>,
+    pub widgets: Vec<Binding>,
+    pub tools: Vec<ToolBinding>,
+    pub grants: Vec<Grant>,
+    pub properties: Vec<Property>,
+    pub speech_channel: String,
     pub script: String,
     pub run_condition: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ToolBinding {
+    pub tool: Binding,
+    pub event_channel: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct Grant {
+    pub channel: String,
+    pub access: String,
+}
+
+/// A seeded property, as the text an author would type.
+///
+/// The editor has no type control: it reads the type off the literal. So the
+/// text handed back has to re-read as what it started as — a string that looks
+/// like a number comes back quoted, which is what forces it back to a string.
+#[derive(Debug, Serialize)]
+pub struct Property {
+    pub key: String,
+    pub value: String,
 }
 
 /// What fills one id-shaped field.
@@ -152,7 +180,7 @@ impl From<Refused<Outline>> for OutlineResult {
 }
 
 /// Project a parsed document, or say why it cannot be.
-pub fn outline(doc: &ValueDoc) -> Refused<Outline> {
+pub fn outline(doc: &ValueDoc, source: &str) -> Refused<Outline> {
     let inputs = doc.inputs.iter().map(InputSpec::of).collect();
 
     let ExprKind::ObjectLiteral(items) = &doc.value.node else {
@@ -180,7 +208,7 @@ pub fn outline(doc: &ValueDoc) -> Refused<Outline> {
         match key {
             "name" => name = text(&entry.value.node, entry.value.span)?,
             "description" => description = text(&entry.value.node, entry.value.span)?,
-            "agents" => cast = agents(&entry.value.node, entry.value.span)?,
+            "agents" => cast = agents(&entry.value.node, entry.value.span, source)?,
             "tags" => tags = strings(&entry.value.node, entry.value.span)?,
             "director" => director = director_of(&entry.value.node, entry.value.span)?,
             // `scenarios` round-trips untouched because nothing authors it yet.
@@ -276,7 +304,7 @@ fn filter_of(expr: &ExprKind, span: Span) -> Refused<FilterBlock> {
     })
 }
 
-fn agents(expr: &ExprKind, span: Span) -> Refused<Vec<CastEntry>> {
+fn agents(expr: &ExprKind, span: Span, source: &str) -> Refused<Vec<CastEntry>> {
     let ExprKind::ArrayLiteral(items) = expr else {
         return Err(OutlineRefusal::at(span, "`agents` must be an array"));
     };
@@ -285,14 +313,14 @@ fn agents(expr: &ExprKind, span: Span) -> Refused<Vec<CastEntry>> {
         .iter()
         .map(|item| match item {
             ArrayItem::Element(expr) => Ok(CastEntry::Agent {
-                agent: agent(&expr.node, expr.span)?,
+                agent: agent(&expr.node, expr.span, source)?,
             }),
             ArrayItem::ForEach(loop_) => {
                 let body = loop_
                     .body
                     .iter()
                     .map(|item| match item {
-                        ArrayItem::Element(expr) => agent(&expr.node, expr.span),
+                        ArrayItem::Element(expr) => agent(&expr.node, expr.span, source),
                         _ => Err(OutlineRefusal::bare(
                             "a nested loop or conditional inside a `foreach`",
                         )),
@@ -325,7 +353,7 @@ fn walked(expr: &ExprKind) -> Option<String> {
     }
 }
 
-fn agent(expr: &ExprKind, span: Span) -> Refused<AgentBlock> {
+fn agent(expr: &ExprKind, span: Span, source: &str) -> Refused<AgentBlock> {
     let ExprKind::ObjectLiteral(items) = expr else {
         return Err(OutlineRefusal::at(span, "every cast member must be an object"));
     };
@@ -354,6 +382,11 @@ fn agent(expr: &ExprKind, span: Span) -> Refused<AgentBlock> {
                 block.profile = binding(value, RealmResourceKind::ConnectionProfile, at)?
             }
             "lorebooks" => block.lorebooks = bindings(value, RealmResourceKind::Lorebook, at)?,
+            "widgets" => block.widgets = bindings(value, RealmResourceKind::Widget, at)?,
+            "tools" => block.tools = tools(value, at)?,
+            "grants" => block.grants = grants(value, at)?,
+            "properties" => block.properties = properties(value, at, source)?,
+            "speech_channel" => block.speech_channel = text(value, at)?,
             // `user_id`, `char_version_id` and the fields the block model does
             // not carry are left alone rather than refused: they are defaults
             // the editor never writes.
@@ -362,6 +395,108 @@ fn agent(expr: &ExprKind, span: Span) -> Refused<AgentBlock> {
     }
 
     Ok(block)
+}
+
+fn tools(expr: &ExprKind, span: Span) -> Refused<Vec<ToolBinding>> {
+    let ExprKind::ArrayLiteral(items) = expr else {
+        return Err(OutlineRefusal::at(span, "`tools` must be an array"));
+    };
+    items
+        .iter()
+        .map(|item| {
+            let ArrayItem::Element(expr) = item else {
+                return Err(OutlineRefusal::bare("a loop or conditional in `tools`"));
+            };
+            let ExprKind::ObjectLiteral(fields) = &expr.node else {
+                return Err(OutlineRefusal::at(expr.span, "every tool must be an object"));
+            };
+
+            let mut tool = None;
+            let mut event_channel = String::new();
+            for field in fields {
+                let ObjectItem::Entry(entry) = field else {
+                    return Err(OutlineRefusal::bare("a loop or conditional in a tool"));
+                };
+                match entry.static_key() {
+                    Some("tool_id") => {
+                        tool = binding(&entry.value.node, RealmResourceKind::Tool, entry.value.span)?
+                    }
+                    Some("event_channel") => {
+                        event_channel = text(&entry.value.node, entry.value.span)?
+                    }
+                    _ => {}
+                }
+            }
+
+            let tool = tool
+                .ok_or_else(|| OutlineRefusal::at(expr.span, "a tool with no `tool_id`"))?;
+            Ok(ToolBinding {
+                tool,
+                event_channel,
+            })
+        })
+        .collect()
+}
+
+fn grants(expr: &ExprKind, span: Span) -> Refused<Vec<Grant>> {
+    let ExprKind::ArrayLiteral(items) = expr else {
+        return Err(OutlineRefusal::at(span, "`grants` must be an array"));
+    };
+    items
+        .iter()
+        .map(|item| {
+            let ArrayItem::Element(expr) = item else {
+                return Err(OutlineRefusal::bare("a loop or conditional in `grants`"));
+            };
+            let ExprKind::ObjectLiteral(fields) = &expr.node else {
+                return Err(OutlineRefusal::at(expr.span, "every grant must be an object"));
+            };
+
+            let mut channel = String::new();
+            let mut access = "read".to_string();
+            for field in fields {
+                let ObjectItem::Entry(entry) = field else {
+                    return Err(OutlineRefusal::bare("a loop or conditional in a grant"));
+                };
+                match entry.static_key() {
+                    Some("channel") => channel = text(&entry.value.node, entry.value.span)?,
+                    Some("access") => access = text(&entry.value.node, entry.value.span)?,
+                    _ => {}
+                }
+            }
+            Ok(Grant { channel, access })
+        })
+        .collect()
+}
+
+/// Seeded properties. Keys are written in source order, which is the order the
+/// editor shows its rows in.
+fn properties(expr: &ExprKind, span: Span, source: &str) -> Refused<Vec<Property>> {
+    let ExprKind::ObjectLiteral(items) = expr else {
+        return Err(OutlineRefusal::at(span, "`properties` must be an object"));
+    };
+
+    items
+        .iter()
+        .map(|item| {
+            let ObjectItem::Entry(entry) = item else {
+                return Err(OutlineRefusal::bare("a loop or conditional in `properties`"));
+            };
+            let key = literal_key(&entry.key.node)
+                .ok_or_else(|| OutlineRefusal::at(entry.key.span, "a computed property key"))?;
+
+            let value = match &entry.value.node {
+                ExprKind::Literal(Value::String(s)) => as_text(s),
+                ExprKind::Literal(Value::Number(n)) => n.to_string(),
+                ExprKind::Literal(Value::Bool(b)) => b.to_string(),
+                // Arrays, objects and anything computed keep the source they
+                // were written as, so a shape the plain rows cannot hold
+                // survives being opened and saved again.
+                _ => slice(source, entry.value.span),
+            };
+            Ok(Property { key, value })
+        })
+        .collect()
 }
 
 fn bindings(expr: &ExprKind, kind: RealmResourceKind, span: Span) -> Refused<Vec<Binding>> {
@@ -408,6 +543,57 @@ fn binding(expr: &ExprKind, kind: RealmResourceKind, span: Span) -> Refused<Opti
             "a field the editor fills from a picker holds something else here",
         )),
     }
+}
+
+/// A string property as editable text.
+///
+/// Bare, unless it would read back as something else — `"1.0"` has to keep its
+/// quotes or reopening the blueprint would turn a version into a number.
+fn as_text(value: &str) -> String {
+    let ambiguous = value.trim() != value
+        || value.is_empty()
+        || value == "true"
+        || value == "false"
+        || value.parse::<f64>().is_ok()
+        || value.starts_with('[')
+        || value.starts_with('{')
+        || value.starts_with('"')
+        || value.starts_with('\'');
+
+    if ambiguous {
+        format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
+    } else {
+        value.to_string()
+    }
+}
+
+/// A key that is known without evaluating anything.
+///
+/// An identifier key is a plain literal, but a quoted one — which is how a
+/// dotted path like `"stats.hp"` has to be written — parses as a template.
+/// One whose nodes are all literal text is still a constant key.
+fn literal_key(expr: &ExprKind) -> Option<String> {
+    match expr {
+        ExprKind::Literal(Value::String(key)) => Some(key.clone()),
+        ExprKind::StringTemplate(template) => template
+            .nodes
+            .iter()
+            .map(|node| match &node.node {
+                NodeKind::Literal(text) => Some(text.as_str()),
+                _ => None,
+            })
+            .collect::<Option<String>>(),
+        _ => None,
+    }
+}
+
+/// The source a node was written as. Spans are byte offsets, so a slice that
+/// does not land on a character boundary yields nothing rather than panicking.
+fn slice(source: &str, span: Span) -> String {
+    source
+        .get(span.start..span.end)
+        .unwrap_or_default()
+        .to_string()
 }
 
 fn reads_id(path: &[PathSegment]) -> bool {
@@ -514,7 +700,7 @@ lead: Ref<Character>
 "####;
 
     fn outlined(source: &str) -> Refused<Outline> {
-        outline(&parse_value_doc(source).expect("parses"))
+        outline(&parse_value_doc(source).expect("parses"), source)
     }
 
     #[test]
@@ -604,6 +790,101 @@ lead: Ref<Character>
             panic!("expected a kind-filtered rotation, got {:?}", got.director);
         };
         assert_eq!(kind, "llm");
+    }
+
+    #[test]
+    fn the_structured_agent_fields_come_back() {
+        let got = outlined(
+            r####"{
+  name: r"X"
+  agents: [
+    {
+      handle: r"regent"
+      name: r"Regent"
+      kind: r"llm"
+      speech_channel: r"court"
+      grants: [
+        { channel: r"world", access: r"read" }
+        { channel: r"orders:ito.*", access: r"read_write" }
+        { channel: r"agents:narrator", access: r"read" }
+      ]
+      tools: [
+        { tool_id: r"77", event_channel: r"orders" }
+        { tool_id: r"78", event_channel: null }
+      ]
+      widgets: [
+        r"88"
+      ]
+      properties: {
+        gold: 150
+        alive: true
+        house: r"Ito"
+        "stats.hp": 10
+        version: r"1.0"
+        blank: r""
+        retinue: [r"a", r"b"]
+      }
+    }
+  ]
+}"####,
+        )
+        .expect("outlines");
+
+        let CastEntry::Agent { agent } = &got.cast[0] else {
+            panic!("expected an agent");
+        };
+        assert_eq!(agent.speech_channel, "court");
+
+        // Grants keep their pattern text; the editor splits it into controls.
+        let channels: Vec<(&str, &str)> = agent
+            .grants
+            .iter()
+            .map(|g| (g.channel.as_str(), g.access.as_str()))
+            .collect();
+        assert_eq!(
+            channels,
+            [
+                ("world", "read"),
+                ("orders:ito.*", "read_write"),
+                ("agents:narrator", "read"),
+            ]
+        );
+
+        assert_eq!(agent.tools.len(), 2);
+        assert_eq!(agent.tools[0].event_channel, "orders");
+        assert_eq!(agent.tools[1].event_channel, "");
+        assert!(matches!(
+            agent.tools[0].tool,
+            Binding::Resource { id: Snowflake(77), .. }
+        ));
+        assert!(matches!(
+            agent.widgets.as_slice(),
+            [Binding::Resource { id: Snowflake(88), .. }]
+        ));
+
+        let seen: Vec<(&str, &str)> = agent
+            .properties
+            .iter()
+            .map(|p| (p.key.as_str(), p.value.as_str()))
+            .collect();
+        assert_eq!(
+            seen,
+            [
+                ("gold", "150"),
+                ("alive", "true"),
+                ("house", "Ito"),
+                // A dotted key has to be a quoted string — `object_key` is
+                // `identifier | quoted_string`, so a raw string is not a key —
+                // and a quoted one parses as an all-literal template.
+                ("stats.hp", "10"),
+                // A string that would otherwise read back as a number keeps
+                // its quotes, so reopening does not retype it.
+                ("version", "\"1.0\""),
+                ("blank", "\"\""),
+                // Not a scalar, so it keeps the source it was written as.
+                ("retinue", r#"[r"a", r"b"]"#),
+            ]
+        );
     }
 
     #[test]

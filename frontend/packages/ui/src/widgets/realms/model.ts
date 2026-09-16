@@ -1,12 +1,9 @@
 import type { Snowflake } from '$lib/types/core.js';
-import type { AgentKind, RealmResourceKind } from '$lib/types/realm.js';
+import type { AgentAccess, AgentKind, RealmResourceKind } from '$lib/types/realm.js';
 
-/**
- * The block model the editor works in. One shape covers realms and blueprints:
- * a realm is a document where nothing references an input.
- */
-
-/** The fields a `Ref<..>` projects. Mirrors `projection()` in `project.rs`. */
+/** The fields a `Ref<..>` projects. 
+ * 
+ * VOLATILE: Mirrors `projection()` in `project.rs`. Could change without notice. */
 export const PROJECTED_FIELDS = ['id', 'name', 'description', 'slug'] as const;
 
 /**
@@ -18,9 +15,7 @@ export type Binding =
 	| { source: 'loop'; varName: string }
 	| { source: 'input'; name: string };
 
-/**
- * An `#inputs` declaration.
- */
+/** An `#inputs` declaration. */
 export interface InputDecl {
 	name: string;
 	ty: InputType;
@@ -40,6 +35,25 @@ export type InputType =
 	/** `kind: null` is a `Ref<..>` naming something the server doesn't know. */
 	| { type: 'reference'; kind: RealmResourceKind | null };
 
+export interface Grant {
+	namespace: string;
+	/** `*`, `name`, or `name.*`. */
+	scope: string;
+	access: AgentAccess;
+}
+
+/** A bound tool, and the channel its `acted` event goes out on. */
+export interface ToolBinding {
+	tool: Binding;
+	/** Empty means only the acting agent observes it. */
+	eventChannel: string;
+}
+
+export interface Property {
+	key: string;
+	value: string;
+}
+
 export interface AgentBlock {
 	/** Local identity for keyed lists and selection. */
 	readonly key: string;
@@ -51,6 +65,11 @@ export interface AgentBlock {
 	persona: Binding | null;
 	profile: Binding | null;
 	lorebooks: Binding[];
+	widgets: Binding[];
+	tools: ToolBinding[];
+	grants: Grant[];
+	properties: Property[];
+	speechChannel: string;
 	script: string;
 	run_condition: string;
 }
@@ -105,6 +124,11 @@ export function emptyAgent(handle: string, kind: AgentKind = 'llm'): AgentBlock 
 		persona: null,
 		profile: null,
 		lorebooks: [],
+		widgets: [],
+		tools: [],
+		grants: [],
+		properties: [],
+		speechChannel: '',
 		script: '',
 		run_condition: ''
 	};
@@ -192,6 +216,17 @@ export function declarationLine(decl: InputDecl): string {
 	const literal =
 		base.type === 'number' || base.type === 'bool' ? decl.defaultValue : `"${decl.defaultValue}"`;
 	return `${head} = ${literal}`;
+}
+
+export function grantChannel(grant: Grant): string {
+	const scope = grant.scope.trim();
+	return scope ? `${grant.namespace}:${scope}` : grant.namespace;
+}
+
+export function parseGrant(channel: string, access: AgentAccess): Grant {
+	const at = channel.indexOf(':');
+	if (at < 0) return { namespace: channel, scope: '*', access };
+	return { namespace: channel.slice(0, at), scope: channel.slice(at + 1) || '*', access };
 }
 
 /** How a binding reads in a field, as in, the weaver it will be written as. */
