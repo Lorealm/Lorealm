@@ -16,13 +16,25 @@
 
 	const blueprint = $derived(blueprintStore.current);
 	const wtn = $derived(
-		toWtn(realmDraft.name, realmDraft.description, realmDraft.inputs, realmDraft.cast)
+		toWtn(
+			{
+				name: realmDraft.name,
+				description: realmDraft.description,
+				tags: realmDraft.tags,
+				director: realmDraft.director
+			},
+			realmDraft.inputs,
+			realmDraft.cast
+		)
 	);
 
 	let building = $state(false);
 	let asking = $state(false);
 
-	/** Write the document, then ask the server what it now declares. */
+	$effect(() => {
+		blueprintStore.queueSave(realmDraft.name, wtn.source);
+	});
+
 	async function save() {
 		if (!blueprint) return;
 		await blueprintStore.save(realmDraft.name, wtn.source);
@@ -57,7 +69,9 @@
 		}
 	}
 
-	function closeBlueprint() {
+	/** Leaving must not drop an edit still sitting on the debounce. */
+	async function closeBlueprint() {
+		await blueprintStore.flush();
 		blueprintStore.close();
 		realmDraft.reset();
 		panes.reset();
@@ -84,10 +98,14 @@
 
 		{#if blueprint}
 			<div class="actions">
-				{#if blueprintStore.saveError}
-					<span class="saveError" title={blueprintStore.saveError}>
-						The server refused this document
+				{#if blueprintStore.saveStatus === 'error'}
+					<span class="saveError" title={blueprintStore.saveError ?? ''}>
+						Unsaved — the server refused it
 					</span>
+				{:else if blueprintStore.saveStatus === 'saving'}
+					<span class="saving">Saving…</span>
+				{:else if blueprintStore.saveStatus === 'dirty'}
+					<span class="saving">Unsaved changes</span>
 				{:else if blueprintStore.saveStatus === 'saved'}
 					<span class="saved">Saved</span>
 				{/if}
@@ -259,6 +277,10 @@
 		color: var(--color-success-text);
 		font-size: var(--font-size-xs);
 	}
+	.saving {
+		color: var(--color-warning-text);
+		font-size: var(--font-size-xs);
+	}
 	.saveError {
 		color: var(--color-error-text);
 		font-size: var(--font-size-xs);
@@ -298,16 +320,17 @@
 		overflow: hidden;
 	}
 
-	.shell :global(input:not([type='checkbox'])),
-	.shell :global(select),
-	.shell :global(textarea) {
+	/* The default skin for form controls anywhere in the realms shell. */
+	.shell :global(input:not([type='checkbox']):not(.plain)),
+	.shell :global(select:not(.plain)),
+	.shell :global(textarea:not(.plain)) {
 		background-color: var(--color-bg-input);
 		border: 1px solid var(--color-border-medium);
 	}
 
-	.shell :global(input:not([type='checkbox']):focus),
-	.shell :global(select:focus),
-	.shell :global(textarea:focus) {
+	.shell :global(input:not([type='checkbox']):not(.plain):focus),
+	.shell :global(select:not(.plain):focus),
+	.shell :global(textarea:not(.plain):focus) {
 		border-color: var(--color-border-active);
 	}
 </style>

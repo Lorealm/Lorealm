@@ -1,3 +1,12 @@
+import type { Snowflake } from '$lib/types/core.js';
+import type { AgentKind, Director, RealmResourceKind } from '$lib/types/realm.js';
+import type {
+	InputSpec,
+	InputSpecType,
+	Outline,
+	OutlineAgent,
+	OutlineBinding
+} from '$lib/types/blueprint.js';
 import {
 	elementKind,
 	emptyAgent,
@@ -13,6 +22,25 @@ import {
 	type Selection
 } from './model.js';
 
+/**
+ * A declaration as the server reports it, back in the editor's shape.
+ */
+function fromSpec(spec: InputSpec): InputDecl {
+	const ty = (from: InputSpec | InputSpecType): InputType => {
+		switch (from.type) {
+			case 'enum':
+				return { type: 'enum', variants: from.variants };
+			case 'list':
+				return { type: 'list', of: ty(from.of) };
+			case 'reference':
+				return { type: 'reference', kind: from.kind };
+			default:
+				return { type: from.type };
+		}
+	};
+	return { name: spec.name, ty: ty(spec), defaultValue: spec.required ? null : '' };
+}
+
 /** Every agent slot that holds a single binding. Lorebooks are a list apart. */
 const BINDING_SLOTS = ['character', 'template', 'persona', 'profile'] as const;
 
@@ -22,6 +50,9 @@ const BINDING_SLOTS = ['character', 'template', 'persona', 'profile'] as const;
 class RealmDraft {
 	name = $state('');
 	description = $state('');
+	tags = $state<string[]>([]);
+	/** Null is the default rotation over the whole cast. */
+	director = $state<Director | null>(null);
 	inputs = $state<InputDecl[]>([]);
 	cast = $state<CastEntry[]>([]);
 	selection = $state<Selection>(null);
@@ -31,9 +62,65 @@ class RealmDraft {
 		return this.inputs.length > 0;
 	}
 
+	/**
+	 * Load a document's structure, as the server read it back.
+	 */
+	load(outline: Outline, nameOf: (kind: RealmResourceKind, id: Snowflake) => string) {
+		const bind = (binding: OutlineBinding | null): Binding | null => {
+			if (!binding) return null;
+			if (binding.source === 'resource') {
+				return {
+					source: 'resource',
+					kind: binding.kind,
+					id: binding.id,
+					name: nameOf(binding.kind, binding.id)
+				};
+			}
+			return binding.source === 'loop'
+				? { source: 'loop', varName: binding.varName }
+				: { source: 'input', name: binding.name };
+		};
+
+		const agent = (from: OutlineAgent): AgentBlock => ({
+			key: freshKey('agent-'),
+			handle: from.handle,
+			name: from.name,
+			kind: (['llm', 'player', 'script'] as const).includes(from.kind as AgentKind)
+				? (from.kind as AgentKind)
+				: 'llm',
+			character: bind(from.character),
+			template: bind(from.template),
+			persona: bind(from.persona),
+			profile: bind(from.profile),
+			lorebooks: from.lorebooks.map(bind).filter((b): b is Binding => b !== null),
+			script: from.script,
+			run_condition: from.run_condition
+		});
+
+		this.name = outline.name;
+		this.description = outline.description;
+		this.tags = outline.tags;
+		this.director = outline.director;
+		this.inputs = outline.inputs.map(fromSpec);
+		this.cast = outline.cast.map((entry) =>
+			entry.kind === 'agent'
+				? { key: freshKey('entry-'), kind: 'agent' as const, agent: agent(entry.agent) }
+				: {
+						key: freshKey('entry-'),
+						kind: 'foreach' as const,
+						varName: entry.var_name,
+						over: entry.over,
+						body: entry.body.map(agent)
+					}
+		);
+		this.selection = null;
+	}
+
 	reset() {
 		this.name = '';
 		this.description = '';
+		this.tags = [];
+		this.director = null;
 		this.inputs = [];
 		this.cast = [];
 		this.selection = null;
@@ -143,9 +230,7 @@ class RealmDraft {
 		return decl;
 	}
 
-	/**
-	 * Rename a declaration
-	 */
+	/** Rename a declaration */
 	renameInput(from: string, to: string) {
 		const decl = this.inputs.find((i) => i.name === from);
 		if (!decl || from === to) return;

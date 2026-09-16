@@ -5,11 +5,17 @@
 	import { realmDraft } from '../draft.svelte.js';
 	import { toWtn } from '../serialize.js';
 
-	/**
-	 * What the editor emits.
-	 */
 	const wtn = $derived(
-		toWtn(realmDraft.name, realmDraft.description, realmDraft.inputs, realmDraft.cast)
+		toWtn(
+			{
+				name: realmDraft.name,
+				description: realmDraft.description,
+				tags: realmDraft.tags,
+				director: realmDraft.director
+			},
+			realmDraft.inputs,
+			realmDraft.cast
+		)
 	);
 
 	async function copy() {
@@ -22,11 +28,6 @@
 	<header>
 		<FileCode2 size={13} />
 		<span class="title">{wtn.hasInputs ? 'Blueprint' : 'Realm'}</span>
-		<span class="hint">
-			{wtn.hasInputs
-				? 'has inputs, so it builds realms'
-				: 'nothing unbound, so it is already a realm'}
-		</span>
 		<span class="spacer"></span>
 		<button type="button" onclick={copy}>
 			<Copy size={12} /> Copy
@@ -58,10 +59,6 @@
 	.title {
 		color: var(--color-text-primary);
 		font-size: var(--font-size-sm);
-	}
-	.hint {
-		color: var(--color-text-muted);
-		font-size: var(--font-size-xs);
 	}
 	.spacer {
 		flex: 1 1 auto;

@@ -10,7 +10,7 @@ use weaver_lang::Value as WeaverValue;
 use crate::{
     errors::{RealmError, TargetType},
     services::{
-        blueprint::InputSpec,
+        blueprint::{InputSpec, OutlineResult, outline},
         context::weaver::check::{Dialect, Severity, check},
         realm::{RealmService, wtn},
         snowflake::SnowflakeService,
@@ -118,6 +118,21 @@ impl BlueprintService {
         let blueprint = self.get(id, user_id).await?;
         let doc = wtn::compile(&blueprint.source)?;
         Ok(doc.declarations().iter().map(InputSpec::of).collect())
+    }
+
+    /// The blueprint's structure, as the editor's block model.
+    ///
+    /// Reads the parse tree rather than expanding, so a blueprint whose inputs
+    /// cannot currently be satisfied still opens — the same reason `inputs`
+    /// works on one.
+    pub async fn outline(
+        &self,
+        id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<OutlineResult, RealmError> {
+        let blueprint = self.get(id, user_id).await?;
+        let doc = wtn::compile(&blueprint.source)?;
+        Ok(outline::outline(doc.document()).into())
     }
 
     /// Expand/convert the blueprint into a realm

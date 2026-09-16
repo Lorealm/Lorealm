@@ -1,10 +1,17 @@
 import { useApi } from '$lib/api/client.js';
-import type { Blueprint, BlueprintSummary, InputSpec } from '$lib/types/blueprint.js';
+import type {
+	Blueprint,
+	BlueprintSummary,
+	InputSpec,
+	OutlineResult
+} from '$lib/types/blueprint.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type { Realm } from '$lib/types/realm.js';
 import { showApiError } from './errorActions.js';
 
-export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+export type SaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
+
+const SAVE_DEBOUNCE = 800;
 
 /**
  * The blueprints the user owns, and whichever one the editor has open.
@@ -30,14 +37,30 @@ class BlueprintStore {
 		}
 	}
 
-	async open(id: Snowflake) {
+	/** Why the open blueprint could not be loaded into the cast pane, if so. */
+	refusal = $state<string | null>(null);
+
+	async open(id: Snowflake): Promise<OutlineResult | null> {
 		this.current = await this.#api.blueprints.get(id);
 		await this.loadInputs();
+		try {
+			const result = await this.#api.blueprints.outline(id);
+			this.refusal = result.status === 'refused' ? result.reason.message : null;
+			return result;
+		} catch (e) {
+			showApiError(e, { title: 'Failed to read the blueprint' });
+			this.refusal = null;
+			return null;
+		}
 	}
 
 	close() {
 		this.current = null;
 		this.inputs = [];
+		this.refusal = null;
+		this.#clearTimer();
+		this.#saved = null;
+		this.#pending = null;
 		this.saveStatus = 'idle';
 		this.saveError = null;
 	}
@@ -54,14 +77,51 @@ class BlueprintStore {
 		}
 	}
 
+	/** The document as last written. */
+	#saved: { name: string; source: string } | null = null;
+	#pending: { name: string; source: string } | null = null;
+	#timer: ReturnType<typeof setTimeout> | null = null;
+
+	/**
+	 * Record what the editor holds right now as already-saved.
+	 */
+	beginEditing(name: string, source: string) {
+		this.#saved = { name, source };
+	}
+
+	/** Take the editor's current output and write it if it differs. */
+	queueSave(name: string, source: string) {
+		if (!this.current || this.#saved === null) return;
+		if (this.#saved.name === name && this.#saved.source === source) return;
+
+		this.saveStatus = 'dirty';
+		this.#pending = { name, source };
+		if (this.#timer) clearTimeout(this.#timer);
+		this.#timer = setTimeout(() => void this.save(name, source), SAVE_DEBOUNCE);
+	}
+
+	async flush(): Promise<void> {
+		const pending = this.#pending;
+		this.#clearTimer();
+		if (pending) await this.save(pending.name, pending.source);
+	}
+
+	#clearTimer() {
+		if (this.#timer) clearTimeout(this.#timer);
+		this.#timer = null;
+	}
+
 	/** Write the document. */
 	async save(name: string, source: string): Promise<boolean> {
 		const open = this.current;
 		if (!open) return false;
+		this.#clearTimer();
 		this.saveStatus = 'saving';
 		this.saveError = null;
 		try {
 			this.current = await this.#api.blueprints.update(open.id, { name, source });
+			this.#saved = { name, source };
+			this.#pending = null;
 			await this.loadInputs();
 			await this.loadList();
 			this.saveStatus = 'saved';

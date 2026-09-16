@@ -7,10 +7,12 @@
 		Repeat,
 		ScrollText,
 		Trash2,
+		TriangleAlert,
 		User
 	} from '@lucide/svelte';
 	import type { AgentKind } from '$lib/types/realm.js';
 	import { activeDrag, carriesAsset, clearDrag, readDrag } from '../drag.svelte.js';
+	import { blueprintStore } from '$lib/stores/blueprint.svelte.js';
 	import { realmDraft } from '../draft.svelte.js';
 	import { panes } from '../panes.svelte.js';
 	import { elementKind, type AgentBlock, type CastEntry } from '../model.js';
@@ -221,6 +223,18 @@
 				</div>
 			</div>
 		{:else}
+			{#if blueprintStore.refusal}
+				<div class="refused" role="status">
+					<TriangleAlert size={14} />
+					<div>
+						<p class="refusedHead">This document can't be opened in the cast pane.</p>
+						<p class="refusedWhy">{blueprintStore.refusal}</p>
+						<p class="refusedWhy">
+							The Document tab still shows it. Building a cast here and saving will replace it.
+						</p>
+					</div>
+				</div>
+			{/if}
 			<div class="empty">
 				<p>The cast is empty. Add one:</p>
 				<div class="emptyActions">
@@ -484,6 +498,28 @@
 	.addMember:hover {
 		border-color: var(--color-border-active);
 		color: var(--color-text-accent);
+	}
+
+	.refused {
+		display: flex;
+		align-items: flex-start;
+		gap: var(--spacing-sm);
+		margin: var(--spacing-md) auto 0;
+		max-width: 34em;
+		padding: var(--spacing-md);
+		background-color: var(--color-warning-bg);
+		border: 1px solid var(--color-warning-border);
+		border-radius: var(--radius-md);
+		color: var(--color-warning-text);
+	}
+	.refusedHead {
+		margin: 0 0 var(--spacing-xs);
+		font-size: var(--font-size-sm);
+	}
+	.refusedWhy {
+		margin: 0;
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-xs);
 	}
 
 	.empty {

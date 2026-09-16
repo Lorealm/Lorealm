@@ -45,6 +45,7 @@ import type {
 	BlueprintSummary,
 	CreateBlueprintRequest,
 	InputSpec,
+	OutlineResult,
 	UpdateBlueprintRequest
 } from '$lib/types/blueprint.js';
 import type {
@@ -426,6 +427,8 @@ export function createApiClient(platform: PlatformAPI) {
 				http.patch<Blueprint>(`/api/v1/blueprints/${id}`, update),
 			delete: (id: Snowflake) => http.delete(`/api/v1/blueprints/${id}`),
 			inputs: (id: Snowflake) => http.get<Array<InputSpec>>(`/api/v1/blueprints/${id}/inputs`),
+			/** Its structure, for opening it in the editor. */
+			outline: (id: Snowflake) => http.get<OutlineResult>(`/api/v1/blueprints/${id}/outline`),
 			/** Expand a blueprint into a playable realm. */
 			expand: (id: Snowflake, inputs: Record<string, unknown>) =>
 				http.post<Realm>(`/api/v1/blueprints/${id}/realms`, { inputs })

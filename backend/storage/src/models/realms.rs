@@ -46,6 +46,8 @@ pub struct RealmDefinition {
     /// Named openings; instantiation picks one (see [`Scenario`]).
     #[serde(default)]
     pub scenarios: Vec<Scenario>,
+    #[serde(default)]
+    pub tags: Vec<String>,
     /// How the realm decides who acts next. `None` = [`Director::default`].
     #[serde(default)]
     pub director: Option<Director>,
