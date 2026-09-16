@@ -189,7 +189,11 @@ pub struct RealmSummary {
     pub id: Snowflake,
     pub owner_id: Snowflake,
     pub name: String,
+    #[serde(default)]
+    pub description: String,
     pub tags: Vec<String>,
+    #[serde(default)]
+    pub origin: Option<RealmOrigin>,
     pub updated_at: DateTime<Utc>,
 }
 

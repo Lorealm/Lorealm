@@ -41,6 +41,13 @@ import type {
 } from '$lib/types/lorebook.js';
 import type { SourceDefinition } from '$lib/types/node.js';
 import type {
+	Blueprint,
+	BlueprintSummary,
+	CreateBlueprintRequest,
+	InputSpec,
+	UpdateBlueprintRequest
+} from '$lib/types/blueprint.js';
+import type {
 	WeaverCheckResponse,
 	WeaverDialect,
 	WeaverProfile,
@@ -409,6 +416,19 @@ export function createApiClient(platform: PlatformAPI) {
 				set: (active: SetActiveRequest) => http.put('/api/v1/tokenizers/active', active),
 				unset: () => http.delete('/api/v1/tokenizers/active')
 			}
+		},
+		blueprints: {
+			list: () => http.get<Array<BlueprintSummary>>('/api/v1/blueprints'),
+			get: (id: Snowflake) => http.get<Blueprint>(`/api/v1/blueprints/${id}`),
+			create: (create: CreateBlueprintRequest) =>
+				http.post<Blueprint>('/api/v1/blueprints', create),
+			update: (id: Snowflake, update: UpdateBlueprintRequest) =>
+				http.patch<Blueprint>(`/api/v1/blueprints/${id}`, update),
+			delete: (id: Snowflake) => http.delete(`/api/v1/blueprints/${id}`),
+			inputs: (id: Snowflake) => http.get<Array<InputSpec>>(`/api/v1/blueprints/${id}/inputs`),
+			/** Expand a blueprint into a playable realm. */
+			expand: (id: Snowflake, inputs: Record<string, unknown>) =>
+				http.post<Realm>(`/api/v1/blueprints/${id}/realms`, { inputs })
 		},
 		realms: {
 			list: () => http.get<Array<RealmSummary>>('/api/v1/realms'),

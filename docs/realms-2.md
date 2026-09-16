@@ -11,6 +11,7 @@ places. Everything still true has been carried over.
 | Date DD/MM/YY | Summary                                              | AI-Assisted? |
 |---------------|------------------------------------------------------|--------------|
 | 16/09/26      | Written after the backend rework; frontend not begun  | ✅            |
+| 16/09/26      | Editor built; blueprint/realm split redefined         | ✅            |
 
 ---
 
@@ -67,15 +68,41 @@ Three stages, not two. This is the most important thing to internalise:
 
 | | What it is | Playable? |
 |---|---|---|
-| **Blueprint** | A WTN document **with** unbound `#inputs`. A constructor. | No |
-| **Realm** | A WTN document with **nothing** unbound. Owns conversations and versions. | Yes |
+| **Blueprint** | The authored WTN document. Everything you write, you write here. | No |
+| **Realm** | One instantiation of a blueprint. Owns conversations and versions. | Yes |
 | **Conversation** | A realm plus a picked scenario. One playthrough. | — |
 
 `expand(blueprint, inputs) → realm`, then `start(realm, scenario) → conversation`.
 
-One document format across both entities; what separates them is whether
-anything is still a hole. A realm is a blueprint with no inputs — which is why
-export and import are the same two functions for both.
+**What separates them is authored versus instantiated, not whether anything is
+still a hole.** A blueprint that declares no `#inputs` is still a blueprint,
+and still gets expanded — with `{}` — before anything can be played. There is
+no document you author that is already a realm.
+
+> **This changed.** The first version of this document drew the line at holes:
+> a document with nothing unbound *was* a realm. That is no longer true, and
+> the paragraph that said so has been rewritten rather than annotated. If you
+> find the old framing anywhere, it is stale.
+
+**Why the line moved.** Three reasons, in descending order of weight:
+
+- **Provenance stops being optional.** A realm records the blueprint it came
+  from and the inputs it was built with. Under the old split, a
+  directly-authored realm had no origin, so "update from blueprint" and
+  "rebuild with a different cast" worked for some realms and not others,
+  depending on whether the author happened to declare an input. Now every
+  realm has an origin.
+- **Authoring stops having a mode.** Under the old split the thing you were
+  editing changed identity the moment you declared your first input — a
+  different save target, a different list, a different endpoint. That is the
+  same over-sequencing this document complains about in the old editor, moved
+  up a level.
+- **It is what the shape is for.** One blueprint, many realms: a group chat
+  built once and instantiated with whichever characters you want this time.
+  Realms become numerous and cheap; the blueprint is the durable thing.
+
+The backend needed no new semantics for this. `expand` already accepted an
+empty input set and already wrote the origin.
 
 **Naming note:** "Template" was already taken in this codebase, thoroughly —
 a *context template* is prompt assembly, it has its own Studio section, and an
@@ -153,6 +180,16 @@ the author writes `{{c.name}}` for prose and `c.id` where a reference belongs.
 `slug` is the name reduced to a Weaver identifier, so a loop can mint handles
 from it.
 
+A **singular** `Ref<Character>` is projected identically — `Needs::One` and
+`Needs::Many` run through the same `project()` — so a lone reference fills a
+field on its own, without a loop around it.
+
+**Reading one, in either position.** `{{input:lead.id}}` works in expression
+position *and* in a string. `{{input:lead}}.id` works only in expression
+position: inside a quoted string the interpolation stringifies the whole object
+to JSON and the `.id` becomes literal text. Emit the dotted form everywhere and
+the question never comes up.
+
 **Why lean:** every field here is a promise to templates already published.
 Expand it when something needs it, not before.
 
@@ -199,6 +236,41 @@ that already has live playthroughs. Keeping the inputs means "update from
 blueprint" can later land as a new realm *version*, which conversations
 already pin against.
 
+### A realm's structure is frozen
+A realm cannot be edited. Its cast, its scripts and its director are whatever
+the blueprint produced. To change any of it, edit the blueprint and build
+again.
+
+**Why:** the moment a realm can be edited, its `origin.inputs` stop describing
+what it contains, and there are two authoring surfaces that drift. Building
+again is cheap — that is the entire point of the split — and it keeps
+provenance true.
+
+**The trade:** there is no way to tweak one agent in one realm without
+rebuilding. If that becomes painful, the answer is "fork this realm into a new
+blueprint", not "make realms editable".
+
+**Note the seam.** `PATCH /realms/{id}` and the agent CRUD under
+`/realms/{id}/agents` still exist and still work. This is a decision the editor
+keeps, not one the backend enforces. If it should be enforced, that is a
+separate change, and worth making deliberately rather than discovering.
+
+### Weaver fields cannot read inputs
+`to_wtn` writes every string through `raw_string`, as `r"..."`. That is what
+stops a realm full of Weaver source from being *evaluated* on the way back in,
+and it is load-bearing. The consequence is that a script body or a run
+condition containing `{{input:x}}` survives expansion **verbatim** and is
+evaluated later, at conversation time, in a host where the `input:` namespace
+does not exist.
+
+So: an input can be read from a handle, a name, a description — anything
+expanded during instantiation. It cannot be read from a script or a run
+condition. The editor does not offer it there.
+
+**Unresolved:** getting an expansion-time value into a script needs an escaping
+story that does not exist yet. Until it does, the seam is real and the editor
+is honest about it rather than producing something that fails much later.
+
 ### A realm always exports to a document
 Export is not a special path; it is the same format the editor will edit.
 Two properties the emitter guarantees:
@@ -208,6 +280,10 @@ Two properties the emitter guarantees:
   way back in.
 - **Output is deterministic.** Keys are sorted, so the same realm exports
   byte-identically every time. It is a format people diff and distribute.
+
+`POST /realms/import` is the way back in for an exported realm, and nothing
+else. It is not an authoring path: authoring always produces a blueprint. That
+is what makes it sit beside blueprints rather than competing with them.
 
 ### One checker, and it knows what it is looking at
 `check(source, dialect, profile)`:
@@ -236,6 +312,19 @@ The backend side of this rewrite is finished and covered by tests:
 | `services/context/weaver/check.rs` | The checker — dialects, profiles, diagnostics |
 | `server/src/tests/` | Service-level tests on an in-memory harness |
 
+And the editor, under `frontend/packages/ui/src/widgets/realms/`:
+
+| | |
+|---|---|
+| `model.ts` | The block model: cast entries, bindings, input declarations |
+| `draft.svelte.ts` | The open document, in memory. Holds the cast and selection |
+| `serialize.ts` | Block model → WTN |
+| `RadioField.svelte` | The picker/ping/drop-target every resource field uses |
+| `AssetBrowser.svelte` | Inputs and owned resources, both drag sources |
+| `RealmInspector.svelte` | Selection-driven: agent, loop, input, resource |
+| `panes/` | The tabbed shell, plus the Cast, Document and Script panes |
+| `stores/blueprint.svelte.ts` | Blueprint CRUD, save status, expansion |
+
 The endpoint the editor will lean on hardest is `GET /blueprints/{id}/inputs`.
 It returns the declarations as a closed, tagged vocabulary — `string`,
 `number`, `bool`, `enum`, `list`, `reference` — which is what lets a UI render
@@ -247,67 +336,91 @@ blueprint whose inputs cannot currently be satisfied still describes itself.
 
 ## The editor
 
-Nothing has been built. The prototype still stands and still has its two
-original problems:
+The prototype is gone and the replacement is a pane-driven shell. What exists:
 
-**Over-sequencing.** Partly fixed — the manifest is gone, so any resource the
-owner has is bindable immediately. The rest is UI.
+**The shell.** An asset browser down the left, a tabbed pane area in the
+middle, the inspector on the right, a diagnostics strip along the bottom that
+is still an empty div. Cast and Document are permanent tabs; a script opens in
+its own, closeable one. Only the active pane is mounted — a CodeMirror
+instance kept alive behind a hidden tab costs a linter poll and buys nothing.
 
-**No overview.** Untouched. Seven isolated full-view tabs (Imports went with
-the manifest), and editing a character still means leaving the editor entirely
-for Studio.
+**The block model.** The cast is an ordered list of entries, each either an
+agent or a `foreach` wrapping a list of agents. Agent fields hold *bindings*,
+not raw ids: a picked resource, a loop variable, or a singular entity input.
+The model is one-way — it emits WTN; nothing parses WTN back into it.
 
-The plan is unchanged: delete the prototype, rebuild as something closer to a
-game engine — a pane-driven shell with an inspector, an asset browser, a
-diagnostics pane, and room to grow.
+**The radio field.** The thing the whole editor leans on. Click the dot to
+pick, click the body to reveal what it points at, double-click to open it.
+Drop a resource or an input onto it; incompatible targets grey out while a
+drag is in flight, so where something can land is visible rather than guessed.
 
-### Requirements
+Every one of these slots is an id — `character_id`, `template_id` — so a
+binding names *which entity* and the emitter writes `.id`. There is no field to
+choose. An early version offered `c.name` alongside `c.id` and would happily
+have bound a name where the backend parses a Snowflake.
 
-**Build blueprints without touching WTN.** The hard one. The instantiation
-form is already free — parse the document, read its declarations, render the
-fields. Authoring is the open problem. What helps: a document is one value
-with holes, and a realm is the same value with none, so a graphical editor
-that always emits WTN gets the non-templated case for free. There is no
-"realm mode" and "blueprint mode" to build.
+**The serialiser.** `toWtn` turns the block model into a document, following
+the two rules `wtn.rs` guarantees: strings raw unless they are meant to
+expand, keys sorted. Verified by generating a document with a loop, a singular
+ref, a defaulted enum, a script and a player, then expanding it through the
+real `from_wtn`.
+
+**Diagnostics with a profile.** The Document pane checks against
+`dialect: document, profile: realm_template`; a script pane against
+`realm_script`; a run condition against `realm_condition`. This closes the
+open question below — the backend had accepted a profile all along and the
+frontend simply never sent one.
+
+### What is not built
+
+- **Scenarios.** The block model has no scenario authoring, so every document
+  emits `scenarios: []` and the play menu can only ever offer an open start.
+  This is the largest remaining gap.
+- **Reading a document back.** Reopening a blueprint shows its source and an
+  empty cast. Closing this needs either a WTN parser in TypeScript or a
+  narrower one that only accepts documents the editor itself emitted.
+- **Editing resources in a pane.** The ping still leaves for Studio. The
+  blocker below is unchanged and still gates it.
+- **The diagnostics strip.** Reserved, empty. Inline underlining carries it
+  for now.
+- **Routing for blueprints.** Realms route; blueprints open from store state,
+  so they are not in history and do not survive a refresh.
+- **Simulations / dry-runs.** Author-defined tests that check state moves the
+  way it should. Still worth doing last.
+
+### Requirements, as they stand
+
+**Build blueprints without touching WTN.** Met for the cast. Not met for
+scenarios, which do not exist yet.
 
 Note the constraint the format imposes: loops are position-typed. A loop in
 array position yields elements, in object position yields entries, and mixing
-them is a *parse* error. Bake that into the block model rather than
-discovering it.
+them is a *parse* error. The block model only ever puts a loop in array
+position, so the mistake is unrepresentable rather than caught.
 
-**Pane-driven.** Inspector, asset browser, diagnostics, and more over time.
+**Pane-driven.** Met, with three pane kinds.
 
-**Centralized.** No leaving the editor to edit a character. Cheaper than it
-sounds — the Studio resource editors are already standalone components, so
-this is mounting, not rewriting.
+**Centralized.** Not met.
 
-> **The hidden blocker.** Those editors bind to singleton stores with one
-> draft slot each and call the global navigator directly. Two panes editing
-> two characters is currently impossible, and a pane that navigates moves the
-> whole app. Stores need to go from "one editing slot" to "documents keyed by
-> id", and editors need an id prop with navigation via context. `ToolsEditor`
-> already takes a prop, so there is precedent. Budget for it — it is invisible
-> from any design doc and it gates the entire pane model.
-
-**Simulations / dry-runs.** Author-defined test scenarios that check state
-moves the way it should, so live-LLM testing is the exception. Nothing exists
-yet. Worth doing last — what you would want to simulate keeps changing until
-the rest settles.
+> **The hidden blocker.** The Studio resource editors bind to singleton stores
+> with one draft slot each and call the global navigator directly. Two panes
+> editing two characters is currently impossible, and a pane that navigates
+> moves the whole app. Stores need to go from "one editing slot" to "documents
+> keyed by id", and editors need an id prop with navigation via context.
+> `ToolsEditor` already takes a prop, so there is precedent. Budget for it — it
+> is invisible from any design doc and it gates the entire pane model.
 
 ### Keep, don't delete
 
 `src/weaver/editor/` is ~1,500 lines of CodeMirror support — language,
 completion, diagnostics, hover, references, theming. It is not realm-specific
-and it *is* the "IDE functionality" the brief asks for.
+and it *is* the "IDE functionality" the brief asks for. `WeaverEditor` is the
+full one (line numbers, active line, indent-on-input); `WeaverArea` and
+`WeaverField` are the field-shaped variants. All three take a `profile`.
 
 ---
 
 ## Open questions
-
-**The frontend does not send a profile.** The backend takes one; `weaverCheck`
-still checks everything against the union. First thing to fix when the editor
-work starts, because a diagnostics pane is the part of an editor users decide
-whether to trust.
 
 **Panes and plugins.** [`plugin-system.md`](./plugin-system.md) puts frontend
 plugins in an iframe at pre-defined locations, and says plugins may not
@@ -317,18 +430,28 @@ first-class plugin entry point, or "infinitely extensible" means "by us".
 
 **Provenance is head-level.** A realm's `origin` is on the realm, not per
 version, so rolling back a version keeps the current origin rather than the
-one that produced that version. Fine for now; revisit alongside "update from
-blueprint".
+one that produced that version. This matters more now that every realm has an
+origin rather than only some; revisit alongside "update from blueprint".
 
 **`blueprint_id` can dangle.** Deliberate — deleting a blueprint leaves the
 realms it made fully working, because a realm is not a view over its
-blueprint. But "update from blueprint" will have to handle a missing source.
+blueprint. But every realm now has one, so a deleted blueprint is a visible
+hole in the Realms list rather than an edge case, and "update from blueprint"
+will have to handle a missing source. The list currently says "a deleted
+blueprint" and moves on.
 
 **Two expressions of one rule.** "Entity inputs cannot have defaults" lives in
 the checker (as a diagnostic) and in the resolver (as a hard error at
 expansion). Both paths are needed — a document can reach expansion without a
 blueprint save — but they could drift.
 
-**`POST /realms/import` sits beside blueprints.** It takes a document with
-nothing unbound, which is how an exported realm comes back in. Worth
-confirming that is still the split you want once the editor exists.
+**Getting an expansion-time value into a script.** See "Weaver fields cannot
+read inputs" above. The seam is understood and currently just refused; what it
+needs is an escaping story, and there is no proposal yet.
+
+**Reusable scripts.** Authoring a script agent's body in its own pane covers
+most of the complaint. Sharing one body across realms does not fit as a
+resource: a blueprint *is* its WTN source, so there is nowhere to put a pointer
+that is not the document itself, and an id in the document breaks the
+distribution the format exists for. If it lands, it should be an authoring-time
+insert that copies the body in — a library, not a link.

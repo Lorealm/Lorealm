@@ -20,6 +20,8 @@ const BINDING_SLOTS = ['character', 'template', 'persona', 'profile'] as const;
  * The document the editor is currently working on, held entirely in memory.
  */
 class RealmDraft {
+	name = $state('');
+	description = $state('');
 	inputs = $state<InputDecl[]>([]);
 	cast = $state<CastEntry[]>([]);
 	selection = $state<Selection>(null);
@@ -30,6 +32,8 @@ class RealmDraft {
 	}
 
 	reset() {
+		this.name = '';
+		this.description = '';
 		this.inputs = [];
 		this.cast = [];
 		this.selection = null;

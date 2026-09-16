@@ -37,7 +37,9 @@ impl RealmStorage for MemoryStorage {
                 id: s.realm.id,
                 owner_id: s.realm.owner_id,
                 name: s.realm.definition.name.clone(),
+                description: s.realm.definition.description.clone(),
                 tags: s.realm.tags.clone(),
+                origin: s.realm.origin.clone(),
                 updated_at: s.updated_at,
             })
             .collect();

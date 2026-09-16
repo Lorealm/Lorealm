@@ -1,88 +1,151 @@
 <script lang="ts">
-	import { useApi } from '$lib/api/client.js';
-	import { chatStore } from '$lib/stores/chat.svelte.js';
-	import { showError, showToast } from '$lib/stores/errorToast.svelte.js';
-	import { navigator } from '$lib/navigation/navigator.js';
+	import { showToast } from '$lib/stores/errorToast.svelte.js';
 	import { realmStore } from '$lib/stores/realm.svelte.js';
-	import { ArrowLeft, Play } from '@lucide/svelte';
-	import RealmList from './RealmList.svelte';
+	import { ArrowLeft, Play, Save } from '@lucide/svelte';
+	import RealmCards from './RealmCards.svelte';
 	import RealmEditor from './RealmEditor.svelte';
+	import BlueprintList from './BlueprintList.svelte';
+	import InstantiateDialog from './InstantiateDialog.svelte';
+	import { blueprintStore } from '$lib/stores/blueprint.svelte.js';
+	import { realmDraft } from './draft.svelte.js';
+	import { panes } from './panes.svelte.js';
+	import { toWtn } from './serialize.js';
 
-	const api = useApi();
+	type Tab = 'realms' | 'blueprints';
+	let tab = $state<Tab>('realms');
 
-	const realm = $derived(realmStore.realm);
-	let starting = $state(false);
+	const blueprint = $derived(blueprintStore.current);
+	const wtn = $derived(
+		toWtn(realmDraft.name, realmDraft.description, realmDraft.inputs, realmDraft.cast)
+	);
 
-	const scenarios = $derived(realm?.definition.scenarios ?? []);
-	/** '' = let the server pick (only/none). Required when several exist. */
-	let scenarioPick = $state<string>('');
-	$effect(() => {
-		if (!scenarios.some((s) => s.id === scenarioPick)) scenarioPick = scenarios[0]?.id ?? '';
-	});
+	let building = $state(false);
+	let asking = $state(false);
 
-	let lastRealmId: string | null = null;
-	$effect(() => {
-		const id = realm?.id ?? null;
-		if (id !== lastRealmId) {
-			lastRealmId = id;
-		}
-	});
-
-	async function back() {
-		await realmStore.flushAgentSaves();
-		navigator.start().realms();
+	/** Write the document, then ask the server what it now declares. */
+	async function save() {
+		if (!blueprint) return;
+		await blueprintStore.save(realmDraft.name, wtn.source);
 	}
 
-	/** Instantiate the realm and play it */
-	async function play() {
-		if (!realm || starting) return;
-		starting = true;
+	/** Build a realm from the active blueprint */
+	async function build() {
+		if (!blueprint) return;
+		if (!(await blueprintStore.save(realmDraft.name, wtn.source))) return;
+		if (blueprintStore.inputs.length > 0) {
+			asking = true;
+			return;
+		}
+		await run({});
+	}
+
+	async function run(inputs: Record<string, unknown>) {
+		if (!blueprint) return;
+		building = true;
 		try {
-			await realmStore.flushAgentSaves();
-			const full = await api.chat.realm.start({
-				realm_id: realm.id,
-				scenario_id: scenarioPick || null
-			});
-			await chatStore.loadConversation(full.metadata.id);
-			navigator.start().write();
+			const made = await blueprintStore.expand(blueprint.id, inputs);
+			if (!made) return;
+			asking = false;
 			showToast({
 				variant: 'info',
-				title: 'Playthrough started',
-				message: `${realm.definition.name || 'This realm'} is now open in Write.`
+				title: 'Realm built',
+				message: `${made.definition.name || 'It'} is ready to play.`
 			});
-		} catch (e) {
-			showError(e instanceof Error ? e.message : String(e), {
-				title: 'Failed to start playthrough',
-				durationMs: 5000
-			});
+			await realmStore.loadList();
 		} finally {
-			starting = false;
+			building = false;
 		}
+	}
+
+	function closeBlueprint() {
+		blueprintStore.close();
+		realmDraft.reset();
+		panes.reset();
 	}
 </script>
 
 <div class="shell">
 	<header class="topbar">
 		<div class="left">
-			{#if realm}
-				<button type="button" class="icon" title="Back to Realms" onclick={back}>
+			{#if blueprint}
+				<button type="button" class="icon" title="Back to Realms" onclick={closeBlueprint}>
 					<ArrowLeft size={18} />
 				</button>
+				<input
+					class="nameField"
+					value={realmDraft.name}
+					aria-label="Blueprint name"
+					oninput={(e) => (realmDraft.name = e.currentTarget.value)}
+				/>
+			{:else}
+				<div class="title">Realms</div>
 			{/if}
-			<div class="title">{realm ? realm.definition.name || 'Untitled Realm' : 'Realms'}</div>
 		</div>
+
+		{#if blueprint}
+			<div class="actions">
+				{#if blueprintStore.saveError}
+					<span class="saveError" title={blueprintStore.saveError}>
+						The server refused this document
+					</span>
+				{:else if blueprintStore.saveStatus === 'saved'}
+					<span class="saved">Saved</span>
+				{/if}
+				<button type="button" onclick={save} disabled={blueprintStore.saveStatus === 'saving'}>
+					<Save size={13} /> Save
+				</button>
+				<button type="button" class="primary" onclick={build} disabled={building}>
+					<Play size={13} /> Build realm
+				</button>
+			</div>
+		{/if}
 	</header>
 
 	<div class="body">
 		<div class="main">
-			{#if realm}
+			{#if blueprint}
 				<RealmEditor />
 			{:else}
-				<RealmList />
+				<div class="tabs" role="tablist" aria-label="Realms and blueprints">
+					<button
+						type="button"
+						role="tab"
+						aria-selected={tab === 'realms'}
+						class:active={tab === 'realms'}
+						onclick={() => (tab = 'realms')}
+					>
+						Realms
+					</button>
+					<button
+						type="button"
+						role="tab"
+						aria-selected={tab === 'blueprints'}
+						class:active={tab === 'blueprints'}
+						onclick={() => (tab = 'blueprints')}
+					>
+						Blueprints
+					</button>
+				</div>
+				<div class="lists">
+					{#if tab === 'realms'}
+						<RealmCards />
+					{:else}
+						<BlueprintList />
+					{/if}
+				</div>
 			{/if}
 		</div>
 	</div>
 </div>
+
+{#if asking}
+	<InstantiateDialog
+		specs={blueprintStore.inputs}
+		busy={building}
+		onbuild={run}
+		oncancel={() => (asking = false)}
+	/>
+{/if}
 
 <style>
 	.shell {
@@ -135,19 +198,78 @@
 		color: var(--color-text-primary);
 	}
 
-	.playGroup {
+	.tabs {
+		display: flex;
+		flex: 0 0 auto;
+		gap: var(--spacing-xs);
+		padding: 0 var(--spacing-lg);
+		border-bottom: 1px solid var(--color-border-subtle);
+	}
+	.tabs button {
+		padding: var(--spacing-sm) var(--spacing-md);
+		background: transparent;
+		border: none;
+		border-bottom: 2px solid transparent;
+		color: var(--color-text-muted);
+		font-family: var(--font-family-heading);
+		font-size: var(--font-size-h6);
+	}
+	.tabs button:hover {
+		color: var(--color-text-secondary);
+	}
+	.tabs button.active {
+		border-bottom-color: var(--color-primary-light);
+		color: var(--color-text-primary);
+	}
+
+	.lists {
+		display: flex;
+		flex-direction: column;
+		flex: 1 1 auto;
+		min-height: 0;
+		overflow-y: auto;
+	}
+	.nameField {
+		min-width: 12em;
+		font-family: var(--font-family-heading);
+		font-size: var(--font-size-h5);
+		font-weight: 600;
+	}
+	.actions {
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-sm);
 	}
-
-	.playGroup > select {
-		height: 32px;
-		max-width: 220px;
+	.actions button:not(.primary) {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+		padding: var(--spacing-xs) var(--spacing-md);
+		background-color: var(--color-bg-elevated-3);
+		border: none;
+		border-radius: var(--radius-sm);
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-sm);
+	}
+	.actions button:not(.primary):hover:not(:disabled) {
+		background-color: var(--color-hover);
+		color: var(--color-text-accent);
+	}
+	.saved {
+		color: var(--color-success-text);
+		font-size: var(--font-size-xs);
+	}
+	.saveError {
+		color: var(--color-error-text);
+		font-size: var(--font-size-xs);
 	}
 
 	.primary {
 		display: flex;
+		padding: var(--spacing-xs) var(--spacing-md);
+		border: none;
+		border-radius: var(--radius-sm);
+		font-size: var(--font-size-sm);
 		align-items: center;
 		gap: var(--spacing-xs);
 		height: 32px;
