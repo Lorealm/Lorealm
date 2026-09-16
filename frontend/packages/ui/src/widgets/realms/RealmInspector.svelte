@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ExternalLink, Trash2 } from '@lucide/svelte';
+	import { ExternalLink, Maximize2, Trash2 } from '@lucide/svelte';
 	import ContextField from '$lib/components/ContextField.svelte';
 	import { navigator } from '$lib/navigation/navigator.js';
 	import type { StudioResource } from '$lib/navigation/navigator.js';
@@ -7,6 +7,7 @@
 	import type { AgentKind, RealmResourceKind } from '$lib/types/realm.js';
 	import RadioField from './RadioField.svelte';
 	import { realmDraft } from './draft.svelte.js';
+	import { panes } from './panes.svelte.js';
 	import { activeDrag, clearDrag, readDrag } from './drag.svelte.js';
 	import {
 		baseOf,
@@ -155,6 +156,17 @@
 		'Lets this agent take its turn only when this is true.\nLeave it empty and it always does.';
 
 	const noun = (kind: RealmResourceKind) => TYPE_NAME[kind].toLowerCase();
+
+	const PREVIEW_LINES = 4;
+
+	function preview(source: string): { text: string; truncated: boolean } {
+		const lines = source.split('\n');
+		while (lines.length > 0 && !lines[0].trim()) lines.shift();
+		return {
+			text: lines.slice(0, PREVIEW_LINES).join('\n'),
+			truncated: lines.length > PREVIEW_LINES
+		};
+	}
 </script>
 
 <div class="inspector">
@@ -300,6 +312,7 @@
 			label="Run condition"
 			value={a.run_condition}
 			dialect="expression"
+			profile="realm_condition"
 			multiline={false}
 			tokens={false}
 			maximizable={false}
@@ -308,15 +321,31 @@
 		/>
 
 		{#if shows(a, 'script')}
-			<ContextField
-				label="Script"
-				value={a.script}
-				dialect="template"
-				rows={8}
-				tokens={false}
-				hint="Runs every time it's this agent's turn."
-				onchange={(next) => (a.script = next)}
-			/>
+			{@const shown = preview(a.script)}
+			<div class="field">
+				<span>Script</span>
+				<button
+					type="button"
+					class="scriptCard"
+					class:blank={!shown.text}
+					class:truncated={shown.truncated}
+					aria-label={shown.text
+						? `Open the script for ${a.handle || 'this agent'}`
+						: `Write a script for ${a.handle || 'this agent'}`}
+					onclick={() => panes.show({ kind: 'script', agentKey: a.key })}
+				>
+					{#if shown.text}
+						<pre aria-hidden="true">{shown.text}</pre>
+					{:else}
+						<span class="blankText">Nothing written yet</span>
+					{/if}
+					<span class="openOverlay" aria-hidden="true">
+						<Maximize2 size={12} />
+						{shown.text ? 'Open' : 'Write one'}
+					</span>
+				</button>
+				<p class="note">Runs every time it's this agent's turn. Opens in its own pane.</p>
+			</div>
 		{/if}
 	{:else if loop?.kind === 'foreach'}
 		{@const l = loop}
@@ -602,6 +631,73 @@
 	}
 	.declTag.optional {
 		color: var(--color-text-muted);
+	}
+
+	.scriptCard {
+		position: relative;
+		display: block;
+		width: 100%;
+		min-width: 0;
+		padding: var(--spacing-sm);
+		background-color: var(--color-bg-input);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius-sm);
+		text-align: left;
+		overflow: hidden;
+	}
+	.scriptCard:hover,
+	.scriptCard:focus-visible {
+		border-color: var(--color-border-active);
+	}
+
+	.scriptCard pre {
+		margin: 0;
+		font-family: var(--font-family-mono);
+		font-size: var(--font-size-xs);
+		line-height: var(--line-height-snug);
+		color: var(--color-text-muted);
+		white-space: pre;
+		mask-image: linear-gradient(to right, #000 75%, transparent);
+	}
+	.scriptCard.truncated pre {
+		mask-image:
+			linear-gradient(to right, #000 75%, transparent),
+			linear-gradient(to bottom, #000 55%, transparent);
+		-webkit-mask-composite: source-in;
+		mask-composite: intersect;
+	}
+
+	.scriptCard.blank {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 3.5em;
+		border-style: dashed;
+	}
+	.blankText {
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
+		font-style: italic;
+	}
+
+	.openOverlay {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--spacing-xs);
+		background-color: var(--color-bg-overlay);
+		-webkit-backdrop-filter: blur(2px);
+		backdrop-filter: blur(2px);
+		color: var(--color-text-accent);
+		font-size: var(--font-size-xs);
+		opacity: 0;
+		transition: opacity 120ms ease;
+	}
+	.scriptCard:hover .openOverlay,
+	.scriptCard:focus-visible .openOverlay {
+		opacity: 1;
 	}
 
 	.resourceName {

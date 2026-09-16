@@ -40,7 +40,12 @@ import type {
 	SetActiveLorebooksRequest
 } from '$lib/types/lorebook.js';
 import type { SourceDefinition } from '$lib/types/node.js';
-import type { WeaverCheckResponse, WeaverDialect, WeaverVocabulary } from '$lib/types/weaver.js';
+import type {
+	WeaverCheckResponse,
+	WeaverDialect,
+	WeaverProfile,
+	WeaverVocabulary
+} from '$lib/types/weaver.js';
 import type {
 	UserPersona,
 	UpdatePersona,
@@ -167,8 +172,13 @@ export function createApiClient(platform: PlatformAPI) {
 			delete: (id: Snowflake) => http.delete(`/api/v1/templates/${id}`),
 			sources: () => http.get<Array<SourceDefinition>>('/api/v1/templates/sources'),
 			weaverVocabulary: () => http.get<WeaverVocabulary>('/api/v1/templates/weaver-vocabulary'),
-			weaverCheck: (source: string, dialect: WeaverDialect) =>
-				http.post<WeaverCheckResponse>('/api/v1/templates/weaver-check', { source, dialect }),
+			/** `profile` names the host; omitted, the checker uses every host's union. */
+			weaverCheck: (source: string, dialect: WeaverDialect, profile?: WeaverProfile) =>
+				http.post<WeaverCheckResponse>('/api/v1/templates/weaver-check', {
+					source,
+					dialect,
+					profile
+				}),
 			active: {
 				get: () => http.get<Snowflake | null>('/api/v1/templates/active'),
 				set: (request: SetActiveTemplateRequest) => http.put('/api/v1/templates/active', request),
@@ -277,9 +287,7 @@ export function createApiClient(platform: PlatformAPI) {
 							`/api/v1/chat/${conversation_id}/agents/${handle}/observations${before !== undefined ? `?before=${before}` : ''}`
 						),
 					actions: (conversation_id: Snowflake, handle: string) =>
-						http.get<Array<ActionSpec>>(
-							`/api/v1/chat/${conversation_id}/agents/${handle}/actions`
-						),
+						http.get<Array<ActionSpec>>(`/api/v1/chat/${conversation_id}/agents/${handle}/actions`),
 					/** The agent's granted slice: at `at` when given, else the active leaf. */
 					state: (conversation_id: Snowflake, handle: string, at?: Snowflake) =>
 						http.get<StateSlice>(
