@@ -155,9 +155,7 @@
 					<span class="declared">{spec.declared}</span>
 				</div>
 			{:else}
-				<p class="nothing">
-					This document declares no inputs.
-				</p>
+				<p class="nothing">This document declares no inputs.</p>
 			{/each}
 		</div>
 
