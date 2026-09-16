@@ -2,6 +2,7 @@
 	import { iconFor } from '$lib/assets/icons/catalogue.js';
 	import { router } from '$lib/navigation/router.svelte.js';
 	import { inspectorMatrix } from '$lib/stores/inspectorMatrix.svelte.js';
+	import RealmInspector from '../realms/RealmInspector.svelte';
 	import { inspectorRegistry } from './registry.js';
 
 	const view = $derived(router.current.view);
@@ -11,29 +12,37 @@
 
 <div class="container">
 	<div class="topBar">
-		{#each profiles as profile (profile.id)}
-			{@const Icon = iconFor(profile.icon)}
-			{@const active = profile.id === inspectorMatrix.activeId}
-			<button
-				class="profile"
-				class:active
-				class:unconfigured={!inspectorMatrix.isConfigured(profile, view)}
-				title={profile.name}
-				aria-pressed={active}
-				onclick={() => inspectorMatrix.select(profile.id)}
-			>
-				<Icon size={16} />
-				{#if active}<span class="name">{profile.name}</span>{/if}
-			</button>
-		{/each}
+		{#if view === 'realms'}
+			<button>Realm Placeholder</button>
+		{:else}
+			{#each profiles as profile (profile.id)}
+				{@const Icon = iconFor(profile.icon)}
+				{@const active = profile.id === inspectorMatrix.activeId}
+				<button
+					class="profile"
+					class:active
+					class:unconfigured={!inspectorMatrix.isConfigured(profile, view)}
+					title={profile.name}
+					aria-pressed={active}
+					onclick={() => inspectorMatrix.select(profile.id)}
+				>
+					<Icon size={16} />
+					{#if active}<span class="name">{profile.name}</span>{/if}
+				</button>
+			{/each}
+		{/if}
 	</div>
 	<div class="content">
-		{#each widgets as key (key)}
-			{@const Widget = inspectorRegistry[key].component}
-			<Widget />
+		{#if view === 'realms'}
+			<RealmInspector />
 		{:else}
-			<span class="empty">Nothing configured for this view.</span>
-		{/each}
+			{#each widgets as key (key)}
+				{@const Widget = inspectorRegistry[key].component}
+				<Widget />
+			{:else}
+				<span class="empty">Nothing configured for this view.</span>
+			{/each}
+		{/if}
 	</div>
 </div>
 

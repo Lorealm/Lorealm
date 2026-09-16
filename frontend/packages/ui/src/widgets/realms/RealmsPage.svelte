@@ -6,6 +6,7 @@
 	import { realmStore } from '$lib/stores/realm.svelte.js';
 	import { ArrowLeft, Play } from '@lucide/svelte';
 	import RealmList from './RealmList.svelte';
+	import RealmEditor from './RealmEditor.svelte';
 
 	const api = useApi();
 
@@ -70,29 +71,6 @@
 			{/if}
 			<div class="title">{realm ? realm.definition.name || 'Untitled Realm' : 'Realms'}</div>
 		</div>
-		{#if realm}
-			<div class="playGroup">
-				{#if scenarios.length > 1}
-					<select bind:value={scenarioPick} title="Scenario to open with">
-						{#each scenarios as s (s.id)}
-							<option value={s.id}>{s.name || 'Untitled scenario'}</option>
-						{/each}
-					</select>
-				{/if}
-				<button
-					type="button"
-					class="primary"
-					onclick={play}
-					disabled={starting || realmStore.agents.length === 0}
-					title={realmStore.agents.length === 0
-						? 'Add at least one agent first'
-						: "Starts a fresh conversation in Write, using this realm's current cast"}
-				>
-					<Play size={14} />
-					{starting ? 'Starting…' : 'Play'}
-				</button>
-			</div>
-		{/if}
 	</header>
 
 	<div class="body">
