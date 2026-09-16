@@ -1,0 +1,233 @@
+import {
+	elementKind,
+	emptyAgent,
+	freshKey,
+	isSingularRef,
+	referencedKind,
+	selectionId,
+	type AgentBlock,
+	type Binding,
+	type CastEntry,
+	type InputDecl,
+	type InputType,
+	type Selection
+} from './model.js';
+
+/** Every agent slot that holds a single binding. Lorebooks are a list apart. */
+const BINDING_SLOTS = ['character', 'template', 'persona', 'profile'] as const;
+
+/**
+ * The document the editor is currently working on, held entirely in memory.
+ */
+class RealmDraft {
+	inputs = $state<InputDecl[]>([]);
+	cast = $state<CastEntry[]>([]);
+	selection = $state<Selection>(null);
+
+	/** True once anything references an input: the document is a blueprint. */
+	get isBlueprint(): boolean {
+		return this.inputs.length > 0;
+	}
+
+	reset() {
+		this.inputs = [];
+		this.cast = [];
+		this.selection = null;
+	}
+
+	select(selection: Selection) {
+		this.selection = selection;
+	}
+
+	isSelected(selection: NonNullable<Selection>): boolean {
+		return this.selection !== null && selectionId(this.selection) === selectionId(selection);
+	}
+
+	agent(key: string): AgentBlock | null {
+		for (const entry of this.cast) {
+			if (entry.kind === 'agent') {
+				if (entry.agent.key === key) return entry.agent;
+			} else {
+				const found = entry.body.find((a) => a.key === key);
+				if (found) return found;
+			}
+		}
+		return null;
+	}
+
+	/** The loop variables an agent can read */
+	scopeOf(agentKey: string): Array<{ varName: string; input: InputDecl | null }> {
+		for (const entry of this.cast) {
+			if (entry.kind !== 'foreach') continue;
+			if (!entry.body.some((a) => a.key === agentKey)) continue;
+			const input = this.inputs.find((i) => i.name === entry.over) ?? null;
+			if (!input || !elementKind(input.ty)) return [];
+			return [{ varName: entry.varName, input }];
+		}
+		return [];
+	}
+
+	addAgent(): AgentBlock {
+		const agent = emptyAgent(this.#uniqueHandle('agent'));
+		this.cast.push({ key: freshKey('entry-'), kind: 'agent', agent });
+		this.select({ kind: 'agent', key: agent.key });
+		return agent;
+	}
+
+	addForeach(): CastEntry {
+		const entry: CastEntry = {
+			key: freshKey('entry-'),
+			kind: 'foreach',
+			varName: 'item',
+			over: null,
+			body: [emptyAgent(this.#uniqueHandle('member'))]
+		};
+		this.cast.push(entry);
+		this.select({ kind: 'foreach', key: entry.key });
+		return entry;
+	}
+
+	/** Append an agent to a loop body. */
+	addToBody(entryKey: string) {
+		const entry = this.cast.find((e) => e.key === entryKey);
+		if (entry?.kind !== 'foreach') return;
+		const agent = emptyAgent(this.#uniqueHandle('member'));
+		entry.body.push(agent);
+		this.select({ kind: 'agent', key: agent.key });
+	}
+
+	removeEntry(key: string) {
+		this.cast = this.cast.filter((e) => e.key !== key);
+		this.selection = null;
+	}
+
+	removeAgent(key: string) {
+		for (const entry of this.cast) {
+			if (entry.kind !== 'foreach') continue;
+			const at = entry.body.findIndex((a) => a.key === key);
+			if (at >= 0) {
+				entry.body.splice(at, 1);
+				this.selection = null;
+				return;
+			}
+		}
+		const at = this.cast.findIndex((e) => e.kind === 'agent' && e.agent.key === key);
+		if (at >= 0) {
+			this.cast.splice(at, 1);
+			this.selection = null;
+		}
+	}
+
+	/** Move a top-level entry so it lands at `to` */
+	moveEntry(key: string, to: number) {
+		const from = this.cast.findIndex((e) => e.key === key);
+		if (from < 0) return;
+		const target = Math.max(0, Math.min(to > from ? to - 1 : to, this.cast.length - 1));
+		if (target === from) return;
+		const [entry] = this.cast.splice(from, 1);
+		this.cast.splice(target, 0, entry);
+	}
+
+	addInput(): InputDecl {
+		const decl: InputDecl = {
+			name: this.#uniqueInputName('input'),
+			ty: { type: 'list', of: { type: 'reference', kind: 'character' } },
+			defaultValue: null
+		};
+		this.inputs.push(decl);
+		this.select({ kind: 'input', name: decl.name });
+		return decl;
+	}
+
+	/**
+	 * Rename a declaration
+	 */
+	renameInput(from: string, to: string) {
+		const decl = this.inputs.find((i) => i.name === from);
+		if (!decl || from === to) return;
+		const name = this.#uniqueInputName(to || 'input', from);
+		decl.name = name;
+		for (const entry of this.cast) {
+			if (entry.kind === 'foreach' && entry.over === from) entry.over = name;
+		}
+		this.#rewriteInputBindings(from, name);
+		if (this.selection?.kind === 'input' && this.selection.name === from) {
+			this.selection = { kind: 'input', name };
+		}
+	}
+
+	removeInput(name: string) {
+		this.inputs = this.inputs.filter((i) => i.name !== name);
+		for (const entry of this.cast) {
+			if (entry.kind === 'foreach' && entry.over === name) entry.over = null;
+		}
+		this.#rewriteInputBindings(name, null);
+		this.selection = null;
+	}
+
+	/**
+	 * Retype a declaration, dropping the fields that read it if it can no longer
+	 * fill them.
+	 */
+	retypeInput(name: string, ty: InputType) {
+		const decl = this.inputs.find((i) => i.name === name);
+		if (!decl) return;
+		const before = isSingularRef(decl.ty) ? referencedKind(decl.ty) : null;
+		decl.ty = ty;
+		const after = isSingularRef(ty) ? referencedKind(ty) : null;
+		if (before !== null && before !== after) this.#rewriteInputBindings(name, null);
+	}
+
+	#rewriteInputBindings(from: string, to: string | null) {
+		const reads = (binding: Binding) => binding.source === 'input' && binding.name === from;
+		for (const agent of this.#agents()) {
+			for (const slot of BINDING_SLOTS) {
+				const binding = agent[slot];
+				if (binding && reads(binding)) {
+					agent[slot] = to === null ? null : { source: 'input', name: to };
+				}
+			}
+			agent.lorebooks =
+				to === null
+					? agent.lorebooks.filter((b) => !reads(b))
+					: agent.lorebooks.map((b) => (reads(b) ? { source: 'input', name: to } : b));
+		}
+	}
+
+	#agents(): AgentBlock[] {
+		return this.cast.flatMap((entry) => (entry.kind === 'agent' ? [entry.agent] : entry.body));
+	}
+
+	/** Drop every binding that reads a loop variable no longer in scope. */
+	clearStaleBindings(entryKey: string) {
+		const entry = this.cast.find((e) => e.key === entryKey);
+		if (entry?.kind !== 'foreach') return;
+		for (const agent of entry.body) {
+			for (const field of ['character', 'template', 'persona', 'profile'] as const) {
+				if (agent[field]?.source === 'loop') agent[field] = null;
+			}
+			agent.lorebooks = agent.lorebooks.filter((b: Binding) => b.source !== 'loop');
+		}
+	}
+
+	#handles(): string[] {
+		return this.#agents().map((a) => a.handle);
+	}
+
+	#uniqueHandle(base: string): string {
+		const taken = this.#handles();
+		let n = 1;
+		while (taken.includes(`${base}_${n}`)) n++;
+		return `${base}_${n}`;
+	}
+
+	#uniqueInputName(base: string, ignore?: string): string {
+		const taken = this.inputs.filter((i) => i.name !== ignore).map((i) => i.name);
+		if (!taken.includes(base)) return base;
+		let n = 2;
+		while (taken.includes(`${base}${n}`)) n++;
+		return `${base}${n}`;
+	}
+}
+
+export const realmDraft = new RealmDraft();
