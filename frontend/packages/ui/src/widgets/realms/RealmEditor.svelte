@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { realmStore } from '$lib/stores/realm.svelte.js';
 	import AssetBrowser from './AssetBrowser.svelte';
-	import CastPane from './panes/CastPane.svelte';
+	import PaneShell from './panes/PaneShell.svelte';
 	import { realmDraft } from './draft.svelte.js';
+	import { panes } from './panes.svelte.js';
 
 	// The draft is a module singleton, so opening a different realm has to clear
 	// it.
@@ -12,6 +13,7 @@
 		if (id !== lastRealmId) {
 			lastRealmId = id;
 			realmDraft.reset();
+			panes.reset();
 		}
 	});
 </script>
@@ -22,7 +24,7 @@
 			<AssetBrowser />
 		</div>
 		<div class="realm-editor-pane-shell">
-			<CastPane />
+			<PaneShell />
 		</div>
 	</div>
 	<div class="realm-editor-bottom">

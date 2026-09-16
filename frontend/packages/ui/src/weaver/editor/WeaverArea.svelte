@@ -10,7 +10,7 @@
 	import { weaverDiagnostics } from './weaver-diagnostics.js';
 	import { weaverReferences } from './weaver-reflinks.js';
 	import type { ReferenceSource } from './weaver-references.js';
-	import type { WeaverDialect } from '$lib/types/weaver.js';
+	import type { WeaverDialect, WeaverProfile } from '$lib/types/weaver.js';
 	import { weaverVocabularyStore } from '$lib/stores/weaverVocabulary.svelte.js';
 
 	let {
@@ -23,7 +23,8 @@
 		autofocus = false,
 		fill = false,
 		surface = 'elevated',
-		dialect = 'template'
+		dialect = 'template',
+		profile
 	}: {
 		doc?: string;
 		onChange?: (value: string) => void;
@@ -42,6 +43,8 @@
 		surface?: 'elevated' | 'sunken';
 		/** Which compiler to check source against. Condition fields hold an `expression`. */
 		dialect?: WeaverDialect;
+		/** Which host the source will run in. See {@link weaverDiagnostics}. */
+		profile?: WeaverProfile;
 	} = $props();
 
 	let host: HTMLDivElement;
@@ -95,7 +98,7 @@
 					weaverHover,
 					weaverCompletion,
 					weaverTheme,
-					weaverDiagnostics(dialect),
+					weaverDiagnostics(dialect, profile),
 					...(hint ? [placeholder(hint)] : []),
 					...(readOnly ? [EditorState.readOnly.of(true), EditorView.editable.of(false)] : []),
 					...(references ? [weaverReferences(references)] : []),

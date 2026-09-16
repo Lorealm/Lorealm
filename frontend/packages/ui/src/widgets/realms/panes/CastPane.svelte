@@ -12,6 +12,7 @@
 	import type { AgentKind } from '$lib/types/realm.js';
 	import { activeDrag, carriesAsset, clearDrag, readDrag } from '../drag.svelte.js';
 	import { realmDraft } from '../draft.svelte.js';
+	import { panes } from '../panes.svelte.js';
 	import { elementKind, type AgentBlock, type CastEntry } from '../model.js';
 
 	/** Reordering stays inside the pane, so it gets its own mime. */
@@ -82,7 +83,10 @@
 			type="button"
 			class="agent"
 			class:selected={realmDraft.isSelected({ kind: 'agent', key: agent.key })}
+			title={agent.kind === 'script' ? 'Double-click to edit its script' : undefined}
 			onclick={() => realmDraft.select({ kind: 'agent', key: agent.key })}
+			ondblclick={() =>
+				agent.kind === 'script' && panes.show({ kind: 'script', agentKey: agent.key })}
 		>
 			<Icon size={13} />
 			<span class="handle">{agent.handle || 'unnamed'}</span>
