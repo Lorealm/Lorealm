@@ -534,8 +534,8 @@ impl RealmService {
             id: self.snowflake.generate(),
             owner_id: user_id,
             current_version_id: self.snowflake.generate(),
+            tags: definition.tags.clone(),
             definition,
-            tags: Vec::new(),
             origin,
         };
         self.storage

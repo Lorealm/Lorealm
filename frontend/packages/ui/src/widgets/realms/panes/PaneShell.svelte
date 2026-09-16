@@ -1,9 +1,11 @@
 <script lang="ts">
-	import { FileCode2, ScrollText, Users, X } from '@lucide/svelte';
+	import { BookOpen, FileCode2, ScrollText, Shuffle, Users, X } from '@lucide/svelte';
 	import { realmDraft } from '../draft.svelte.js';
 	import { paneId, panes, type Pane } from '../panes.svelte.js';
 	import CastPane from './CastPane.svelte';
+	import DirectorPane from './DirectorPane.svelte';
 	import DocumentPane from './DocumentPane.svelte';
+	import OverviewPane from './OverviewPane.svelte';
 	import ScriptPane from './ScriptPane.svelte';
 
 	/** Every agent that currently has a script pane's worth of content. */
@@ -20,14 +22,18 @@
 	});
 
 	function label(pane: Pane): string {
+		if (pane.kind === 'overview') return 'Overview';
 		if (pane.kind === 'cast') return 'Cast';
 		if (pane.kind === 'document') return 'Document';
+		if (pane.kind === 'director') return 'Director';
 		return realmDraft.agent(pane.agentKey)?.handle || 'script';
 	}
 
 	function iconFor(pane: Pane) {
+		if (pane.kind === 'overview') return BookOpen;
 		if (pane.kind === 'cast') return Users;
 		if (pane.kind === 'document') return FileCode2;
+		if (pane.kind === 'director') return Shuffle;
 		return ScrollText;
 	}
 </script>
@@ -64,10 +70,14 @@
 	</div>
 
 	<div class="body">
-		{#if panes.active.kind === 'cast'}
+		{#if panes.active.kind === 'overview'}
+			<OverviewPane />
+		{:else if panes.active.kind === 'cast'}
 			<CastPane />
 		{:else if panes.active.kind === 'document'}
 			<DocumentPane />
+		{:else if panes.active.kind === 'director'}
+			<DirectorPane />
 		{:else}
 			{#key panes.active.agentKey}
 				<ScriptPane agentKey={panes.active.agentKey} />

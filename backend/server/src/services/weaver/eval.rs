@@ -103,6 +103,11 @@ impl CompiledDoc {
         &self.doc.inputs
     }
 
+    /// The parse tree, for reading a document's structure without running it.
+    pub fn document(&self) -> &ValueDoc {
+        &self.doc
+    }
+
     pub fn with_inputs(mut self, inputs: BTreeMap<String, WeaverValue>) -> Self {
         self.inputs = inputs;
         self

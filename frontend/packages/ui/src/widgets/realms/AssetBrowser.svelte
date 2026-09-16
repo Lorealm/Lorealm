@@ -72,6 +72,7 @@
 	<div class="search">
 		<Search size={13} />
 		<input
+			class="plain"
 			type="text"
 			bind:value={query}
 			placeholder="Search assets…"

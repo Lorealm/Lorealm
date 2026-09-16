@@ -5,11 +5,15 @@
 	import { realmDraft } from './draft.svelte.js';
 	import { panes } from './panes.svelte.js';
 	import { toWtn } from './serialize.js';
+	import { ensureLoaded, itemsOf, RESOURCE_KINDS } from './resources.svelte.js';
+	import type { RealmResourceKind } from '$lib/types/realm.js';
 
 	let busy = $state(false);
 
 	$effect(() => {
 		void blueprintStore.loadList();
+		// Names for the resource bindings an outline comes back with.
+		ensureLoaded(RESOURCE_KINDS);
 	});
 
 	async function create() {
@@ -17,17 +21,47 @@
 		busy = true;
 		try {
 			const name = 'Untitled Blueprint';
-			const made = await blueprintStore.create(name, toWtn(name, '', [], []).source);
-			if (made) start(name, '');
+			const made = await blueprintStore.create(
+				name,
+				toWtn({ name, description: '', tags: [], director: null }, [], []).source
+			);
+			if (!made) return;
+			start(name, '');
+			beginEditing();
 		} finally {
 			busy = false;
 		}
 	}
 
 	async function open(id: Snowflake) {
-		await blueprintStore.open(id);
+		const result = await blueprintStore.open(id);
 		const current = blueprintStore.current;
-		if (current) start(current.name, current.description);
+		if (!current) return;
+
+		start(current.name, current.description);
+
+		if (result?.status === 'ok') realmDraft.load(result.outline, nameOf);
+		beginEditing();
+	}
+
+	function beginEditing() {
+		blueprintStore.beginEditing(
+			realmDraft.name,
+			toWtn(
+				{
+					name: realmDraft.name,
+					description: realmDraft.description,
+					tags: realmDraft.tags,
+					director: realmDraft.director
+				},
+				realmDraft.inputs,
+				realmDraft.cast
+			).source
+		);
+	}
+
+	function nameOf(kind: RealmResourceKind, id: Snowflake): string {
+		return itemsOf(kind).find((item) => item.id === id)?.name ?? '';
 	}
 
 	function start(name: string, description: string) {
@@ -78,7 +112,7 @@
 				{/if}
 			</div>
 		{:else}
-			<p class="empty">No blueprints yet. A blueprint builds realms from a few inputs.</p>
+			<p class="empty">No blueprints yet.</p>
 		{/each}
 	</div>
 </div>

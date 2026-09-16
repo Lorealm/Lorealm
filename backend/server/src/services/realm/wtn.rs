@@ -202,6 +202,7 @@ $[inc_var("self:gold", -150)]
         RealmDefinition {
             name: "Sengoku".into(),
             description: "Houses scheme through the seasons.".into(),
+            tags: vec!["strategy".into()],
             agents: vec![agent("regent_ito"), agent("regent_mori")],
             scenarios: vec![Scenario {
                 id: Snowflake(70),

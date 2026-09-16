@@ -1,21 +1,27 @@
 /** What the pane area can show. */
-export type Pane = { kind: 'cast' } | { kind: 'document' } | { kind: 'script'; agentKey: string };
+export type Pane =
+	| { kind: 'overview' }
+	| { kind: 'cast' }
+	| { kind: 'document' }
+	| { kind: 'director' }
+	| { kind: 'script'; agentKey: string };
 
 export function paneId(pane: Pane): string {
 	return pane.kind === 'script' ? `script:${pane.agentKey}` : pane.kind;
 }
 
+const OVERVIEW: Pane = { kind: 'overview' };
 const CAST: Pane = { kind: 'cast' };
 const DOCUMENT: Pane = { kind: 'document' };
 
-const PERMANENT = [CAST, DOCUMENT];
+const PERMANENT = [OVERVIEW, CAST, DOCUMENT];
 
 class PaneStore {
 	open = $state<Pane[]>([...PERMANENT]);
-	activeId = $state('cast');
+	activeId = $state('overview');
 
 	get active(): Pane {
-		return this.open.find((p) => paneId(p) === this.activeId) ?? CAST;
+		return this.open.find((p) => paneId(p) === this.activeId) ?? OVERVIEW;
 	}
 
 	/** Focus a pane if it is already open, otherwise add it and focus it. */
@@ -32,13 +38,13 @@ class PaneStore {
 		this.open.splice(at, 1);
 		// Fall back to the neighbour that took its place, or the one before it.
 		if (this.activeId === id) {
-			this.activeId = paneId(this.open[at] ?? this.open[at - 1] ?? CAST);
+			this.activeId = paneId(this.open[at] ?? this.open[at - 1] ?? OVERVIEW);
 		}
 	}
 
 	reset() {
 		this.open = [...PERMANENT];
-		this.activeId = 'cast';
+		this.activeId = 'overview';
 	}
 
 	/**

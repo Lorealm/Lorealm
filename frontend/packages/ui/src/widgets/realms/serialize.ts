@@ -1,3 +1,4 @@
+import type { AgentFilter, Director } from '$lib/types/realm.js';
 import type { AgentBlock, Binding, CastEntry, InputDecl, InputType } from './model.js';
 import { baseOf, declaredText, isList } from './model.js';
 
@@ -108,24 +109,59 @@ export interface Document {
 	hasInputs: boolean;
 }
 
-export function toWtn(
-	name: string,
-	description: string,
-	inputs: InputDecl[],
-	cast: CastEntry[]
-): Document {
+/** The realm's front matter, alongside its cast. */
+export interface DocumentHead {
+	name: string;
+	description: string;
+	tags: string[];
+	director: Director | null;
+}
+
+export function toWtn(head: DocumentHead, inputs: InputDecl[], cast: CastEntry[]): Document {
 	const agents =
 		cast.length === 0 ? '[]' : `[\n${cast.map((e) => castEntry(e, 2)).join('\n')}\n  ]`;
 
 	const body = [
 		'{',
-		`${INDENT}agents: ${agents}`,
-		`${INDENT}description: ` + text(description),
-		`${INDENT}director: null`,
-		`${INDENT}name: ` + text(name),
+		`${INDENT}name: ` + text(head.name),
+		`${INDENT}description: ` + text(head.description),
+		`${INDENT}tags: ${list(head.tags.map(raw), 1)}`,
+		`${INDENT}director: ` + director(head.director),
 		`${INDENT}scenarios: []`,
+		`${INDENT}agents: ${agents}`,
 		'}'
 	].join('\n');
 
 	return { source: `${inputsBlock(inputs)}${body}\n`, hasInputs: inputs.length > 0 };
+}
+
+function list(items: string[], depth: number): string {
+	if (items.length === 0) return '[]';
+	const inner = items.map((item) => `${indent(depth + 1)}${item}`).join('\n');
+	return `[\n${inner}\n${indent(depth)}]`;
+}
+
+function director(value: Director | null): string {
+	if (value === null) return 'null';
+	const pad = indent(2);
+	if (value.kind === 'script') {
+		return `{\n${pad}kind: ${raw('script')}\n${pad}source: ${raw(value.source)}\n${indent(1)}}`;
+	}
+	return [
+		'{',
+		`${pad}kind: ${raw(value.kind)}`,
+		`${pad}over: ${filter(value.over)}`,
+		`${indent(1)}}`
+	].join('\n');
+}
+
+function filter(value: AgentFilter): string {
+	switch (value.match) {
+		case 'kind':
+			return `{ match: ${raw('kind')}, kind: ${raw(value.kind)} }`;
+		case 'handles':
+			return `{ match: ${raw('handles')}, handles: ${list(value.handles.map(raw), 2)} }`;
+		default:
+			return `{ match: ${raw('all')} }`;
+	}
 }

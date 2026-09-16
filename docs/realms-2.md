@@ -12,6 +12,7 @@ places. Everything still true has been carried over.
 |---------------|------------------------------------------------------|--------------|
 | 16/09/26      | Written after the backend rework; frontend not begun  | ✅            |
 | 16/09/26      | Editor built; blueprint/realm split redefined         | ✅            |
+| 16/09/26      | Round-trip via `/outline`; autosave                   | ✅            |
 
 ---
 
@@ -323,6 +324,7 @@ And the editor, under `frontend/packages/ui/src/widgets/realms/`:
 | `AssetBrowser.svelte` | Inputs and owned resources, both drag sources |
 | `RealmInspector.svelte` | Selection-driven: agent, loop, input, resource |
 | `panes/` | The tabbed shell, plus the Cast, Document and Script panes |
+| `services/blueprint/outline.rs` | Parse tree → block model, and why it refuses |
 | `stores/blueprint.svelte.ts` | Blueprint CRUD, save status, expansion |
 
 The endpoint the editor will lean on hardest is `GET /blueprints/{id}/inputs`.
@@ -365,6 +367,24 @@ expand, keys sorted. Verified by generating a document with a loop, a singular
 ref, a defaulted enum, a script and a player, then expanding it through the
 real `from_wtn`.
 
+**Reading a document back.** `GET /blueprints/{id}/outline` projects the parse
+tree into the block model, so reopening a blueprint repopulates the cast.
+Expansion cannot do this — it *runs* a `foreach`, so a realm has no memory of
+the loop that made it — and the structure as written survives only in the tree
+the server builds on every save and used to discard.
+
+A document it cannot draw is **refused by name, with a span**, rather than
+flattened: the response is `{status: "ok" | "refused"}` and a refusal is a
+normal answer. Only a document that will not parse is an error. The editor
+shows the reason in the cast pane instead of looking mysteriously empty.
+
+**Saving is automatic.** Every edit is debounced onto the server, following the
+same pattern as `realm.svelte.ts`'s agent saves, and leaving flushes what is
+pending. The baseline for "unchanged" is taken *after* the draft is populated,
+never when the blueprint is fetched — a baseline taken then is the empty
+document, and every reopen would look edited and quietly rewrite what was
+stored.
+
 **Diagnostics with a profile.** The Document pane checks against
 `dialect: document, profile: realm_template`; a script pane against
 `realm_script`; a run condition against `realm_condition`. This closes the
@@ -376,9 +396,11 @@ frontend simply never sent one.
 - **Scenarios.** The block model has no scenario authoring, so every document
   emits `scenarios: []` and the play menu can only ever offer an open start.
   This is the largest remaining gap.
-- **Reading a document back.** Reopening a blueprint shows its source and an
-  empty cast. Closing this needs either a WTN parser in TypeScript or a
-  narrower one that only accepts documents the editor itself emitted.
+- **The director.** Always `null`, so every realm rotates round-robin over the
+  whole cast. Nothing authors a `Director`.
+- **Most of an agent.** `AgentBlock` carries eight of `RealmAgent`'s fields.
+  `grants`, `tools`, `properties`, `widgets` and `speech_channel` have no
+  editor at all — the old prototype had a whole AccessMapTab for grants.
 - **Editing resources in a pane.** The ping still leaves for Studio. The
   blocker below is unchanged and still gates it.
 - **The diagnostics strip.** Reserved, empty. Inline underlining carries it

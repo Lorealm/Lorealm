@@ -19,6 +19,7 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         .route("/", get(handlers::list_blueprints))
         .route("/{blueprint_id}", get(handlers::get_blueprint))
         .route("/{blueprint_id}/inputs", get(handlers::blueprint_inputs))
+        .route("/{blueprint_id}/outline", get(handlers::blueprint_outline))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
             session_auth_middleware,

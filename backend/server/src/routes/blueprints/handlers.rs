@@ -13,7 +13,7 @@ use crate::{
     routes::blueprints::dto::{
         CreateBlueprintRequest, ExpandBlueprintRequest, UpdateBlueprintRequest,
     },
-    services::blueprint::InputSpec,
+    services::blueprint::{InputSpec, OutlineResult},
 };
 
 pub async fn list_blueprints(
@@ -98,6 +98,21 @@ pub async fn blueprint_inputs(
             .services()
             .blueprints()
             .inputs(id, session.user_id)
+            .await?,
+    ))
+}
+
+/// The blueprint's structure, for the editor to open it in.
+pub async fn blueprint_outline(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(id): Path<Snowflake>,
+) -> Result<Json<OutlineResult>, AppError> {
+    Ok(Json(
+        state
+            .services()
+            .blueprints()
+            .outline(id, session.user_id)
             .await?,
     ))
 }

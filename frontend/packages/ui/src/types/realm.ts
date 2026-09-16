@@ -18,6 +18,8 @@ export interface RealmDefinition {
 	/** Array order is turn order. */
 	agents: RealmAgent[];
 	scenarios: Scenario[];
+	/** Authored labels. They live here so they travel with an export. */
+	tags: string[];
 	/** How the realm picks who acts next. Null = round-robin over the whole cast. */
 	director?: Director | null;
 }
