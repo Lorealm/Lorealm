@@ -1,17 +1,17 @@
-/**
- * What the pane area can show. Cast is permanent; everything else opens and
- * closes as you work.
- */
-export type Pane = { kind: 'cast' } | { kind: 'script'; agentKey: string };
+/** What the pane area can show. */
+export type Pane = { kind: 'cast' } | { kind: 'document' } | { kind: 'script'; agentKey: string };
 
 export function paneId(pane: Pane): string {
-	return pane.kind === 'cast' ? 'cast' : `script:${pane.agentKey}`;
+	return pane.kind === 'script' ? `script:${pane.agentKey}` : pane.kind;
 }
 
 const CAST: Pane = { kind: 'cast' };
+const DOCUMENT: Pane = { kind: 'document' };
+
+const PERMANENT = [CAST, DOCUMENT];
 
 class PaneStore {
-	open = $state<Pane[]>([CAST]);
+	open = $state<Pane[]>([...PERMANENT]);
 	activeId = $state('cast');
 
 	get active(): Pane {
@@ -26,7 +26,7 @@ class PaneStore {
 	}
 
 	close(id: string) {
-		if (id === 'cast') return;
+		if (PERMANENT.some((p) => paneId(p) === id)) return;
 		const at = this.open.findIndex((p) => paneId(p) === id);
 		if (at < 0) return;
 		this.open.splice(at, 1);
@@ -37,13 +37,12 @@ class PaneStore {
 	}
 
 	reset() {
-		this.open = [CAST];
+		this.open = [...PERMANENT];
 		this.activeId = 'cast';
 	}
 
 	/**
-	 * Drop panes whose agent is gone, or is no longer a script. Deleting an
-	 * agent from the cast must not leave its editor open over nothing.
+	 * Drop panes whose agent is gone, or is no longer a script.
 	 */
 	prune(liveScriptKeys: string[]) {
 		const stale = this.open.filter(

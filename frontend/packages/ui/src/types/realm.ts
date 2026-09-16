@@ -9,6 +9,7 @@ export interface Realm {
 	current_version_id: Snowflake;
 	definition: RealmDefinition;
 	tags: string[];
+	origin: RealmOrigin | null;
 }
 
 export interface RealmDefinition {
@@ -72,11 +73,19 @@ export interface RealmVersionInfo {
 	created_at: string;
 }
 
+/** Where a realm came from: the blueprint, and the inputs it was built with. */
+export interface RealmOrigin {
+	blueprint_id: Snowflake;
+	inputs: Record<string, JsonValue>;
+}
+
 export interface RealmSummary {
 	id: Snowflake;
 	owner_id: Snowflake;
 	name: string;
+	description: string;
 	tags: string[];
+	origin: RealmOrigin | null;
 	updated_at: string;
 }
 

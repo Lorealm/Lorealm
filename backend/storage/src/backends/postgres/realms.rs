@@ -19,8 +19,10 @@ impl RealmStorage for PostgresStorage {
             SELECT
                 r.id,
                 r.owner_id,
+                r.origin,
                 r.updated_at,
                 COALESCE(v.snapshot->>'name', '') AS name,
+                COALESCE(v.snapshot->>'description', '') AS description,
                 ARRAY(
                     SELECT t.tag FROM realm_tags t
                     WHERE t.realm_id = r.id
@@ -35,7 +37,7 @@ impl RealmStorage for PostgresStorage {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(Into::into).collect())
+        rows.into_iter().map(RealmSummaryRow::into_summary).collect()
     }
 
     async fn get_realm(&self, id: Snowflake) -> Result<Option<Realm>, StorageError> {
@@ -433,19 +435,23 @@ struct RealmSummaryRow {
     id: Snowflake,
     owner_id: Snowflake,
     name: String,
+    description: String,
     tags: Vec<String>,
+    origin: Option<serde_json::Value>,
     updated_at: DateTime<Utc>,
 }
 
-impl From<RealmSummaryRow> for RealmSummary {
-    fn from(r: RealmSummaryRow) -> Self {
-        RealmSummary {
-            id: r.id,
-            owner_id: r.owner_id,
-            name: r.name,
-            tags: r.tags,
-            updated_at: r.updated_at,
-        }
+impl RealmSummaryRow {
+    fn into_summary(self) -> Result<RealmSummary, StorageError> {
+        Ok(RealmSummary {
+            id: self.id,
+            owner_id: self.owner_id,
+            name: self.name,
+            description: self.description,
+            tags: self.tags,
+            origin: self.origin.map(serde_json::from_value).transpose()?,
+            updated_at: self.updated_at,
+        })
     }
 }
 

@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { ScrollText, Users, X } from '@lucide/svelte';
+	import { FileCode2, ScrollText, Users, X } from '@lucide/svelte';
 	import { realmDraft } from '../draft.svelte.js';
 	import { paneId, panes, type Pane } from '../panes.svelte.js';
 	import CastPane from './CastPane.svelte';
+	import DocumentPane from './DocumentPane.svelte';
 	import ScriptPane from './ScriptPane.svelte';
 
 	/** Every agent that currently has a script pane's worth of content. */
@@ -20,12 +21,14 @@
 
 	function label(pane: Pane): string {
 		if (pane.kind === 'cast') return 'Cast';
+		if (pane.kind === 'document') return 'Document';
 		return realmDraft.agent(pane.agentKey)?.handle || 'script';
 	}
 
-	/** `ScrollText` is the same icon a script agent carries in the cast. */
 	function iconFor(pane: Pane) {
-		return pane.kind === 'cast' ? Users : ScrollText;
+		if (pane.kind === 'cast') return Users;
+		if (pane.kind === 'document') return FileCode2;
+		return ScrollText;
 	}
 </script>
 
@@ -45,7 +48,7 @@
 					<Icon size={12} />
 					{label(pane)}
 				</button>
-				{#if pane.kind !== 'cast'}
+				{#if pane.kind === 'script'}
 					<button
 						type="button"
 						class="close"
@@ -63,6 +66,8 @@
 	<div class="body">
 		{#if panes.active.kind === 'cast'}
 			<CastPane />
+		{:else if panes.active.kind === 'document'}
+			<DocumentPane />
 		{:else}
 			{#key panes.active.agentKey}
 				<ScriptPane agentKey={panes.active.agentKey} />
