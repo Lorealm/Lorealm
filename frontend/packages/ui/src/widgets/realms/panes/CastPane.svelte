@@ -1,5 +1,14 @@
 <script lang="ts">
-	import { Bot, FlagOff, GripVertical, Plus, Repeat, ScrollText, Trash2, User } from '@lucide/svelte';
+	import {
+		Bot,
+		FlagOff,
+		GripVertical,
+		Plus,
+		Repeat,
+		ScrollText,
+		Trash2,
+		User
+	} from '@lucide/svelte';
 	import type { AgentKind } from '$lib/types/realm.js';
 	import { activeDrag, carriesAsset, clearDrag, readDrag } from '../drag.svelte.js';
 	import { realmDraft } from '../draft.svelte.js';
@@ -174,7 +183,10 @@
 								{/each}
 							</select>
 							{#if decl && !elementKind(decl.ty)}
-								<span class="warn" title="Its elements aren't references. Only &lbrace;&lbrace;{entry.varName}&rbrace;&rbrace; can be reached.">
+								<span
+									class="warn"
+									title="Its elements aren't references. Only &lbrace;&lbrace;{entry.varName}&rbrace;&rbrace; can be reached."
+								>
 									<FlagOff size={12} />
 								</span>
 							{/if}
@@ -438,8 +450,10 @@
 		font-size: var(--font-size-sm);
 	}
 	.warn {
+		display: flex;
+		flex: 0 0 auto;
+		align-items: center;
 		color: var(--color-warning-text);
-		font-size: var(--font-size-xs);
 	}
 
 	.body {

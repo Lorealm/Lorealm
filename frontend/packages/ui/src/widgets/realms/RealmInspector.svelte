@@ -18,7 +18,6 @@
 		isList,
 		referencedKind,
 		isRequired,
-		REF_NAME,
 		withList,
 		type AgentBlock,
 		type Binding,
@@ -54,6 +53,7 @@
 
 	const scope = $derived(agent ? realmDraft.scopeOf(agent.key) : []);
 	const inputs = $derived(realmDraft.inputs);
+	const loopVar = $derived(scope[0]?.varName ?? null);
 	const incoming = $derived(activeDrag());
 
 	/**
@@ -141,16 +141,20 @@
 		}
 	}
 
-	/** `REF_NAME` is the notation's spelling; this is how a person reads it. */
-	const SINGULAR: Record<RealmResourceKind, string> = {
-		character: 'A Character',
-		lorebook: 'A Lorebook',
-		template: 'A Context Template',
-		persona: 'A Persona',
-		tool: 'A tool',
-		connection_profile: 'A connection',
-		widget: 'A widget'
+	const TYPE_NAME: Record<RealmResourceKind, string> = {
+		character: 'Character',
+		lorebook: 'Lorebook',
+		template: 'Context Template',
+		persona: 'Persona',
+		tool: 'Tool',
+		connection_profile: 'Connection',
+		widget: 'Widget'
 	};
+
+	const RUN_CONDITION_HINT =
+		'Lets this agent take its turn only when this is true.\nLeave it empty and it always does.';
+
+	const noun = (kind: RealmResourceKind) => TYPE_NAME[kind].toLowerCase();
 </script>
 
 <div class="inspector">
@@ -171,8 +175,20 @@
 			/>
 		</label>
 		<p class="note">
-			Identity everywhere: its <code>agents:{a.handle || '…'}</code> state, its events, its feed. In
-			a loop, write it from the variable — <code>regent_&#123;&#123;c.slug&#125;&#125;</code>.
+			The agent's unique name in this realm. Scripts and other agents use it to find this one.
+			<br />
+			<br />
+			{#if loopVar}
+				<span class="warn"
+					>You're in a for-each loop: every pass needs a different name, so build it from <code
+						>&lbrace;&lbrace;{loopVar}&rbrace;&rbrace;</code
+					>
+					<br />
+					<br />
+					For example:
+					<code>regent_&lbrace;&lbrace;{loopVar}.slug&rbrace;&rbrace;</code>.
+				</span>
+			{/if}
 		</p>
 
 		<label>
@@ -287,7 +303,7 @@
 			multiline={false}
 			tokens={false}
 			maximizable={false}
-			hint="A weaver expression. Lets this agent run when the expression is true.\nEmpty means the agent always runs."
+			hint={RUN_CONDITION_HINT}
 			onchange={(next) => (a.run_condition = next)}
 		/>
 
@@ -298,7 +314,7 @@
 				dialect="template"
 				rows={8}
 				tokens={false}
-				hint="A Script that runs every time this agent gets it's turn."
+				hint="Runs every time it's this agent's turn."
 				onchange={(next) => (a.script = next)}
 			/>
 		{/if}
@@ -334,13 +350,11 @@
 			{@const yields = elementKind(decl.ty)}
 			<p class="note">
 				{#if yields}
-					Each pass binds <code>{l.varName}</code> to one {REF_NAME[yields]} as
-					<code>&#123; id, name, description, slug &#125;</code>, and emits
-					{l.body.length}
-					{l.body.length === 1 ? 'agent' : 'agents'}.
+					Repeats the agents below once for every {noun(yields)} in <code>{decl.name}</code>.
+					Inside, <code>{l.varName}</code> is whichever one this pass is on.
 				{:else}
-					<code>{decl.name}</code> holds no references, so <code>{l.varName}</code> is a bare value with
-					no fields to read.
+					<code>{decl.name}</code> holds plain values rather than things you own. You can write
+					<code>{l.varName}</code> into text, but it can't fill a character or lorebook field.
 				{/if}
 			</p>
 		{:else}
@@ -351,7 +365,7 @@
 		{@const base = baseOf(decl.ty)}
 		{@const many = isList(decl.ty)}
 		<h3>Input</h3>
-		<p class="note">A hole someone fills when they build a realm from this blueprint.</p>
+		<p class="note">Something the person building a realm from this gets to choose.</p>
 
 		<label>
 			<span>Name</span>
@@ -377,7 +391,7 @@
 				</optgroup>
 				<optgroup label="Something they already own">
 					{#each RESOURCE_KINDS as kind (kind)}
-						<option value="ref:{kind}">{SINGULAR[kind]}</option>
+						<option value="ref:{kind}">A {TYPE_NAME[kind]}</option>
 					{/each}
 				</optgroup>
 			</select>
@@ -391,7 +405,7 @@
 			/>
 			<span>A list of them</span>
 		</label>
-		<p class="note">Only a list can be walked by a <code>for each</code> in the cast.</p>
+		<p class="note">A list is what a <code>for each</code> in the cast repeats over.</p>
 
 		{#if base.type === 'enum'}
 			<label>
@@ -415,12 +429,11 @@
 
 		{#if base.type === 'reference'}
 			<p class="note">
-				Supplied as an id and bound as <code>&#123; id, name, description, slug &#125;</code>. It
-				carries no default: at the moment it resolves there would be nothing to project, so it is
-				always required.
+				They pick the {noun(base.kind ?? 'character')} themselves, so there's nothing sensible to fill
+				in ahead of time. Always required.
 			</p>
 		{:else if many}
-			<p class="note">A list has no default yet, so it is always required.</p>
+			<p class="note">Lists can't have a default yet, so this is always required.</p>
 		{:else}
 			<label>
 				<span>Default</span>
@@ -466,7 +479,7 @@
 			<Trash2 size={12} /> Delete input
 		</button>
 	{:else if resource}
-		<h3>{REF_NAME[resource.resourceKind]}</h3>
+		<h3>{TYPE_NAME[resource.resourceKind]}</h3>
 		<p class="resourceName">{resource.name}</p>
 		<p class="note"><code>{resource.id}</code></p>
 		<button type="button" onclick={() => openResource(resource.resourceKind, resource.id)}>
@@ -617,5 +630,8 @@
 		text-align: center;
 		color: var(--color-text-muted);
 		font-size: var(--font-size-sm);
+	}
+	.warn {
+		color: var(--color-warning-text);
 	}
 </style>
