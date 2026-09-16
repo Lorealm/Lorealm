@@ -185,7 +185,7 @@ class RealmStore {
 		});
 	}
 
-async createAgent(req: CreateAgentRequest): Promise<RealmAgent | null> {
+	async createAgent(req: CreateAgentRequest): Promise<RealmAgent | null> {
 		if (!this.realm) return null;
 		const agent = await this.#api.realms.agents.create(this.realm.id, req);
 		this.realm.definition.agents = [...this.realm.definition.agents, agent];
