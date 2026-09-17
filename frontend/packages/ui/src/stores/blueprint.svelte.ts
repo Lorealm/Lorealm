@@ -9,7 +9,7 @@ import type { Snowflake } from '$lib/types/core.js';
 import type { Realm } from '$lib/types/realm.js';
 import { showApiError } from './errorActions.js';
 
-export type SaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
+export type SaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'blocked';
 
 const SAVE_DEBOUNCE = 800;
 
@@ -78,32 +78,39 @@ class BlueprintStore {
 	}
 
 	/** The document as last written. */
-	#saved: { name: string; source: string } | null = null;
-	#pending: { name: string; source: string } | null = null;
+	#saved: { name: string; source: string; empty: boolean } | null = null;
+	#pending: { name: string; source: string; empty: boolean } | null = null;
 	#timer: ReturnType<typeof setTimeout> | null = null;
 
 	/**
 	 * Record what the editor holds right now as already-saved.
 	 */
-	beginEditing(name: string, source: string) {
-		this.#saved = { name, source };
+	beginEditing(name: string, source: string, empty: boolean) {
+		this.#saved = { name, source, empty };
 	}
 
 	/** Take the editor's current output and write it if it differs. */
-	queueSave(name: string, source: string) {
+	queueSave(name: string, source: string, empty: boolean) {
 		if (!this.current || this.#saved === null) return;
 		if (this.#saved.name === name && this.#saved.source === source) return;
 
+		if (empty && !this.#saved.empty) {
+			this.#clearTimer();
+			this.#pending = null;
+			this.saveStatus = 'blocked';
+			return;
+		}
+
 		this.saveStatus = 'dirty';
-		this.#pending = { name, source };
+		this.#pending = { name, source, empty };
 		if (this.#timer) clearTimeout(this.#timer);
-		this.#timer = setTimeout(() => void this.save(name, source), SAVE_DEBOUNCE);
+		this.#timer = setTimeout(() => void this.save(name, source, empty), SAVE_DEBOUNCE);
 	}
 
 	async flush(): Promise<void> {
 		const pending = this.#pending;
 		this.#clearTimer();
-		if (pending) await this.save(pending.name, pending.source);
+		if (pending) await this.save(pending.name, pending.source, pending.empty);
 	}
 
 	#clearTimer() {
@@ -112,7 +119,7 @@ class BlueprintStore {
 	}
 
 	/** Write the document. */
-	async save(name: string, source: string): Promise<boolean> {
+	async save(name: string, source: string, empty: boolean): Promise<boolean> {
 		const open = this.current;
 		if (!open) return false;
 		this.#clearTimer();
@@ -120,7 +127,7 @@ class BlueprintStore {
 		this.saveError = null;
 		try {
 			this.current = await this.#api.blueprints.update(open.id, { name, source });
-			this.#saved = { name, source };
+			this.#saved = { name, source, empty };
 			this.#pending = null;
 			await this.loadInputs();
 			await this.loadList();

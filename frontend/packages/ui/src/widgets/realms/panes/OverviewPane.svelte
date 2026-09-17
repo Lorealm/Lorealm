@@ -19,8 +19,6 @@
 		} else if (next === 'random') {
 			realmDraft.director = { kind: 'random', over: filterOf };
 		} else {
-			// The default rotation and an explicit unfiltered one behave alike, so
-			// the simpler document wins.
 			realmDraft.director =
 				filterOf.match === 'all' ? null : { kind: 'round_robin', over: filterOf };
 		}

@@ -196,9 +196,12 @@
 		}
 		const decl = inputs.find((i) => i.name === payload.name);
 		if (decl && !isList(decl.ty)) {
-			const reach = referencePaths(decl.ty).find(
+			const usable = referencePaths(decl.ty).filter(
 				({ kind }) => kind !== null && kinds.includes(kind)
 			);
+			const dragged = payload.path.join('.');
+			const reach =
+				usable.find((r) => r.path.join('.') === dragged) ?? (dragged ? undefined : usable[0]);
 			return reach ? { source: 'input', name: decl.name, path: reach.path } : null;
 		}
 		const inScope = scope.find((v) => v.input?.name === payload.name);

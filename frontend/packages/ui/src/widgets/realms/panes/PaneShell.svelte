@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { BookOpen, FileCode2, ScrollText, Shuffle, Users, X } from '@lucide/svelte';
+	import { BookOpen, FileCode2, Landmark, ScrollText, Shuffle, Users, X } from '@lucide/svelte';
 	import { realmDraft } from '../draft.svelte.js';
 	import { paneId, panes, type Pane } from '../panes.svelte.js';
 	import CastPane from './CastPane.svelte';
 	import DirectorPane from './DirectorPane.svelte';
 	import DocumentPane from './DocumentPane.svelte';
+	import ScenariosPane from './ScenariosPane.svelte';
 	import OverviewPane from './OverviewPane.svelte';
 	import ScriptPane from './ScriptPane.svelte';
 
@@ -23,6 +24,7 @@
 
 	function label(pane: Pane): string {
 		if (pane.kind === 'overview') return 'Overview';
+		if (pane.kind === 'scenarios') return 'Scenarios';
 		if (pane.kind === 'cast') return 'Cast';
 		if (pane.kind === 'document') return 'Document';
 		if (pane.kind === 'director') return 'Director';
@@ -30,7 +32,8 @@
 	}
 
 	function iconFor(pane: Pane) {
-		if (pane.kind === 'overview') return BookOpen;
+		if (pane.kind === 'overview') return Landmark;
+		if (pane.kind === 'scenarios') return BookOpen;
 		if (pane.kind === 'cast') return Users;
 		if (pane.kind === 'document') return FileCode2;
 		if (pane.kind === 'director') return Shuffle;
@@ -72,6 +75,8 @@
 	<div class="body">
 		{#if panes.active.kind === 'overview'}
 			<OverviewPane />
+		{:else if panes.active.kind === 'scenarios'}
+			<ScenariosPane />
 		{:else if panes.active.kind === 'cast'}
 			<CastPane />
 		{:else if panes.active.kind === 'document'}

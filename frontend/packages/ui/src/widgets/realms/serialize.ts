@@ -1,5 +1,12 @@
 import type { AgentFilter, Director } from '$lib/types/realm.js';
-import type { AgentBlock, Binding, CastEntry, InputDecl, InputType } from './model.js';
+import type {
+	AgentBlock,
+	Binding,
+	CastEntry,
+	InputDecl,
+	InputType,
+	ScenarioBlock
+} from './model.js';
 import { baseOf, declaredText, grantChannel, isList } from './model.js';
 
 const INDENT = '  ';
@@ -164,6 +171,7 @@ export interface DocumentHead {
 	description: string;
 	tags: string[];
 	director: Director | null;
+	scenarios: ScenarioBlock[];
 }
 
 export function toWtn(head: DocumentHead, inputs: InputDecl[], cast: CastEntry[]): Document {
@@ -176,12 +184,36 @@ export function toWtn(head: DocumentHead, inputs: InputDecl[], cast: CastEntry[]
 		`${INDENT}description: ` + text(head.description),
 		`${INDENT}tags: ${list(head.tags.map(raw), 1)}`,
 		`${INDENT}director: ` + director(head.director),
-		`${INDENT}scenarios: []`,
+		`${INDENT}scenarios: ${scenarios(head.scenarios)}`,
 		`${INDENT}agents: ${agents}`,
 		'}'
 	].join('\n');
 
 	return { source: `${inputsBlock(inputs)}${body}\n`, hasInputs: inputs.length > 0 };
+}
+
+function scenarios(items: ScenarioBlock[]): string {
+	if (items.length === 0) return '[]';
+	const rows = items.map((s) => {
+		const guarded = hasInterpolation(s.name);
+		const depth = guarded ? 3 : 2;
+
+		const lines = [
+			`${indent(depth + 1)}id: ${raw(s.id)}`,
+			`${indent(depth + 1)}name: ${text(s.name)}`,
+			`${indent(depth + 1)}description: ${text(s.description)}`
+		];
+		if (s.opening.trim()) lines.push(`${indent(depth + 1)}opening: ${text(s.opening)}`);
+		const body = `${indent(depth)}{\n${lines.join('\n')}\n${indent(depth)}}`;
+
+		if (!guarded) return body;
+		return [
+			`${indent(2)}{# if ${interpolated(s.name)} != ${raw('')} #}`,
+			body,
+			`${indent(2)}{# endif #}`
+		].join('\n');
+	});
+	return `[\n${rows.join('\n')}\n${indent(1)}]`;
 }
 
 function list(items: string[], depth: number): string {

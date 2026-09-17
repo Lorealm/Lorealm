@@ -23,7 +23,7 @@
 			const name = 'Untitled Blueprint';
 			const made = await blueprintStore.create(
 				name,
-				toWtn({ name, description: '', tags: [], director: null }, [], []).source
+				toWtn({ name, description: '', tags: [], director: null, scenarios: [] }, [], []).source
 			);
 			if (!made) return;
 			start(name, '');
@@ -52,11 +52,13 @@
 					name: realmDraft.name,
 					description: realmDraft.description,
 					tags: realmDraft.tags,
-					director: realmDraft.director
+					director: realmDraft.director,
+					scenarios: realmDraft.scenarios
 				},
 				realmDraft.inputs,
 				realmDraft.cast
-			).source
+			).source,
+			realmDraft.isEmpty
 		);
 	}
 

@@ -506,6 +506,44 @@ cast: [{char: Ref<Character>, talkativeness: range(0, 1)}]
     }
 
     #[test]
+    fn a_scenario_can_be_filled_from_an_input() {
+        let source = r######"
+#inputs
+custom: {name: string, text: string}
+
+{
+  name: r"Group Chat"
+  scenarios: [
+    { id: r"1", name: r"Spring", description: r"", opening: r"The snow gives way." }
+    { id: r"2", name: "{{input:custom.name}}", description: r"", opening: "{{input:custom.text}}" }
+  ]
+}
+"######;
+        let resolved = BTreeMap::from([(
+            "custom".to_string(),
+            WeaverValue::object([
+                ("name", WeaverValue::String("A tense summit".into())),
+                ("text", WeaverValue::String("The envoys are seated.".into())),
+            ]),
+        )]);
+
+        let definition = super::super::wtn::from_wtn(source, resolved).expect("expands");
+        let seen: Vec<(&str, Option<&str>)> = definition
+            .scenarios
+            .iter()
+            .map(|s| (s.name.as_str(), s.opening.as_deref()))
+            .collect();
+
+        assert_eq!(
+            seen,
+            [
+                ("Spring", Some("The snow gives way.")),
+                ("A tense summit", Some("The envoys are seated.")),
+            ]
+        );
+    }
+
+    #[test]
     fn a_document_reads_a_projection_as_an_object() {
         let source = r#"
 #inputs
