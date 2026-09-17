@@ -43,7 +43,10 @@ export type InputSpecType =
 	| { type: 'number' }
 	| { type: 'bool' }
 	| { type: 'enum'; variants: string[] }
+	| { type: 'range'; min: number; max: number }
+	| { type: 'span'; min: number; max: number }
 	| { type: 'list'; of: InputSpecType }
+	| { type: 'object'; fields: Array<{ name: string } & InputSpecType> }
 	| { type: 'reference'; kind: RealmResourceKind | null };
 
 /** Values for the declared inputs. */
@@ -113,5 +116,5 @@ export interface OutlineProperty {
 
 export type OutlineBinding =
 	| { source: 'resource'; kind: RealmResourceKind; id: Snowflake }
-	| { source: 'loop'; varName: string }
-	| { source: 'input'; name: string };
+	| { source: 'loop'; varName: string; path: string[] }
+	| { source: 'input'; name: string; path: string[] };

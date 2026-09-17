@@ -1,15 +1,3 @@
-//! Reading a document back into the editor's block model.
-//!
-//! Expansion is lossy on purpose: it *runs* a `foreach`, so what comes out is
-//! a flat cast with no memory of the loop that produced it. The editor needs
-//! the other thing — the structure as written — and that only exists in the
-//! parse tree, which the server builds on every save and then discards.
-//!
-//! This walks that tree and projects the subset the editor can represent.
-//! Anything else is refused by name rather than silently flattened: a
-//! hand-written document is not wrong, it is just not something the block
-//! model can hold.
-
 use lorealm_storage::models::{RealmResourceKind, Snowflake};
 use serde::Serialize;
 use weaver_lang::PathSegment;
@@ -129,10 +117,6 @@ pub struct Grant {
 }
 
 /// A seeded property, as the text an author would type.
-///
-/// The editor has no type control: it reads the type off the literal. So the
-/// text handed back has to re-read as what it started as — a string that looks
-/// like a number comes back quoted, which is what forces it back to a string.
 #[derive(Debug, Serialize)]
 pub struct Property {
     pub key: String,
@@ -140,9 +124,6 @@ pub struct Property {
 }
 
 /// What fills one id-shaped field.
-///
-/// A resource carries no name: the document stores an id and nothing else, so
-/// the client resolves the label from the catalogue it already has.
 #[derive(Debug, Serialize)]
 #[serde(tag = "source", rename_all = "snake_case")]
 pub enum Binding {
@@ -153,16 +134,16 @@ pub enum Binding {
     Loop {
         #[serde(rename = "varName")]
         var_name: String,
+        /// Fields reaching the reference inside the loop variable.
+        path: Vec<String>,
     },
     Input {
         name: String,
+        path: Vec<String>,
     },
 }
 
 /// Either the block model, or why the document cannot be shown as one.
-///
-/// A refusal is a normal answer, not an error: the document is fine, it simply
-/// says something the editor has no way to draw. The client shows the reason.
 #[derive(Debug, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum OutlineResult {
@@ -387,9 +368,6 @@ fn agent(expr: &ExprKind, span: Span, source: &str) -> Refused<AgentBlock> {
             "grants" => block.grants = grants(value, at)?,
             "properties" => block.properties = properties(value, at, source)?,
             "speech_channel" => block.speech_channel = text(value, at)?,
-            // `user_id`, `char_version_id` and the fields the block model does
-            // not carry are left alone rather than refused: they are defaults
-            // the editor never writes.
             _ => {}
         }
     }
@@ -490,8 +468,7 @@ fn properties(expr: &ExprKind, span: Span, source: &str) -> Refused<Vec<Property
                 ExprKind::Literal(Value::Number(n)) => n.to_string(),
                 ExprKind::Literal(Value::Bool(b)) => b.to_string(),
                 // Arrays, objects and anything computed keep the source they
-                // were written as, so a shape the plain rows cannot hold
-                // survives being opened and saved again.
+                // were written as
                 _ => slice(source, entry.value.span),
             };
             Ok(Property { key, value })
@@ -523,13 +500,17 @@ fn binding(expr: &ExprKind, kind: RealmResourceKind, span: Span) -> Refused<Opti
             })?;
             Ok(Some(Binding::Resource { kind, id }))
         }
-        // `{{c.id}}` — the loop variable. `{{input:lead.id}}` — the input.
-        ExprKind::Variable(VariableRef { scope, name, path }) if reads_id(path) => {
+        ExprKind::Variable(VariableRef { scope, name, path }) if reads_id(path).is_some() => {
+            let path = reads_id(path).unwrap_or_default();
             Ok(Some(match scope.as_deref() {
                 None => Binding::Loop {
                     var_name: name.clone(),
+                    path,
                 },
-                Some("input") => Binding::Input { name: name.clone() },
+                Some("input") => Binding::Input {
+                    name: name.clone(),
+                    path,
+                },
                 Some(other) => {
                     return Err(OutlineRefusal::at(
                         span,
@@ -546,9 +527,6 @@ fn binding(expr: &ExprKind, kind: RealmResourceKind, span: Span) -> Refused<Opti
 }
 
 /// A string property as editable text.
-///
-/// Bare, unless it would read back as something else — `"1.0"` has to keep its
-/// quotes or reopening the blueprint would turn a version into a number.
 fn as_text(value: &str) -> String {
     let ambiguous = value.trim() != value
         || value.is_empty()
@@ -568,10 +546,6 @@ fn as_text(value: &str) -> String {
 }
 
 /// A key that is known without evaluating anything.
-///
-/// An identifier key is a plain literal, but a quoted one — which is how a
-/// dotted path like `"stats.hp"` has to be written — parses as a template.
-/// One whose nodes are all literal text is still a constant key.
 fn literal_key(expr: &ExprKind) -> Option<String> {
     match expr {
         ExprKind::Literal(Value::String(key)) => Some(key.clone()),
@@ -587,8 +561,6 @@ fn literal_key(expr: &ExprKind) -> Option<String> {
     }
 }
 
-/// The source a node was written as. Spans are byte offsets, so a slice that
-/// does not land on a character boundary yields nothing rather than panicking.
 fn slice(source: &str, span: Span) -> String {
     source
         .get(span.start..span.end)
@@ -596,15 +568,21 @@ fn slice(source: &str, span: Span) -> String {
         .to_string()
 }
 
-fn reads_id(path: &[PathSegment]) -> bool {
-    matches!(path, [PathSegment::Key(key)] if key == "id")
+fn reads_id(path: &[PathSegment]) -> Option<Vec<String>> {
+    let (last, front) = path.split_last()?;
+    match last {
+        PathSegment::Key(key) if key == "id" => front
+            .iter()
+            .map(|segment| match segment {
+                PathSegment::Key(key) => Some(key.clone()),
+                PathSegment::Index(_) => None,
+            })
+            .collect(),
+        _ => None,
+    }
 }
 
 /// A string field, back as the author wrote it.
-///
-/// A raw string is a literal. A quoted one parsed into a template, and the
-/// editor wants its source back — `regent_{{c.slug}}`, not the two nodes it
-/// became.
 fn text(expr: &ExprKind, span: Span) -> Refused<String> {
     match expr {
         ExprKind::Literal(Value::String(s)) => Ok(s.clone()),
@@ -721,7 +699,7 @@ lead: Ref<Character>
         // A singular entity input, read straight off `input:`.
         assert!(matches!(
             agent.character,
-            Some(Binding::Input { ref name }) if name == "lead"
+            Some(Binding::Input { ref name, .. }) if name == "lead"
         ));
         assert!(matches!(
             agent.template,
@@ -743,7 +721,7 @@ lead: Ref<Character>
         assert_eq!(body[0].name, "{{c.name}}");
         assert!(matches!(
             body[0].character,
-            Some(Binding::Loop { ref var_name }) if var_name == "c"
+            Some(Binding::Loop { ref var_name, .. }) if var_name == "c"
         ));
     }
 
@@ -790,6 +768,36 @@ lead: Ref<Character>
             panic!("expected a kind-filtered rotation, got {:?}", got.director);
         };
         assert_eq!(kind, "llm");
+    }
+
+    #[test]
+    fn a_reference_inside_an_object_reads_through_its_field() {
+        let got = outlined(
+            r####"{
+  name: r"X"
+  agents: [
+    {# foreach c in {{input:cast}} #}
+    {
+      handle: "regent_{{c.char.slug}}"
+      name: "{{c.char.name}}"
+      kind: r"llm"
+      character_id: {{c.char.id}}
+    }
+    {# endforeach #}
+  ]
+}"####,
+        )
+        .expect("outlines");
+
+        let CastEntry::Foreach { body, .. } = &got.cast[0] else {
+            panic!("expected a loop");
+        };
+        let Some(Binding::Loop { var_name, path }) = &body[0].character else {
+            panic!("expected a loop binding, got {:?}", body[0].character);
+        };
+        assert_eq!(var_name, "c");
+        assert_eq!(path, &["char"]);
+        assert_eq!(body[0].handle, "regent_{{c.char.slug}}");
     }
 
     #[test]
@@ -873,23 +881,85 @@ lead: Ref<Character>
                 ("gold", "150"),
                 ("alive", "true"),
                 ("house", "Ito"),
-                // A dotted key has to be a quoted string — `object_key` is
-                // `identifier | quoted_string`, so a raw string is not a key —
-                // and a quoted one parses as an all-literal template.
                 ("stats.hp", "10"),
-                // A string that would otherwise read back as a number keeps
-                // its quotes, so reopening does not retype it.
                 ("version", "\"1.0\""),
                 ("blank", "\"\""),
-                // Not a scalar, so it keeps the source it was written as.
                 ("retinue", r#"[r"a", r"b"]"#),
             ]
         );
     }
 
     #[test]
+    fn nested_arrays_round_trip() {
+        let got = outlined(
+            r####"
+#inputs
+cast: [{char: Ref<Character>, books: [Ref<Lorebook>], aliases: [string]}]
+rounds: [span(0, 10)]
+
+{ name: r"X" }"####,
+        )
+        .expect("outlines");
+
+        let declared: Vec<&str> = got.inputs.iter().map(|i| i.declared.as_str()).collect();
+        assert_eq!(
+            declared,
+            [
+                "[{char: Ref<Character>, books: [Ref<Lorebook>], aliases: [string]}]",
+                "[span(0, 10)]",
+            ]
+        );
+    }
+
+    #[test]
+    fn deeply_nested_objects_round_trip() {
+        let declared =
+            "[{banner: string, leader: {char: Ref<Character>, traits: {guile: range(0, 10), books: [Ref<Lorebook>]}}}]";
+        let got = outlined(&format!(
+            "#inputs\nfactions: {declared}\n\n{{ name: r\"X\" }}"
+        ))
+        .expect("outlines");
+
+        assert_eq!(got.inputs[0].declared, declared);
+    }
+    
+    #[test]
+    fn a_loop_over_objects_reaches_through_the_field() {
+        let got = outlined(
+            r####"
+#inputs
+characters: [{char: Ref<Character>, talkativeness: range(0, 1)}]
+
+{
+  name: r"Group Chat"
+  agents: [
+    {# foreach c in {{input:characters}} #}
+    {
+      handle: "{{c.char.slug}}"
+      name: "{{c.char.name}}"
+      kind: r"llm"
+      character_id: {{c.char.id}}
+      properties: { talkativeness: {{c.talkativeness}} }
+    }
+    {# endforeach #}
+  ]
+}"####,
+        )
+        .expect("outlines");
+
+        let CastEntry::Foreach { body, .. } = &got.cast[0] else {
+            panic!("expected a loop");
+        };
+        assert_eq!(body[0].handle, "{{c.char.slug}}");
+        assert_eq!(body[0].name, "{{c.char.name}}");
+        assert!(matches!(
+            body[0].character,
+            Some(Binding::Loop { ref path, .. }) if path == &["char"]
+        ));
+    }
+
+    #[test]
     fn a_document_the_editor_cannot_draw_is_refused_by_name() {
-        // A conditional in the cast has no block-model equivalent.
         let refusal = outlined(
             r#"{
   name: r"X"

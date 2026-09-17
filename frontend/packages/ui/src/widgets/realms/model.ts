@@ -1,8 +1,8 @@
 import type { Snowflake } from '$lib/types/core.js';
 import type { AgentAccess, AgentKind, RealmResourceKind } from '$lib/types/realm.js';
 
-/** The fields a `Ref<..>` projects. 
- * 
+/** The fields a `Ref<..>` projects.
+ *
  * VOLATILE: Mirrors `projection()` in `project.rs`. Could change without notice. */
 export const PROJECTED_FIELDS = ['id', 'name', 'description', 'slug'] as const;
 
@@ -12,8 +12,8 @@ export const PROJECTED_FIELDS = ['id', 'name', 'description', 'slug'] as const;
  */
 export type Binding =
 	| { source: 'resource'; kind: RealmResourceKind; id: Snowflake; name: string }
-	| { source: 'loop'; varName: string }
-	| { source: 'input'; name: string };
+	| { source: 'loop'; varName: string; path: string[] }
+	| { source: 'input'; name: string; path: string[] };
 
 /** An `#inputs` declaration. */
 export interface InputDecl {
@@ -31,9 +31,19 @@ export type InputType =
 	| { type: 'number' }
 	| { type: 'bool' }
 	| { type: 'enum'; variants: string[] }
+	/** A number inside an inclusive space: one slider handle. */
+	| { type: 'range'; min: number; max: number }
+	/** A `{from, to}` pair inside an inclusive space: two handles. */
+	| { type: 'span'; min: number; max: number }
 	| { type: 'list'; of: InputType }
+	| { type: 'object'; fields: InputField[] }
 	/** `kind: null` is a `Ref<..>` naming something the server doesn't know. */
 	| { type: 'reference'; kind: RealmResourceKind | null };
+
+export interface InputField {
+	name: string;
+	ty: InputType;
+}
 
 export interface Grant {
 	namespace: string;
@@ -143,10 +153,36 @@ export function declaredText(ty: InputType): string {
 			return ty.type;
 		case 'enum':
 			return `enum(${ty.variants.map((v) => `"${v}"`).join(', ')})`;
+		case 'range':
+			return `range(${ty.min}, ${ty.max})`;
+		case 'span':
+			return `span(${ty.min}, ${ty.max})`;
 		case 'list':
 			return `[${declaredText(ty.of)}]`;
+		case 'object':
+			return `{${ty.fields.map((f) => `${f.name}: ${declaredText(f.ty)}`).join(', ')}}`;
 		case 'reference':
 			return `Ref<${ty.kind ? REF_NAME[ty.kind] : 'Unknown'}>`;
+	}
+}
+
+/**
+ * Every reference inside a type, and the field path that reaches it.
+ */
+export function referencePaths(
+	ty: InputType,
+	prefix: string[] = []
+): Array<{
+	path: string[];
+	kind: RealmResourceKind | null;
+}> {
+	switch (ty.type) {
+		case 'reference':
+			return [{ path: prefix, kind: ty.kind }];
+		case 'object':
+			return ty.fields.flatMap((f) => referencePaths(f.ty, [...prefix, f.name]));
+		default:
+			return [];
 	}
 }
 
@@ -158,6 +194,17 @@ export const REF_NAME: Record<RealmResourceKind, string> = {
 	tool: 'Tool',
 	persona: 'Persona',
 	connection_profile: 'ConnectionProfile',
+	widget: 'Widget'
+};
+
+/** `REF_NAME` is the notation's spelling; this is what a person calls it. */
+export const TYPE_NAME: Record<RealmResourceKind, string> = {
+	character: 'Character',
+	lorebook: 'Lorebook',
+	template: 'Context Template',
+	persona: 'Persona',
+	tool: 'Tool',
+	connection_profile: 'Connection',
 	widget: 'Widget'
 };
 
@@ -192,11 +239,18 @@ export function holdsValue(ty: InputType): string {
 	return base.type === 'reference' ? `ref:${base.kind ?? 'character'}` : base.type;
 }
 
+export function blankField(): InputField {
+	return { name: 'field', ty: { type: 'string' } };
+}
+
 export function holdsToBase(value: string): InputType {
 	if (value.startsWith('ref:')) {
 		return { type: 'reference', kind: value.slice(4) as RealmResourceKind };
 	}
 	if (value === 'enum') return { type: 'enum', variants: [] };
+	if (value === 'range') return { type: 'range', min: 0, max: 1 };
+	if (value === 'span') return { type: 'span', min: 0, max: 10 };
+	if (value === 'object') return { type: 'object', fields: [blankField()] };
 	return { type: value } as InputType;
 }
 
@@ -206,6 +260,11 @@ export function holdsToBase(value: string): InputType {
 export function elementKind(ty: InputType): RealmResourceKind | null {
 	if (ty.type !== 'list' || ty.of.type !== 'reference') return null;
 	return ty.of.kind;
+}
+
+/** What a loop over this input can reach */
+export function loopReaches(ty: InputType) {
+	return ty.type === 'list' ? referencePaths(ty.of) : [];
 }
 
 /** The declaration line as it would be written into `#inputs`. */
@@ -231,14 +290,11 @@ export function parseGrant(channel: string, access: AgentAccess): Grant {
 
 /** How a binding reads in a field, as in, the weaver it will be written as. */
 export function bindingLabel(binding: Binding): string {
-	switch (binding.source) {
-		case 'resource':
-			return binding.name || binding.id;
-		case 'loop':
-			return `${binding.varName}.id`;
-		case 'input':
-			return `input:${binding.name}.id`;
-	}
+	if (binding.source === 'resource') return binding.name || binding.id;
+	const reach = [...binding.path, 'id'].join('.');
+	return binding.source === 'loop'
+		? `${binding.varName}.${reach}`
+		: `input:${binding.name}.${reach}`;
 }
 
 /**
@@ -249,7 +305,7 @@ export function referencedKind(ty: InputType): RealmResourceKind | null {
 	return base.type === 'reference' ? base.kind : null;
 }
 
-/** An input that fills one resource field by itself. */
-export function isSingularRef(ty: InputType): boolean {
-	return !isList(ty) && referencedKind(ty) !== null;
+/** An input whose value fills resource fields without a loop around it. */
+export function isSingular(ty: InputType): boolean {
+	return !isList(ty) && referencePaths(baseOf(ty)).length > 0;
 }

@@ -132,22 +132,35 @@ impl Checker<'_> {
 
     fn declarations(&mut self, declarations: &[InputDecl]) {
         for declaration in declarations {
-            if let Some(kind) = entity_kind(&declaration.ty) {
+            let mut kinds = Vec::new();
+            entity_kinds(&declaration.ty, &mut kinds);
+
+            let mut unknown = false;
+            for kind in &kinds {
                 if !self.registry.has_kind(kind) {
                     self.error(
                         declaration.span,
                         format!("no such entity kind: {kind}"),
                         Some("Ref names a kind the server resolves, like Ref<Character>"),
                     );
-                    continue;
+                    unknown = true;
                 }
-                if !declaration.is_required() {
-                    self.error(
-                        declaration.span,
-                        format!("input '{}' names an entity, so it cannot have a default", declaration.name),
-                        Some("entity inputs are resolved before the document runs, and a default has not been evaluated by then"),
-                    );
-                }
+            }
+            if unknown {
+                continue;
+            }
+
+            if !kinds.is_empty() && !declaration.is_required() {
+                self.error(
+                    declaration.span,
+                    format!(
+                        "input '{}' names an entity, so it cannot have a default",
+                        declaration.name
+                    ),
+                    Some(
+                        "entity inputs are resolved before the document runs, and a default has not been evaluated by then",
+                    ),
+                );
             }
         }
     }
@@ -319,11 +332,17 @@ impl Checker<'_> {
     }
 }
 
-fn entity_kind(ty: &InputType) -> Option<&str> {
+/// Every entity kind a declaration names.
+fn entity_kinds<'a>(ty: &'a InputType, out: &mut Vec<&'a str>) {
     match ty {
-        InputType::Ref(kind) => Some(kind),
-        InputType::List(inner) => entity_kind(inner),
-        _ => None,
+        InputType::Ref(kind) => out.push(kind),
+        InputType::List(inner) => entity_kinds(inner, out),
+        InputType::Object(fields) => {
+            for (_, ty) in fields {
+                entity_kinds(ty, out);
+            }
+        }
+        _ => {}
     }
 }
 
@@ -493,8 +512,6 @@ regents: [Ref<Wizard>]
     fn diagnostics_carry_a_sentence_not_a_source_drawing() {
         let found = template("{{");
         assert_eq!(found.len(), 1);
-        // A tooltip renders this verbatim, so pest's excerpt and caret must
-        // not reach it.
         assert!(!found[0].message.contains('\n'), "{}", found[0].message);
         assert!(!found[0].message.contains("-->"), "{}", found[0].message);
 
@@ -513,8 +530,6 @@ regents: [Ref<Wizard>]
 
     #[test]
     fn every_misplaced_flow_statement_is_reported_at_once() {
-        // The parser stops at the first syntax error, but flow validation
-        // walks the whole tree, so these arrive together.
         let found = template("{# break #}{# continue #}");
         assert_eq!(found.len(), 2);
     }
@@ -562,8 +577,6 @@ regents: [Ref<Wizard>]
 
     #[test]
     fn text_past_the_end_of_an_expression_is_reported_not_dropped() {
-        // A bare name is a reference, so the parser takes `alice` and
-        // stops; the rest has to be flagged here or it vanishes silently.
         let source = "alice is here";
         let found = expression(source);
         assert_eq!(found.len(), 1);

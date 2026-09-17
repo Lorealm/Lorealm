@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { Play, X } from '@lucide/svelte';
 	import type { InputSpec, InputSpecType } from '$lib/types/blueprint.js';
+	import InputControl, { blankFor } from './InputControl.svelte';
 	import type { RealmResourceKind } from '$lib/types/realm.js';
-	import { ensureLoaded, itemsOf } from './resources.svelte.js';
+	import { ensureLoaded } from './resources.svelte.js';
 
 	let {
 		specs,
@@ -18,12 +19,7 @@
 
 	let values = $state<Record<string, unknown>>({});
 
-	const referenced = $derived(
-		specs.flatMap((spec) => {
-			const kind = refKind(spec);
-			return kind ? [kind] : [];
-		})
-	);
+	const referenced = $derived(specs.flatMap(kindsIn));
 
 	$effect(() => {
 		ensureLoaded(referenced);
@@ -32,16 +28,21 @@
 	// Seed each field so the form has something coherent before anyone touches it.
 	$effect(() => {
 		const seeded: Record<string, unknown> = {};
-		for (const spec of specs) {
-			seeded[spec.name] = spec.type === 'list' ? [] : spec.type === 'bool' ? false : '';
-		}
+		for (const spec of specs) seeded[spec.name] = blankFor(spec);
 		values = seeded;
 	});
 
-	function refKind(ty: InputSpecType): RealmResourceKind | null {
-		if (ty.type === 'reference') return ty.kind;
-		if (ty.type === 'list' && ty.of.type === 'reference') return ty.of.kind;
-		return null;
+	function kindsIn(ty: InputSpecType): RealmResourceKind[] {
+		switch (ty.type) {
+			case 'reference':
+				return ty.kind ? [ty.kind] : [];
+			case 'list':
+				return kindsIn(ty.of);
+			case 'object':
+				return ty.fields.flatMap(kindsIn);
+			default:
+				return [];
+		}
 	}
 
 	/** Required fields must be answered; the rest fall back to their default. */
@@ -60,11 +61,6 @@
 			supplied[name] = value;
 		}
 		onbuild(supplied);
-	}
-
-	function toggle(name: string, id: string, on: boolean) {
-		const held = (values[name] as string[]) ?? [];
-		values[name] = on ? [...held, id] : held.filter((x) => x !== id);
 	}
 </script>
 
@@ -85,72 +81,18 @@
 
 		<div class="body">
 			{#each specs as spec (spec.name)}
-				{@const kind = refKind(spec)}
 				<div class="field">
 					<span class="label">
 						{spec.name}
 						{#if !spec.required}<span class="optional">optional</span>{/if}
 					</span>
 
-					{#if spec.type === 'list' && kind}
-						<div class="checks">
-							{#each itemsOf(kind) as item (item.id)}
-								<label>
-									<input
-										type="checkbox"
-										checked={((values[spec.name] as string[]) ?? []).includes(item.id)}
-										onchange={(e) => toggle(spec.name, item.id, e.currentTarget.checked)}
-									/>
-									<span>{item.name}</span>
-								</label>
-							{:else}
-								<p class="none">You own no {kind}s to pick from.</p>
-							{/each}
-						</div>
-					{:else if kind}
-						<select
-							value={(values[spec.name] as string) ?? ''}
-							onchange={(e) => (values[spec.name] = e.currentTarget.value)}
-						>
-							<option value="">— pick one —</option>
-							{#each itemsOf(kind) as item (item.id)}
-								<option value={item.id}>{item.name}</option>
-							{/each}
-						</select>
-					{:else if spec.type === 'enum'}
-						<select
-							value={(values[spec.name] as string) ?? ''}
-							onchange={(e) => (values[spec.name] = e.currentTarget.value)}
-						>
-							<option value="">— default —</option>
-							{#each spec.variants as variant (variant)}
-								<option value={variant}>{variant}</option>
-							{/each}
-						</select>
-					{:else if spec.type === 'bool'}
-						<label class="check">
-							<input
-								type="checkbox"
-								checked={values[spec.name] === true}
-								onchange={(e) => (values[spec.name] = e.currentTarget.checked)}
-							/>
-							<span>Yes</span>
-						</label>
-					{:else if spec.type === 'number'}
-						<input
-							type="number"
-							value={(values[spec.name] as string) ?? ''}
-							onchange={(e) =>
-								(values[spec.name] =
-									e.currentTarget.value === '' ? '' : Number(e.currentTarget.value))}
-						/>
-					{:else}
-						<input
-							type="text"
-							value={(values[spec.name] as string) ?? ''}
-							onchange={(e) => (values[spec.name] = e.currentTarget.value)}
-						/>
-					{/if}
+					<InputControl
+						ty={spec}
+						value={values[spec.name]}
+						ariaLabel={spec.name}
+						onchange={(next) => (values[spec.name] = next)}
+					/>
 
 					<span class="declared">{spec.declared}</span>
 				</div>
@@ -254,29 +196,7 @@
 		font-size: var(--font-size-xs);
 		color: var(--color-text-muted);
 	}
-	.checks {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-		max-height: 12em;
-		overflow-y: auto;
-		padding: var(--spacing-xs);
-		background-color: var(--color-bg-input);
-		border: 1px solid var(--color-border-subtle);
-		border-radius: var(--radius-sm);
-	}
-	.checks label,
-	.check {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-		font-size: var(--font-size-sm);
-	}
-	.none {
-		margin: 0;
-		color: var(--color-text-muted);
-		font-size: var(--font-size-xs);
-	}
+
 	.nothing {
 		margin: 0;
 		color: var(--color-text-muted);

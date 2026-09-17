@@ -5,9 +5,9 @@
 	import {
 		REF_NAME,
 		bindingLabel,
-		elementKind,
-		isSingularRef,
-		referencedKind,
+		isList,
+		loopReaches,
+		referencePaths,
 		type Binding,
 		type InputDecl
 	} from './model.js';
@@ -70,35 +70,41 @@
 		const rows: Row[] = [];
 		for (const { varName, input } of scope) {
 			if (!input) continue;
-			const yields = elementKind(input.ty);
-			if (!yields || !kinds.includes(yields)) continue;
-			rows.push({
-				row: 'loop',
-				key: `loop:${varName}`,
-				group: 'From the loop',
-				label: `${varName}.id`,
-				hint: `each ${REF_NAME[yields]} in ${input.name}`,
-				binding: { source: 'loop', varName }
-			});
+			for (const { path, kind } of loopReaches(input.ty)) {
+				if (!kind || !kinds.includes(kind)) continue;
+				const reach = [varName, ...path, 'id'].join('.');
+				rows.push({
+					row: 'loop',
+					key: `loop:${reach}`,
+					group: 'From the loop',
+					label: reach,
+					hint: path.length
+						? `each ${REF_NAME[kind]} in ${input.name}`
+						: `each ${REF_NAME[kind]} in ${input.name}`,
+					binding: { source: 'loop', varName, path }
+				});
+			}
 		}
 		return rows;
 	});
 
 	const inputRows = $derived.by(() =>
 		inputs
-			.filter((decl) => {
-				const yields = isSingularRef(decl.ty) ? referencedKind(decl.ty) : null;
-				return yields !== null && kinds.includes(yields);
-			})
-			.map(
-				(decl): Row => ({
-					row: 'input',
-					key: `input:${decl.name}`,
-					group: 'From an input',
-					label: `input:${decl.name}.id`,
-					hint: 'chosen when the blueprint is expanded',
-					binding: { source: 'input', name: decl.name }
-				})
+			.filter((decl) => !isList(decl.ty))
+			.flatMap((decl) =>
+				referencePaths(decl.ty)
+					.filter(({ kind }) => kind !== null && kinds.includes(kind))
+					.map(({ path }): Row => {
+						const reach = [`input:${decl.name}`, ...path, 'id'].join('.');
+						return {
+							row: 'input',
+							key: reach,
+							group: 'From an input',
+							label: reach,
+							hint: 'chosen when the blueprint is expanded',
+							binding: { source: 'input', name: decl.name, path }
+						};
+					})
 			)
 	);
 
@@ -189,14 +195,18 @@
 				: null;
 		}
 		const decl = inputs.find((i) => i.name === payload.name);
-		if (decl && isSingularRef(decl.ty)) {
-			const yields = referencedKind(decl.ty);
-			return yields && kinds.includes(yields) ? { source: 'input', name: decl.name } : null;
+		if (decl && !isList(decl.ty)) {
+			const reach = referencePaths(decl.ty).find(
+				({ kind }) => kind !== null && kinds.includes(kind)
+			);
+			return reach ? { source: 'input', name: decl.name, path: reach.path } : null;
 		}
 		const inScope = scope.find((v) => v.input?.name === payload.name);
-		const yields = inScope?.input ? elementKind(inScope.input.ty) : null;
-		if (!inScope || !yields || !kinds.includes(yields)) return null;
-		return { source: 'loop', varName: inScope.varName };
+		if (!inScope?.input) return null;
+		const reach = loopReaches(inScope.input.ty).find(
+			({ kind }) => kind !== null && kinds.includes(kind)
+		);
+		return reach ? { source: 'loop', varName: inScope.varName, path: reach.path } : null;
 	}
 
 	const incoming = $derived(activeDrag());

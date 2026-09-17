@@ -23,13 +23,34 @@ pub enum InputSpecType {
     Enum {
         variants: Vec<String>,
     },
+    /// A number inside an inclusive space: one slider handle.
+    Range {
+        min: f64,
+        max: f64,
+    },
+    /// A `{from, to}` pair inside an inclusive space: two handles.
+    Span {
+        min: f64,
+        max: f64,
+    },
     List {
         of: Box<InputSpecType>,
+    },
+    /// Named fields, in declaration order — the order a form renders them in.
+    Object {
+        fields: Vec<InputField>,
     },
     /// An id the client picks and the server resolves.
     Reference {
         kind: Option<RealmResourceKind>,
     },
+}
+
+#[derive(Debug, Serialize)]
+pub struct InputField {
+    pub name: String,
+    #[serde(flatten)]
+    pub ty: InputSpecType,
 }
 
 impl InputSpec {
@@ -51,6 +72,23 @@ impl InputSpecType {
             InputType::Bool => Self::Bool,
             InputType::Enum(variants) => Self::Enum {
                 variants: variants.clone(),
+            },
+            InputType::Range(min, max) => Self::Range {
+                min: *min,
+                max: *max,
+            },
+            InputType::Span(min, max) => Self::Span {
+                min: *min,
+                max: *max,
+            },
+            InputType::Object(fields) => Self::Object {
+                fields: fields
+                    .iter()
+                    .map(|(name, ty)| InputField {
+                        name: name.clone(),
+                        ty: Self::of(ty),
+                    })
+                    .collect(),
             },
             InputType::List(inner) => Self::List {
                 of: Box::new(Self::of(inner)),

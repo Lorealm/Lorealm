@@ -37,21 +37,13 @@ function text(value: string): string {
 
 function idField(binding: Binding | null): string {
 	if (binding === null) return 'null';
-	switch (binding.source) {
-		case 'resource':
-			return raw(binding.id);
-		case 'loop':
-			return `{{${binding.varName}.id}}`;
-		case 'input':
-			return `{{input:${binding.name}.id}}`;
-	}
+	if (binding.source === 'resource') return raw(binding.id);
+	const reach = [...binding.path, 'id'].join('.');
+	return binding.source === 'loop'
+		? `{{${binding.varName}.${reach}}}`
+		: `{{input:${binding.name}.${reach}}}`;
 }
 
-/**
- * A property key. `object_key` is `identifier | quoted_string` — a raw string
- * is not a key at all — so a dotted path takes the quoted form, which parses
- * as a template whose nodes happen to all be literal text.
- */
 function key(name: string): string {
 	return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name) ? name : interpolated(name);
 }
@@ -59,14 +51,6 @@ function key(name: string): string {
 const NUMBER = /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
 const QUOTED = /^(["'])([\s\S]*)\1$/;
 
-/**
- * A property's literal, read off the text the way a config file does it.
- *
- * There is no type to pick. `150` is a number, `true` is a boolean, `[1, 2]`
- * and `{a: 1}` are weaver, and everything else is a string. Quoting forces a
- * string, which is the escape for the one ambiguous case — a version like
- * `"1.0"` that would otherwise become a number.
- */
 export function literal(value: string): string {
 	const text = value.trim();
 	if (text === '') return raw('');
@@ -76,8 +60,6 @@ export function literal(value: string): string {
 	const quoted = QUOTED.exec(text);
 	if (quoted) return raw(quoted[2]);
 
-	// Left as written, so an array or object survives. A malformed one is the
-	// checker's to report rather than something to silently quote.
 	if (text.startsWith('[') || text.startsWith('{')) return text;
 
 	return raw(value);
@@ -166,7 +148,8 @@ function inputsBlock(inputs: InputDecl[]): string {
 function defaultLiteral(ty: InputType, value: string): string {
 	const base = baseOf(ty);
 	if (isList(ty)) return raw(value);
-	return base.type === 'number' || base.type === 'bool' ? value : raw(value);
+	const bare = base.type === 'number' || base.type === 'bool' || base.type === 'range';
+	return bare ? value : raw(value);
 }
 
 export interface Document {
