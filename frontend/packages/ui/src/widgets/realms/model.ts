@@ -65,16 +65,16 @@ export interface Property {
 }
 
 export interface ScenarioBlock {
-	id: string;
+	/** Local identity for the editing list. Never written to the document. */
+	readonly key: string;
+	slug: string;
 	name: string;
 	description: string;
 	opening: string;
 }
 
-let minted = Date.now();
-
 export function emptyScenario(): ScenarioBlock {
-	return { id: String(++minted), name: '', description: '', opening: '' };
+	return { key: freshKey('scenario-'), slug: '', name: '', description: '', opening: '' };
 }
 
 export interface AgentBlock {
@@ -299,6 +299,18 @@ export function parseGrant(channel: string, access: AgentAccess): Grant {
 	const at = channel.indexOf(':');
 	if (at < 0) return { namespace: channel, scope: '*', access };
 	return { namespace: channel.slice(0, at), scope: channel.slice(at + 1) || '*', access };
+}
+
+/** A name reduced to a weaver identifier. */
+export function slug(name: string): string {
+	let out = '';
+	for (const ch of name) {
+		if (/[A-Za-z0-9]/.test(ch)) out += ch.toLowerCase();
+		else if (!out.endsWith('_')) out += '_';
+	}
+	const trimmed = out.replace(/^_+|_+$/g, '');
+	if (trimmed === '') return 'unnamed';
+	return /^[0-9]/.test(trimmed) ? `_${trimmed}` : trimmed;
 }
 
 /** How a binding reads in a field, as in, the weaver it will be written as. */

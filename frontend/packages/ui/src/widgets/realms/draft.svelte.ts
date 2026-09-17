@@ -62,8 +62,9 @@ class RealmDraft {
 	name = $state('');
 	description = $state('');
 	tags = $state<string[]>([]);
-	/** Null is the default rotation over the whole cast. */
+	/** Null = RoundRobin. */
 	director = $state<Director | null>(null);
+	config = $state<Record<string, string>>({});
 	scenarios = $state<ScenarioBlock[]>([]);
 	inputs = $state<InputDecl[]>([]);
 	cast = $state<CastEntry[]>([]);
@@ -125,7 +126,8 @@ class RealmDraft {
 		this.description = outline.description;
 		this.tags = outline.tags;
 		this.director = outline.director;
-		this.scenarios = outline.scenarios.map((s) => ({ ...s }));
+		this.config = { ...outline.config };
+		this.scenarios = outline.scenarios.map((s) => ({ ...s, key: freshKey('scenario-') }));
 		this.inputs = outline.inputs.map(fromSpec);
 		this.cast = outline.cast.map((entry) =>
 			entry.kind === 'agent'
@@ -146,6 +148,7 @@ class RealmDraft {
 		this.description = '';
 		this.tags = [];
 		this.director = null;
+		this.config = {};
 		this.scenarios = [];
 		this.inputs = [];
 		this.cast = [];
@@ -253,8 +256,8 @@ class RealmDraft {
 		return scenario;
 	}
 
-	removeScenario(id: string) {
-		this.scenarios = this.scenarios.filter((s) => s.id !== id);
+	removeScenario(key: string) {
+		this.scenarios = this.scenarios.filter((s) => s.key !== key);
 	}
 
 	addInput(): InputDecl {

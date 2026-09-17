@@ -6,7 +6,7 @@ use crate::{
     RealmStorage, StorageError,
     backends::PostgresStorage,
     models::{
-        AgentObservation, Realm, RealmCast, RealmConfig, RealmDefinition, RealmEvent, RealmSummary,
+        AgentObservation, Realm, RealmCast, RealmDefinition, RealmEvent, RealmSummary,
         RealmVersionInfo, Snowflake, TurnCommit, VersionedSaveMode,
     },
 };
@@ -364,71 +364,10 @@ impl RealmStorage for PostgresStorage {
         Ok(())
     }
 
-    async fn get_realm_config(&self, realm_id: Snowflake) -> Result<RealmConfig, StorageError> {
-        let row: Option<RealmConfigRow> = sqlx::query_as(
-            "SELECT speech_format, action_format, tool_result_format,
-                    state_change_format, state_write_format, state_delete_format
-             FROM realm_config WHERE realm_id = $1",
-        )
-        .bind(realm_id)
-        .fetch_optional(&self.pool)
-        .await?;
 
-        Ok(row.map(Into::into).unwrap_or_default())
-    }
-
-    async fn put_realm_config(
-        &self,
-        realm_id: Snowflake,
-        user_id: Snowflake,
-        config: &RealmConfig,
-    ) -> Result<(), StorageError> {
-        sqlx::query(
-            "INSERT INTO realm_config
-                 (realm_id, user_id, speech_format, action_format, tool_result_format,
-                  state_change_format, state_write_format, state_delete_format)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-             ON CONFLICT (realm_id) DO UPDATE SET
-                 user_id = $2, speech_format = $3, action_format = $4,
-                 tool_result_format = $5, state_change_format = $6,
-                 state_write_format = $7, state_delete_format = $8",
-        )
-        .bind(realm_id)
-        .bind(user_id)
-        .bind(&config.speech_format)
-        .bind(&config.action_format)
-        .bind(&config.tool_result_format)
-        .bind(&config.state_change_format)
-        .bind(&config.state_write_format)
-        .bind(&config.state_delete_format)
-        .execute(&self.pool)
-        .await?;
-        Ok(())
-    }
 }
 
-#[derive(FromRow)]
-struct RealmConfigRow {
-    speech_format: Option<String>,
-    action_format: Option<String>,
-    tool_result_format: Option<String>,
-    state_change_format: Option<String>,
-    state_write_format: Option<String>,
-    state_delete_format: Option<String>,
-}
 
-impl From<RealmConfigRow> for RealmConfig {
-    fn from(r: RealmConfigRow) -> Self {
-        RealmConfig {
-            speech_format: r.speech_format,
-            action_format: r.action_format,
-            tool_result_format: r.tool_result_format,
-            state_change_format: r.state_change_format,
-            state_write_format: r.state_write_format,
-            state_delete_format: r.state_delete_format,
-        }
-    }
-}
 
 #[derive(FromRow)]
 struct RealmSummaryRow {

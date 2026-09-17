@@ -65,6 +65,7 @@ export interface Outline {
 	tags: string[];
 	director: Director | null;
 	scenarios: OutlineScenario[];
+	config: Record<string, string>;
 	inputs: InputSpec[];
 	cast: OutlineEntry[];
 }
@@ -77,7 +78,7 @@ export interface OutlineRefusal {
 }
 
 export interface OutlineScenario {
-	id: string;
+	slug: string;
 	name: string;
 	description: string;
 	opening: string;

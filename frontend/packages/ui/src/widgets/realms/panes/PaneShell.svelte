@@ -1,10 +1,20 @@
 <script lang="ts">
-	import { BookOpen, FileCode2, Landmark, ScrollText, Shuffle, Users, X } from '@lucide/svelte';
+	import {
+		BookOpen,
+		FileCode2,
+		Landmark,
+		MessageSquare,
+		ScrollText,
+		Shuffle,
+		Users,
+		X
+	} from '@lucide/svelte';
 	import { realmDraft } from '../draft.svelte.js';
 	import { paneId, panes, type Pane } from '../panes.svelte.js';
 	import CastPane from './CastPane.svelte';
 	import DirectorPane from './DirectorPane.svelte';
 	import DocumentPane from './DocumentPane.svelte';
+	import FormattingPane from './FormattingPane.svelte';
 	import ScenariosPane from './ScenariosPane.svelte';
 	import OverviewPane from './OverviewPane.svelte';
 	import ScriptPane from './ScriptPane.svelte';
@@ -27,6 +37,7 @@
 		if (pane.kind === 'scenarios') return 'Scenarios';
 		if (pane.kind === 'cast') return 'Cast';
 		if (pane.kind === 'document') return 'Document';
+		if (pane.kind === 'formatting') return 'Formatting';
 		if (pane.kind === 'director') return 'Director';
 		return realmDraft.agent(pane.agentKey)?.handle || 'script';
 	}
@@ -36,6 +47,7 @@
 		if (pane.kind === 'scenarios') return BookOpen;
 		if (pane.kind === 'cast') return Users;
 		if (pane.kind === 'document') return FileCode2;
+		if (pane.kind === 'formatting') return MessageSquare;
 		if (pane.kind === 'director') return Shuffle;
 		return ScrollText;
 	}
@@ -81,6 +93,8 @@
 			<CastPane />
 		{:else if panes.active.kind === 'document'}
 			<DocumentPane />
+		{:else if panes.active.kind === 'formatting'}
+			<FormattingPane />
 		{:else if panes.active.kind === 'director'}
 			<DirectorPane />
 		{:else}

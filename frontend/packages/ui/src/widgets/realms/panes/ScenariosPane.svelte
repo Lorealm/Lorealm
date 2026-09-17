@@ -2,6 +2,7 @@
 	import { BookOpen, Plus, Trash2 } from '@lucide/svelte';
 	import ContextField from '$lib/components/ContextField.svelte';
 	import { realmDraft } from '../draft.svelte.js';
+	import { slug } from '../model.js';
 	import { activeDrag, carriesAsset, dropTextInto } from '../drag.svelte.js';
 
 	const incoming = $derived(activeDrag());
@@ -9,18 +10,18 @@
 
 	let selected = $state<string | null>(null);
 
-	const scenario = $derived(realmDraft.scenarios.find((s) => s.id === selected) ?? null);
-	const index = $derived(realmDraft.scenarios.findIndex((s) => s.id === selected));
+	const scenario = $derived(realmDraft.scenarios.find((s) => s.key === selected) ?? null);
+	const index = $derived(realmDraft.scenarios.findIndex((s) => s.key === selected));
 
 	function add() {
-		selected = realmDraft.addScenario().id;
+		selected = realmDraft.addScenario().key;
 	}
 
-	function remove(id: string) {
-		const at = realmDraft.scenarios.findIndex((s) => s.id === id);
-		realmDraft.removeScenario(id);
-		if (selected === id) {
-			selected = (realmDraft.scenarios[at] ?? realmDraft.scenarios[at - 1])?.id ?? null;
+	function remove(key: string) {
+		const at = realmDraft.scenarios.findIndex((s) => s.key === key);
+		realmDraft.removeScenario(key);
+		if (selected === key) {
+			selected = (realmDraft.scenarios[at] ?? realmDraft.scenarios[at - 1])?.key ?? null;
 		}
 	}
 </script>
@@ -37,9 +38,9 @@
 
 	<div class="body">
 		<div class="list">
-			{#each realmDraft.scenarios as entry (entry.id)}
-				<div class="row" class:active={entry.id === selected}>
-					<button type="button" onclick={() => (selected = entry.id)}>
+			{#each realmDraft.scenarios as entry (entry.key)}
+				<div class="row" class:active={entry.key === selected}>
+					<button type="button" onclick={() => (selected = entry.key)}>
 						<BookOpen size={12} />
 						<span>{entry.name || 'Untitled'}</span>
 					</button>
@@ -48,7 +49,7 @@
 						class="remove"
 						title="Remove scenario"
 						aria-label="Remove {entry.name || 'scenario'}"
-						onclick={() => remove(entry.id)}
+						onclick={() => remove(entry.key)}
 					>
 						<Trash2 size={12} />
 					</button>
@@ -76,6 +77,17 @@
 						}}
 					/>
 				</label>
+				<label>
+					<span>Slug</span>
+					<input
+						class="mono"
+						value={scenario.slug}
+						placeholder={slug(scenario.name) || 'from the name'}
+						spellcheck="false"
+						oninput={(e) => (realmDraft.scenarios[at].slug = e.currentTarget.value)}
+					/>
+				</label>
+
 				<label>
 					<span>Description</span>
 					<input
@@ -252,6 +264,10 @@
 		opacity: 0.35;
 		filter: grayscale(1);
 	}
+	.mono {
+		font-family: var(--font-family-mono);
+	}
+
 	.empty,
 	.nothing {
 		margin: 0;

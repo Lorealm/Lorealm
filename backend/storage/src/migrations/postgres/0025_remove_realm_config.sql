@@ -1,0 +1,1 @@
+DROP TABLE realm_config;
