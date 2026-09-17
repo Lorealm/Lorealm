@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { ExternalLink, Maximize2, Plus, Trash2 } from '@lucide/svelte';
 	import ContextField from '$lib/components/ContextField.svelte';
+	import NumberInput from '$lib/components/NumberInput.svelte';
 	import { navigator } from '$lib/navigation/navigator.js';
 	import type { StudioResource } from '$lib/navigation/navigator.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import type { AgentKind, RealmResourceKind } from '$lib/types/realm.js';
+	import ObjectFields from './ObjectFields.svelte';
 	import RadioField from './RadioField.svelte';
 	import { realmDraft } from './draft.svelte.js';
 	import { panes } from './panes.svelte.js';
@@ -13,16 +15,18 @@
 		baseOf,
 		declarationLine,
 		declaredText,
-		elementKind,
+		TYPE_NAME,
 		holdsToBase,
 		holdsValue,
 		isList,
-		referencedKind,
+		loopReaches,
+		referencePaths,
 		isRequired,
 		withList,
 		type AgentBlock,
 		type Binding,
 		type InputDecl,
+		type InputField,
 		type InputType,
 		type Property
 	} from './model.js';
@@ -55,7 +59,13 @@
 
 	const scope = $derived(agent ? realmDraft.scopeOf(agent.key) : []);
 	const inputs = $derived(realmDraft.inputs);
-	const loopVar = $derived(scope[0]?.varName ?? null);
+	/** How the enclosing loop's entity is reached, for the hint and the drops. */
+	const loopReach = $derived.by(() => {
+		const looped = scope[0];
+		if (!looped?.input) return null;
+		const reach = loopReaches(looped.input.ty)[0];
+		return reach ? [looped.varName, ...reach.path].join('.') : null;
+	});
 	const incoming = $derived(activeDrag());
 
 	/**
@@ -64,10 +74,16 @@
 	 */
 	function interpolation(name: string, field: 'slug' | 'name'): string | null {
 		const looped = scope.find((v) => v.input?.name === name);
-		if (looped) return `{{${looped.varName}.${field}}}`;
+		if (looped?.input) {
+			// The loop variable is not always the projection: walking a list of
+			// objects binds the whole entry, and the reference sits in a field.
+			const reach = loopReaches(looped.input.ty)[0];
+			return reach ? `{{${[looped.varName, ...reach.path, field].join('.')}}}` : null;
+		}
 		const decl = inputs.find((i) => i.name === name);
 		if (!decl || isList(decl.ty)) return null;
-		return referencedKind(decl.ty) ? `{{input:${name}.${field}}}` : `{{input:${name}}}`;
+		const reach = referencePaths(decl.ty)[0];
+		return reach ? `{{input:${[name, ...reach.path, field].join('.')}}}` : `{{input:${name}}}`;
 	}
 
 	function textTakes(field: 'slug' | 'name'): boolean {
@@ -135,6 +151,21 @@
 	/**
 	 * Retype a declaration, dropping a default that the new type can't hold
 	 */
+
+	function retypeBounds(decl: InputDecl, many: boolean, min: number, max: number) {
+		const base = baseOf(decl.ty);
+		if (base.type !== 'range' && base.type !== 'span') return;
+		// A slider whose ends are the wrong way around errors in `weaver_lang`
+		// so we'll (hopefully) stop it before it gets there.
+		const low = Math.min(min, max);
+		const high = Math.max(min, max);
+		realmDraft.retypeInput(decl.name, withList({ type: base.type, min: low, max: high }, many));
+	}
+
+	function retypeFields(decl: InputDecl, many: boolean, fields: InputField[]) {
+		realmDraft.retypeInput(decl.name, withList({ type: 'object', fields }, many));
+	}
+
 	function retype(decl: InputDecl, base: InputType, many: boolean) {
 		const previous = baseOf(decl.ty);
 		realmDraft.retypeInput(decl.name, withList(base, many));
@@ -142,16 +173,6 @@
 			decl.defaultValue = null;
 		}
 	}
-
-	const TYPE_NAME: Record<RealmResourceKind, string> = {
-		character: 'Character',
-		lorebook: 'Lorebook',
-		template: 'Context Template',
-		persona: 'Persona',
-		tool: 'Tool',
-		connection_profile: 'Connection',
-		widget: 'Widget'
-	};
 
 	const RUN_CONDITION_HINT =
 		'Lets this agent take its turn only when this is true.\nLeave it empty and it always does.';
@@ -184,6 +205,27 @@
 	}
 </script>
 
+{#snippet boundsEditor(min: number, max: number, apply: (min: number, max: number) => void)}
+	<div class="bounds">
+		<label>
+			<span>From</span>
+			<NumberInput
+				value={min}
+				ariaLabel="Lowest value"
+				onchange={(next) => apply(Number(next) || 0, max)}
+			/>
+		</label>
+		<label>
+			<span>To</span>
+			<NumberInput
+				value={max}
+				ariaLabel="Highest value"
+				onchange={(next) => apply(min, Number(next) || 0)}
+			/>
+		</label>
+	</div>
+{/snippet}
+
 <div class="inspector">
 	{#if agent}
 		{@const a = agent}
@@ -205,15 +247,15 @@
 			The agent's unique name in this realm. Scripts and other agents use it to find this one.
 			<br />
 			<br />
-			{#if loopVar}
+			{#if loopReach}
 				<span class="warn"
 					>You're in a for-each loop: every pass needs a different name, so build it from <code
-						>&lbrace;&lbrace;{loopVar}&rbrace;&rbrace;</code
+						>&lbrace;&lbrace;{loopReach}&rbrace;&rbrace;</code
 					>
 					<br />
 					<br />
 					For example:
-					<code>regent_&lbrace;&lbrace;{loopVar}.slug&rbrace;&rbrace;</code>.
+					<code>regent_&lbrace;&lbrace;{loopReach}.slug&rbrace;&rbrace;</code>.
 				</span>
 			{/if}
 		</p>
@@ -594,18 +636,7 @@
 				{/each}
 			</select>
 		</label>
-		{#if decl}
-			{@const yields = elementKind(decl.ty)}
-			<p class="note">
-				{#if yields}
-					Repeats the agents below once for every {noun(yields)} in <code>{decl.name}</code>.
-					Inside, <code>{l.varName}</code> is whichever one this pass is on.
-				{:else}
-					<code>{decl.name}</code> holds plain values rather than things you own. You can write
-					<code>{l.varName}</code> into text, but it can't fill a character or lorebook field.
-				{/if}
-			</p>
-		{:else}
+		{#if !decl}
 			<p class="note">Pick a list input, or drag one onto the loop from the browser.</p>
 		{/if}
 	{:else if input}
@@ -633,13 +664,16 @@
 			>
 				<optgroup label="Values">
 					<option value="string">Text</option>
-					<option value="number">A number</option>
-					<option value="bool">Yes or no</option>
-					<option value="enum">One of a set</option>
+					<option value="number">Number</option>
+					<option value="bool">Boolean</option>
+					<option value="enum">Enum</option>
+					<option value="range">Slider (single-value)</option>
+					<option value="span">Slider (from-to)</option>
+					<option value="object">Custom Object</option>
 				</optgroup>
 				<optgroup label="Something they already own">
 					{#each RESOURCE_KINDS as kind (kind)}
-						<option value="ref:{kind}">A {TYPE_NAME[kind]}</option>
+						<option value="ref:{kind}">{TYPE_NAME[kind]}</option>
 					{/each}
 				</optgroup>
 			</select>
@@ -651,9 +685,27 @@
 				checked={many}
 				onchange={(e) => retype(decl, base, e.currentTarget.checked)}
 			/>
-			<span>A list of them</span>
+			<span>Is List</span>
 		</label>
 		<p class="note">A list is what a <code>for each</code> in the cast repeats over.</p>
+
+		{#if base.type === 'range' || base.type === 'span'}
+			{@const bounds = base}
+			{@render boundsEditor(bounds.min, bounds.max, (min, max) =>
+				retypeBounds(decl, many, min, max)
+			)}
+			<p class="note">
+				{base.type === 'span'
+					? 'They drag two handles and it arrives as {from, to}.'
+					: 'They drag one handle and it arrives as a number.'}
+			</p>
+		{/if}
+		<!-- An object is what lets one input carry a character *and* the number
+		     that goes with it. Its fields nest, so the editor for them does too. -->
+		{#if base.type === 'object'}
+			{@const group = base}
+			<ObjectFields fields={group.fields} onchange={(next) => retypeFields(decl, many, next)} />
+		{/if}
 
 		{#if base.type === 'enum'}
 			<label>
@@ -704,10 +756,18 @@
 						<option value="true">Yes</option>
 						<option value="false">No</option>
 					</select>
+				{:else if base.type === 'number' || base.type === 'range'}
+					<NumberInput
+						value={decl.defaultValue === null ? '' : Number(decl.defaultValue)}
+						min={base.type === 'range' ? base.min : undefined}
+						max={base.type === 'range' ? base.max : undefined}
+						placeholder="No default — required"
+						ariaLabel="Default"
+						onchange={(next) => (decl.defaultValue = next === '' ? null : String(next))}
+					/>
 				{:else}
 					<input
 						value={decl.defaultValue ?? ''}
-						type={base.type === 'number' ? 'number' : 'text'}
 						placeholder="No default — required"
 						onchange={(e) => (decl.defaultValue = e.currentTarget.value.trim() || null)}
 					/>
@@ -941,7 +1001,7 @@
 		padding: 0;
 		border-bottom: 1px solid var(--color-border-subtle);
 	}
-	td :global(input),
+	td :global(input:not([type='checkbox'])),
 	td :global(select) {
 		width: 100%;
 		min-width: 0;
@@ -951,7 +1011,7 @@
 		border-radius: 0;
 		font-size: var(--font-size-sm);
 	}
-	td :global(input:focus),
+	td :global(input:not([type='checkbox']):focus),
 	td :global(select:focus) {
 		background-color: var(--color-bg-input);
 	}

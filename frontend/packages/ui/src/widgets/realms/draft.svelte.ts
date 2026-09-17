@@ -8,12 +8,11 @@ import type {
 	OutlineBinding
 } from '$lib/types/blueprint.js';
 import {
-	elementKind,
+	loopReaches,
 	parseGrant,
 	emptyAgent,
 	freshKey,
-	isSingularRef,
-	referencedKind,
+	declaredText,
 	selectionId,
 	type AgentBlock,
 	type Binding,
@@ -31,8 +30,17 @@ function fromSpec(spec: InputSpec): InputDecl {
 		switch (from.type) {
 			case 'enum':
 				return { type: 'enum', variants: from.variants };
+			case 'range':
+				return { type: 'range', min: from.min, max: from.max };
+			case 'span':
+				return { type: 'span', min: from.min, max: from.max };
 			case 'list':
 				return { type: 'list', of: ty(from.of) };
+			case 'object':
+				return {
+					type: 'object',
+					fields: from.fields.map((f) => ({ name: f.name, ty: ty(f) }))
+				};
 			case 'reference':
 				return { type: 'reference', kind: from.kind };
 			default:
@@ -78,8 +86,8 @@ class RealmDraft {
 				};
 			}
 			return binding.source === 'loop'
-				? { source: 'loop', varName: binding.varName }
-				: { source: 'input', name: binding.name };
+				? { source: 'loop', varName: binding.varName, path: binding.path }
+				: { source: 'input', name: binding.name, path: binding.path };
 		};
 
 		const agent = (from: OutlineAgent): AgentBlock => ({
@@ -161,7 +169,8 @@ class RealmDraft {
 			if (entry.kind !== 'foreach') continue;
 			if (!entry.body.some((a) => a.key === agentKey)) continue;
 			const input = this.inputs.find((i) => i.name === entry.over) ?? null;
-			if (!input || !elementKind(input.ty)) return [];
+			// A loop is only useful here if its variable reaches a reference
+			if (!input || loopReaches(input.ty).length === 0) return [];
 			return [{ varName: entry.varName, input }];
 		}
 		return [];
@@ -270,25 +279,27 @@ class RealmDraft {
 	retypeInput(name: string, ty: InputType) {
 		const decl = this.inputs.find((i) => i.name === name);
 		if (!decl) return;
-		const before = isSingularRef(decl.ty) ? referencedKind(decl.ty) : null;
+		const before = declaredText(decl.ty);
 		decl.ty = ty;
-		const after = isSingularRef(ty) ? referencedKind(ty) : null;
-		if (before !== null && before !== after) this.#rewriteInputBindings(name, null);
+		if (before !== declaredText(ty)) this.#rewriteInputBindings(name, null);
 	}
 
 	#rewriteInputBindings(from: string, to: string | null) {
 		const reads = (binding: Binding) => binding.source === 'input' && binding.name === from;
+		const moved = (binding: Binding): Binding =>
+			binding.source === 'input' && to !== null ? { ...binding, name: to } : binding;
+
 		for (const agent of this.#agents()) {
 			for (const slot of BINDING_SLOTS) {
 				const binding = agent[slot];
 				if (binding && reads(binding)) {
-					agent[slot] = to === null ? null : { source: 'input', name: to };
+					agent[slot] = to === null ? null : moved(binding);
 				}
 			}
 			agent.lorebooks =
 				to === null
 					? agent.lorebooks.filter((b) => !reads(b))
-					: agent.lorebooks.map((b) => (reads(b) ? { source: 'input', name: to } : b));
+					: agent.lorebooks.map((b) => (reads(b) ? moved(b) : b));
 		}
 	}
 

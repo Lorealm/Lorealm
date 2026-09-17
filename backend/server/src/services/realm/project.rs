@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap, hash_map::Entry};
 
 use lorealm_storage::models::{RealmResourceKind, Snowflake};
 use weaver_lang::{InputType, Value as WeaverValue};
@@ -37,41 +37,21 @@ pub(super) fn slug(name: &str) -> String {
     }
 }
 
-/// What a declaration asks the host to resolve before expansion.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub(super) enum Needs {
-    One(RealmResourceKind),
-    Many(RealmResourceKind),
-    /// A shape the language checks itself: string, number, bool, enum, or a
-    /// list of those.
-    Nothing,
+/// Whether resolving this type reaches an entity anywhere inside it.
+pub(super) fn contains_entity(ty: &InputType) -> bool {
+    match ty {
+        InputType::Ref(_) => true,
+        InputType::List(inner) => contains_entity(inner),
+        InputType::Object(fields) => fields.iter().any(|(_, ty)| contains_entity(ty)),
+        _ => false,
+    }
 }
 
-/// Classify one declaration, naming the input if its kind is unknown.
-pub(super) fn needs(input: &str, ty: &InputType) -> Result<Needs, RealmError> {
-    let named = |kind: &str| {
-        RealmResourceKind::from_ref_name(kind).ok_or_else(|| {
-            RealmError::InvalidTemplate(format!("input '{input}': no such entity kind '{kind}'"))
-        })
-    };
-    Ok(match ty {
-        InputType::Ref(kind) => Needs::One(named(kind)?),
-        InputType::List(inner) => match &**inner {
-            InputType::Ref(kind) => Needs::Many(named(kind)?),
-            _ => Needs::Nothing,
-        },
-        _ => Needs::Nothing,
-    })
-}
-
-/// An entity input cannot carry a default.
 pub(super) fn reject_defaulted_entities(
     declarations: &[weaver_lang::InputDecl],
 ) -> Result<(), RealmError> {
     for declaration in declarations {
-        if !declaration.is_required()
-            && needs(&declaration.name, &declaration.ty)? != Needs::Nothing
-        {
+        if !declaration.is_required() && contains_entity(&declaration.ty) {
             return Err(RealmError::InvalidTemplate(format!(
                 "input '{}' names an entity, so it cannot have a default — make it required",
                 declaration.name
@@ -79,6 +59,13 @@ pub(super) fn reject_defaulted_entities(
         }
     }
     Ok(())
+}
+
+/// The kind a `Ref<..>` names, or an error against the input that wrote it.
+fn named(input: &str, kind: &str) -> Result<RealmResourceKind, RealmError> {
+    RealmResourceKind::from_ref_name(kind).ok_or_else(|| {
+        RealmError::InvalidTemplate(format!("input '{input}': no such entity kind '{kind}'"))
+    })
 }
 
 /// A supplied value read as the id it is meant to be.
@@ -100,8 +87,86 @@ fn as_id(
         })
 }
 
+/// Every entity a supplied value refers to
+fn gather(
+    input: &str,
+    ty: &InputType,
+    value: &WeaverValue,
+    out: &mut Vec<(RealmResourceKind, Snowflake)>,
+) -> Result<(), RealmError> {
+    match ty {
+        InputType::Ref(kind) => {
+            let kind = named(input, kind)?;
+            out.push((kind, as_id(input, kind, value)?));
+        }
+        InputType::List(inner) => {
+            let items = value.as_array().ok_or_else(|| {
+                RealmError::InvalidTemplate(format!("input '{input}': expected a list"))
+            })?;
+            for item in items {
+                gather(input, inner, item, out)?;
+            }
+        }
+        InputType::Object(fields) => {
+            let map = value.as_object().ok_or_else(|| {
+                RealmError::InvalidTemplate(format!("input '{input}': expected an object"))
+            })?;
+            for (name, ty) in fields {
+                let field = map.get(name).ok_or_else(|| {
+                    RealmError::InvalidTemplate(format!("input '{input}': missing field '{name}'"))
+                })?;
+                gather(&format!("{input}.{name}"), ty, field, out)?;
+            }
+        }
+        // Everything else is a shape the language checks for itself.
+        _ => {}
+    }
+    Ok(())
+}
+
+/// Rebuild a value with each entity id replaced by its projection.
+fn substitute(
+    input: &str,
+    ty: &InputType,
+    value: WeaverValue,
+    projected: &HashMap<(RealmResourceKind, Snowflake), WeaverValue>,
+) -> Result<WeaverValue, RealmError> {
+    Ok(match ty {
+        InputType::Ref(kind) => {
+            let kind = named(input, kind)?;
+            let id = as_id(input, kind, &value)?;
+            projected
+                .get(&(kind, id))
+                .cloned()
+                .expect("gather visits every reference substitute does")
+        }
+        InputType::List(inner) => {
+            let items = value.into_array().ok_or_else(|| {
+                RealmError::InvalidTemplate(format!("input '{input}': expected a list"))
+            })?;
+            let mut out = Vec::with_capacity(items.len());
+            for item in items {
+                out.push(substitute(input, inner, item, projected)?);
+            }
+            WeaverValue::Array(out)
+        }
+        InputType::Object(fields) => {
+            let mut map = value.into_object().ok_or_else(|| {
+                RealmError::InvalidTemplate(format!("input '{input}': expected an object"))
+            })?;
+            for (name, ty) in fields {
+                let Some(field) = map.remove(name) else { continue };
+                let nested = format!("{input}.{name}");
+                map.insert(name.clone(), substitute(&nested, ty, field, projected)?);
+            }
+            WeaverValue::Object(map)
+        }
+        _ => value,
+    })
+}
+
 impl RealmService {
-    /// Bind every declared input, resolving the ones that name an entity.
+    /// Bind every declared input, and resolve the ones that name an entity.
     pub(super) async fn resolve_inputs(
         &self,
         user_id: Snowflake,
@@ -110,33 +175,27 @@ impl RealmService {
     ) -> Result<BTreeMap<String, WeaverValue>, RealmError> {
         reject_defaulted_entities(declarations)?;
 
+        let declared = |name: &str| declarations.iter().find(|d| d.name == name);
+
+        let mut wanted = Vec::new();
+        for (name, value) in &supplied {
+            if let Some(declaration) = declared(name) {
+                gather(name, &declaration.ty, value, &mut wanted)?;
+            }
+        }
+
+        let mut projected = HashMap::new();
+        for (kind, id) in wanted {
+            if let Entry::Vacant(slot) = projected.entry((kind, id)) {
+                slot.insert(self.project(user_id, kind, id).await?);
+            }
+        }
+
         let mut bound = BTreeMap::new();
         for (name, value) in supplied {
-            let Some(declaration) = declarations.iter().find(|d| d.name == name) else {
-                bound.insert(name, value);
-                continue;
-            };
-
-            let resolved = match needs(&name, &declaration.ty)? {
-                Needs::Nothing => value,
-                Needs::One(kind) => {
-                    let id = as_id(&name, kind, &value)?;
-                    self.project(user_id, kind, id).await?
-                }
-                Needs::Many(kind) => {
-                    let items = value.into_array().ok_or_else(|| {
-                        RealmError::InvalidTemplate(format!(
-                            "input '{name}': expected a list of {} ids",
-                            kind.as_str()
-                        ))
-                    })?;
-                    let mut out = Vec::with_capacity(items.len());
-                    for item in &items {
-                        let id = as_id(&name, kind, item)?;
-                        out.push(self.project(user_id, kind, id).await?);
-                    }
-                    WeaverValue::Array(out)
-                }
+            let resolved = match declared(&name) {
+                Some(declaration) => substitute(&name, &declaration.ty, value, &projected)?,
+                None => value,
             };
             bound.insert(name, resolved);
         }
@@ -246,42 +305,96 @@ mod tests {
 #inputs
 one: Ref<Character>
 many: [Ref<Lorebook>]
+nested: [{char: Ref<Character>, talkativeness: range(0, 1)}]
 plain: string
 numbers: [number]
 choice: enum("a", "b") = "a"
+dial: range(0, 10)
+window: span(0, 10)
 
 {}"#,
         );
-        let got: Vec<Needs> = decls
-            .iter()
-            .map(|d| needs(&d.name, &d.ty).unwrap())
-            .collect();
+        let got: Vec<bool> = decls.iter().map(|d| contains_entity(&d.ty)).collect();
+        assert_eq!(got, [true, true, true, false, false, false, false, false]);
+    }
+
+    #[test]
+    fn an_entity_inside_an_object_is_still_gathered() {
+        let decls = declarations(
+            r#"
+#inputs
+cast: [{char: Ref<Character>, talkativeness: range(0, 1)}]
+
+{}"#,
+        );
+        let supplied = WeaverValue::Array(vec![
+            WeaverValue::object([
+                ("char", WeaverValue::String("11".into())),
+                ("talkativeness", WeaverValue::Number(0.5)),
+            ]),
+            WeaverValue::object([
+                ("char", WeaverValue::String("22".into())),
+                ("talkativeness", WeaverValue::Number(0.1)),
+            ]),
+        ]);
+
+        let mut found = Vec::new();
+        gather("cast", &decls[0].ty, &supplied, &mut found).expect("gathers");
 
         assert_eq!(
-            got,
-            vec![
-                Needs::One(RealmResourceKind::Character),
-                Needs::Many(RealmResourceKind::Lorebook),
-                Needs::Nothing,
-                Needs::Nothing,
-                Needs::Nothing,
+            found,
+            [
+                (RealmResourceKind::Character, Snowflake(11)),
+                (RealmResourceKind::Character, Snowflake(22)),
             ]
+        );
+    }
+
+    #[test]
+    fn substitution_replaces_the_reference_and_leaves_the_rest() {
+        let decls = declarations(
+            r#"
+#inputs
+cast: [{char: Ref<Character>, talkativeness: range(0, 1)}]
+
+{}"#,
+        );
+        let projected = HashMap::from([(
+            (RealmResourceKind::Character, Snowflake(11)),
+            projection(Snowflake(11), "Ito Kaede", "A regent."),
+        )]);
+        let supplied = WeaverValue::Array(vec![WeaverValue::object([
+            ("char", WeaverValue::String("11".into())),
+            ("talkativeness", WeaverValue::Number(0.5)),
+        ])]);
+
+        let out = substitute("cast", &decls[0].ty, supplied, &projected).expect("substitutes");
+        assert_eq!(
+            out.to_json(),
+            r#"[{"char":{"description":"A regent.","id":"11","name":"Ito Kaede","slug":"ito_kaede"},"talkativeness":0.5}]"#
         );
     }
 
     #[test]
     fn every_resource_kind_is_nameable_from_a_document() {
         for kind in RealmResourceKind::ALL {
-            assert_eq!(
-                needs("x", &InputType::Ref(kind.ref_name().into())).unwrap(),
-                Needs::One(kind)
-            );
+            let ty = InputType::Ref(kind.ref_name().into());
+            let mut found = Vec::new();
+            gather("x", &ty, &WeaverValue::String("1".into()), &mut found).expect("gathers");
+            assert_eq!(found, [(kind, Snowflake(1))]);
         }
     }
 
     #[test]
     fn an_unknown_kind_is_reported_against_its_input() {
-        let err = needs("regents", &InputType::Ref("Wizard".into())).unwrap_err();
+        let mut found = Vec::new();
+        let err = gather(
+            "regents",
+            &InputType::Ref("Wizard".into()),
+            &WeaverValue::String("1".into()),
+            &mut found,
+        )
+        .unwrap_err();
         assert!(
             err.to_string().contains("input 'regents'") && err.to_string().contains("Wizard"),
             "{err}"
@@ -304,6 +417,17 @@ lead: Ref<Character> = "12345"
             reject_defaulted_entities(&declarations(
                 r#"
 #inputs
+pair: {char: Ref<Character>, weight: number} = 1
+
+{}"#,
+            ))
+            .is_err()
+        );
+
+        assert!(
+            reject_defaulted_entities(&declarations(
+                r#"
+#inputs
 rounds: number = 3
 
 {}"#,
@@ -318,6 +442,66 @@ rounds: number = 3
         assert_eq!(
             value.to_json(),
             r#"{"description":"A regent.","id":"1934857293847562","name":"Ito Kaede","slug":"ito_kaede"}"#
+        );
+    }
+
+    #[test]
+    fn an_object_input_pairs_an_entity_with_its_own_settings() {
+        let source = r#"
+#inputs
+cast: [{char: Ref<Character>, talkativeness: range(0, 1)}]
+
+{
+  name: r"Group Chat"
+  agents: [
+    {# foreach c in {{input:cast}} #}
+      {
+        char_version_id: null
+        character_id: {{c.char.id}}
+        handle: "speaker_{{c.char.slug}}"
+        kind: r"llm"
+        name: "{{c.char.name}}"
+        persona_id: null
+        profile_id: null
+        properties: { talkativeness: {{c.talkativeness}} }
+        template_id: null
+        user_id: null
+      }
+    {# endforeach #}
+  ]
+}
+"#;
+        let entry = |id: i64, name: &str, talk: f64| {
+            WeaverValue::object([
+                ("char", projection(Snowflake(id), name, "")),
+                ("talkativeness", WeaverValue::Number(talk)),
+            ])
+        };
+        let resolved = BTreeMap::from([(
+            "cast".to_string(),
+            WeaverValue::Array(vec![entry(11, "Ito Kaede", 0.8), entry(22, "Mori Rin", 0.2)]),
+        )]);
+
+        let definition = super::super::wtn::from_wtn(source, resolved).expect("expands");
+        let seen: Vec<(&str, &str, Option<Snowflake>, f64)> = definition
+            .agents
+            .iter()
+            .map(|a| {
+                (
+                    a.handle.as_str(),
+                    a.name.as_str(),
+                    a.character_id,
+                    a.properties["talkativeness"].as_f64().unwrap(),
+                )
+            })
+            .collect();
+
+        assert_eq!(
+            seen,
+            [
+                ("speaker_ito_kaede", "Ito Kaede", Some(Snowflake(11)), 0.8),
+                ("speaker_mori_rin", "Mori Rin", Some(Snowflake(22)), 0.2),
+            ]
         );
     }
 

@@ -15,7 +15,7 @@
 	import { blueprintStore } from '$lib/stores/blueprint.svelte.js';
 	import { realmDraft } from '../draft.svelte.js';
 	import { panes } from '../panes.svelte.js';
-	import { elementKind, type AgentBlock, type CastEntry } from '../model.js';
+	import { loopReaches, type AgentBlock, type CastEntry } from '../model.js';
 
 	/** Reordering stays inside the pane, so it gets its own mime. */
 	const ENTRY_MIME = 'application/x-lorealm-cast-entry';
@@ -188,7 +188,7 @@
 									<option value={input.name}>{input.name}</option>
 								{/each}
 							</select>
-							{#if decl && !elementKind(decl.ty)}
+							{#if decl && loopReaches(decl.ty).length === 0}
 								<span
 									class="warn"
 									title="Its elements aren't references. Only &lbrace;&lbrace;{entry.varName}&rbrace;&rbrace; can be reached."
