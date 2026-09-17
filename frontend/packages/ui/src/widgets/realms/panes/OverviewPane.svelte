@@ -201,7 +201,6 @@
 	header {
 		display: flex;
 		flex: 0 0 auto;
-		align-items: baseline;
 		gap: var(--spacing-sm);
 		height: var(--height-header);
 		padding: 0 var(--spacing-md);
