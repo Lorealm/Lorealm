@@ -64,6 +64,19 @@ export interface Property {
 	value: string;
 }
 
+export interface ScenarioBlock {
+	id: string;
+	name: string;
+	description: string;
+	opening: string;
+}
+
+let minted = Date.now();
+
+export function emptyScenario(): ScenarioBlock {
+	return { id: String(++minted), name: '', description: '', opening: '' };
+}
+
 export interface AgentBlock {
 	/** Local identity for keyed lists and selection. */
 	readonly key: string;
@@ -303,6 +316,18 @@ export function bindingLabel(binding: Binding): string {
 export function referencedKind(ty: InputType): RealmResourceKind | null {
 	const base = baseOf(ty);
 	return base.type === 'reference' ? base.kind : null;
+}
+
+/**
+ * The scalar leaves of an input and how each is reached
+ */
+export function leafPaths(
+	ty: InputType,
+	prefix: string[] = []
+): Array<{ path: string[]; declared: string }> {
+	if (ty.type !== 'object')
+		return prefix.length ? [{ path: prefix, declared: declaredText(ty) }] : [];
+	return ty.fields.flatMap((f) => leafPaths(f.ty, [...prefix, f.name]));
 }
 
 /** An input whose value fills resource fields without a loop around it. */

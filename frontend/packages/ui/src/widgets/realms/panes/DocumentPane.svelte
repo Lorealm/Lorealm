@@ -11,7 +11,8 @@
 				name: realmDraft.name,
 				description: realmDraft.description,
 				tags: realmDraft.tags,
-				director: realmDraft.director
+				director: realmDraft.director,
+				scenarios: realmDraft.scenarios
 			},
 			realmDraft.inputs,
 			realmDraft.cast

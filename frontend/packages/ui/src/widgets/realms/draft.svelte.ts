@@ -11,6 +11,7 @@ import {
 	loopReaches,
 	parseGrant,
 	emptyAgent,
+	emptyScenario,
 	freshKey,
 	declaredText,
 	selectionId,
@@ -19,6 +20,7 @@ import {
 	type CastEntry,
 	type InputDecl,
 	type InputType,
+	type ScenarioBlock,
 	type Selection
 } from './model.js';
 
@@ -62,9 +64,14 @@ class RealmDraft {
 	tags = $state<string[]>([]);
 	/** Null is the default rotation over the whole cast. */
 	director = $state<Director | null>(null);
+	scenarios = $state<ScenarioBlock[]>([]);
 	inputs = $state<InputDecl[]>([]);
 	cast = $state<CastEntry[]>([]);
 	selection = $state<Selection>(null);
+
+	get isEmpty(): boolean {
+		return this.cast.length === 0 && this.inputs.length === 0 && this.scenarios.length === 0;
+	}
 
 	/** True once anything references an input: the document is a blueprint. */
 	get isBlueprint(): boolean {
@@ -118,6 +125,7 @@ class RealmDraft {
 		this.description = outline.description;
 		this.tags = outline.tags;
 		this.director = outline.director;
+		this.scenarios = outline.scenarios.map((s) => ({ ...s }));
 		this.inputs = outline.inputs.map(fromSpec);
 		this.cast = outline.cast.map((entry) =>
 			entry.kind === 'agent'
@@ -138,6 +146,7 @@ class RealmDraft {
 		this.description = '';
 		this.tags = [];
 		this.director = null;
+		this.scenarios = [];
 		this.inputs = [];
 		this.cast = [];
 		this.selection = null;
@@ -235,6 +244,17 @@ class RealmDraft {
 		if (target === from) return;
 		const [entry] = this.cast.splice(from, 1);
 		this.cast.splice(target, 0, entry);
+	}
+
+	addScenario(): ScenarioBlock {
+		const scenario = emptyScenario();
+		scenario.name = `Opening ${this.scenarios.length + 1}`;
+		this.scenarios.push(scenario);
+		return scenario;
+	}
+
+	removeScenario(id: string) {
+		this.scenarios = this.scenarios.filter((s) => s.id !== id);
 	}
 
 	addInput(): InputDecl {

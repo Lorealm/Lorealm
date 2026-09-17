@@ -31,7 +31,9 @@
 
 	const incoming = $derived(activeDrag());
 	const takesIncoming = $derived(
-		incoming?.drag === 'input' && walkable.some((i) => i.name === incoming.name)
+		incoming?.drag === 'input' &&
+			incoming.path.length === 0 &&
+			walkable.some((i) => i.name === incoming.name)
 	);
 
 	function startDrag(event: DragEvent, key: string) {
@@ -70,7 +72,7 @@
 		overEntry = null;
 		clearDrag();
 		const payload = readDrag(event);
-		if (payload?.drag !== 'input') return;
+		if (payload?.drag !== 'input' || payload.path.length > 0) return;
 		event.preventDefault();
 		const decl = realmDraft.inputs.find((i) => i.name === payload.name);
 		if (decl?.ty.type !== 'list') return;

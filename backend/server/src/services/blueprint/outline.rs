@@ -45,12 +45,19 @@ pub struct Outline {
     pub description: String,
     pub tags: Vec<String>,
     pub director: Option<DirectorBlock>,
+    pub scenarios: Vec<ScenarioBlock>,
     pub inputs: Vec<InputSpec>,
     pub cast: Vec<CastEntry>,
 }
 
-/// How the realm picks who acts next. `None` in a document means the default
-/// rotation, which is what the editor shows as "round robin over everyone".
+#[derive(Debug, Default, Serialize)]
+pub struct ScenarioBlock {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub opening: String,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum DirectorBlock {
@@ -175,6 +182,7 @@ pub fn outline(doc: &ValueDoc, source: &str) -> Refused<Outline> {
     let mut description = String::new();
     let mut tags = Vec::new();
     let mut director = None;
+    let mut scenarios = Vec::new();
     let mut cast = Vec::new();
 
     for item in items {
@@ -192,7 +200,7 @@ pub fn outline(doc: &ValueDoc, source: &str) -> Refused<Outline> {
             "agents" => cast = agents(&entry.value.node, entry.value.span, source)?,
             "tags" => tags = strings(&entry.value.node, entry.value.span)?,
             "director" => director = director_of(&entry.value.node, entry.value.span)?,
-            // `scenarios` round-trips untouched because nothing authors it yet.
+            "scenarios" => scenarios = scenarios_of(&entry.value.node, entry.value.span)?,
             _ => {}
         }
     }
@@ -202,6 +210,7 @@ pub fn outline(doc: &ValueDoc, source: &str) -> Refused<Outline> {
         description,
         tags,
         director,
+        scenarios,
         inputs,
         cast,
     })
@@ -218,6 +227,54 @@ fn strings(expr: &ExprKind, span: Span) -> Refused<Vec<String>> {
             _ => Err(OutlineRefusal::bare("a loop or conditional in `tags`")),
         })
         .collect()
+}
+
+fn scenarios_of(expr: &ExprKind, span: Span) -> Refused<Vec<ScenarioBlock>> {
+    let ExprKind::ArrayLiteral(items) = expr else {
+        return Err(OutlineRefusal::at(span, "`scenarios` must be an array"));
+    };
+    let mut out = Vec::new();
+    for item in items {
+        match item {
+            ArrayItem::Element(expr) => out.push(one_scenario(expr)?),
+            ArrayItem::If(block) => {
+                for (_, body) in &block.branches {
+                    for inner in body {
+                        let ArrayItem::Element(expr) = inner else {
+                            return Err(OutlineRefusal::bare("a nested branch in `scenarios`"));
+                        };
+                        out.push(one_scenario(expr)?);
+                    }
+                }
+            }
+            ArrayItem::ForEach(_) => {
+                return Err(OutlineRefusal::bare("a loop in `scenarios`"));
+            }
+        }
+    }
+    Ok(out)
+}
+
+fn one_scenario(expr: &weaver_lang::ast::expr::Expr) -> Refused<ScenarioBlock> {
+    let ExprKind::ObjectLiteral(fields) = &expr.node else {
+        return Err(OutlineRefusal::at(expr.span, "every scenario must be an object"));
+    };
+
+    let mut out = ScenarioBlock::default();
+    for field in fields {
+        let ObjectItem::Entry(entry) = field else {
+            return Err(OutlineRefusal::bare("a loop or conditional in a scenario"));
+        };
+        let value = text(&entry.value.node, entry.value.span)?;
+        match entry.static_key() {
+            Some("id") => out.id = value,
+            Some("name") => out.name = value,
+            Some("description") => out.description = value,
+            Some("opening") => out.opening = value,
+            _ => {}
+        }
+    }
+    Ok(out)
 }
 
 fn director_of(expr: &ExprKind, span: Span) -> Refused<Option<DirectorBlock>> {
@@ -956,6 +1013,35 @@ characters: [{char: Ref<Character>, talkativeness: range(0, 1)}]
             body[0].character,
             Some(Binding::Loop { ref path, .. }) if path == &["char"]
         ));
+    }
+
+    #[test]
+    fn a_guarded_scenario_reads_back_as_itself() {
+        let got = outlined(
+            r####"{
+  name: r"G"
+  scenarios: [
+    { id: r"1", name: r"Spring", description: r"", opening: r"The thaw." }
+    {# if "{{input:custom.name}}" != r"" #}
+    { id: r"2", name: "{{input:custom.name}}", description: r"", opening: "{{input:custom.content}}" }
+    {# endif #}
+  ]
+}"####,
+        )
+        .expect("outlines");
+
+        let seen: Vec<(&str, &str)> = got
+            .scenarios
+            .iter()
+            .map(|s| (s.name.as_str(), s.opening.as_str()))
+            .collect();
+        assert_eq!(
+            seen,
+            [
+                ("Spring", "The thaw."),
+                ("{{input:custom.name}}", "{{input:custom.content}}"),
+            ]
+        );
     }
 
     #[test]

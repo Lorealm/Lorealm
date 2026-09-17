@@ -64,6 +64,7 @@ export interface Outline {
 	description: string;
 	tags: string[];
 	director: Director | null;
+	scenarios: OutlineScenario[];
 	inputs: InputSpec[];
 	cast: OutlineEntry[];
 }
@@ -73,6 +74,13 @@ export interface OutlineRefusal {
 	message: string;
 	from: number | null;
 	to: number | null;
+}
+
+export interface OutlineScenario {
+	id: string;
+	name: string;
+	description: string;
+	opening: string;
 }
 
 export type OutlineEntry =

@@ -8,7 +8,7 @@
 	import type { StudioResource } from '$lib/navigation/navigator.js';
 	import { clearDrag, setDrag } from './drag.svelte.js';
 	import { realmDraft } from './draft.svelte.js';
-	import { declaredText, KIND_LABEL } from './model.js';
+	import { declaredText, KIND_LABEL, leafPaths } from './model.js';
 	import { ensureLoaded, itemsOf, RESOURCE_KINDS } from './resources.svelte.js';
 
 	const STUDIO_KINDS: Partial<Record<RealmResourceKind, StudioResource>> = {
@@ -112,13 +112,27 @@
 					class="item input"
 					class:selected={realmDraft.isSelected({ kind: 'input', name: decl.name })}
 					draggable="true"
-					ondragstart={(e) => setDrag(e, { drag: 'input', name: decl.name })}
+					ondragstart={(e) => setDrag(e, { drag: 'input', name: decl.name, path: [] })}
 					ondragend={clearDrag}
 					onclick={() => realmDraft.select({ kind: 'input', name: decl.name })}
 				>
 					<span class="name">{decl.name}</span>
 					<span class="hint">{declaredText(decl.ty)}</span>
 				</button>
+
+				{#each leafPaths(decl.ty) as leaf (leaf.path.join('.'))}
+					<button
+						type="button"
+						class="item input leaf"
+						draggable="true"
+						ondragstart={(e) => setDrag(e, { drag: 'input', name: decl.name, path: leaf.path })}
+						ondragend={clearDrag}
+						onclick={() => realmDraft.select({ kind: 'input', name: decl.name })}
+					>
+						<span class="name">.{leaf.path.join('.')}</span>
+						<span class="hint">{leaf.declared}</span>
+					</button>
+				{/each}
 			{:else}
 				<p class="empty">
 					{needle ? 'No matching inputs.' : 'No inputs. A document with none is a realm.'}
@@ -297,6 +311,12 @@
 	}
 	.item.input .name {
 		font-family: var(--font-family-mono);
+	}
+	.item.leaf {
+		padding-left: var(--spacing-3xl);
+	}
+	.item.leaf .name {
+		color: var(--color-text-muted);
 	}
 	.name {
 		flex: 0 1 auto;

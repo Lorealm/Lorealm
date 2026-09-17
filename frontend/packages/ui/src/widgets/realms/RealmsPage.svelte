@@ -21,7 +21,8 @@
 				name: realmDraft.name,
 				description: realmDraft.description,
 				tags: realmDraft.tags,
-				director: realmDraft.director
+				director: realmDraft.director,
+				scenarios: realmDraft.scenarios
 			},
 			realmDraft.inputs,
 			realmDraft.cast
@@ -32,18 +33,18 @@
 	let asking = $state(false);
 
 	$effect(() => {
-		blueprintStore.queueSave(realmDraft.name, wtn.source);
+		blueprintStore.queueSave(realmDraft.name, wtn.source, realmDraft.isEmpty);
 	});
 
 	async function save() {
 		if (!blueprint) return;
-		await blueprintStore.save(realmDraft.name, wtn.source);
+		await blueprintStore.save(realmDraft.name, wtn.source, realmDraft.isEmpty);
 	}
 
 	/** Build a realm from the active blueprint */
 	async function build() {
 		if (!blueprint) return;
-		if (!(await blueprintStore.save(realmDraft.name, wtn.source))) return;
+		if (!(await blueprintStore.save(realmDraft.name, wtn.source, realmDraft.isEmpty))) return;
 		if (blueprintStore.inputs.length > 0) {
 			asking = true;
 			return;
@@ -104,6 +105,13 @@
 					</span>
 				{:else if blueprintStore.saveStatus === 'saving'}
 					<span class="saving">Saving…</span>
+				{:else if blueprintStore.saveStatus === 'blocked'}
+					<span
+						class="saveError"
+						title="The editor is empty but this blueprint is not. Automatic saving stopped so nothing is accidentally lost. Press Save if you meant to clear it."
+					>
+						AutoSave refused: editor is empty
+					</span>
 				{:else if blueprintStore.saveStatus === 'dirty'}
 					<span class="saving">Unsaved changes</span>
 				{:else if blueprintStore.saveStatus === 'saved'}

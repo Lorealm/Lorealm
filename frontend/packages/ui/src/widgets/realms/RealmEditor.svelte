@@ -1,21 +1,6 @@
 <script lang="ts">
-	import { realmStore } from '$lib/stores/realm.svelte.js';
 	import AssetBrowser from './AssetBrowser.svelte';
 	import PaneShell from './panes/PaneShell.svelte';
-	import { realmDraft } from './draft.svelte.js';
-	import { panes } from './panes.svelte.js';
-
-	// The draft is a module singleton, so opening a different realm has to clear
-	// it.
-	let lastRealmId: string | null = null;
-	$effect(() => {
-		const id = realmStore.realm?.id ?? null;
-		if (id !== lastRealmId) {
-			lastRealmId = id;
-			realmDraft.reset();
-			panes.reset();
-		}
-	});
 </script>
 
 <div class="realm-editor-shell">

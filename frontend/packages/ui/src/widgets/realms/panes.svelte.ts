@@ -1,6 +1,7 @@
 /** What the pane area can show. */
 export type Pane =
 	| { kind: 'overview' }
+	| { kind: 'scenarios' }
 	| { kind: 'cast' }
 	| { kind: 'document' }
 	| { kind: 'director' }
@@ -11,10 +12,11 @@ export function paneId(pane: Pane): string {
 }
 
 const OVERVIEW: Pane = { kind: 'overview' };
+const SCENARIOS: Pane = { kind: 'scenarios' };
 const CAST: Pane = { kind: 'cast' };
 const DOCUMENT: Pane = { kind: 'document' };
 
-const PERMANENT = [OVERVIEW, CAST, DOCUMENT];
+const PERMANENT = [OVERVIEW, SCENARIOS, CAST, DOCUMENT];
 
 class PaneStore {
 	open = $state<Pane[]>([...PERMANENT]);
