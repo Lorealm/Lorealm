@@ -99,7 +99,7 @@ pub(super) fn realm_view(
     let scenario = scenario
         .map(|s| {
             HashMap::from([
-                ("id".to_string(), json!(s.id)),
+                ("slug".to_string(), json!(s.slug)),
                 ("name".to_string(), json!(s.name)),
             ])
         })
@@ -560,7 +560,7 @@ mod tests {
     #[test]
     fn the_picked_scenario_is_readable_and_gates_a_turn_zero_script() {
         let scenario = lorealm_storage::models::Scenario {
-            id: lorealm_storage::models::Snowflake(70),
+            slug: "spring".into(),
             name: "Spring".into(),
             description: String::new(),
             opening: None,
@@ -574,8 +574,8 @@ mod tests {
             Some(weaver_lang::Value::String("Spring".into()))
         );
         assert_eq!(
-            ctx.resolve_variable("scenario", "id").unwrap(),
-            Some(weaver_lang::Value::String("70".into()))
+            ctx.resolve_variable("scenario", "slug").unwrap(),
+            Some(weaver_lang::Value::String("spring".into()))
         );
     }
 

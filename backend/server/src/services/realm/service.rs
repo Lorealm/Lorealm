@@ -43,6 +43,7 @@ use crate::{
 };
 
 use super::{
+    project::{resolve_scenario_slugs, slug, unique_slug},
     agent::{
         AgentRegistry, EventDraft, MAIN_CHANNEL, PersistPlan, PlanCx, Production, ReadyTurn,
         TurnPlan, capture, push_emitted_events, push_state_events, speech_channel,
@@ -125,8 +126,7 @@ impl RealmService {
         realm_id: Snowflake,
         user_id: Snowflake,
     ) -> Result<RealmConfig, RealmError> {
-        self.owned_realm(realm_id, user_id).await?;
-        Ok(self.storage.get_realm_config(realm_id).await?)
+        Ok(self.owned_realm(realm_id, user_id).await?.definition.config)
     }
 
     pub async fn set_config(
@@ -135,10 +135,9 @@ impl RealmService {
         user_id: Snowflake,
         config: RealmConfig,
     ) -> Result<RealmConfig, RealmError> {
-        self.owned_realm(realm_id, user_id).await?;
-        self.storage
-            .put_realm_config(realm_id, user_id, &config)
-            .await?;
+        let mut edit = self.get_realm_for_edit(realm_id, user_id).await?;
+        edit.realm.definition.config = config.clone();
+        self.storage.save_realm(&edit.realm, edit.save_mode).await?;
         Ok(config)
     }
 
@@ -410,7 +409,16 @@ impl RealmService {
         validate_scenario(&req.name)?;
 
         let scenario = Scenario {
-            id: self.snowflake.generate(),
+            slug: unique_slug(
+                &slug(&req.name),
+                &edit
+                    .realm
+                    .definition
+                    .scenarios
+                    .iter()
+                    .map(|s| s.slug.clone())
+                    .collect::<Vec<_>>(),
+            ),
             name: req.name,
             description: req.description,
             opening: req.opening,
@@ -425,7 +433,7 @@ impl RealmService {
     pub async fn update_scenario(
         &self,
         realm_id: Snowflake,
-        scenario_id: Snowflake,
+        scenario_slug: &str,
         user_id: Snowflake,
         req: CreateScenarioRequest,
     ) -> Result<Scenario, RealmError> {
@@ -437,11 +445,12 @@ impl RealmService {
             .definition
             .scenarios
             .iter_mut()
-            .find(|s| s.id == scenario_id)
-            .ok_or(RealmError::NotFound(TargetType::Scenario, scenario_id))?;
+            .find(|s| s.slug == scenario_slug)
+            .ok_or_else(|| RealmError::NoSuchScenario(scenario_slug.to_string()))?;
 
+        // The slug is identity, so a rename keeps it.
         let scenario = Scenario {
-            id: slot.id,
+            slug: slot.slug.clone(),
             name: req.name,
             description: req.description,
             opening: req.opening,
@@ -455,16 +464,16 @@ impl RealmService {
     pub async fn delete_scenario(
         &self,
         realm_id: Snowflake,
-        scenario_id: Snowflake,
+        scenario_slug: &str,
         user_id: Snowflake,
     ) -> Result<(), RealmError> {
         let mut edit = self.get_realm_for_edit(realm_id, user_id).await?;
 
         let scenarios = &mut edit.realm.definition.scenarios;
         let before = scenarios.len();
-        scenarios.retain(|s| s.id != scenario_id);
+        scenarios.retain(|s| s.slug != scenario_slug);
         if scenarios.len() == before {
-            return Err(RealmError::NotFound(TargetType::Scenario, scenario_id));
+            return Err(RealmError::NoSuchScenario(scenario_slug.to_string()));
         }
 
         self.storage.save_realm(&edit.realm, edit.save_mode).await?;
@@ -527,7 +536,8 @@ impl RealmService {
             .resolve_inputs(user_id, doc.declarations(), inputs)
             .await?;
 
-        let definition = wtn::expand(doc, inputs)?;
+        let mut definition = wtn::expand(doc, inputs)?;
+        resolve_scenario_slugs(&mut definition.scenarios);
         self.validate_definition(user_id, &definition).await?;
 
         let realm = Realm {
@@ -571,7 +581,7 @@ impl RealmService {
         &self,
         realm_id: Snowflake,
         user_id: Snowflake,
-        scenario_id: Option<Snowflake>,
+        scenario_slug: Option<String>,
     ) -> Result<FullConversation, RealmError> {
         let realm = self.owned_realm(realm_id, user_id).await?;
 
@@ -583,14 +593,14 @@ impl RealmService {
             validate_director(director, &realm.definition.agents)?;
             validate_playable(director)?;
         }
-        let scenario = match scenario_id {
-            Some(id) => Some(
+        let scenario = match scenario_slug {
+            Some(slug) => Some(
                 realm
                     .definition
                     .scenarios
                     .iter()
-                    .find(|s| s.id == id)
-                    .ok_or(RealmError::NotFound(TargetType::Scenario, id))?
+                    .find(|s| s.slug == slug)
+                    .ok_or(RealmError::NoSuchScenario(slug))?
                     .clone(),
             ),
             None => match realm.definition.scenarios.as_slice() {
@@ -680,7 +690,7 @@ impl RealmService {
                 convo.id,
                 ChatRole::System,
                 opening.unwrap_or_default().to_string(),
-                json!({ "realm_seed": true, "scenario_id": scenario.map(|s| s.id) }),
+                json!({ "realm_seed": true, "scenario": scenario.map(|s| s.slug.clone()) }),
             )
             .await?;
         if !pool.is_empty() {
@@ -945,7 +955,7 @@ impl RealmService {
             });
         }
         push_emitted_events(&agent.handle, emitted, &mut events);
-        push_state_events(&agent.handle, &delta, &config, &mut events);
+        push_state_events(&agent.handle, &delta, &mut events);
 
         // Carry the reconstructed activation forward so a player-turn state
         // row never resets lorebook activation for later turns.
@@ -1228,7 +1238,7 @@ impl RealmService {
         }
 
         push_emitted_events(&agent.handle, emitted, &mut events);
-        push_state_events(&agent.handle, &delta, config, &mut events);
+        push_state_events(&agent.handle, &delta, &mut events);
 
         let state =
             (had_assembly || !delta.writes.is_empty() || !delta.deletes.is_empty()).then(|| {
@@ -1368,7 +1378,12 @@ impl RealmService {
         convo: &Conversation,
     ) -> Result<ResolvedRealmConfig, RealmError> {
         let config = match convo.realm_id {
-            Some(id) => self.storage.get_realm_config(id).await?,
+            Some(id) => self
+                .storage
+                .get_realm(id)
+                .await?
+                .map(|r| r.definition.config)
+                .unwrap_or_default(),
             None => RealmConfig::default(),
         };
         Ok(ResolvedRealmConfig::resolve(&config))
@@ -1437,6 +1452,9 @@ impl RealmService {
             let grants = weaver::read_scopes(&observer.grants);
 
             for event in events {
+                if event.kind == EventKind::StateChanged {
+                    continue;
+                }
                 let own = event.source.as_deref() == Some(observer.handle.as_str());
                 if !own && !grants.iter().any(|g| g.matches_channel(&event.channel)) {
                     continue;

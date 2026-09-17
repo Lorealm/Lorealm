@@ -482,10 +482,10 @@ export function createApiClient(platform: PlatformAPI) {
 			scenarios: {
 				create: (realm_id: Snowflake, create: CreateScenarioRequest) =>
 					http.post<Scenario>(`/api/v1/realms/${realm_id}/scenarios`, create),
-				update: (realm_id: Snowflake, scenario_id: Snowflake, update: CreateScenarioRequest) =>
-					http.put<Scenario>(`/api/v1/realms/${realm_id}/scenarios/${scenario_id}`, update),
-				delete: (realm_id: Snowflake, scenario_id: Snowflake) =>
-					http.delete(`/api/v1/realms/${realm_id}/scenarios/${scenario_id}`)
+				update: (realm_id: Snowflake, slug: string, update: CreateScenarioRequest) =>
+					http.put<Scenario>(`/api/v1/realms/${realm_id}/scenarios/${slug}`, update),
+				delete: (realm_id: Snowflake, slug: string) =>
+					http.delete(`/api/v1/realms/${realm_id}/scenarios/${slug}`)
 			}
 		},
 		config: {

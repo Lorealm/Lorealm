@@ -22,6 +22,8 @@ export interface RealmDefinition {
 	tags: string[];
 	/** How the realm picks who acts next. Null = round-robin over the whole cast. */
 	director?: Director | null;
+	/** How events read in an agent's feed. */
+	config?: RealmConfig | null;
 }
 
 /**
@@ -42,7 +44,7 @@ export type AgentFilter =
  * A named opening, like a character greeting.
  */
 export interface Scenario {
-	id: Snowflake;
+	slug: string;
 	name: string;
 	description: string;
 	opening?: string | null;
@@ -197,21 +199,12 @@ export interface RealmConfig {
 	action_format?: string | null;
 	/** The actor's private note after a tool runs. `{tool}`, `{output}`. */
 	tool_result_format?: string | null;
-	/** A `state_changed` event's content. `{scope}`, `{changes}`. */
-	state_change_format?: string | null;
-	/** One written variable within a state change. `{key}`, `{value}`. */
-	state_write_format?: string | null;
-	/** One deleted variable within a state change. `{key}`. */
-	state_delete_format?: string | null;
 }
 
 export const REALM_CONFIG_DEFAULTS: Required<{ [K in keyof RealmConfig]: string }> = {
 	speech_format: '{name}: {content}',
 	action_format: '[{name} used {tool}]',
-	tool_result_format: '[{tool} result: {output}]',
-	state_change_format: '[state {scope} changed: {changes}]',
-	state_write_format: '{key} = {value}',
-	state_delete_format: '-{key}'
+	tool_result_format: '[{tool} result: {output}]'
 };
 
 export interface CreateAgentRequest {
@@ -242,11 +235,7 @@ export interface CreateAgentRequest {
 
 export interface StartRealmChatRequest {
 	realm_id: Snowflake;
-	/**
-	 * The scenario to open with. Omitted: the realm's only scenario, or the
-	 * legacy emergent start when the realm defines none.
-	 */
-	scenario_id?: Snowflake | null;
+	scenario?: string | null;
 }
 
 export interface PlayerTurnRequest {

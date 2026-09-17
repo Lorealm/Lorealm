@@ -167,7 +167,7 @@ freeze a stale copy into history.
 | `cast:agents.<handle>.name` / `.kind` / `.turn_order` | One cast member |
 | `turn:index` | Turns already committed on this path |
 | `turn:last.handle` / `.name` / `.kind` / `.said` | Who acted last; absent on the opening turn |
-| `scenario:id`, `scenario:name` | The opening this playthrough started from; absent when the realm has none |
+| `scenario:slug`, `scenario:name` | The opening this playthrough started from; absent when the realm has none |
 
 Only agents with a handle appear: an unhandled agent has no `agents:` subtree
 and no `self:`, so listing it would name an identity nothing can address.

@@ -153,8 +153,8 @@ mod tests {
     use std::collections::HashMap;
 
     use lorealm_storage::models::{
-        AgentAccess, AgentGrant, AgentKind, AgentToolBinding, Director, RealmAgent, Scenario,
-        Snowflake,
+        AgentAccess, AgentGrant, AgentKind, AgentToolBinding, Director, RealmAgent, RealmConfig,
+        Scenario, Snowflake,
     };
     use serde_json::json;
 
@@ -203,9 +203,13 @@ $[inc_var("self:gold", -150)]
             name: "Sengoku".into(),
             description: "Houses scheme through the seasons.".into(),
             tags: vec!["strategy".into()],
+            config: RealmConfig {
+                speech_format: Some("{name} says: {content}".into()),
+                ..Default::default()
+            },
             agents: vec![agent("regent_ito"), agent("regent_mori")],
             scenarios: vec![Scenario {
-                id: Snowflake(70),
+                slug: "spring".into(),
                 name: "Spring".into(),
                 description: String::new(),
                 opening: Some("The thaw comes early this year.".into()),
@@ -335,6 +339,18 @@ season: enum("spring", "winter") = "spring"
         assert_eq!(
             definition.agents[0].run_condition.as_deref(),
             Some("{{self:alive}} == true")
+        );
+    }
+
+    #[test]
+    fn formatting_survives_the_document() {
+        let source = to_wtn(&realm()).expect("emits");
+        assert!(source.contains("speech_format"), "{source}");
+
+        let back = from_wtn(&source, BTreeMap::new()).expect("expands");
+        assert_eq!(
+            back.config.speech_format.as_deref(),
+            Some("{name} says: {content}")
         );
     }
 

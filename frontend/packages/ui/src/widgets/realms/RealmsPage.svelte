@@ -22,7 +22,8 @@
 				description: realmDraft.description,
 				tags: realmDraft.tags,
 				director: realmDraft.director,
-				scenarios: realmDraft.scenarios
+				scenarios: realmDraft.scenarios,
+				config: realmDraft.config
 			},
 			realmDraft.inputs,
 			realmDraft.cast

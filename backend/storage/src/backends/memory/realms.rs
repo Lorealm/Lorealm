@@ -5,7 +5,7 @@ use crate::{
     RealmStorage, StorageError,
     backends::MemoryStorage,
     models::{
-        AgentObservation, Realm, RealmCast, RealmConfig, RealmEvent, RealmSummary,
+        AgentObservation, Realm, RealmCast, RealmEvent, RealmSummary,
         RealmVersionInfo, Snowflake, TurnCommit, VersionedSaveMode,
     },
 };
@@ -267,26 +267,5 @@ impl RealmStorage for MemoryStorage {
         Ok(())
     }
 
-    async fn get_realm_config(&self, realm_id: Snowflake) -> Result<RealmConfig, StorageError> {
-        Ok(self
-            .realm_config
-            .read()
-            .await
-            .get(&realm_id)
-            .cloned()
-            .unwrap_or_default())
-    }
 
-    async fn put_realm_config(
-        &self,
-        realm_id: Snowflake,
-        _user_id: Snowflake,
-        config: &RealmConfig,
-    ) -> Result<(), StorageError> {
-        self.realm_config
-            .write()
-            .await
-            .insert(realm_id, config.clone());
-        Ok(())
-    }
 }

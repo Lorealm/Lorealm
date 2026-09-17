@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use lorealm_storage::models::{RealmResourceKind, Snowflake};
 use serde::Serialize;
 use weaver_lang::PathSegment;
@@ -46,13 +48,15 @@ pub struct Outline {
     pub tags: Vec<String>,
     pub director: Option<DirectorBlock>,
     pub scenarios: Vec<ScenarioBlock>,
+    /// Formatting overrides, as written. Absent keys keep the built-in wording.
+    pub config: HashMap<String, String>,
     pub inputs: Vec<InputSpec>,
     pub cast: Vec<CastEntry>,
 }
 
 #[derive(Debug, Default, Serialize)]
 pub struct ScenarioBlock {
-    pub id: String,
+    pub slug: String,
     pub name: String,
     pub description: String,
     pub opening: String,
@@ -183,6 +187,7 @@ pub fn outline(doc: &ValueDoc, source: &str) -> Refused<Outline> {
     let mut tags = Vec::new();
     let mut director = None;
     let mut scenarios = Vec::new();
+    let mut config = HashMap::new();
     let mut cast = Vec::new();
 
     for item in items {
@@ -201,6 +206,7 @@ pub fn outline(doc: &ValueDoc, source: &str) -> Refused<Outline> {
             "tags" => tags = strings(&entry.value.node, entry.value.span)?,
             "director" => director = director_of(&entry.value.node, entry.value.span)?,
             "scenarios" => scenarios = scenarios_of(&entry.value.node, entry.value.span)?,
+            "config" => config = formats(&entry.value.node, entry.value.span)?,
             _ => {}
         }
     }
@@ -211,6 +217,7 @@ pub fn outline(doc: &ValueDoc, source: &str) -> Refused<Outline> {
         tags,
         director,
         scenarios,
+        config,
         inputs,
         cast,
     })
@@ -227,6 +234,23 @@ fn strings(expr: &ExprKind, span: Span) -> Refused<Vec<String>> {
             _ => Err(OutlineRefusal::bare("a loop or conditional in `tags`")),
         })
         .collect()
+}
+
+fn formats(expr: &ExprKind, span: Span) -> Refused<HashMap<String, String>> {
+    let ExprKind::ObjectLiteral(items) = expr else {
+        return Err(OutlineRefusal::at(span, "`config` must be an object"));
+    };
+    let mut out = HashMap::new();
+    for item in items {
+        let ObjectItem::Entry(entry) = item else {
+            return Err(OutlineRefusal::bare("a loop or conditional in `config`"));
+        };
+        let Some(key) = entry.static_key() else {
+            return Err(OutlineRefusal::at(entry.key.span, "a computed key in `config`"));
+        };
+        out.insert(key.to_string(), text(&entry.value.node, entry.value.span)?);
+    }
+    Ok(out)
 }
 
 fn scenarios_of(expr: &ExprKind, span: Span) -> Refused<Vec<ScenarioBlock>> {
@@ -267,7 +291,7 @@ fn one_scenario(expr: &weaver_lang::ast::expr::Expr) -> Refused<ScenarioBlock> {
         };
         let value = text(&entry.value.node, entry.value.span)?;
         match entry.static_key() {
-            Some("id") => out.id = value,
+            Some("slug") => out.slug = value,
             Some("name") => out.name = value,
             Some("description") => out.description = value,
             Some("opening") => out.opening = value,
@@ -1021,9 +1045,9 @@ characters: [{char: Ref<Character>, talkativeness: range(0, 1)}]
             r####"{
   name: r"G"
   scenarios: [
-    { id: r"1", name: r"Spring", description: r"", opening: r"The thaw." }
+    { name: r"Spring", description: r"", opening: r"The thaw." }
     {# if "{{input:custom.name}}" != r"" #}
-    { id: r"2", name: "{{input:custom.name}}", description: r"", opening: "{{input:custom.content}}" }
+    { name: "{{input:custom.name}}", description: r"", opening: "{{input:custom.content}}" }
     {# endif #}
   ]
 }"####,

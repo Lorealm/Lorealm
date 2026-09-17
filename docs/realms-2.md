@@ -13,6 +13,8 @@ places. Everything still true has been carried over.
 | 16/09/26      | Written after the backend rework; frontend not begun  | ✅            |
 | 16/09/26      | Editor built; blueprint/realm split redefined         | ✅            |
 | 16/09/26      | Round-trip via `/outline`; autosave                   | ✅            |
+| 17/09/26      | Objects/range/span in inputs; scenarios keyed by slug | ✅            |
+| 17/09/26      | State changes stop reaching prompts; config in the doc | ✅            |
 
 ---
 
@@ -205,6 +207,41 @@ save, underlined in the editor.
 
 > The original brief's example, `"You are {{c}}."`, does not do what it looks
 > like. `c` is an object; that renders the whole thing. It is `{{c.name}}`.
+
+### A scenario is named, not numbered
+A scenario's identity is a `slug` — a weaver identifier — the way an agent's is
+its `handle`. Left out of a document it is taken from the name, resolved once
+at import so anything reading a stored realm sees a real one.
+
+**Why:** it was a Snowflake, which meant a document had to write one, which
+meant a `foreach` over scenarios could not exist — the same reason handles are
+identity, arrived at a second time. It also makes an opening readable from a
+script as `{{scenario:slug}}` rather than an opaque number.
+
+**The trade:** slugs collide where Snowflakes could not, so a second `The Thaw`
+becomes `the_thaw_2`. Renaming an opening keeps its slug, because renaming is
+not the same as replacing.
+
+### State changes are recorded, not narrated
+A `StateChanged` event is written to the realm's log and reaches no agent's
+prompt. Nothing formats one, and there is no setting to turn on.
+
+**Why:** every `set_var` used to become a line in someone's context, so the
+noise grew with how much the scripts ran rather than with what mattered — and
+`[world changed: calendar = {"month": 12, "day": 11}]` is a serialised value,
+not something a model can act on. An author who wants a change noticed emits an
+event saying so, in words they chose.
+
+**The trade:** an agent no longer learns the world moved unless something says
+it did. That is the point: saying so is cheap, and the wording is better.
+
+### Formatting lives in the definition
+`speech_format`, `action_format` and `tool_result_format` are fields of
+`RealmDefinition`, not a table beside the realm.
+
+**Why:** an export that omits how a realm sounds is not the complete document
+this format promises. Tune how speech reads, export, and the recipient used to
+get something that read differently.
 
 ### Scenarios hold no state
 Seed scripts and per-agent overrides are gone. Whatever an opening needs is

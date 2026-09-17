@@ -37,6 +37,31 @@ pub(super) fn slug(name: &str) -> String {
     }
 }
 
+pub(super) fn resolve_scenario_slugs(scenarios: &mut [lorealm_storage::models::Scenario]) {
+    let mut taken: Vec<String> = Vec::with_capacity(scenarios.len());
+    for scenario in scenarios.iter_mut() {
+        let wanted = if scenario.slug.trim().is_empty() {
+            slug(&scenario.name)
+        } else {
+            slug(&scenario.slug)
+        };
+        let settled = unique_slug(&wanted, &taken);
+        taken.push(settled.clone());
+        scenario.slug = settled;
+    }
+}
+
+/// `base`, or `base_2`, `base_3`… until it is not one of `taken`.
+pub(super) fn unique_slug(base: &str, taken: &[String]) -> String {
+    if !taken.iter().any(|t| t == base) {
+        return base.to_string();
+    }
+    (2..)
+        .map(|n| format!("{base}_{n}"))
+        .find(|candidate| !taken.iter().any(|t| t == candidate))
+        .expect("an unbounded search finds a free name")
+}
+
 /// Whether resolving this type reaches an entity anywhere inside it.
 pub(super) fn contains_entity(ty: &InputType) -> bool {
     match ty {
@@ -514,8 +539,8 @@ custom: {name: string, text: string}
 {
   name: r"Group Chat"
   scenarios: [
-    { id: r"1", name: r"Spring", description: r"", opening: r"The snow gives way." }
-    { id: r"2", name: "{{input:custom.name}}", description: r"", opening: "{{input:custom.text}}" }
+    { name: r"Spring", description: r"", opening: r"The snow gives way." }
+    { name: "{{input:custom.name}}", description: r"", opening: "{{input:custom.text}}" }
   ]
 }
 "######;
@@ -539,6 +564,54 @@ custom: {name: string, text: string}
             [
                 ("Spring", Some("The snow gives way.")),
                 ("A tense summit", Some("The envoys are seated.")),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_loop_can_mint_scenarios_now_that_identity_is_a_slug() {
+        let source = r######"
+#inputs
+openings: [{name: string, text: string}]
+
+{
+  name: r"G"
+  scenarios: [
+    { name: r"The Thaw" }
+    {# foreach o in {{input:openings}} #}
+    { name: "{{o.name}}", opening: "{{o.text}}" }
+    {# endforeach #}
+  ]
+}
+"######;
+        let entry = |n: &str, t: &str| {
+            WeaverValue::object([
+                ("name", WeaverValue::String(n.into())),
+                ("text", WeaverValue::String(t.into())),
+            ])
+        };
+        let resolved = BTreeMap::from([(
+            "openings".to_string(),
+            WeaverValue::Array(vec![
+                entry("A Tense Summit", "Envoys sit."),
+                entry("The Thaw", "Again."),
+            ]),
+        )]);
+
+        let mut definition = super::super::wtn::from_wtn(source, resolved).expect("expands");
+        resolve_scenario_slugs(&mut definition.scenarios);
+
+        let seen: Vec<(&str, &str)> = definition
+            .scenarios
+            .iter()
+            .map(|s| (s.slug.as_str(), s.name.as_str()))
+            .collect();
+        assert_eq!(
+            seen,
+            [
+                ("the_thaw", "The Thaw"),
+                ("a_tense_summit", "A Tense Summit"),
+                ("the_thaw_2", "The Thaw"),
             ]
         );
     }

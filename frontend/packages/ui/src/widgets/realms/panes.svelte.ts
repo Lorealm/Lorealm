@@ -4,6 +4,7 @@ export type Pane =
 	| { kind: 'scenarios' }
 	| { kind: 'cast' }
 	| { kind: 'document' }
+	| { kind: 'formatting' }
 	| { kind: 'director' }
 	| { kind: 'script'; agentKey: string };
 
@@ -14,9 +15,10 @@ export function paneId(pane: Pane): string {
 const OVERVIEW: Pane = { kind: 'overview' };
 const SCENARIOS: Pane = { kind: 'scenarios' };
 const CAST: Pane = { kind: 'cast' };
+const FORMATTING: Pane = { kind: 'formatting' };
 const DOCUMENT: Pane = { kind: 'document' };
 
-const PERMANENT = [OVERVIEW, SCENARIOS, CAST, DOCUMENT];
+const PERMANENT = [OVERVIEW, SCENARIOS, CAST, FORMATTING, DOCUMENT];
 
 class PaneStore {
 	open = $state<Pane[]>([...PERMANENT]);

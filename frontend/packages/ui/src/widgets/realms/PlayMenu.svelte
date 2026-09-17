@@ -32,13 +32,13 @@
 
 	const scenarios = $derived<Scenario[]>(full?.definition.scenarios ?? []);
 
-	async function start(scenarioId: string | null) {
+	async function start(slug: string | null) {
 		if (busy) return;
 		busy = true;
 		try {
 			const conversation = await api.chat.realm.start({
 				realm_id: realm.id,
-				scenario_id: scenarioId
+				scenario: slug
 			});
 			await chatStore.loadConversation(conversation.metadata.id);
 			navigator.start().write();
@@ -84,8 +84,8 @@
 		<div class="body">
 			<section>
 				<h3>Start a new playthrough</h3>
-				{#each scenarios as scenario (scenario.id)}
-					<button type="button" class="row" disabled={busy} onclick={() => start(scenario.id)}>
+				{#each scenarios as scenario (scenario.slug)}
+					<button type="button" class="row" disabled={busy} onclick={() => start(scenario.slug)}>
 						<Play size={12} />
 						<span class="rowText">
 							<span class="rowName">{scenario.name}</span>

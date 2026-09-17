@@ -244,9 +244,6 @@
 	.sub {
 		margin-left: var(--spacing-md);
 	}
-	.mono {
-		font-family: var(--font-family-mono);
-	}
 	.note {
 		margin: 0;
 		color: var(--color-text-muted);

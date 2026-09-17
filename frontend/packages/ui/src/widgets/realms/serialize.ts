@@ -172,6 +172,8 @@ export interface DocumentHead {
 	tags: string[];
 	director: Director | null;
 	scenarios: ScenarioBlock[];
+	/** Only the overrides an author set; the rest keep the built-in wording. */
+	config: Record<string, string>;
 }
 
 export function toWtn(head: DocumentHead, inputs: InputDecl[], cast: CastEntry[]): Document {
@@ -185,6 +187,7 @@ export function toWtn(head: DocumentHead, inputs: InputDecl[], cast: CastEntry[]
 		`${INDENT}tags: ${list(head.tags.map(raw), 1)}`,
 		`${INDENT}director: ` + director(head.director),
 		`${INDENT}scenarios: ${scenarios(head.scenarios)}`,
+		`${INDENT}config: ${formats(head.config)}`,
 		`${INDENT}agents: ${agents}`,
 		'}'
 	].join('\n');
@@ -198,11 +201,9 @@ function scenarios(items: ScenarioBlock[]): string {
 		const guarded = hasInterpolation(s.name);
 		const depth = guarded ? 3 : 2;
 
-		const lines = [
-			`${indent(depth + 1)}id: ${raw(s.id)}`,
-			`${indent(depth + 1)}name: ${text(s.name)}`,
-			`${indent(depth + 1)}description: ${text(s.description)}`
-		];
+		const lines = [`${indent(depth + 1)}name: ${text(s.name)}`];
+		if (s.slug.trim()) lines.push(`${indent(depth + 1)}slug: ${raw(s.slug.trim())}`);
+		lines.push(`${indent(depth + 1)}description: ${text(s.description)}`);
 		if (s.opening.trim()) lines.push(`${indent(depth + 1)}opening: ${text(s.opening)}`);
 		const body = `${indent(depth)}{\n${lines.join('\n')}\n${indent(depth)}}`;
 
@@ -214,6 +215,15 @@ function scenarios(items: ScenarioBlock[]): string {
 		].join('\n');
 	});
 	return `[\n${rows.join('\n')}\n${indent(1)}]`;
+}
+
+/** Formatting, as the overrides an author actually set. */
+function formats(config: Record<string, string>): string {
+	const rows = Object.entries(config)
+		.filter(([, value]) => value.trim())
+		.sort(([a], [b]) => a.localeCompare(b))
+		.map(([key, value]) => `${indent(2)}${key}: ${raw(value)}`);
+	return rows.length === 0 ? '{}' : `{\n${rows.join('\n')}\n${indent(1)}}`;
 }
 
 function list(items: string[], depth: number): string {

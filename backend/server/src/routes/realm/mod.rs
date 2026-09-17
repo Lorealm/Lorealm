@@ -69,7 +69,7 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         )
         .route("/{realm_id}/scenarios", post(handlers::create_scenario))
         .route(
-            "/{realm_id}/scenarios/{scenario_id}",
+            "/{realm_id}/scenarios/{scenario_slug}",
             put(handlers::update_scenario).delete(handlers::delete_scenario),
         )
         .layer(axum::middleware::from_fn_with_state(

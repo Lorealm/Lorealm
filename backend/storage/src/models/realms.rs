@@ -51,6 +51,8 @@ pub struct RealmDefinition {
     /// How the realm decides who acts next. `None` = [`Director::default`].
     #[serde(default)]
     pub director: Option<Director>,
+    #[serde(default)]
+    pub config: RealmConfig,
 }
 
 /// How a realm decides who acts next.
@@ -104,12 +106,11 @@ impl AgentFilter {
     }
 }
 
-/// A named opening for a realm, analogous to a character greeting: which one
-/// a playthrough starts from, and the narration it opens on (a `System`
-/// event on `main`).
+/// A named opening for a realm, analogous to a character greeting
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Scenario {
-    pub id: Snowflake,
+    #[serde(default)]
+    pub slug: String,
     pub name: String,
     #[serde(default)]
     pub description: String,
@@ -208,12 +209,6 @@ pub struct RealmConfig {
     pub action_format: Option<String>,
     #[serde(default)]
     pub tool_result_format: Option<String>,
-    #[serde(default)]
-    pub state_change_format: Option<String>,
-    #[serde(default)]
-    pub state_write_format: Option<String>,
-    #[serde(default)]
-    pub state_delete_format: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -221,9 +216,6 @@ pub struct ResolvedRealmConfig {
     pub speech_format: String,
     pub action_format: String,
     pub tool_result_format: String,
-    pub state_change_format: String,
-    pub state_write_format: String,
-    pub state_delete_format: String,
 }
 
 impl Default for ResolvedRealmConfig {
@@ -232,9 +224,6 @@ impl Default for ResolvedRealmConfig {
             speech_format: "{name}: {content}".into(),
             action_format: "[{name} used {tool}]".into(),
             tool_result_format: "[{tool} result: {output}]".into(),
-            state_change_format: "[state {scope} changed: {changes}]".into(),
-            state_write_format: "{key} = {value}".into(),
-            state_delete_format: "-{key}".into(),
         }
     }
 }
@@ -257,15 +246,6 @@ impl ResolvedRealmConfig {
         if let Some(v) = &o.tool_result_format {
             self.tool_result_format = v.clone();
         }
-        if let Some(v) = &o.state_change_format {
-            self.state_change_format = v.clone();
-        }
-        if let Some(v) = &o.state_write_format {
-            self.state_write_format = v.clone();
-        }
-        if let Some(v) = &o.state_delete_format {
-            self.state_delete_format = v.clone();
-        }
     }
 
     /// Another agent's speech in an observer's feed. `{name}`, `{content}`.
@@ -287,25 +267,6 @@ impl ResolvedRealmConfig {
         self.tool_result_format
             .replace("{tool}", tool)
             .replace("{output}", output)
-    }
-
-    /// The content of a `StateChanged` event. `{scope}`, `{changes}`.
-    pub fn state_change(&self, scope: &str, changes: &str) -> String {
-        self.state_change_format
-            .replace("{scope}", scope)
-            .replace("{changes}", changes)
-    }
-
-    /// One written variable within a state change. `{key}`, `{value}`.
-    pub fn state_write(&self, key: &str, value: &str) -> String {
-        self.state_write_format
-            .replace("{key}", key)
-            .replace("{value}", value)
-    }
-
-    /// One deleted variable within a state change. `{key}`.
-    pub fn state_delete(&self, key: &str) -> String {
-        self.state_delete_format.replace("{key}", key)
     }
 }
 
@@ -416,7 +377,7 @@ pub struct RealmCast {
     pub scenario: Option<Scenario>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "TEXT", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum EventKind {

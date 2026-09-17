@@ -253,7 +253,7 @@ pub async fn start_realm_chat(
     let chat = state
         .services()
         .realm()
-        .start_conversation(request.realm_id, session.user_id, request.scenario_id)
+        .start_conversation(request.realm_id, session.user_id, request.scenario)
         .await?;
 
     Ok(Json(chat))
