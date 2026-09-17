@@ -33,7 +33,6 @@
 <div class="pane">
 	<header>
 		<h2>Formatting</h2>
-		<span class="hint">how events read in an agent's feed</span>
 	</header>
 
 	<div class="body">
@@ -67,7 +66,7 @@
 	header {
 		display: flex;
 		flex: 0 0 auto;
-		align-items: baseline;
+		align-items: center;
 		gap: var(--spacing-sm);
 		height: var(--height-header);
 		padding: 0 var(--spacing-md);
@@ -78,10 +77,6 @@
 		font-family: var(--font-family-heading);
 		font-size: var(--font-size-h6);
 		font-weight: var(--font-weight-semibold);
-	}
-	.hint {
-		color: var(--color-text-muted);
-		font-size: var(--font-size-xs);
 	}
 	.body {
 		display: flex;
