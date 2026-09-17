@@ -3,7 +3,11 @@ use std::sync::Arc;
 use lorealm_storage::models::User;
 use serde_json::json;
 
-use crate::{core::AppState, errors::AppError, services::connection::ProfileInput};
+use crate::{
+    core::AppState,
+    errors::AppError,
+    services::{blueprint::GROUP_CHAT_BP, connection::ProfileInput},
+};
 
 pub async fn scaffold_user(state: &Arc<AppState>, user: &User) -> Result<(), AppError> {
     // Create the default persona
@@ -54,6 +58,12 @@ pub async fn scaffold_user(state: &Arc<AppState>, user: &User) -> Result<(), App
         .services()
         .state()
         .set_active_profile(user.id, Some(profile.id))
+        .await?;
+
+    state
+        .services()
+        .blueprints()
+        .create(user.id, "Group Chat".into(), GROUP_CHAT_BP.to_string())
         .await?;
 
     Ok(())
