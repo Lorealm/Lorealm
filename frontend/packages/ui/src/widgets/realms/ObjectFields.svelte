@@ -1,15 +1,10 @@
 <script lang="ts" module>
-	/**
-	 * Nesting is allowed as deep as the format is — an object holds objects, and
-	 * `gather`/`substitute` recurse — but a table inside a table inside a table
-	 * stops being readable well before it stops being valid. Past this we say so
-	 * rather than refuse.
-	 */
 	export const COMFORTABLE_DEPTH = 2;
 </script>
 
 <script lang="ts">
 	import { Plus, Trash2, TriangleAlert } from '@lucide/svelte';
+	import { tick, untrack } from 'svelte';
 	import NumberInput from '$lib/components/NumberInput.svelte';
 	import {
 		baseOf,
@@ -28,16 +23,30 @@
 	let {
 		fields,
 		depth = 0,
+		ping = null,
 		onchange
 	}: {
 		fields: InputField[];
-		/** How many tables deep this one sits, for the readability warning. */
+		/** How many tables deep this one sits */
 		depth?: number;
+		ping?: { path: string[] } | null;
 		onchange: (next: InputField[]) => void;
 	} = $props();
 
 	/** Which field's settings are open, by index. */
 	let open = $state<number | null>(null);
+	let nameEls = $state<HTMLInputElement[]>([]);
+
+	$effect(() => {
+		const path = ping?.path;
+		if (!path) return;
+		const want = path[depth];
+		if (want === undefined) return;
+		const at = untrack(() => fields).findIndex((f) => f.name === want);
+		if (at < 0) return;
+		open = at;
+		if (path.length === depth + 1) tick().then(() => nameEls[at]?.select());
+	});
 
 	function set(index: number, patch: Partial<InputField>) {
 		onchange(fields.map((f, at) => (at === index ? { ...f, ...patch } : f)));
@@ -90,6 +99,7 @@
 					<td>
 						<input
 							class="mono"
+							bind:this={nameEls[i]}
 							value={field.name}
 							placeholder="name"
 							spellcheck="false"
@@ -202,6 +212,7 @@
 				<Self
 					fields={group.fields}
 					depth={depth + 1}
+					{ping}
 					onchange={(next) =>
 						set(at, { ty: withList({ type: 'object', fields: next }, isList(field.ty)) })}
 				/>

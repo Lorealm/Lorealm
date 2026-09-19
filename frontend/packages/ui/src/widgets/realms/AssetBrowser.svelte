@@ -8,7 +8,7 @@
 	import type { StudioResource } from '$lib/navigation/navigator.js';
 	import { clearDrag, setDrag } from './drag.svelte.js';
 	import { realmDraft } from './draft.svelte.js';
-	import { declaredText, KIND_LABEL, leafPaths } from './model.js';
+	import { browseText, KIND_LABEL, leafPaths } from './model.js';
 	import { ensureLoaded, itemsOf, RESOURCE_KINDS } from './resources.svelte.js';
 
 	const STUDIO_KINDS: Partial<Record<RealmResourceKind, StudioResource>> = {
@@ -117,22 +117,24 @@
 					onclick={() => realmDraft.select({ kind: 'input', name: decl.name })}
 				>
 					<span class="name">{decl.name}</span>
-					<span class="hint">{declaredText(decl.ty)}</span>
+					<span class="hint">{browseText(decl.ty)}</span>
 				</button>
 
-				{#each leafPaths(decl.ty) as leaf (leaf.path.join('.'))}
-					<button
-						type="button"
-						class="item input leaf"
-						draggable="true"
-						ondragstart={(e) => setDrag(e, { drag: 'input', name: decl.name, path: leaf.path })}
-						ondragend={clearDrag}
-						onclick={() => realmDraft.select({ kind: 'input', name: decl.name })}
-					>
-						<span class="name">.{leaf.path.join('.')}</span>
-						<span class="hint">{leaf.declared}</span>
-					</button>
-				{/each}
+				{#if realmDraft.isSelected({ kind: 'input', name: decl.name })}
+					{#each leafPaths(decl.ty) as leaf (leaf.path.join('.'))}
+						<button
+							type="button"
+							class="item input leaf"
+							draggable="true"
+							ondragstart={(e) => setDrag(e, { drag: 'input', name: decl.name, path: leaf.path })}
+							ondragend={clearDrag}
+							onclick={() => realmDraft.pingField(decl.name, leaf.path)}
+						>
+							<span class="name">.{leaf.path.join('.')}</span>
+							<span class="hint">{leaf.declared}</span>
+						</button>
+					{/each}
+				{/if}
 			{:else}
 				<p class="empty">
 					{needle ? 'No matching inputs.' : 'No inputs. A document with none is a realm.'}
@@ -326,7 +328,9 @@
 		font-size: var(--font-size-sm);
 	}
 	.hint {
-		flex: 1 1 auto;
+		flex: 0 1 auto;
+		max-width: 50%;
+		margin-left: auto;
 		overflow: hidden;
 		white-space: nowrap;
 		text-overflow: ellipsis;

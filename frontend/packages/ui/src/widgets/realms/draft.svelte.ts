@@ -69,6 +69,7 @@ class RealmDraft {
 	inputs = $state<InputDecl[]>([]);
 	cast = $state<CastEntry[]>([]);
 	selection = $state<Selection>(null);
+	fieldPing = $state<{ name: string; path: string[] } | null>(null);
 
 	get isEmpty(): boolean {
 		return this.cast.length === 0 && this.inputs.length === 0 && this.scenarios.length === 0;
@@ -157,6 +158,12 @@ class RealmDraft {
 
 	select(selection: Selection) {
 		this.selection = selection;
+		this.fieldPing = null;
+	}
+
+	pingField(name: string, path: string[]) {
+		this.selection = { kind: 'input', name };
+		this.fieldPing = { name, path };
 	}
 
 	isSelected(selection: NonNullable<Selection>): boolean {
@@ -247,6 +254,49 @@ class RealmDraft {
 		if (target === from) return;
 		const [entry] = this.cast.splice(from, 1);
 		this.cast.splice(target, 0, entry);
+	}
+
+	moveAgent(agentKey: string, parent: string | null, index: number) {
+		const into = parent === null ? null : this.cast.find((e) => e.key === parent);
+		if (parent !== null && into?.kind !== 'foreach') return;
+
+		let agent: AgentBlock | undefined;
+		let fromParent: string | null = null;
+		let fromIndex = -1;
+		for (const entry of this.cast) {
+			if (entry.kind !== 'foreach') continue;
+			const at = entry.body.findIndex((a) => a.key === agentKey);
+			if (at < 0) continue;
+			[agent] = entry.body.splice(at, 1);
+			fromParent = entry.key;
+			fromIndex = at;
+			break;
+		}
+		if (!agent) {
+			const at = this.cast.findIndex((e) => e.kind === 'agent' && e.agent.key === agentKey);
+			if (at < 0) return;
+			const [entry] = this.cast.splice(at, 1);
+			agent = (entry as { kind: 'agent'; agent: AgentBlock }).agent;
+			fromIndex = at;
+		}
+
+		if (fromParent !== parent) {
+			for (const slot of BINDING_SLOTS) {
+				if (agent[slot]?.source === 'loop') agent[slot] = null;
+			}
+			agent.lorebooks = agent.lorebooks.filter((b) => b.source !== 'loop');
+		}
+
+		const to = fromParent === parent && index > fromIndex ? index - 1 : index;
+		if (into?.kind === 'foreach') {
+			into.body.splice(Math.max(0, Math.min(to, into.body.length)), 0, agent);
+		} else {
+			this.cast.splice(Math.max(0, Math.min(to, this.cast.length)), 0, {
+				key: freshKey('entry-'),
+				kind: 'agent',
+				agent
+			});
+		}
 	}
 
 	addScenario(): ScenarioBlock {
