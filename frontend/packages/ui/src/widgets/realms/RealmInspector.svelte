@@ -700,11 +700,13 @@
 					: 'They drag one handle and it arrives as a number.'}
 			</p>
 		{/if}
-		<!-- An object is what lets one input carry a character *and* the number
-		     that goes with it. Its fields nest, so the editor for them does too. -->
 		{#if base.type === 'object'}
 			{@const group = base}
-			<ObjectFields fields={group.fields} onchange={(next) => retypeFields(decl, many, next)} />
+			<ObjectFields
+				fields={group.fields}
+				ping={realmDraft.fieldPing?.name === decl.name ? realmDraft.fieldPing : null}
+				onchange={(next) => retypeFields(decl, many, next)}
+			/>
 		{/if}
 
 		{#if base.type === 'enum'}

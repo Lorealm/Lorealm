@@ -23,9 +23,17 @@
 	const KIND_ICON = { llm: Bot, player: User, script: ScrollText } as const;
 
 	let dragKey = $state<string | null>(null);
-	/** Where the dragged entry would land */
-	let dropIndex = $state<number | null>(null);
+	let dragKind = $state<'entry' | 'agent' | null>(null);
+	let dropAt = $state<{ parent: string | null; index: number } | null>(null);
 	let overEntry = $state<string | null>(null);
+	let gripped = $state<string | null>(null);
+
+	const draggedAgent = $derived.by(() => {
+		if (dragKey === null) return null;
+		if (dragKind === 'agent') return dragKey;
+		const entry = realmDraft.cast.find((e) => e.key === dragKey);
+		return entry?.kind === 'agent' ? entry.agent.key : null;
+	});
 
 	const walkable = $derived(realmDraft.inputs.filter((i) => i.ty.type === 'list'));
 
@@ -38,6 +46,15 @@
 
 	function startDrag(event: DragEvent, key: string) {
 		dragKey = key;
+		dragKind = 'entry';
+		event.dataTransfer?.setData(ENTRY_MIME, key);
+		if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+	}
+
+	function startAgentDrag(event: DragEvent, key: string) {
+		event.stopPropagation();
+		dragKey = key;
+		dragKind = 'agent';
 		event.dataTransfer?.setData(ENTRY_MIME, key);
 		if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
 	}
@@ -46,13 +63,36 @@
 		if (!dragKey) return;
 		event.preventDefault();
 		const box = (event.currentTarget as HTMLElement).getBoundingClientRect();
-		dropIndex = event.clientY < box.top + box.height / 2 ? index : index + 1;
+		dropAt = { parent: null, index: event.clientY < box.top + box.height / 2 ? index : index + 1 };
+	}
+
+	function overBody(event: DragEvent, entryKey: string) {
+		if (!draggedAgent) return;
+		event.preventDefault();
+		event.stopPropagation();
+		const rows = [...(event.currentTarget as HTMLElement).querySelectorAll('[data-agent]')];
+		const above = rows.findIndex((row) => {
+			const box = row.getBoundingClientRect();
+			return event.clientY < box.top + box.height / 2;
+		});
+		dropAt = { parent: entryKey, index: above < 0 ? rows.length : above };
 	}
 
 	function finishDrag() {
-		if (dragKey !== null && dropIndex !== null) realmDraft.moveEntry(dragKey, dropIndex);
+		const target = dropAt;
+		const entryKey = dragKey;
+		const kind = dragKind;
+		const agentKey = draggedAgent;
 		dragKey = null;
-		dropIndex = null;
+		dragKind = null;
+		dropAt = null;
+		gripped = null;
+		if (entryKey === null || target === null) return;
+		if (target.parent === null && kind === 'entry') {
+			realmDraft.moveEntry(entryKey, target.index);
+		} else if (agentKey !== null) {
+			realmDraft.moveAgent(agentKey, target.parent, target.index);
+		}
 	}
 
 	/** Alt+Arrow moves an entry without a mouse. */
@@ -80,9 +120,17 @@
 	}
 </script>
 
-{#snippet agentRow(agent: AgentBlock, nested: boolean)}
+{#snippet agentRow(agent: AgentBlock, parent: string | null)}
 	{@const Icon = KIND_ICON[agent.kind as AgentKind]}
-	<div class="row" class:nested>
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		class="row"
+		class:nested={parent !== null}
+		class:dragging={dragKey === agent.key}
+		data-agent={agent.key}
+		draggable={parent === null ? undefined : 'true'}
+		ondragstart={(e) => startAgentDrag(e, agent.key)}
+	>
 		<button
 			type="button"
 			class="agent"
@@ -123,12 +171,14 @@
 
 	<div class="stack" role="list" ondragend={finishDrag} ondragover={(e) => e.preventDefault()}>
 		{#each realmDraft.cast as entry, index (entry.key)}
-			{#if dropIndex === index}<div class="insertion"></div>{/if}
+			{#if dropAt && dropAt.parent === null && dropAt.index === index}
+				<div class="insertion"></div>
+			{/if}
 			<div
 				class="entry"
 				class:dragging={dragKey === entry.key}
 				role="listitem"
-				draggable="true"
+				draggable={gripped === entry.key}
 				ondragstart={(e) => startDrag(e, entry.key)}
 				ondragover={(e) => overRow(e, index)}
 				ondrop={finishDrag}
@@ -138,6 +188,8 @@
 					class="grip"
 					title="Drag to reorder, or Alt+Arrow"
 					aria-label="Reorder entry {index + 1} of {realmDraft.cast.length}"
+					onpointerdown={() => (gripped = entry.key)}
+					onpointerup={() => (gripped = null)}
 					onkeydown={(e) => onEntryKeydown(e, entry.key)}
 				>
 					<GripVertical size={12} />
@@ -145,7 +197,7 @@
 
 				<div class="entryBody">
 					{#if entry.kind === 'agent'}
-						{@render agentRow(entry.agent, false)}
+						{@render agentRow(entry.agent, null)}
 					{:else}
 						{@const decl = realmDraft.inputs.find((i) => i.name === entry.over)}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -209,10 +261,17 @@
 							</button>
 						</div>
 
-						<div class="body">
-							{#each entry.body as agent (agent.key)}
-								{@render agentRow(agent, true)}
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<div class="body" ondragover={(e) => overBody(e, entry.key)}>
+							{#each entry.body as agent, at (agent.key)}
+								{#if dropAt && dropAt.parent === entry.key && dropAt.index === at}
+									<div class="insertion"></div>
+								{/if}
+								{@render agentRow(agent, entry.key)}
 							{/each}
+							{#if dropAt && dropAt.parent === entry.key && dropAt.index === entry.body.length}
+								<div class="insertion"></div>
+							{/if}
 							<button
 								type="button"
 								class="addMember"
@@ -249,7 +308,9 @@
 				</div>
 			</div>
 		{/each}
-		{#if dropIndex === realmDraft.cast.length}<div class="insertion"></div>{/if}
+		{#if dropAt && dropAt.parent === null && dropAt.index === realmDraft.cast.length}
+			<div class="insertion"></div>
+		{/if}
 	</div>
 </div>
 
@@ -358,6 +419,10 @@
 	}
 	.row.nested {
 		margin-left: var(--spacing-lg);
+		cursor: grab;
+	}
+	.row.dragging {
+		opacity: 0.4;
 	}
 	.row:hover {
 		border-color: var(--color-border-active);

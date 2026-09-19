@@ -179,6 +179,12 @@ export function declaredText(ty: InputType): string {
 	}
 }
 
+export function browseText(ty: InputType): string {
+	if (ty.type === 'object') return 'Custom Object';
+	if (ty.type === 'list') return `[${browseText(ty.of)}]`;
+	return declaredText(ty);
+}
+
 /**
  * Every reference inside a type, and the field path that reaches it.
  */
@@ -337,9 +343,10 @@ export function leafPaths(
 	ty: InputType,
 	prefix: string[] = []
 ): Array<{ path: string[]; declared: string }> {
-	if (ty.type !== 'object')
-		return prefix.length ? [{ path: prefix, declared: declaredText(ty) }] : [];
-	return ty.fields.flatMap((f) => leafPaths(f.ty, [...prefix, f.name]));
+	const base = baseOf(ty);
+	if (base.type !== 'object')
+		return prefix.length ? [{ path: prefix, declared: browseText(ty) }] : [];
+	return base.fields.flatMap((f) => leafPaths(f.ty, [...prefix, f.name]));
 }
 
 /** An input whose value fills resource fields without a loop around it. */
