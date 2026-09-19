@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { DateTime } from 'luxon';
+	import { daysSince, monthYear, relativeTime } from '$lib/assets/scripts/datetime.js';
 	import { blobUrl } from '$lib/api/blobs.js';
 	import { currentUser } from '$lib/stores/currentUser.svelte.js';
 	import { characterStore } from '$lib/stores/character.svelte.js';
@@ -18,7 +18,7 @@
 	let avatarInput = $state<HTMLInputElement | null>(null);
 	let busy = $state(false);
 
-	const memberSince = $derived(user ? DateTime.fromISO(user.created_at) : null);
+	const memberSince = $derived(user ? monthYear(user.created_at) : null);
 
 	// TODO: implement the `null` placeholder fields
 	const stats = $derived([
@@ -27,7 +27,7 @@
 		{ label: 'Realms', value: realmStore.summaries?.length ?? 0 },
 		{
 			label: 'Days here',
-			value: memberSince ? Math.max(0, Math.floor(-memberSince.diffNow('days').days)) : 0
+			value: user ? daysSince(user.created_at) : 0
 		},
 		{ label: 'Messages sent', value: null },
 		{ label: 'Words written', value: null }
@@ -178,7 +178,7 @@
 				{/if}
 				<span class="handle">@{user.username}</span>
 				{#if memberSince}
-					<span class="since">Joined {memberSince.toFormat('LLLL yyyy')}</span>
+					<span class="since">Joined {memberSince}</span>
 				{/if}
 			</div>
 		</header>
@@ -212,7 +212,7 @@
 							</span>
 							<span class="meta">
 								{session.ip_address ?? 'unknown address'} ·
-								{DateTime.fromISO(session.last_rotated_at).toRelative()}
+								{relativeTime(session.last_rotated_at) ?? 'unknown'}
 							</span>
 						</div>
 						{#if !session.current}

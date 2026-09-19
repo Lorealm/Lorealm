@@ -1,12 +1,16 @@
+<script module lang="ts">
+	const charactersPage = () => import('../characters/CharactersPage.svelte');
+	const realmsPage = () => import('../realms/RealmsPage.svelte');
+	const connectionsView = () => import('../connections/ConnectionsView.svelte');
+	const settingsPage = () => import('../settings/SettingsPage.svelte');
+	const studioRouter = () => import('./StudioRouter.svelte');
+</script>
+
 <script lang="ts">
+	import { lazy } from '$lib/core/lazy.js';
 	import { router } from '$lib/navigation/router.svelte.js';
 	import ChatBox from '$lib/widgets/chat/ChatBox.svelte';
-	import CharactersPage from '../characters/CharactersPage.svelte';
 	import ChatControls from '../chat/ChatControls.svelte';
-	import ConnectionsView from '../connections/ConnectionsView.svelte';
-	import RealmsPage from '../realms/RealmsPage.svelte';
-	import SettingsPage from '../settings/SettingsPage.svelte';
-	import StudioRouter from './StudioRouter.svelte';
 
 	const route = $derived(router.current);
 </script>
@@ -22,15 +26,25 @@
 	<ChatBox />
 	<ChatControls />
 {:else if route.view === 'characters'}
-	<CharactersPage />
+	{#await lazy(charactersPage) then CharactersPage}
+		<CharactersPage />
+	{/await}
 {:else if route.view === 'realms'}
-	<RealmsPage />
+	{#await lazy(realmsPage) then RealmsPage}
+		<RealmsPage />
+	{/await}
 {:else if route.view === 'connections'}
-	<ConnectionsView />
+	{#await lazy(connectionsView) then ConnectionsView}
+		<ConnectionsView />
+	{/await}
 {:else if route.view === 'studio'}
-	<StudioRouter section={route.section} id={route.id} />
+	{#await lazy(studioRouter) then StudioRouter}
+		<StudioRouter section={route.section} id={route.id} />
+	{/await}
 {:else if route.view === 'settings'}
-	<SettingsPage />
+	{#await lazy(settingsPage) then SettingsPage}
+		<SettingsPage />
+	{/await}
 {/if}
 
 <style>

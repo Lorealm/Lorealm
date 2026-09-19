@@ -9,7 +9,7 @@
 	import type { Snowflake } from '$lib/types/core.js';
 	import type { ConversationMetadata } from '$lib/types/conversation.js';
 	import { Trash2, X } from '@lucide/svelte';
-	import { DateTime } from 'luxon';
+	import { dateTimeMedium, relativeTime } from '$lib/assets/scripts/datetime.js';
 
 	const api = useApi();
 
@@ -37,7 +37,7 @@
 
 	/** Conversations carry no title of their own yet, so fall back to when it began. */
 	function label(meta: ConversationMetadata): string {
-		return meta.title ?? DateTime.fromISO(meta.created_at).toLocaleString(DateTime.DATETIME_MED);
+		return meta.title ?? dateTimeMedium(meta.created_at) ?? meta.created_at;
 	}
 
 	async function open(meta: ConversationMetadata) {
@@ -92,7 +92,7 @@
 							<span class="meta">
 								{meta.length} message{meta.length === 1 ? '' : 's'}
 								<span class="dot">·</span>
-								{DateTime.fromISO(meta.updated_at).toRelative() ?? ''}
+								{relativeTime(meta.updated_at) ?? ''}
 							</span>
 						</button>
 						<button

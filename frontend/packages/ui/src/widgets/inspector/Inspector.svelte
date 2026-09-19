@@ -2,7 +2,8 @@
 	import { iconFor } from '$lib/assets/icons/catalogue.js';
 	import { router } from '$lib/navigation/router.svelte.js';
 	import { inspectorMatrix } from '$lib/stores/inspectorMatrix.svelte.js';
-	import RealmInspector from '../realms/RealmInspector.svelte';
+	import { lazy } from '$lib/core/lazy.js';
+	import { realmInspector } from '$lib/widgets/realms/lazyInspector.js';
 	import { inspectorRegistry } from './registry.js';
 	import { inspectorWidth } from '$lib/stores/inspectorWidth.svelte.js';
 
@@ -67,7 +68,9 @@
 	</div>
 	<div class="content">
 		{#if view === 'realms'}
-			<RealmInspector />
+			{#await lazy(realmInspector) then RealmInspector}
+				<RealmInspector />
+			{/await}
 		{:else}
 			{#each widgets as key (key)}
 				{@const Widget = inspectorRegistry[key].component}
