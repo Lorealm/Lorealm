@@ -1,7 +1,10 @@
 <script lang="ts">
 	// The realm slot of the application inspector renders the realm editor's
 	// context-aware inspector (onboarding / resource / agent / graph / summary).
-	import RealmInspector from '../../realms/RealmInspector.svelte';
+	import { lazy } from '$lib/core/lazy.js';
+	import { realmInspector } from '$lib/widgets/realms/lazyInspector.js';
 </script>
 
-<RealmInspector />
+{#await lazy(realmInspector) then RealmInspector}
+	<RealmInspector />
+{/await}

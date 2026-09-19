@@ -5,10 +5,10 @@
 	import { navigator } from '$lib/navigation/navigator.js';
 	import type { CharacterSummary } from '$lib/types/character.js';
 	import { Copy, Ellipsis, MessageSquarePlus, Pencil, Trash2, Upload } from '@lucide/svelte';
-	import { DateTime } from 'luxon';
+	import { relativeTime } from '$lib/assets/scripts/datetime.js';
 
 	let { summary }: { summary: CharacterSummary } = $props();
-	const relative = $derived(DateTime.fromISO(summary.updated_at).toRelative() ?? '');
+	const relative = $derived(relativeTime(summary.updated_at) ?? '');
 	let imageEndpoint = $derived(blobUrl(summary.avatar_uri));
 
 	const unavailable = 'Not available yet';
