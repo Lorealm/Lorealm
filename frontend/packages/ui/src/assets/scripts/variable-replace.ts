@@ -11,11 +11,6 @@ import type { Snowflake } from '$lib/types/core.js';
  * simply has nothing to point at.
  */
 export function createPresentable(characterId: Snowflake | null, input: string): string {
-	// Ensure persona is loaded.
-	//
-	// TODO: currently eagerly pulls the active persona. Should be cached in the future.
-	personaStore.loadActive();
-
 	let output = input;
 
 	// Replace `{{user:name}}` with the persona's configured name.

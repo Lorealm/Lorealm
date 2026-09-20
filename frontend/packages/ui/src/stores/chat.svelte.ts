@@ -639,18 +639,15 @@ class ChatStore {
 				switch (event.type) {
 					case 'delta':
 						this._streamBuffer += event.content;
-						console.log('delta');
 						break;
 					case 'reasoning':
 						this._streamReasoning += event.content;
 						break;
 					case 'widget':
 						this._streamWidgets = [...this._streamWidgets, event.widget];
-						console.log('widget', event.widget.widget_id);
 						break;
 					case 'user_message':
 						committedUser = event.message;
-						console.log('user message');
 						break;
 					case 'effect':
 						applyEffect(event.effect);
