@@ -3,6 +3,7 @@
 	import WeaverField from '$lib/weaver/editor/WeaverField.svelte';
 	import type { WeaverDialect, WeaverProfile } from '$lib/types/weaver.js';
 	import type { ReferenceSource } from '$lib/weaver/editor/weaver-references.js';
+	import type { VariableSource } from '$lib/weaver/editor/weaver-variables.js';
 	import FieldShell from './FieldShell.svelte';
 
 	let {
@@ -14,6 +15,7 @@
 		multiline = true,
 		rows = 6,
 		references,
+		variables,
 		readOnly = false,
 		tokens = true,
 		maximizable = true,
@@ -33,6 +35,7 @@
 		rows?: number;
 		/** Supplies entry ids for `[[…]]`/`<trigger>` completion and navigation. */
 		references?: ReferenceSource;
+		variables?: VariableSource;
 		readOnly?: boolean;
 		/** Show the running token cost. */
 		tokens?: boolean;
@@ -69,6 +72,7 @@
 			doc={value}
 			onChange={readOnly ? undefined : onchange}
 			{references}
+			{variables}
 			{readOnly}
 			{rows}
 			fill={stretch}
@@ -83,6 +87,7 @@
 			doc={value}
 			onChange={readOnly ? undefined : onchange}
 			{references}
+			{variables}
 			{dialect}
 			{profile}
 		/>

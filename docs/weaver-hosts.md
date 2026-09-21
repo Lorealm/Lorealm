@@ -156,18 +156,29 @@ handles from it.
 
 The realm hosts also mount three read-only namespaces describing the realm
 itself, so a body never has to restate what the engine already knows. They are
-derived per evaluation from the pinned cast and the active path — deliberately
-not kept in the state pool, which is persisted as per-message deltas and would
-freeze a stale copy into history.
+derived per evaluation from the pinned cast, the active path, and the pool as
+it stands — deliberately not *kept* in the state pool, which is persisted as
+per-message deltas and would freeze a stale copy into history.
 
 | | |
 | --- | --- |
 | `cast:count`, `cast:handles`, `cast:names` | The whole roster, in turn order |
-| `cast:llm.*`, `cast:player.*`, `cast:script.*` | The same three, per kind |
-| `cast:agents.<handle>.name` / `.kind` / `.turn_order` | One cast member |
+| `cast:members` | One object per agent, in turn order. What a `foreach` walks |
+| `cast:llm.*`, `cast:player.*`, `cast:script.*` | The same four, per kind |
+| `cast:agents.<handle>` | One cast member, in the same shape as a `members` element |
 | `turn:index` | Turns already committed on this path |
 | `turn:last.handle` / `.name` / `.kind` / `.said` | Who acted last; absent on the opening turn |
 | `scenario:slug`, `scenario:name` | The opening this playthrough started from; absent when the realm has none |
+
+A member object carries `handle`, `name`, `kind` and `turn_order` over
+whatever that agent holds in `agents:<handle>` at the moment of evaluation, so
+a director weighting its cast reads `{{c.talkativeness}}` off the loop binding
+rather than rebuilding the pool key by hand. The engine's four fields are
+written last: a property named `name` cannot displace the display name.
+
+`count`/`handles`/`names` stay because they answer the common questions without
+a loop. Note that only `members` is iterable — `{{cast:llm}}` is the group
+object itself, and `foreach` refuses it.
 
 Only agents with a handle appear: an unhandled agent has no `agents:` subtree
 and no `self:`, so listing it would name an identity nothing can address.

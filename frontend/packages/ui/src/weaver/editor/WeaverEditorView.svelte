@@ -20,6 +20,7 @@
 	import { weaverDiagnostics } from './weaver-diagnostics.js';
 	import { weaverReferences } from './weaver-reflinks.js';
 	import type { ReferenceSource } from './weaver-references.js';
+	import { editorProfile, variableSource, type VariableSource } from './weaver-variables.js';
 	import type { WeaverDialect, WeaverProfile } from '$lib/types/weaver.js';
 	import { weaverVocabularyStore } from '$lib/stores/weaverVocabulary.svelte.js';
 
@@ -27,6 +28,7 @@
 		doc = '',
 		onChange,
 		references,
+		variables,
 		readOnly = false,
 		dialect = 'template',
 		profile
@@ -35,6 +37,8 @@
 		onChange?: (value: string) => void;
 		/** Supplies entry ids for `[[…]]`/`<trigger>` completion and navigation. */
 		references?: ReferenceSource;
+		/** Supplies variables this editor's surroundings declare, for completion and hover. */
+		variables?: VariableSource;
 		readOnly?: boolean;
 		/** Which compiler to check source against. Condition fields hold an `expression`. */
 		dialect?: WeaverDialect;
@@ -84,6 +88,8 @@
 					weaverDiagnostics(dialect, profile),
 					...(readOnly ? [EditorState.readOnly.of(true), EditorView.editable.of(false)] : []),
 					...(references ? [weaverReferences(references)] : []),
+					...(variables ? [variableSource.of(variables)] : []),
+					...(profile ? [editorProfile.of(profile)] : []),
 					editorSizing,
 					fieldSizing,
 					tooltips({ position: 'fixed', parent: document.body }),

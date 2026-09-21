@@ -72,6 +72,7 @@ pub fn check(source: &str, dialect: Dialect, profile: Option<WeaverProfile>) -> 
         source,
         registry: host.registry(),
         host_commands: host_commands(),
+        profile,
         out: Vec::new(),
     };
 
@@ -103,6 +104,7 @@ struct Checker<'a> {
     source: &'a str,
     registry: &'a Registry,
     host_commands: HashSet<String>,
+    profile: Option<WeaverProfile>,
     out: Vec<Diagnostic>,
 }
 
@@ -173,6 +175,32 @@ impl Checker<'_> {
             message,
             hint: None,
         });
+    }
+
+    fn warn_with_hint(&mut self, span: Span, message: String, hint: String) {
+        self.out.push(Diagnostic {
+            from: utf16_offset(self.source, span.start),
+            to: utf16_offset(self.source, span.end),
+            severity: Severity::Warning,
+            message,
+            hint: Some(hint),
+        });
+    }
+
+    fn variable(&mut self, var: &weaver_lang::ast::VariableRef, span: Span) {
+        let Some(profile) = self.profile else {
+            return;
+        };
+        if var.scope.as_deref() != Some("input") || profile == WeaverProfile::RealmTemplate {
+            return;
+        }
+        self.warn_with_hint(
+            span,
+            format!("`input:{}` is empty outside a WTN document", var.name),
+            "Inputs are only available during blueprint expansion. If you want to access these\
+            values during runtime evaluation, bind them to a place they persist, such as an agent's properties."
+                .to_string(),
+        );
     }
 
     /// Text left over after the expression, reported where it starts.
@@ -279,7 +307,8 @@ impl Checker<'_> {
 
     fn expr_kind(&mut self, kind: &ExprKind, span: Span) {
         match kind {
-            ExprKind::Literal(_) | ExprKind::Variable(_) => {}
+            ExprKind::Literal(_) => {}
+            ExprKind::Variable(var) => self.variable(var, span),
             ExprKind::ArrayLiteral(items) => {
                 for item in items {
                     self.array_item(item);
@@ -600,5 +629,45 @@ regents: [Ref<Wizard>]
     #[test]
     fn a_variable_is_never_flagged() {
         assert!(template("{{global:nothing}} {{bare.path.here}}").is_empty());
+    }
+
+    #[test]
+    fn inputs_are_flagged_outside_the_document_that_binds_them() {
+        let source = r#"{# if {{input:scenario.title}} != "" #}yes{# endif #}"#;
+
+        let in_script = check(source, Dialect::Template, Some(WeaverProfile::RealmScript));
+        assert_eq!(in_script.len(), 1);
+        assert_eq!(in_script[0].severity, Severity::Warning);
+        assert_eq!(marked(source, &in_script[0]), "{{input:scenario.title}}");
+        assert_eq!(
+            in_script[0].message,
+            "`input:scenario` is empty outside a WTN document"
+        );
+
+        for profile in [WeaverProfile::RealmDirector, WeaverProfile::RealmCondition] {
+            assert_eq!(
+                check(source, Dialect::Template, Some(profile)).len(),
+                1,
+                "{profile:?} does not bind inputs either"
+            );
+        }
+
+        assert!(
+            check(
+                source,
+                Dialect::Template,
+                Some(WeaverProfile::RealmTemplate)
+            )
+            .is_empty()
+        );
+        assert!(template(source).is_empty());
+        assert!(
+            check(
+                "{{cast:count}} {{self:gold}} {{nation:a.gold}}",
+                Dialect::Template,
+                Some(WeaverProfile::RealmScript)
+            )
+            .is_empty()
+        );
     }
 }

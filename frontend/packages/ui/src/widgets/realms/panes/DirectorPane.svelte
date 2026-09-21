@@ -2,6 +2,7 @@
 	import { Shuffle } from '@lucide/svelte';
 	import WeaverEditor from '$lib/weaver/editor/WeaverEditor.svelte';
 	import { realmDraft } from '../draft.svelte.js';
+	import { realmVariables } from '../variables.js';
 
 	const director = $derived(realmDraft.director);
 </script>
@@ -22,6 +23,7 @@
 				onChange={(next) => (realmDraft.director = { kind: 'script', source: next })}
 				dialect="template"
 				profile="realm_director"
+				variables={realmVariables()}
 			/>
 		</div>
 	</div>

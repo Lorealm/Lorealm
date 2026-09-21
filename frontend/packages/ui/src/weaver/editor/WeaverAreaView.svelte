@@ -10,6 +10,7 @@
 	import { weaverDiagnostics } from './weaver-diagnostics.js';
 	import { weaverReferences } from './weaver-reflinks.js';
 	import type { ReferenceSource } from './weaver-references.js';
+	import { editorProfile, variableSource, type VariableSource } from './weaver-variables.js';
 	import type { WeaverDialect, WeaverProfile } from '$lib/types/weaver.js';
 	import { weaverVocabularyStore } from '$lib/stores/weaverVocabulary.svelte.js';
 
@@ -17,6 +18,7 @@
 		doc = '',
 		onChange,
 		references,
+		variables,
 		readOnly = false,
 		rows = 6,
 		hint = '',
@@ -30,6 +32,7 @@
 		onChange?: (value: string) => void;
 		/** Supplies entry ids for `[[…]]`/`<trigger>` completion and navigation. */
 		references?: ReferenceSource;
+		variables?: VariableSource;
 		readOnly?: boolean;
 		/** Visible lines before the editor starts scrolling. */
 		rows?: number;
@@ -102,6 +105,8 @@
 					...(hint ? [placeholder(hint)] : []),
 					...(readOnly ? [EditorState.readOnly.of(true), EditorView.editable.of(false)] : []),
 					...(references ? [weaverReferences(references)] : []),
+					...(variables ? [variableSource.of(variables)] : []),
+					...(profile ? [editorProfile.of(profile)] : []),
 					areaTheme,
 					tooltips({ position: 'fixed', parent: document.body }),
 					...(onChange

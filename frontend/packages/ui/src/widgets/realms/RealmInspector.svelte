@@ -9,6 +9,7 @@
 	import ObjectFields from './ObjectFields.svelte';
 	import RadioField from './RadioField.svelte';
 	import { realmDraft } from './draft.svelte.js';
+	import { realmVariables } from './variables.js';
 	import { panes } from './panes.svelte.js';
 	import { activeDrag, clearDrag, readDrag } from './drag.svelte.js';
 	import {
@@ -574,6 +575,7 @@
 			value={a.run_condition}
 			dialect="expression"
 			profile="realm_condition"
+			variables={realmVariables(a.key)}
 			multiline={false}
 			tokens={false}
 			maximizable={false}
