@@ -1,12 +1,13 @@
 import {
 	autocompletion,
 	completionKeymap,
+	startCompletion,
 	type Completion,
 	type CompletionContext,
 	type CompletionResult
 } from '@codemirror/autocomplete';
-import { keymap } from '@codemirror/view';
-import { Prec } from '@codemirror/state';
+import { EditorView, keymap } from '@codemirror/view';
+import { Prec, type EditorState } from '@codemirror/state';
 import {
 	formatCommandSignature,
 	formatProcessorSignature,
@@ -31,6 +32,8 @@ const SCOPED = /([A-Za-z_]\w*)\s*:\s*([\w.]*)$/;
 const BOUND = /([A-Za-z_]\w*)\.([\w.]*)$/;
 const PLACEHOLDER = /^<.*>$/;
 const ID_TOKEN: Record<IdSite, RegExp> = { doc: /\w*/, trigger: /[^"]*/ };
+const TAG_OPEN = /<\w+$/;
+const TAG_VALID = /^<\w*$/;
 const ID_VALID_FOR: Record<IdSite, RegExp> = { doc: /^\w*$/, trigger: /^[^"]*$/ };
 
 function option(
@@ -44,6 +47,80 @@ function option(
 		label,
 		detail,
 		info: () => infoDom(signature, doc, params)
+	};
+}
+
+function replace(
+	view: EditorView,
+	from: number,
+	to: number,
+	insert: string,
+	caret = insert.length
+): void {
+	view.dispatch({
+		changes: { from, to, insert },
+		selection: { anchor: from + caret },
+		userEvent: 'input.complete'
+	});
+}
+
+function callApply(takesArgs: boolean): Completion['apply'] {
+	return (view, completion, from, to) => {
+		const label = completion.label;
+		const open = view.state.sliceDoc(to, to + 1) === '(';
+		replace(
+			view,
+			from,
+			to,
+			open ? label : `${label}()`,
+			label.length + (takesArgs || open ? 1 : 2)
+		);
+	};
+}
+
+const BLOCK_END: Record<string, string> = { if: 'endif', foreach: 'endforeach' };
+const TAKES_EXPR = new Set(['if', 'elif', 'foreach', 'return']);
+
+function tagEnd(state: EditorState, pos: number): number | null {
+	const line = state.doc.lineAt(pos);
+	const col = pos - line.from;
+	const at = line.text.indexOf('#}', col);
+	if (at < 0 || line.text.slice(col, at).trim().replace('-', '') !== '') return null;
+	return line.from + at + 2;
+}
+
+function keywordApply(name: string): Completion['apply'] {
+	return (view, _completion, from, to) => {
+		const insert = TAKES_EXPR.has(name) ? `${name} ` : name;
+		const end = BLOCK_END[name];
+		const close = end ? tagEnd(view.state, to) : null;
+		if (close === null) return replace(view, from, to, insert);
+
+		const line = view.state.doc.lineAt(close);
+		const indent = /^[ \t]*/.exec(line.text)![0];
+		const trailing = line.text.slice(close - line.from).trim() !== '';
+		view.dispatch({
+			changes: [
+				{ from, to, insert },
+				{ from: close, insert: trailing ? `{# ${end} #}` : `\n${indent}{# ${end} #}` }
+			],
+			selection: { anchor: from + insert.length },
+			userEvent: 'input.complete'
+		});
+	};
+}
+
+const ID_CLOSE: Record<IdSite, string> = { doc: ']]', trigger: '">' };
+
+function idApply(site: IdSite): Completion['apply'] {
+	return (view, completion, from, to) => {
+		const close = ID_CLOSE[site];
+		let end = to;
+		for (const ch of close) {
+			if (view.state.sliceDoc(end, end + 1) !== ch) break;
+			end++;
+		}
+		replace(view, from, end, `${completion.label}${close}`);
 	};
 }
 
@@ -150,27 +227,32 @@ function optionsFor(
 	switch (ctx) {
 		case 'proc':
 			return [
-				...weaverVocabularyStore.processors.map((p) =>
-					option(
+				...weaverVocabularyStore.processors.map((p) => ({
+					...option(
 						processorKey(p),
 						'processor',
 						formatProcessorSignature(p),
 						p.description,
 						paramDocs(p)
-					)
-				),
+					),
+					apply: callApply(p.properties.length > 0)
+				})),
 				...(inArguments(before) ? variables() : [])
 			];
 		case 'cmd':
 			return [
-				...weaverVocabularyStore.commands.map((c) =>
-					option(c.name, 'command', formatCommandSignature(c), c.description, paramDocs(c))
-				),
+				...weaverVocabularyStore.commands.map((c) => ({
+					...option(c.name, 'command', formatCommandSignature(c), c.description, paramDocs(c)),
+					apply: callApply(c.params.length > 0)
+				})),
 				...(inArguments(before) ? variables() : [])
 			];
 		case 'tag':
 			return [
-				...Object.entries(keywords).map(([name, e]) => option(name, 'keyword', e.signature, e.doc)),
+				...Object.entries(keywords).map(([name, e]) => ({
+					...option(name, 'keyword', e.signature, e.doc),
+					apply: keywordApply(name)
+				})),
 				...variables()
 			];
 		case 'var':
@@ -186,7 +268,7 @@ function idCompletions(context: CompletionContext, site: IdSite): CompletionResu
 		.filter((ref) => writableAt(site, ref.id))
 		.map((ref) => {
 			const doc = [ref.name, ref.detail && `In ${ref.detail}.`].filter(Boolean).join('\n\n');
-			return option(ref.id, ref.detail ?? 'entry', ref.id, doc);
+			return { ...option(ref.id, ref.detail ?? 'entry', ref.id, doc), apply: idApply(site) };
 		});
 	if (options.length === 0) return null;
 
@@ -200,6 +282,18 @@ function idCompletions(context: CompletionContext, site: IdSite): CompletionResu
 	};
 }
 
+const TRIGGER_OPEN = '<trigger id="';
+
+const TRIGGER_TAG: Completion = {
+	label: '<trigger>',
+	detail: 'trigger',
+	info: () => infoDom(`${TRIGGER_OPEN}entry_id">`, "Render another entry's text in place."),
+	apply: (view, _completion, from, to) => {
+		replace(view, from, to, `${TRIGGER_OPEN}">`, TRIGGER_OPEN.length);
+		startCompletion(view);
+	}
+};
+
 function source(context: CompletionContext): CompletionResult | null {
 	const line = context.state.doc.lineAt(context.pos);
 	const before = line.text.slice(0, context.pos - line.from);
@@ -208,7 +302,11 @@ function source(context: CompletionContext): CompletionResult | null {
 	if (site) return idCompletions(context, site);
 
 	const ctx = activeConstruct(before);
-	if (!ctx) return null;
+	if (!ctx) {
+		const tag = TAG_OPEN.exec(before);
+		if (!tag) return null;
+		return { from: context.pos - tag[0].length, options: [TRIGGER_TAG], validFor: TAG_VALID };
+	}
 
 	const scoped = SCOPED.exec(before);
 	const members = scoped && memberCompletions(context, scoped[1], scoped[2]);

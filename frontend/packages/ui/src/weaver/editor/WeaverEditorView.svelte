@@ -16,6 +16,7 @@
 	import { weaverSyntax } from './weaver-lang.js';
 	import { weaverHover } from './weaver-hover.js';
 	import { weaverCompletion } from './weaver-complete.js';
+	import { weaverClose } from './weaver-close.js';
 	import { trimMarkerStyle, weaverTheme } from './weaver-theme.js';
 	import { weaverDiagnostics } from './weaver-diagnostics.js';
 	import { weaverReferences } from './weaver-reflinks.js';
@@ -84,6 +85,7 @@
 					weaverSyntax,
 					weaverHover,
 					weaverCompletion,
+					weaverClose,
 					weaverTheme,
 					weaverDiagnostics(dialect, profile),
 					...(readOnly ? [EditorState.readOnly.of(true), EditorView.editable.of(false)] : []),
