@@ -42,7 +42,7 @@ impl RealmView {
         Self(Arc::new(pool))
     }
 
-    fn get(&self, scope: &str, name: &str) -> Option<&serde_json::Value> {
+    pub(crate) fn get(&self, scope: &str, name: &str) -> Option<&serde_json::Value> {
         lookup(self.0.get(scope)?, name)
     }
 }

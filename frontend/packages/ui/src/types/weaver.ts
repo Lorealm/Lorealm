@@ -33,9 +33,24 @@ export interface ProcessorSignature {
 	properties: PropertyDef[];
 }
 
+export interface MemberDef {
+	name: string;
+	returns: ValueType;
+	description: string;
+}
+
+/** A `scope:` an editor can complete against. */
+export interface NamespaceDef {
+	scope: string;
+	description: string;
+	members: MemberDef[];
+	profiles: WeaverProfile[];
+}
+
 export interface WeaverVocabulary {
 	commands: CommandSignature[];
 	processors: ProcessorSignature[];
+	namespaces: NamespaceDef[];
 }
 
 /**
@@ -44,12 +59,6 @@ export interface WeaverVocabulary {
  */
 export type WeaverDialect = 'template' | 'expression' | 'document';
 
-/**
- * Which host the source will run in. Without one the checker works against the
- * union of every host, which accepts commands the real host refuses.
- *
- * Mirrors `WeaverProfile` in `services/weaver/profile.rs`.
- */
 export type WeaverProfile =
 	| 'chat_turn'
 	| 'command'
@@ -59,10 +68,7 @@ export type WeaverProfile =
 	| 'widget_render'
 	| 'realm_template';
 
-/**
- * One problem found in weaver source. `from`/`to` are offsets in UTF-16
- * code units, so they index a JavaScript string directly.
- */
+
 export interface WeaverDiagnostic {
 	from: number;
 	to: number;

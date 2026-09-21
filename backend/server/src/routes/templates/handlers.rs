@@ -13,7 +13,7 @@ use crate::{
     extract::AuthenticatedSession,
     routes::templates::{SetActiveRequest, WeaverVocabulary},
     services::context::{ContextTemplate, SourceDefinition, weaver::check::check},
-    services::weaver::WeaverHost,
+    services::weaver::{WeaverHost, namespaces as weaver_namespaces},
 };
 
 pub async fn list_templates(
@@ -124,6 +124,7 @@ pub async fn list_weaver_vocabulary() -> Json<WeaverVocabulary> {
     Json(WeaverVocabulary {
         commands,
         processors,
+        namespaces: weaver_namespaces(),
     })
 }
 

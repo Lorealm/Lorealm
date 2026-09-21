@@ -22,9 +22,9 @@ $[set_var("local:precision_cheat", 100)]
 // The `local` namespace is cleared every turn.
 $[set_var("local:total_weight", 0)]
 
-// `cast:llm` is a collection of LLM-typed agent handles 
-// which is always seeded by the Realm system
-{# foreach c in {{cast:llm}} #}
+// `cast:llm.members` is one object per LLM-typed agent, carrying that agent's
+// properties. The Realm system seeds it every turn.
+{# foreach c in {{cast:llm.members}} #}
   $[inc_var("local:total_weight", {{c.talkativeness}})]
 {# endforeach #}
 
@@ -38,7 +38,7 @@ $[set_var(
 )]
 
 $[set_var("local:cumulative", 0)]
-{# foreach c in {{cast:llm}} #}
+{# foreach c in {{cast:llm.members}} #}
   $[inc_var("local:cumulative", {{c.talkativeness}})]
 
   {# if {{local:r}} <= {{local:cumulative}} * {{local:precision_cheat}} #}

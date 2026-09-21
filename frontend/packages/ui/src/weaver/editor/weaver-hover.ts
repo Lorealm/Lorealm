@@ -8,6 +8,7 @@ import {
 import { keywords } from './weaver-meta.js';
 import { activeConstruct, type Construct } from './weaver-context.js';
 import { infoDom, type ParamDoc } from './weaver-render.js';
+import { findVariable, knownVariables, type VariableRef } from './weaver-variables.js';
 import { messageStateStore } from '$lib/stores/messageState.svelte.js';
 
 /** The scope of a reference, when the hovered word is its name. */
@@ -22,7 +23,8 @@ function referenceEntry(
 	text: string,
 	wordStart: number,
 	word: string,
-	ctx: Construct
+	ctx: Construct,
+	refs: VariableRef[]
 ): { signature: string; doc: string } | null {
 	const inCall = ctx === 'proc' || ctx === 'cmd';
 	const scoped = NAME_AFTER.exec(text.slice(wordStart + word.length));
@@ -45,13 +47,15 @@ function referenceEntry(
 	if (!scope && ctx !== 'var') return null;
 
 	const reference = scope ? `${scope}:${name}` : name;
+	const known = findVariable(refs, scope ?? '', name);
 	const preview = scope ? messageStateStore.previewVariable(reference) : undefined;
+	const live =
+		preview !== undefined
+			? `Resolves to \`${preview}\` for the loaded context.`
+			: 'No loaded value for this variable in the current context.';
 	return {
-		signature: ctx === 'var' ? `{{${reference}}}` : reference,
-		doc:
-			preview !== undefined
-				? `Resolves to \`${preview}\` for the loaded context.`
-				: 'No loaded value for this variable in the current context.'
+		signature: known?.signature ?? (ctx === 'var' ? `{{${reference}}}` : reference),
+		doc: known ? `${known.doc}\n\n${live}` : live
 	};
 }
 
@@ -105,7 +109,7 @@ export const weaverHover = hoverTooltip((view, pos): Tooltip | null => {
 	}
 
 	if (!entry && ctx && ctx !== 'doc') {
-		entry = referenceEntry(text, wordStart, word, ctx);
+		entry = referenceEntry(text, wordStart, word, ctx, knownVariables(view.state, pos));
 	}
 
 	if (!entry) return null;

@@ -1676,6 +1676,7 @@ impl<'a> Stage<'a> {
                 last: last.zip(path.last().map(|m| m.content.as_str())),
             },
             cast.scenario.as_ref(),
+            world,
         );
 
         Self {

@@ -67,11 +67,12 @@ pub(super) struct WeaverCheckResponse {
     pub diagnostics: Vec<Diagnostic>,
 }
 
-/// Every weaver command and processor an editor can offer
+/// Every weaver command, processor and namespace an editor can offer
 #[derive(Serialize)]
 pub(super) struct WeaverVocabulary {
     pub commands: Vec<weaver_lang::registry::CommandSignature>,
     pub processors: Vec<weaver_lang::registry::ProcessorSignature>,
+    pub namespaces: Vec<crate::services::weaver::NamespaceDef>,
 }
 
 #[derive(Debug, Deserialize)]

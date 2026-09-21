@@ -2,6 +2,7 @@
 	import { ScrollText } from '@lucide/svelte';
 	import WeaverEditor from '$lib/weaver/editor/WeaverEditor.svelte';
 	import { realmDraft } from '../draft.svelte.js';
+	import { realmVariables } from '../variables.js';
 
 	let { agentKey }: { agentKey: string } = $props();
 
@@ -24,6 +25,7 @@
 				onChange={(next) => (agent.script = next)}
 				dialect="template"
 				profile="realm_script"
+				variables={realmVariables(agentKey)}
 			/>
 		</div>
 	</div>
