@@ -565,8 +565,7 @@
 				</tbody>
 			</table>
 			<p class="note">
-				Seeded as <code>agents:{a.handle || '…'}.&lt;key&gt;</code>. <code>150</code> is a number,
-				<code>true</code> a yes/no, <code>[1, 2]</code> weaver; quote anything that should stay text.
+				Accessible as <code>agents:{a.handle || '…'}.&lt;key&gt;</code>.
 			</p>
 		</div>
 
@@ -857,7 +856,6 @@
 	.danger:hover {
 		background-color: var(--color-error-bg);
 	}
-	/* The same drag vocabulary the radio fields use. */
 	.candidate {
 		border-color: var(--color-border-active) !important;
 		border-style: dashed !important;
@@ -867,7 +865,6 @@
 		filter: grayscale(1);
 	}
 
-	/* A checkbox reads as one line, not as a label stacked over a control. */
 	.check {
 		flex-direction: row;
 		align-items: center;
