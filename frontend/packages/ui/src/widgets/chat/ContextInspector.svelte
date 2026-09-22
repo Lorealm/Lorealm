@@ -357,6 +357,18 @@
 		contextInspector.message ? parseToolCalls(contextInspector.message.metadata) : []
 	);
 
+	/** The tool names the model was offered this turn, whether or not it used them. */
+	function parseAvailableTools(meta: JsonValue): string[] | null {
+		if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return null;
+		const raw = (meta as Record<string, JsonValue>).available_tools;
+		if (!Array.isArray(raw)) return null;
+		return raw.filter((v): v is string => typeof v === 'string');
+	}
+
+	let availableTools = $derived(
+		contextInspector.message ? parseAvailableTools(contextInspector.message.metadata) : null
+	);
+
 	let toolRounds = $derived.by(() => {
 		const m = new SvelteMap<number, ToolCall[]>();
 		for (const tc of toolCalls) {
@@ -792,9 +804,30 @@
 									{/if}
 								{/each}
 							{/if}
-						{:else if toolCalls.length === 0}
-							<div class="empty">No tool calls on this turn.</div>
 						{:else}
+							<div class="round-head">
+								<span class="round-label">Available</span>
+								{#if availableTools}
+									<span class="group-count"
+										>{availableTools.length} tool{availableTools.length === 1 ? '' : 's'}</span
+									>
+								{/if}
+							</div>
+							{#if availableTools === null}
+								<div class="empty">This message doesn't record which tools were available.</div>
+							{:else if availableTools.length === 0}
+								<div class="empty">The model was offered no tools on this turn.</div>
+							{:else}
+								<div class="offered">
+									{#each availableTools as name (name)}
+										<span class="chip">{name}</span>
+									{/each}
+								</div>
+							{/if}
+
+							{#if toolCalls.length === 0}
+								<div class="empty">No tool calls on this turn.</div>
+							{/if}
 							{#each toolRounds as rnd (rnd.round)}
 								<div class="round-head">
 									<span class="round-label">Round {rnd.round}</span>
@@ -1524,6 +1557,11 @@
 		font-size: var(--font-size-xs);
 		text-transform: uppercase;
 		letter-spacing: var(--letter-spacing-uppercase);
+	}
+	.offered {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--spacing-xs);
 	}
 
 	.tool {
