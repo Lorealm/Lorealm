@@ -52,8 +52,9 @@ interface PendingState extends NewConversationOptions {
 const TEMP_PREFIX = 'tmp_';
 const isTemp = (id: Snowflake) => (id as unknown as string).startsWith(TEMP_PREFIX);
 
-function scopeMatches(pattern: string, ns: string): boolean {
-	return pattern.endsWith('*') ? ns.startsWith(pattern.slice(0, -1)) : ns === pattern;
+function grantScope(grant: string): string {
+	const separator = grant.indexOf(':');
+	return separator === -1 ? grant : grant.slice(0, separator);
 }
 
 class ChatStore {
@@ -153,7 +154,7 @@ class ChatStore {
 
 	/** Can `viewer` hear speech carried on `scope`? */
 	#canHear(viewer: RealmAgent, scope: string): boolean {
-		return viewer.grants.some((g) => scopeMatches(g.channel, scope));
+		return viewer.grants.some((g) => grantScope(g.channel) === scope);
 	}
 
 	get visiblePath(): ConversationMessage[] {
@@ -164,7 +165,7 @@ class ChatStore {
 		const agents = this._realmCast?.agents ?? [];
 		return path.filter((m) => {
 			if (this.#messageHandle(m) === viewer.handle) return true; // own turn
-			if (m.content.trim().length === 0) return false; // silent (script) turn
+			if (m.id !== this._streamingId && m.content.trim().length === 0) return false;
 			const src = agents.find((a) => a.handle === this.#messageHandle(m));
 			return this.#canHear(viewer, src?.speech_channel ?? 'main');
 		});
@@ -204,11 +205,14 @@ class ChatStore {
 		const byMessage = this.viewerFeed;
 		const audible = this.visiblePath.map((m) => m.id);
 		return this.activePath
-			.map((message) => ({
-				message,
-				audible: audible.includes(message.id),
-				observations: byMessage[message.id] ?? []
-			}))
+			.map((message) => {
+				const heard = audible.includes(message.id);
+				return {
+					message,
+					audible: heard,
+					observations: (byMessage[message.id] ?? []).filter((ob) => !heard || ob.event_id === null)
+				};
+			})
 			.filter((entry) => entry.audible || entry.observations.length > 0);
 	}
 
