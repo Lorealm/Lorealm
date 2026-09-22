@@ -846,6 +846,7 @@ impl RealmService {
             let activation = std::mem::take(&mut open.activation);
             let trace = std::mem::take(&mut open.trace);
             let usage = std::mem::take(&mut open.usage);
+            let available_tools = std::mem::take(&mut open.available_tools);
             let emitted = llm
                 .policy
                 .event_sink
@@ -853,7 +854,7 @@ impl RealmService {
                 .map(|s| std::mem::take(&mut *s.lock().unwrap()))
                 .unwrap_or_default();
             let production = service
-                .llm_production(&llm.agent, &llm.spec, trace, usage, llm.persist, acc.finish(), delta, emitted, activation, open.had_assembly, &config)
+                .llm_production(&llm.agent, &llm.spec, trace, usage, available_tools, llm.persist, acc.finish(), delta, emitted, activation, open.had_assembly, &config)
                 .await?;
             let TurnResult { message, events } =
                 service.commit(&llm.convo, &llm.cast, &config, production).await?;
@@ -1184,6 +1185,7 @@ impl RealmService {
         spec: &AgentSpec,
         trace: Vec<TracedBlock>,
         usage: UsageReport,
+        available_tools: Vec<String>,
         persist: PersistPlan,
         outcome: AgentOutcome,
         delta: StateDelta,
@@ -1203,6 +1205,7 @@ impl RealmService {
             "conn_profile": spec.profile_id,
             "tok_id": spec.tokenizer_id,
             "template_id": spec.template_id,
+            "available_tools": available_tools,
         });
 
         let action_scopes = self
