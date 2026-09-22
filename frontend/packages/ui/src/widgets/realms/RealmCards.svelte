@@ -6,6 +6,7 @@
 	import type { ConversationMetadata } from '$lib/types/conversation.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import type { RealmSummary } from '$lib/types/realm.js';
+	import NewRealmMenu from './NewRealmMenu.svelte';
 	import PlayMenu from './PlayMenu.svelte';
 
 	const api = useApi();
@@ -34,6 +35,10 @@
 </script>
 
 <div class="section">
+	<div class="head">
+		<NewRealmMenu />
+	</div>
+
 	<div class="grid">
 		{#each realmStore.summaries as realm (realm.id)}
 			{@const runs = playthroughs(realm.id)}
@@ -95,6 +100,10 @@
 		flex-direction: column;
 		gap: var(--spacing-md);
 		padding: var(--spacing-lg);
+	}
+	.head {
+		display: flex;
+		align-items: center;
 	}
 	.grid {
 		display: grid;
