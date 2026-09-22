@@ -424,6 +424,7 @@ class ChatStore {
 		this._streamAgentName = null;
 		this._streamHandle = null;
 		this.realmAutoRun = true;
+		this.realmDirectorView = false;
 		this.streamState = { status: 'idle' };
 	}
 

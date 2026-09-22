@@ -538,6 +538,7 @@ impl RealmService {
 
         let mut definition = wtn::expand(doc, inputs)?;
         resolve_scenario_slugs(&mut definition.scenarios);
+        self.bind_cast(user_id, &mut definition).await?;
         self.validate_definition(user_id, &definition).await?;
 
         let realm = Realm {

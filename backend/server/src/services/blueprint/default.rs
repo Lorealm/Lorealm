@@ -16,7 +16,18 @@ scenario: {title: string, content: string}
   ]
   director: {
     kind: r"script"
-    source: r#"// Currently needed because we can only generate integers. Numbers can still be represented in decimals.
+    source: r#"
+// We alternate between player and character turns
+{# foreach p in {{cast:player.members}} #}
+  {# if {{turn:index}} == 0 #}
+    {# return p.handle #}
+  {# endif #}
+  {# if {{turn:last.kind}} != "player" #}
+    {# return p.handle #}
+  {# endif #}
+{# endforeach #}
+
+// Currently needed because we can only generate integers. Numbers can still be represented in decimals.
 $[set_var("local:precision_cheat", 100)]
 
 // The `local` namespace is cleared every turn.

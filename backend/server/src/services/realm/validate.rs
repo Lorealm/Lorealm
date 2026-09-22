@@ -237,6 +237,34 @@ impl RealmService {
 }
 
 impl RealmService {
+    /// Fill in the parts of a cast that a document has no way to author.
+    pub(super) async fn bind_cast(
+        &self,
+        user_id: Snowflake,
+        definition: &mut RealmDefinition,
+    ) -> Result<(), RealmError> {
+        for agent in &mut definition.agents {
+            match agent.kind {
+                AgentKind::Player => {
+                    agent.user_id.get_or_insert(user_id);
+                }
+                AgentKind::Llm => {
+                    if let (Some(character_id), None) = (agent.character_id, agent.char_version_id)
+                    {
+                        // Ownership first: the version lookup below does not
+                        // check it, and ownership is the only gate a realm has.
+                        self.validate_resource(user_id, RealmResourceKind::Character, character_id)
+                            .await?;
+                        agent.char_version_id =
+                            Some(self.characters.get_latest_version_id(character_id).await?);
+                    }
+                }
+                AgentKind::Script => {}
+            }
+        }
+        Ok(())
+    }
+
     /// Everything an expanded document must satisfy before it becomes a
     /// realm.
     pub(super) async fn validate_definition(
@@ -271,6 +299,14 @@ impl RealmService {
                 AgentKind::Llm if agent.template_id.is_none() || agent.profile_id.is_none() => {
                     return Err(RealmError::InvalidAgent(format!(
                         "llm agent '{}' needs a template and a connection profile",
+                        agent.handle
+                    )));
+                }
+                AgentKind::Llm
+                    if agent.character_id.is_none() && agent.char_version_id.is_some() =>
+                {
+                    return Err(RealmError::InvalidAgent(format!(
+                        "llm agent '{}' has a char_version_id but no character_id",
                         agent.handle
                     )));
                 }
