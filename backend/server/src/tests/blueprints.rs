@@ -1,6 +1,6 @@
 //! Blueprints: the constructor stage in front of a realm.
 
-use lorealm_storage::models::Snowflake;
+use lorealm_storage::models::{AgentKind, Snowflake};
 use serde_json::{Map, json};
 
 use crate::{
@@ -135,6 +135,73 @@ async fn expanding_a_blueprint_produces_a_realm_that_remembers_where_it_came_fro
     );
 }
 
+/// The blueprint every new user is registered with.
+#[tokio::test]
+async fn the_shipped_group_chat_expands_into_a_realm_that_can_be_played() {
+    let h = Harness::new().await;
+    let sayuri = h.character(h.user, "Sayuri").await;
+    let me = h.persona(h.user, "Me").await;
+    let template = h.template(h.user, "Roleplay").await;
+    let profile = h.profile(h.user, "Local").await;
+
+    let blueprint = h
+        .blueprints
+        .create(
+            h.user,
+            "Group Chat".into(),
+            crate::services::blueprint::GROUP_CHAT_BP.into(),
+        )
+        .await
+        .expect("the shipped blueprint saves");
+
+    let mut inputs = Map::new();
+    inputs.insert(
+        "chars".into(),
+        json!([{ "char": sayuri.to_string(), "talkativeness": 1.0 }]),
+    );
+    inputs.insert("user_persona".into(), json!(me.to_string()));
+    inputs.insert("user_connection".into(), json!(profile.to_string()));
+    inputs.insert("user_template".into(), json!(template.to_string()));
+    inputs.insert("char_connection".into(), json!(profile.to_string()));
+    inputs.insert("char_template".into(), json!(template.to_string()));
+    inputs.insert("scenario".into(), json!({ "title": "", "content": "" }));
+
+    let realm = h
+        .blueprints
+        .expand(blueprint.id, h.user, inputs)
+        .await
+        .expect("expands");
+
+    let player = &realm.definition.agents[0];
+    assert_eq!(player.kind, AgentKind::Player);
+    assert_eq!(
+        player.user_id,
+        Some(h.user),
+        "an unbound player cannot submit a turn"
+    );
+
+    let actor = &realm.definition.agents[1];
+    assert_eq!(actor.kind, AgentKind::Llm);
+    assert_eq!(actor.character_id, Some(sayuri));
+    assert!(
+        actor.char_version_id.is_some(),
+        "a character with no version pinned cannot take a turn"
+    );
+
+    let convo = h
+        .realms
+        .start_conversation(realm.id, h.user, None)
+        .await
+        .expect("starts");
+    assert_eq!(
+        h.realms
+            .next_agent(convo.metadata.id, h.user)
+            .await
+            .expect("resolves a turn"),
+        Some(player.handle.clone())
+    );
+}
+
 #[tokio::test]
 async fn a_realm_that_was_never_expanded_has_no_origin() {
     let h = Harness::new().await;
@@ -156,8 +223,6 @@ async fn a_document_that_does_not_parse_is_refused_on_save() {
 
 #[tokio::test]
 async fn an_entity_input_with_a_default_is_refused_on_save() {
-    // Caught here rather than at expansion, where the value would silently
-    // bind as a bare id.
     let h = Harness::new().await;
     let err = h
         .blueprints

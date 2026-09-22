@@ -11,6 +11,8 @@
 	import { router } from '$lib/navigation/router.svelte.js';
 	import ChatBox from '$lib/widgets/chat/ChatBox.svelte';
 	import ChatControls from '../chat/ChatControls.svelte';
+	import RealmChatControls from '../chat/RealmChatControls.svelte';
+	import { chatStore } from '$lib/stores/chat.svelte.js';
 
 	const route = $derived(router.current);
 </script>
@@ -24,6 +26,9 @@
 
 {#if route.view === 'write'}
 	<ChatBox />
+	{#if chatStore.isRealm}
+		<RealmChatControls />
+	{/if}
 	<ChatControls />
 {:else if route.view === 'characters'}
 	{#await lazy(charactersPage) then CharactersPage}

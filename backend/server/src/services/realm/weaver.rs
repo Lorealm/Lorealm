@@ -744,6 +744,77 @@ mod tests {
     }
 
     #[test]
+    fn the_default_group_chat_director_hands_the_turn_back_to_the_player() {
+        let source = director_source(crate::services::blueprint::GROUP_CHAT_BP);
+
+        let mut me = agent(Vec::new(), None);
+        me.handle = "me".into();
+        me.kind = AgentKind::Player;
+        let mut alice = agent(Vec::new(), None);
+        alice.handle = "alice".into();
+        alice.kind = AgentKind::Llm;
+        let cast = vec![me, alice];
+
+        let mut world = StatePool::new();
+        world
+            .entry(AGENTS_SCOPE.into())
+            .or_default()
+            .insert("alice".into(), json!({ "talkativeness": 1.0 }));
+
+        // Turn zero: nobody has acted, so the opening is the player's.
+        let view = realm_view(&cast, &TurnInfo::opening(), None, &world);
+        assert_eq!(
+            run_director(&source, &world, &view).unwrap(),
+            vec!["me".to_string()]
+        );
+
+        // After an llm turn, back to the player.
+        let after_llm = TurnInfo {
+            index: 1,
+            last: Some((&cast[1], "Hello.")),
+        };
+        let view = realm_view(&cast, &after_llm, None, &world);
+        assert_eq!(
+            run_director(&source, &world, &view).unwrap(),
+            vec!["me".to_string()]
+        );
+
+        // After the player's own turn, the lottery decides.
+        let after_player = TurnInfo {
+            index: 2,
+            last: Some((&cast[0], "Hi.")),
+        };
+        let view = realm_view(&cast, &after_player, None, &world);
+        assert_eq!(
+            run_director(&source, &world, &view).unwrap(),
+            vec!["alice".to_string()]
+        );
+    }
+
+    #[test]
+    fn the_default_group_chat_director_skips_the_hand_back_with_no_player() {
+        let source = director_source(crate::services::blueprint::GROUP_CHAT_BP);
+
+        let mut alice = agent(Vec::new(), None);
+        alice.handle = "alice".into();
+        alice.kind = AgentKind::Llm;
+        let cast = vec![alice];
+
+        let mut world = StatePool::new();
+        world
+            .entry(AGENTS_SCOPE.into())
+            .or_default()
+            .insert("alice".into(), json!({ "talkativeness": 1.0 }));
+
+        let view = realm_view(&cast, &TurnInfo::opening(), None, &world);
+        assert_eq!(
+            run_director(&source, &world, &view).unwrap(),
+            vec!["alice".to_string()],
+            "a cast with nobody to hand back to still runs the lottery"
+        );
+    }
+
+    #[test]
     fn the_default_group_chat_director_picks_a_speaker() {
         let source = director_source(crate::services::blueprint::GROUP_CHAT_BP);
 

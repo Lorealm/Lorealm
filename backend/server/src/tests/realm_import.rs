@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use lorealm_storage::models::AgentKind;
+use lorealm_storage::{CharacterStorage, models::AgentKind};
 use weaver_lang::Value as WeaverValue;
 
 use crate::{errors::RealmError, tests::Harness};
@@ -89,6 +89,79 @@ async fn a_document_becomes_a_realm_built_from_the_characters_it_was_given() {
 
     let loaded = h.realms.get_realm(realm.id, h.user).await.expect("loads");
     assert_eq!(loaded.definition.agents.len(), 2);
+}
+
+const GROUP_CHAT: &str = r#"
+#inputs
+lead: Ref<Character>
+who: Ref<Persona>
+template: Ref<Template>
+profile: Ref<ConnectionProfile>
+
+{
+  name: "Group Chat"
+  description: r"You and one other."
+  scenarios: []
+  director: null
+  agents: [
+    {
+      handle: "{{input:who.slug}}"
+      name: "{{input:who.name}}"
+      kind: "player"
+      character_id: null
+      char_version_id: null
+      template_id: {{input:template.id}}
+      profile_id: {{input:profile.id}}
+      persona_id: {{input:who.id}}
+      user_id: null
+    }
+    {
+      handle: "{{input:lead.slug}}"
+      name: "{{input:lead.name}}"
+      kind: "llm"
+      character_id: {{input:lead.id}}
+      char_version_id: null
+      template_id: {{input:template.id}}
+      profile_id: {{input:profile.id}}
+      persona_id: null
+      user_id: null
+    }
+  ]
+}"#;
+
+#[tokio::test]
+async fn expansion_binds_the_player_to_the_caller_and_pins_the_character_version() {
+    let h = Harness::new().await;
+    let lead = h.character(h.user, "Sayuri").await;
+    let who = h.persona(h.user, "Me").await;
+    let template = h.template(h.user, "Roleplay").await;
+    let profile = h.profile(h.user, "Local").await;
+
+    let inputs = BTreeMap::from([
+        ("lead".to_string(), lead.to_string().into()),
+        ("who".to_string(), who.to_string().into()),
+        ("template".to_string(), template.to_string().into()),
+        ("profile".to_string(), profile.to_string().into()),
+    ]);
+
+    let realm = h
+        .realms
+        .import(h.user, GROUP_CHAT, inputs, None)
+        .await
+        .expect("imports");
+
+    let player = &realm.definition.agents[0];
+    assert_eq!(player.kind, AgentKind::Player);
+    assert_eq!(player.user_id, Some(h.user));
+
+    let actor = &realm.definition.agents[1];
+    assert_eq!(actor.kind, AgentKind::Llm);
+    assert_eq!(actor.character_id, Some(lead));
+    assert_eq!(
+        actor.char_version_id,
+        Some(h.store.get_latest_version(lead).await.unwrap()),
+        "an agent with a character but no version cannot take a turn"
+    );
 }
 
 #[tokio::test]
