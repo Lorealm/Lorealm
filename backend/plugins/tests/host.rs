@@ -5,8 +5,8 @@ use std::sync::{Arc, Mutex, Once};
 use std::time::Duration;
 
 use lorealm_plugins::{
-    HostServices, Level, LogEntry, LogSource, Message, Persona, PluginError, PluginHost,
-    PluginPackage, Role,
+    CommandContext, HostServices, Level, LogEntry, LogSource, Message, Persona, PluginError,
+    PluginHost, PluginPackage, Role,
 };
 
 fn fixture(name: &str) -> PathBuf {
@@ -71,6 +71,21 @@ impl HostServices for TestServices {
 
     async fn log(&self, entries: Vec<LogEntry>) {
         self.logs.lock().unwrap().extend(entries);
+    }
+}
+
+/// Variables keyed by (scope, name), as JSON.
+#[derive(Default)]
+struct TestContext(HashMap<(String, String), String>);
+
+impl CommandContext for TestContext {
+    fn get(&self, scope: &str, name: &str) -> Result<Option<String>, String> {
+        Ok(self.0.get(&(scope.into(), name.into())).cloned())
+    }
+
+    fn set(&mut self, scope: &str, name: &str, value: String) -> Result<(), String> {
+        self.0.insert((scope.into(), name.into()), value);
+        Ok(())
     }
 }
 
@@ -284,7 +299,11 @@ async fn registered_callables_are_listed_and_callable() {
         assert_eq!(registered.source_nodes[0].id, "greeting", "{name}");
 
         let greeting = plugin
-            .call_command("greet".into(), vec![r#""Ada""#.into()])
+            .call_command(
+                "greet".into(),
+                vec![r#""Ada""#.into()],
+                &mut TestContext::default(),
+            )
             .await
             .unwrap();
         let shout = plugin
@@ -312,7 +331,13 @@ async fn a_failing_call_is_an_error_not_a_trap() {
             .await
             .unwrap();
 
-        let result = plugin.call_command("greet".into(), vec!["42".into()]).await;
+        let result = plugin
+            .call_command(
+                "greet".into(),
+                vec!["42".into()],
+                &mut TestContext::default(),
+            )
+            .await;
         assert!(
             matches!(&result, Err(PluginError::Call(msg)) if msg.contains("expected a string")),
             "{name}: {result:?}"
@@ -320,8 +345,84 @@ async fn a_failing_call_is_an_error_not_a_trap() {
 
         // Still callable afterwards.
         let result = plugin
-            .call_command("greet".into(), vec![r#""Ada""#.into()])
+            .call_command(
+                "greet".into(),
+                vec![r#""Ada""#.into()],
+                &mut TestContext::default(),
+            )
             .await;
         assert!(result.is_ok(), "{name}: {result:?}");
     }
+}
+
+#[tokio::test]
+async fn a_command_reads_and_writes_through_its_context() {
+    let host = host();
+    for name in HELLOS {
+        let package = compile(&host, name);
+        let mut plugin = host
+            .instantiate(&package, Arc::new(TestServices::default()))
+            .await
+            .unwrap();
+        let mut context = TestContext::default();
+        context.set("tally", "n", "41".into()).unwrap();
+
+        let count = plugin
+            .call_command("tally".into(), vec![r#""n""#.into()], &mut context)
+            .await
+            .unwrap();
+
+        assert_eq!(count.as_deref(), Some("42"), "{name}");
+        assert_eq!(
+            context.get("tally", "n").unwrap().as_deref(),
+            Some("42"),
+            "{name}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn a_command_that_didnt_declare_mutation_cannot_write() {
+    let host = host();
+    for name in HELLOS {
+        let package = compile(&host, name);
+        let mut plugin = host
+            .instantiate(&package, Arc::new(TestServices::default()))
+            .await
+            .unwrap();
+        let mut context = TestContext::default();
+
+        let result = plugin
+            .call_command("greet".into(), vec![r#""sneak""#.into()], &mut context)
+            .await;
+
+        assert!(
+            matches!(&result, Err(PluginError::Call(msg)) if msg.contains("mutates-context")),
+            "{name}: {result:?}"
+        );
+        assert!(context.0.is_empty(), "{name}");
+    }
+}
+
+#[tokio::test]
+async fn reading_the_context_needs_permission() {
+    let host = host();
+    let package = compile(&host, "no_data");
+    let mut plugin = host
+        .instantiate(&package, Arc::new(TestServices::default()))
+        .await
+        .unwrap();
+
+    let result = plugin
+        .call_command(
+            "tally".into(),
+            vec![r#""n""#.into()],
+            &mut TestContext::default(),
+        )
+        .await;
+
+    assert!(
+        matches!(&result, Err(PluginError::Call(msg)) if msg.contains("state:read")),
+        "{result:?}"
+    );
 }

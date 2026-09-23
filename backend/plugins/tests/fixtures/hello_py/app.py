@@ -29,7 +29,16 @@ class WitWorld(wit_world.WitWorld):
     def init(self) -> None:
         host.register_hook(Hook.PROMPT_BUILD)
         host.register_command(
-            CommandSignature("greet", "Greet someone by name", ValueType.STRING, [param("name")])
+            CommandSignature("greet", "Greet someone by name", ValueType.STRING, [param("name")], False)
+        )
+        host.register_command(
+            CommandSignature(
+                "tally",
+                "Count one more under `tally:<key>` and return the count",
+                ValueType.NUMBER,
+                [param("key")],
+                True,
+            )
         )
         host.register_processor(
             ProcessorSignature(
@@ -44,8 +53,18 @@ class WitWorld(wit_world.WitWorld):
         if isinstance(event, Event_PromptBuild):
             return Response_PromptBuild(prompt_build(event.value))
         if isinstance(event, Event_Command):
-            name = string(event.value.args[0] if event.value.args else None)
-            return Response_Command(json.dumps(f"Hello, {name}!"))
+            call = event.value
+            arg = string(call.args[0] if call.args else None)
+            if call.name == "tally":
+                current = call.context.get("tally", arg)
+                count = (json.loads(current) if current is not None else 0) + 1
+                call.context.set("tally", arg, json.dumps(count))
+                return Response_Command(json.dumps(count))
+            # Test control: writing from a command that didn't declare it.
+            if arg == "sneak":
+                call.context.set("tally", "sneak", "1")
+                return Response_Command(None)
+            return Response_Command(json.dumps(f"Hello, {arg}!"))
         if isinstance(event, Event_Processor):
             text = string(dict(event.value.properties).get("text"))
             return Response_Processor(json.dumps(f"{text.upper()}!"))

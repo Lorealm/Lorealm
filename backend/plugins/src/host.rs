@@ -1,9 +1,10 @@
 use std::collections::HashSet;
 use std::path::Path;
+use std::ptr::NonNull;
 use std::sync::Arc;
 use std::time::Duration;
 
-use wasmtime::component::{Component, HasSelf, Linker, ResourceTable};
+use wasmtime::component::{Component, HasSelf, Linker, Resource, ResourceTable};
 use wasmtime::{Config, Engine, Store, Trap};
 use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
 
@@ -15,8 +16,12 @@ wasmtime::component::bindgen!({
     world: "plugin",
     imports: { default: async },
     exports: { default: async },
-    additional_derives: [PartialEq, Eq, Hash],
+    with: { "lorealm:plugin/types.eval-context": EvalContextHandle },
 });
+
+/// What the plugin's `eval-context` resource stands for. The context itself
+/// is [`PluginState::context`]; the resource only lets the guest name it.
+pub struct EvalContextHandle;
 
 use lorealm::plugin::types::{
     Block, CommandCall, CommandSignature, Hook, Level, Message, Persona, ProcessorCall,
@@ -54,6 +59,20 @@ const EPOCH_TICK: Duration = Duration::from_millis(10);
 const MAX_DATA_KEY: usize = 256;
 const MAX_DATA_VALUE: usize = 1024 * 1024;
 
+/// The variables of the evaluation a command runs in, as JSON.
+pub trait CommandContext {
+    fn get(&self, scope: &str, name: &str) -> Result<Option<String>, String>;
+    fn set(&mut self, scope: &str, name: &str, value: String) -> Result<(), String>;
+}
+
+/// The context of the command call in progress. The lifetime is erased so it
+/// fits in the `'static` store; see [`LoadedPlugin::call_command`] for why
+/// that holds.
+struct ContextPtr(NonNull<dyn CommandContext>);
+
+// SAFETY: only dereferenced on the thread that set it, during the call.
+unsafe impl Send for ContextPtr {}
+
 /// What the embedder provides to plugins.
 #[async_trait::async_trait]
 pub trait HostServices: Send + Sync {
@@ -78,15 +97,28 @@ pub struct PluginState {
     wasi: WasiCtx,
     table: ResourceTable,
     permissions: HashSet<String>,
-    hooks: HashSet<Hook>,
+    hooks: Vec<Hook>,
     registrations: Registrations,
     /// Registering is only allowed while `init` runs.
     initializing: bool,
     services: Arc<dyn HostServices>,
     logs: LogBuffer,
+    /// Set only while a command runs, with whether it declared
+    /// `mutates-context`.
+    context: Option<(ContextPtr, bool)>,
 }
 
 impl PluginState {
+    fn context(&mut self) -> Result<(&mut dyn CommandContext, bool), String> {
+        match &mut self.context {
+            // SAFETY: set by `call_command` for the length of the call, and
+            // the guest can only reach this through the borrowed resource that
+            // call hands it.
+            Some((ptr, mutates)) => Ok((unsafe { ptr.0.as_mut() }, *mutates)),
+            None => Err("the context is only available while a command runs".into()),
+        }
+    }
+
     fn require(&mut self, permission: &str) -> Result<(), String> {
         if self.permissions.contains(permission) {
             Ok(())
@@ -140,6 +172,38 @@ impl WasiView for PluginState {
 
 impl lorealm::plugin::types::Host for PluginState {}
 
+impl lorealm::plugin::types::HostEvalContext for PluginState {
+    async fn get(
+        &mut self,
+        _: Resource<EvalContextHandle>,
+        scope: String,
+        name: String,
+    ) -> Result<Option<String>, String> {
+        self.require("state:read")?;
+        self.context()?.0.get(&scope, &name)
+    }
+
+    async fn set(
+        &mut self,
+        _: Resource<EvalContextHandle>,
+        scope: String,
+        name: String,
+        value: String,
+    ) -> Result<(), String> {
+        self.require("state:write")?;
+        let (context, mutates) = self.context()?;
+        if !mutates {
+            return Err("this command didn't declare `mutates-context`".into());
+        }
+        context.set(&scope, &name, value)
+    }
+
+    async fn drop(&mut self, handle: Resource<EvalContextHandle>) -> wasmtime::Result<()> {
+        self.table.delete(handle)?;
+        Ok(())
+    }
+}
+
 impl lorealm::plugin::host::Host for PluginState {
     async fn log(&mut self, level: Level, message: String) {
         self.logs.record(level, LogSource::Guest, message);
@@ -150,7 +214,9 @@ impl lorealm::plugin::host::Host for PluginState {
             Hook::PromptBuild => "prompt:write",
         };
         self.require(permission)?;
-        self.hooks.insert(hook);
+        if !self.hooks.contains(&hook) {
+            self.hooks.push(hook);
+        }
         Ok(())
     }
 
@@ -274,11 +340,12 @@ impl PluginHost {
                 .iter()
                 .cloned()
                 .collect(),
-            hooks: HashSet::new(),
+            hooks: Vec::new(),
             registrations: Registrations::default(),
             initializing: true,
             services,
             logs,
+            context: None,
         };
         let mut store = Store::new(&self.engine, state);
         store.set_epoch_deadline(self.deadline);
@@ -324,16 +391,45 @@ impl LoadedPlugin {
         }
     }
 
-    /// Calls a registered command with JSON arguments.
+    /// Calls a registered command with JSON arguments. The plugin reaches
+    /// `context` through the `eval-context` it is lent for the call.
     pub async fn call_command(
         &mut self,
         name: String,
         args: Vec<String>,
+        context: &mut dyn CommandContext,
     ) -> Result<Option<String>, PluginError> {
-        match self
-            .handle(Event::Command(CommandCall { name, args }))
-            .await?
-        {
+        let state = self.store.data_mut();
+        let mutates = state
+            .registrations
+            .commands
+            .iter()
+            .any(|c| c.name == name && c.mutates_context);
+        let handle = state
+            .table
+            .push(EvalContextHandle)
+            .map_err(wasmtime::Error::from)?;
+        // SAFETY: erases the borrow's lifetime. The pointer is cleared below,
+        // with nothing in between that can return early, so it never outlives
+        // `context`. The guest can only reach it through `handle`, which the
+        // component model invalidates when the call returns.
+        let ptr: NonNull<dyn CommandContext + 'static> =
+            unsafe { std::mem::transmute(NonNull::from(context)) };
+        state.context = Some((ContextPtr(ptr), mutates));
+        let borrowed = Resource::new_borrow(handle.rep());
+
+        let result = self
+            .handle(Event::Command(CommandCall {
+                name,
+                args,
+                context: borrowed,
+            }))
+            .await;
+
+        let state = self.store.data_mut();
+        state.context = None;
+        state.table.delete(handle).map_err(wasmtime::Error::from)?;
+        match result? {
             Response::Command(value) => Ok(value),
             _ => Err(mismatch("command")),
         }

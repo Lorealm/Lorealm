@@ -59,6 +59,8 @@ interface types {
         description: string,
         returns: value-type,
         params: list<param>,
+        /// Whether the command may write variables through its context.
+        mutates-context: bool,
     }
 
     /// A Weaver processor, called as `@[handle.name(properties)]`.
@@ -83,10 +85,21 @@ interface types {
         content: string,
     }
 
+    /// The variables of the evaluation a command runs in. Only valid for
+    /// the duration of that call.
+    resource eval-context {
+        /// A variable's value, if set. Requires `state:read`.
+        get: func(scope: string, name: string) -> result<option<json>, string>;
+        /// Sets a variable. Requires `state:write`, and a command that
+        /// declared `mutates-context`.
+        set: func(scope: string, name: string, value: json) -> result<_, string>;
+    }
+
     record command-call {
         name: string,
         /// Positional; a slot no argument reached is `null`.
         args: list<json>,
+        context: borrow<eval-context>,
     }
 
     record processor-call {

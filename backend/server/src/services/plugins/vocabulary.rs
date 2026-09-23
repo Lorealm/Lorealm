@@ -8,7 +8,8 @@ use std::{
 
 use async_trait::async_trait;
 use lorealm_plugins::{
-    CommandSignature, Param, ProcessorSignature, Role, SourceNode, ValueType as PluginValueType,
+    CommandContext, CommandSignature, Param, ProcessorSignature, Role, SourceNode,
+    ValueType as PluginValueType,
 };
 use tokio::runtime::Handle;
 use weaver_lang::{
@@ -181,17 +182,18 @@ impl WeaverCommand for PluginCommand {
     fn call(
         &self,
         args: Vec<Value>,
-        _ctx: &mut dyn EvalContext,
+        ctx: &mut dyn EvalContext,
         _registry: &Registry,
     ) -> Result<Option<Value>, EvalError> {
         let name = &self.signature.name;
         let args = args.iter().map(to_json).collect::<Result<Vec<_>, _>>()?;
         let local = local_name(name).to_owned();
+        let mut variables = Variables(ctx);
         let result = self
             .call
             .block_on(
                 self.call
-                    .call(async move |p| p.call_command(local, args).await),
+                    .call(async |p| p.call_command(local, args, &mut variables).await),
             )
             .map_err(|e| host_error(name, e))?;
         result.map(|json| from_json(name, &json)).transpose()
@@ -199,6 +201,29 @@ impl WeaverCommand for PluginCommand {
 
     fn signature(&self) -> WeaverCommandSignature {
         self.signature.clone()
+    }
+}
+
+/// The evaluation's variables as the plugin sees them. The host context
+/// decides which exist and which may be written.
+struct Variables<'a>(&'a mut dyn EvalContext);
+
+impl CommandContext for Variables<'_> {
+    fn get(&self, scope: &str, name: &str) -> Result<Option<String>, String> {
+        match self.0.resolve_variable(scope, name) {
+            Ok(Some(value)) => to_json(&value).map(Some).map_err(|e| e.to_string()),
+            Ok(None) => Ok(None),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    fn set(&mut self, scope: &str, name: &str, value: String) -> Result<(), String> {
+        let value = serde_json::from_str::<serde_json::Value>(&value)
+            .map_err(|e| format!("not valid JSON: {e}"))?;
+        let value = json_to_weaver(&value).map_err(|e| e.to_string())?;
+        self.0
+            .set_variable(scope, name, value)
+            .map_err(|e| e.to_string())
     }
 }
 
@@ -297,7 +322,7 @@ fn command_signature(handle: &str, sig: &CommandSignature) -> WeaverCommandSigna
                 required: p.required,
             })
             .collect(),
-        mutates_context: false,
+        mutates_context: sig.mutates_context,
     }
 }
 

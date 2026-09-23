@@ -23,6 +23,14 @@ impl Guest for Hello {
             description: "Greet someone by name".into(),
             returns: ValueType::String,
             params: vec![param("name")],
+            mutates_context: false,
+        })?;
+        register_command(&CommandSignature {
+            name: "tally".into(),
+            description: "Count one more under `tally:<key>` and return the count".into(),
+            returns: ValueType::Number,
+            params: vec![param("key")],
+            mutates_context: true,
         })?;
         register_processor(&ProcessorSignature {
             name: "shout".into(),
@@ -41,9 +49,30 @@ impl Guest for Hello {
     fn handle(event: Event) -> Result<Response, String> {
         match event {
             Event::PromptBuild(prompt) => prompt_build(prompt).map(Response::PromptBuild),
-            Event::Command(CommandCall { args, .. }) => {
-                let name = string(args.first().map(String::as_str))?;
-                Ok(Response::Command(Some(json(&format!("Hello, {name}!")))))
+            Event::Command(CommandCall {
+                name,
+                args,
+                context,
+            }) => {
+                let arg = string(args.first().map(String::as_str))?;
+                match name.as_str() {
+                    "tally" => {
+                        let count = match context.get("tally", &arg)? {
+                            Some(n) => {
+                                serde_json::from_str::<u64>(&n).map_err(|e| e.to_string())?
+                            }
+                            None => 0,
+                        } + 1;
+                        context.set("tally", &arg, &count.to_string())?;
+                        Ok(Response::Command(Some(count.to_string())))
+                    }
+                    // Test control: writing from a command that didn't declare it.
+                    _ if arg == "sneak" => {
+                        context.set("tally", "sneak", "1")?;
+                        Ok(Response::Command(None))
+                    }
+                    _ => Ok(Response::Command(Some(json(&format!("Hello, {arg}!"))))),
+                }
             }
             Event::Processor(ProcessorCall { properties, .. }) => {
                 let text = properties.iter().find(|(key, _)| key == "text");
