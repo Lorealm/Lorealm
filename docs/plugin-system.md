@@ -11,6 +11,7 @@ A living document to help us keep track of the plugin system implementation.
 | 23/09/26      | Resolved capability registration    | ✅            |
 | 23/09/26      | Added plugin logging                | ✅            |
 | 23/09/26      | Added load order and compatibility  | ✅            |
+| 23/09/26      | Added Weaver and template support   | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -123,6 +124,18 @@ Plugins will not be able to directly provide content such as (directly as in con
 - Characters
 - Lorebooks
 - Realms
+
+### Weaver and Context Templates
+During `init`, a plugin can register:
+- **commands** with `register-command`, called as `$[handle.name(args)]`.
+- **processors** with `register-processor`, called as `@[handle.name(properties)]`.
+- **context template nodes** with `register-source-node`, listed under a source with id `plugin:{handle}`.
+
+Each call reaches the plugin through `handle(event)`, which answers with the matching `response` case. Weaver values cross the boundary as JSON text, since WIT has no recursive types. Commands get no access to evaluation state yet: arguments in, value out.
+
+Plugin callables are available wherever built-in vocabulary is: every Weaver host (tool bodies, slash commands, realm scripts, conditions and directors, widget renders, WTN documents), lorebooks, and the editor's vocabulary and checker. A plugin can't add processors to a namespace a built-in already uses. A template node whose plugin isn't loaded is skipped (the plugin's log says why) instead of failing the generation.
+
+Registering needs no permission: a registered callable only runs when the user's own script or template calls it.
 
 ### Plugin Hooks
 On the server, we don't care what goes on inside the WASM sandbox. The main way a plugin triggers based on activity is through hooks.

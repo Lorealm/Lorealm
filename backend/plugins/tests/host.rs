@@ -215,7 +215,7 @@ async fn persisting_without_permission_fails_the_hook() {
     let result = plugin.prompt_build(ask("Hi")).await;
 
     assert!(
-        matches!(&result, Err(PluginError::Hook(msg)) if msg.contains("data:persist")),
+        matches!(&result, Err(PluginError::Call(msg)) if msg.contains("data:persist")),
         "{:?}",
         result.err()
     );
@@ -224,7 +224,7 @@ async fn persisting_without_permission_fails_the_hook() {
         LogSource::Host,
         "missing permission `data:persist`"
     ));
-    assert!(services.logged(Level::Error, LogSource::Host, "hook failed"));
+    assert!(services.logged(Level::Error, LogSource::Host, "call failed"));
 }
 
 #[tokio::test]
@@ -265,5 +265,63 @@ async fn crash_output_is_logged() {
             services.logs.lock().unwrap()
         );
         assert!(services.logged(Level::Error, LogSource::Host, ""), "{name}");
+    }
+}
+
+#[tokio::test]
+async fn registered_callables_are_listed_and_callable() {
+    let host = host();
+    for name in HELLOS {
+        let package = compile(&host, name);
+        let mut plugin = host
+            .instantiate(&package, Arc::new(TestServices::default()))
+            .await
+            .unwrap();
+
+        let registered = plugin.registrations();
+        assert_eq!(registered.commands[0].name, "greet", "{name}");
+        assert_eq!(registered.processors[0].name, "shout", "{name}");
+        assert_eq!(registered.source_nodes[0].id, "greeting", "{name}");
+
+        let greeting = plugin
+            .call_command("greet".into(), vec![r#""Ada""#.into()])
+            .await
+            .unwrap();
+        let shout = plugin
+            .call_processor("shout".into(), vec![("text".into(), r#""hi""#.into())])
+            .await
+            .unwrap();
+        let blocks = plugin
+            .resolve_source("greeting".into(), r#"{"name": "Bo"}"#.into())
+            .await
+            .unwrap();
+
+        assert_eq!(greeting.as_deref(), Some(r#""Hello, Ada!""#), "{name}");
+        assert_eq!(shout, r#""HI!""#, "{name}");
+        assert_eq!(blocks[0].content, "Greetings, Bo.", "{name}");
+    }
+}
+
+#[tokio::test]
+async fn a_failing_call_is_an_error_not_a_trap() {
+    let host = host();
+    for name in HELLOS {
+        let package = compile(&host, name);
+        let mut plugin = host
+            .instantiate(&package, Arc::new(TestServices::default()))
+            .await
+            .unwrap();
+
+        let result = plugin.call_command("greet".into(), vec!["42".into()]).await;
+        assert!(
+            matches!(&result, Err(PluginError::Call(msg)) if msg.contains("expected a string")),
+            "{name}: {result:?}"
+        );
+
+        // Still callable afterwards.
+        let result = plugin
+            .call_command("greet".into(), vec![r#""Ada""#.into()])
+            .await;
+        assert!(result.is_ok(), "{name}: {result:?}");
     }
 }

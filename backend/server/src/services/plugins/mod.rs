@@ -18,6 +18,10 @@ use lorealm_storage::{
 use serde::Serialize;
 use tokio::sync::Mutex;
 
+mod vocabulary;
+
+pub use vocabulary::{PLUGIN_SOURCE_PREFIX, PluginVocabulary};
+
 use crate::{
     config::PluginConfig,
     core::CleanableService,
@@ -42,8 +46,43 @@ pub struct InstalledPlugin {
 
 /// A user's mounted plugins, in load order.
 struct Mounted {
+    user_id: Snowflake,
     plugins: Vec<(String, LoadedPlugin)>,
     last_used: Instant,
+    logs: Arc<PluginLogs>,
+}
+
+/// One user's mount slot: `None` until their plugins are first needed.
+type Slot = Arc<Mutex<Option<Mounted>>>;
+
+impl Mounted {
+    /// Runs `op` against `handle`'s plugin. A plugin whose call trapped (f.ex.
+    /// timed out) can't be entered again, so it is unmounted until the user's
+    /// plugins next load.
+    async fn call<T>(
+        &mut self,
+        handle: &str,
+        op: impl AsyncFnOnce(&mut LoadedPlugin) -> Result<T, lorealm_plugins::PluginError>,
+    ) -> Result<T, String> {
+        self.last_used = Instant::now();
+        let Some(i) = self.plugins.iter().position(|(h, _)| h == handle) else {
+            return Err(format!("plugin `{handle}` is not loaded"));
+        };
+        // On failure, the plugin crate logged why.
+        let err = match op(&mut self.plugins[i].1).await {
+            Ok(value) => return Ok(value),
+            Err(err) => err,
+        };
+        if !matches!(err, lorealm_plugins::PluginError::Call(_)) {
+            let message =
+                "Plugin stopped after a crash. It will load again the next time your plugins load.";
+            self.logs
+                .host(self.user_id, handle, Level::Warn, message.into())
+                .await;
+            self.plugins.remove(i);
+        }
+        Err(err.to_string())
+    }
 }
 
 pub struct PluginService {
@@ -56,7 +95,7 @@ pub struct PluginService {
     /// Compiled components by handle. Shared by every user.
     packages: DashMap<String, Arc<PluginPackage>>,
     /// `None` until the user's plugins are first needed.
-    mounted: DashMap<Snowflake, Arc<Mutex<Option<Mounted>>>>,
+    mounted: DashMap<Snowflake, Slot>,
 }
 
 impl PluginService {
@@ -131,7 +170,7 @@ impl PluginService {
     }
 
     /// Disable this plugin.
-    /// 
+    ///
     /// Fails while other enabled plugins require this one.
     pub async fn disable(&self, user_id: Snowflake, handle: &str) -> Result<(), PluginError> {
         let enabled = self.storage.list_user_plugins(user_id).await?;
@@ -172,6 +211,28 @@ impl PluginService {
         Ok(())
     }
 
+    /// What the user's loaded plugins add to Weaver and context templates.
+    /// `None` if they have none loaded.
+    pub async fn vocabulary(&self, user_id: Snowflake) -> Option<PluginVocabulary> {
+        let slot = self.mount(user_id).await;
+        let guard = slot.lock().await;
+        let plugins = &guard.as_ref()?.plugins;
+        if plugins.is_empty() {
+            return None;
+        }
+        let infos = plugins
+            .iter()
+            .filter_map(|(handle, _)| {
+                let info = &self.packages.get(handle)?.manifest.plugin;
+                Some((
+                    handle.clone(),
+                    (info.name.clone(), info.description.clone()),
+                ))
+            })
+            .collect();
+        Some(PluginVocabulary::new(Arc::clone(&slot), plugins, &infos))
+    }
+
     /// The user's log for `handle`, newest first.
     pub async fn logs(
         &self,
@@ -196,38 +257,27 @@ impl PluginService {
         let Some(mounted) = guard.as_mut() else {
             return prompt;
         };
-        mounted.last_used = Instant::now();
-        if mounted.plugins.is_empty() {
+        let handles: Vec<String> = mounted.plugins.iter().map(|(h, _)| h.clone()).collect();
+        if handles.is_empty() {
             return prompt;
         }
 
         let mut messages: Vec<Message> = prompt.into_iter().map(Into::into).collect();
-        // A plugin whose call trapped (f.ex. timed out) can't be entered
-        // again, so it is unmounted until the user's plugins next mount.
-        let mut trapped = Vec::new();
-        for (handle, plugin) in &mut mounted.plugins {
-            match plugin.prompt_build(messages.clone()).await {
-                Ok(next) => messages = next,
-                // The plugin crate logged why.
-                Err(lorealm_plugins::PluginError::Hook(_)) => {}
-                Err(_) => {
-                    let message = "Plugin stopped after a crash. It will load again the next time your plugins load.";
-                    self.logs
-                        .host(user_id, handle, Level::Warn, message.into())
-                        .await;
-                    trapped.push(handle.clone());
-                }
+        for handle in handles {
+            let input = messages.clone();
+            if let Ok(next) = mounted
+                .call(&handle, async move |p| p.prompt_build(input).await)
+                .await
+            {
+                messages = next;
             }
         }
-        mounted
-            .plugins
-            .retain(|(handle, _)| !trapped.contains(handle));
         messages.into_iter().map(Into::into).collect()
     }
 
     /// The user's mount slot, filled on first use. A plugin that fails to
     /// load is logged and left out.
-    async fn mount(&self, user_id: Snowflake) -> Arc<Mutex<Option<Mounted>>> {
+    async fn mount(&self, user_id: Snowflake) -> Slot {
         let slot = Arc::clone(self.mounted.entry(user_id).or_default().value());
         let mut guard = slot.lock().await;
         if guard.is_some() {
@@ -277,14 +327,16 @@ impl PluginService {
                 logs: Arc::clone(&self.logs),
             });
             // On failure, the plugin crate logged why.
-            if let Ok(plugin) = self.host.instantiate(&package, services).await {
+            if let Ok(plugin) = self.host.instantiate(package, services).await {
                 plugins.push((handle, plugin));
             }
         }
 
         *guard = Some(Mounted {
+            user_id,
             plugins,
             last_used: Instant::now(),
+            logs: Arc::clone(&self.logs),
         });
         drop(guard);
         slot
