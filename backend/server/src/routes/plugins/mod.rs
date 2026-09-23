@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use axum::{
     Router,
-    routing::{get, patch},
+    routing::{get, patch, put},
 };
 use tower_cookies::CookieManagerLayer;
 
@@ -23,6 +23,7 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         ));
 
     let csrf_routes = Router::new()
+        .route("/", put(handlers::set_plugin_order))
         .route("/{handle}", patch(handlers::toggle_plugin_enabled))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),

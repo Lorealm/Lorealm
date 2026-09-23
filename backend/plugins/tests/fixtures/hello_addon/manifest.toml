@@ -1,0 +1,14 @@
+# The hello component, requiring `hello`.
+[plugin]
+name = "Hello Addon"
+handle = "hello_addon"
+description = "Test fixture that requires the hello plugin."
+author = "Lorealm"
+version = "0.1.0"
+permissions = ["prompt:write", "persona:read", "data:persist"]
+
+[compatibility]
+requires = { hello = "^0.1" }
+
+[structure]
+backend = "../hello/target/wasm32-wasip2/release/hello.wasm"

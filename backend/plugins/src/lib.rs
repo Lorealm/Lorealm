@@ -1,6 +1,7 @@
 mod host;
 mod log;
 mod manifest;
+mod resolve;
 
 pub use host::{
     HostServices, LoadedPlugin, PluginError, PluginHost, PluginPackage,
@@ -8,3 +9,4 @@ pub use host::{
 };
 pub use log::{LogEntry, LogSource};
 pub use manifest::{Compatibility, Manifest, ManifestError, PluginInfo, Structure};
+pub use resolve::{Resolution, resolve};

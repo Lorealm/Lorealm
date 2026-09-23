@@ -1,0 +1,14 @@
+# The hello component, conflicting with `hello`.
+[plugin]
+name = "Hello Rival"
+handle = "hello_rival"
+description = "Test fixture that conflicts with the hello plugin."
+author = "Lorealm"
+version = "0.1.0"
+permissions = ["prompt:write", "persona:read", "data:persist"]
+
+[compatibility]
+conflicts = ["hello"]
+
+[structure]
+backend = "../hello/target/wasm32-wasip2/release/hello.wasm"

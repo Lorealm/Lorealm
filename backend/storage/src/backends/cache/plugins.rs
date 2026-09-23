@@ -20,6 +20,14 @@ impl PluginStorage for CachedStorage {
         self.backend.enable_user_plugin(user_id, handle).await
     }
 
+    async fn set_user_plugin_order(
+        &self,
+        user_id: Snowflake,
+        handles: &[String],
+    ) -> Result<(), StorageError> {
+        self.backend.set_user_plugin_order(user_id, handles).await
+    }
+
     async fn disable_user_plugin(
         &self,
         user_id: Snowflake,

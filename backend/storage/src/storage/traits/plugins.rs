@@ -15,6 +15,12 @@ pub trait PluginStorage: Send + Sync {
         user_id: Snowflake,
         handle: &str,
     ) -> Result<(), StorageError>;
+    /// Sets the user's load order. `handles` must be exactly the enabled plugins.
+    async fn set_user_plugin_order(
+        &self,
+        user_id: Snowflake,
+        handles: &[String],
+    ) -> Result<(), StorageError>;
     async fn disable_user_plugin(
         &self,
         user_id: Snowflake,

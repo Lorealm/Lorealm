@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use semver::{Version, VersionReq};
@@ -46,7 +46,7 @@ pub struct Compatibility {
     #[serde(default)]
     pub loaded_after: Vec<String>,
     #[serde(default)]
-    pub requires: HashMap<String, VersionReq>,
+    pub requires: BTreeMap<String, VersionReq>,
     #[serde(default)]
     pub recommends: Vec<String>,
     #[serde(default)]
