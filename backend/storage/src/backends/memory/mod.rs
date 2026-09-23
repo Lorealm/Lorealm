@@ -52,6 +52,8 @@ pub struct MemoryStorage {
     pub(crate) user_plugins: RwLock<HashMap<Snowflake, Vec<String>>>,
     /// Keyed by (user, plugin handle, key).
     pub(crate) plugin_data: RwLock<HashMap<(Snowflake, String, String), Vec<u8>>>,
+    /// Oldest first, keyed by (user, plugin handle).
+    pub(crate) plugin_logs: RwLock<HashMap<(Snowflake, String), Vec<PluginLog>>>,
     pub(crate) tokenizers: RwLock<HashMap<Snowflake, Tokenizer>>,
     pub(crate) tokenizer_shares: RwLock<Vec<TokenizerShare>>,
     pub(crate) realms: RwLock<HashMap<Snowflake, StoredRealm>>,

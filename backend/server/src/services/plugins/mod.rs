@@ -5,21 +5,26 @@ use std::{
 };
 
 use async_trait::async_trait;
+use chrono::Utc;
 use dashmap::DashMap;
 use lorealm_plugins::{
-    HostServices, LoadedPlugin, Message, Persona, PluginHost, PluginInfo, PluginPackage, Role,
+    HostServices, Level, LoadedPlugin, LogEntry, LogSource, Message, Persona, PluginHost,
+    PluginInfo, PluginPackage, Role,
 };
 use lorealm_storage::{
     Storage, StorageError,
-    models::{Snowflake, is_identifier},
+    models::{PluginLog, PluginLogLevel, PluginLogSource, Snowflake, is_identifier},
 };
 use serde::Serialize;
 use tokio::sync::Mutex;
 
 use crate::{
+    config::PluginConfig,
     core::CleanableService,
     errors::PluginError,
-    services::{chat::PromptMessage, context::PromptRole, state::StateService},
+    services::{
+        chat::PromptMessage, context::PromptRole, snowflake::SnowflakeService, state::StateService,
+    },
 };
 
 /// How long a single call into a plugin may run.
@@ -45,6 +50,7 @@ pub struct PluginService {
     storage: Arc<dyn Storage>,
     state: Arc<StateService>,
     host: Arc<PluginHost>,
+    logs: Arc<PluginLogs>,
     /// `{data_directory}/plugins`, one directory per plugin, named by handle.
     dir: PathBuf,
     /// Compiled components by handle. Shared by every user.
@@ -54,8 +60,19 @@ pub struct PluginService {
 }
 
 impl PluginService {
-    pub fn new(storage: Arc<dyn Storage>, state: Arc<StateService>, dir: PathBuf) -> Self {
+    pub fn new(
+        storage: Arc<dyn Storage>,
+        snowflake: Arc<SnowflakeService>,
+        state: Arc<StateService>,
+        config: PluginConfig,
+        dir: PathBuf,
+    ) -> Self {
         Self {
+            logs: Arc::new(PluginLogs {
+                storage: Arc::clone(&storage),
+                snowflake,
+                cap: config.log_cap,
+            }),
             storage,
             state,
             host: Arc::new(PluginHost::new(CALL_TIMEOUT).expect("plugin host should initialize")),
@@ -100,6 +117,18 @@ impl PluginService {
         Ok(())
     }
 
+    /// The user's log for `handle`, newest first.
+    pub async fn logs(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+    ) -> Result<Vec<PluginLog>, PluginError> {
+        Ok(self
+            .storage
+            .list_plugin_logs(user_id, handle, self.logs.cap)
+            .await?)
+    }
+
     /// Runs the user's `prompt-build` hooks in load order. A plugin that fails
     /// is logged and skipped.
     pub async fn prompt_build(
@@ -124,11 +153,14 @@ impl PluginService {
         for (handle, plugin) in &mut mounted.plugins {
             match plugin.prompt_build(messages.clone()).await {
                 Ok(next) => messages = next,
-                Err(err) => {
-                    tracing::warn!(%handle, %user_id, error = %err, "prompt-build hook failed");
-                    if !matches!(err, lorealm_plugins::PluginError::Hook(_)) {
-                        trapped.push(handle.clone());
-                    }
+                // The plugin crate logged why.
+                Err(lorealm_plugins::PluginError::Hook(_)) => {}
+                Err(_) => {
+                    let message = "Plugin stopped after a crash. It will load again the next time your plugins load.";
+                    self.logs
+                        .host(user_id, handle, Level::Warn, message.into())
+                        .await;
+                    trapped.push(handle.clone());
                 }
             }
         }
@@ -163,20 +195,20 @@ impl PluginService {
                 handle: handle.clone(),
                 storage: Arc::clone(&self.storage),
                 state: Arc::clone(&self.state),
+                logs: Arc::clone(&self.logs),
             });
-            let loaded = match self.package(&handle).await {
-                Ok(package) => self
-                    .host
-                    .instantiate(&package, services)
-                    .await
-                    .map_err(|err| PluginError::Invalid(handle.clone(), err)),
-                Err(err) => Err(err),
-            };
-            match loaded {
-                Ok(plugin) => plugins.push((handle, plugin)),
+            let package = match self.package(&handle).await {
+                Ok(package) => package,
                 Err(err) => {
-                    tracing::warn!(%handle, %user_id, error = %err, "failed to mount plugin")
+                    self.logs
+                        .host(user_id, &handle, Level::Error, err.to_string())
+                        .await;
+                    continue;
                 }
+            };
+            // On failure, the plugin crate logged why.
+            if let Ok(plugin) = self.host.instantiate(&package, services).await {
+                plugins.push((handle, plugin));
             }
         }
 
@@ -240,6 +272,7 @@ struct UserServices {
     handle: String,
     storage: Arc<dyn Storage>,
     state: Arc<StateService>,
+    logs: Arc<PluginLogs>,
 }
 
 impl UserServices {
@@ -283,6 +316,80 @@ impl HostServices for UserServices {
             .delete_plugin_data(self.user_id, &self.handle, &key)
             .await
             .map_err(|err| self.storage_error(err))
+    }
+
+    async fn log(&self, entries: Vec<LogEntry>) {
+        self.logs.write(self.user_id, &self.handle, entries).await;
+    }
+}
+
+/// Stores plugin log entries, keeping the newest `cap` per user per plugin.
+struct PluginLogs {
+    storage: Arc<dyn Storage>,
+    snowflake: Arc<SnowflakeService>,
+    cap: u32,
+}
+
+impl PluginLogs {
+    async fn host(&self, user_id: Snowflake, handle: &str, level: Level, message: String) {
+        let entry = LogEntry {
+            level,
+            source: LogSource::Host,
+            message,
+        };
+        self.write(user_id, handle, vec![entry]).await;
+    }
+
+    /// Writes a list of [`LogEntry`]s to tracing
+    /// 
+    /// Host entries are mirrored to tracing at their own level,
+    /// Guest logs are written to debug to avoid flooding stdout.
+    async fn write(&self, user_id: Snowflake, handle: &str, entries: Vec<LogEntry>) {
+        let created_at = Utc::now();
+        let logs: Vec<PluginLog> = entries
+            .into_iter()
+            .map(|entry| {
+                let message = &entry.message;
+                match (entry.source, entry.level) {
+                    (LogSource::Guest, _) => {
+                        tracing::debug!(%handle, %user_id, "plugin: {message}")
+                    }
+                    (LogSource::Host, Level::Error) => {
+                        tracing::error!(%handle, %user_id, "{message}")
+                    }
+                    (LogSource::Host, Level::Warn) => {
+                        tracing::warn!(%handle, %user_id, "{message}")
+                    }
+                    (LogSource::Host, _) => tracing::info!(%handle, %user_id, "{message}"),
+                }
+                PluginLog {
+                    id: self.snowflake.generate(),
+                    user_id,
+                    handle: handle.to_owned(),
+                    level: match entry.level {
+                        Level::Trace => PluginLogLevel::Trace,
+                        Level::Debug => PluginLogLevel::Debug,
+                        Level::Info => PluginLogLevel::Info,
+                        Level::Warn => PluginLogLevel::Warn,
+                        Level::Error => PluginLogLevel::Error,
+                    },
+                    source: match entry.source {
+                        LogSource::Host => PluginLogSource::Host,
+                        LogSource::Guest => PluginLogSource::Guest,
+                    },
+                    message: entry.message,
+                    created_at,
+                }
+            })
+            .collect();
+
+        if let Err(err) = self
+            .storage
+            .append_plugin_logs(user_id, handle, &logs, self.cap)
+            .await
+        {
+            tracing::error!(%handle, %user_id, error = %err, "failed to store plugin logs");
+        }
     }
 }
 

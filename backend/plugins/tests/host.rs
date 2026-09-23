@@ -5,7 +5,8 @@ use std::sync::{Arc, Mutex, Once};
 use std::time::Duration;
 
 use lorealm_plugins::{
-    HostServices, Message, Persona, PluginError, PluginHost, PluginPackage, Role,
+    HostServices, Level, LogEntry, LogSource, Message, Persona, PluginError, PluginHost,
+    PluginPackage, Role,
 };
 
 fn fixture(name: &str) -> PathBuf {
@@ -31,6 +32,18 @@ fn host() -> PluginHost {
 #[derive(Default)]
 struct TestServices {
     data: Mutex<HashMap<String, Vec<u8>>>,
+    logs: Mutex<Vec<LogEntry>>,
+}
+
+impl TestServices {
+    /// Whether an entry from `source` at `level` contains `text`.
+    fn logged(&self, level: Level, source: LogSource, text: &str) -> bool {
+        self.logs
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|e| e.level == level && e.source == source && e.message.contains(text))
+    }
 }
 
 #[async_trait::async_trait]
@@ -54,6 +67,10 @@ impl HostServices for TestServices {
     async fn delete_data(&self, key: String) -> Result<(), String> {
         self.data.lock().unwrap().remove(&key);
         Ok(())
+    }
+
+    async fn log(&self, entries: Vec<LogEntry>) {
+        self.logs.lock().unwrap().extend(entries);
     }
 }
 
@@ -145,16 +162,18 @@ async fn runaway_hook_times_out() {
     let host = PluginHost::new(Duration::from_millis(100)).unwrap();
     for name in HELLOS {
         let package = compile(&host, name);
-        let mut plugin = host
-            .instantiate(&package, Arc::new(TestServices::default()))
-            .await
-            .unwrap();
+        let services = Arc::new(TestServices::default());
+        let mut plugin = host.instantiate(&package, services.clone()).await.unwrap();
 
         let result = plugin.prompt_build(ask("loop forever")).await;
         assert!(
             matches!(result, Err(PluginError::Timeout)),
             "{name}: {:?}",
             result.err()
+        );
+        assert!(
+            services.logged(Level::Error, LogSource::Host, "timed out"),
+            "{name}"
         );
 
         // A trapped instance can't be entered again.
@@ -190,10 +209,8 @@ async fn persisted_data_survives_between_calls() {
 async fn persisting_without_permission_fails_the_hook() {
     let host = host();
     let package = compile(&host, "no_data");
-    let mut plugin = host
-        .instantiate(&package, Arc::new(TestServices::default()))
-        .await
-        .unwrap();
+    let services = Arc::new(TestServices::default());
+    let mut plugin = host.instantiate(&package, services.clone()).await.unwrap();
 
     let result = plugin.prompt_build(ask("Hi")).await;
 
@@ -202,4 +219,51 @@ async fn persisting_without_permission_fails_the_hook() {
         "{:?}",
         result.err()
     );
+    assert!(services.logged(
+        Level::Warn,
+        LogSource::Host,
+        "missing permission `data:persist`"
+    ));
+    assert!(services.logged(Level::Error, LogSource::Host, "hook failed"));
+}
+
+#[tokio::test]
+async fn guest_logs_and_output_reach_the_host() {
+    let host = host();
+    for name in HELLOS {
+        let package = compile(&host, name);
+        let services = Arc::new(TestServices::default());
+        let mut plugin = host.instantiate(&package, services.clone()).await.unwrap();
+
+        plugin.prompt_build(ask("Hi")).await.unwrap();
+
+        assert!(
+            services.logged(Level::Info, LogSource::Guest, "greeting #1"),
+            "{name}: log import"
+        );
+        assert!(
+            services.logged(Level::Info, LogSource::Guest, "printed greeting #1"),
+            "{name}: stdout"
+        );
+    }
+}
+
+#[tokio::test]
+async fn crash_output_is_logged() {
+    let host = host();
+    for name in HELLOS {
+        let package = compile(&host, name);
+        let services = Arc::new(TestServices::default());
+        let mut plugin = host.instantiate(&package, services.clone()).await.unwrap();
+
+        let result = plugin.prompt_build(ask("crash")).await;
+
+        assert!(result.is_err(), "{name}");
+        assert!(
+            services.logged(Level::Warn, LogSource::Guest, "crashed on purpose"),
+            "{name}: {:#?}",
+            services.logs.lock().unwrap()
+        );
+        assert!(services.logged(Level::Error, LogSource::Host, ""), "{name}");
+    }
 }

@@ -4,6 +4,7 @@ use axum::{
     Json,
     extract::{Path, State},
 };
+use lorealm_storage::models::PluginLog;
 use serde::Deserialize;
 
 use crate::{
@@ -18,6 +19,20 @@ pub async fn list_plugins(
     let plugins = app_state.services().plugins().list(session.user_id).await?;
 
     Ok(Json(plugins))
+}
+
+pub async fn list_plugin_logs(
+    State(app_state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(handle): Path<String>,
+) -> Result<Json<Vec<PluginLog>>, AppError> {
+    let logs = app_state
+        .services()
+        .plugins()
+        .logs(session.user_id, &handle)
+        .await?;
+
+    Ok(Json(logs))
 }
 
 #[derive(Deserialize)]

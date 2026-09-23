@@ -1,5 +1,6 @@
 mod characters;
 mod hosting;
+mod plugins;
 mod session;
 mod storage;
 mod task;
@@ -14,6 +15,7 @@ use std::{
 
 pub use characters::*;
 pub use hosting::HostingConfig;
+pub use plugins::PluginConfig;
 use indexmap::IndexMap;
 pub use session::*;
 pub use task::*;
@@ -97,6 +99,7 @@ impl ConfigProvider {
         provider.register::<UserConfig>();
         provider.register::<CharacterConfig>();
         provider.register::<TokenizerConfig>();
+        provider.register::<PluginConfig>();
         provider.register::<TaskConfig>();
 
         if !existed {

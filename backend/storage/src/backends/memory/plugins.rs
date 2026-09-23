@@ -1,6 +1,10 @@
 use async_trait::async_trait;
 
-use crate::{PluginStorage, StorageError, backends::MemoryStorage, models::Snowflake};
+use crate::{
+    PluginStorage, StorageError,
+    backends::MemoryStorage,
+    models::{PluginLog, Snowflake},
+};
 
 #[async_trait]
 impl PluginStorage for MemoryStorage {
@@ -69,5 +73,33 @@ impl PluginStorage for MemoryStorage {
         let id = (user_id, handle.to_owned(), key.to_owned());
         self.plugin_data.write().await.remove(&id);
         Ok(())
+    }
+
+    async fn append_plugin_logs(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        logs: &[PluginLog],
+        cap: u32,
+    ) -> Result<(), StorageError> {
+        let mut all = self.plugin_logs.write().await;
+        let log = all.entry((user_id, handle.to_owned())).or_default();
+        log.extend_from_slice(logs);
+        let excess = log.len().saturating_sub(cap as usize);
+        log.drain(..excess);
+        Ok(())
+    }
+
+    async fn list_plugin_logs(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        limit: u32,
+    ) -> Result<Vec<PluginLog>, StorageError> {
+        let all = self.plugin_logs.read().await;
+        let Some(log) = all.get(&(user_id, handle.to_owned())) else {
+            return Ok(Vec::new());
+        };
+        Ok(log.iter().rev().take(limit as usize).cloned().collect())
     }
 }
