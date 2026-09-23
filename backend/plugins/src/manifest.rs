@@ -26,6 +26,18 @@ pub struct Manifest {
     pub structure: Structure,
     #[serde(default)]
     pub frontend: Frontend,
+    #[serde(default)]
+    pub build: Build,
+}
+
+/// How to build the plugin from source. Each command runs in the plugin's
+/// directory; an empty one is skipped.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct Build {
+    #[serde(default)]
+    pub backend: Vec<String>,
+    #[serde(default)]
+    pub frontend: Vec<String>,
 }
 
 /// What the plugin shows in the client.

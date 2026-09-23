@@ -1,9 +1,16 @@
-use std::{process::Command, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
+};
 
 use lorealm_storage::{
     PersonaStorage, PluginStorage,
-    models::{PluginLog, PluginLogLevel, PluginLogSource},
+    models::{PluginLog, PluginLogLevel, PluginLogSource, Snowflake},
 };
+use tokio::sync::OnceCell;
 
 use crate::{
     config::PluginConfig,
@@ -18,22 +25,65 @@ use crate::{
     tests::Harness,
 };
 
-/// Builds the hello component the plugin fixtures share.
-fn build_hello() {
-    let dir =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../plugins/tests/fixtures/hello");
-    let status = Command::new(env!("CARGO"))
-        .args(["build", "--release", "--target", "wasm32-wasip2"])
-        .current_dir(dir)
-        .status()
-        .expect("failed to run cargo");
-    assert!(status.success(), "failed to build the hello fixture");
+fn fixture(name: &str) -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../plugins/tests/fixtures")
+        .join(name)
 }
 
-/// A harness whose user has an active persona called Ada.
+/// An empty plugins directory of its own.
+fn fresh_dir() -> PathBuf {
+    static NEXT: AtomicUsize = AtomicUsize::new(0);
+    let n = NEXT.fetch_add(1, Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!("lorealm-plugins-{}-{n}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+/// A plugin service over the harness's storage, reading plugins from `dir`.
+fn service(h: &Harness, dir: PathBuf, config: PluginConfig) -> Arc<PluginService> {
+    let storage = Arc::clone(&h.store) as Arc<dyn lorealm_storage::Storage>;
+    Arc::new(PluginService::new(
+        Arc::clone(&storage),
+        Arc::clone(&h.snow),
+        Arc::new(StateService::new(storage)),
+        config,
+        dir,
+    ))
+}
+
+/// The fixtures, installed from source once per test run.
+async fn installed_dir() -> PathBuf {
+    static DIR: OnceCell<PathBuf> = OnceCell::const_new();
+    DIR.get_or_init(|| async {
+        let h = Harness::new().await;
+        let dir = fresh_dir();
+        let plugins = service(&h, dir.clone(), PluginConfig::default());
+        // `hello` first: the others reuse its build output.
+        for name in [
+            "hello",
+            "hello_addon",
+            "hello_rival",
+            "no_data",
+            "unpermitted",
+        ] {
+            plugins
+                .install_from_source(Snowflake(0), fixture(name))
+                .await
+                .unwrap_or_else(|e| panic!("installing {name}: {e}"));
+        }
+        dir
+    })
+    .await
+    .clone()
+}
+
+/// A harness with the fixtures installed, whose user has an active persona
+/// called Ada.
 async fn harness() -> Harness {
-    build_hello();
-    let h = Harness::new().await;
+    let mut h = Harness::new().await;
+    h.plugins = service(&h, installed_dir().await, PluginConfig::default());
     let persona = h.persona(h.user, "Ada").await;
     h.store.set_active_persona(h.user, persona).await.unwrap();
     h
@@ -124,7 +174,6 @@ async fn list_marks_enabled_plugins() {
         .map(|p| (p.info.handle.as_str(), p.enabled))
         .collect();
 
-    // Other fixtures may or may not be built, so only check these two.
     assert!(enabled.contains(&("hello", true)), "{enabled:?}");
     assert!(enabled.contains(&("unpermitted", false)), "{enabled:?}");
 }
@@ -200,7 +249,10 @@ async fn crashing_plugin_is_logged_and_stopped() {
 #[tokio::test]
 async fn enabled_plugin_that_is_not_installed_is_logged() {
     let h = harness().await;
-    h.store.enable_user_plugin(h.user, "missing").await.unwrap();
+    h.store
+        .enable_user_plugin(h.user, "missing", "0.1.0")
+        .await
+        .unwrap();
 
     h.plugins.prompt_build(h.user, prompt()).await;
     let logs = h.plugins.logs(h.user, "missing").await.unwrap();
@@ -219,14 +271,7 @@ async fn enabled_plugin_that_is_not_installed_is_logged() {
 #[tokio::test]
 async fn log_keeps_only_the_newest_entries() {
     let h = harness().await;
-    let storage = Arc::clone(&h.store) as Arc<dyn lorealm_storage::Storage>;
-    let plugins = PluginService::new(
-        Arc::clone(&storage),
-        Arc::clone(&h.snow),
-        Arc::new(StateService::new(storage)),
-        PluginConfig { log_cap: 3 },
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../plugins/tests/fixtures"),
-    );
+    let plugins = service(&h, installed_dir().await, PluginConfig { log_cap: 3 });
     plugins.enable(h.user, "hello").await.unwrap();
 
     for _ in 0..3 {
@@ -294,9 +339,12 @@ async fn a_conflicting_plugin_cannot_be_enabled() {
 #[tokio::test]
 async fn a_conflict_that_got_past_enabling_is_skipped_and_logged() {
     let h = harness().await;
-    h.store.enable_user_plugin(h.user, "hello").await.unwrap();
     h.store
-        .enable_user_plugin(h.user, "hello_rival")
+        .enable_user_plugin(h.user, "hello", "0.1.0")
+        .await
+        .unwrap();
+    h.store
+        .enable_user_plugin(h.user, "hello_rival", "0.1.0")
         .await
         .unwrap();
 
@@ -337,7 +385,15 @@ async fn load_order_must_list_exactly_the_enabled_plugins() {
     let order = vec!["unpermitted".to_owned(), "hello".to_owned()];
     h.plugins.set_order(h.user, order.clone()).await.unwrap();
 
-    assert_eq!(h.store.list_user_plugins(h.user).await.unwrap(), order);
+    let stored: Vec<String> = h
+        .store
+        .list_user_plugins(h.user)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|p| p.handle)
+        .collect();
+    assert_eq!(stored, order);
 }
 
 async fn with_hello() -> (Harness, PluginVocabulary) {
@@ -579,4 +635,164 @@ async fn unsafe_slots_need_the_plugins_permission() {
 
     assert!(listed_entries(&h, "hello_addon", true).await.is_empty());
     assert!(matches!(refused, Err(PluginError::NotFound(_))));
+}
+
+/// A source for `hello` at `version`, reusing the fixture's build output.
+fn hello_source(version: &str) -> PathBuf {
+    let dir = fresh_dir();
+    let wasm = fixture("hello/target/wasm32-wasip2/release/hello.wasm");
+    let manifest = format!(
+        r#"
+        [plugin]
+        name = "Hello"
+        handle = "hello"
+        description = ""
+        author = "Lorealm"
+        version = "{version}"
+        permissions = ["prompt:write", "persona:read", "data:persist"]
+
+        [structure]
+        backend = "{}"
+        "#,
+        wasm.display()
+    );
+    std::fs::write(dir.join("manifest.toml"), manifest).unwrap();
+    dir
+}
+
+#[tokio::test]
+async fn installing_builds_and_stages_the_plugin() {
+    let h = harness().await;
+    let dir = fresh_dir();
+    let plugins = service(&h, dir.clone(), PluginConfig::default());
+
+    let report = plugins
+        .install_from_source(h.user, fixture("hello"))
+        .await
+        .unwrap();
+    let again = plugins.install_from_source(h.user, fixture("hello")).await;
+
+    let installed = dir.join("hello@0.1.0");
+    assert_eq!(
+        (report.handle.as_str(), report.version.as_str()),
+        ("hello", "0.1.0")
+    );
+    assert!(report.log.contains("$ cargo build"), "{}", report.log);
+    assert!(installed.join("backend.wasm").is_file());
+    assert!(installed.join("frontend/inspector.html").is_file());
+    assert!(!installed.join("src").exists(), "sources aren't installed");
+    assert!(matches!(again, Err(PluginError::AlreadyInstalled(_))));
+}
+
+#[tokio::test]
+async fn a_failed_build_is_reported_and_logged() {
+    let h = harness().await;
+    let plugins = service(&h, fresh_dir(), PluginConfig::default());
+    let source = fresh_dir();
+    std::fs::write(
+        source.join("manifest.toml"),
+        r#"
+        [plugin]
+        name = "Broken"
+        handle = "broken"
+        description = ""
+        author = "Lorealm"
+        version = "0.1.0"
+
+        [build]
+        backend = ["sh", "-c", "echo compiling; exit 3"]
+        "#,
+    )
+    .unwrap();
+
+    let result = plugins.install_from_source(h.user, source).await;
+    let logs = plugins.logs(h.user, "broken").await.unwrap();
+
+    assert!(matches!(result, Err(PluginError::BuildFailed(_))));
+    assert!(logs[0].message.starts_with("Build failed"), "{logs:#?}");
+    assert!(logs[0].message.contains("compiling"), "{logs:#?}");
+}
+
+#[tokio::test]
+async fn users_stay_on_their_version_until_they_update() {
+    let h = harness().await;
+    let dir = fresh_dir();
+    let plugins = service(&h, dir.clone(), PluginConfig::default());
+    plugins
+        .install_from_source(h.user, hello_source("0.1.0"))
+        .await
+        .unwrap();
+    plugins.enable(h.user, "hello").await.unwrap();
+
+    plugins
+        .install_from_source(h.user, hello_source("0.2.0"))
+        .await
+        .unwrap();
+    plugins.enable(h.stranger, "hello").await.unwrap();
+    let mine = plugins.list(h.user, false).await.unwrap();
+
+    assert_eq!(mine[0].info.version.to_string(), "0.1.0");
+    assert_eq!(mine[0].latest.as_ref().unwrap().to_string(), "0.2.0");
+    assert_eq!(
+        h.store.list_user_plugins(h.stranger).await.unwrap()[0].version,
+        "0.2.0"
+    );
+
+    plugins.update(h.user, "hello", None).await.unwrap();
+
+    assert_eq!(
+        h.store.list_user_plugins(h.user).await.unwrap()[0].version,
+        "0.2.0"
+    );
+    assert!(!dir.join("hello@0.1.0").exists(), "no one is on it anymore");
+}
+
+#[tokio::test]
+async fn an_update_that_breaks_a_dependent_is_refused() {
+    let h = harness().await;
+    let plugins = service(&h, fresh_dir(), PluginConfig::default());
+    plugins
+        .install_from_source(h.user, fixture("hello"))
+        .await
+        .unwrap();
+    plugins
+        .install_from_source(h.user, fixture("hello_addon"))
+        .await
+        .unwrap();
+    plugins.enable(h.user, "hello").await.unwrap();
+    plugins.enable(h.user, "hello_addon").await.unwrap();
+    plugins
+        .install_from_source(h.user, hello_source("0.2.0"))
+        .await
+        .unwrap();
+
+    let result = plugins.update(h.user, "hello", None).await;
+
+    assert!(
+        matches!(&result, Err(PluginError::CannotUpdate(_, reason)) if reason.starts_with("`hello_addon` requires `hello` ^0.1")),
+        "{result:?}"
+    );
+}
+
+#[tokio::test]
+async fn uninstalling_keeps_versions_users_are_on() {
+    let h = harness().await;
+    let dir = fresh_dir();
+    let plugins = service(&h, dir.clone(), PluginConfig::default());
+    plugins
+        .install_from_source(h.user, hello_source("0.1.0"))
+        .await
+        .unwrap();
+    plugins.enable(h.user, "hello").await.unwrap();
+
+    plugins.uninstall("hello").await.unwrap();
+    let kept = dir.join("hello@0.1.0").exists();
+    let theirs = plugins.enable(h.stranger, "hello").await;
+    let out = plugins.prompt_build(h.user, prompt()).await;
+    plugins.disable(h.user, "hello").await.unwrap();
+
+    assert!(kept);
+    assert!(matches!(theirs, Err(PluginError::NotFound(_))));
+    assert_eq!(out.len(), 2, "still runs for the user on it");
+    assert!(!dir.join("hello@0.1.0").exists());
 }

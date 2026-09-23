@@ -125,6 +125,13 @@ fn contract_surface() -> Vec<(&'static str, Vec<Box<dyn DomainError>>)> {
                 )),
                 Box::new(PluginError::InvalidOrder),
                 Box::new(PluginError::CallFailed("hello".into(), "boom".into())),
+                Box::new(PluginError::CannotUpdate(
+                    "hello".into(),
+                    "`hello_addon` requires `hello` ^0.1, but 0.2.0 is enabled".into(),
+                )),
+                Box::new(PluginError::InvalidSource("no manifest.toml".into())),
+                Box::new(PluginError::AlreadyInstalled("hello@0.1.0".into())),
+                Box::new(PluginError::BuildFailed("hello".into())),
             ],
         ),
         (

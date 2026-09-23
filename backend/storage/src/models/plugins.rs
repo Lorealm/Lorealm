@@ -3,6 +3,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::Snowflake;
 
+/// A plugin a user has enabled, at the version they're on.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::FromRow)]
+pub struct UserPlugin {
+    pub handle: String,
+    pub version: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "TEXT", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]

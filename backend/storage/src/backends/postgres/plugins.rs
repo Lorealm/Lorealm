@@ -3,36 +3,68 @@ use async_trait::async_trait;
 use crate::{
     PluginStorage, StorageError,
     backends::PostgresStorage,
-    models::{PluginLog, Snowflake},
+    models::{PluginLog, Snowflake, UserPlugin},
 };
 
 #[async_trait]
 impl PluginStorage for PostgresStorage {
-    async fn list_user_plugins(&self, user_id: Snowflake) -> Result<Vec<String>, StorageError> {
-        let handles = sqlx::query_scalar::<_, String>(
-            "SELECT handle FROM user_plugins WHERE user_id = $1 ORDER BY position",
+    async fn list_user_plugins(&self, user_id: Snowflake) -> Result<Vec<UserPlugin>, StorageError> {
+        let plugins = sqlx::query_as::<_, UserPlugin>(
+            "SELECT handle, version FROM user_plugins WHERE user_id = $1 ORDER BY position",
         )
         .bind(user_id)
         .fetch_all(&self.pool)
         .await?;
-        Ok(handles)
+        Ok(plugins)
     }
 
     async fn enable_user_plugin(
         &self,
         user_id: Snowflake,
         handle: &str,
+        version: &str,
     ) -> Result<(), StorageError> {
         sqlx::query(
-            r#"INSERT INTO user_plugins (user_id, handle, position)
-            SELECT $1, $2, COALESCE(MAX(position) + 1, 0) FROM user_plugins WHERE user_id = $1
+            r#"INSERT INTO user_plugins (user_id, handle, version, position)
+            SELECT $1, $2, $3, COALESCE(MAX(position) + 1, 0) FROM user_plugins WHERE user_id = $1
             ON CONFLICT (user_id, handle) DO NOTHING"#,
         )
         .bind(user_id)
         .bind(handle)
+        .bind(version)
         .execute(&self.pool)
         .await?;
         Ok(())
+    }
+
+    async fn set_user_plugin_version(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        version: &str,
+    ) -> Result<(), StorageError> {
+        sqlx::query("UPDATE user_plugins SET version = $3 WHERE user_id = $1 AND handle = $2")
+            .bind(user_id)
+            .bind(handle)
+            .bind(version)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    async fn is_plugin_version_used(
+        &self,
+        handle: &str,
+        version: &str,
+    ) -> Result<bool, StorageError> {
+        let used = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS (SELECT 1 FROM user_plugins WHERE handle = $1 AND version = $2)",
+        )
+        .bind(handle)
+        .bind(version)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(used)
     }
 
     async fn set_user_plugin_order(

@@ -3,12 +3,12 @@ use async_trait::async_trait;
 use crate::{
     PluginStorage, StorageError,
     backends::CachedStorage,
-    models::{PluginLog, Snowflake},
+    models::{PluginLog, Snowflake, UserPlugin},
 };
 
 #[async_trait]
 impl PluginStorage for CachedStorage {
-    async fn list_user_plugins(&self, user_id: Snowflake) -> Result<Vec<String>, StorageError> {
+    async fn list_user_plugins(&self, user_id: Snowflake) -> Result<Vec<UserPlugin>, StorageError> {
         self.backend.list_user_plugins(user_id).await
     }
 
@@ -16,8 +16,30 @@ impl PluginStorage for CachedStorage {
         &self,
         user_id: Snowflake,
         handle: &str,
+        version: &str,
     ) -> Result<(), StorageError> {
-        self.backend.enable_user_plugin(user_id, handle).await
+        self.backend
+            .enable_user_plugin(user_id, handle, version)
+            .await
+    }
+
+    async fn set_user_plugin_version(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        version: &str,
+    ) -> Result<(), StorageError> {
+        self.backend
+            .set_user_plugin_version(user_id, handle, version)
+            .await
+    }
+
+    async fn is_plugin_version_used(
+        &self,
+        handle: &str,
+        version: &str,
+    ) -> Result<bool, StorageError> {
+        self.backend.is_plugin_version_used(handle, version).await
     }
 
     async fn set_user_plugin_order(

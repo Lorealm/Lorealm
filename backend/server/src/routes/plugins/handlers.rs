@@ -4,6 +4,7 @@ use axum::{
     Json,
     extract::{Path, State},
 };
+use lorealm_plugins::Version;
 use lorealm_storage::models::PluginLog;
 use serde::Deserialize;
 
@@ -11,7 +12,10 @@ use crate::{
     core::AppState,
     errors::AppError,
     extract::{AuthenticatedSession, ResolvedPermissions},
-    services::{permission::Permissions, plugins::InstalledPlugin},
+    services::{
+        permission::Permissions,
+        plugins::{InstallReport, InstalledPlugin},
+    },
 };
 
 pub async fn list_plugins(
@@ -125,4 +129,62 @@ pub async fn call_plugin(
         .await?;
 
     Ok(Json(value))
+}
+
+#[derive(Deserialize)]
+pub struct UpdatePlugin {
+    /// The latest when left out.
+    #[serde(default)]
+    pub version: Option<Version>,
+}
+
+/// Moves the user to another installed version of the plugin.
+pub async fn update_plugin(
+    State(app_state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(handle): Path<String>,
+    Json(payload): Json<UpdatePlugin>,
+) -> Result<(), AppError> {
+    app_state
+        .services()
+        .plugins()
+        .update(session.user_id, &handle, payload.version)
+        .await?;
+
+    Ok(())
+}
+
+#[derive(Deserialize)]
+pub struct InstallPlugin {
+    /// A plugin's source directory on the server.
+    pub path: std::path::PathBuf,
+}
+
+pub async fn install_plugin(
+    State(app_state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    perms: ResolvedPermissions,
+    Json(payload): Json<InstallPlugin>,
+) -> Result<Json<InstallReport>, AppError> {
+    perms.require(Permissions::ALLOW_PLUGIN_INSTALL_FROM_SOURCE)?;
+    let report = app_state
+        .services()
+        .plugins()
+        .install_from_source(session.user_id, payload.path)
+        .await?;
+
+    Ok(Json(report))
+}
+
+/// Uninstalls the plugin for everyone. Versions users are on stay until
+/// they move off them.
+pub async fn uninstall_plugin(
+    State(app_state): State<Arc<AppState>>,
+    perms: ResolvedPermissions,
+    Path(handle): Path<String>,
+) -> Result<(), AppError> {
+    perms.require(Permissions::ALLOW_PLUGIN_INSTALL_FROM_SOURCE)?;
+    app_state.services().plugins().uninstall(&handle).await?;
+
+    Ok(())
 }

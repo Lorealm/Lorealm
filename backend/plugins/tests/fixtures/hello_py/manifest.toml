@@ -9,3 +9,6 @@ permissions = ["prompt:write", "persona:read", "data:persist", "state:read", "st
 
 [structure]
 backend = "target/hello.wasm"
+
+[build]
+backend = ["uvx", "componentize-py@0.25.1", "-d", "../../../wit", "-w", "plugin", "componentize", "app", "-o", "target/hello.wasm"]

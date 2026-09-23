@@ -65,7 +65,7 @@ pub(crate) struct Harness {
     pub blueprints: Arc<BlueprintService>,
     pub store: Arc<MemoryStorage>,
     pub snow: Arc<SnowflakeService>,
-    /// Reads plugins from the plugin crate's test fixtures.
+    /// No plugins installed; plugin tests swap in their own.
     pub plugins: Arc<PluginService>,
     /// The caller in every test unless one says otherwise.
     pub user: Snowflake,
@@ -132,7 +132,7 @@ impl Harness {
             Arc::clone(&snow),
             Arc::clone(&state),
             Default::default(),
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../plugins/tests/fixtures"),
+            std::path::PathBuf::new(),
         ));
         let chat = Arc::new(ChatService::new(
             Arc::clone(&storage),

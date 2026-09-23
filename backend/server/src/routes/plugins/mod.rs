@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use axum::{
     Router,
-    routing::{get, patch, post, put},
+    routing::{delete, get, patch, post, put},
 };
 use tower_cookies::CookieManagerLayer;
 
@@ -27,7 +27,7 @@ pub(super) fn router(
         .route("/{handle}/frontend/{entry}", get(handlers::frontend_entry))
         // Unsafe slots are only listed and served to users allowed them.
         .layer(axum::middleware::from_fn_with_state(
-            permission_state,
+            permission_state.clone(),
             server_permission_middleware,
         ))
         .layer(axum::middleware::from_fn_with_state(
@@ -39,6 +39,14 @@ pub(super) fn router(
         .route("/", put(handlers::set_plugin_order))
         .route("/{handle}", patch(handlers::toggle_plugin_enabled))
         .route("/{handle}/call", post(handlers::call_plugin))
+        .route("/{handle}/update", post(handlers::update_plugin))
+        // Server-wide: installing runs the plugin's build on the host.
+        .route("/install", post(handlers::install_plugin))
+        .route("/{handle}", delete(handlers::uninstall_plugin))
+        .layer(axum::middleware::from_fn_with_state(
+            permission_state,
+            server_permission_middleware,
+        ))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
             session_csrf_middleware,
