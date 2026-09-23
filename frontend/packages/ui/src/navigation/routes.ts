@@ -34,6 +34,7 @@ export type Route =
 	| { view: 'realms'; id?: Snowflake }
 	| { view: 'connections'; id?: Snowflake | typeof SECRETS }
 	| { view: 'studio'; section: StudioSection; id?: Snowflake }
+	| { view: 'plugins' }
 	| { view: 'settings'; scope: 'user'; section: UserSection }
 	| { view: 'settings'; scope: 'server'; section: ServerSection };
 

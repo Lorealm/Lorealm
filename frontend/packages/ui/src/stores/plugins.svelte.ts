@@ -35,6 +35,12 @@ class PluginsStore {
 		return this.slots('inspector').find((s) => s.key === key);
 	}
 
+	/** Re-fetch the list */
+	reload(): Promise<void> {
+		this.loaded = false;
+		return this.load();
+	}
+
 	/** Fetch the list once. Repeat calls reuse the first result. */
 	async load(): Promise<void> {
 		if (this.loaded) return;

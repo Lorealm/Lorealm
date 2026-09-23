@@ -46,7 +46,9 @@ async fn main() -> anyhow::Result<()> {
                 .add_directive("sqlx=warn".parse().unwrap())
                 .add_directive("h2=warn".parse().unwrap())
                 .add_directive("hyper_util=warn".parse().unwrap())
-                .add_directive("reqwest=warn".parse().unwrap()),
+                .add_directive("reqwest=warn".parse().unwrap())
+                .add_directive("wasmtime=warn".parse().unwrap())
+                .add_directive("cranelift=warn".parse().unwrap()),
         )
         .init();
 

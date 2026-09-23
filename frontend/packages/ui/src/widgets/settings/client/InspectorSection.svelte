@@ -17,6 +17,7 @@
 		{ id: 'realms', label: 'Realms' },
 		{ id: 'connections', label: 'Connections' },
 		{ id: 'studio', label: 'Studio' },
+		{ id: 'plugins', label: 'Plugins' },
 		{ id: 'settings', label: 'Settings' }
 	];
 
