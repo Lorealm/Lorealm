@@ -4,7 +4,8 @@ mod manifest;
 mod resolve;
 
 pub use host::{
-    HostServices, LoadedPlugin, PluginError, PluginHost, PluginPackage, Registrations,
+    CommandContext, HostServices, LoadedPlugin, PluginError, PluginHost, PluginPackage,
+    Registrations,
     lorealm::plugin::types::{
         Block, CommandSignature, Hook, Level, Message, Param, Persona, ProcessorSignature, Role,
         SourceNode, ValueType,

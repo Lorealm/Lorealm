@@ -131,7 +131,9 @@ During `init`, a plugin can register:
 - **processors** with `register-processor`, called as `@[handle.name(properties)]`.
 - **context template nodes** with `register-source-node`, listed under a source with id `plugin:{handle}`.
 
-Each call reaches the plugin through `handle(event)`, which answers with the matching `response` case. Weaver values cross the boundary as JSON text, since WIT has no recursive types. Commands get no access to evaluation state yet: arguments in, value out.
+Each call reaches the plugin through `handle(event)`, which answers with the matching `response` case. Weaver values cross the boundary as JSON text, since WIT has no recursive types.
+
+A command is lent an `eval-context` for the length of its call, to `get` and `set` the evaluation's variables. Reading needs `state:read`; writing needs `state:write` and a command that declared `mutates-context`. The host context still decides what exists and what can be written, so a read-only host (a run condition, say) refuses writes. The context can't be kept: it's a borrowed resource, which the component model invalidates when the call returns. Triggers and documents aren't reachable through it yet, since they re-enter Weaver and could call back into the same plugin.
 
 Plugin callables are available wherever built-in vocabulary is: every Weaver host (tool bodies, slash commands, realm scripts, conditions and directors, widget renders, WTN documents), lorebooks, and the editor's vocabulary and checker. A plugin can't add processors to a namespace a built-in already uses. A template node whose plugin isn't loaded is skipped (the plugin's log says why) instead of failing the generation.
 

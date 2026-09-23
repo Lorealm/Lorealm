@@ -423,3 +423,45 @@ async fn a_user_without_plugins_has_no_vocabulary() {
 
     assert!(h.plugins.vocabulary(h.user).await.is_none());
 }
+
+/// A pool with `tally:n` set to 41.
+fn tally_pool() -> Arc<std::sync::Mutex<crate::services::state::StatePool>> {
+    let mut pool = crate::services::state::StatePool::new();
+    pool.entry("tally".into())
+        .or_default()
+        .insert("n".into(), serde_json::json!(41));
+    Arc::new(std::sync::Mutex::new(pool))
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_plugin_command_reads_and_writes_state() {
+    let (_h, plugins) = with_hello().await;
+    let host = WeaverHost::builder()
+        .profile(WeaverProfile::ChatTurn)
+        .pool(tally_pool())
+        .plugins(Some(plugins))
+        .build();
+
+    let body = compile_template(r#"$[hello.tally("n")]"#).unwrap();
+    let outcome = host.evaluate(body).await.unwrap();
+
+    let signature = host.registry().command_signature("hello.tally").unwrap();
+    assert!(signature.mutates_context);
+    assert_eq!(outcome.to_output_string(), "42");
+    assert_eq!(outcome.pool["tally"]["n"], serde_json::json!(42));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_read_only_host_refuses_a_plugin_write() {
+    let (_h, plugins) = with_hello().await;
+    let host = WeaverHost::builder()
+        .profile(WeaverProfile::RealmCondition)
+        .pool(tally_pool())
+        .plugins(Some(plugins))
+        .build();
+
+    let body = compile_template(r#"$[hello.tally("n")]"#).unwrap();
+    let err = host.evaluate_inline(body).unwrap_err();
+
+    assert!(err.to_string().contains("read-only"), "{err}");
+}
