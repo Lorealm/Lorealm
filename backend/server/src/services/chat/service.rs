@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::HashMap,
     pin::Pin,
     sync::{Arc, OnceLock, Weak},
@@ -553,7 +554,16 @@ impl ChatService {
             .load_kitoken_tokenizer(spec.tokenizer_id, spec.owner)
             .await?;
 
-        let widget_renders = render_widgets(widget_renders, &baseline.persistent);
+        let plugins = self.plugins.vocabulary(spec.owner).await;
+        let widget_renders = render_widgets(widget_renders, &baseline.persistent, plugins.as_ref());
+        let sources = match &plugins {
+            Some(plugins) => {
+                let mut sources = (*self.sources).clone();
+                plugins.sources().for_each(|s| sources.register(s));
+                Cow::Owned(sources)
+            }
+            None => Cow::Borrowed(&*self.sources),
+        };
 
         let captured;
         let trace = {
@@ -574,8 +584,9 @@ impl ChatService {
                 widget_prompts,
                 widget_renders: &widget_renders,
                 author_note,
+                plugins,
             };
-            let trace = assemble(&template, &self.sources, &ctx).await?;
+            let trace = assemble(&template, &sources, &ctx).await?;
             captured = ctx.lorebook_state.lock().await.take();
             trace
         };
@@ -705,7 +716,8 @@ impl ChatService {
             self.active_widgets(user_id, &attached).await?;
 
         // Newest first
-        let mut renderer = WidgetRenderer::new(&attachments, baseline.persistent.clone());
+        let mut renderer = WidgetRenderer::new(&attachments, baseline.persistent.clone())
+            .with_plugins(self.plugins.vocabulary(user_id).await);
         let mut turns: Vec<PromptTurn> = thread
             .iter()
             .rev()
@@ -980,7 +992,8 @@ impl ChatService {
         let mut host = WeaverHost::builder()
             .profile(WeaverProfile::ChatTurn)
             .attachments(policy.attachments.clone())
-            .pool(Arc::clone(&state));
+            .pool(Arc::clone(&state))
+            .plugins(self.plugins.vocabulary(owner).await);
 
         // Realm turns hand over a sink so the events a tool emits are read
         // back by the realm that scheduled the turn.

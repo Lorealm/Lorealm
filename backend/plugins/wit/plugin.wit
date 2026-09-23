@@ -31,15 +31,96 @@ interface types {
         prompt-build,
     }
 
-    /// Delivered to `handle`. The plugin returns the same case, possibly modified.
+    /// A Weaver value as JSON text. WIT has no recursive types.
+    type json = string;
+
+    enum value-type {
+        %string,
+        number,
+        %bool,
+        array,
+        object,
+        none,
+        any,
+    }
+
+    record param {
+        name: string,
+        description: string,
+        /// `none` accepts any type.
+        value-type: option<value-type>,
+        required: bool,
+    }
+
+    /// A Weaver command, called as `$[handle.name(args)]`.
+    record command-signature {
+        name: string,
+        /// One line, imperative, no trailing period.
+        description: string,
+        returns: value-type,
+        params: list<param>,
+    }
+
+    /// A Weaver processor, called as `@[handle.name(properties)]`.
+    record processor-signature {
+        name: string,
+        /// One line, imperative, no trailing period.
+        description: string,
+        returns: value-type,
+        properties: list<param>,
+    }
+
+    /// A context template node, listed under the plugin's source.
+    record source-node {
+        id: string,
+        title: string,
+        description: string,
+        icon: option<string>,
+    }
+
+    record block {
+        role: role,
+        content: string,
+    }
+
+    record command-call {
+        name: string,
+        /// Positional; a slot no argument reached is `null`.
+        args: list<json>,
+    }
+
+    record processor-call {
+        name: string,
+        properties: list<tuple<string, json>>,
+    }
+
+    record source-call {
+        node: string,
+        /// The node's settings in the template, as a JSON object.
+        settings: json,
+    }
+
+    /// Delivered to `handle`.
     variant event {
         /// The assembled prompt, just before it is sent to the model.
         prompt-build(list<message>),
+        command(command-call),
+        processor(processor-call),
+        source(source-call),
+    }
+
+    /// Answers `handle`, in the same case as the event.
+    variant response {
+        prompt-build(list<message>),
+        /// `none` produces no output in the template.
+        command(option<json>),
+        processor(json),
+        source(list<block>),
     }
 }
 
 interface host {
-    use types.{hook, level, persona};
+    use types.{command-signature, hook, level, persona, processor-signature, source-node};
 
     /// Writes to the plugin's log, which the user can read. Stdout and stderr
     /// are also captured, as `info` and `warn` lines.
@@ -47,6 +128,15 @@ interface host {
 
     /// Subscribes to `hook`. Fails if the manifest lacks the hook's permission.
     register-hook: func(hook: hook) -> result<_, string>;
+
+    /// Makes `$[handle.name(...)]` call this plugin. Only during `init`.
+    register-command: func(command: command-signature) -> result<_, string>;
+
+    /// Makes `@[handle.name(...)]` call this plugin. Only during `init`.
+    register-processor: func(processor: processor-signature) -> result<_, string>;
+
+    /// Adds a node to the plugin's context template source. Only during `init`.
+    register-source-node: func(node: source-node) -> result<_, string>;
 
     /// The user's active persona. Requires the `persona:read` permission.
     active-persona: func() -> result<persona, string>;
@@ -62,12 +152,13 @@ interface host {
 }
 
 world plugin {
-    use types.{event};
+    use types.{event, response};
     import host;
 
     /// Called once after the plugin is mounted.
     export init: func() -> result<_, string>;
 
-    /// Called for every event whose hook the plugin registered.
-    export handle: func(event: event) -> result<event, string>;
+    /// Called for every hook the plugin registered, and whenever something it
+    /// registered (a command, processor or source node) is used.
+    export handle: func(event: event) -> result<response, string>;
 }

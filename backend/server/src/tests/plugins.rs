@@ -9,7 +9,11 @@ use crate::{
     config::PluginConfig,
     errors::PluginError,
     services::{
-        chat::PromptMessage, context::PromptRole, plugins::PluginService, state::StateService,
+        chat::PromptMessage,
+        context::PromptRole,
+        plugins::{PluginService, PluginVocabulary},
+        state::StateService,
+        weaver::{WeaverHost, WeaverProfile, compile_template},
     },
     tests::Harness,
 };
@@ -334,4 +338,88 @@ async fn load_order_must_list_exactly_the_enabled_plugins() {
     h.plugins.set_order(h.user, order.clone()).await.unwrap();
 
     assert_eq!(h.store.list_user_plugins(h.user).await.unwrap(), order);
+}
+
+async fn with_hello() -> (Harness, PluginVocabulary) {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    let plugins = h.plugins.vocabulary(h.user).await.unwrap();
+    (h, plugins)
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_plugin_processor_runs_in_a_template() {
+    let (_h, plugins) = with_hello().await;
+    let host = WeaverHost::builder()
+        .profile(WeaverProfile::ChatTurn)
+        .plugins(Some(plugins))
+        .build();
+
+    let body = compile_template(r#"@[hello.shout(text: "hi")]"#).unwrap();
+    let outcome = host.evaluate(body).await.unwrap();
+
+    assert_eq!(outcome.to_output_string(), "HI!");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn plugin_callables_run_in_inline_hosts() {
+    let (_h, plugins) = with_hello().await;
+    let host = WeaverHost::builder()
+        .profile(WeaverProfile::RealmCondition)
+        .plugins(Some(plugins))
+        .build();
+
+    let body = compile_template(r#"@[hello.shout(text: "hi")]"#).unwrap();
+    let outcome = host.evaluate_inline(body).unwrap();
+
+    assert_eq!(outcome.to_output_string(), "HI!");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_plugin_command_runs_under_its_handle() {
+    let (_h, plugins) = with_hello().await;
+    let host = WeaverHost::builder()
+        .profile(WeaverProfile::ChatTurn)
+        .plugins(Some(plugins))
+        .build();
+
+    let body = compile_template(r#"$[hello.greet("Ada")]"#).unwrap();
+    let outcome = host.evaluate(body).await.unwrap();
+
+    let signature = host.registry().command_signature("hello.greet").unwrap();
+    assert_eq!(signature.params[0].name, "name");
+    assert_eq!(outcome.to_output_string(), "Hello, Ada!");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_failing_plugin_command_is_an_evaluation_error() {
+    let (_h, plugins) = with_hello().await;
+    let host = WeaverHost::builder()
+        .profile(WeaverProfile::Command)
+        .plugins(Some(plugins))
+        .build();
+
+    let body = compile_template("$[hello.greet(42)]").unwrap();
+    let err = host.evaluate(body).await.unwrap_err();
+
+    assert!(err.to_string().contains("expected a string"), "{err}");
+}
+
+#[tokio::test]
+async fn plugin_sources_are_listed_under_their_handle() {
+    let (_h, plugins) = with_hello().await;
+
+    let sources: Vec<_> = plugins.sources().map(|s| s.definition()).collect();
+
+    assert_eq!(sources.len(), 1);
+    assert_eq!(sources[0].source_id, "plugin:hello");
+    assert_eq!(sources[0].name, "Hello");
+    assert_eq!(sources[0].nodes[0].node_id, "greeting");
+}
+
+#[tokio::test]
+async fn a_user_without_plugins_has_no_vocabulary() {
+    let h = harness().await;
+
+    assert!(h.plugins.vocabulary(h.user).await.is_none());
 }

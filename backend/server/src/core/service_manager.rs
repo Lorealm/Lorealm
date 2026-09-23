@@ -192,6 +192,7 @@ impl ServiceManager {
             Arc::clone(&state),
             Arc::clone(&tools),
             Arc::clone(&chat) as Arc<dyn Generation>,
+            Arc::clone(&plugins),
         ));
 
         let realms = Arc::new(RealmService::new(
@@ -204,6 +205,7 @@ impl ServiceManager {
             Arc::clone(&persona),
             Arc::clone(&state),
             Arc::clone(&conversation),
+            Arc::clone(&plugins),
         ));
 
         let blueprints = Arc::new(BlueprintService::new(

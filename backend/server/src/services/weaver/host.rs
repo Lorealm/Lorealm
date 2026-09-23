@@ -14,6 +14,7 @@ use crate::services::{
         register_effect_commands,
     },
     context::weaver::stdlib,
+    plugins::PluginVocabulary,
     state::{StatePool, diff},
     tools::{
         Actor, DelVarCommand, EmitEventCommand, EmittedEvent, EventSink, RealmView, ToolContext,
@@ -189,6 +190,7 @@ pub struct WeaverBuilder {
     read_only: bool,
     limits: Limits,
     cancel: Option<CancellationToken>,
+    plugins: Option<PluginVocabulary>,
 }
 
 impl WeaverBuilder {
@@ -272,6 +274,12 @@ impl WeaverBuilder {
         self
     }
 
+    /// The commands and processors the user's plugins registered.
+    pub fn plugins(mut self, plugins: Option<PluginVocabulary>) -> Self {
+        self.plugins = plugins;
+        self
+    }
+
     pub fn build(self) -> WeaverHost {
         let mut registry = Registry::new();
         stdlib::register_all(&mut registry);
@@ -313,6 +321,11 @@ impl WeaverBuilder {
                     registry.register_command(GenerateCommand::declaration());
                 }
             }
+        }
+
+        // Last, so plugins can't shadow anything built in.
+        if let Some(plugins) = &self.plugins {
+            plugins.register(&mut registry);
         }
 
         WeaverHost {

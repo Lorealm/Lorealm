@@ -201,6 +201,9 @@ impl WorldInfoResolver {
 
         weaver.set_tokenizer(Box::new(tokenizer));
         weaver.register_plugin(StdlibPlugin)?;
+        if let Some(plugins) = &ctx.plugins {
+            weaver.register_plugin(plugins.clone())?;
+        }
 
         book_ids.insert(first_sf, BookId(0)); // The first BookId is always 0
 

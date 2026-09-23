@@ -11,6 +11,7 @@ use crate::{
     errors::RealmError,
     services::{
         context::PromptTurn,
+        plugins::PluginVocabulary,
         realm::{RealmService, weaver},
         state::{CapturedState, ReconstructedState},
         tools::{EmittedEvent, RealmView, ToolPolicy},
@@ -94,6 +95,8 @@ pub(super) struct PlanCx<'a> {
     /// The reconstructed world at the turn's baseline.
     pub world: ReconstructedState,
     pub persist: PersistPlan,
+    /// The owner's plugin vocabulary, for script bodies.
+    pub plugins: Option<PluginVocabulary>,
 }
 
 // An Agent capable of acting within a Realm
@@ -129,6 +132,7 @@ impl Agent for ScriptAgent {
             view,
             world,
             persist,
+            plugins,
             ..
         } = cx;
 
@@ -139,6 +143,7 @@ impl Agent for ScriptAgent {
             &agent,
             &world.persistent,
             &view,
+            plugins.as_ref(),
         )
         .await?;
 
@@ -186,6 +191,7 @@ impl Agent for LlmAgent {
             path_ids,
             world,
             persist,
+            plugins: _,
         } = cx;
 
         let mut baseline_slice = weaver::slice(&world.persistent, &weaver::read_scopes_of(&agent));

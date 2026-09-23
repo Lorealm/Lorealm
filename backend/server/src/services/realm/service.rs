@@ -34,6 +34,7 @@ use crate::{
         context::{ContextService, TracedBlock},
         conversation::ConversationService,
         persona::PersonaService,
+        plugins::{PluginService, PluginVocabulary},
         realm::{ActionSpec, RealmStreamEvent, TurnResult},
         snowflake::SnowflakeService,
         state::{CapturedState, StatePool, StateService, write_var},
@@ -83,6 +84,7 @@ pub struct RealmService {
     pub(super) personas: Arc<PersonaService>,
     pub(super) state: Arc<StateService>,
     conversations: Arc<ConversationService>,
+    plugins: Arc<PluginService>,
     agents: AgentRegistry,
     editing_sessions: RwLock<HashMap<Snowflake, EditingSession>>,
 }
@@ -99,6 +101,7 @@ impl RealmService {
         personas: Arc<PersonaService>,
         state: Arc<StateService>,
         conversations: Arc<ConversationService>,
+        plugins: Arc<PluginService>,
     ) -> Self {
         Self {
             storage,
@@ -110,6 +113,7 @@ impl RealmService {
             personas,
             state,
             conversations,
+            plugins,
             agents: AgentRegistry::with_defaults(),
             editing_sessions: RwLock::new(HashMap::new()),
         }
@@ -536,7 +540,8 @@ impl RealmService {
             .resolve_inputs(user_id, doc.declarations(), inputs)
             .await?;
 
-        let mut definition = wtn::expand(doc, inputs)?;
+        let plugins = self.plugins.vocabulary(user_id).await;
+        let mut definition = wtn::expand(doc, inputs, plugins.as_ref())?;
         resolve_scenario_slugs(&mut definition.scenarios);
         self.bind_cast(user_id, &mut definition).await?;
         self.validate_definition(user_id, &definition).await?;
@@ -878,7 +883,9 @@ impl RealmService {
         let ids: Vec<Snowflake> = path.iter().map(|m| m.id).collect();
         let reconstructed = self.state.reconstruct(&ids).await?;
 
-        let stage = Stage::new(&cast, &path, &reconstructed.persistent);
+        let plugins = self.plugins.vocabulary(user_id).await;
+        let stage =
+            Stage::new(&cast, &path, &reconstructed.persistent).with_plugins(plugins.clone());
         let agent = stage
             .runnable()?
             .ok_or(RealmError::NoRunnableAgent)?
@@ -921,6 +928,7 @@ impl RealmService {
                 &agent,
                 &reconstructed.persistent,
                 &view,
+                plugins.as_ref(),
             )
             .await?;
 
@@ -997,7 +1005,9 @@ impl RealmService {
         let ids: Vec<Snowflake> = path.iter().map(|m| m.id).collect();
         let world = self.state.reconstruct(&ids).await?;
 
+        let plugins = self.plugins.vocabulary(user_id).await;
         Ok(Stage::new(&cast, &path, &world.persistent)
+            .with_plugins(plugins)
             .runnable()?
             .map(|a| a.handle.clone()))
     }
@@ -1129,7 +1139,8 @@ impl RealmService {
         let path_ids: Vec<Snowflake> = path.iter().map(|m| m.id).collect();
         let world = self.state.reconstruct(&path_ids).await?;
 
-        let stage = Stage::new(&cast, &path, &world.persistent);
+        let plugins = self.plugins.vocabulary(convo.user_id).await;
+        let stage = Stage::new(&cast, &path, &world.persistent).with_plugins(plugins.clone());
         let agent = stage
             .runnable()?
             .ok_or(RealmError::NoRunnableAgent)?
@@ -1147,6 +1158,7 @@ impl RealmService {
                 path_ids,
                 world,
                 persist,
+                plugins,
             })
             .await
     }
@@ -1665,6 +1677,7 @@ struct Stage<'a> {
     world: &'a StatePool,
     /// The `cast:`/`turn:` mount every body on this turn reads.
     view: RealmView,
+    plugins: Option<PluginVocabulary>,
 }
 
 impl<'a> Stage<'a> {
@@ -1689,7 +1702,14 @@ impl<'a> Stage<'a> {
             last,
             world,
             view,
+            plugins: None,
         }
+    }
+
+    /// Lets directors and run conditions call the owner's plugins.
+    fn with_plugins(mut self, plugins: Option<PluginVocabulary>) -> Self {
+        self.plugins = plugins;
+        self
     }
 
     /// Who the director offers this turn, in preference order.
@@ -1715,25 +1735,26 @@ impl<'a> Stage<'a> {
                 pool.shuffle(&mut rand::rng());
                 pool
             }
-            Director::Script { source } => weaver::run_director(source, self.world, &self.view)?
-                .into_iter()
-                .map(|handle| {
-                    self.agents.iter().find(|a| a.handle == handle).ok_or(
-                        RealmError::DirectorFailed(format!(
-                            "no cast member holds the handle '{handle}'"
-                        )),
-                    )
-                })
-                .collect::<Result<_, _>>()?,
+            Director::Script { source } => {
+                weaver::run_director(source, self.world, &self.view, self.plugins.as_ref())?
+                    .into_iter()
+                    .map(|handle| {
+                        self.agents.iter().find(|a| a.handle == handle).ok_or(
+                            RealmError::DirectorFailed(format!(
+                                "no cast member holds the handle '{handle}'"
+                            )),
+                        )
+                    })
+                    .collect::<Result<_, _>>()?
+            }
         })
     }
 
     /// The first candidate its run condition lets through.
     fn runnable(&self) -> Result<Option<&'a RealmAgent>, RealmError> {
-        Ok(self
-            .candidates()?
-            .into_iter()
-            .find(|a| weaver::run_condition_passes(a, self.world, &self.view)))
+        Ok(self.candidates()?.into_iter().find(|a| {
+            weaver::run_condition_passes(a, self.world, &self.view, self.plugins.as_ref())
+        }))
     }
 }
 

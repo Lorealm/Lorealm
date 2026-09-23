@@ -18,7 +18,10 @@ wasmtime::component::bindgen!({
     additional_derives: [PartialEq, Eq, Hash],
 });
 
-use lorealm::plugin::types::{Hook, Level, Message, Persona};
+use lorealm::plugin::types::{
+    Block, CommandCall, CommandSignature, Hook, Level, Message, Persona, ProcessorCall,
+    ProcessorSignature, SourceCall, SourceNode,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum PluginError {
@@ -30,8 +33,9 @@ pub enum PluginError {
     Timeout,
     #[error("plugin init failed: {0}")]
     Init(String),
-    #[error("plugin hook failed: {0}")]
-    Hook(String),
+    /// The plugin answered a call with an error (or the wrong response).
+    #[error("plugin call failed: {0}")]
+    Call(String),
 }
 
 impl From<wasmtime::Error> for PluginError {
@@ -61,12 +65,23 @@ pub trait HostServices: Send + Sync {
     async fn log(&self, entries: Vec<LogEntry>);
 }
 
+/// What a plugin registered during `init`, for the embedder to expose.
+#[derive(Debug, Clone, Default)]
+pub struct Registrations {
+    pub commands: Vec<CommandSignature>,
+    pub processors: Vec<ProcessorSignature>,
+    pub source_nodes: Vec<SourceNode>,
+}
+
 /// Per-instance store data.
 pub struct PluginState {
     wasi: WasiCtx,
     table: ResourceTable,
     permissions: HashSet<String>,
     hooks: HashSet<Hook>,
+    registrations: Registrations,
+    /// Registering is only allowed while `init` runs.
+    initializing: bool,
     services: Arc<dyn HostServices>,
     logs: LogBuffer,
 }
@@ -81,6 +96,28 @@ impl PluginState {
                 .record(Level::Warn, LogSource::Host, message.clone());
             Err(message)
         }
+    }
+
+    /// Checks that `name` can be registered as a `kind`, given the names
+    /// already taken.
+    fn check_registration<'a>(
+        &self,
+        kind: &str,
+        name: &str,
+        mut taken: impl Iterator<Item = &'a String>,
+    ) -> Result<(), String> {
+        if !self.initializing {
+            return Err(format!("a {kind} can only be registered during `init`"));
+        }
+        if !is_identifier(name) {
+            return Err(format!(
+                "{kind} name `{name}` must be an identifier ([A-Za-z_][A-Za-z0-9_]*)"
+            ));
+        }
+        if taken.any(|t| t == name) {
+            return Err(format!("{kind} `{name}` is already registered"));
+        }
+        Ok(())
     }
 
     fn require_data_key(&mut self, key: &str) -> Result<(), String> {
@@ -114,6 +151,27 @@ impl lorealm::plugin::host::Host for PluginState {
         };
         self.require(permission)?;
         self.hooks.insert(hook);
+        Ok(())
+    }
+
+    async fn register_command(&mut self, command: CommandSignature) -> Result<(), String> {
+        let taken = self.registrations.commands.iter().map(|c| &c.name);
+        self.check_registration("command", &command.name, taken)?;
+        self.registrations.commands.push(command);
+        Ok(())
+    }
+
+    async fn register_processor(&mut self, processor: ProcessorSignature) -> Result<(), String> {
+        let taken = self.registrations.processors.iter().map(|p| &p.name);
+        self.check_registration("processor", &processor.name, taken)?;
+        self.registrations.processors.push(processor);
+        Ok(())
+    }
+
+    async fn register_source_node(&mut self, node: SourceNode) -> Result<(), String> {
+        let taken = self.registrations.source_nodes.iter().map(|n| &n.id);
+        self.check_registration("source node", &node.id, taken)?;
+        self.registrations.source_nodes.push(node);
         Ok(())
     }
 
@@ -217,6 +275,8 @@ impl PluginHost {
                 .cloned()
                 .collect(),
             hooks: HashSet::new(),
+            registrations: Registrations::default(),
+            initializing: true,
             services,
             logs,
         };
@@ -234,6 +294,7 @@ impl PluginHost {
         .await;
         flush_logs(&mut store, result.as_ref().err()).await;
         let instance = result?;
+        store.data_mut().initializing = false;
 
         Ok(LoadedPlugin {
             store,
@@ -244,6 +305,10 @@ impl PluginHost {
 }
 
 impl LoadedPlugin {
+    pub fn registrations(&self) -> &Registrations {
+        &self.store.data().registrations
+    }
+
     /// Runs the `prompt-build` hook. Returns `prompt` unchanged if the plugin
     /// did not register it.
     pub async fn prompt_build(
@@ -254,19 +319,80 @@ impl LoadedPlugin {
             return Ok(prompt);
         }
         match self.handle(Event::PromptBuild(prompt)).await? {
-            Event::PromptBuild(prompt) => Ok(prompt),
+            Response::PromptBuild(prompt) => Ok(prompt),
+            _ => Err(mismatch("prompt-build")),
         }
     }
 
-    async fn handle(&mut self, event: Event) -> Result<Event, PluginError> {
+    /// Calls a registered command with JSON arguments.
+    pub async fn call_command(
+        &mut self,
+        name: String,
+        args: Vec<String>,
+    ) -> Result<Option<String>, PluginError> {
+        match self
+            .handle(Event::Command(CommandCall { name, args }))
+            .await?
+        {
+            Response::Command(value) => Ok(value),
+            _ => Err(mismatch("command")),
+        }
+    }
+
+    /// Calls a registered processor with JSON properties.
+    pub async fn call_processor(
+        &mut self,
+        name: String,
+        properties: Vec<(String, String)>,
+    ) -> Result<String, PluginError> {
+        match self
+            .handle(Event::Processor(ProcessorCall { name, properties }))
+            .await?
+        {
+            Response::Processor(value) => Ok(value),
+            _ => Err(mismatch("processor")),
+        }
+    }
+
+    /// Resolves a registered source node, given its settings as a JSON object.
+    pub async fn resolve_source(
+        &mut self,
+        node: String,
+        settings: String,
+    ) -> Result<Vec<Block>, PluginError> {
+        match self
+            .handle(Event::Source(SourceCall { node, settings }))
+            .await?
+        {
+            Response::Source(blocks) => Ok(blocks),
+            _ => Err(mismatch("source")),
+        }
+    }
+
+    async fn handle(&mut self, event: Event) -> Result<Response, PluginError> {
         self.store.set_epoch_deadline(self.deadline);
         let result = match self.instance.call_handle(&mut self.store, &event).await {
-            Ok(result) => result.map_err(PluginError::Hook),
+            Ok(result) => result.map_err(PluginError::Call),
             Err(err) => Err(err.into()),
         };
         flush_logs(&mut self.store, result.as_ref().err()).await;
         result
     }
+}
+
+fn mismatch(event: &str) -> PluginError {
+    PluginError::Call(format!(
+        "answered a `{event}` event with a different response"
+    ))
+}
+
+/// `[A-Za-z_][A-Za-z0-9_]*`, the shape Weaver accepts as a name.
+fn is_identifier(name: &str) -> bool {
+    let mut chars = name.chars();
+    chars
+        .next()
+        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 /// Hands the call's log entries to the embedder, ending with `error` (the

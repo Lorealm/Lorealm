@@ -160,6 +160,7 @@ impl Harness {
             persona,
             state,
             conversation,
+            Arc::clone(&plugins),
         ));
 
         let blueprints = Arc::new(BlueprintService::new(

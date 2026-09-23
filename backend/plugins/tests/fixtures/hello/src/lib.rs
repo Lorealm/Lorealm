@@ -4,40 +4,85 @@ wit_bindgen::generate!({
 });
 
 use lorealm::plugin::host::{
-    active_persona, delete_data, load_data, log, persist_data, register_hook,
+    active_persona, delete_data, load_data, log, persist_data, register_command, register_hook,
+    register_processor, register_source_node,
 };
-use lorealm::plugin::types::{Hook, Level, Message, Role};
+use lorealm::plugin::types::{
+    Block, CommandCall, CommandSignature, Hook, Level, Message, Param, ProcessorCall,
+    ProcessorSignature, Role, SourceCall, SourceNode, ValueType,
+};
+use serde_json::Value;
 
 struct Hello;
 
 impl Guest for Hello {
     fn init() -> Result<(), String> {
-        register_hook(Hook::PromptBuild)
+        register_hook(Hook::PromptBuild)?;
+        register_command(&CommandSignature {
+            name: "greet".into(),
+            description: "Greet someone by name".into(),
+            returns: ValueType::String,
+            params: vec![param("name")],
+        })?;
+        register_processor(&ProcessorSignature {
+            name: "shout".into(),
+            description: "Uppercase text and add an exclamation mark".into(),
+            returns: ValueType::String,
+            properties: vec![param("text")],
+        })?;
+        register_source_node(&SourceNode {
+            id: "greeting".into(),
+            title: "Greeting".into(),
+            description: "Greet whoever the node's `name` setting names".into(),
+            icon: None,
+        })
     }
 
-    fn handle(event: Event) -> Result<Event, String> {
+    fn handle(event: Event) -> Result<Response, String> {
         match event {
-            Event::PromptBuild(mut prompt) => {
-                // Test controls: the last message's content.
-                match prompt.last().map(|m| m.content.as_str()) {
-                    Some("loop forever") => loop {},
-                    Some("forget") => delete_data("greetings")?,
-                    Some("crash") => panic!("crashed on purpose"),
-                    _ => {}
-                }
-                let persona = active_persona()?;
-                let count = greetings()? + 1;
-                persist_data("greetings", count.to_string().as_bytes())?;
-                log(Level::Info, &format!("greeting #{count}"));
-                println!("printed greeting #{count}");
-                prompt.push(Message {
+            Event::PromptBuild(prompt) => prompt_build(prompt).map(Response::PromptBuild),
+            Event::Command(CommandCall { args, .. }) => {
+                let name = string(args.first().map(String::as_str))?;
+                Ok(Response::Command(Some(json(&format!("Hello, {name}!")))))
+            }
+            Event::Processor(ProcessorCall { properties, .. }) => {
+                let text = properties.iter().find(|(key, _)| key == "text");
+                let text = string(text.map(|(_, value)| value.as_str()))?;
+                Ok(Response::Processor(json(&format!(
+                    "{}!",
+                    text.to_uppercase()
+                ))))
+            }
+            Event::Source(SourceCall { settings, .. }) => {
+                let settings: Value = serde_json::from_str(&settings).map_err(|e| e.to_string())?;
+                let name = settings["name"].as_str().unwrap_or("stranger");
+                Ok(Response::Source(vec![Block {
                     role: Role::System,
-                    content: format!("Hello, {}! #{count}", persona.name),
-                });
-                Ok(Event::PromptBuild(prompt))
+                    content: format!("Greetings, {name}."),
+                }]))
             }
         }
     }
+}
+
+fn prompt_build(mut prompt: Vec<Message>) -> Result<Vec<Message>, String> {
+    // Test controls: the last message's content.
+    match prompt.last().map(|m| m.content.as_str()) {
+        Some("loop forever") => loop {},
+        Some("forget") => delete_data("greetings")?,
+        Some("crash") => panic!("crashed on purpose"),
+        _ => {}
+    }
+    let persona = active_persona()?;
+    let count = greetings()? + 1;
+    persist_data("greetings", count.to_string().as_bytes())?;
+    log(Level::Info, &format!("greeting #{count}"));
+    println!("printed greeting #{count}");
+    prompt.push(Message {
+        role: Role::System,
+        content: format!("Hello, {}! #{count}", persona.name),
+    });
+    Ok(prompt)
 }
 
 /// How many times this user has been greeted.
@@ -49,6 +94,27 @@ fn greetings() -> Result<u32, String> {
         .ok()
         .and_then(|s| s.parse().ok())
         .ok_or_else(|| "corrupt greeting count".to_owned())
+}
+
+fn param(name: &str) -> Param {
+    Param {
+        name: name.into(),
+        description: String::new(),
+        value_type: Some(ValueType::String),
+        required: true,
+    }
+}
+
+/// A JSON string argument, or an error naming what was wrong with it.
+fn string(value: Option<&str>) -> Result<String, String> {
+    match value.map(serde_json::from_str::<Value>) {
+        Some(Ok(Value::String(s))) => Ok(s),
+        _ => Err("expected a string".into()),
+    }
+}
+
+fn json(text: &str) -> String {
+    Value::String(text.into()).to_string()
 }
 
 export!(Hello);

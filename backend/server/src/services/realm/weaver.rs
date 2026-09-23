@@ -11,6 +11,7 @@ use serde_json::json;
 use crate::{
     errors::RealmError,
     services::{
+        plugins::PluginVocabulary,
         state::StatePool,
         tools::{Actor, EmittedEvent, RealmView},
         weaver::{
@@ -205,6 +206,7 @@ pub(super) async fn run_scoped(
     agent: &RealmAgent,
     world: &StatePool,
     view: &RealmView,
+    plugins: Option<&PluginVocabulary>,
 ) -> Result<(String, StateDelta, Vec<EmittedEvent>), RealmError> {
     // Declared params land in the `cmd:` namespace the source reads. Scripts
     // declare none, so this is a no-op for them.
@@ -215,6 +217,7 @@ pub(super) async fn run_scoped(
         .realm(view.clone())
         .events(Default::default())
         .pool(Arc::new(StdMutex::new(world.clone())))
+        .plugins(plugins.cloned())
         .build();
 
     let outcome = host
@@ -234,6 +237,7 @@ pub(super) fn run_condition_passes(
     agent: &RealmAgent,
     world: &StatePool,
     view: &RealmView,
+    plugins: Option<&PluginVocabulary>,
 ) -> bool {
     let Some(src) = agent
         .run_condition
@@ -252,6 +256,7 @@ pub(super) fn run_condition_passes(
         .actor(Some(actor_of(agent)))
         .realm(view.clone())
         .pool(Arc::new(StdMutex::new(read)))
+        .plugins(plugins.cloned())
         .build();
 
     host.evaluate_inline(expr)
@@ -267,12 +272,14 @@ pub(super) fn run_director(
     source: &str,
     world: &StatePool,
     view: &RealmView,
+    plugins: Option<&PluginVocabulary>,
 ) -> Result<Vec<String>, RealmError> {
     let body = compile_template(source).map_err(director_failed)?;
     let host = WeaverHost::builder()
         .profile(WeaverProfile::RealmDirector)
         .realm(view.clone())
         .pool(Arc::new(StdMutex::new(world.clone())))
+        .plugins(plugins.cloned())
         .build();
 
     let value = host
@@ -356,7 +363,7 @@ mod tests {
     fn condition_passes(condition: &str, grants: Vec<AgentGrant>, world: &StatePool) -> bool {
         let a = agent(grants, Some(condition));
         let view = realm_view(std::slice::from_ref(&a), &TurnInfo::opening(), None, world);
-        run_condition_passes(&a, world, &view)
+        run_condition_passes(&a, world, &view, None)
     }
 
     /// A world with `counter.n = 7`.
@@ -424,6 +431,7 @@ mod tests {
             &agent(vec![grant("counter")], None),
             &world(),
             &RealmView::default(),
+            None,
         ));
         assert!(condition_passes("   ", vec![grant("counter")], &world()));
     }
@@ -615,7 +623,7 @@ mod tests {
         let mut alice = agents[2].clone();
         alice.run_condition = Some("{{cast:llm.count}} == 2".into());
 
-        assert!(run_condition_passes(&alice, &StatePool::new(), &view));
+        assert!(run_condition_passes(&alice, &StatePool::new(), &view, None));
     }
 
     #[test]
@@ -625,28 +633,29 @@ mod tests {
         let world = StatePool::new();
 
         assert_eq!(
-            run_director("  alice\n", &world, &view).unwrap(),
+            run_director("  alice\n", &world, &view, None).unwrap(),
             vec!["alice".to_string()]
         );
         assert_eq!(
             run_director(
                 "{# if {{cast:llm.count}} > 1 #}bob{# else #}alice{# endif #}",
                 &world,
-                &view
+                &view,
+                None
             )
             .unwrap(),
             vec!["bob".to_string()]
         );
         assert_eq!(
-            run_director(r#"{# return ["alice", "bob"] #}"#, &world, &view).unwrap(),
+            run_director(r#"{# return ["alice", "bob"] #}"#, &world, &view, None).unwrap(),
             vec!["alice".to_string(), "bob".to_string()]
         );
         // Nobody acts.
-        assert!(run_director("   ", &world, &view).unwrap().is_empty());
+        assert!(run_director("   ", &world, &view, None).unwrap().is_empty());
         // A number is not a handle.
-        assert!(run_director("{# return 1 + 1 #}", &world, &view).is_err());
+        assert!(run_director("{# return 1 + 1 #}", &world, &view, None).is_err());
         // A director may not write.
-        assert!(run_director(r#"$[set_var("a:b", 1)]"#, &world, &view).is_err());
+        assert!(run_director(r#"$[set_var("a:b", 1)]"#, &world, &view, None).is_err());
     }
 
     #[tokio::test]
@@ -660,6 +669,7 @@ mod tests {
             &agents[1],
             &StatePool::new(),
             &view,
+            None,
         )
         .await
         .unwrap();
@@ -764,7 +774,7 @@ mod tests {
         // Turn zero: nobody has acted, so the opening is the player's.
         let view = realm_view(&cast, &TurnInfo::opening(), None, &world);
         assert_eq!(
-            run_director(&source, &world, &view).unwrap(),
+            run_director(&source, &world, &view, None).unwrap(),
             vec!["me".to_string()]
         );
 
@@ -775,7 +785,7 @@ mod tests {
         };
         let view = realm_view(&cast, &after_llm, None, &world);
         assert_eq!(
-            run_director(&source, &world, &view).unwrap(),
+            run_director(&source, &world, &view, None).unwrap(),
             vec!["me".to_string()]
         );
 
@@ -786,7 +796,7 @@ mod tests {
         };
         let view = realm_view(&cast, &after_player, None, &world);
         assert_eq!(
-            run_director(&source, &world, &view).unwrap(),
+            run_director(&source, &world, &view, None).unwrap(),
             vec!["alice".to_string()]
         );
     }
@@ -808,7 +818,7 @@ mod tests {
 
         let view = realm_view(&cast, &TurnInfo::opening(), None, &world);
         assert_eq!(
-            run_director(&source, &world, &view).unwrap(),
+            run_director(&source, &world, &view, None).unwrap(),
             vec!["alice".to_string()],
             "a cast with nobody to hand back to still runs the lottery"
         );
@@ -838,7 +848,7 @@ mod tests {
         let view = realm_view(&cast, &TurnInfo::opening(), None, &world);
         for _ in 0..50 {
             assert_eq!(
-                run_director(&source, &world, &view).unwrap(),
+                run_director(&source, &world, &view, None).unwrap(),
                 vec!["alice".to_string()],
                 "the whole weight sits on alice"
             );
@@ -847,7 +857,7 @@ mod tests {
         let world = weighted(0.5, 0.5);
         let view = realm_view(&cast, &TurnInfo::opening(), None, &world);
         let picked: std::collections::BTreeSet<String> = (0..200)
-            .flat_map(|_| run_director(&source, &world, &view).unwrap())
+            .flat_map(|_| run_director(&source, &world, &view, None).unwrap())
             .collect();
         assert_eq!(
             picked,
