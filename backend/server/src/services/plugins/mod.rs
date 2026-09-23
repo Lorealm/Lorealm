@@ -22,6 +22,9 @@ use crate::{
     services::{chat::PromptMessage, context::PromptRole, state::StateService},
 };
 
+/// How long a single call into a plugin may run.
+const CALL_TIMEOUT: Duration = Duration::from_secs(5);
+
 /// How long a user's plugins stay mounted without being used.
 const IDLE_TTL: Duration = Duration::from_secs(30 * 60);
 
@@ -55,7 +58,7 @@ impl PluginService {
         Self {
             storage,
             state,
-            host: Arc::new(PluginHost::new().expect("plugin host should initialize")),
+            host: Arc::new(PluginHost::new(CALL_TIMEOUT).expect("plugin host should initialize")),
             dir,
             packages: DashMap::new(),
             mounted: DashMap::new(),
@@ -115,14 +118,23 @@ impl PluginService {
         }
 
         let mut messages: Vec<Message> = prompt.into_iter().map(Into::into).collect();
+        // A plugin whose call trapped (f.ex. timed out) can't be entered
+        // again, so it is unmounted until the user's plugins next mount.
+        let mut trapped = Vec::new();
         for (handle, plugin) in &mut mounted.plugins {
             match plugin.prompt_build(messages.clone()).await {
                 Ok(next) => messages = next,
                 Err(err) => {
-                    tracing::warn!(%handle, %user_id, error = %err, "prompt-build hook failed")
+                    tracing::warn!(%handle, %user_id, error = %err, "prompt-build hook failed");
+                    if !matches!(err, lorealm_plugins::PluginError::Hook(_)) {
+                        trapped.push(handle.clone());
+                    }
                 }
             }
         }
+        mounted
+            .plugins
+            .retain(|(handle, _)| !trapped.contains(handle));
         messages.into_iter().map(Into::into).collect()
     }
 

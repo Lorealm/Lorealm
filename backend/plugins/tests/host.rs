@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
+use std::time::Duration;
 
 use lorealm_plugins::{
     HostServices, Message, Persona, PluginError, PluginHost, PluginPackage, Role,
@@ -22,6 +23,10 @@ fn build_hello() {
     assert!(status.success(), "failed to build the hello fixture");
 }
 
+fn host() -> PluginHost {
+    PluginHost::new(Duration::from_secs(5)).unwrap()
+}
+
 struct TestServices;
 
 #[async_trait::async_trait]
@@ -41,7 +46,7 @@ fn compile(host: &PluginHost, name: &str) -> PluginPackage {
 
 #[tokio::test]
 async fn prompt_build_hook_modifies_prompt() {
-    let host = PluginHost::new().unwrap();
+    let host = host();
     let package = compile(&host, "hello");
     let mut plugin = host
         .instantiate(&package, Arc::new(TestServices))
@@ -60,7 +65,7 @@ async fn prompt_build_hook_modifies_prompt() {
 
 #[tokio::test]
 async fn registering_hook_without_permission_fails_init() {
-    let host = PluginHost::new().unwrap();
+    let host = host();
     let package = compile(&host, "unpermitted");
 
     let result = host.instantiate(&package, Arc::new(TestServices)).await;
@@ -74,9 +79,39 @@ async fn registering_hook_without_permission_fails_init() {
 
 #[tokio::test]
 async fn missing_manifest_is_an_error() {
-    let host = PluginHost::new().unwrap();
+    let host = host();
 
     let result = host.compile(&fixture("does-not-exist"));
 
     assert!(matches!(result, Err(PluginError::Manifest(_))));
+}
+
+#[tokio::test]
+async fn runaway_hook_times_out() {
+    let host = PluginHost::new(Duration::from_millis(100)).unwrap();
+    let package = compile(&host, "hello");
+    let mut plugin = host
+        .instantiate(&package, Arc::new(TestServices))
+        .await
+        .unwrap();
+
+    let prompt = vec![Message {
+        role: Role::User,
+        content: "loop forever".into(),
+    }];
+    let result = plugin.prompt_build(prompt).await;
+
+    assert!(
+        matches!(result, Err(PluginError::Timeout)),
+        "{:?}",
+        result.err()
+    );
+
+    // A trapped instance can't be entered again.
+    let result = plugin.prompt_build(Vec::new()).await;
+    assert!(
+        matches!(result, Err(PluginError::Wasm(_))),
+        "{:?}",
+        result.err()
+    );
 }

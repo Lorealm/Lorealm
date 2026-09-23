@@ -38,6 +38,8 @@ Plugins are WebAssembly components (wasmtime + WIT), not Extism modules. The WIT
 
 WASI is linked so standard toolchains work, but the sandbox grants nothing by default: no filesystem, environment, arguments or network.
 
+Every call into a plugin (`init` or a hook) has a wall-clock limit, currently 5 seconds, that includes time spent in host functions. A plugin that exceeds it is stopped and unmounted until the user's plugins are next loaded.
+
 ### Manifest
 Every plugin must ship with a manifest.toml file. A manifest file ships the plugin definition, and will contain *at least* these fields:
 #### Plugin object
@@ -125,6 +127,8 @@ Here is a non-exhaustive list of hooks that will (probably) exist:
 - `on_regenerate`
 - `on_continue`
 - [More...]
+
+**Planned:** record what each plugin's `prompt-build` hook changed, diffing the prompt before and after every plugin, so the context inspector can show which plugin changed what.
 
 ### Host Commands
 Apart from hook registering, a plugin will need to ship with a variety of commands to interact with the server. Most of these are permission-gated:

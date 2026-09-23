@@ -16,6 +16,10 @@ impl Guest for Hello {
     fn handle(event: Event) -> Result<Event, String> {
         match event {
             Event::PromptBuild(mut prompt) => {
+                // Lets the host's call timeout be tested.
+                if prompt.last().is_some_and(|m| m.content == "loop forever") {
+                    loop {}
+                }
                 let persona = active_persona()?;
                 prompt.push(Message {
                     role: Role::System,

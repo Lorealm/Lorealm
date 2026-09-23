@@ -1,9 +1,10 @@
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 
 use wasmtime::component::{Component, HasSelf, Linker, ResourceTable};
-use wasmtime::{Engine, Store};
+use wasmtime::{Config, Engine, Store, Trap};
 use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
 
 use crate::manifest::{Manifest, ManifestError};
@@ -23,12 +24,27 @@ pub enum PluginError {
     #[error(transparent)]
     Manifest(#[from] ManifestError),
     #[error("wasm error: {0:#}")]
-    Wasm(#[from] wasmtime::Error),
+    Wasm(wasmtime::Error),
+    #[error("plugin call timed out")]
+    Timeout,
     #[error("plugin init failed: {0}")]
     Init(String),
     #[error("plugin hook failed: {0}")]
     Hook(String),
 }
+
+impl From<wasmtime::Error> for PluginError {
+    fn from(err: wasmtime::Error) -> Self {
+        if err.downcast_ref::<Trap>() == Some(&Trap::Interrupt) {
+            Self::Timeout
+        } else {
+            Self::Wasm(err)
+        }
+    }
+}
+
+/// How often the engine's epoch advances; the granularity of call timeouts.
+const EPOCH_TICK: Duration = Duration::from_millis(10);
 
 /// What the embedder provides to plugins.
 #[async_trait::async_trait]
@@ -85,6 +101,8 @@ impl lorealm::plugin::host::Host for PluginState {
 pub struct PluginHost {
     engine: Engine,
     linker: Linker<PluginState>,
+    /// Epoch ticks a single call into a plugin may take.
+    deadline: u64,
 }
 
 /// A validated manifest and its compiled component. Independent of who runs
@@ -97,15 +115,30 @@ pub struct PluginPackage {
 pub struct LoadedPlugin {
     store: Store<PluginState>,
     instance: Plugin,
+    deadline: u64,
 }
 
 impl PluginHost {
-    pub fn new() -> Result<Self, PluginError> {
-        let engine = Engine::default();
+    pub fn new(call_timeout: Duration) -> Result<Self, PluginError> {
+        let engine = Engine::new(Config::new().epoch_interruption(true))?;
+
+        let ticker = engine.weak();
+        std::thread::spawn(move || {
+            while let Some(engine) = ticker.upgrade() {
+                engine.increment_epoch();
+                drop(engine);
+                std::thread::sleep(EPOCH_TICK);
+            }
+        });
+
         let mut linker = Linker::new(&engine);
         wasmtime_wasi::p2::add_to_linker_async(&mut linker)?;
         Plugin::add_to_linker::<_, HasSelf<_>>(&mut linker, |state| state)?;
-        Ok(Self { engine, linker })
+        Ok(Self {
+            engine,
+            linker,
+            deadline: (call_timeout.as_millis() / EPOCH_TICK.as_millis()).max(1) as u64,
+        })
     }
 
     /// Reads `manifest.toml` from `dir` and compiles the backend component.
@@ -139,6 +172,7 @@ impl PluginHost {
             services,
         };
         let mut store = Store::new(&self.engine, state);
+        store.set_epoch_deadline(self.deadline);
         let instance =
             Plugin::instantiate_async(&mut store, &package.component, &self.linker).await?;
         instance
@@ -146,7 +180,11 @@ impl PluginHost {
             .await?
             .map_err(PluginError::Init)?;
 
-        Ok(LoadedPlugin { store, instance })
+        Ok(LoadedPlugin {
+            store,
+            instance,
+            deadline: self.deadline,
+        })
     }
 }
 
@@ -166,6 +204,7 @@ impl LoadedPlugin {
     }
 
     async fn handle(&mut self, event: Event) -> Result<Event, PluginError> {
+        self.store.set_epoch_deadline(self.deadline);
         self.instance
             .call_handle(&mut self.store, &event)
             .await?
