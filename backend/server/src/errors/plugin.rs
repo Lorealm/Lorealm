@@ -20,6 +20,9 @@ pub enum PluginError {
     Required(String, Vec<String>),
     #[error("load order must list each enabled plugin exactly once")]
     InvalidOrder,
+    /// The plugin failed a call made on its frontend's behalf.
+    #[error("plugin {0} call failed: {1}")]
+    CallFailed(String, String),
     #[error(transparent)]
     Storage(#[from] StorageError),
 }
@@ -32,6 +35,7 @@ impl DomainError for PluginError {
             Self::CannotEnable(_, _) => "plugin.cannot_enable",
             Self::Required(_, _) => "plugin.required",
             Self::InvalidOrder => "plugin.invalid_order",
+            Self::CallFailed(_, _) => "plugin.call_failed",
             Self::Storage(_) => "internal",
         }
     }
@@ -41,6 +45,7 @@ impl DomainError for PluginError {
             Self::NotFound(_) => StatusCode::NOT_FOUND,
             Self::Invalid(_, _) | Self::InvalidOrder => StatusCode::BAD_REQUEST,
             Self::CannotEnable(_, _) | Self::Required(_, _) => StatusCode::CONFLICT,
+            Self::CallFailed(_, _) => StatusCode::UNPROCESSABLE_ENTITY,
             Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -60,6 +65,9 @@ impl DomainError for PluginError {
                 ))
             }
             Self::InvalidOrder => "The order must list each enabled plugin exactly once.".into(),
+            Self::CallFailed(_, _) => {
+                "The plugin couldn't complete that request. Its log says why.".into()
+            }
             Self::Storage(_) => "An internal error occurred".into(),
         }
     }
@@ -70,7 +78,8 @@ impl DomainError for PluginError {
             | Self::Invalid(_, _)
             | Self::CannotEnable(_, _)
             | Self::Required(_, _)
-            | Self::InvalidOrder => Some(ErrorDetails::resource(TargetType::Plugin)),
+            | Self::InvalidOrder
+            | Self::CallFailed(_, _) => Some(ErrorDetails::resource(TargetType::Plugin)),
             Self::Storage(_) => None,
         }
     }

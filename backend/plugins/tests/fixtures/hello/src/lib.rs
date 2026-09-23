@@ -8,7 +8,7 @@ use lorealm::plugin::host::{
     register_processor, register_source_node,
 };
 use lorealm::plugin::types::{
-    Block, CommandCall, CommandSignature, Hook, Level, Message, Param, ProcessorCall,
+    Block, CommandCall, CommandSignature, FrontendCall, Hook, Level, Message, Param, ProcessorCall,
     ProcessorSignature, Role, SourceCall, SourceNode, ValueType,
 };
 use serde_json::Value;
@@ -82,6 +82,14 @@ impl Guest for Hello {
                     text.to_uppercase()
                 ))))
             }
+            Event::Frontend(FrontendCall { name, args }) => match name.as_str() {
+                "greet" => {
+                    let args: Value = serde_json::from_str(&args).map_err(|e| e.to_string())?;
+                    let name = args["name"].as_str().unwrap_or("stranger");
+                    Ok(Response::Frontend(json(&format!("Hello, {name}!"))))
+                }
+                other => Err(format!("unknown frontend call `{other}`")),
+            },
             Event::Source(SourceCall { settings, .. }) => {
                 let settings: Value = serde_json::from_str(&settings).map_err(|e| e.to_string())?;
                 let name = settings["name"].as_str().unwrap_or("stranger");

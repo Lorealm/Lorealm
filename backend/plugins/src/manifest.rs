@@ -24,6 +24,57 @@ pub struct Manifest {
     pub compatibility: Compatibility,
     #[serde(default)]
     pub structure: Structure,
+    #[serde(default)]
+    pub frontend: Frontend,
+}
+
+/// What the plugin shows in the client.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Frontend {
+    /// Directory holding the slot entries, relative to the plugin directory.
+    #[serde(default = "default_frontend")]
+    pub path: PathBuf,
+    #[serde(default)]
+    pub slots: Vec<FrontendSlot>,
+}
+
+impl Default for Frontend {
+    fn default() -> Self {
+        Self {
+            path: default_frontend(),
+            slots: Vec::new(),
+        }
+    }
+}
+
+fn default_frontend() -> PathBuf {
+    PathBuf::from("frontend")
+}
+
+/// One place in the client the plugin fills, such as `inspector`.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct FrontendSlot {
+    /// Which slot; the client decides what exists.
+    pub slot: String,
+    /// A self-contained HTML file in the frontend directory, or for an unsafe
+    /// slot, an ES module exporting `mount(element, api)`.
+    pub entry: String,
+    pub title: String,
+    /// Runs directly in the client instead of a sandboxed frame. Needs the
+    /// `ui:unsafe` permission, and a user allowed unsafe plugins.
+    #[serde(default)]
+    pub r#unsafe: bool,
+    /// For `message` slots: on every message, or only the latest.
+    #[serde(default)]
+    pub mode: SlotMode,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SlotMode {
+    #[default]
+    Latest,
+    Every,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -109,6 +160,11 @@ mod tests {
 
             [structure]
             backend = "build/plugin.wasm"
+
+            [[frontend.slots]]
+            slot = "inspector"
+            entry = "inspector.html"
+            title = "Preview"
             "#,
         )
         .unwrap();
@@ -121,6 +177,8 @@ mod tests {
             manifest.structure.backend,
             PathBuf::from("build/plugin.wasm")
         );
+        assert_eq!(manifest.frontend.path, PathBuf::from("frontend"));
+        assert_eq!(manifest.frontend.slots[0].entry, "inspector.html");
     }
 
     #[test]

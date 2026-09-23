@@ -8,15 +8,22 @@ use lorealm_storage::models::PluginLog;
 use serde::Deserialize;
 
 use crate::{
-    core::AppState, errors::AppError, extract::AuthenticatedSession,
-    services::plugins::InstalledPlugin,
+    core::AppState,
+    errors::AppError,
+    extract::{AuthenticatedSession, ResolvedPermissions},
+    services::{permission::Permissions, plugins::InstalledPlugin},
 };
 
 pub async fn list_plugins(
     State(app_state): State<Arc<AppState>>,
     session: AuthenticatedSession,
+    perms: ResolvedPermissions,
 ) -> Result<Json<Vec<InstalledPlugin>>, AppError> {
-    let plugins = app_state.services().plugins().list(session.user_id).await?;
+    let plugins = app_state
+        .services()
+        .plugins()
+        .list(session.user_id, allows_unsafe(&perms))
+        .await?;
 
     Ok(Json(plugins))
 }
@@ -74,4 +81,48 @@ pub async fn set_plugin_order(
         .await?;
 
     Ok(())
+}
+
+/// One of the plugin's declared frontend entries: HTML, or for an unsafe slot,
+/// a module. The client reads it as text either way.
+pub async fn frontend_entry(
+    State(app_state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    perms: ResolvedPermissions,
+    Path((handle, entry)): Path<(String, String)>,
+) -> Result<String, AppError> {
+    let entry = app_state
+        .services()
+        .plugins()
+        .frontend_entry(session.user_id, &handle, &entry, allows_unsafe(&perms))
+        .await?;
+
+    Ok(entry)
+}
+
+fn allows_unsafe(perms: &ResolvedPermissions) -> bool {
+    perms.require(Permissions::ALLOW_UNSAFE_PLUGINS).is_ok()
+}
+
+#[derive(Deserialize)]
+pub struct PluginCall {
+    pub name: String,
+    #[serde(default)]
+    pub args: serde_json::Value,
+}
+
+/// A call from the plugin's frontend to its backend.
+pub async fn call_plugin(
+    State(app_state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(handle): Path<String>,
+    Json(payload): Json<PluginCall>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let value = app_state
+        .services()
+        .plugins()
+        .call_frontend(session.user_id, &handle, payload.name, payload.args)
+        .await?;
+
+    Ok(Json(value))
 }

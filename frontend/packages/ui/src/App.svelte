@@ -12,6 +12,7 @@
 	import { memory } from './stores/memory.svelte.ts';
 	import { settings } from './stores/settings.svelte.ts';
 	import { applyStyle, styles } from './stores/styles.svelte.ts';
+	import { frameTheme } from './stores/frameTheme.svelte.ts';
 	import { backdrop } from './stores/backdrop.svelte.ts';
 	import TransportImage from './components/TransportImage.svelte';
 	import { inspectorMatrix } from './stores/inspectorMatrix.svelte.ts';
@@ -48,6 +49,7 @@
 
 	$effect(() => {
 		applyStyle(styles.tokens, styles.css);
+		frameTheme.refresh();
 	});
 </script>
 

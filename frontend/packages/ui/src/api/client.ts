@@ -28,7 +28,7 @@ import type {
 	FullConversation,
 	StartChatRequest
 } from '$lib/types/conversation.js';
-import type { Snowflake } from '$lib/types/core.js';
+import type { JsonValue, Snowflake } from '$lib/types/core.js';
 import type { ProviderModel } from '$lib/types/schema.js';
 import type {
 	Lorebook,
@@ -40,6 +40,7 @@ import type {
 	SetActiveLorebooksRequest
 } from '$lib/types/lorebook.js';
 import type { SourceDefinition } from '$lib/types/node.js';
+import type { InstalledPlugin } from '$lib/types/plugins.js';
 import type {
 	Blueprint,
 	BlueprintSummary,
@@ -379,6 +380,17 @@ export function createApiClient(platform: PlatformAPI) {
 			toggle: (tool_id: Snowflake, enable: ToolEnabledRequest) =>
 				http.patch(`/api/v1/tools/${tool_id}`, enable),
 			delete: (tool_id: Snowflake) => http.delete(`/api/v1/tools/${tool_id}`)
+		},
+		plugins: {
+			list: () => http.get<Array<InstalledPlugin>>('/api/v1/plugins'),
+			/** A slot entry's HTML. */
+			frontendEntry: async (handle: string, entry: string) =>
+				(
+					await http.getBlob(`/api/v1/plugins/${handle}/frontend/${encodeURIComponent(entry)}`)
+				).text(),
+			/** A call from the plugin's frontend to its own backend. */
+			call: (handle: string, name: string, args: JsonValue) =>
+				http.post<JsonValue>(`/api/v1/plugins/${handle}/call`, { name, args })
 		},
 		userWidgets: {
 			list: () => http.get<Array<UserWidget>>('/api/v1/widgets'),

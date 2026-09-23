@@ -12,5 +12,7 @@ pub use host::{
     },
 };
 pub use log::{LogEntry, LogSource};
-pub use manifest::{Compatibility, Manifest, ManifestError, PluginInfo, Structure};
+pub use manifest::{
+    Compatibility, Frontend, FrontendSlot, Manifest, ManifestError, PluginInfo, SlotMode, Structure,
+};
 pub use resolve::{Resolution, resolve};

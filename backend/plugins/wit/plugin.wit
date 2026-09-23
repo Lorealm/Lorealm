@@ -107,6 +107,12 @@ interface types {
         properties: list<tuple<string, json>>,
     }
 
+    /// A call from the plugin's own frontend.
+    record frontend-call {
+        name: string,
+        args: json,
+    }
+
     record source-call {
         node: string,
         /// The node's settings in the template, as a JSON object.
@@ -120,6 +126,7 @@ interface types {
         command(command-call),
         processor(processor-call),
         source(source-call),
+        frontend(frontend-call),
     }
 
     /// Answers `handle`, in the same case as the event.
@@ -129,6 +136,7 @@ interface types {
         command(option<json>),
         processor(json),
         source(list<block>),
+        frontend(json),
     }
 }
 

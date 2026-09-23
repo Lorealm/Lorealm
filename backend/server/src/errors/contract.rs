@@ -124,6 +124,7 @@ fn contract_surface() -> Vec<(&'static str, Vec<Box<dyn DomainError>>)> {
                     vec!["hello".into(), "other".into()],
                 )),
                 Box::new(PluginError::InvalidOrder),
+                Box::new(PluginError::CallFailed("hello".into(), "boom".into())),
             ],
         ),
         (

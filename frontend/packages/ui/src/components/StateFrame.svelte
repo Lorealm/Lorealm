@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { JsonValue } from '$lib/types/core.js';
+	import { frameTheme } from '$lib/stores/frameTheme.svelte.js';
 
 	let {
 		source,
@@ -17,8 +18,9 @@
 
 	/**
 	 * Injected at the end of every widget so authors don't hand-write it:
-	 * reports content height (iframes can't self-size) and pings ready so the
-	 * host pushes the initial payload.
+	 * reports content height (iframes can't self-size), pings ready so the
+	 * host pushes the initial payload, and adopts the app's style variables and fonts
+	 * ahead of the widget's own styles.
 	 */
 	const HOST_SCRIPT = `<script>(function () {
   function report() {
@@ -33,6 +35,27 @@
     parent.postMessage({ type: 'lorealm:height', height: h }, '*');
   }
   function ready() { parent.postMessage({ type: 'lorealm:ready' }, '*'); }
+  var faces = [];
+  addEventListener('message', function (e) {
+    var d = e.data;
+    if (e.source !== parent || !d) return;
+    if (d.type === 'lorealm:theme') {
+      var style = document.getElementById('lorealm-theme');
+      if (!style) {
+        style = document.createElement('style');
+        style.id = 'lorealm-theme';
+        document.head.prepend(style);
+      }
+      style.textContent = d.css;
+    } else if (d.type === 'lorealm:fonts') {
+      faces.forEach(function (f) { document.fonts.delete(f); });
+      faces = d.fonts.map(function (f) {
+        var face = new FontFace(f.family, f.buffer, f.descriptors);
+        document.fonts.add(face);
+        return face;
+      });
+    }
+  });
   try { new ResizeObserver(report).observe(document.body); } catch (e) {}
   addEventListener('load', function () { report(); ready(); });
   report();
@@ -52,9 +75,20 @@
 		);
 	}
 
+	function pushTheme() {
+		frame?.contentWindow?.postMessage({ type: 'lorealm:theme', css: frameTheme.css }, '*');
+		frame?.contentWindow?.postMessage({ type: 'lorealm:fonts', fonts: frameTheme.fonts }, '*');
+	}
+
 	$effect(() => {
 		void slice;
 		push();
+	});
+
+	$effect(() => {
+		void frameTheme.css;
+		void frameTheme.fonts;
+		pushTheme();
 	});
 
 	function onMessage(e: MessageEvent) {
@@ -67,6 +101,7 @@
 		} | null;
 		if (data?.type === 'lorealm:ready') {
 			push();
+			pushTheme();
 		} else if (data?.type === 'lorealm:height' && typeof data.height === 'number') {
 			height = Math.max(0, Math.min(4000, data.height));
 		} else if (data?.type === 'lorealm:action' && typeof data.tool_id === 'string') {

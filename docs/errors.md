@@ -100,6 +100,7 @@ Messages containing quoted values are examples; the interpolated part varies.
 | `permission.denied` | 403 | You are not allowed to perform this action. |
 | `persona.not_found` | 404 | That persona no longer exists. |
 | `persona.unsupported_media_type` | 415 | That image format isn't supported. |
+| `plugin.call_failed` | 422 | The plugin couldn't complete that request. Its log says why. |
 | `plugin.cannot_enable` | 409 | This plugin can't be enabled: it requires `lib` ^1.4, which is not loaded. |
 | `plugin.invalid` | 400 | That plugin could not be loaded. |
 | `plugin.invalid_order` | 400 | The order must list each enabled plugin exactly once. |
