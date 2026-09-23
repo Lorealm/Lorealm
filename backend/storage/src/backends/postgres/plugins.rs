@@ -43,4 +43,59 @@ impl PluginStorage for PostgresStorage {
             .await?;
         Ok(())
     }
+
+    async fn get_plugin_data(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        key: &str,
+    ) -> Result<Option<Vec<u8>>, StorageError> {
+        let value = sqlx::query_scalar::<_, Vec<u8>>(
+            "SELECT value FROM plugin_data WHERE user_id = $1 AND handle = $2 AND key = $3",
+        )
+        .bind(user_id)
+        .bind(handle)
+        .bind(key)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(value)
+    }
+
+    async fn set_plugin_data(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        key: &str,
+        value: &[u8],
+    ) -> Result<(), StorageError> {
+        sqlx::query(
+            r#"INSERT INTO plugin_data (user_id, handle, key, value)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (user_id, handle, key) DO UPDATE SET
+                value = EXCLUDED.value,
+                updated_at = now()"#,
+        )
+        .bind(user_id)
+        .bind(handle)
+        .bind(key)
+        .bind(value)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    async fn delete_plugin_data(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        key: &str,
+    ) -> Result<(), StorageError> {
+        sqlx::query("DELETE FROM plugin_data WHERE user_id = $1 AND handle = $2 AND key = $3")
+            .bind(user_id)
+            .bind(handle)
+            .bind(key)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
 }
