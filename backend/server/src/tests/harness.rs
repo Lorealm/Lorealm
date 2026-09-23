@@ -129,7 +129,9 @@ impl Harness {
         ));
         let plugins = Arc::new(PluginService::new(
             Arc::clone(&storage),
+            Arc::clone(&snow),
             Arc::clone(&state),
+            Default::default(),
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../plugins/tests/fixtures"),
         ));
         let chat = Arc::new(ChatService::new(

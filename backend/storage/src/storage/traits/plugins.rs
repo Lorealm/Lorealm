@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 
-use crate::{StorageError, models::Snowflake};
+use crate::{
+    StorageError,
+    models::{PluginLog, Snowflake},
+};
 
 #[async_trait]
 pub trait PluginStorage: Send + Sync {
@@ -37,4 +40,20 @@ pub trait PluginStorage: Send + Sync {
         handle: &str,
         key: &str,
     ) -> Result<(), StorageError>;
+    /// Appends `logs` to one user's log for `handle`, then drops all but the
+    /// newest `cap` entries.
+    async fn append_plugin_logs(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        logs: &[PluginLog],
+        cap: u32,
+    ) -> Result<(), StorageError>;
+    /// Newest first.
+    async fn list_plugin_logs(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        limit: u32,
+    ) -> Result<Vec<PluginLog>, StorageError>;
 }

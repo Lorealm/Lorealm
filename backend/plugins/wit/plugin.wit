@@ -17,6 +17,14 @@ interface types {
         description: string,
     }
 
+    enum level {
+        trace,
+        debug,
+        info,
+        warn,
+        error,
+    }
+
     /// Hooks a plugin can subscribe to with `register-hook`.
     enum hook {
         /// Requires the `prompt:write` permission.
@@ -31,7 +39,11 @@ interface types {
 }
 
 interface host {
-    use types.{hook, persona};
+    use types.{hook, level, persona};
+
+    /// Writes to the plugin's log, which the user can read. Stdout and stderr
+    /// are also captured, as `info` and `warn` lines.
+    log: func(level: level, message: string);
 
     /// Subscribes to `hook`. Fails if the manifest lacks the hook's permission.
     register-hook: func(hook: hook) -> result<_, string>;

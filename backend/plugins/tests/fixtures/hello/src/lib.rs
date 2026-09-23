@@ -3,8 +3,10 @@ wit_bindgen::generate!({
     world: "plugin",
 });
 
-use lorealm::plugin::host::{active_persona, delete_data, load_data, persist_data, register_hook};
-use lorealm::plugin::types::{Hook, Message, Role};
+use lorealm::plugin::host::{
+    active_persona, delete_data, load_data, log, persist_data, register_hook,
+};
+use lorealm::plugin::types::{Hook, Level, Message, Role};
 
 struct Hello;
 
@@ -20,11 +22,14 @@ impl Guest for Hello {
                 match prompt.last().map(|m| m.content.as_str()) {
                     Some("loop forever") => loop {},
                     Some("forget") => delete_data("greetings")?,
+                    Some("crash") => panic!("crashed on purpose"),
                     _ => {}
                 }
                 let persona = active_persona()?;
                 let count = greetings()? + 1;
                 persist_data("greetings", count.to_string().as_bytes())?;
+                log(Level::Info, &format!("greeting #{count}"));
+                println!("printed greeting #{count}");
                 prompt.push(Message {
                     role: Role::System,
                     content: format!("Hello, {}! #{count}", persona.name),

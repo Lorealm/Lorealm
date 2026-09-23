@@ -6,7 +6,9 @@ use lorealm_storage::{BlobStore, StorageManager};
 use tokio::task::JoinHandle;
 
 use crate::{
-    config::{CharacterConfig, ConfigProvider, SessionConfig, TokenizerConfig, UserConfig},
+    config::{
+        CharacterConfig, ConfigProvider, PluginConfig, SessionConfig, TokenizerConfig, UserConfig,
+    },
     services::{
         blueprint::BlueprintService,
         character::CharacterService,
@@ -156,7 +158,9 @@ impl ServiceManager {
 
         let plugins = Arc::new(PluginService::new(
             Arc::clone(&storage),
+            Arc::clone(&snowflake),
             Arc::clone(&state),
+            config.get::<PluginConfig>(),
             config
                 .get::<lorealm_storage::StorageConfig>()
                 .data_directory

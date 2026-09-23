@@ -2120,6 +2120,7 @@ name = "lorealm_plugins"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "bytes",
  "semver",
  "serde",
  "thiserror 1.0.69",

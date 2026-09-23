@@ -1,6 +1,10 @@
 use async_trait::async_trait;
 
-use crate::{PluginStorage, StorageError, backends::PostgresStorage, models::Snowflake};
+use crate::{
+    PluginStorage, StorageError,
+    backends::PostgresStorage,
+    models::{PluginLog, Snowflake},
+};
 
 #[async_trait]
 impl PluginStorage for PostgresStorage {
@@ -97,5 +101,60 @@ impl PluginStorage for PostgresStorage {
             .execute(&self.pool)
             .await?;
         Ok(())
+    }
+
+    async fn append_plugin_logs(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        logs: &[PluginLog],
+        cap: u32,
+    ) -> Result<(), StorageError> {
+        let mut tx = self.pool.begin().await?;
+        for log in logs {
+            sqlx::query(
+                r#"INSERT INTO plugin_logs (id, user_id, handle, level, source, message, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
+            )
+            .bind(log.id)
+            .bind(log.user_id)
+            .bind(&log.handle)
+            .bind(log.level)
+            .bind(log.source)
+            .bind(&log.message)
+            .bind(log.created_at)
+            .execute(&mut *tx)
+            .await?;
+        }
+        sqlx::query(
+            r#"DELETE FROM plugin_logs WHERE user_id = $1 AND handle = $2 AND id < (
+                SELECT id FROM plugin_logs WHERE user_id = $1 AND handle = $2
+                ORDER BY id DESC OFFSET GREATEST($3 - 1, 0) LIMIT 1
+            )"#,
+        )
+        .bind(user_id)
+        .bind(handle)
+        .bind(i64::from(cap))
+        .execute(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    async fn list_plugin_logs(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        limit: u32,
+    ) -> Result<Vec<PluginLog>, StorageError> {
+        let logs = sqlx::query_as::<_, PluginLog>(
+            "SELECT * FROM plugin_logs WHERE user_id = $1 AND handle = $2 ORDER BY id DESC LIMIT $3",
+        )
+        .bind(user_id)
+        .bind(handle)
+        .bind(i64::from(limit))
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(logs)
     }
 }

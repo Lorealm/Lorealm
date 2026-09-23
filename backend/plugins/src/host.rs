@@ -7,6 +7,7 @@ use wasmtime::component::{Component, HasSelf, Linker, ResourceTable};
 use wasmtime::{Config, Engine, Store, Trap};
 use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
 
+use crate::log::{LogBuffer, LogEntry, LogSource};
 use crate::manifest::{Manifest, ManifestError};
 
 wasmtime::component::bindgen!({
@@ -17,7 +18,7 @@ wasmtime::component::bindgen!({
     additional_derives: [PartialEq, Eq, Hash],
 });
 
-use lorealm::plugin::types::{Hook, Message, Persona};
+use lorealm::plugin::types::{Hook, Level, Message, Persona};
 
 #[derive(Debug, thiserror::Error)]
 pub enum PluginError {
@@ -56,6 +57,8 @@ pub trait HostServices: Send + Sync {
     async fn persist_data(&self, key: String, value: Vec<u8>) -> Result<(), String>;
     async fn load_data(&self, key: String) -> Result<Option<Vec<u8>>, String>;
     async fn delete_data(&self, key: String) -> Result<(), String>;
+    /// Receives what the plugin and the host logged during one call.
+    async fn log(&self, entries: Vec<LogEntry>);
 }
 
 /// Per-instance store data.
@@ -65,18 +68,22 @@ pub struct PluginState {
     permissions: HashSet<String>,
     hooks: HashSet<Hook>,
     services: Arc<dyn HostServices>,
+    logs: LogBuffer,
 }
 
 impl PluginState {
-    fn require(&self, permission: &str) -> Result<(), String> {
+    fn require(&mut self, permission: &str) -> Result<(), String> {
         if self.permissions.contains(permission) {
             Ok(())
         } else {
-            Err(format!("missing permission `{permission}`"))
+            let message = format!("missing permission `{permission}`");
+            self.logs
+                .record(Level::Warn, LogSource::Host, message.clone());
+            Err(message)
         }
     }
 
-    fn require_data_key(&self, key: &str) -> Result<(), String> {
+    fn require_data_key(&mut self, key: &str) -> Result<(), String> {
         self.require("data:persist")?;
         if key.is_empty() || key.len() > MAX_DATA_KEY {
             return Err(format!("data keys must be 1 to {MAX_DATA_KEY} bytes"));
@@ -97,6 +104,10 @@ impl WasiView for PluginState {
 impl lorealm::plugin::types::Host for PluginState {}
 
 impl lorealm::plugin::host::Host for PluginState {
+    async fn log(&mut self, level: Level, message: String) {
+        self.logs.record(level, LogSource::Guest, message);
+    }
+
     async fn register_hook(&mut self, hook: Hook) -> Result<(), String> {
         let permission = match hook {
             Hook::PromptBuild => "prompt:write",
@@ -114,7 +125,9 @@ impl lorealm::plugin::host::Host for PluginState {
     async fn persist_data(&mut self, key: String, value: Vec<u8>) -> Result<(), String> {
         self.require_data_key(&key)?;
         if value.len() > MAX_DATA_VALUE {
-            return Err(format!("data values must be at most {MAX_DATA_VALUE} bytes"));
+            return Err(format!(
+                "data values must be at most {MAX_DATA_VALUE} bytes"
+            ));
         }
         self.services.persist_data(key, value).await
     }
@@ -137,8 +150,7 @@ pub struct PluginHost {
     deadline: u64,
 }
 
-/// A validated manifest and its compiled component. Independent of who runs
-/// it, so it can be compiled once and instantiated many times.
+/// A validated manifest and its compiled component.
 pub struct PluginPackage {
     pub manifest: Manifest,
     component: Component,
@@ -190,8 +202,12 @@ impl PluginHost {
         package: &PluginPackage,
         services: Arc<dyn HostServices>,
     ) -> Result<LoadedPlugin, PluginError> {
+        let logs = LogBuffer::default();
         let state = PluginState {
-            wasi: WasiCtx::builder().build(),
+            wasi: WasiCtx::builder()
+                .stdout(logs.stdout.clone())
+                .stderr(logs.stderr.clone())
+                .build(),
             table: ResourceTable::new(),
             permissions: package
                 .manifest
@@ -202,15 +218,22 @@ impl PluginHost {
                 .collect(),
             hooks: HashSet::new(),
             services,
+            logs,
         };
         let mut store = Store::new(&self.engine, state);
         store.set_epoch_deadline(self.deadline);
-        let instance =
-            Plugin::instantiate_async(&mut store, &package.component, &self.linker).await?;
-        instance
-            .call_init(&mut store)
-            .await?
-            .map_err(PluginError::Init)?;
+        let result: Result<Plugin, PluginError> = async {
+            let instance =
+                Plugin::instantiate_async(&mut store, &package.component, &self.linker).await?;
+            instance
+                .call_init(&mut store)
+                .await?
+                .map_err(PluginError::Init)?;
+            Ok(instance)
+        }
+        .await;
+        flush_logs(&mut store, result.as_ref().err()).await;
+        let instance = result?;
 
         Ok(LoadedPlugin {
             store,
@@ -237,9 +260,21 @@ impl LoadedPlugin {
 
     async fn handle(&mut self, event: Event) -> Result<Event, PluginError> {
         self.store.set_epoch_deadline(self.deadline);
-        self.instance
-            .call_handle(&mut self.store, &event)
-            .await?
-            .map_err(PluginError::Hook)
+        let result = match self.instance.call_handle(&mut self.store, &event).await {
+            Ok(result) => result.map_err(PluginError::Hook),
+            Err(err) => Err(err.into()),
+        };
+        flush_logs(&mut self.store, result.as_ref().err()).await;
+        result
+    }
+}
+
+/// Hands the call's log entries to the embedder, ending with `error` (the
+/// call's outcome) as a host entry.
+async fn flush_logs(store: &mut Store<PluginState>, error: Option<&PluginError>) {
+    let state = store.data_mut();
+    let entries = state.logs.drain(error.map(ToString::to_string));
+    if !entries.is_empty() {
+        state.services.log(entries).await;
     }
 }

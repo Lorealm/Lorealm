@@ -1,7 +1,7 @@
 import wit_world
 from componentize_py_types import Err
 from wit_world.imports import host
-from wit_world.imports.types import Event_PromptBuild, Hook, Message, Role
+from wit_world.imports.types import Event_PromptBuild, Hook, Level, Message, Role
 
 
 class WitWorld(wit_world.WitWorld):
@@ -17,10 +17,14 @@ class WitWorld(wit_world.WitWorld):
                 pass
         if last == "forget":
             host.delete_data("greetings")
+        if last == "crash":
+            raise ValueError("crashed on purpose")
 
         persona = host.active_persona()
         count = greetings() + 1
         host.persist_data("greetings", str(count).encode())
+        host.log(Level.INFO, f"greeting #{count}")
+        print(f"printed greeting #{count}")
         prompt.append(Message(Role.SYSTEM, f"Hello, {persona.name}! #{count}"))
         return Event_PromptBuild(prompt)
 

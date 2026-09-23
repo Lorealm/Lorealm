@@ -1,6 +1,10 @@
 use async_trait::async_trait;
 
-use crate::{PluginStorage, StorageError, backends::CachedStorage, models::Snowflake};
+use crate::{
+    PluginStorage, StorageError,
+    backends::CachedStorage,
+    models::{PluginLog, Snowflake},
+};
 
 #[async_trait]
 impl PluginStorage for CachedStorage {
@@ -52,5 +56,26 @@ impl PluginStorage for CachedStorage {
         key: &str,
     ) -> Result<(), StorageError> {
         self.backend.delete_plugin_data(user_id, handle, key).await
+    }
+
+    async fn append_plugin_logs(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        logs: &[PluginLog],
+        cap: u32,
+    ) -> Result<(), StorageError> {
+        self.backend
+            .append_plugin_logs(user_id, handle, logs, cap)
+            .await
+    }
+
+    async fn list_plugin_logs(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        limit: u32,
+    ) -> Result<Vec<PluginLog>, StorageError> {
+        self.backend.list_plugin_logs(user_id, handle, limit).await
     }
 }

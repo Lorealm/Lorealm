@@ -9,6 +9,7 @@ A living document to help us keep track of the plugin system implementation.
 | 10/09/26      | Extended the plan with more details | ❌            |
 | 23/09/26      | Switched to the component model     | ✅            |
 | 23/09/26      | Resolved capability registration    | ✅            |
+| 23/09/26      | Added plugin logging                | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -129,6 +130,15 @@ Here is a non-exhaustive list of hooks that will (probably) exist:
 - [More...]
 
 **Planned:** record what each plugin's `prompt-build` hook changed, diffing the prompt before and after every plugin, so the context inspector can show which plugin changed what.
+
+### Logging
+Every plugin has a log per user, readable by that user at `GET /plugins/{handle}/logs` (newest first). Each entry records its `source`:
+- **host**: written by the server: permission denials, failed calls (errors, crashes, timeouts), a plugin stopped after a crash, and plugins that failed to load.
+- **guest**: written by the plugin, through the `log(level, message)` import or by printing to stdout (`info`) or stderr (`warn`). Uncaught Python exceptions and Rust panics land here.
+
+Only the host sets `source`, so a plugin cannot pass its lines off as the server's. Limits: messages are truncated at 4 KiB, a single call keeps at most 100 entries (the rest are counted in a host entry), and each user keeps the newest `plugins.log_cap` entries per plugin (default 500). Host entries are mirrored to the server log at their own level; guest entries only at `debug`.
+
+**Planned:** admins can read any user's plugin logs, so a malicious plugin can't hide from server owners. A separate audit log comes later.
 
 ### Host Commands
 Apart from hook registering, a plugin will need to ship with a variety of commands to interact with the server. Most of these are permission-gated:
