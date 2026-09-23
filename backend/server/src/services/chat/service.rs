@@ -596,6 +596,7 @@ impl ChatService {
             trace,
             usage,
         } = evaluator.build().evaluate(trace)?;
+        let messages = self.plugins.prompt_build(spec.owner, messages).await;
 
         Ok(Prepared {
             prompt: messages,
@@ -713,7 +714,7 @@ impl ChatService {
         turns.reverse();
 
         let Prepared {
-            prompt,
+            mut prompt,
             trace,
             captured,
             usage,
@@ -744,8 +745,6 @@ impl ChatService {
             None => (HashMap::new(), false),
         };
         let state_pool = Arc::new(StdMutex::new(working));
-
-        let mut prompt = self.plugins.prompt_build(user_id, prompt).await;
 
         let cx = self
             .stage_cx(user_id, Self::convo_character(&convo)?.0)
