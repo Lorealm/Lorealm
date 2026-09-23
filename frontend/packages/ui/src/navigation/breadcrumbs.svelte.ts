@@ -30,6 +30,7 @@ export const VIEW_LABEL: Record<ViewName, string> = {
 	realms: 'Realms',
 	connections: 'Connections',
 	studio: 'Studio',
+	plugins: 'Plugins',
 	settings: 'Settings'
 };
 
@@ -105,6 +106,7 @@ export function crumbsFor(route: Route): Crumb[] {
 	switch (route.view) {
 		case 'write':
 		case 'characters':
+		case 'plugins':
 			return [{ label: VIEW_LABEL[route.view] }];
 
 		case 'realms': {

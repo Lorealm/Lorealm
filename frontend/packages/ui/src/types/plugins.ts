@@ -11,6 +11,14 @@ export interface FrontendSlot {
 	mode: 'latest' | 'every';
 }
 
+/** What installing a plugin from source produced. */
+export interface InstallReport {
+	handle: string;
+	version: string;
+	/** What the build commands printed. */
+	log: string;
+}
+
 export interface InstalledPlugin {
 	handle: string;
 	name: string;

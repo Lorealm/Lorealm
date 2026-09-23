@@ -40,7 +40,7 @@ import type {
 	SetActiveLorebooksRequest
 } from '$lib/types/lorebook.js';
 import type { SourceDefinition } from '$lib/types/node.js';
-import type { InstalledPlugin } from '$lib/types/plugins.js';
+import type { InstallReport, InstalledPlugin } from '$lib/types/plugins.js';
 import type {
 	Blueprint,
 	BlueprintSummary,
@@ -383,6 +383,14 @@ export function createApiClient(platform: PlatformAPI) {
 		},
 		plugins: {
 			list: () => http.get<Array<InstalledPlugin>>('/api/v1/plugins'),
+			toggle: (handle: string, enabled: boolean) =>
+				http.patch(`/api/v1/plugins/${handle}`, { enabled }),
+			/** To the latest installed version when `version` is left out. */
+			update: (handle: string, version?: string) =>
+				http.post(`/api/v1/plugins/${handle}/update`, { version }),
+			/** Builds and installs the plugin in a folder on the server. */
+			install: (path: string) => http.post<InstallReport>('/api/v1/plugins/install', { path }),
+			uninstall: (handle: string) => http.delete(`/api/v1/plugins/${handle}`),
 			/** A slot entry's HTML. */
 			frontendEntry: async (handle: string, entry: string) =>
 				(

@@ -3,6 +3,7 @@
 	const realmsPage = () => import('../realms/RealmsPage.svelte');
 	const connectionsView = () => import('../connections/ConnectionsView.svelte');
 	const settingsPage = () => import('../settings/SettingsPage.svelte');
+	const pluginsPage = () => import('../plugins/PluginsPage.svelte');
 	const studioRouter = () => import('./StudioRouter.svelte');
 </script>
 
@@ -45,6 +46,10 @@
 {:else if route.view === 'studio'}
 	{#await lazy(studioRouter) then StudioRouter}
 		<StudioRouter section={route.section} id={route.id} />
+	{/await}
+{:else if route.view === 'plugins'}
+	{#await lazy(pluginsPage) then PluginsPage}
+		<PluginsPage />
 	{/await}
 {:else if route.view === 'settings'}
 	{#await lazy(settingsPage) then SettingsPage}
