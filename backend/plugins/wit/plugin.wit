@@ -1,0 +1,6 @@
+package lorealm:plugin@0.1.0;
+
+world plugin {
+    /// Called once after the plugin is mounted.
+    export init: func() -> result<_, string>;
+}

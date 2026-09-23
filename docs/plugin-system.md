@@ -7,6 +7,7 @@ A living document to help us keep track of the plugin system implementation.
 |---------------|-------------------------------------|--------------|
 | 09/09/26      | Created the initial ground plan     | ❌            |
 | 10/09/26      | Extended the plan with more details | ❌            |
+| 23/09/26      | Switched to the component model     | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -32,7 +33,9 @@ We will provide paths for common things, such as inspector modules, custom chat 
 ### Plugin Development
 Day one support includes *at least* Rust and Python, the native language and the most popular language.
 
-The enviornment is undecided. We'll have to see if extism's PDK generation is sufficient, if not, we'll be maintaing a seperate repository that allows users to scaffold the plugin environment via a simple CLI tool.
+Plugins are WebAssembly components (wasmtime + WIT), not Extism modules. The WIT world lives in `backend/plugins/wit` and is the single source of truth for bindings in every language (`wit-bindgen` for Rust, `componentize-py` for Python).
+
+WASI is linked so standard toolchains work, but the sandbox grants nothing by default: no filesystem, environment, arguments or network.
 
 ### Manifest
 Every plugin must ship with a manifest.toml file. A manifest file ships the plugin definition, and will contain *at least* these fields:
@@ -53,8 +56,8 @@ Every plugin must ship with a manifest.toml file. A manifest file ships the plug
 - conflicts
 
 #### Structure (optional)
-- backend_path (the relative path to the backend code, defaults to "backend")
-- frontend_path (same, but for frontend, defaults to "frontend")
+- backend (the relative path to the built backend component, defaults to "plugin.wasm")
+- frontend_path (the relative path to the frontend code, defaults to "frontend"; not implemented yet)
 
 Here's an example:
 ```toml
@@ -75,7 +78,7 @@ recommends = ["syntax_highlight"]
 conflicts = ["other_md_preview"]
 
 [structure]
-backend_path = "src/backend"
+backend = "build/plugin.wasm"
 frontend_path = "src/frontend"
 ```
 
@@ -136,7 +139,7 @@ plugin
 ├── .gitignore
 ├── manifest.toml
 ├── backend
-│   ├── pkg (extism/custom PDK types and wrappers)
+│   ├── wit (the Lorealm WIT world)
 │   └── src
 └── frontend
     └── src
