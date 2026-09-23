@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use async_trait::async_trait;
 use lorealm_storage::models::{
     ActivationState, AgentKind, AgentSpec, ChatRole, Conversation, EventKind, RealmAgent,
-    RealmCast, ResolvedRealmConfig, Snowflake, StateDelta,
+    RealmCast, Snowflake, StateDelta,
 };
 use serde_json::json;
 
@@ -30,7 +30,7 @@ pub(super) enum PersistPlan {
 }
 
 pub(super) struct EventDraft {
-    pub source: Snowflake,
+    pub source: String,
     pub channel: String,
     pub kind: EventKind,
     pub content: String,
@@ -73,7 +73,7 @@ pub(super) struct LlmTurn {
 /// The resolved turn before execution; the turn loop matches on the shape.
 pub(super) enum TurnPlan {
     /// A human is up; nothing runs server-side until they submit.
-    AwaitPlayer { agent_id: Snowflake },
+    AwaitPlayer { handle: String },
     /// A turn resolved and ready to commit.
     Ready(Box<ReadyTurn>),
     /// A streamed LLM turn.
@@ -110,7 +110,7 @@ pub(super) struct PlayerAgent;
 impl Agent for PlayerAgent {
     async fn plan(&self, cx: PlanCx<'_>) -> Result<TurnPlan, RealmError> {
         Ok(TurnPlan::AwaitPlayer {
-            agent_id: cx.agent.id,
+            handle: cx.agent.handle.clone(),
         })
     }
 }
@@ -122,7 +122,7 @@ pub(super) struct ScriptAgent;
 impl Agent for ScriptAgent {
     async fn plan(&self, cx: PlanCx<'_>) -> Result<TurnPlan, RealmError> {
         let PlanCx {
-            service,
+            service: _,
             convo,
             cast,
             agent,
@@ -143,17 +143,15 @@ impl Agent for ScriptAgent {
         .await?;
 
         let meta = json!({
-            "agent_id": agent.id,
+            "handle": agent.handle,
             "agent_name": agent.name,
             "script": true,
             "output": output,
         });
 
-        // A script's events: whatever it emitted, plus the state changes it made.
-        let config = service.resolve_config(convo).await?;
         let mut events = Vec::new();
-        push_emitted_events(agent.id, emitted, &mut events);
-        push_state_events(agent.id, &delta, &config, &mut events);
+        push_emitted_events(&agent.handle, emitted, &mut events);
+        push_state_events(&agent.handle, &delta, &mut events);
         let state = capture(world.activation, delta);
 
         Ok(TurnPlan::Ready(Box::new(ReadyTurn {
@@ -195,7 +193,7 @@ impl Agent for LlmAgent {
 
         let mut observations = service
             .storage
-            .list_observations_for_messages(agent.id, &path_ids)
+            .list_observations_for_messages(&agent.handle, &path_ids)
             .await?;
 
         if observations.len() > super::OBSERVATION_WINDOW as usize {
@@ -285,12 +283,12 @@ pub(super) fn capture(
 
 /// Append one draft per event a weaver body emitted via `emit_event`.
 pub(super) fn push_emitted_events(
-    source: Snowflake,
+    source: &str,
     emitted: Vec<EmittedEvent>,
     events: &mut Vec<EventDraft>,
 ) {
     events.extend(emitted.into_iter().map(|e| EventDraft {
-        source,
+        source: source.to_string(),
         channel: e.scope,
         kind: e.kind,
         content: e.content,
@@ -298,11 +296,9 @@ pub(super) fn push_emitted_events(
     }));
 }
 
-/// Append one `StateChanged` event draft per namespace the delta touched.
 pub(super) fn push_state_events(
-    source: Snowflake,
+    source: &str,
     delta: &StateDelta,
-    config: &ResolvedRealmConfig,
     events: &mut Vec<EventDraft>,
 ) {
     let mut namespaces: Vec<&String> = delta.writes.keys().chain(delta.deletes.keys()).collect();
@@ -315,19 +311,19 @@ pub(super) fn push_state_events(
             let mut keys: Vec<&String> = vars.keys().collect();
             keys.sort();
             for k in keys {
-                parts.push(config.state_write(k, &vars[k].to_string()));
+                parts.push(format!("{k} = {}", vars[k]));
             }
         }
         if let Some(names) = delta.deletes.get(ns) {
             for n in names {
-                parts.push(config.state_delete(n));
+                parts.push(format!("-{n}"));
             }
         }
         events.push(EventDraft {
-            source,
+            source: source.to_string(),
             channel: ns.clone(),
             kind: EventKind::StateChanged,
-            content: config.state_change(ns, &parts.join(", ")),
+            content: format!("{ns}: {}", parts.join(", ")),
             payload: json!({ "writes": delta.writes.get(ns), "deletes": delta.deletes.get(ns) }),
         });
     }

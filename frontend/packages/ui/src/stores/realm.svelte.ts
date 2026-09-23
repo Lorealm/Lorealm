@@ -7,8 +7,7 @@ import type {
 	AgentObservation,
 	CreateAgentRequest,
 	CreateScenarioRequest,
-	ImportKind,
-	ImportRule,
+	RealmResourceKind,
 	PlayerAction,
 	Realm,
 	RealmAgent,
@@ -23,14 +22,13 @@ import type {
 	UpdateRealmRequest
 } from '$lib/types/realm.js';
 import type { WidgetInstance } from '$lib/types/widgets.js';
-import { SvelteSet } from 'svelte/reactivity';
 import { showApiError } from './errorActions.js';
 
 export type RunStatus = 'idle' | 'streaming' | 'error';
 
 /** The in-flight LLM turn, accumulated from the turn stream. */
 export interface LiveTurn {
-	agentId: Snowflake;
+	handle: string;
 	name: string;
 	text: string;
 	reasoning: string;
@@ -40,7 +38,7 @@ export interface LiveTurn {
 
 /** What the inspector knows about one agent. */
 export interface AgentInspection {
-	agentId: Snowflake;
+	handle: string;
 	grants: AgentGrant[];
 	actions: ActionSpec[];
 	state: StateSlice;
@@ -64,7 +62,7 @@ class RealmStore {
 	runStatus = $state<RunStatus>('idle');
 	autoRun = $state(true);
 	turn = $state<LiveTurn | null>(null);
-	awaitingAgentId = $state<Snowflake | null>(null);
+	awaitingHandle = $state<string | null>(null);
 	#cancelling = false;
 
 	inspection = $state<AgentInspection | null>(null);
@@ -84,11 +82,11 @@ class RealmStore {
 	}
 
 	get awaitingAgent(): RealmAgent | null {
-		return this.agents.find((a) => a.id === this.awaitingAgentId) ?? null;
+		return this.agents.find((a) => a.handle === this.awaitingHandle) ?? null;
 	}
 
 	agentById(id: Snowflake | null): RealmAgent | undefined {
-		return id ? this.agents.find((a) => a.id === id) : undefined;
+		return id ? this.agents.find((a) => a.handle === id) : undefined;
 	}
 
 	async loadList() {
@@ -144,12 +142,6 @@ class RealmStore {
 		}
 	}
 
-	async setImports(imports: ImportRule[]): Promise<void> {
-		const realm = this.realm;
-		if (!realm) return;
-		realm.definition.imports = await this.#api.realms.imports.set(realm.id, imports);
-	}
-
 	config = $state<RealmConfig>({});
 
 	async loadConfig() {
@@ -172,7 +164,8 @@ class RealmStore {
 		}
 	}
 
-	importUsers(kind: ImportKind, resourceId: Snowflake): RealmAgent[] {
+	/** The agents that reference one resource. */
+	resourceUsers(kind: RealmResourceKind, resourceId: Snowflake): RealmAgent[] {
 		const agents = this.realm?.definition.agents ?? [];
 		return agents.filter((a) => {
 			switch (kind) {
@@ -192,28 +185,6 @@ class RealmStore {
 		});
 	}
 
-	get missingImports(): ImportRule[] {
-		const definition = this.realm?.definition;
-		if (!definition) return [];
-		const have = new SvelteSet(definition.imports.map((r) => `${r.kind}:${r.resource_id}`));
-		const missing: ImportRule[] = [];
-		const need = (kind: ImportKind, resource_id: Snowflake) => {
-			const key = `${kind}:${resource_id}`;
-			if (have.has(key)) return;
-			have.add(key);
-			missing.push({ kind, resource_id });
-		};
-		for (const agent of definition.agents) {
-			if (agent.character_id) need('character', agent.character_id);
-			if (agent.template_id) need('template', agent.template_id);
-			if (agent.profile_id) need('connection_profile', agent.profile_id);
-			if (agent.persona_id) need('persona', agent.persona_id);
-			for (const b of agent.tools) need('tool', b.tool_id);
-			for (const l of agent.lorebooks ?? []) need('lorebook', l);
-		}
-		return missing;
-	}
-
 	async createAgent(req: CreateAgentRequest): Promise<RealmAgent | null> {
 		if (!this.realm) return null;
 		const agent = await this.#api.realms.agents.create(this.realm.id, req);
@@ -221,13 +192,13 @@ class RealmStore {
 		return agent;
 	}
 
-	async reorderAgents(order: Snowflake[]) {
+	async reorderAgents(order: string[]) {
 		const realm = this.realm;
 		if (!realm) return;
 		const prev = [...realm.definition.agents];
-		const byId = new Map(prev.map((a) => [a.id, a]));
+		const byHandle = new Map(prev.map((a) => [a.handle, a]));
 		realm.definition.agents = order
-			.map((id) => byId.get(id))
+			.map((handle) => byHandle.get(handle))
 			.filter((a): a is RealmAgent => a !== undefined);
 		try {
 			realm.definition.agents = await this.#api.realms.agents.reorder(realm.id, order);
@@ -237,22 +208,22 @@ class RealmStore {
 		}
 	}
 
-	async moveAgent(agentId: Snowflake, delta: -1 | 1) {
+	async moveAgent(handle: string, delta: -1 | 1) {
 		const agents = this.realm?.definition.agents ?? [];
-		const index = agents.findIndex((a) => a.id === agentId);
+		const index = agents.findIndex((a) => a.handle === handle);
 		const target = index + delta;
 		if (index === -1 || target < 0 || target >= agents.length) return;
-		const order = agents.map((a) => a.id);
+		const order = agents.map((a) => a.handle);
 		[order[index], order[target]] = [order[target], order[index]];
 		await this.reorderAgents(order);
 	}
 
-	async updateAgent(agentId: Snowflake, req: CreateAgentRequest): Promise<RealmAgent | null> {
+	async updateAgent(handle: string, req: CreateAgentRequest): Promise<RealmAgent | null> {
 		const realm = this.realm;
 		if (!realm) return null;
-		const agent = await this.#api.realms.agents.update(realm.id, agentId, req);
-		realm.definition.agents = realm.definition.agents.map((a) => (a.id === agentId ? agent : a));
-		if (this.inspection?.agentId === agentId) await this.refreshInspection();
+		const agent = await this.#api.realms.agents.update(realm.id, handle, req);
+		realm.definition.agents = realm.definition.agents.map((a) => (a.handle === handle ? agent : a));
+		if (this.inspection?.handle === handle) await this.refreshInspection();
 		return agent;
 	}
 
@@ -277,17 +248,17 @@ class RealmStore {
 		};
 	}
 
-	#agentSaveTimers = new Map<Snowflake, ReturnType<typeof setTimeout>>();
+	#agentSaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-	editAgent(agentId: Snowflake, mutate: (a: RealmAgent) => void) {
-		const agent = this.realm?.definition.agents.find((a) => a.id === agentId);
+	editAgent(handle: string, mutate: (a: RealmAgent) => void) {
+		const agent = this.realm?.definition.agents.find((a) => a.handle === handle);
 		if (!agent) return;
 		mutate(agent);
-		this.#queueAgentSave(agentId);
+		this.#queueAgentSave(handle);
 	}
 
-	async setAgentCharacter(agentId: Snowflake, characterId: Snowflake | '') {
-		const agent = this.realm?.definition.agents.find((a) => a.id === agentId);
+	async setAgentCharacter(handle: string, characterId: Snowflake | '') {
+		const agent = this.realm?.definition.agents.find((a) => a.handle === handle);
 		if (!agent) return;
 		if (!characterId) {
 			agent.character_id = null;
@@ -302,30 +273,29 @@ class RealmStore {
 				return;
 			}
 		}
-		this.#queueAgentSave(agentId);
+		this.#queueAgentSave(handle);
 	}
 
-	#queueAgentSave(agentId: Snowflake) {
-		const existing = this.#agentSaveTimers.get(agentId);
+	#queueAgentSave(handle: string) {
+		const existing = this.#agentSaveTimers.get(handle);
 		if (existing) clearTimeout(existing);
 		this.#agentSaveTimers.set(
-			agentId,
-			setTimeout(() => void this.#saveAgentNow(agentId), 500)
+			handle,
+			setTimeout(() => void this.#saveAgentNow(handle), 500)
 		);
 	}
 
-	async #saveAgentNow(agentId: Snowflake) {
-		this.#agentSaveTimers.delete(agentId);
+	async #saveAgentNow(handle: string) {
+		this.#agentSaveTimers.delete(handle);
 		const realm = this.realm;
-		const agent = realm?.definition.agents.find((a) => a.id === agentId);
+		const agent = realm?.definition.agents.find((a) => a.handle === handle);
 		if (!realm || !agent) return;
 		try {
 			const saved = await this.#api.realms.agents.update(
 				realm.id,
-				agentId,
+				handle,
 				this.agentRequest(agent)
 			);
-			agent.turn_order = saved.turn_order;
 			agent.char_version_id = saved.char_version_id;
 		} catch (e) {
 			this.#handleError(e, 'Failed to save agent');
@@ -341,21 +311,19 @@ class RealmStore {
 		}
 	}
 
-	async deleteAgent(agentId: Snowflake) {
+	async deleteAgent(handle: string) {
 		const realm = this.realm;
 		if (!realm) return;
-		const timer = this.#agentSaveTimers.get(agentId);
+		const timer = this.#agentSaveTimers.get(handle);
 		if (timer) {
 			clearTimeout(timer);
-			this.#agentSaveTimers.delete(agentId);
+			this.#agentSaveTimers.delete(handle);
 		}
 		const prev = [...realm.definition.agents];
-		realm.definition.agents = realm.definition.agents.filter((a) => a.id !== agentId);
-		if (this.inspection?.agentId === agentId) this.inspection = null;
+		realm.definition.agents = realm.definition.agents.filter((a) => a.handle !== handle);
+		if (this.inspection?.handle === handle) this.inspection = null;
 		try {
-			await this.#api.realms.agents.delete(realm.id, agentId);
-			// turn_order was re-derived server-side; resync the document.
-			await this.refreshRealm();
+			await this.#api.realms.agents.delete(realm.id, handle);
 		} catch (e) {
 			realm.definition.agents = prev;
 			this.#handleError(e, 'Failed to delete agent');
@@ -398,13 +366,13 @@ class RealmStore {
 		}
 	}
 
-	async updateScenario(scenarioId: Snowflake, req: CreateScenarioRequest): Promise<boolean> {
+	async updateScenario(scenarioSlug: string, req: CreateScenarioRequest): Promise<boolean> {
 		const realm = this.realm;
 		if (!realm) return false;
 		try {
-			const saved = await this.#api.realms.scenarios.update(realm.id, scenarioId, req);
+			const saved = await this.#api.realms.scenarios.update(realm.id, scenarioSlug, req);
 			realm.definition.scenarios = realm.definition.scenarios.map((s) =>
-				s.id === scenarioId ? saved : s
+				s.slug === scenarioSlug ? saved : s
 			);
 			return true;
 		} catch (e) {
@@ -413,25 +381,27 @@ class RealmStore {
 		}
 	}
 
-	async deleteScenario(scenarioId: Snowflake): Promise<void> {
+	async deleteScenario(scenarioSlug: string): Promise<void> {
 		const realm = this.realm;
 		if (!realm) return;
 		try {
-			await this.#api.realms.scenarios.delete(realm.id, scenarioId);
-			realm.definition.scenarios = realm.definition.scenarios.filter((s) => s.id !== scenarioId);
+			await this.#api.realms.scenarios.delete(realm.id, scenarioSlug);
+			realm.definition.scenarios = realm.definition.scenarios.filter(
+				(s) => s.slug !== scenarioSlug
+			);
 		} catch (e) {
 			this.#handleError(e, 'Failed to delete scenario');
 		}
 	}
 
-	async startPlaythrough(scenarioId?: Snowflake): Promise<boolean> {
+	async startPlaythrough(scenarioSlug?: string): Promise<boolean> {
 		const realm = this.realm;
 		if (!realm || this.isStreaming) return false;
 
 		try {
 			const full = await this.#api.chat.realm.start({
 				realm_id: realm.id,
-				scenario_id: scenarioId ?? null
+				scenario: scenarioSlug ?? null
 			});
 			const cast = await this.#api.chat.realm.cast(full.metadata.id);
 			this.#resetPlaythrough();
@@ -455,7 +425,7 @@ class RealmStore {
 		this.cast = null;
 		this.events = [];
 		this.turn = null;
-		this.awaitingAgentId = null;
+		this.awaitingHandle = null;
 		this.runStatus = 'idle';
 		this.playerActions = [];
 		this.#cancelling = false;
@@ -474,7 +444,7 @@ class RealmStore {
 		const convo = this.conversation;
 		if (!convo || this.isStreaming) return false;
 
-		this.awaitingAgentId = null;
+		this.awaitingHandle = null;
 		this.runStatus = 'streaming';
 		this.#cancelling = false;
 
@@ -484,11 +454,11 @@ class RealmStore {
 			for await (const event of stream) {
 				switch (event.type) {
 					case 'awaiting_player':
-						this.awaitingAgentId = event.agent_id;
+						this.awaitingHandle = event.handle;
 						break;
 					case 'turn_started':
 						this.turn = {
-							agentId: event.agent_id,
+							handle: event.handle,
 							name: event.name,
 							text: '',
 							reasoning: '',
@@ -569,7 +539,7 @@ class RealmStore {
 			return false;
 		}
 
-		this.awaitingAgentId = null;
+		this.awaitingHandle = null;
 		this.#applyCommit(result);
 		if (this.autoRun) void this.play();
 		return true;
@@ -577,13 +547,13 @@ class RealmStore {
 
 	async loadPlayerActions() {
 		const convo = this.conversation;
-		const agentId = this.awaitingAgentId;
-		if (!convo || !agentId) {
+		const handle = this.awaitingHandle;
+		if (!convo || !handle) {
 			this.playerActions = [];
 			return;
 		}
 		try {
-			this.playerActions = await this.#api.chat.realm.agents.actions(convo.id, agentId);
+			this.playerActions = await this.#api.chat.realm.agents.actions(convo.id, handle);
 		} catch (e) {
 			this.playerActions = [];
 			console.warn('Failed to load player actions', e);
@@ -591,7 +561,7 @@ class RealmStore {
 	}
 
 	async inspectAgent(id: Snowflake) {
-		if (this.inspection?.agentId === id) {
+		if (this.inspection?.handle === id) {
 			this.inspection = null; // toggle off
 			return;
 		}
@@ -599,7 +569,7 @@ class RealmStore {
 	}
 
 	async selectInspection(id: Snowflake) {
-		if (this.inspection?.agentId === id) return;
+		if (this.inspection?.handle === id) return;
 		const agent = this.agentById(id);
 		if (!agent) return;
 
@@ -612,12 +582,12 @@ class RealmStore {
 					api.state(this.conversation.id, id),
 					api.observations(this.conversation.id, id)
 				]);
-				this.inspection = { agentId: id, grants: agent.grants, actions, state, observations };
+				this.inspection = { handle: id, grants: agent.grants, actions, state, observations };
 			} else if (this.realm) {
 				// Editor: only the authored shape exists, no live state.
 				const actions = await this.#api.realms.agents.actions(this.realm.id, id);
 				this.inspection = {
-					agentId: id,
+					handle: id,
 					grants: agent.grants,
 					actions,
 					state: {},
@@ -630,7 +600,7 @@ class RealmStore {
 	}
 
 	async refreshInspection() {
-		const id = this.inspection?.agentId;
+		const id = this.inspection?.handle;
 		if (!id) return;
 		this.inspection = null;
 		await this.inspectAgent(id);

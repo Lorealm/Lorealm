@@ -1,14 +1,18 @@
+<script module lang="ts">
+	const lorebooksSection = () => import('../studio/sections/lorebook/LorebooksSection.svelte');
+	const templateSection = () => import('../studio/sections/templates/TemplateSection.svelte');
+	const characterSection = () => import('../studio/sections/characters/CharacterSection.svelte');
+	const realmSection = () => import('../studio/sections/realm/RealmSection.svelte');
+	const personaSection = () => import('../studio/sections/personas/PersonaSection.svelte');
+	const toolsSection = () => import('../studio/sections/tools/ToolsSection.svelte');
+	const widgetsSection = () => import('../studio/sections/widgets/WidgetsSection.svelte');
+</script>
+
 <script lang="ts">
+	import { lazy } from '$lib/core/lazy.js';
 	import type { StudioSection } from '$lib/navigation/routes.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import StudioNav from '../studio/StudioNav.svelte';
-	import LorebooksSection from '../studio/sections/lorebook/LorebooksSection.svelte';
-	import TemplateSection from '../studio/sections/templates/TemplateSection.svelte';
-	import CharacterSection from '../studio/sections/characters/CharacterSection.svelte';
-	import RealmSection from '../studio/sections/realm/RealmSection.svelte';
-	import PersonaSection from '../studio/sections/personas/PersonaSection.svelte';
-	import ToolsSection from '../studio/sections/tools/ToolsSection.svelte';
-	import WidgetsSection from '../studio/sections/widgets/WidgetsSection.svelte';
 
 	let { section, id }: { section: StudioSection; id?: Snowflake } = $props();
 </script>
@@ -17,18 +21,32 @@
 	<StudioNav {section} />
 
 	{#if section === 'lorebooks'}
-		<LorebooksSection {id} />
+		{#await lazy(lorebooksSection) then LorebooksSection}
+			<LorebooksSection {id} />
+		{/await}
 	{:else if section === 'templates'}
-		<TemplateSection {id} />
+		{#await lazy(templateSection) then TemplateSection}
+			<TemplateSection {id} />
+		{/await}
 	{:else if section === 'characters'}
-		<CharacterSection {id} />
+		{#await lazy(characterSection) then CharacterSection}
+			<CharacterSection {id} />
+		{/await}
 	{:else if section === 'tools'}
-		<ToolsSection {id} />
+		{#await lazy(toolsSection) then ToolsSection}
+			<ToolsSection {id} />
+		{/await}
 	{:else if section === 'personas'}
-		<PersonaSection {id} />
+		{#await lazy(personaSection) then PersonaSection}
+			<PersonaSection {id} />
+		{/await}
 	{:else if section === 'widgets'}
-		<WidgetsSection {id} />
+		{#await lazy(widgetsSection) then WidgetsSection}
+			<WidgetsSection {id} />
+		{/await}
 	{:else if section === 'realm'}
-		<RealmSection />
+		{#await lazy(realmSection) then RealmSection}
+			<RealmSection />
+		{/await}
 	{/if}
 </div>

@@ -4,7 +4,7 @@ use std::{
 };
 
 use lorealm_storage::models::{
-    AGENTS_SCOPE, AgentGrant, AgentKind, Param, RealmAgent, ScopePattern, StateDelta,
+    AGENTS_SCOPE, AgentGrant, AgentKind, Param, RealmAgent, Scenario, ScopePattern, StateDelta,
 };
 use serde_json::json;
 
@@ -28,7 +28,7 @@ pub(super) struct TurnInfo<'a> {
 }
 
 impl TurnInfo<'_> {
-    /// The turn a playthrough opens on: nothing has acted yet.
+    #[cfg(test)]
     pub(super) fn opening() -> Self {
         Self {
             index: 0,
@@ -37,26 +37,53 @@ impl TurnInfo<'_> {
     }
 }
 
-/// The `cast:` and `turn:` namespaces for one evaluation.
-pub(super) fn realm_view(agents: &[RealmAgent], turn: &TurnInfo) -> RealmView {
-    let roster: Vec<&RealmAgent> = agents.iter().filter(|a| !a.handle.is_empty()).collect();
+/// Dynamically builds an agent based on what they're carrying right now.
+fn member_view(agent: &RealmAgent, turn_order: usize, world: &StatePool) -> serde_json::Value {
+    let mut fields = world
+        .get(AGENTS_SCOPE)
+        .and_then(|ns| ns.get(&agent.handle))
+        .and_then(|own| own.as_object())
+        .cloned()
+        .unwrap_or_default();
+    fields.insert("handle".to_string(), json!(agent.handle));
+    fields.insert("name".to_string(), json!(agent.name));
+    fields.insert("kind".to_string(), json!(agent.kind.as_str()));
+    fields.insert("turn_order".to_string(), json!(turn_order));
+    fields.into()
+}
 
-    let group = |of: &[&RealmAgent]| {
+pub(super) fn realm_view(
+    agents: &[RealmAgent],
+    turn: &TurnInfo,
+    scenario: Option<&Scenario>,
+    world: &StatePool,
+) -> RealmView {
+    let roster: Vec<(usize, &RealmAgent)> = agents.iter().enumerate().collect();
+
+    let group = |of: &[(usize, &RealmAgent)]| {
         json!({
             "count": of.len(),
-            "handles": of.iter().map(|a| &a.handle).collect::<Vec<_>>(),
-            "names": of.iter().map(|a| &a.name).collect::<Vec<_>>(),
+            "handles": of.iter().map(|(_, a)| &a.handle).collect::<Vec<_>>(),
+            "names": of.iter().map(|(_, a)| &a.name).collect::<Vec<_>>(),
+            "members": of
+                .iter()
+                .map(|(i, a)| member_view(a, *i, world))
+                .collect::<Vec<_>>(),
         })
     };
 
     let mut cast = HashMap::new();
     let all = group(&roster);
-    cast.insert("count".to_string(), all["count"].clone());
-    cast.insert("handles".to_string(), all["handles"].clone());
-    cast.insert("names".to_string(), all["names"].clone());
+    for key in ["count", "handles", "names", "members"] {
+        cast.insert(key.to_string(), all[key].clone());
+    }
 
     for kind in [AgentKind::Llm, AgentKind::Player, AgentKind::Script] {
-        let of_kind: Vec<&RealmAgent> = roster.iter().copied().filter(|a| a.kind == kind).collect();
+        let of_kind: Vec<(usize, &RealmAgent)> = roster
+            .iter()
+            .copied()
+            .filter(|(_, a)| a.kind == kind)
+            .collect();
         cast.insert(kind.as_str().to_string(), group(&of_kind));
     }
 
@@ -64,16 +91,7 @@ pub(super) fn realm_view(agents: &[RealmAgent], turn: &TurnInfo) -> RealmView {
         "agents".to_string(),
         roster
             .iter()
-            .map(|a| {
-                (
-                    a.handle.clone(),
-                    json!({
-                        "name": a.name,
-                        "kind": a.kind.as_str(),
-                        "turn_order": a.turn_order,
-                    }),
-                )
-            })
+            .map(|(i, a)| (a.handle.clone(), member_view(a, *i, world)))
             .collect::<serde_json::Map<_, _>>()
             .into(),
     );
@@ -91,9 +109,20 @@ pub(super) fn realm_view(agents: &[RealmAgent], turn: &TurnInfo) -> RealmView {
         );
     }
 
+    // Absent when the realm has no openings
+    let scenario = scenario
+        .map(|s| {
+            HashMap::from([
+                ("slug".to_string(), json!(s.slug)),
+                ("name".to_string(), json!(s.name)),
+            ])
+        })
+        .unwrap_or_default();
+
     RealmView::new(HashMap::from([
         ("cast".to_string(), cast),
         ("turn".to_string(), this_turn),
+        ("scenario".to_string(), scenario),
     ]))
 }
 
@@ -107,7 +136,7 @@ pub(super) fn read_scopes(grants: &[AgentGrant]) -> Vec<ScopePattern> {
 
 pub(super) fn read_scopes_of(agent: &RealmAgent) -> Vec<ScopePattern> {
     let mut scopes = read_scopes(&agent.grants);
-    scopes.extend(agent.own_scope());
+    scopes.push(agent.own_scope());
     scopes
 }
 
@@ -120,9 +149,6 @@ pub(super) fn actor_of(agent: &RealmAgent) -> Actor {
 }
 
 pub(super) fn inject_self_alias(agent: &RealmAgent, slice: &mut StatePool) {
-    if agent.handle.is_empty() {
-        return;
-    }
     let own: HashMap<String, serde_json::Value> = slice
         .get(AGENTS_SCOPE)
         .and_then(|vars| vars.get(&agent.handle))
@@ -199,31 +225,8 @@ pub(super) async fn run_scoped(
     Ok((outcome.to_output_string(), outcome.delta, outcome.events))
 }
 
-/// Compile and run a scenario's seed script, returning the pool it built.
-pub(super) fn run_seed(
-    source: &str,
-    pool: StatePool,
-    view: &RealmView,
-) -> Result<StatePool, RealmError> {
-    let host = WeaverHost::builder()
-        .profile(WeaverProfile::RealmSeed)
-        .realm(view.clone())
-        .pool(Arc::new(StdMutex::new(pool)))
-        .build();
-
-    let outcome = host
-        .evaluate_inline(compile_template(source).map_err(invalid_scenario)?)
-        .map_err(invalid_scenario)?;
-
-    Ok(outcome.pool)
-}
-
 fn action_failed(e: WeaverError) -> RealmError {
     RealmError::ActionFailed(e.to_string())
-}
-
-fn invalid_scenario(e: WeaverError) -> RealmError {
-    RealmError::InvalidScenario(format!("seed script: {e}"))
 }
 
 /// Whether an agent should run on its turn
@@ -316,6 +319,7 @@ mod tests {
     use crate::services::tools::ToolContext;
     use lorealm_storage::models::AgentAccess;
     use serde_json::json;
+    use std::collections::BTreeSet;
     use weaver_lang::EvalContext;
 
     fn grant(scope: &str) -> AgentGrant {
@@ -329,9 +333,8 @@ mod tests {
     /// run condition.
     fn agent(grants: Vec<AgentGrant>, run_condition: Option<&str>) -> RealmAgent {
         RealmAgent {
-            id: lorealm_storage::models::Snowflake(1),
-            name: "tester".into(),
             handle: "h".into(),
+            name: "tester".into(),
             kind: lorealm_storage::models::AgentKind::Script,
             character_id: None,
             char_version_id: None,
@@ -339,7 +342,6 @@ mod tests {
             profile_id: None,
             user_id: None,
             persona_id: None,
-            turn_order: 0,
             properties: HashMap::new(),
             grants,
             tools: Vec::new(),
@@ -353,7 +355,7 @@ mod tests {
 
     fn condition_passes(condition: &str, grants: Vec<AgentGrant>, world: &StatePool) -> bool {
         let a = agent(grants, Some(condition));
-        let view = realm_view(std::slice::from_ref(&a), &TurnInfo::opening());
+        let view = realm_view(std::slice::from_ref(&a), &TurnInfo::opening(), None, world);
         run_condition_passes(&a, world, &view)
     }
 
@@ -502,21 +504,16 @@ mod tests {
     /// A player, one script agent and two LLMs. The shape of a group chat.
     fn troupe() -> Vec<RealmAgent> {
         let mut agents = Vec::new();
-        for (i, (handle, kind)) in [
+        for (handle, kind) in [
             ("you", lorealm_storage::models::AgentKind::Player),
             ("clock", lorealm_storage::models::AgentKind::Script),
             ("alice", lorealm_storage::models::AgentKind::Llm),
             ("bob", lorealm_storage::models::AgentKind::Llm),
-        ]
-        .into_iter()
-        .enumerate()
-        {
+        ] {
             let mut a = agent(vec![], None);
-            a.id = lorealm_storage::models::Snowflake(i as i64);
             a.handle = handle.into();
             a.name = handle.to_uppercase();
             a.kind = kind;
-            a.turn_order = i as i32;
             agents.push(a);
         }
         agents
@@ -525,7 +522,7 @@ mod tests {
     #[test]
     fn the_roster_counts_the_cast_by_kind() {
         let agents = troupe();
-        let view = realm_view(&agents, &TurnInfo::opening());
+        let view = realm_view(&agents, &TurnInfo::opening(), None, &StatePool::new());
         let read = |scope: &str, name: &str| {
             ToolContext::new(HashMap::new(), Default::default())
                 .with_realm(Some(view.clone()))
@@ -555,24 +552,66 @@ mod tests {
     }
 
     #[test]
-    fn an_unhandled_agent_stays_out_of_the_roster() {
-        let mut agents = troupe();
-        agents[2].handle = String::new();
+    fn every_cast_member_is_addressable_by_handle() {
+        let agents = troupe();
+        let view = realm_view(&agents, &TurnInfo::opening(), None, &StatePool::new());
+        let ctx = ToolContext::new(HashMap::new(), Default::default()).with_realm(Some(view));
 
-        let view = realm_view(&agents, &TurnInfo::opening());
+        for agent in &agents {
+            assert_eq!(
+                ctx.resolve_variable("cast", &format!("agents.{}.name", agent.handle))
+                    .unwrap(),
+                Some(weaver_lang::Value::String(agent.name.clone())),
+                "{} is missing from the roster",
+                agent.handle
+            );
+        }
+        assert_eq!(
+            ctx.resolve_variable("cast", "count").unwrap(),
+            Some(weaver_lang::Value::Number(agents.len() as f64))
+        );
+    }
+
+    #[test]
+    fn the_picked_scenario_is_readable_and_gates_a_turn_zero_script() {
+        let scenario = lorealm_storage::models::Scenario {
+            slug: "spring".into(),
+            name: "Spring".into(),
+            description: String::new(),
+            opening: None,
+        };
+        let agents = troupe();
+        let view = realm_view(
+            &agents,
+            &TurnInfo::opening(),
+            Some(&scenario),
+            &StatePool::new(),
+        );
         let ctx = ToolContext::new(HashMap::new(), Default::default()).with_realm(Some(view));
 
         assert_eq!(
-            ctx.resolve_variable("cast", "llm.count").unwrap(),
-            Some(weaver_lang::Value::Number(1.0))
+            ctx.resolve_variable("scenario", "name").unwrap(),
+            Some(weaver_lang::Value::String("Spring".into()))
         );
-        assert_eq!(ctx.resolve_variable("cast", "agents.alice").unwrap(), None);
+        assert_eq!(
+            ctx.resolve_variable("scenario", "slug").unwrap(),
+            Some(weaver_lang::Value::String("spring".into()))
+        );
+    }
+
+    #[test]
+    fn a_realm_without_an_opening_has_no_scenario_to_read() {
+        let agents = troupe();
+        let view = realm_view(&agents, &TurnInfo::opening(), None, &StatePool::new());
+        let ctx = ToolContext::new(HashMap::new(), Default::default()).with_realm(Some(view));
+
+        assert_eq!(ctx.resolve_variable("scenario", "name").unwrap(), None);
     }
 
     #[test]
     fn a_run_condition_reads_the_cast_around_it() {
         let agents = troupe();
-        let view = realm_view(&agents, &TurnInfo::opening());
+        let view = realm_view(&agents, &TurnInfo::opening(), None, &StatePool::new());
         let mut alice = agents[2].clone();
         alice.run_condition = Some("{{cast:llm.count}} == 2".into());
 
@@ -582,7 +621,7 @@ mod tests {
     #[test]
     fn a_director_names_a_handle() {
         let agents = troupe();
-        let view = realm_view(&agents, &TurnInfo::opening());
+        let view = realm_view(&agents, &TurnInfo::opening(), None, &StatePool::new());
         let world = StatePool::new();
 
         assert_eq!(
@@ -613,7 +652,7 @@ mod tests {
     #[tokio::test]
     async fn a_script_agent_reads_the_turn_it_runs_on() {
         let agents = troupe();
-        let view = realm_view(&agents, &TurnInfo::opening());
+        let view = realm_view(&agents, &TurnInfo::opening(), None, &StatePool::new());
         let (_, delta, _) = run_scoped(
             r#"$[set_var("run:idx", @[math.mod(a: {{turn:index}}, b: {{cast:llm.count}})])]"#,
             &[],
@@ -629,20 +668,6 @@ mod tests {
     }
 
     #[test]
-    fn run_seed_writes_into_the_pool_without_an_actor() {
-        let view = RealmView::default();
-        let pool = run_seed(
-            r#"$[set_var("world:season", "winter")]"#,
-            StatePool::new(),
-            &view,
-        )
-        .unwrap();
-        assert_eq!(pool["world"]["season"], json!("winter"));
-        // `self:` has no meaning in a seed script.
-        assert!(run_seed(r#"$[set_var("self:x", 1)]"#, StatePool::new(), &view).is_err());
-    }
-
-    #[test]
     fn self_alias_lifts_the_own_subtree() {
         let a = agent(vec![], None);
         let mut s = slice(&agents_world(), &read_scopes_of(&a));
@@ -650,5 +675,184 @@ mod tests {
         assert_eq!(s["self"]["stamina"], json!(3));
         // Only the own subtree was granted and aliased.
         assert!(!s[AGENTS_SCOPE].contains_key("rival"));
+    }
+
+    #[test]
+    fn the_editor_catalog_matches_what_a_realm_mounts() {
+        use crate::services::weaver::namespaces;
+
+        let mut llm = agent(Vec::new(), None);
+        llm.handle = "alice".into();
+        llm.kind = AgentKind::Llm;
+        let mut player = agent(Vec::new(), None);
+        player.handle = "bob".into();
+        player.kind = AgentKind::Player;
+        let cast = vec![llm, player.clone()];
+
+        let scenario = Scenario {
+            slug: "opening".into(),
+            name: "An opening".into(),
+            description: String::new(),
+            opening: None,
+        };
+        let mut world = StatePool::new();
+        world
+            .entry(AGENTS_SCOPE.into())
+            .or_default()
+            .insert("alice".into(), json!({ "talkativeness": 0.5 }));
+
+        let view = realm_view(
+            &cast,
+            &TurnInfo {
+                index: 3,
+                last: Some((&player, "something said")),
+            },
+            Some(&scenario),
+            &world,
+        );
+
+        for ns in namespaces() {
+            if !crate::services::tools::REALM_SCOPES.contains(&ns.scope.as_str()) {
+                continue;
+            }
+            assert!(
+                !ns.members.is_empty(),
+                "'{}:' is a realm namespace with nothing listed",
+                ns.scope
+            );
+            for m in &ns.members {
+                let name = m.name.replace("<handle>", "alice");
+                assert!(
+                    view.get(&ns.scope, &name).is_some(),
+                    "the editor offers '{}:{}', which a realm does not mount",
+                    ns.scope,
+                    m.name
+                );
+            }
+        }
+    }
+
+    fn director_source(blueprint: &str) -> String {
+        let open = blueprint
+            .find("source: r#\"")
+            .expect("the blueprint declares a script director")
+            + "source: r#\"".len();
+        let close = blueprint[open..]
+            .find("\"#")
+            .expect("the director body is closed");
+        blueprint[open..open + close].to_string()
+    }
+
+    #[test]
+    fn the_default_group_chat_director_hands_the_turn_back_to_the_player() {
+        let source = director_source(crate::services::blueprint::GROUP_CHAT_BP);
+
+        let mut me = agent(Vec::new(), None);
+        me.handle = "me".into();
+        me.kind = AgentKind::Player;
+        let mut alice = agent(Vec::new(), None);
+        alice.handle = "alice".into();
+        alice.kind = AgentKind::Llm;
+        let cast = vec![me, alice];
+
+        let mut world = StatePool::new();
+        world
+            .entry(AGENTS_SCOPE.into())
+            .or_default()
+            .insert("alice".into(), json!({ "talkativeness": 1.0 }));
+
+        // Turn zero: nobody has acted, so the opening is the player's.
+        let view = realm_view(&cast, &TurnInfo::opening(), None, &world);
+        assert_eq!(
+            run_director(&source, &world, &view).unwrap(),
+            vec!["me".to_string()]
+        );
+
+        // After an llm turn, back to the player.
+        let after_llm = TurnInfo {
+            index: 1,
+            last: Some((&cast[1], "Hello.")),
+        };
+        let view = realm_view(&cast, &after_llm, None, &world);
+        assert_eq!(
+            run_director(&source, &world, &view).unwrap(),
+            vec!["me".to_string()]
+        );
+
+        // After the player's own turn, the lottery decides.
+        let after_player = TurnInfo {
+            index: 2,
+            last: Some((&cast[0], "Hi.")),
+        };
+        let view = realm_view(&cast, &after_player, None, &world);
+        assert_eq!(
+            run_director(&source, &world, &view).unwrap(),
+            vec!["alice".to_string()]
+        );
+    }
+
+    #[test]
+    fn the_default_group_chat_director_skips_the_hand_back_with_no_player() {
+        let source = director_source(crate::services::blueprint::GROUP_CHAT_BP);
+
+        let mut alice = agent(Vec::new(), None);
+        alice.handle = "alice".into();
+        alice.kind = AgentKind::Llm;
+        let cast = vec![alice];
+
+        let mut world = StatePool::new();
+        world
+            .entry(AGENTS_SCOPE.into())
+            .or_default()
+            .insert("alice".into(), json!({ "talkativeness": 1.0 }));
+
+        let view = realm_view(&cast, &TurnInfo::opening(), None, &world);
+        assert_eq!(
+            run_director(&source, &world, &view).unwrap(),
+            vec!["alice".to_string()],
+            "a cast with nobody to hand back to still runs the lottery"
+        );
+    }
+
+    #[test]
+    fn the_default_group_chat_director_picks_a_speaker() {
+        let source = director_source(crate::services::blueprint::GROUP_CHAT_BP);
+
+        let mut alice = agent(Vec::new(), None);
+        alice.handle = "alice".into();
+        alice.kind = AgentKind::Llm;
+        let mut bob = agent(Vec::new(), None);
+        bob.handle = "bob".into();
+        bob.kind = AgentKind::Llm;
+        let cast = vec![alice, bob];
+
+        let weighted = |alice: f64, bob: f64| {
+            let mut world = StatePool::new();
+            let agents = world.entry(AGENTS_SCOPE.into()).or_default();
+            agents.insert("alice".into(), json!({ "talkativeness": alice }));
+            agents.insert("bob".into(), json!({ "talkativeness": bob }));
+            world
+        };
+
+        let world = weighted(1.0, 0.0);
+        let view = realm_view(&cast, &TurnInfo::opening(), None, &world);
+        for _ in 0..50 {
+            assert_eq!(
+                run_director(&source, &world, &view).unwrap(),
+                vec!["alice".to_string()],
+                "the whole weight sits on alice"
+            );
+        }
+
+        let world = weighted(0.5, 0.5);
+        let view = realm_view(&cast, &TurnInfo::opening(), None, &world);
+        let picked: std::collections::BTreeSet<String> = (0..200)
+            .flat_map(|_| run_director(&source, &world, &view).unwrap())
+            .collect();
+        assert_eq!(
+            picked,
+            BTreeSet::from(["alice".to_string(), "bob".to_string()]),
+            "an even split should reach both members"
+        );
     }
 }

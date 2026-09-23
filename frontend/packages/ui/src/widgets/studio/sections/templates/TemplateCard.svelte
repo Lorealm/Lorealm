@@ -3,12 +3,12 @@
 	import { templateStore } from '$lib/stores/template.svelte.js';
 	import type { TemplateMetadata } from '$lib/types/template.js';
 	import { Check, Layers, Pencil, Trash2 } from '@lucide/svelte';
-	import { DateTime } from 'luxon';
+	import { relativeTime } from '$lib/assets/scripts/datetime.js';
 
 	let { meta }: { meta: TemplateMetadata } = $props();
 
 	const active = $derived(templateStore.activeId === meta.id);
-	const updated = $derived(DateTime.fromISO(meta.updated_at).toRelative() ?? '');
+	const updated = $derived(relativeTime(meta.updated_at) ?? '');
 
 	let confirmingDelete = $state(false);
 	let busy = $state(false);

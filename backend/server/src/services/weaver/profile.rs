@@ -24,7 +24,8 @@ bitflags! {
 /// instance of it does. `$[emit_event]` needs a sink to report into and
 /// `$[generate]` needs a live chat handle; without them the builder leaves the
 /// command unregistered or registers a declaration that errors on call
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum WeaverProfile {
     /// A user tool body invoked by the model mid-turn.
     ChatTurn,
@@ -32,14 +33,14 @@ pub enum WeaverProfile {
     Command,
     /// A realm script agent's body, or a realm action.
     RealmScript,
-    /// A scenario's seed script, run once at instantiation.
-    RealmSeed,
     /// An agent's `run_condition`, evaluated to decide whether it acts.
     RealmCondition,
     /// A realm's `Director::Script`, evaluated to decide who acts.
     RealmDirector,
     /// A widget's `render`, evaluated during prompt assembly.
     WidgetRender,
+    /// A WTN document, expanded once into a realm definition.
+    RealmTemplate,
 }
 
 impl WeaverProfile {
@@ -48,10 +49,10 @@ impl WeaverProfile {
         Self::ChatTurn,
         Self::Command,
         Self::RealmScript,
-        Self::RealmSeed,
         Self::RealmCondition,
         Self::RealmDirector,
         Self::WidgetRender,
+        Self::RealmTemplate,
     ];
 
     pub const fn caps(self) -> Caps {
@@ -66,14 +67,15 @@ impl WeaverProfile {
             Self::Command => Caps::EFFECTS.union(Caps::GENERATION),
             // A script agent speaks through events only.
             Self::RealmScript => Caps::EVENTS,
-            // A seed script only writes the pool it is handed.
-            Self::RealmSeed => Caps::empty(),
             // A condition only reads.
             Self::RealmCondition => Caps::empty(),
             // A director only reads, and answers with a handle.
             Self::RealmDirector => Caps::empty(),
             // A render only reads, and answers with text.
             Self::WidgetRender => Caps::empty(),
+            // A document only reads, and answers with a value. There is no
+            // conversation, realm or pool to deliver an effect or event to.
+            Self::RealmTemplate => Caps::empty(),
         }
     }
 
@@ -81,7 +83,7 @@ impl WeaverProfile {
     pub const fn read_only(self) -> bool {
         matches!(
             self,
-            Self::RealmCondition | Self::RealmDirector | Self::WidgetRender
+            Self::RealmCondition | Self::RealmDirector | Self::WidgetRender | Self::RealmTemplate
         )
     }
 }

@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
 
-use crate::models::{ChatRole, Snowflake};
+use crate::models::{ChatRole, RealmOrigin, Snowflake};
 
 /// The state namespace holding per-agent variables: an agent with handle `h`
 /// owns `agents:h.*`.
@@ -29,6 +29,9 @@ pub struct Realm {
     pub current_version_id: Snowflake,
     pub definition: RealmDefinition,
     pub tags: Vec<String>,
+    /// The blueprint this realm was expanded from
+    #[serde(default)]
+    pub origin: Option<RealmOrigin>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -36,19 +39,20 @@ pub struct RealmDefinition {
     pub name: String,
     #[serde(default)]
     pub description: String,
-    /// Which of the owner's resources exist inside the realm. Agents may only
-    /// reference imported resources.
-    #[serde(default)]
-    pub imports: Vec<ImportRule>,
-    /// The cast, run in the same order as defined in the array
+    /// The cast. Array order is turn order — a template's loop produces its
+    /// members in order, so there is nothing else to keep in sync.
     #[serde(default)]
     pub agents: Vec<RealmAgent>,
     /// Named openings; instantiation picks one (see [`Scenario`]).
     #[serde(default)]
     pub scenarios: Vec<Scenario>,
+    #[serde(default)]
+    pub tags: Vec<String>,
     /// How the realm decides who acts next. `None` = [`Director::default`].
     #[serde(default)]
     pub director: Option<Director>,
+    #[serde(default)]
+    pub config: RealmConfig,
 }
 
 /// How a realm decides who acts next.
@@ -102,26 +106,22 @@ impl AgentFilter {
     }
 }
 
-/// A named opening for a realm, analogous to a character greeting: a seed
-/// script committed as the turn-zero state delta, optional opening narration
-/// (a `System` event on `main`), and per-agent property overrides.
+/// A named opening for a realm, analogous to a character greeting
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Scenario {
-    pub id: Snowflake,
+    #[serde(default)]
+    pub slug: String,
     pub name: String,
     #[serde(default)]
     pub description: String,
     #[serde(default)]
-    pub seed_script: String,
-    #[serde(default)]
     pub opening: Option<String>,
-    #[serde(default)]
-    pub agent_overrides: HashMap<String, HashMap<String, serde_json::Value>>,
 }
 
+/// A kind of owner-scoped resource a realm's cast can reference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ImportKind {
+pub enum RealmResourceKind {
     Character,
     Lorebook,
     Template,
@@ -131,24 +131,52 @@ pub enum ImportKind {
     Widget,
 }
 
-impl ImportKind {
+impl RealmResourceKind {
+    pub const ALL: [Self; 7] = [
+        Self::Character,
+        Self::Lorebook,
+        Self::Template,
+        Self::Tool,
+        Self::Persona,
+        Self::ConnectionProfile,
+        Self::Widget,
+    ];
+
+    /// The name a WTN `Ref<...>` declaration writes.
+    pub fn ref_name(&self) -> &'static str {
+        match self {
+            Self::Character => "Character",
+            Self::Lorebook => "Lorebook",
+            Self::Template => "Template",
+            Self::Tool => "Tool",
+            Self::Persona => "Persona",
+            Self::ConnectionProfile => "ConnectionProfile",
+            Self::Widget => "Widget",
+        }
+    }
+
+    pub fn from_ref_name(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|k| k.ref_name() == name)
+    }
+
     pub fn as_str(&self) -> &'static str {
         match self {
-            ImportKind::Character => "character",
-            ImportKind::Lorebook => "lorebook",
-            ImportKind::Template => "template",
-            ImportKind::Tool => "tool",
-            ImportKind::Persona => "persona",
-            ImportKind::ConnectionProfile => "connection profile",
-            ImportKind::Widget => "widget",
+            RealmResourceKind::Character => "character",
+            RealmResourceKind::Lorebook => "lorebook",
+            RealmResourceKind::Template => "template",
+            RealmResourceKind::Tool => "tool",
+            RealmResourceKind::Persona => "persona",
+            RealmResourceKind::ConnectionProfile => "connection profile",
+            RealmResourceKind::Widget => "widget",
         }
     }
 }
 
-/// Declares that a resource exists inside the realm.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ImportRule {
-    pub kind: ImportKind,
+/// One resource a realm references. Derived from the cast rather than
+/// declared: see `RealmDefinition::resources`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct RealmResourceRef {
+    pub kind: RealmResourceKind,
     pub resource_id: Snowflake,
 }
 
@@ -164,7 +192,11 @@ pub struct RealmSummary {
     pub id: Snowflake,
     pub owner_id: Snowflake,
     pub name: String,
+    #[serde(default)]
+    pub description: String,
     pub tags: Vec<String>,
+    #[serde(default)]
+    pub origin: Option<RealmOrigin>,
     pub updated_at: DateTime<Utc>,
 }
 
@@ -177,12 +209,6 @@ pub struct RealmConfig {
     pub action_format: Option<String>,
     #[serde(default)]
     pub tool_result_format: Option<String>,
-    #[serde(default)]
-    pub state_change_format: Option<String>,
-    #[serde(default)]
-    pub state_write_format: Option<String>,
-    #[serde(default)]
-    pub state_delete_format: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -190,9 +216,6 @@ pub struct ResolvedRealmConfig {
     pub speech_format: String,
     pub action_format: String,
     pub tool_result_format: String,
-    pub state_change_format: String,
-    pub state_write_format: String,
-    pub state_delete_format: String,
 }
 
 impl Default for ResolvedRealmConfig {
@@ -201,9 +224,6 @@ impl Default for ResolvedRealmConfig {
             speech_format: "{name}: {content}".into(),
             action_format: "[{name} used {tool}]".into(),
             tool_result_format: "[{tool} result: {output}]".into(),
-            state_change_format: "[state {scope} changed: {changes}]".into(),
-            state_write_format: "{key} = {value}".into(),
-            state_delete_format: "-{key}".into(),
         }
     }
 }
@@ -225,15 +245,6 @@ impl ResolvedRealmConfig {
         }
         if let Some(v) = &o.tool_result_format {
             self.tool_result_format = v.clone();
-        }
-        if let Some(v) = &o.state_change_format {
-            self.state_change_format = v.clone();
-        }
-        if let Some(v) = &o.state_write_format {
-            self.state_write_format = v.clone();
-        }
-        if let Some(v) = &o.state_delete_format {
-            self.state_delete_format = v.clone();
         }
     }
 
@@ -257,25 +268,6 @@ impl ResolvedRealmConfig {
             .replace("{tool}", tool)
             .replace("{output}", output)
     }
-
-    /// The content of a `StateChanged` event. `{scope}`, `{changes}`.
-    pub fn state_change(&self, scope: &str, changes: &str) -> String {
-        self.state_change_format
-            .replace("{scope}", scope)
-            .replace("{changes}", changes)
-    }
-
-    /// One written variable within a state change. `{key}`, `{value}`.
-    pub fn state_write(&self, key: &str, value: &str) -> String {
-        self.state_write_format
-            .replace("{key}", key)
-            .replace("{value}", value)
-    }
-
-    /// One deleted variable within a state change. `{key}`.
-    pub fn state_delete(&self, key: &str) -> String {
-        self.state_delete_format.replace("{key}", key)
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
@@ -289,11 +281,11 @@ pub enum AgentKind {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RealmAgent {
-    pub id: Snowflake,
-    pub name: String,
-    /// Stable weaver-addressable identity
-    #[serde(default)]
+    /// The agent's identity, everywhere: the `agents:<handle>` state subtree,
+    /// the `cast:agents.<handle>` view, the source of its events and the key
+    /// of its observation feed.
     pub handle: String,
+    pub name: String,
     pub kind: AgentKind,
 
     pub character_id: Option<Snowflake>,
@@ -304,7 +296,6 @@ pub struct RealmAgent {
     pub user_id: Option<Snowflake>,
 
     pub persona_id: Option<Snowflake>,
-    pub turn_order: i32,
 
     #[serde(default)]
     pub properties: HashMap<String, serde_json::Value>,
@@ -336,13 +327,13 @@ pub struct RealmAgent {
 }
 
 impl RealmAgent {
-    /// The implicit grant every handled agent holds on its own subtree:
-    /// `agents:<handle>.*`. `None` for legacy agents without a handle.
-    pub fn own_scope(&self) -> Option<ScopePattern> {
-        (!self.handle.is_empty()).then(|| ScopePattern {
+    /// The implicit grant every agent holds on its own subtree:
+    /// `agents:<handle>.*`.
+    pub fn own_scope(&self) -> ScopePattern {
+        ScopePattern {
             scope: AGENTS_SCOPE.to_string(),
             name: NamePattern::Under(format!("{}.", self.handle)),
-        })
+        }
     }
 }
 
@@ -382,9 +373,11 @@ pub struct RealmCast {
     pub agents: Vec<RealmAgent>,
     #[serde(default)]
     pub director: Option<Director>,
+    #[serde(default)]
+    pub scenario: Option<Scenario>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "TEXT", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum EventKind {
@@ -401,7 +394,9 @@ pub struct RealmEvent {
     pub conversation_id: Snowflake,
     pub message_id: Snowflake,
     pub seq: i32,
-    pub source: Option<Snowflake>,
+    /// The handle of the cast member that produced this event. `None` for
+    /// engine-authored events, such as a scenario's opening narration.
+    pub source: Option<String>,
     pub channel: String,
     pub kind: EventKind,
     pub content: String,
@@ -414,7 +409,7 @@ pub struct AgentObservation {
     pub id: Snowflake,
     pub conversation_id: Snowflake,
     pub message_id: Snowflake,
-    pub agent_id: Snowflake,
+    pub agent_handle: String,
     pub event_id: Option<Snowflake>,
     pub role: ChatRole,
     pub content: String,

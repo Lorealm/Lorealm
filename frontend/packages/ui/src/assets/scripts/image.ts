@@ -5,7 +5,7 @@ const BUDGET = 800_000;
 
 /**
  * Longest edges to try, and the quality ladder tried at each.
- * 
+ *
  * Resolutions >1080p are not yet supported and will require either
  * server-side storage, or storing/accessing as a file.
  */

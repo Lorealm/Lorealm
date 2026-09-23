@@ -9,16 +9,21 @@ export interface Realm {
 	current_version_id: Snowflake;
 	definition: RealmDefinition;
 	tags: string[];
+	origin: RealmOrigin | null;
 }
 
 export interface RealmDefinition {
 	name: string;
 	description: string;
-	imports: ImportRule[];
+	/** Array order is turn order. */
 	agents: RealmAgent[];
 	scenarios: Scenario[];
+	/** Authored labels. They live here so they travel with an export. */
+	tags: string[];
 	/** How the realm picks who acts next. Null = round-robin over the whole cast. */
 	director?: Director | null;
+	/** How events read in an agent's feed. */
+	config?: RealmConfig | null;
 }
 
 /**
@@ -35,24 +40,23 @@ export type AgentFilter =
 	| { match: 'kind'; kind: AgentKind }
 	| { match: 'handles'; handles: string[] };
 
+/**
+ * A named opening, like a character greeting.
+ */
 export interface Scenario {
-	id: Snowflake;
+	slug: string;
 	name: string;
 	description: string;
-	seed_script: string;
 	opening?: string | null;
-	agent_overrides: Record<string, Record<string, JsonValue>>;
 }
 
 export interface CreateScenarioRequest {
 	name: string;
 	description?: string;
-	seed_script?: string;
 	opening?: string | null;
-	agent_overrides?: Record<string, Record<string, JsonValue>>;
 }
 
-export type ImportKind =
+export type RealmResourceKind =
 	| 'character'
 	| 'lorebook'
 	| 'template'
@@ -61,8 +65,9 @@ export type ImportKind =
 	| 'connection_profile'
 	| 'widget';
 
-export interface ImportRule {
-	kind: ImportKind;
+/** One resource the realm references. Derived server-side from the cast. */
+export interface RealmResourceRef {
+	kind: RealmResourceKind;
 	resource_id: Snowflake;
 }
 
@@ -72,23 +77,31 @@ export interface RealmVersionInfo {
 	created_at: string;
 }
 
+/** Where a realm came from: the blueprint, and the inputs it was built with. */
+export interface RealmOrigin {
+	blueprint_id: Snowflake;
+	inputs: Record<string, JsonValue>;
+}
+
 export interface RealmSummary {
 	id: Snowflake;
 	owner_id: Snowflake;
 	name: string;
+	description: string;
 	tags: string[];
+	origin: RealmOrigin | null;
 	updated_at: string;
 }
 
 export type AgentKind = 'llm' | 'player' | 'script';
 
 export interface RealmAgent {
-	id: Snowflake;
-	name: string;
 	/**
-	 * Stable weaver identity: the agent's state subtree is `agents:<handle>.*`.
+	 * The agent's identity, everywhere: its `agents:<handle>` state subtree,
+	 * the source of its events, and the key of its observation feed.
 	 */
 	handle: string;
+	name: string;
 	kind: AgentKind;
 
 	character_id: Snowflake | null;
@@ -99,7 +112,6 @@ export interface RealmAgent {
 	user_id: Snowflake | null;
 
 	persona_id: Snowflake | null;
-	turn_order: number;
 
 	/** Seeded as `agents:<handle>.<key>` at instantiation. Keys are dotted paths. */
 	properties: Record<string, JsonValue>;
@@ -139,7 +151,8 @@ export interface RealmEvent {
 	conversation_id: Snowflake;
 	message_id: Snowflake;
 	seq: number;
-	source: Snowflake | null;
+	/** Handle of the cast member that produced it; null for engine events. */
+	source: string | null;
 	channel: string;
 	kind: EventKind;
 	content: string;
@@ -150,7 +163,7 @@ export interface AgentObservation {
 	id: Snowflake;
 	conversation_id: Snowflake;
 	message_id: Snowflake;
-	agent_id: Snowflake;
+	agent_handle: string;
 	event_id: Snowflake | null;
 	role: PromptRole;
 	content: string;
@@ -186,21 +199,12 @@ export interface RealmConfig {
 	action_format?: string | null;
 	/** The actor's private note after a tool runs. `{tool}`, `{output}`. */
 	tool_result_format?: string | null;
-	/** A `state_changed` event's content. `{scope}`, `{changes}`. */
-	state_change_format?: string | null;
-	/** One written variable within a state change. `{key}`, `{value}`. */
-	state_write_format?: string | null;
-	/** One deleted variable within a state change. `{key}`. */
-	state_delete_format?: string | null;
 }
 
 export const REALM_CONFIG_DEFAULTS: Required<{ [K in keyof RealmConfig]: string }> = {
 	speech_format: '{name}: {content}',
 	action_format: '[{name} used {tool}]',
-	tool_result_format: '[{tool} result: {output}]',
-	state_change_format: '[state {scope} changed: {changes}]',
-	state_write_format: '{key} = {value}',
-	state_delete_format: '-{key}'
+	tool_result_format: '[{tool} result: {output}]'
 };
 
 export interface CreateAgentRequest {
@@ -231,11 +235,7 @@ export interface CreateAgentRequest {
 
 export interface StartRealmChatRequest {
 	realm_id: Snowflake;
-	/**
-	 * The scenario to open with. Omitted: the realm's only scenario, or the
-	 * legacy emergent start when the realm defines none.
-	 */
-	scenario_id?: Snowflake | null;
+	scenario?: string | null;
 }
 
 export interface PlayerTurnRequest {
@@ -259,12 +259,12 @@ export interface TurnResult {
 
 export interface NextTurn {
 	/** Null when every agent is gated off at the active leaf. */
-	agent_id: Snowflake | null;
+	handle: string | null;
 }
 
 export type RealmStreamEvent =
-	| { type: 'awaiting_player'; agent_id: Snowflake }
-	| { type: 'turn_started'; agent_id: Snowflake; name: string }
+	| { type: 'awaiting_player'; handle: string }
+	| { type: 'turn_started'; handle: string; name: string }
 	| { type: 'delta'; content: string }
 	| { type: 'reasoning'; content: string }
 	| { type: 'widget'; widget: WidgetInstance }

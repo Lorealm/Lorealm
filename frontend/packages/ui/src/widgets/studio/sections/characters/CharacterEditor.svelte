@@ -6,7 +6,7 @@
 	import type { Snowflake } from '$lib/types/core.js';
 	import TagField from './TagField.svelte';
 	import ContextField from '$lib/components/ContextField.svelte';
-	import { DateTime } from 'luxon';
+	import { dateTimeMedium } from '$lib/assets/scripts/datetime.js';
 
 	const SAVE_MS = 500;
 
@@ -55,7 +55,7 @@
 	);
 
 	function formatDate(value: string): string {
-		return DateTime.fromISO(value as string).toLocaleString(DateTime.DATETIME_MED);
+		return dateTimeMedium(value) ?? value;
 	}
 
 	let timer: ReturnType<typeof setTimeout> | undefined;

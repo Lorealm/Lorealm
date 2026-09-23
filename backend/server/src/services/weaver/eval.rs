@@ -6,10 +6,13 @@ use std::sync::{
 };
 
 use lorealm_storage::models::{Param, StateDelta};
+use std::collections::BTreeMap;
 use thiserror::Error;
 use tokio_util::sync::CancellationToken;
+
 use weaver_lang::{
-    CompiledExpr, CompiledTemplate, EvalError, EvalOptions, Registry, Value as WeaverValue,
+    CompiledExpr, CompiledTemplate, EvalError, EvalOptions, InputDecl, Registry,
+    Value as WeaverValue, ValueDoc, evaluate_value_doc_with_options, parse_value_doc,
 };
 
 use crate::{
@@ -89,6 +92,46 @@ impl Evaluable for CompiledExpr {
     }
 }
 
+/// A parsed WTN document together with the inputs it will be bound to.
+pub struct CompiledDoc {
+    doc: ValueDoc,
+    inputs: BTreeMap<String, WeaverValue>,
+}
+
+impl CompiledDoc {
+    pub fn declarations(&self) -> &[InputDecl] {
+        &self.doc.inputs
+    }
+
+    /// The parse tree, for reading a document's structure without running it.
+    pub fn document(&self) -> &ValueDoc {
+        &self.doc
+    }
+
+    pub fn with_inputs(mut self, inputs: BTreeMap<String, WeaverValue>) -> Self {
+        self.inputs = inputs;
+        self
+    }
+}
+
+impl Evaluable for CompiledDoc {
+    fn eval(
+        &self,
+        ctx: &mut ToolContext,
+        registry: &Registry,
+        limits: &Limits,
+        stop: Option<Arc<AtomicBool>>,
+    ) -> Result<WeaverValue, EvalError> {
+        evaluate_value_doc_with_options(
+            &self.doc,
+            &self.inputs,
+            ctx,
+            registry,
+            limits.options(stop),
+        )
+    }
+}
+
 /// Everything one evaluation produced.
 #[derive(Debug)]
 pub struct Outcome {
@@ -151,6 +194,17 @@ pub enum WeaverError {
 pub fn compile_template(source: &str) -> Result<CompiledTemplate, WeaverError> {
     CompiledTemplate::compile(source)
         .map_err(|errors| WeaverError::Compile(describe_parse_errors(source, &errors)))
+}
+
+/// Parse a WTN document and bind its inputs, reporting failure as one
+/// readable sentence.
+pub fn compile_doc(source: &str) -> Result<CompiledDoc, WeaverError> {
+    let doc = parse_value_doc(source)
+        .map_err(|errors| WeaverError::Compile(describe_parse_errors(source, &errors)))?;
+    Ok(CompiledDoc {
+        doc,
+        inputs: BTreeMap::new(),
+    })
 }
 
 /// Compile an expression, reporting failure as one readable sentence.

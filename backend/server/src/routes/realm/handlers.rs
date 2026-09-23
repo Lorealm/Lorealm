@@ -5,18 +5,20 @@ use axum::{
     extract::{Path, State},
 };
 use lorealm_storage::models::{
-    AgentGrant, ImportRule, Realm, RealmAgent, RealmConfig, RealmSummary, RealmVersionInfo,
+    AgentGrant, Realm, RealmAgent, RealmConfig, RealmResourceRef, RealmSummary, RealmVersionInfo,
     Scenario, Snowflake,
 };
 
 use crate::{
     core::AppState,
-    errors::AppError,
+    errors::{AppError, RealmError},
     extract::AuthenticatedSession,
     routes::realm::dto::{
-        CreateAgentRequest, CreateRealmRequest, CreateScenarioRequest, UpdateRealmRequest,
+        CreateAgentRequest, CreateRealmRequest, CreateScenarioRequest, ImportRealmRequest,
+        UpdateRealmRequest,
     },
     services::realm::ActionSpec,
+    util::weaver::json_to_weaver,
 };
 
 pub async fn list_realms(
@@ -162,25 +164,25 @@ pub async fn create_agent(
 pub async fn update_agent(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
-    Path((realm_id, agent_id)): Path<(Snowflake, Snowflake)>,
+    Path((realm_id, handle)): Path<(Snowflake, String)>,
     Json(payload): Json<CreateAgentRequest>,
 ) -> Result<Json<RealmAgent>, AppError> {
     let updated = state
         .services()
         .realm()
-        .update_agent(realm_id, agent_id, session.user_id, payload)
+        .update_agent(realm_id, &handle, session.user_id, payload)
         .await?;
 
     Ok(Json(updated))
 }
 
 /// Rewrite the cast's turn order; the body must be a permutation of the
-/// current agent ids.
+/// current handles.
 pub async fn reorder_agents(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
     Path(realm_id): Path<Snowflake>,
-    Json(payload): Json<Vec<Snowflake>>,
+    Json(payload): Json<Vec<String>>,
 ) -> Result<Json<Vec<RealmAgent>>, AppError> {
     let agents = state
         .services()
@@ -194,12 +196,12 @@ pub async fn reorder_agents(
 pub async fn delete_agent(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
-    Path((realm_id, agent_id)): Path<(Snowflake, Snowflake)>,
+    Path((realm_id, handle)): Path<(Snowflake, String)>,
 ) -> Result<(), AppError> {
     state
         .services()
         .realm()
-        .delete_agent(realm_id, agent_id, session.user_id)
+        .delete_agent(realm_id, &handle, session.user_id)
         .await?;
 
     Ok(())
@@ -223,13 +225,13 @@ pub async fn create_scenario(
 pub async fn update_scenario(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
-    Path((realm_id, scenario_id)): Path<(Snowflake, Snowflake)>,
+    Path((realm_id, scenario_slug)): Path<(Snowflake, String)>,
     Json(payload): Json<CreateScenarioRequest>,
 ) -> Result<Json<Scenario>, AppError> {
     let updated = state
         .services()
         .realm()
-        .update_scenario(realm_id, scenario_id, session.user_id, payload)
+        .update_scenario(realm_id, &scenario_slug, session.user_id, payload)
         .await?;
 
     Ok(Json(updated))
@@ -238,12 +240,12 @@ pub async fn update_scenario(
 pub async fn delete_scenario(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
-    Path((realm_id, scenario_id)): Path<(Snowflake, Snowflake)>,
+    Path((realm_id, scenario_slug)): Path<(Snowflake, String)>,
 ) -> Result<(), AppError> {
     state
         .services()
         .realm()
-        .delete_scenario(realm_id, scenario_id, session.user_id)
+        .delete_scenario(realm_id, &scenario_slug, session.user_id)
         .await?;
 
     Ok(())
@@ -252,12 +254,12 @@ pub async fn delete_scenario(
 pub async fn get_grants(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
-    Path((realm_id, agent_id)): Path<(Snowflake, Snowflake)>,
+    Path((realm_id, handle)): Path<(Snowflake, String)>,
 ) -> Result<Json<Vec<AgentGrant>>, AppError> {
     let grants = state
         .services()
         .realm()
-        .list_agent_grants(realm_id, agent_id, session.user_id)
+        .list_agent_grants(realm_id, &handle, session.user_id)
         .await?;
 
     Ok(Json(grants))
@@ -266,31 +268,68 @@ pub async fn get_grants(
 pub async fn set_grants(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
-    Path((realm_id, agent_id)): Path<(Snowflake, Snowflake)>,
+    Path((realm_id, handle)): Path<(Snowflake, String)>,
     Json(payload): Json<Vec<AgentGrant>>,
 ) -> Result<(), AppError> {
     state
         .services()
         .realm()
-        .set_grants(realm_id, agent_id, session.user_id, payload)
+        .set_grants(realm_id, &handle, session.user_id, payload)
         .await?;
 
     Ok(())
 }
 
-pub async fn set_imports(
+/// Create a realm from a WTN document.
+pub async fn import_realm(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Json(payload): Json<ImportRealmRequest>,
+) -> Result<Json<Realm>, AppError> {
+    let inputs = payload
+        .inputs
+        .iter()
+        .map(|(name, value)| {
+            json_to_weaver(value)
+                .map(|v| (name.clone(), v))
+                .map_err(|e| RealmError::InvalidTemplate(format!("input '{name}': {e}")))
+        })
+        .collect::<Result<_, _>>()?;
+
+    let realm = state
+        .services()
+        .realm()
+        .import(session.user_id, &payload.source, inputs, None)
+        .await?;
+
+    Ok(Json(realm))
+}
+
+/// The realm as a WTN document: the form it is distributed in.
+pub async fn export_realm(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
     Path(realm_id): Path<Snowflake>,
-    Json(payload): Json<Vec<ImportRule>>,
-) -> Result<Json<Vec<ImportRule>>, AppError> {
-    let imports = state
+) -> Result<String, AppError> {
+    Ok(state
         .services()
         .realm()
-        .set_imports(realm_id, session.user_id, payload)
+        .export(realm_id, session.user_id)
+        .await?)
+}
+
+pub async fn list_resources(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(realm_id): Path<Snowflake>,
+) -> Result<Json<Vec<RealmResourceRef>>, AppError> {
+    let resources = state
+        .services()
+        .realm()
+        .list_resources(realm_id, session.user_id)
         .await?;
 
-    Ok(Json(imports))
+    Ok(Json(resources))
 }
 
 pub async fn get_config(
@@ -326,12 +365,12 @@ pub async fn set_config(
 pub async fn list_actions(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
-    Path((realm_id, agent_id)): Path<(Snowflake, Snowflake)>,
+    Path((realm_id, handle)): Path<(Snowflake, String)>,
 ) -> Result<Json<Vec<ActionSpec>>, AppError> {
     let actions = state
         .services()
         .realm()
-        .list_actions(realm_id, agent_id, session.user_id)
+        .list_actions(realm_id, &handle, session.user_id)
         .await?;
 
     Ok(Json(actions))

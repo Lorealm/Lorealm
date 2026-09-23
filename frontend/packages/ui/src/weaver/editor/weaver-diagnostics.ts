@@ -1,7 +1,7 @@
 import { linter, type Diagnostic } from '@codemirror/lint';
 import type { Extension } from '@codemirror/state';
 import { useApi } from '$lib/api/client.js';
-import type { WeaverDialect, WeaverDiagnostic } from '$lib/types/weaver.js';
+import type { WeaverDialect, WeaverDiagnostic, WeaverProfile } from '$lib/types/weaver.js';
 
 const DELAY = 400;
 
@@ -22,7 +22,10 @@ function toDiagnostic(server: WeaverDiagnostic, length: number): Diagnostic {
 /**
  * Underline what the backend cannot compile.
  */
-export function weaverDiagnostics(dialect: WeaverDialect = 'template'): Extension {
+export function weaverDiagnostics(
+	dialect: WeaverDialect = 'template',
+	profile?: WeaverProfile
+): Extension {
 	return linter(
 		async (view) => {
 			const source = view.state.doc.toString();
@@ -30,7 +33,7 @@ export function weaverDiagnostics(dialect: WeaverDialect = 'template'): Extensio
 
 			let found: WeaverDiagnostic[];
 			try {
-				found = (await useApi().templates.weaverCheck(source, dialect)).diagnostics;
+				found = (await useApi().templates.weaverCheck(source, dialect, profile)).diagnostics;
 			} catch {
 				return [];
 			}

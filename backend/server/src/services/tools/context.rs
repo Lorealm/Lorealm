@@ -35,14 +35,14 @@ pub struct RealmView(Arc<ToolStatePool>);
 
 /// The namespaces [`RealmView`] owns. Reserved in every [`ToolContext`], with
 /// or without a view behind them, the way `actor:` is.
-pub const REALM_SCOPES: [&str; 2] = ["cast", "turn"];
+pub const REALM_SCOPES: [&str; 3] = ["cast", "turn", "scenario"];
 
 impl RealmView {
     pub fn new(pool: ToolStatePool) -> Self {
         Self(Arc::new(pool))
     }
 
-    fn get(&self, scope: &str, name: &str) -> Option<&serde_json::Value> {
+    pub(crate) fn get(&self, scope: &str, name: &str) -> Option<&serde_json::Value> {
         lookup(self.0.get(scope)?, name)
     }
 }

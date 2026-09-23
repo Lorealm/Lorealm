@@ -40,7 +40,20 @@ import type {
 	SetActiveLorebooksRequest
 } from '$lib/types/lorebook.js';
 import type { SourceDefinition } from '$lib/types/node.js';
-import type { WeaverCheckResponse, WeaverDialect, WeaverVocabulary } from '$lib/types/weaver.js';
+import type {
+	Blueprint,
+	BlueprintSummary,
+	CreateBlueprintRequest,
+	InputSpec,
+	OutlineResult,
+	UpdateBlueprintRequest
+} from '$lib/types/blueprint.js';
+import type {
+	WeaverCheckResponse,
+	WeaverDialect,
+	WeaverProfile,
+	WeaverVocabulary
+} from '$lib/types/weaver.js';
 import type {
 	UserPersona,
 	UpdatePersona,
@@ -54,7 +67,7 @@ import type {
 	CreateAgentRequest,
 	CreateRealmRequest,
 	CreateScenarioRequest,
-	ImportRule,
+	RealmResourceRef,
 	NextTurn,
 	PlayerTurnRequest,
 	Realm,
@@ -167,8 +180,13 @@ export function createApiClient(platform: PlatformAPI) {
 			delete: (id: Snowflake) => http.delete(`/api/v1/templates/${id}`),
 			sources: () => http.get<Array<SourceDefinition>>('/api/v1/templates/sources'),
 			weaverVocabulary: () => http.get<WeaverVocabulary>('/api/v1/templates/weaver-vocabulary'),
-			weaverCheck: (source: string, dialect: WeaverDialect) =>
-				http.post<WeaverCheckResponse>('/api/v1/templates/weaver-check', { source, dialect }),
+			/** `profile` names the host; omitted, the checker uses every host's union. */
+			weaverCheck: (source: string, dialect: WeaverDialect, profile?: WeaverProfile) =>
+				http.post<WeaverCheckResponse>('/api/v1/templates/weaver-check', {
+					source,
+					dialect,
+					profile
+				}),
 			active: {
 				get: () => http.get<Snowflake | null>('/api/v1/templates/active'),
 				set: (request: SetActiveTemplateRequest) => http.put('/api/v1/templates/active', request),
@@ -272,18 +290,16 @@ export function createApiClient(platform: PlatformAPI) {
 				playerTurn: (conversation_id: Snowflake, turn: PlayerTurnRequest) =>
 					http.post<TurnResult>(`/api/v1/chat/${conversation_id}/turn`, turn),
 				agents: {
-					observations: (conversation_id: Snowflake, agent_id: Snowflake, before?: Snowflake) =>
+					observations: (conversation_id: Snowflake, handle: string, before?: Snowflake) =>
 						http.get<Array<AgentObservation>>(
-							`/api/v1/chat/${conversation_id}/agents/${agent_id}/observations${before !== undefined ? `?before=${before}` : ''}`
+							`/api/v1/chat/${conversation_id}/agents/${handle}/observations${before !== undefined ? `?before=${before}` : ''}`
 						),
-					actions: (conversation_id: Snowflake, agent_id: Snowflake) =>
-						http.get<Array<ActionSpec>>(
-							`/api/v1/chat/${conversation_id}/agents/${agent_id}/actions`
-						),
+					actions: (conversation_id: Snowflake, handle: string) =>
+						http.get<Array<ActionSpec>>(`/api/v1/chat/${conversation_id}/agents/${handle}/actions`),
 					/** The agent's granted slice: at `at` when given, else the active leaf. */
-					state: (conversation_id: Snowflake, agent_id: Snowflake, at?: Snowflake) =>
+					state: (conversation_id: Snowflake, handle: string, at?: Snowflake) =>
 						http.get<StateSlice>(
-							`/api/v1/chat/${conversation_id}/agents/${agent_id}/state${at !== undefined ? `?at=${at}` : ''}`
+							`/api/v1/chat/${conversation_id}/agents/${handle}/state${at !== undefined ? `?at=${at}` : ''}`
 						)
 				}
 			},
@@ -402,6 +418,21 @@ export function createApiClient(platform: PlatformAPI) {
 				unset: () => http.delete('/api/v1/tokenizers/active')
 			}
 		},
+		blueprints: {
+			list: () => http.get<Array<BlueprintSummary>>('/api/v1/blueprints'),
+			get: (id: Snowflake) => http.get<Blueprint>(`/api/v1/blueprints/${id}`),
+			create: (create: CreateBlueprintRequest) =>
+				http.post<Blueprint>('/api/v1/blueprints', create),
+			update: (id: Snowflake, update: UpdateBlueprintRequest) =>
+				http.patch<Blueprint>(`/api/v1/blueprints/${id}`, update),
+			delete: (id: Snowflake) => http.delete(`/api/v1/blueprints/${id}`),
+			inputs: (id: Snowflake) => http.get<Array<InputSpec>>(`/api/v1/blueprints/${id}/inputs`),
+			/** Its structure, for opening it in the editor. */
+			outline: (id: Snowflake) => http.get<OutlineResult>(`/api/v1/blueprints/${id}/outline`),
+			/** Expand a blueprint into a playable realm. */
+			expand: (id: Snowflake, inputs: Record<string, unknown>) =>
+				http.post<Realm>(`/api/v1/blueprints/${id}/realms`, { inputs })
+		},
 		realms: {
 			list: () => http.get<Array<RealmSummary>>('/api/v1/realms'),
 			get: (realm_id: Snowflake) => http.get<Realm>(`/api/v1/realms/${realm_id}`),
@@ -409,11 +440,9 @@ export function createApiClient(platform: PlatformAPI) {
 			update: (realm_id: Snowflake, update: UpdateRealmRequest) =>
 				http.patch<Realm>(`/api/v1/realms/${realm_id}`, update),
 			delete: (realm_id: Snowflake) => http.delete(`/api/v1/realms/${realm_id}`),
-			imports: {
-				/** Full-replace of the realm's import manifest. */
-				set: (realm_id: Snowflake, imports: ImportRule[]) =>
-					http.put<Array<ImportRule>>(`/api/v1/realms/${realm_id}/imports`, imports)
-			},
+			/** Every resource the cast references, inferred server-side. */
+			resources: (realm_id: Snowflake) =>
+				http.get<Array<RealmResourceRef>>(`/api/v1/realms/${realm_id}/resources`),
 			/** A realm's formatting overrides. */
 			config: {
 				get: (realm_id: Snowflake) => http.get<RealmConfig>(`/api/v1/realms/${realm_id}/config`),
@@ -433,30 +462,30 @@ export function createApiClient(platform: PlatformAPI) {
 					http.get<Array<RealmAgent>>(`/api/v1/realms/${realm_id}/agents`),
 				create: (realm_id: Snowflake, create: CreateAgentRequest) =>
 					http.post<RealmAgent>(`/api/v1/realms/${realm_id}/agents`, create),
-				update: (realm_id: Snowflake, agent_id: Snowflake, update: CreateAgentRequest) =>
-					http.put<RealmAgent>(`/api/v1/realms/${realm_id}/agents/${agent_id}`, update),
+				update: (realm_id: Snowflake, handle: string, update: CreateAgentRequest) =>
+					http.put<RealmAgent>(`/api/v1/realms/${realm_id}/agents/${handle}`, update),
 				/** Rewrite the turn order; must be a permutation of the cast's ids. */
-				reorder: (realm_id: Snowflake, order: Snowflake[]) =>
+				reorder: (realm_id: Snowflake, order: string[]) =>
 					http.put<Array<RealmAgent>>(`/api/v1/realms/${realm_id}/agents/order`, order),
-				delete: (realm_id: Snowflake, agent_id: Snowflake) =>
-					http.delete(`/api/v1/realms/${realm_id}/agents/${agent_id}`),
+				delete: (realm_id: Snowflake, handle: string) =>
+					http.delete(`/api/v1/realms/${realm_id}/agents/${handle}`),
 				grants: {
-					get: (realm_id: Snowflake, agent_id: Snowflake) =>
-						http.get<Array<AgentGrant>>(`/api/v1/realms/${realm_id}/agents/${agent_id}/grants`),
-					set: (realm_id: Snowflake, agent_id: Snowflake, grants: AgentGrant[]) =>
-						http.put(`/api/v1/realms/${realm_id}/agents/${agent_id}/grants`, grants)
+					get: (realm_id: Snowflake, handle: string) =>
+						http.get<Array<AgentGrant>>(`/api/v1/realms/${realm_id}/agents/${handle}/grants`),
+					set: (realm_id: Snowflake, handle: string, grants: AgentGrant[]) =>
+						http.put(`/api/v1/realms/${realm_id}/agents/${handle}/grants`, grants)
 				},
 				/** The agent's action space as currently authored in the preset. */
-				actions: (realm_id: Snowflake, agent_id: Snowflake) =>
-					http.get<Array<ActionSpec>>(`/api/v1/realms/${realm_id}/agents/${agent_id}/actions`)
+				actions: (realm_id: Snowflake, handle: string) =>
+					http.get<Array<ActionSpec>>(`/api/v1/realms/${realm_id}/agents/${handle}/actions`)
 			},
 			scenarios: {
 				create: (realm_id: Snowflake, create: CreateScenarioRequest) =>
 					http.post<Scenario>(`/api/v1/realms/${realm_id}/scenarios`, create),
-				update: (realm_id: Snowflake, scenario_id: Snowflake, update: CreateScenarioRequest) =>
-					http.put<Scenario>(`/api/v1/realms/${realm_id}/scenarios/${scenario_id}`, update),
-				delete: (realm_id: Snowflake, scenario_id: Snowflake) =>
-					http.delete(`/api/v1/realms/${realm_id}/scenarios/${scenario_id}`)
+				update: (realm_id: Snowflake, slug: string, update: CreateScenarioRequest) =>
+					http.put<Scenario>(`/api/v1/realms/${realm_id}/scenarios/${slug}`, update),
+				delete: (realm_id: Snowflake, slug: string) =>
+					http.delete(`/api/v1/realms/${realm_id}/scenarios/${slug}`)
 			}
 		},
 		config: {

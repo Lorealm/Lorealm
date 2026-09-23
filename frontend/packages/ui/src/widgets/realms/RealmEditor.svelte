@@ -1,95 +1,53 @@
 <script lang="ts">
-	import { realmStore } from '$lib/stores/realm.svelte.js';
-	import AccessMapTab from './AccessMapTab.svelte';
-	import CastTab from './CastTab.svelte';
-	import FormattingTab from './FormattingTab.svelte';
-	import GraphTab from './GraphTab.svelte';
-	import HistoryTab from './HistoryTab.svelte';
-	import ImportsTab from './ImportsTab.svelte';
-	import OverviewTab from './OverviewTab.svelte';
-	import ScenariosTab from './ScenariosTab.svelte';
-	import { EDITOR_TABS, realmEditor, type EditorTab } from './realmEditor.svelte.js';
-
-	async function select(tab: EditorTab) {
-		// Persist any pending Cast edits before the tab unmounts.
-		await realmStore.flushAgentSaves();
-		realmEditor.setTab(tab);
-	}
+	import AssetBrowser from './AssetBrowser.svelte';
+	import PaneShell from './panes/PaneShell.svelte';
 </script>
 
-<div class="editor">
-	<nav class="tabs">
-		{#each EDITOR_TABS as tab (tab.value)}
-			<button
-				type="button"
-				class:active={realmEditor.tab === tab.value}
-				onclick={() => select(tab.value)}
-			>
-				{tab.label}
-			</button>
-		{/each}
-	</nav>
-
-	<div class="content">
-		{#if realmEditor.tab === 'overview'}
-			<OverviewTab />
-		{:else if realmEditor.tab === 'imports'}
-			<ImportsTab />
-		{:else if realmEditor.tab === 'cast'}
-			<CastTab />
-		{:else if realmEditor.tab === 'scenarios'}
-			<ScenariosTab />
-		{:else if realmEditor.tab === 'access'}
-			<AccessMapTab />
-		{:else if realmEditor.tab === 'graph'}
-			<GraphTab />
-		{:else if realmEditor.tab === 'formatting'}
-			<FormattingTab />
-		{:else if realmEditor.tab === 'history'}
-			<HistoryTab />
-		{/if}
+<div class="realm-editor-shell">
+	<div class="realm-editor-main">
+		<div class="realm-editor-side">
+			<AssetBrowser />
+		</div>
+		<div class="realm-editor-pane-shell">
+			<PaneShell />
+		</div>
+	</div>
+	<div class="realm-editor-bottom">
+		<!-- Diagnostics -->
 	</div>
 </div>
 
 <style>
-	.editor {
+	.realm-editor-shell {
 		display: flex;
 		flex-direction: column;
-		flex: 1;
+		width: 100%;
+		height: 100%;
 		min-height: 0;
 	}
-
-	.tabs {
+	.realm-editor-main {
 		display: flex;
-		gap: 2px;
-		flex-shrink: 0;
-		padding: var(--spacing-lg) var(--spacing-2xl) 0;
-		border-bottom: 1px solid var(--color-border-subtle);
-	}
-
-	.tabs button {
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: none;
-		border: none;
-		border-bottom: 2px solid transparent;
-		color: var(--color-text-secondary);
-		font-size: var(--font-size-base);
-		white-space: nowrap;
-	}
-
-	.tabs button:hover {
-		color: var(--color-text-primary);
-	}
-
-	.tabs button.active {
-		color: var(--color-text-primary);
-		border-bottom-color: var(--color-primary);
-	}
-
-	.content {
-		flex: 1;
+		flex: 1 1 auto;
 		min-height: 0;
-		overflow-y: auto;
-		padding: var(--spacing-2xl);
+	}
+	.realm-editor-side {
+		display: flex;
+		flex: 0 0 auto;
+		width: var(--width-sidebar-small);
+		min-height: 0;
+		background-color: var(--color-bg-elevated);
+		border-right: 1px solid var(--color-border-subtle);
+	}
+	.realm-editor-pane-shell {
+		display: flex;
+		flex: 1 1 auto;
+		min-width: 0;
+		min-height: 0;
+	}
+	.realm-editor-bottom {
+		flex: 0 0 auto;
+		height: 200px;
+		background-color: var(--color-bg-elevated);
+		border-top: 1px solid var(--color-border-subtle);
 	}
 </style>

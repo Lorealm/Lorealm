@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use crate::{
     StorageError,
     models::{
-        AgentObservation, Realm, RealmCast, RealmConfig, RealmEvent, RealmSummary,
-        RealmVersionInfo, Snowflake, TurnCommit, VersionedSaveMode,
+        AgentObservation, Realm, RealmCast, RealmEvent, RealmSummary, RealmVersionInfo, Snowflake,
+        TurnCommit, VersionedSaveMode,
     },
 };
 
@@ -76,7 +76,7 @@ pub trait RealmStorage {
     async fn list_observations(
         &self,
         conversation_id: Snowflake,
-        agent_id: Snowflake,
+        agent_handle: &str,
         before: Option<Snowflake>,
         limit: i64,
     ) -> Result<Vec<AgentObservation>, StorageError>;
@@ -85,21 +85,10 @@ pub trait RealmStorage {
     /// oldest-first by observation id.
     async fn list_observations_for_messages(
         &self,
-        agent_id: Snowflake,
+        agent_handle: &str,
         message_ids: &[Snowflake],
     ) -> Result<Vec<AgentObservation>, StorageError>;
 
     /// Atomic insert of one committed turn's events + observations.
     async fn commit_turn(&self, commit: TurnCommit) -> Result<(), StorageError>;
-
-    /// A realm's formatting overrides. Absent columns/rows come back as `None`.
-    async fn get_realm_config(&self, realm_id: Snowflake) -> Result<RealmConfig, StorageError>;
-
-    /// Upsert a realm's overrides; `user_id` records the owner.
-    async fn put_realm_config(
-        &self,
-        realm_id: Snowflake,
-        user_id: Snowflake,
-        config: &RealmConfig,
-    ) -> Result<(), StorageError>;
 }

@@ -3,6 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use lorealm_storage::models::RealmResourceKind;
 use tokio_util::sync::CancellationToken;
 use weaver_lang::{Registry, Value as WeaverValue};
 
@@ -210,6 +211,11 @@ impl WeaverBuilder {
         self
     }
 
+    /// Declarations for one host's vocabulary
+    pub fn declarations_for(self, profile: WeaverProfile) -> Self {
+        self.declarations_only().profile(profile)
+    }
+
     /// Collect emitted events into a sink the caller already holds.
     pub fn events(mut self, sink: EventSink) -> Self {
         self.events = Some(sink);
@@ -269,6 +275,10 @@ impl WeaverBuilder {
     pub fn build(self) -> WeaverHost {
         let mut registry = Registry::new();
         stdlib::register_all(&mut registry);
+        // Entity kinds a WTN `Ref<...>` may name.
+        for kind in RealmResourceKind::ALL {
+            registry.register_kind(kind.ref_name());
+        }
         // Not part of `register_all`: that also loads into the lorebook
         // engine, whose context `del_var` cannot reach.
         registry.register_command(DelVarCommand);
@@ -358,7 +368,7 @@ mod tests {
     #[tokio::test]
     async fn del_var_removes_through_a_real_host() {
         let host = WeaverHost::builder()
-            .profile(WeaverProfile::RealmSeed)
+            .profile(WeaverProfile::RealmScript)
             .build();
 
         let outcome = host
@@ -393,7 +403,7 @@ $[del_var("nation:oda.gold")]
     #[test]
     fn a_profile_registers_only_what_it_declares() {
         let seed = WeaverHost::builder()
-            .profile(WeaverProfile::RealmSeed)
+            .profile(WeaverProfile::RealmScript)
             .build();
         assert!(seed.registry().command_signature("toast").is_none());
         assert!(seed.registry().command_signature("emit_event").is_none());
@@ -417,7 +427,7 @@ $[del_var("nation:oda.gold")]
     #[tokio::test]
     async fn an_evaluation_reports_its_writes_as_a_delta() {
         let host = WeaverHost::builder()
-            .profile(WeaverProfile::RealmSeed)
+            .profile(WeaverProfile::RealmScript)
             .build();
 
         let outcome = host
@@ -464,7 +474,7 @@ $[del_var("nation:oda.gold")]
     #[tokio::test]
     async fn a_runaway_loop_hits_the_ceiling_instead_of_hanging() {
         let host = WeaverHost::builder()
-            .profile(WeaverProfile::RealmSeed)
+            .profile(WeaverProfile::RealmScript)
             .limits(Limits {
                 max_iterations: Some(10),
                 ..Limits::default()

@@ -25,7 +25,7 @@ pub struct StartRealmChatRequest {
     /// The scenario to open with. `None` uses the realm's only scenario, or
     /// emergent start when the realm defines none.
     #[serde(default)]
-    pub scenario_id: Option<Snowflake>,
+    pub scenario: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

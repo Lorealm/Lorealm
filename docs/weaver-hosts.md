@@ -61,10 +61,10 @@ cargo test -p lorealm_server --bin lorealm_server dump_weaver_vocabulary -- --ig
 | `ChatTurn` | `effects`, `events`, `attachments`, `generation` | `attach`, `compose`, `emit_event`, `generate`, `generate_raw`, `search_attachments`, `sys`, `toast` |
 | `Command` | `effects`, `generation` | `compose`, `generate`, `generate_raw`, `sys`, `toast` |
 | `RealmScript` | `events` | `emit_event` |
-| `RealmSeed` | none | — |
 | `RealmCondition` | none | — |
 | `RealmDirector` | none | — |
 | `WidgetRender` | none | — |
+| `RealmTemplate` | none | — |
 
 Where each one is built:
 
@@ -73,15 +73,47 @@ Where each one is built:
 | `ChatTurn` | `services/chat/service.rs` | A user tool body the model invokes mid-turn |
 | `Command` | `services/commands/service.rs` | A `/slash` command body |
 | `RealmScript` | `services/realm/weaver.rs` | A script agent's body, and realm actions |
-| `RealmSeed` | `services/realm/weaver.rs` | A scenario's seed script, once at instantiation |
 | `RealmCondition` | `services/realm/weaver.rs` | An agent's `run_condition` |
 | `RealmDirector` | `services/realm/weaver.rs` | A realm's `Director::Script`, rendering the handle of whoever acts next |
 | `WidgetRender` | `services/chat/widgets.rs` | A widget's `render`, turning it into prompt text during assembly |
+| `RealmTemplate` | `services/realm/wtn.rs` | A WTN document, expanded once into a realm definition |
 
 The editor's two endpoints — `check` in `services/context/weaver/check.rs` and
-`list_weaver_vocabulary` in `routes/templates/handlers.rs` — both build
+`list_weaver_vocabulary` in `routes/templates/handlers.rs` — build
 `WeaverHost::builder().declarations_only()`, which is every capability above
 with no machinery behind any of it.
+
+`check` also takes an optional `WeaverProfile`. Given one it builds
+`declarations_for(profile)` instead — that host's vocabulary rather than the
+union — so a body is checked against the host that will actually run it.
+Without one it falls back to the union, which accepts commands the real host
+will refuse. A caller that knows where the source runs should say so.
+
+### Dialects
+
+`check(source, dialect, profile)` picks the compiler from `dialect`:
+
+| Dialect | Compiler | What it is |
+| --- | --- | --- |
+| `template` | `CompiledTemplate` | Text with weaver embedded in it |
+| `expression` | `CompiledExpr` | A single value, the way a run condition is |
+| `document` | `parse_value_doc` | A WTN document: one value with holes, plus its `#inputs` |
+
+The dialect is not cosmetic. A WTN document fed to the `template` compiler
+parses *as prose* — `{ name: "x" }` is literal text and `{# foreach #}` is a
+valid template block — so it comes back clean with none of its real errors
+reported. Silence, not diagnostics.
+
+`document` additionally checks the `#inputs` block, which is the only place
+the other two dialects never reach:
+
+- a `Ref<Kind>` naming a kind the registry has no entry for
+- an entity input carrying a default, which cannot work: entity inputs are
+  resolved before the document runs, and a default has not been evaluated by
+  then
+
+`BlueprintService` saves through this same function rather than a validator of
+its own, so the editor cannot show a document clean that saving then refuses.
 
 ### Always available
 
@@ -101,26 +133,68 @@ against one; the lorebook engine does not, which is why the command is not in
 `register_all` alongside the rest. A read-only profile refuses it exactly as
 it refuses `set_var`.
 
+### Entity kinds
+
+Registered alongside the stdlib, for the `Ref<...>` declarations a WTN
+document's `#inputs` block may name:
+
+`Character`, `Lorebook`, `Template`, `Tool`, `Persona`, `ConnectionProfile`,
+`Widget`
+
+The list is `RealmResourceKind::ALL`, so it is the same vocabulary a realm's
+inferred resource set uses and cannot drift from it. A kind is a type rather
+than something callable, so it is not a capability and is inert in the hosts
+that never expand a document.
+
+Values arrive as ids and are bound as small objects — `id`, `name`,
+`description`, `slug` — resolved by `services/realm/project.rs` *before*
+expansion, because `validate_input` is synchronous and every lookup behind it
+is not. `slug` is the name reduced to an identifier, so a loop can mint
+handles from it.
+
 ### Inside a realm
 
-The four realm hosts also mount two read-only namespaces describing the realm
+The realm hosts also mount three read-only namespaces describing the realm
 itself, so a body never has to restate what the engine already knows. They are
-derived per evaluation from the pinned cast and the active path — deliberately
-not kept in the state pool, which is persisted as per-message deltas and would
-freeze a stale copy into history.
+derived per evaluation from the pinned cast, the active path, and the pool as
+it stands — deliberately not *kept* in the state pool, which is persisted as
+per-message deltas and would freeze a stale copy into history.
 
 | | |
 | --- | --- |
 | `cast:count`, `cast:handles`, `cast:names` | The whole roster, in turn order |
-| `cast:llm.*`, `cast:player.*`, `cast:script.*` | The same three, per kind |
-| `cast:agents.<handle>.name` / `.kind` / `.turn_order` | One cast member |
+| `cast:members` | One object per agent, in turn order. What a `foreach` walks |
+| `cast:llm.*`, `cast:player.*`, `cast:script.*` | The same four, per kind |
+| `cast:agents.<handle>` | One cast member, in the same shape as a `members` element |
 | `turn:index` | Turns already committed on this path |
 | `turn:last.handle` / `.name` / `.kind` / `.said` | Who acted last; absent on the opening turn |
+| `scenario:slug`, `scenario:name` | The opening this playthrough started from; absent when the realm has none |
+
+A member object carries `handle`, `name`, `kind` and `turn_order` over
+whatever that agent holds in `agents:<handle>` at the moment of evaluation, so
+a director weighting its cast reads `{{c.talkativeness}}` off the loop binding
+rather than rebuilding the pool key by hand. The engine's four fields are
+written last: a property named `name` cannot displace the display name.
+
+`count`/`handles`/`names` stay because they answer the common questions without
+a loop. Note that only `members` is iterable — `{{cast:llm}}` is the group
+object itself, and `foreach` refuses it.
 
 Only agents with a handle appear: an unhandled agent has no `agents:` subtree
 and no `self:`, so listing it would name an identity nothing can address.
 
-`cast:` and `turn:` are reserved in every host, the way `actor:` is — a state
+`RealmTemplate` is the exception among the realm hosts: a document is expanded
+before there is a playthrough, so it mounts none of these — there is no roster
+or opening to describe yet. It is the document that *produces* them.
+
+`scenario:` is how an opening sets itself up now that a scenario carries no
+script of its own. A script agent gated on `{{turn:index}} == 0` branches on
+`{{scenario:name}}` and writes whatever state that opening needs — the same
+effect as a seed script, in a place the cast can see. The one thing it gives
+up is ordering: a seed ran before anything else, while a script agent runs
+when the director says so, so put it first and keep turn zero deterministic.
+
+`cast:`, `turn:` and `scenario:` are reserved in every host, the way `actor:` is — a state
 namespace cannot shadow them, and writing to one is an error rather than a
 write that goes nowhere.
 
@@ -190,7 +264,6 @@ carrying `generation` refuses to run inline.
 
 ## Known gap
 
-`check` validates against the union of every host rather than the one being
-edited, so `$[toast]` in a realm script is accepted by the editor and rejected
-at runtime. The fix is `check(source, dialect, Option<WeaverProfile>)`, which
-needs the frontend to send which context it is editing.
+The frontend still sends no profile, so everything it checks is validated
+against the union. The backend takes one now — `weaverCheck` needs to pass
+which context is being edited.

@@ -1,3 +1,4 @@
+pub mod blueprints;
 pub mod characters;
 pub mod connection;
 pub mod conversations;
@@ -25,6 +26,7 @@ use tokio::sync::RwLock;
 
 #[derive(Debug, Default)]
 pub struct MemoryStorage {
+    pub(crate) blueprints: RwLock<HashMap<Snowflake, Blueprint>>,
     pub(crate) users: RwLock<HashMap<Snowflake, User>>,
     pub(crate) sessions: RwLock<HashMap<String, Session>>,
     pub(crate) roles: RwLock<HashMap<Snowflake, Role>>,

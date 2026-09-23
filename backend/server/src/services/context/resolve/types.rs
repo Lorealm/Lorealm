@@ -227,7 +227,7 @@ mod tests {
             id: Snowflake(1),
             conversation_id: Snowflake(2),
             message_id: Snowflake(3),
-            agent_id: Snowflake(4),
+            agent_handle: "narrator".into(),
             event_id: None,
             role: ChatRole::User,
             content: "Alice: look \u{E000}widget:0\u{E001}".into(),
