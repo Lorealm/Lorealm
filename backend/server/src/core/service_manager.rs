@@ -18,6 +18,7 @@ use crate::{
         lorebook::LorebookService,
         permission::service::PermissionService,
         persona::PersonaService,
+        plugins::PluginService,
         realm::RealmService,
         session::SessionService,
         snowflake::SnowflakeService,
@@ -50,6 +51,7 @@ pub struct ServiceManager {
     tokenizers: Arc<TokenizerService>,
     realms: Arc<RealmService>,
     blueprints: Arc<BlueprintService>,
+    plugins: Arc<PluginService>,
 }
 
 impl ServiceManager {
@@ -152,6 +154,15 @@ impl ServiceManager {
             config.get::<TokenizerConfig>(),
         ));
 
+        let plugins = Arc::new(PluginService::new(
+            Arc::clone(&storage),
+            Arc::clone(&state),
+            config
+                .get::<lorealm_storage::StorageConfig>()
+                .data_directory
+                .join("plugins"),
+        ));
+
         let chat = Arc::new(ChatService::new(
             Arc::clone(&storage),
             Arc::clone(&snowflake),
@@ -164,6 +175,7 @@ impl ServiceManager {
             Arc::clone(&tokenizers),
             Arc::clone(&sources),
             Arc::clone(&variables),
+            Arc::clone(&plugins),
         ));
 
         // The generate commands a tool body may call need an owned handle to
@@ -201,6 +213,7 @@ impl ServiceManager {
             Arc::clone(&lorebook) as Arc<dyn CleanableService>,
             Arc::clone(&tokenizers) as Arc<dyn CleanableService>,
             Arc::clone(&realms) as Arc<dyn CleanableService>,
+            Arc::clone(&plugins) as Arc<dyn CleanableService>,
         ];
 
         Self {
@@ -222,6 +235,7 @@ impl ServiceManager {
             tokenizers,
             realms,
             blueprints,
+            plugins,
         }
     }
 
@@ -343,6 +357,10 @@ impl ServiceManager {
 
     pub fn blueprints(&self) -> &Arc<BlueprintService> {
         &self.blueprints
+    }
+
+    pub fn plugins(&self) -> &Arc<PluginService> {
+        &self.plugins
     }
 }
 

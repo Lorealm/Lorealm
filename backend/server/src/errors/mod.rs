@@ -13,6 +13,7 @@ mod domain;
 mod lorebook;
 mod permission;
 mod persona;
+mod plugin;
 mod realm;
 mod state;
 mod tokenizer;
@@ -32,6 +33,7 @@ pub use domain::*;
 pub use lorebook::*;
 pub use permission::*;
 pub use persona::*;
+pub use plugin::*;
 pub use realm::*;
 pub use state::*;
 pub use tokenizer::*;
@@ -66,6 +68,7 @@ pub enum TargetType {
     Tokenizer,
     LorebookEntry,
     TemplateNode,
+    Plugin,
 }
 
 impl TargetType {
@@ -93,6 +96,7 @@ impl TargetType {
             TargetType::Tokenizer => "tokenizer",
             TargetType::LorebookEntry => "lorebook entry",
             TargetType::TemplateNode => "template node",
+            TargetType::Plugin => "plugin",
         }
     }
 }
@@ -127,6 +131,7 @@ impl Display for TargetType {
             TargetType::Tokenizer => write!(f, "tokenizer"),
             TargetType::LorebookEntry => write!(f, "lorebook_entry"),
             TargetType::TemplateNode => write!(f, "template_node"),
+            TargetType::Plugin => write!(f, "plugin"),
         }
     }
 }

@@ -4,6 +4,7 @@ pub mod connection;
 pub mod conversation;
 pub mod lorebook;
 pub mod permissions;
+pub mod plugins;
 pub mod persona;
 pub mod realms;
 pub mod sessions;

@@ -100,6 +100,8 @@ Messages containing quoted values are examples; the interpolated part varies.
 | `permission.denied` | 403 | You are not allowed to perform this action. |
 | `persona.not_found` | 404 | That persona no longer exists. |
 | `persona.unsupported_media_type` | 415 | That image format isn't supported. |
+| `plugin.invalid` | 400 | That plugin could not be loaded. |
+| `plugin.not_found` | 404 | That plugin is not installed. |
 | `realm.action_failed` | 400 | Action failed: roll failed. |
 | `realm.director_failed` | 400 | The realm could not decide who acts next: unknown handle. |
 | `realm.import_in_use` | 409 | This lorebook is still used by agent "Narrator" — unbind it there first. |

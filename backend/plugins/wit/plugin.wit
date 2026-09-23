@@ -1,6 +1,52 @@
 package lorealm:plugin@0.1.0;
 
+interface types {
+    enum role {
+        system,
+        user,
+        assistant,
+    }
+
+    record message {
+        role: role,
+        content: string,
+    }
+
+    record persona {
+        name: string,
+        description: string,
+    }
+
+    /// Hooks a plugin can subscribe to with `register-hook`.
+    enum hook {
+        /// Requires the `prompt:write` permission.
+        prompt-build,
+    }
+
+    /// Delivered to `handle`. The plugin returns the same case, possibly modified.
+    variant event {
+        /// The assembled prompt, just before it is sent to the model.
+        prompt-build(list<message>),
+    }
+}
+
+interface host {
+    use types.{hook, persona};
+
+    /// Subscribes to `hook`. Fails if the manifest lacks the hook's permission.
+    register-hook: func(hook: hook) -> result<_, string>;
+
+    /// The user's active persona. Requires the `persona:read` permission.
+    active-persona: func() -> result<persona, string>;
+}
+
 world plugin {
+    use types.{event};
+    import host;
+
     /// Called once after the plugin is mounted.
     export init: func() -> result<_, string>;
+
+    /// Called for every event whose hook the plugin registered.
+    export handle: func(event: event) -> result<event, string>;
 }
