@@ -45,7 +45,7 @@ async fn enabled_plugin_edits_the_prompt() {
 
     assert_eq!(out.len(), 2);
     assert_eq!(out[1].role, PromptRole::System);
-    assert_eq!(out[1].content, "Hello, Ada!");
+    assert_eq!(out[1].content, "Hello, Ada! #1");
 }
 
 #[tokio::test]
@@ -104,5 +104,38 @@ async fn list_marks_enabled_plugins() {
         .map(|p| (p.info.handle.as_str(), p.enabled))
         .collect();
 
-    assert_eq!(enabled, [("hello", true), ("unpermitted", false)]);
+    assert_eq!(
+        enabled,
+        [("hello", true), ("no_data", false), ("unpermitted", false)]
+    );
+}
+
+#[tokio::test]
+async fn persisted_data_survives_remounting() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    h.plugins.prompt_build(h.user, prompt()).await;
+
+    h.plugins.disable(h.user, "hello").await.unwrap();
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    let out = h.plugins.prompt_build(h.user, prompt()).await;
+
+    assert_eq!(out[1].content, "Hello, Ada! #2");
+}
+
+#[tokio::test]
+async fn persisted_data_is_per_user() {
+    let h = harness().await;
+    let persona = h.persona(h.stranger, "Bo").await;
+    h.store
+        .set_active_persona(h.stranger, persona)
+        .await
+        .unwrap();
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    h.plugins.enable(h.stranger, "hello").await.unwrap();
+    h.plugins.prompt_build(h.user, prompt()).await;
+
+    let out = h.plugins.prompt_build(h.stranger, prompt()).await;
+
+    assert_eq!(out[1].content, "Hello, Bo! #1");
 }

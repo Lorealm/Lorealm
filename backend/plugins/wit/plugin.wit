@@ -38,6 +38,15 @@ interface host {
 
     /// The user's active persona. Requires the `persona:read` permission.
     active-persona: func() -> result<persona, string>;
+
+    /// Stores `value` under `key` for the current user. Requires `data:persist`.
+    persist-data: func(key: string, value: list<u8>) -> result<_, string>;
+
+    /// Reads what `persist-data` stored under `key`. Requires `data:persist`.
+    load-data: func(key: string) -> result<option<list<u8>>, string>;
+
+    /// Removes `key`. Requires `data:persist`.
+    delete-data: func(key: string) -> result<_, string>;
 }
 
 world plugin {

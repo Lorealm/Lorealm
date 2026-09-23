@@ -37,4 +37,37 @@ impl PluginStorage for MemoryStorage {
         }
         Ok(())
     }
+
+    async fn get_plugin_data(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        key: &str,
+    ) -> Result<Option<Vec<u8>>, StorageError> {
+        let id = (user_id, handle.to_owned(), key.to_owned());
+        Ok(self.plugin_data.read().await.get(&id).cloned())
+    }
+
+    async fn set_plugin_data(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        key: &str,
+        value: &[u8],
+    ) -> Result<(), StorageError> {
+        let id = (user_id, handle.to_owned(), key.to_owned());
+        self.plugin_data.write().await.insert(id, value.to_vec());
+        Ok(())
+    }
+
+    async fn delete_plugin_data(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        key: &str,
+    ) -> Result<(), StorageError> {
+        let id = (user_id, handle.to_owned(), key.to_owned());
+        self.plugin_data.write().await.remove(&id);
+        Ok(())
+    }
 }

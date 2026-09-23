@@ -46,10 +46,16 @@ impl From<wasmtime::Error> for PluginError {
 /// How often the engine's epoch advances; the granularity of call timeouts.
 const EPOCH_TICK: Duration = Duration::from_millis(10);
 
+const MAX_DATA_KEY: usize = 256;
+const MAX_DATA_VALUE: usize = 1024 * 1024;
+
 /// What the embedder provides to plugins.
 #[async_trait::async_trait]
 pub trait HostServices: Send + Sync {
     async fn active_persona(&self) -> Result<Persona, String>;
+    async fn persist_data(&self, key: String, value: Vec<u8>) -> Result<(), String>;
+    async fn load_data(&self, key: String) -> Result<Option<Vec<u8>>, String>;
+    async fn delete_data(&self, key: String) -> Result<(), String>;
 }
 
 /// Per-instance store data.
@@ -68,6 +74,14 @@ impl PluginState {
         } else {
             Err(format!("missing permission `{permission}`"))
         }
+    }
+
+    fn require_data_key(&self, key: &str) -> Result<(), String> {
+        self.require("data:persist")?;
+        if key.is_empty() || key.len() > MAX_DATA_KEY {
+            return Err(format!("data keys must be 1 to {MAX_DATA_KEY} bytes"));
+        }
+        Ok(())
     }
 }
 
@@ -95,6 +109,24 @@ impl lorealm::plugin::host::Host for PluginState {
     async fn active_persona(&mut self) -> Result<Persona, String> {
         self.require("persona:read")?;
         self.services.active_persona().await
+    }
+
+    async fn persist_data(&mut self, key: String, value: Vec<u8>) -> Result<(), String> {
+        self.require_data_key(&key)?;
+        if value.len() > MAX_DATA_VALUE {
+            return Err(format!("data values must be at most {MAX_DATA_VALUE} bytes"));
+        }
+        self.services.persist_data(key, value).await
+    }
+
+    async fn load_data(&mut self, key: String) -> Result<Option<Vec<u8>>, String> {
+        self.require_data_key(&key)?;
+        self.services.load_data(key).await
+    }
+
+    async fn delete_data(&mut self, key: String) -> Result<(), String> {
+        self.require_data_key(&key)?;
+        self.services.delete_data(key).await
     }
 }
 

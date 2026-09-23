@@ -132,7 +132,7 @@ Here is a non-exhaustive list of hooks that will (probably) exist:
 
 ### Host Commands
 Apart from hook registering, a plugin will need to ship with a variety of commands to interact with the server. Most of these are permission-gated:
-- `persist_data(key: String, value: Any)`
+- `persist-data(key, value)`, `load-data(key)`, `delete-data(key)`: bytes stored per user and plugin (keys up to 256 bytes, values up to 1 MiB), gated by `data:persist`. Data outlives disabling the plugin.
 - `generate_raw(prompt: String)`
 - `generate()`
 - `get_character`, `get_lorebook`, `get_context_template`, `etc.`

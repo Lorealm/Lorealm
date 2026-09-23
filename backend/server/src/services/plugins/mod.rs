@@ -10,7 +10,7 @@ use lorealm_plugins::{
     HostServices, LoadedPlugin, Message, Persona, PluginHost, PluginInfo, PluginPackage, Role,
 };
 use lorealm_storage::{
-    Storage,
+    Storage, StorageError,
     models::{Snowflake, is_identifier},
 };
 use serde::Serialize;
@@ -160,6 +160,8 @@ impl PluginService {
         for handle in handles {
             let services = Arc::new(UserServices {
                 user_id,
+                handle: handle.clone(),
+                storage: Arc::clone(&self.storage),
                 state: Arc::clone(&self.state),
             });
             let loaded = match self.package(&handle).await {
@@ -232,10 +234,20 @@ impl CleanableService for PluginService {
     }
 }
 
-/// Host services bound to one user.
+/// Host services bound to one user's instance of one plugin.
 struct UserServices {
     user_id: Snowflake,
+    handle: String,
+    storage: Arc<dyn Storage>,
     state: Arc<StateService>,
+}
+
+impl UserServices {
+    /// Logs a storage failure and gives the plugin a generic error in its place.
+    fn storage_error(&self, err: StorageError) -> String {
+        tracing::error!(handle = %self.handle, user_id = %self.user_id, error = %err, "plugin data access failed");
+        "storage error".to_owned()
+    }
 }
 
 #[async_trait]
@@ -250,6 +262,27 @@ impl HostServices for UserServices {
             name: persona.name,
             description: persona.description.unwrap_or_default(),
         })
+    }
+
+    async fn persist_data(&self, key: String, value: Vec<u8>) -> Result<(), String> {
+        self.storage
+            .set_plugin_data(self.user_id, &self.handle, &key, &value)
+            .await
+            .map_err(|err| self.storage_error(err))
+    }
+
+    async fn load_data(&self, key: String) -> Result<Option<Vec<u8>>, String> {
+        self.storage
+            .get_plugin_data(self.user_id, &self.handle, &key)
+            .await
+            .map_err(|err| self.storage_error(err))
+    }
+
+    async fn delete_data(&self, key: String) -> Result<(), String> {
+        self.storage
+            .delete_plugin_data(self.user_id, &self.handle, &key)
+            .await
+            .map_err(|err| self.storage_error(err))
     }
 }
 

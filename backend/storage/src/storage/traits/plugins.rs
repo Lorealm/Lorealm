@@ -17,4 +17,24 @@ pub trait PluginStorage: Send + Sync {
         user_id: Snowflake,
         handle: &str,
     ) -> Result<(), StorageError>;
+    async fn get_plugin_data(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        key: &str,
+    ) -> Result<Option<Vec<u8>>, StorageError>;
+    /// Inserts or replaces the value under `key`.
+    async fn set_plugin_data(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        key: &str,
+        value: &[u8],
+    ) -> Result<(), StorageError>;
+    async fn delete_plugin_data(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        key: &str,
+    ) -> Result<(), StorageError>;
 }
