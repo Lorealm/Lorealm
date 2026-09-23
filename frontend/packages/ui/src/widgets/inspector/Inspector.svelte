@@ -4,13 +4,16 @@
 	import { inspectorMatrix } from '$lib/stores/inspectorMatrix.svelte.js';
 	import { lazy } from '$lib/core/lazy.js';
 	import { realmInspector } from '$lib/widgets/realms/lazyInspector.js';
-	import { inspectorRegistry } from './registry.js';
+	import { inspectorRegistry, isPluginWidgetKey } from './registry.js';
+	import PluginWidget from './widgets/PluginWidget.svelte';
+	import { pluginsStore } from '$lib/stores/plugins.svelte.js';
 	import { inspectorWidth } from '$lib/stores/inspectorWidth.svelte.js';
 
 	const view = $derived(router.current.view);
 
 	$effect(() => {
 		void inspectorWidth.load();
+		void pluginsStore.load();
 	});
 
 	function startResize(event: PointerEvent) {
@@ -73,8 +76,13 @@
 			{/await}
 		{:else}
 			{#each widgets as key (key)}
-				{@const Widget = inspectorRegistry[key].component}
-				<Widget />
+				{#if isPluginWidgetKey(key)}
+					{@const slot = pluginsStore.inspectorSlot(key)}
+					{#if slot}<PluginWidget {slot} />{/if}
+				{:else}
+					{@const Widget = inspectorRegistry[key].component}
+					<Widget />
+				{/if}
 			{:else}
 				<span class="empty">Nothing configured for this view.</span>
 			{/each}

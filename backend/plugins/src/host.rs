@@ -24,8 +24,8 @@ wasmtime::component::bindgen!({
 pub struct EvalContextHandle;
 
 use lorealm::plugin::types::{
-    Block, CommandCall, CommandSignature, Hook, Level, Message, Persona, ProcessorCall,
-    ProcessorSignature, SourceCall, SourceNode,
+    Block, CommandCall, CommandSignature, FrontendCall, Hook, Level, Message, Persona,
+    ProcessorCall, ProcessorSignature, SourceCall, SourceNode,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -462,6 +462,21 @@ impl LoadedPlugin {
         {
             Response::Source(blocks) => Ok(blocks),
             _ => Err(mismatch("source")),
+        }
+    }
+
+    /// Calls the plugin on behalf of its frontend, with JSON arguments.
+    pub async fn call_frontend(
+        &mut self,
+        name: String,
+        args: String,
+    ) -> Result<String, PluginError> {
+        match self
+            .handle(Event::Frontend(FrontendCall { name, args }))
+            .await?
+        {
+            Response::Frontend(value) => Ok(value),
+            _ => Err(mismatch("frontend")),
         }
     }
 

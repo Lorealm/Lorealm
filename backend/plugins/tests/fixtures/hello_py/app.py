@@ -6,6 +6,7 @@ from wit_world.imports.types import (
     Block,
     CommandSignature,
     Event_Command,
+    Event_Frontend,
     Event_Processor,
     Event_PromptBuild,
     Event_Source,
@@ -15,6 +16,7 @@ from wit_world.imports.types import (
     Param,
     ProcessorSignature,
     Response_Command,
+    Response_Frontend,
     Response_Processor,
     Response_PromptBuild,
     Response_Source,
@@ -68,6 +70,11 @@ class WitWorld(wit_world.WitWorld):
         if isinstance(event, Event_Processor):
             text = string(dict(event.value.properties).get("text"))
             return Response_Processor(json.dumps(f"{text.upper()}!"))
+        if isinstance(event, Event_Frontend):
+            if event.value.name != "greet":
+                raise Err(f"unknown frontend call `{event.value.name}`")
+            name = json.loads(event.value.args).get("name", "stranger")
+            return Response_Frontend(json.dumps(f"Hello, {name}!"))
         if isinstance(event, Event_Source):
             name = json.loads(event.value.settings).get("name", "stranger")
             return Response_Source([Block(Role.SYSTEM, f"Greetings, {name}.")])

@@ -118,7 +118,7 @@ async fn list_marks_enabled_plugins() {
     let h = harness().await;
     h.plugins.enable(h.user, "hello").await.unwrap();
 
-    let plugins = h.plugins.list(h.user).await.unwrap();
+    let plugins = h.plugins.list(h.user, false).await.unwrap();
     let enabled: Vec<_> = plugins
         .iter()
         .map(|p| (p.info.handle.as_str(), p.enabled))
@@ -464,4 +464,119 @@ async fn a_read_only_host_refuses_a_plugin_write() {
     let err = host.evaluate_inline(body).unwrap_err();
 
     assert!(err.to_string().contains("read-only"), "{err}");
+}
+
+#[tokio::test]
+async fn a_declared_frontend_entry_is_served_to_users_who_enabled_it() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+
+    let html = h
+        .plugins
+        .frontend_entry(h.user, "hello", "inspector.html", false)
+        .await
+        .unwrap();
+    let theirs = h
+        .plugins
+        .frontend_entry(h.stranger, "hello", "inspector.html", false)
+        .await;
+    let undeclared = h
+        .plugins
+        .frontend_entry(h.user, "hello", "../manifest.toml", false)
+        .await;
+
+    assert!(html.contains("lorealm.call('greet'"));
+    assert!(matches!(theirs, Err(PluginError::NotFound(_))));
+    assert!(matches!(undeclared, Err(PluginError::NotFound(_))));
+}
+
+#[tokio::test]
+async fn the_frontend_reaches_its_own_backend() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+
+    let greeting = h
+        .plugins
+        .call_frontend(
+            h.user,
+            "hello",
+            "greet".into(),
+            serde_json::json!({"name": "Ada"}),
+        )
+        .await
+        .unwrap();
+    let unknown = h
+        .plugins
+        .call_frontend(h.user, "hello", "nope".into(), serde_json::json!({}))
+        .await;
+    let not_enabled = h
+        .plugins
+        .call_frontend(h.stranger, "hello", "greet".into(), serde_json::json!({}))
+        .await;
+
+    assert_eq!(greeting, serde_json::json!("Hello, Ada!"));
+    assert!(matches!(unknown, Err(PluginError::CallFailed(_, _))));
+    assert!(matches!(not_enabled, Err(PluginError::NotFound(_))));
+}
+
+#[tokio::test]
+async fn the_plugin_list_carries_frontend_slots() {
+    let h = harness().await;
+
+    let plugins = h.plugins.list(h.user, false).await.unwrap();
+    let hello = plugins.iter().find(|p| p.info.handle == "hello").unwrap();
+
+    assert_eq!(hello.slots[0].slot, "inspector");
+    assert_eq!(hello.slots[0].entry, "inspector.html");
+}
+
+/// The entries of `handle`'s slots in the user's plugin list.
+async fn listed_entries(h: &Harness, handle: &str, allow_unsafe: bool) -> Vec<String> {
+    let plugins = h.plugins.list(h.user, allow_unsafe).await.unwrap();
+    let plugin = plugins.iter().find(|p| p.info.handle == handle).unwrap();
+    plugin.slots.iter().map(|s| s.entry.clone()).collect()
+}
+
+#[tokio::test]
+async fn unsafe_slots_need_a_user_allowed_them() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+
+    let refused = h
+        .plugins
+        .frontend_entry(h.user, "hello", "panel.js", false)
+        .await;
+    let module = h
+        .plugins
+        .frontend_entry(h.user, "hello", "panel.js", true)
+        .await
+        .unwrap();
+
+    assert!(
+        !listed_entries(&h, "hello", false)
+            .await
+            .contains(&"panel.js".into())
+    );
+    assert!(
+        listed_entries(&h, "hello", true)
+            .await
+            .contains(&"panel.js".into())
+    );
+    assert!(matches!(refused, Err(PluginError::NotFound(_))));
+    assert!(module.contains("export function mount"));
+}
+
+#[tokio::test]
+async fn unsafe_slots_need_the_plugins_permission() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    h.plugins.enable(h.user, "hello_addon").await.unwrap();
+
+    let refused = h
+        .plugins
+        .frontend_entry(h.user, "hello_addon", "panel.js", true)
+        .await;
+
+    assert!(listed_entries(&h, "hello_addon", true).await.is_empty());
+    assert!(matches!(refused, Err(PluginError::NotFound(_))));
 }

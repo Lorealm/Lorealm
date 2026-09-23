@@ -8,8 +8,8 @@ use async_trait::async_trait;
 use chrono::Utc;
 use dashmap::DashMap;
 use lorealm_plugins::{
-    HostServices, Level, LoadedPlugin, LogEntry, LogSource, Message, Persona, PluginHost,
-    PluginInfo, PluginPackage, Role, resolve,
+    FrontendSlot, HostServices, Level, LoadedPlugin, LogEntry, LogSource, Manifest, Message,
+    Persona, PluginHost, PluginInfo, PluginPackage, Role, resolve,
 };
 use lorealm_storage::{
     Storage, StorageError,
@@ -42,6 +42,8 @@ pub struct InstalledPlugin {
     #[serde(flatten)]
     pub info: PluginInfo,
     pub enabled: bool,
+    /// Where the plugin appears in the client.
+    pub slots: Vec<FrontendSlot>,
 }
 
 /// A user's mounted plugins, in load order.
@@ -122,7 +124,13 @@ impl PluginService {
     }
 
     /// Every plugin in the plugins directory, flagged by whether `user_id` enabled it.
-    pub async fn list(&self, user_id: Snowflake) -> Result<Vec<InstalledPlugin>, PluginError> {
+    /// `allow_unsafe` is whether the user may run unsafe slots; others are
+    /// left out of each plugin's `slots`.
+    pub async fn list(
+        &self,
+        user_id: Snowflake,
+        allow_unsafe: bool,
+    ) -> Result<Vec<InstalledPlugin>, PluginError> {
         let enabled = self.storage.list_user_plugins(user_id).await?;
 
         let Ok(entries) = std::fs::read_dir(&self.dir) else {
@@ -135,6 +143,9 @@ impl PluginService {
                 Ok(package) => installed.push(InstalledPlugin {
                     enabled: enabled.contains(&handle),
                     info: package.manifest.plugin.clone(),
+                    slots: usable_slots(&package.manifest, allow_unsafe)
+                        .cloned()
+                        .collect(),
                 }),
                 Err(err) => tracing::warn!(%handle, error = %err, "skipping plugin"),
             }
@@ -231,6 +242,58 @@ impl PluginService {
             })
             .collect();
         Some(PluginVocabulary::new(Arc::clone(&slot), plugins, &infos))
+    }
+
+    /// A frontend entry the plugin declared, if the user has it enabled.
+    pub async fn frontend_entry(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        entry: &str,
+        allow_unsafe: bool,
+    ) -> Result<String, PluginError> {
+        let not_found = || PluginError::NotFound(handle.to_owned());
+        if !self
+            .storage
+            .list_user_plugins(user_id)
+            .await?
+            .iter()
+            .any(|h| h == handle)
+        {
+            return Err(not_found());
+        }
+        let package = self.package(handle).await?;
+        let frontend = &package.manifest.frontend;
+        if !usable_slots(&package.manifest, allow_unsafe).any(|s| s.entry == entry) {
+            return Err(not_found());
+        }
+        let path = self.dir.join(handle).join(&frontend.path).join(entry);
+        tokio::fs::read_to_string(path)
+            .await
+            .map_err(|_| not_found())
+    }
+
+    /// Calls the plugin's backend on behalf of its frontend.
+    pub async fn call_frontend(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        name: String,
+        args: serde_json::Value,
+    ) -> Result<serde_json::Value, PluginError> {
+        let slot = self.mount(user_id).await;
+        let mut guard = slot.lock().await;
+        let mounted = guard
+            .as_mut()
+            .filter(|m| m.plugins.iter().any(|(h, _)| h == handle))
+            .ok_or_else(|| PluginError::NotFound(handle.to_owned()))?;
+        let args = args.to_string();
+        let json = mounted
+            .call(handle, async |p| p.call_frontend(name, args).await)
+            .await
+            .map_err(|e| PluginError::CallFailed(handle.to_owned(), e))?;
+        serde_json::from_str(&json)
+            .map_err(|_| PluginError::CallFailed(handle.to_owned(), "returned invalid JSON".into()))
     }
 
     /// The user's log for `handle`, newest first.
@@ -398,6 +461,17 @@ impl CleanableService for PluginService {
         });
         before - self.mounted.len()
     }
+}
+
+/// The manifest's slots the user may run. An unsafe slot needs both the
+/// plugin's `ui:unsafe` permission and a user allowed unsafe plugins.
+fn usable_slots(manifest: &Manifest, allow_unsafe: bool) -> impl Iterator<Item = &FrontendSlot> {
+    let unsafe_ok = allow_unsafe && manifest.plugin.permissions.iter().any(|p| p == "ui:unsafe");
+    manifest
+        .frontend
+        .slots
+        .iter()
+        .filter(move |s| !s.r#unsafe || unsafe_ok)
 }
 
 /// Host services bound to one user's instance of one plugin.

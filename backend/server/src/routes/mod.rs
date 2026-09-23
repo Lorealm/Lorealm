@@ -80,7 +80,11 @@ pub async fn api_routes(
         )
         .nest(
             "/plugins",
-            plugins::router(Arc::clone(&app_state), session_state.clone()),
+            plugins::router(
+                Arc::clone(&app_state),
+                session_state.clone(),
+                permission_state.clone(),
+            ),
         )
         .nest(
             "/tokenizers",

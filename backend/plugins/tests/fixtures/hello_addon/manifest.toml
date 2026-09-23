@@ -12,3 +12,13 @@ requires = { hello = "^0.1" }
 
 [structure]
 backend = "../hello/target/wasm32-wasip2/release/hello.wasm"
+
+# Declares an unsafe slot without `ui:unsafe`, so it must never be offered.
+[frontend]
+path = "../hello/frontend"
+
+[[frontend.slots]]
+slot = "inspector"
+entry = "panel.js"
+title = "Unpermitted"
+unsafe = true

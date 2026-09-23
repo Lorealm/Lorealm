@@ -12,6 +12,8 @@ A living document to help us keep track of the plugin system implementation.
 | 23/09/26      | Added plugin logging                | ✅            |
 | 23/09/26      | Added load order and compatibility  | ✅            |
 | 23/09/26      | Added Weaver and template support   | ✅            |
+| 23/09/26      | Added secure frontend slots         | ✅            |
+| 23/09/26      | Added message slots and unsafe mode | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -33,6 +35,37 @@ When a plugin wants to define frontend components, they have two routes:
 **Secure** (default) - Limits plugin authoring to within an iframe. This is limited in the sense that a plugin can only exist at certain pre-defined locations, can't reliably control exterior styling and is limited to what the client provides.
 We will provide paths for common things, such as inspector modules, custom chat widgets, etc.
 **Unsafe** - Gated both by a plugin-level permission and a user-level permission in `ALLOW_UNSAFE_PLUGINS`. Allows (near) direct DOM access. Realistically speaking, this is going to be neccessary for plugins that want to add more advanced behavior.
+
+#### Frontend
+The manifest declares where the plugin appears; the client decides which slots exist and ignores ones it doesn't know. The official client has `inspector` (a widget in the inspector grid) and `message` (under assistant messages, like static widgets).
+```toml
+[frontend]
+path = "frontend"          # defaults to "frontend"
+
+[[frontend.slots]]
+slot = "inspector"
+entry = "inspector.html"   # a single self-contained HTML file
+title = "Greeter"
+
+[[frontend.slots]]
+slot = "message"
+entry = "message.html"
+title = "Word count"
+mode = "every"             # message slots: "latest" (default) or "every"
+
+[[frontend.slots]]
+slot = "inspector"
+entry = "panel.js"         # an unsafe slot is an ES module
+title = "Greeter"
+unsafe = true
+```
+Both modes get the same API: `call(name, args)` reaches only the plugin's own backend (`POST /plugins/{handle}/call`, delivered to `handle` as a `frontend` event), `context` is what the slot provides (a `message` slot gets `{ message: { id, role, content } }`; `inspector` gets `{}`), and `onContext(listener)` reports changes. Anything touching user data goes through the backend half, where permissions apply.
+
+**Secure** (the default): the client fetches the entry through the API (`GET /plugins/{handle}/frontend/{entry}`, only for declared entries of enabled plugins) and renders it in an `iframe sandbox="allow-scripts"` as `srcdoc`, so it runs in an opaque origin with no session or access to the app. A CSP is put in front of it: no network (`connect-src` falls back to `default-src 'none'`), and no scripts, styles or images from outside the file, so entries inline everything. The API is `window.lorealm`. The app's style variables (everything declared on `:root`) are applied ahead of the entry's own styles, and the font faces the app has loaded are handed over as bytes, since the CSP refuses font URLs. Both are kept up to date, and user widgets get them the same way.
+
+**Unsafe**: needs the plugin's `ui:unsafe` permission and the user's `ALLOW_UNSAFE_PLUGINS`; otherwise the slot isn't listed or served. The entry is an ES module, imported into the client, exporting `mount(element, api)` and optionally returning an unmount function. It runs with the client's full privileges, and inherits the app's styles directly.
+
+Known gaps: a secure frame can still navigate itself to an outside URL, which CSP can't prevent; unsafe code in the desktop app shares the webview with Tauri's IPC.
 
 ### Plugin Development
 Day one support includes *at least* Rust and Python, the native language and the most popular language.
@@ -63,7 +96,6 @@ Every plugin must ship with a manifest.toml file. A manifest file ships the plug
 
 #### Structure (optional)
 - backend (the relative path to the built backend component, defaults to "plugin.wasm")
-- frontend_path (the relative path to the frontend code, defaults to "frontend"; not implemented yet)
 
 Here's an example:
 ```toml

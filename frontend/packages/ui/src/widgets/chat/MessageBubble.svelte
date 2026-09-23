@@ -6,6 +6,7 @@
 	import { blobUrl } from '$lib/api/blobs.js';
 	import ChatWidget from '$lib/components/ChatWidget.svelte';
 	import StaticWidgets from '$lib/components/StaticWidgets.svelte';
+	import PluginMessageSlots from '$lib/components/PluginMessageSlots.svelte';
 	import { ChevronLeft, ChevronRight, Layers, Pencil, StepForward, Trash2 } from '@lucide/svelte';
 	import { contextInspector } from '$lib/stores/contextInspector.svelte.js';
 	import { parseContextBlocks } from '$lib/types/context.js';
@@ -202,6 +203,7 @@
 			{#if !editing && !busy && message.role === 'assistant' && message.parent !== null}
 				<div class="widgets">
 					<StaticWidgets messageId={message.id} {last} />
+					<PluginMessageSlots {message} {last} />
 				</div>
 			{/if}
 

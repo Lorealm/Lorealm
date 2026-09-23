@@ -4,7 +4,24 @@ handle = "hello"
 description = "Test fixture that greets the active persona in the prompt and counts greetings."
 author = "Lorealm"
 version = "0.1.0"
-permissions = ["prompt:write", "persona:read", "data:persist", "state:read", "state:write"]
+permissions = ["prompt:write", "persona:read", "data:persist", "state:read", "state:write", "ui:unsafe"]
 
 [structure]
 backend = "target/wasm32-wasip2/release/hello.wasm"
+
+[[frontend.slots]]
+slot = "inspector"
+entry = "inspector.html"
+title = "Greeter"
+
+[[frontend.slots]]
+slot = "message"
+entry = "message.html"
+title = "Word count"
+mode = "every"
+
+[[frontend.slots]]
+slot = "inspector"
+entry = "panel.js"
+title = "Greeter (unsafe)"
+unsafe = true

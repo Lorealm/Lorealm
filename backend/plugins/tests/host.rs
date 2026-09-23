@@ -426,3 +426,24 @@ async fn reading_the_context_needs_permission() {
         "{result:?}"
     );
 }
+
+#[tokio::test]
+async fn the_frontend_calls_its_own_backend() {
+    let host = host();
+    for name in HELLOS {
+        let package = compile(&host, name);
+        let mut plugin = host
+            .instantiate(&package, Arc::new(TestServices::default()))
+            .await
+            .unwrap();
+
+        let greeting = plugin
+            .call_frontend("greet".into(), r#"{"name": "Ada"}"#.into())
+            .await
+            .unwrap();
+        let unknown = plugin.call_frontend("nope".into(), "{}".into()).await;
+
+        assert_eq!(greeting, r#""Hello, Ada!""#, "{name}");
+        assert!(matches!(unknown, Err(PluginError::Call(_))), "{name}");
+    }
+}

@@ -1,0 +1,14 @@
+<!doctype html>
+<html>
+  <body style="margin: 0; color: var(--color-text-muted); font-size: var(--font-size-xs)">
+    <span id="count"></span>
+    <script>
+      function show(context) {
+        const words = context.message.content.trim().split(/\s+/).filter(Boolean).length;
+        document.getElementById('count').textContent = `${words} words`;
+      }
+      show(lorealm.context);
+      lorealm.onContext(show);
+    </script>
+  </body>
+</html>
