@@ -3,12 +3,12 @@ use async_trait::async_trait;
 use crate::{
     PluginStorage, StorageError,
     backends::MemoryStorage,
-    models::{PluginLog, Snowflake},
+    models::{PluginLog, Snowflake, UserPlugin},
 };
 
 #[async_trait]
 impl PluginStorage for MemoryStorage {
-    async fn list_user_plugins(&self, user_id: Snowflake) -> Result<Vec<String>, StorageError> {
+    async fn list_user_plugins(&self, user_id: Snowflake) -> Result<Vec<UserPlugin>, StorageError> {
         Ok(self
             .user_plugins
             .read()
@@ -22,13 +22,45 @@ impl PluginStorage for MemoryStorage {
         &self,
         user_id: Snowflake,
         handle: &str,
+        version: &str,
     ) -> Result<(), StorageError> {
         let mut plugins = self.user_plugins.write().await;
-        let handles = plugins.entry(user_id).or_default();
-        if !handles.iter().any(|h| h == handle) {
-            handles.push(handle.to_owned());
+        let enabled = plugins.entry(user_id).or_default();
+        if !enabled.iter().any(|p| p.handle == handle) {
+            enabled.push(UserPlugin {
+                handle: handle.to_owned(),
+                version: version.to_owned(),
+            });
         }
         Ok(())
+    }
+
+    async fn set_user_plugin_version(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        version: &str,
+    ) -> Result<(), StorageError> {
+        if let Some(enabled) = self.user_plugins.write().await.get_mut(&user_id) {
+            for plugin in enabled.iter_mut().filter(|p| p.handle == handle) {
+                plugin.version = version.to_owned();
+            }
+        }
+        Ok(())
+    }
+
+    async fn is_plugin_version_used(
+        &self,
+        handle: &str,
+        version: &str,
+    ) -> Result<bool, StorageError> {
+        Ok(self
+            .user_plugins
+            .read()
+            .await
+            .values()
+            .flatten()
+            .any(|p| p.handle == handle && p.version == version))
     }
 
     async fn set_user_plugin_order(
@@ -36,10 +68,9 @@ impl PluginStorage for MemoryStorage {
         user_id: Snowflake,
         handles: &[String],
     ) -> Result<(), StorageError> {
-        self.user_plugins
-            .write()
-            .await
-            .insert(user_id, handles.to_vec());
+        if let Some(enabled) = self.user_plugins.write().await.get_mut(&user_id) {
+            enabled.sort_by_key(|p| handles.iter().position(|h| *h == p.handle));
+        }
         Ok(())
     }
 
@@ -48,8 +79,8 @@ impl PluginStorage for MemoryStorage {
         user_id: Snowflake,
         handle: &str,
     ) -> Result<(), StorageError> {
-        if let Some(handles) = self.user_plugins.write().await.get_mut(&user_id) {
-            handles.retain(|h| h != handle);
+        if let Some(enabled) = self.user_plugins.write().await.get_mut(&user_id) {
+            enabled.retain(|p| p.handle != handle);
         }
         Ok(())
     }

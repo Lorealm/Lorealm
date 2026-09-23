@@ -447,3 +447,21 @@ async fn the_frontend_calls_its_own_backend() {
         assert!(matches!(unknown, Err(PluginError::Call(_))), "{name}");
     }
 }
+
+#[tokio::test]
+async fn staging_copies_only_the_built_plugin() {
+    build_hello();
+    let into = std::env::temp_dir().join(format!("lorealm-stage-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&into);
+    std::fs::create_dir_all(&into).unwrap();
+
+    // Its source points outside its own directory, at hello's build output.
+    let manifest = lorealm_plugins::stage(&fixture("hello_addon"), &into).unwrap();
+    let package = host().compile(&into);
+
+    assert_eq!(manifest.structure.backend, PathBuf::from("backend.wasm"));
+    assert_eq!(manifest.frontend.path, PathBuf::from("frontend"));
+    assert!(into.join("frontend/panel.js").is_file());
+    assert!(package.is_ok(), "{:?}", package.err());
+    std::fs::remove_dir_all(&into).unwrap();
+}

@@ -14,6 +14,7 @@ A living document to help us keep track of the plugin system implementation.
 | 23/09/26      | Added Weaver and template support   | ✅            |
 | 23/09/26      | Added secure frontend slots         | ✅            |
 | 23/09/26      | Added message slots and unsafe mode | ✅            |
+| 23/09/26      | Added installation from source      | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -97,6 +98,12 @@ Every plugin must ship with a manifest.toml file. A manifest file ships the plug
 #### Structure (optional)
 - backend (the relative path to the built backend component, defaults to "plugin.wasm")
 
+#### Build (optional)
+- backend (a command that builds the backend component, as a list of arguments)
+- frontend (the same, for the frontend)
+
+Each runs in the plugin's source directory when it's installed from source; see Installation.
+
 Here's an example:
 ```toml
 [plugin]
@@ -134,6 +141,15 @@ The plugin loader is simple in theory. Simply put, these are the steps:
 to inform them something went wrong.
 4. The plugin `init` functions in turn registers what it uses through `register_*` functions (permissions errors propagated to the last step)
 5. Plugins are cached in-memory and are now active.
+
+### Installation
+Plugins are installed server-wide, one directory per version: `data/plugins/{handle}@{version}`. Users pin a version: enabling picks the newest, and a newer install doesn't move anyone. A user moves with `POST /plugins/{handle}/update` (to the newest, or a given `version`), which is refused if their other plugins wouldn't load together on it. A version is removed from disk once no user is on it, unless it's the newest. Plugin data and logs are keyed by handle, so they carry across versions.
+
+**From source** (`POST /plugins/install {"path": "..."}`, needs `ALLOW_PLUGIN_INSTALL_FROM_SOURCE`): reads the manifest in that directory, runs its `[build]` commands there, and copies only the result (manifest, backend, frontend) into place, with the manifest's paths rewritten to fixed ones. The build output comes back in the response, and a failure's tail goes to the installer's log for that plugin. The build runs with the server's rights, so this permission amounts to running code on the host; it's not granted by default. Installing a version that's already installed is refused.
+
+**Uninstalling** (`DELETE /plugins/{handle}`, same permission) stops every version from being enabled; each is removed once no user is on it.
+
+**Planned:** installing from a git URL; installing pre-built plugins under a separate, less powerful permission.
 
 ### Load Order and Compatibility
 A user's plugins load in the order they set (`PUT /plugins` with `{ "order": [...] }`, listing every enabled plugin; enabling appends to the end). Manifests override that order where they need to:

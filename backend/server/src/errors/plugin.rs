@@ -20,6 +20,14 @@ pub enum PluginError {
     Required(String, Vec<String>),
     #[error("load order must list each enabled plugin exactly once")]
     InvalidOrder,
+    #[error("plugin {0} cannot be updated: {1}")]
+    CannotUpdate(String, String),
+    #[error("plugin source cannot be installed: {0}")]
+    InvalidSource(String),
+    #[error("plugin {0} is already installed")]
+    AlreadyInstalled(String),
+    #[error("plugin {0} failed to build")]
+    BuildFailed(String),
     /// The plugin failed a call made on its frontend's behalf.
     #[error("plugin {0} call failed: {1}")]
     CallFailed(String, String),
@@ -36,6 +44,10 @@ impl DomainError for PluginError {
             Self::Required(_, _) => "plugin.required",
             Self::InvalidOrder => "plugin.invalid_order",
             Self::CallFailed(_, _) => "plugin.call_failed",
+            Self::CannotUpdate(_, _) => "plugin.cannot_update",
+            Self::InvalidSource(_) => "plugin.invalid_source",
+            Self::AlreadyInstalled(_) => "plugin.already_installed",
+            Self::BuildFailed(_) => "plugin.build_failed",
             Self::Storage(_) => "internal",
         }
     }
@@ -45,7 +57,9 @@ impl DomainError for PluginError {
             Self::NotFound(_) => StatusCode::NOT_FOUND,
             Self::Invalid(_, _) | Self::InvalidOrder => StatusCode::BAD_REQUEST,
             Self::CannotEnable(_, _) | Self::Required(_, _) => StatusCode::CONFLICT,
-            Self::CallFailed(_, _) => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::CallFailed(_, _) | Self::BuildFailed(_) => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::CannotUpdate(_, _) | Self::AlreadyInstalled(_) => StatusCode::CONFLICT,
+            Self::InvalidSource(_) => StatusCode::BAD_REQUEST,
             Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -68,6 +82,17 @@ impl DomainError for PluginError {
             Self::CallFailed(_, _) => {
                 "The plugin couldn't complete that request. Its log says why.".into()
             }
+            Self::CannotUpdate(_, reason) => {
+                sentence(format!("This plugin can't be updated: {reason}"))
+            }
+            Self::InvalidSource(reason) => {
+                sentence(format!("That source can't be installed: {reason}"))
+            }
+            Self::AlreadyInstalled(_) => {
+                "That version is already installed. Raise the version to install a new build."
+                    .into()
+            }
+            Self::BuildFailed(_) => "The plugin failed to build. Its log has the output.".into(),
             Self::Storage(_) => "An internal error occurred".into(),
         }
     }
@@ -79,7 +104,11 @@ impl DomainError for PluginError {
             | Self::CannotEnable(_, _)
             | Self::Required(_, _)
             | Self::InvalidOrder
-            | Self::CallFailed(_, _) => Some(ErrorDetails::resource(TargetType::Plugin)),
+            | Self::CallFailed(_, _)
+            | Self::CannotUpdate(_, _)
+            | Self::InvalidSource(_)
+            | Self::AlreadyInstalled(_)
+            | Self::BuildFailed(_) => Some(ErrorDetails::resource(TargetType::Plugin)),
             Self::Storage(_) => None,
         }
     }

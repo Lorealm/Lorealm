@@ -9,17 +9,19 @@ use chrono::Utc;
 use dashmap::DashMap;
 use lorealm_plugins::{
     FrontendSlot, HostServices, Level, LoadedPlugin, LogEntry, LogSource, Manifest, Message,
-    Persona, PluginHost, PluginInfo, PluginPackage, Role, resolve,
+    Persona, PluginHost, PluginInfo, PluginPackage, Role, Version, resolve,
 };
 use lorealm_storage::{
     Storage, StorageError,
-    models::{PluginLog, PluginLogLevel, PluginLogSource, Snowflake, is_identifier},
+    models::{PluginLog, PluginLogLevel, PluginLogSource, Snowflake, UserPlugin, is_identifier},
 };
 use serde::Serialize;
 use tokio::sync::Mutex;
 
+mod install;
 mod vocabulary;
 
+pub use install::InstallReport;
 pub use vocabulary::{PLUGIN_SOURCE_PREFIX, PluginVocabulary};
 
 use crate::{
@@ -41,7 +43,10 @@ const IDLE_TTL: Duration = Duration::from_secs(30 * 60);
 pub struct InstalledPlugin {
     #[serde(flatten)]
     pub info: PluginInfo,
+    /// If so, `info` is the version the user is on; otherwise the latest.
     pub enabled: bool,
+    /// The newest version that can be enabled, if any.
+    pub latest: Option<Version>,
     /// Where the plugin appears in the client.
     pub slots: Vec<FrontendSlot>,
 }
@@ -92,9 +97,10 @@ pub struct PluginService {
     state: Arc<StateService>,
     host: Arc<PluginHost>,
     logs: Arc<PluginLogs>,
-    /// `{data_directory}/plugins`, one directory per plugin, named by handle.
+    /// `{data_directory}/plugins`, one directory per installed version, named
+    /// `{handle}@{version}`.
     dir: PathBuf,
-    /// Compiled components by handle. Shared by every user.
+    /// Compiled components by `handle@version`. Shared by every user.
     packages: DashMap<String, Arc<PluginPackage>>,
     /// `None` until the user's plugins are first needed.
     mounted: DashMap<Snowflake, Slot>,
@@ -123,9 +129,9 @@ impl PluginService {
         }
     }
 
-    /// Every plugin in the plugins directory, flagged by whether `user_id` enabled it.
-    /// `allow_unsafe` is whether the user may run unsafe slots; others are
-    /// left out of each plugin's `slots`.
+    /// Every installed plugin, at the version the user is on or else the
+    /// latest. `allow_unsafe` is whether the user may run unsafe slots; others
+    /// are left out of each plugin's `slots`.
     pub async fn list(
         &self,
         user_id: Snowflake,
@@ -133,16 +139,20 @@ impl PluginService {
     ) -> Result<Vec<InstalledPlugin>, PluginError> {
         let enabled = self.storage.list_user_plugins(user_id).await?;
 
-        let Ok(entries) = std::fs::read_dir(&self.dir) else {
-            return Ok(Vec::new());
-        };
         let mut installed = Vec::new();
-        for entry in entries.flatten() {
-            let handle = entry.file_name().to_string_lossy().into_owned();
-            match self.package(&handle).await {
+        for handle in self.installed_handles() {
+            let latest = self.latest(&handle);
+            let pinned = enabled.iter().find(|p| p.handle == handle);
+            let version = match pinned {
+                Some(p) => p.version.parse().ok(),
+                None => latest.clone(),
+            };
+            let Some(version) = version else { continue };
+            match self.package(&handle, &version).await {
                 Ok(package) => installed.push(InstalledPlugin {
-                    enabled: enabled.contains(&handle),
+                    enabled: pinned.is_some(),
                     info: package.manifest.plugin.clone(),
+                    latest,
                     slots: usable_slots(&package.manifest, allow_unsafe)
                         .cloned()
                         .collect(),
@@ -150,14 +160,16 @@ impl PluginService {
                 Err(err) => tracing::warn!(%handle, error = %err, "skipping plugin"),
             }
         }
-        installed.sort_by(|a, b| a.info.handle.cmp(&b.info.handle));
         Ok(installed)
     }
 
     pub async fn enable(&self, user_id: Snowflake, handle: &str) -> Result<(), PluginError> {
-        let package = self.package(handle).await?;
+        let version = self
+            .latest(handle)
+            .ok_or_else(|| PluginError::NotFound(handle.to_owned()))?;
+        let package = self.package(handle, &version).await?;
         let enabled = self.storage.list_user_plugins(user_id).await?;
-        if enabled.iter().any(|h| h == handle) {
+        if enabled.iter().any(|p| p.handle == handle) {
             return Ok(());
         }
 
@@ -175,8 +187,68 @@ impl PluginService {
             return Err(PluginError::CannotEnable(handle.to_owned(), reason));
         }
 
-        self.storage.enable_user_plugin(user_id, handle).await?;
+        self.storage
+            .enable_user_plugin(user_id, handle, &version.to_string())
+            .await?;
         self.mounted.remove(&user_id);
+        Ok(())
+    }
+
+    /// Moves the user to `version` of the plugin, or the latest. Fails if the
+    /// user's plugins wouldn't load together on it.
+    pub async fn update(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        version: Option<Version>,
+    ) -> Result<(), PluginError> {
+        let not_found = || PluginError::NotFound(handle.to_owned());
+        let enabled = self.storage.list_user_plugins(user_id).await?;
+        let current = enabled
+            .iter()
+            .find(|p| p.handle == handle)
+            .ok_or_else(not_found)?;
+        let target = match version {
+            Some(v) if self.is_available(handle, &v) => v,
+            Some(_) => return Err(not_found()),
+            None => self.latest(handle).ok_or_else(not_found)?,
+        };
+        if current.version == target.to_string() {
+            return Ok(());
+        }
+
+        let package = self.package(handle, &target).await?;
+        let others: Vec<UserPlugin> = enabled
+            .iter()
+            .filter(|p| p.handle != handle)
+            .cloned()
+            .collect();
+        let others = self.installed(&others).await;
+        let before = self.installed(&enabled).await;
+        let skipped = |packages: Vec<&Manifest>| resolve(&packages).skipped;
+        let was_skipped = skipped(before.iter().map(|p| &p.manifest).collect());
+        let now_skipped = skipped(
+            others
+                .iter()
+                .map(|p| &p.manifest)
+                .chain([&package.manifest])
+                .collect(),
+        );
+        if let Some((skipped, reason)) = now_skipped
+            .into_iter()
+            .find(|(h, _)| !was_skipped.iter().any(|(was, _)| was == h))
+        {
+            return Err(PluginError::CannotUpdate(
+                handle.to_owned(),
+                format!("`{skipped}` {reason}"),
+            ));
+        }
+
+        self.storage
+            .set_user_plugin_version(user_id, handle, &target.to_string())
+            .await?;
+        self.mounted.remove(&user_id);
+        self.collect(handle).await;
         Ok(())
     }
 
@@ -198,6 +270,7 @@ impl PluginService {
 
         self.storage.disable_user_plugin(user_id, handle).await?;
         self.mounted.remove(&user_id);
+        self.collect(handle).await;
         Ok(())
     }
 
@@ -207,7 +280,13 @@ impl PluginService {
         user_id: Snowflake,
         handles: Vec<String>,
     ) -> Result<(), PluginError> {
-        let mut enabled = self.storage.list_user_plugins(user_id).await?;
+        let mut enabled: Vec<String> = self
+            .storage
+            .list_user_plugins(user_id)
+            .await?
+            .into_iter()
+            .map(|p| p.handle)
+            .collect();
         let mut given = handles.clone();
         enabled.sort();
         given.sort();
@@ -226,6 +305,12 @@ impl PluginService {
     /// `None` if they have none loaded.
     pub async fn vocabulary(&self, user_id: Snowflake) -> Option<PluginVocabulary> {
         let slot = self.mount(user_id).await;
+        // Before locking: nothing may be awaited while `plugins` is borrowed.
+        let versions = self
+            .storage
+            .list_user_plugins(user_id)
+            .await
+            .unwrap_or_default();
         let guard = slot.lock().await;
         let plugins = &guard.as_ref()?.plugins;
         if plugins.is_empty() {
@@ -234,7 +319,9 @@ impl PluginService {
         let infos = plugins
             .iter()
             .filter_map(|(handle, _)| {
-                let info = &self.packages.get(handle)?.manifest.plugin;
+                let pinned = versions.iter().find(|p| &p.handle == handle)?;
+                let key = format!("{handle}@{}", pinned.version);
+                let info = &self.packages.get(&key)?.manifest.plugin;
                 Some((
                     handle.clone(),
                     (info.name.clone(), info.description.clone()),
@@ -253,21 +340,23 @@ impl PluginService {
         allow_unsafe: bool,
     ) -> Result<String, PluginError> {
         let not_found = || PluginError::NotFound(handle.to_owned());
-        if !self
+        let version = self
             .storage
             .list_user_plugins(user_id)
             .await?
-            .iter()
-            .any(|h| h == handle)
-        {
-            return Err(not_found());
-        }
-        let package = self.package(handle).await?;
+            .into_iter()
+            .find(|p| p.handle == handle)
+            .and_then(|p| p.version.parse::<Version>().ok())
+            .ok_or_else(not_found)?;
+        let package = self.package(handle, &version).await?;
         let frontend = &package.manifest.frontend;
         if !usable_slots(&package.manifest, allow_unsafe).any(|s| s.entry == entry) {
             return Err(not_found());
         }
-        let path = self.dir.join(handle).join(&frontend.path).join(entry);
+        let path = self
+            .version_dir(handle, &version)
+            .join(&frontend.path)
+            .join(entry);
         tokio::fs::read_to_string(path)
             .await
             .map_err(|_| not_found())
@@ -348,8 +437,8 @@ impl PluginService {
             return slot;
         }
 
-        let handles = match self.storage.list_user_plugins(user_id).await {
-            Ok(handles) => handles,
+        let enabled = match self.storage.list_user_plugins(user_id).await {
+            Ok(enabled) => enabled,
             Err(err) => {
                 tracing::error!(%user_id, error = %err, "failed to list plugins");
                 Vec::new()
@@ -357,12 +446,12 @@ impl PluginService {
         };
 
         let mut packages = Vec::new();
-        for handle in &handles {
-            match self.package(handle).await {
+        for plugin in &enabled {
+            match self.pinned(plugin).await {
                 Ok(package) => packages.push(package),
                 Err(err) => {
                     self.logs
-                        .host(user_id, handle, Level::Error, err.to_string())
+                        .host(user_id, &plugin.handle, Level::Error, err.to_string())
                         .await;
                 }
             }
@@ -405,24 +494,37 @@ impl PluginService {
         slot
     }
 
-    /// The compiled plugins among `handles`, in the same order. Ones that fail
-    /// to load are left out.
-    async fn installed(&self, handles: &[String]) -> Vec<Arc<PluginPackage>> {
+    /// The compiled plugins `enabled` names, in the same order. Ones that
+    /// fail to load are left out.
+    async fn installed(&self, enabled: &[UserPlugin]) -> Vec<Arc<PluginPackage>> {
         let mut packages = Vec::new();
-        for handle in handles {
-            if let Ok(package) = self.package(handle).await {
+        for plugin in enabled {
+            if let Ok(package) = self.pinned(plugin).await {
                 packages.push(package);
             }
         }
         packages
     }
 
+    async fn pinned(&self, plugin: &UserPlugin) -> Result<Arc<PluginPackage>, PluginError> {
+        let version = plugin
+            .version
+            .parse()
+            .map_err(|_| PluginError::NotFound(plugin.handle.clone()))?;
+        self.package(&plugin.handle, &version).await
+    }
+
     /// The compiled plugin for `handle`, compiling it on first use.
-    async fn package(&self, handle: &str) -> Result<Arc<PluginPackage>, PluginError> {
-        if let Some(package) = self.packages.get(handle) {
+    async fn package(
+        &self,
+        handle: &str,
+        version: &Version,
+    ) -> Result<Arc<PluginPackage>, PluginError> {
+        let key = format!("{handle}@{version}");
+        if let Some(package) = self.packages.get(&key) {
             return Ok(Arc::clone(&package));
         }
-        let dir = self.dir.join(handle);
+        let dir = self.version_dir(handle, version);
         if !is_identifier(handle) || !dir.is_dir() {
             return Err(PluginError::NotFound(handle.to_owned()));
         }
@@ -432,13 +534,13 @@ impl PluginService {
             .await
             .expect("plugin compilation should not panic")
             .map_err(|err| PluginError::Invalid(handle.to_owned(), err))?;
-        if package.manifest.plugin.handle != handle {
+        let info = &package.manifest.plugin;
+        if info.handle != handle || &info.version != version {
             return Err(PluginError::NotFound(handle.to_owned()));
         }
 
         let package = Arc::new(package);
-        self.packages
-            .insert(handle.to_owned(), Arc::clone(&package));
+        self.packages.insert(key, Arc::clone(&package));
         Ok(package)
     }
 }

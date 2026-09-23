@@ -19,6 +19,9 @@ export interface InstalledPlugin {
 	author: string;
 	version: string;
 	permissions: string[];
+	/** If so, the fields above describe the version the user is on. */
 	enabled: boolean;
+	/** The newest version that can be enabled; newer than `version` when an update is available. */
+	latest: string | null;
 	slots: FrontendSlot[];
 }
