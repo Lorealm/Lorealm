@@ -796,3 +796,14 @@ async fn uninstalling_keeps_versions_users_are_on() {
     assert_eq!(out.len(), 2, "still runs for the user on it");
     assert!(!dir.join("hello@0.1.0").exists());
 }
+
+#[tokio::test]
+async fn an_installed_plugin_serves_its_readme() {
+    let h = harness().await;
+
+    let readme = h.plugins.readme(h.user, "hello").await.unwrap();
+    let none = h.plugins.readme(h.user, "hello_addon").await;
+
+    assert!(readme.starts_with("# Hello"), "{readme}");
+    assert!(matches!(none, Err(PluginError::NotFound(_))));
+}

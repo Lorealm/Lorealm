@@ -97,6 +97,7 @@ Every plugin must ship with a manifest.toml file. A manifest file ships the plug
 
 #### Structure (optional)
 - backend (the relative path to the built backend component, defaults to "plugin.wasm")
+- readme (the relative path to a Markdown README, defaults to "README.md"; optional). Shown on the plugin's page in the client, and later in the marketplace.
 
 #### Build (optional)
 - backend (a command that builds the backend component, as a list of arguments)
