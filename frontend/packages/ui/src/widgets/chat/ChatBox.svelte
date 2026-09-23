@@ -75,9 +75,9 @@
 	.dispatch {
 		align-self: stretch;
 		white-space: pre-wrap;
-		color: var(--color-text-secondary);
-		background: var(--color-role-system);
-		border: 1px solid var(--color-border-subtle);
+		color: var(--color-role-system-text);
+		background: var(--color-role-system-bg);
+		border: 1px solid var(--color-role-system);
 		border-radius: var(--radius-md);
 		padding: var(--spacing-sm) var(--spacing-md);
 		font-size: var(--font-size-sm);

@@ -199,7 +199,7 @@ class LorebookStore {
 		const base = this.loadedLorebooks.get(id);
 		if (!base) return; // load failed
 		this.saveStates.clear();
-		this._draft = this.#buildDraft(base);
+		this._draft = await this.#buildDraft(base);
 	}
 
 	stopEditing() {
@@ -209,22 +209,24 @@ class LorebookStore {
 	}
 
 	/** Throw away uncommitted draft changes, back to the last confirmed state. */
-	discardChanges() {
+	async discardChanges() {
 		const draft = this._draft;
 		if (!draft) return;
 		const base = this.loadedLorebooks.get(draft.id);
-		if (base) this._draft = this.#buildDraft(base);
+		if (base) this._draft = await this.#buildDraft(base);
 		this.saveStates.clear();
 		this.bookSaveState = { status: 'idle' };
 	}
 
-	#buildDraft(base: Lorebook): LorebookDraft {
+	async #buildDraft(base: Lorebook): Promise<LorebookDraft> {
 		return {
 			id: base.id,
 			name: base.name,
 			description: base.description,
-			config: parseConfig(base.config_yaml),
-			entries: base.entries.map((e) => ({ snowflake: e.id, ...parseEntry(e.source) }))
+			config: await parseConfig(base.config_yaml),
+			entries: await Promise.all(
+				base.entries.map(async (e) => ({ snowflake: e.id, ...(await parseEntry(e.source)) }))
+			)
 		};
 	}
 
@@ -262,7 +264,7 @@ class LorebookStore {
 		if (!draft) return;
 		const created = await this.#api.lorebooks.entries.add(draft.id);
 		this.loadedLorebooks.get(draft.id)?.entries.push(created);
-		draft.entries.push({ snowflake: created.id, ...parseEntry(created.source) });
+		draft.entries.push({ snowflake: created.id, ...(await parseEntry(created.source)) });
 		this.#bumpEntryCount(draft.id, 1);
 		return created.id;
 	}

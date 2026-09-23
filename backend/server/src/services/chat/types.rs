@@ -164,6 +164,7 @@ pub struct OpenAgentTurn {
     /// The assembled context trace, for stamping into the turn's metadata.
     pub trace: Vec<TracedBlock>,
     pub usage: UsageReport,
+    pub available_tools: Vec<String>,
     pub(super) state_pool: Arc<StdMutex<StatePool>>,
     pub(super) diff_base: StatePool,
     /// Full activation snapshot captured by assembly, keyed by lorebook id.

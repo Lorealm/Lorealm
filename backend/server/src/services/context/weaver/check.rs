@@ -2,23 +2,28 @@ use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
 use weaver_lang::{
-    CompiledExpr, CompiledTemplate, Registry, Span,
+    CompiledExpr, CompiledTemplate, InputDecl, InputType, Registry, Span,
     ast::{
         ArrayItem, CallArg, Expr, ExprKind, Node, NodeKind, ObjectItem, Template, ValueForEach,
         ValueIf,
     },
+    parse_value_doc,
 };
 
-use crate::services::weaver::WeaverHost;
+use crate::services::weaver::{WeaverHost, WeaverProfile};
 use crate::util::weaver::summarize_parser_text;
 
 /// Which compiler the source belongs to.
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Dialect {
+    /// Text with weaver embedded in it.
     #[default]
     Template,
+    /// A single value, the way a run condition is.
     Expression,
+    /// A WTN document: one value with holes, plus its `#inputs`.
+    Document,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
@@ -41,8 +46,13 @@ pub struct Diagnostic {
     pub hint: Option<String>,
 }
 
-fn known_host() -> WeaverHost {
-    WeaverHost::builder().declarations_only().build()
+/// What the source is checked against.
+fn known_host(profile: Option<WeaverProfile>) -> WeaverHost {
+    let builder = WeaverHost::builder();
+    match profile {
+        Some(profile) => builder.declarations_for(profile).build(),
+        None => builder.declarations_only().build(),
+    }
 }
 
 fn host_commands() -> HashSet<String> {
@@ -52,16 +62,17 @@ fn host_commands() -> HashSet<String> {
         .collect()
 }
 
-pub fn check(source: &str, dialect: Dialect) -> Vec<Diagnostic> {
+pub fn check(source: &str, dialect: Dialect, profile: Option<WeaverProfile>) -> Vec<Diagnostic> {
     if source.trim().is_empty() {
         return Vec::new();
     }
 
-    let host = known_host();
+    let host = known_host(profile);
     let mut checker = Checker {
         source,
         registry: host.registry(),
         host_commands: host_commands(),
+        profile,
         out: Vec::new(),
     };
 
@@ -77,6 +88,13 @@ pub fn check(source: &str, dialect: Dialect) -> Vec<Diagnostic> {
             }
             Err(errors) => return checker.parse_errors(errors),
         },
+        Dialect::Document => match parse_value_doc(source) {
+            Ok(doc) => {
+                checker.declarations(&doc.inputs);
+                checker.expr(&doc.value);
+            }
+            Err(errors) => return checker.parse_errors(errors),
+        },
     }
 
     checker.out
@@ -86,6 +104,7 @@ struct Checker<'a> {
     source: &'a str,
     registry: &'a Registry,
     host_commands: HashSet<String>,
+    profile: Option<WeaverProfile>,
     out: Vec<Diagnostic>,
 }
 
@@ -103,6 +122,51 @@ impl Checker<'_> {
             .collect()
     }
 
+    fn error(&mut self, span: Span, message: String, hint: Option<&str>) {
+        self.out.push(Diagnostic {
+            from: utf16_offset(self.source, span.start),
+            to: utf16_offset(self.source, span.end),
+            severity: Severity::Error,
+            message,
+            hint: hint.map(str::to_string),
+        });
+    }
+
+    fn declarations(&mut self, declarations: &[InputDecl]) {
+        for declaration in declarations {
+            let mut kinds = Vec::new();
+            entity_kinds(&declaration.ty, &mut kinds);
+
+            let mut unknown = false;
+            for kind in &kinds {
+                if !self.registry.has_kind(kind) {
+                    self.error(
+                        declaration.span,
+                        format!("no such entity kind: {kind}"),
+                        Some("Ref names a kind the server resolves, like Ref<Character>"),
+                    );
+                    unknown = true;
+                }
+            }
+            if unknown {
+                continue;
+            }
+
+            if !kinds.is_empty() && !declaration.is_required() {
+                self.error(
+                    declaration.span,
+                    format!(
+                        "input '{}' names an entity, so it cannot have a default",
+                        declaration.name
+                    ),
+                    Some(
+                        "entity inputs are resolved before the document runs, and a default has not been evaluated by then",
+                    ),
+                );
+            }
+        }
+    }
+
     fn warn(&mut self, span: Span, message: String) {
         self.out.push(Diagnostic {
             from: utf16_offset(self.source, span.start),
@@ -111,6 +175,32 @@ impl Checker<'_> {
             message,
             hint: None,
         });
+    }
+
+    fn warn_with_hint(&mut self, span: Span, message: String, hint: String) {
+        self.out.push(Diagnostic {
+            from: utf16_offset(self.source, span.start),
+            to: utf16_offset(self.source, span.end),
+            severity: Severity::Warning,
+            message,
+            hint: Some(hint),
+        });
+    }
+
+    fn variable(&mut self, var: &weaver_lang::ast::VariableRef, span: Span) {
+        let Some(profile) = self.profile else {
+            return;
+        };
+        if var.scope.as_deref() != Some("input") || profile == WeaverProfile::RealmTemplate {
+            return;
+        }
+        self.warn_with_hint(
+            span,
+            format!("`input:{}` is empty outside a WTN document", var.name),
+            "Inputs are only available during blueprint expansion. If you want to access these\
+            values during runtime evaluation, bind them to a place they persist, such as an agent's properties."
+                .to_string(),
+        );
     }
 
     /// Text left over after the expression, reported where it starts.
@@ -217,7 +307,8 @@ impl Checker<'_> {
 
     fn expr_kind(&mut self, kind: &ExprKind, span: Span) {
         match kind {
-            ExprKind::Literal(_) | ExprKind::Variable(_) => {}
+            ExprKind::Literal(_) => {}
+            ExprKind::Variable(var) => self.variable(var, span),
             ExprKind::ArrayLiteral(items) => {
                 for item in items {
                     self.array_item(item);
@@ -270,7 +361,20 @@ impl Checker<'_> {
     }
 }
 
-/// A byte offset into `source` as a UTF-16 code-unit offset.
+/// Every entity kind a declaration names.
+fn entity_kinds<'a>(ty: &'a InputType, out: &mut Vec<&'a str>) {
+    match ty {
+        InputType::Ref(kind) => out.push(kind),
+        InputType::List(inner) => entity_kinds(inner, out),
+        InputType::Object(fields) => {
+            for (_, ty) in fields {
+                entity_kinds(ty, out);
+            }
+        }
+        _ => {}
+    }
+}
+
 fn utf16_offset(source: &str, byte: usize) -> usize {
     let mut byte = byte.min(source.len());
     while !source.is_char_boundary(byte) {
@@ -284,11 +388,111 @@ mod tests {
     use super::*;
 
     fn template(source: &str) -> Vec<Diagnostic> {
-        check(source, Dialect::Template)
+        check(source, Dialect::Template, None)
     }
 
     fn expression(source: &str) -> Vec<Diagnostic> {
-        check(source, Dialect::Expression)
+        check(source, Dialect::Expression, None)
+    }
+
+    /// A document, checked the way a blueprint is.
+    fn document(source: &str) -> Vec<Diagnostic> {
+        check(
+            source,
+            Dialect::Document,
+            Some(WeaverProfile::RealmTemplate),
+        )
+    }
+
+    fn messages(found: &[Diagnostic]) -> Vec<&str> {
+        found.iter().map(|d| d.message.as_str()).collect()
+    }
+
+    #[test]
+    fn a_document_is_checked_as_a_document_not_as_text() {
+        let source = r#"
+#inputs
+regents: [Ref<Wizard>]
+
+{
+  name: "Sengoku"
+  agents: [
+    {# foreach c in {{input:regents}} #}
+    { handle: "regent_{{c.slug}}" }
+    {# endforeach #}
+  ]
+}"#;
+        assert!(template(source).is_empty(), "text mode sees nothing here");
+
+        let found = document(source);
+        assert_eq!(messages(&found), ["no such entity kind: Wizard"]);
+        assert_eq!(found[0].severity, Severity::Error);
+        assert_eq!(marked(source, &found[0]), "regents: [Ref<Wizard>]");
+    }
+
+    #[test]
+    fn every_registered_kind_is_accepted_and_others_are_not() {
+        for kind in lorealm_storage::models::RealmResourceKind::ALL {
+            let source = format!("#inputs\nx: Ref<{}>\n\n{{}}", kind.ref_name());
+            assert!(document(&source).is_empty(), "{}", kind.ref_name());
+        }
+        assert_eq!(
+            messages(&document("#inputs\nx: Ref<Realm>\n\n{}")),
+            ["no such entity kind: Realm"]
+        );
+    }
+
+    #[test]
+    fn an_entity_input_with_a_default_is_underlined_where_it_is_declared() {
+        let source = "#inputs\nlead: Ref<Character> = \"12345\"\n\n{}";
+        let found = document(source);
+
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert!(
+            found[0].message.contains("cannot have a default"),
+            "{}",
+            found[0].message
+        );
+        assert_eq!(
+            marked(source, &found[0]),
+            "lead: Ref<Character> = \"12345\""
+        );
+    }
+
+    #[test]
+    fn a_plain_input_may_carry_a_default() {
+        assert!(document("#inputs\nrounds: number = 3\n\n{}").is_empty());
+        assert!(document("#inputs\nmode: enum(\"a\", \"b\") = \"a\"\n\n{}").is_empty());
+    }
+
+    #[test]
+    fn a_document_that_does_not_parse_reports_where() {
+        let found = document("{ name: }");
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].severity, Severity::Error);
+    }
+
+    #[test]
+    fn a_profile_narrows_the_vocabulary_to_its_own_host() {
+        let body = "$[toast(\"hi\")]";
+        assert!(
+            check(body, Dialect::Template, None).is_empty(),
+            "the union accepts it"
+        );
+
+        let found = check(body, Dialect::Template, Some(WeaverProfile::RealmScript));
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert!(found[0].message.contains("toast"), "{}", found[0].message);
+
+        // And a command the host does carry stays clean.
+        assert!(
+            check(
+                "$[emit_event(\"main\", \"hi\")]",
+                Dialect::Template,
+                Some(WeaverProfile::RealmScript)
+            )
+            .is_empty()
+        );
     }
 
     fn marked(source: &str, diagnostic: &Diagnostic) -> String {
@@ -337,8 +541,6 @@ mod tests {
     fn diagnostics_carry_a_sentence_not_a_source_drawing() {
         let found = template("{{");
         assert_eq!(found.len(), 1);
-        // A tooltip renders this verbatim, so pest's excerpt and caret must
-        // not reach it.
         assert!(!found[0].message.contains('\n'), "{}", found[0].message);
         assert!(!found[0].message.contains("-->"), "{}", found[0].message);
 
@@ -357,8 +559,6 @@ mod tests {
 
     #[test]
     fn every_misplaced_flow_statement_is_reported_at_once() {
-        // The parser stops at the first syntax error, but flow validation
-        // walks the whole tree, so these arrive together.
         let found = template("{# break #}{# continue #}");
         assert_eq!(found.len(), 2);
     }
@@ -406,8 +606,6 @@ mod tests {
 
     #[test]
     fn text_past_the_end_of_an_expression_is_reported_not_dropped() {
-        // A bare name is a reference, so the parser takes `alice` and
-        // stops; the rest has to be flagged here or it vanishes silently.
         let source = "alice is here";
         let found = expression(source);
         assert_eq!(found.len(), 1);
@@ -432,5 +630,44 @@ mod tests {
     fn a_variable_is_never_flagged() {
         assert!(template("{{global:nothing}} {{bare.path.here}}").is_empty());
     }
-}
 
+    #[test]
+    fn inputs_are_flagged_outside_the_document_that_binds_them() {
+        let source = r#"{# if {{input:scenario.title}} != "" #}yes{# endif #}"#;
+
+        let in_script = check(source, Dialect::Template, Some(WeaverProfile::RealmScript));
+        assert_eq!(in_script.len(), 1);
+        assert_eq!(in_script[0].severity, Severity::Warning);
+        assert_eq!(marked(source, &in_script[0]), "{{input:scenario.title}}");
+        assert_eq!(
+            in_script[0].message,
+            "`input:scenario` is empty outside a WTN document"
+        );
+
+        for profile in [WeaverProfile::RealmDirector, WeaverProfile::RealmCondition] {
+            assert_eq!(
+                check(source, Dialect::Template, Some(profile)).len(),
+                1,
+                "{profile:?} does not bind inputs either"
+            );
+        }
+
+        assert!(
+            check(
+                source,
+                Dialect::Template,
+                Some(WeaverProfile::RealmTemplate)
+            )
+            .is_empty()
+        );
+        assert!(template(source).is_empty());
+        assert!(
+            check(
+                "{{cast:count}} {{self:gold}} {{nation:a.gold}}",
+                Dialect::Template,
+                Some(WeaverProfile::RealmScript)
+            )
+            .is_empty()
+        );
+    }
+}

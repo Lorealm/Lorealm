@@ -1,10 +1,7 @@
 use std::borrow::Cow;
 
 use axum::http::StatusCode;
-use lorealm_storage::{
-    StorageError,
-    models::{ImportKind, Snowflake},
-};
+use lorealm_storage::{StorageError, models::Snowflake};
 
 use crate::errors::{
     CharacterError, ChatError, ConnectionError, ContextError, ConversationError, DomainError,
@@ -19,10 +16,14 @@ pub enum RealmError {
     NoAgents(Snowflake),
     #[error("no agent's run condition passed this turn")]
     NoRunnableAgent,
-    #[error("not your turn: {0}")]
-    NotYourTurn(Snowflake),
+    #[error("not your turn: it is \"{0}\"'s")]
+    NotYourTurn(String),
     #[error("malformed agent: {1} ({0})")]
-    MalformedAgent(Snowflake, String),
+    MalformedAgent(String, String),
+    #[error("no cast member with handle \"{0}\"")]
+    NoSuchAgent(String),
+    #[error("no scenario with slug \"{0}\"")]
+    NoSuchScenario(String),
     #[error("{0} not found: {1}")]
     NotFound(TargetType, Snowflake),
     #[error("{0} not owned: {1}")]
@@ -33,12 +34,10 @@ pub enum RealmError {
     InvalidTurn(String),
     #[error("tool not bound to agent: {0}")]
     ToolNotBound(Snowflake),
-    #[error("{} {1} is not imported into the realm", .0.as_str())]
-    NotImported(ImportKind, Snowflake),
-    #[error("{} {1} is still referenced by agent \"{2}\"", .0.as_str())]
-    ImportInUse(ImportKind, Snowflake, String),
     #[error("action failed: {0}")]
     ActionFailed(String),
+    #[error("invalid template: {0}")]
+    InvalidTemplate(String),
     #[error("invalid scenario: {0}")]
     InvalidScenario(String),
     #[error("director failed: {0}")]
@@ -78,14 +77,15 @@ impl DomainError for RealmError {
             Self::NoRunnableAgent => "realm.no_runnable_agent",
             Self::NotYourTurn(_) => "realm.not_your_turn",
             Self::MalformedAgent(_, _) => "realm.malformed_agent",
+            Self::NoSuchAgent(_) => "realm.no_such_agent",
+            Self::NoSuchScenario(_) => "realm.no_such_scenario",
             Self::NotFound(_, _) | Self::NotOwned(_, _) => "realm.not_found",
             Self::InvalidAgent(_) => "realm.invalid_agent",
             Self::InvalidTurn(_) => "realm.invalid_turn",
             Self::ToolNotBound(_) => "realm.tool_not_bound",
-            Self::NotImported(_, _) => "realm.not_imported",
-            Self::ImportInUse(_, _, _) => "realm.import_in_use",
             Self::ActionFailed(_) => "realm.action_failed",
             Self::InvalidScenario(_) => "realm.invalid_scenario",
+            Self::InvalidTemplate(_) => "realm.invalid_template",
             Self::DirectorFailed(_) => "realm.director_failed",
             Self::Storage(_) | Self::Serialization(_) => "internal",
         }
@@ -101,18 +101,18 @@ impl DomainError for RealmError {
             Self::Persona(err) => err.status(),
             Self::Connection(err) => err.status(),
             Self::NotFound(_, _) | Self::NotOwned(_, _) => StatusCode::NOT_FOUND,
-            Self::NotYourTurn(_)
-            | Self::NoRunnableAgent
-            | Self::ImportInUse(_, _, _)
-            | Self::NotImported(_, _) => StatusCode::CONFLICT,
+            Self::NotYourTurn(_) | Self::NoRunnableAgent => StatusCode::CONFLICT,
             Self::NotRealmConversation(_)
             | Self::NoAgents(_)
             | Self::MalformedAgent(_, _)
+            | Self::NoSuchAgent(_)
+            | Self::NoSuchScenario(_)
             | Self::InvalidAgent(_)
             | Self::InvalidTurn(_)
             | Self::ToolNotBound(_)
             | Self::ActionFailed(_)
             | Self::InvalidScenario(_)
+            | Self::InvalidTemplate(_)
             | Self::DirectorFailed(_) => StatusCode::BAD_REQUEST,
             Self::Storage(_) | Self::Serialization(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -135,6 +135,12 @@ impl DomainError for RealmError {
                 "No agent could run this turn — every run condition was false.".into()
             }
             Self::NotYourTurn(_) => "It isn't this agent's turn.".into(),
+            Self::NoSuchAgent(handle) => {
+                Cow::Owned(format!("No cast member is called \"{handle}\"."))
+            }
+            Self::NoSuchScenario(slug) => {
+                Cow::Owned(format!("This realm has no opening called \"{slug}\"."))
+            }
             Self::MalformedAgent(_, hint) => {
                 sentence(format!("This agent is misconfigured: {hint}"))
             }
@@ -144,16 +150,9 @@ impl DomainError for RealmError {
             Self::InvalidAgent(hint) => sentence(format!("Invalid agent: {hint}")),
             Self::InvalidTurn(hint) => sentence(format!("Invalid turn: {hint}")),
             Self::ToolNotBound(_) => "This action isn't available to the agent.".into(),
-            Self::NotImported(kind, _) => Cow::Owned(format!(
-                "This {} isn't imported into the realm — import it first.",
-                kind.as_str()
-            )),
-            Self::ImportInUse(kind, _, agent) => Cow::Owned(format!(
-                "This {} is still used by agent \"{agent}\" — unbind it there first.",
-                kind.as_str()
-            )),
             Self::ActionFailed(hint) => sentence(format!("Action failed: {hint}")),
             Self::InvalidScenario(hint) => sentence(format!("Invalid scenario: {hint}")),
+            Self::InvalidTemplate(hint) => sentence(format!("Invalid template: {hint}")),
             Self::DirectorFailed(hint) => {
                 sentence(format!("The realm could not decide who acts next: {hint}"))
             }
@@ -173,35 +172,24 @@ impl DomainError for RealmError {
             Self::NotFound(target, id) | Self::NotOwned(target, id) => {
                 Some(ErrorDetails::target(*target, *id))
             }
-            Self::NotRealmConversation(id) | Self::NotYourTurn(id) => {
+            Self::NotRealmConversation(id) => {
                 Some(ErrorDetails::target(TargetType::Conversation, *id))
             }
             Self::NoAgents(id) => Some(ErrorDetails::target(TargetType::Realm, *id)),
-            Self::MalformedAgent(id, _) => Some(ErrorDetails::target(TargetType::RealmAgent, *id)),
-            Self::ToolNotBound(id) => Some(ErrorDetails::target(TargetType::UserTool, *id)),
-            Self::NotImported(kind, id) | Self::ImportInUse(kind, id, _) => {
-                Some(ErrorDetails::target(import_target(*kind), *id))
+            Self::NotYourTurn(_) | Self::MalformedAgent(_, _) | Self::NoSuchAgent(_) => {
+                Some(ErrorDetails::resource(TargetType::RealmAgent))
             }
+            Self::NoSuchScenario(_) => Some(ErrorDetails::resource(TargetType::Scenario)),
+            Self::ToolNotBound(id) => Some(ErrorDetails::target(TargetType::UserTool, *id)),
             Self::InvalidAgent(_) => Some(ErrorDetails::resource(TargetType::RealmAgent)),
             Self::InvalidScenario(_) => Some(ErrorDetails::resource(TargetType::Scenario)),
             Self::NoRunnableAgent
             | Self::InvalidTurn(_)
             | Self::ActionFailed(_)
+            | Self::InvalidTemplate(_)
             | Self::DirectorFailed(_) => Some(ErrorDetails::resource(TargetType::Realm)),
             Self::Storage(_) | Self::Serialization(_) => None,
         }
-    }
-}
-
-fn import_target(kind: ImportKind) -> TargetType {
-    match kind {
-        ImportKind::Character => TargetType::Character,
-        ImportKind::Lorebook => TargetType::Lorebook,
-        ImportKind::Template => TargetType::ContextTemplate,
-        ImportKind::Tool => TargetType::UserTool,
-        ImportKind::Persona => TargetType::Persona,
-        ImportKind::ConnectionProfile => TargetType::ConnectionProfile,
-        ImportKind::Widget => TargetType::UserWidget,
     }
 }
 

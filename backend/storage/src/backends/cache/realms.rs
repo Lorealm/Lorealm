@@ -4,7 +4,7 @@ use crate::{
     RealmStorage, StorageError,
     backends::CachedStorage,
     models::{
-        AgentObservation, Realm, RealmCast, RealmConfig, RealmEvent, RealmSummary,
+        AgentObservation, Realm, RealmCast, RealmEvent, RealmSummary,
         RealmVersionInfo, Snowflake, TurnCommit, VersionedSaveMode,
     },
 };
@@ -79,22 +79,22 @@ impl RealmStorage for CachedStorage {
     async fn list_observations(
         &self,
         conversation_id: Snowflake,
-        agent_id: Snowflake,
+        agent_handle: &str,
         before: Option<Snowflake>,
         limit: i64,
     ) -> Result<Vec<AgentObservation>, StorageError> {
         self.backend
-            .list_observations(conversation_id, agent_id, before, limit)
+            .list_observations(conversation_id, agent_handle, before, limit)
             .await
     }
 
     async fn list_observations_for_messages(
         &self,
-        agent_id: Snowflake,
+        agent_handle: &str,
         message_ids: &[Snowflake],
     ) -> Result<Vec<AgentObservation>, StorageError> {
         self.backend
-            .list_observations_for_messages(agent_id, message_ids)
+            .list_observations_for_messages(agent_handle, message_ids)
             .await
     }
 
@@ -102,17 +102,4 @@ impl RealmStorage for CachedStorage {
         self.backend.commit_turn(commit).await
     }
 
-    async fn get_realm_config(&self, realm_id: Snowflake) -> Result<RealmConfig, StorageError> {
-        self.backend.get_realm_config(realm_id).await
-    }
-    async fn put_realm_config(
-        &self,
-        realm_id: Snowflake,
-        user_id: Snowflake,
-        config: &RealmConfig,
-    ) -> Result<(), StorageError> {
-        self.backend
-            .put_realm_config(realm_id, user_id, config)
-            .await
-    }
 }

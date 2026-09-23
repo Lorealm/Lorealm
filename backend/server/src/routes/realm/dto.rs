@@ -8,6 +8,15 @@ pub struct CreateRealmRequest {
     pub name: String,
 }
 
+/// A WTN document and the inputs to expand it with.
+#[derive(Deserialize)]
+pub struct ImportRealmRequest {
+    pub source: String,
+    /// Values for the document's `#inputs`.
+    #[serde(default)]
+    pub inputs: HashMap<String, serde_json::Value>,
+}
+
 #[derive(Deserialize)]
 pub struct UpdateRealmRequest {
     pub name: Option<String>,
@@ -63,12 +72,7 @@ pub struct CreateScenarioRequest {
     #[serde(default)]
     pub description: String,
     #[serde(default)]
-    pub seed_script: String,
-    #[serde(default)]
     pub opening: Option<String>,
-    /// Property overrides keyed by agent handle.
-    #[serde(default)]
-    pub agent_overrides: HashMap<String, HashMap<String, serde_json::Value>>,
 }
 
 #[derive(Deserialize)]

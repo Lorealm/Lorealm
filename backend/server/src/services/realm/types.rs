@@ -7,7 +7,7 @@ use crate::services::commands::CommandEffect;
 #[derive(Serialize)]
 pub struct NextTurn {
     /// `None` when every agent is gated off at the active leaf.
-    pub agent_id: Option<Snowflake>,
+    pub handle: Option<String>,
 }
 
 /// A bound tool projected for display
@@ -33,10 +33,10 @@ pub struct TurnResult {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum RealmStreamEvent {
     AwaitingPlayer {
-        agent_id: Snowflake,
+        handle: String,
     },
     TurnStarted {
-        agent_id: Snowflake,
+        handle: String,
         name: String,
     },
     Delta {

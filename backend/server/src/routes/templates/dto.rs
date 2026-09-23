@@ -3,9 +3,13 @@ use std::collections::HashMap;
 use lorealm_storage::models::Snowflake;
 use serde::{Deserialize, Serialize};
 
-use crate::services::context::{
-    ContextNode, CreateNode, MoveNode, MovedNode, NodeContent, NodePath, NodeWithPath, UpdateNode,
-    weaver::check::{Diagnostic, Dialect},
+use crate::services::{
+    context::{
+        ContextNode, CreateNode, MoveNode, MovedNode, NodeContent, NodePath, NodeWithPath,
+        UpdateNode,
+        weaver::check::{Diagnostic, Dialect},
+    },
+    weaver::WeaverProfile,
 };
 
 #[derive(Deserialize)]
@@ -48,9 +52,12 @@ pub(super) struct NodeResponse {
 #[derive(Deserialize)]
 pub(super) struct WeaverCheckRequest {
     pub source: String,
-    /// Defaults to `template`; condition fields send `expression`.
+    /// Defaults to `template`
     #[serde(default)]
     pub dialect: Dialect,
+    /// Which host the source will run in.
+    #[serde(default)]
+    pub profile: Option<WeaverProfile>,
 }
 
 /// Problems found in that source. An empty list means it is clean, not
@@ -60,11 +67,12 @@ pub(super) struct WeaverCheckResponse {
     pub diagnostics: Vec<Diagnostic>,
 }
 
-/// Every weaver command and processor an editor can offer
+/// Every weaver command, processor and namespace an editor can offer
 #[derive(Serialize)]
 pub(super) struct WeaverVocabulary {
     pub commands: Vec<weaver_lang::registry::CommandSignature>,
     pub processors: Vec<weaver_lang::registry::ProcessorSignature>,
+    pub namespaces: Vec<crate::services::weaver::NamespaceDef>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -33,7 +33,7 @@ CREATE TABLE realm_events (
     conversation_id BIGINT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
     message_id      BIGINT NOT NULL REFERENCES conversation_messages(id) ON DELETE CASCADE,
     seq             INTEGER NOT NULL,
-    source          BIGINT,
+    source          TEXT,
     scope           TEXT   NOT NULL,
     kind            TEXT   NOT NULL CHECK (kind IN ('spoke', 'acted', 'state_changed', 'system')),
     content         TEXT   NOT NULL DEFAULT '',
@@ -48,12 +48,13 @@ CREATE TABLE agent_observations (
     id              BIGINT PRIMARY KEY,
     conversation_id BIGINT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
     message_id      BIGINT NOT NULL REFERENCES conversation_messages(id) ON DELETE CASCADE,
-    agent_id        BIGINT NOT NULL,
+    agent_handle    TEXT   NOT NULL,
     event_id        BIGINT REFERENCES realm_events(id) ON DELETE SET NULL,
     role            TEXT   NOT NULL CHECK (role IN ('system', 'user', 'assistant')),
     content         TEXT   NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_agent_observations_msg ON agent_observations (agent_id, message_id);
-CREATE INDEX idx_agent_observations_feed ON agent_observations (conversation_id, agent_id, id);
+CREATE INDEX idx_agent_observations_msg ON agent_observations (agent_handle, message_id);
+CREATE INDEX idx_agent_observations_feed
+    ON agent_observations (conversation_id, agent_handle, id);

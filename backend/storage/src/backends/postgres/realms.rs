@@ -6,7 +6,7 @@ use crate::{
     RealmStorage, StorageError,
     backends::PostgresStorage,
     models::{
-        AgentObservation, Realm, RealmCast, RealmConfig, RealmDefinition, RealmEvent, RealmSummary,
+        AgentObservation, Realm, RealmCast, RealmDefinition, RealmEvent, RealmSummary,
         RealmVersionInfo, Snowflake, TurnCommit, VersionedSaveMode,
     },
 };
@@ -19,8 +19,10 @@ impl RealmStorage for PostgresStorage {
             SELECT
                 r.id,
                 r.owner_id,
+                r.origin,
                 r.updated_at,
                 COALESCE(v.snapshot->>'name', '') AS name,
+                COALESCE(v.snapshot->>'description', '') AS description,
                 ARRAY(
                     SELECT t.tag FROM realm_tags t
                     WHERE t.realm_id = r.id
@@ -35,13 +37,13 @@ impl RealmStorage for PostgresStorage {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(Into::into).collect())
+        rows.into_iter().map(RealmSummaryRow::into_summary).collect()
     }
 
     async fn get_realm(&self, id: Snowflake) -> Result<Option<Realm>, StorageError> {
         let head: Option<RealmHeadRow> = sqlx::query_as(
             r#"
-            SELECT r.id, r.owner_id, r.current_version_id, v.snapshot
+            SELECT r.id, r.owner_id, r.current_version_id, r.origin, v.snapshot
             FROM realms r
             JOIN realm_versions v ON v.id = r.current_version_id
             WHERE r.id = $1
@@ -64,7 +66,7 @@ impl RealmStorage for PostgresStorage {
     ) -> Result<Option<Realm>, StorageError> {
         let row: Option<RealmVersionRow> = sqlx::query_as(
             r#"
-            SELECT v.id AS version_id, v.realm_id, v.snapshot, r.owner_id
+            SELECT v.id AS version_id, v.realm_id, v.snapshot, r.owner_id, r.origin
             FROM realm_versions v
             JOIN realms r ON r.id = v.realm_id
             WHERE v.realm_id = $1 AND v.id = $2
@@ -92,16 +94,24 @@ impl RealmStorage for PostgresStorage {
 
         sqlx::query(
             r#"
-            INSERT INTO realms (id, owner_id, current_version_id, created_at, updated_at)
-            VALUES ($1, $2, $3, now(), now())
+            INSERT INTO realms (id, owner_id, current_version_id, origin, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, now(), now())
             ON CONFLICT (id) DO UPDATE SET
                 current_version_id = EXCLUDED.current_version_id,
+                origin = EXCLUDED.origin,
                 updated_at = now()
             "#,
         )
         .bind(realm.id)
         .bind(realm.owner_id)
         .bind(realm.current_version_id)
+        .bind(
+            realm
+                .origin
+                .as_ref()
+                .map(serde_json::to_value)
+                .transpose()?,
+        )
         .execute(&mut *tx)
         .await?;
 
@@ -272,20 +282,20 @@ impl RealmStorage for PostgresStorage {
     async fn list_observations(
         &self,
         conversation_id: Snowflake,
-        agent_id: Snowflake,
+        agent_handle: &str,
         before: Option<Snowflake>,
         limit: i64,
     ) -> Result<Vec<AgentObservation>, StorageError> {
         let mut rows = sqlx::query_as::<_, AgentObservation>(
-            "SELECT id, conversation_id, message_id, agent_id, event_id, role, content
+            "SELECT id, conversation_id, message_id, agent_handle, event_id, role, content
              FROM agent_observations
-             WHERE conversation_id = $1 AND agent_id = $2
+             WHERE conversation_id = $1 AND agent_handle = $2
                AND ($3::BIGINT IS NULL OR id < $3)
              ORDER BY id DESC
              LIMIT $4",
         )
         .bind(conversation_id)
-        .bind(agent_id)
+        .bind(agent_handle)
         .bind(before)
         .bind(limit)
         .fetch_all(&self.pool)
@@ -296,16 +306,16 @@ impl RealmStorage for PostgresStorage {
 
     async fn list_observations_for_messages(
         &self,
-        agent_id: Snowflake,
+        agent_handle: &str,
         message_ids: &[Snowflake],
     ) -> Result<Vec<AgentObservation>, StorageError> {
         Ok(sqlx::query_as::<_, AgentObservation>(
-            "SELECT id, conversation_id, message_id, agent_id, event_id, role, content
+            "SELECT id, conversation_id, message_id, agent_handle, event_id, role, content
              FROM agent_observations
-             WHERE agent_id = $1 AND message_id = ANY($2)
+             WHERE agent_handle = $1 AND message_id = ANY($2)
              ORDER BY id",
         )
-        .bind(agent_id)
+        .bind(agent_handle)
         .bind(message_ids)
         .fetch_all(&self.pool)
         .await?)
@@ -324,7 +334,7 @@ impl RealmStorage for PostgresStorage {
             .bind(e.conversation_id)
             .bind(e.message_id)
             .bind(e.seq)
-            .bind(e.source)
+            .bind(&e.source)
             .bind(&e.channel)
             .bind(&e.kind)
             .bind(&e.content)
@@ -336,13 +346,13 @@ impl RealmStorage for PostgresStorage {
         for o in &commit.observations {
             sqlx::query(
                 "INSERT INTO agent_observations
-                     (id, conversation_id, message_id, agent_id, event_id, role, content)
+                     (id, conversation_id, message_id, agent_handle, event_id, role, content)
                  VALUES ($1, $2, $3, $4, $5, $6, $7)",
             )
             .bind(o.id)
             .bind(o.conversation_id)
             .bind(o.message_id)
-            .bind(o.agent_id)
+            .bind(&o.agent_handle)
             .bind(o.event_id)
             .bind(&o.role)
             .bind(&o.content)
@@ -354,90 +364,33 @@ impl RealmStorage for PostgresStorage {
         Ok(())
     }
 
-    async fn get_realm_config(&self, realm_id: Snowflake) -> Result<RealmConfig, StorageError> {
-        let row: Option<RealmConfigRow> = sqlx::query_as(
-            "SELECT speech_format, action_format, tool_result_format,
-                    state_change_format, state_write_format, state_delete_format
-             FROM realm_config WHERE realm_id = $1",
-        )
-        .bind(realm_id)
-        .fetch_optional(&self.pool)
-        .await?;
 
-        Ok(row.map(Into::into).unwrap_or_default())
-    }
-
-    async fn put_realm_config(
-        &self,
-        realm_id: Snowflake,
-        user_id: Snowflake,
-        config: &RealmConfig,
-    ) -> Result<(), StorageError> {
-        sqlx::query(
-            "INSERT INTO realm_config
-                 (realm_id, user_id, speech_format, action_format, tool_result_format,
-                  state_change_format, state_write_format, state_delete_format)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-             ON CONFLICT (realm_id) DO UPDATE SET
-                 user_id = $2, speech_format = $3, action_format = $4,
-                 tool_result_format = $5, state_change_format = $6,
-                 state_write_format = $7, state_delete_format = $8",
-        )
-        .bind(realm_id)
-        .bind(user_id)
-        .bind(&config.speech_format)
-        .bind(&config.action_format)
-        .bind(&config.tool_result_format)
-        .bind(&config.state_change_format)
-        .bind(&config.state_write_format)
-        .bind(&config.state_delete_format)
-        .execute(&self.pool)
-        .await?;
-        Ok(())
-    }
 }
 
-#[derive(FromRow)]
-struct RealmConfigRow {
-    speech_format: Option<String>,
-    action_format: Option<String>,
-    tool_result_format: Option<String>,
-    state_change_format: Option<String>,
-    state_write_format: Option<String>,
-    state_delete_format: Option<String>,
-}
 
-impl From<RealmConfigRow> for RealmConfig {
-    fn from(r: RealmConfigRow) -> Self {
-        RealmConfig {
-            speech_format: r.speech_format,
-            action_format: r.action_format,
-            tool_result_format: r.tool_result_format,
-            state_change_format: r.state_change_format,
-            state_write_format: r.state_write_format,
-            state_delete_format: r.state_delete_format,
-        }
-    }
-}
 
 #[derive(FromRow)]
 struct RealmSummaryRow {
     id: Snowflake,
     owner_id: Snowflake,
     name: String,
+    description: String,
     tags: Vec<String>,
+    origin: Option<serde_json::Value>,
     updated_at: DateTime<Utc>,
 }
 
-impl From<RealmSummaryRow> for RealmSummary {
-    fn from(r: RealmSummaryRow) -> Self {
-        RealmSummary {
-            id: r.id,
-            owner_id: r.owner_id,
-            name: r.name,
-            tags: r.tags,
-            updated_at: r.updated_at,
-        }
+impl RealmSummaryRow {
+    fn into_summary(self) -> Result<RealmSummary, StorageError> {
+        Ok(RealmSummary {
+            id: self.id,
+            owner_id: self.owner_id,
+            name: self.name,
+            description: self.description,
+            tags: self.tags,
+            origin: self.origin.map(serde_json::from_value).transpose()?,
+            updated_at: self.updated_at,
+        })
     }
 }
 
@@ -446,18 +399,21 @@ struct RealmHeadRow {
     id: Snowflake,
     owner_id: Snowflake,
     current_version_id: Snowflake,
+    origin: Option<serde_json::Value>,
     snapshot: serde_json::Value,
 }
 
 impl RealmHeadRow {
     fn into_realm(self, tags: Vec<String>) -> Result<Realm, StorageError> {
         let definition: RealmDefinition = serde_json::from_value(self.snapshot)?;
+        let origin = self.origin.map(serde_json::from_value).transpose()?;
         Ok(Realm {
             id: self.id,
             owner_id: self.owner_id,
             current_version_id: self.current_version_id,
             definition,
             tags,
+            origin,
         })
     }
 }
@@ -468,17 +424,20 @@ struct RealmVersionRow {
     realm_id: Snowflake,
     owner_id: Snowflake,
     snapshot: serde_json::Value,
+    origin: Option<serde_json::Value>,
 }
 
 impl RealmVersionRow {
     fn into_realm(self, tags: Vec<String>) -> Result<Realm, StorageError> {
         let definition: RealmDefinition = serde_json::from_value(self.snapshot)?;
+        let origin = self.origin.map(serde_json::from_value).transpose()?;
         Ok(Realm {
             id: self.realm_id,
             owner_id: self.owner_id,
             current_version_id: self.version_id,
             definition,
             tags,
+            origin,
         })
     }
 }

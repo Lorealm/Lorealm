@@ -31,6 +31,8 @@ mod middleware;
 mod routes;
 mod services;
 mod setup;
+#[cfg(test)]
+mod tests;
 mod util;
 
 #[tokio::main]

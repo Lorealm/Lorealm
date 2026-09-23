@@ -1,6 +1,7 @@
 import { useApi } from '$lib/api/client.js';
 import type {
 	CommandSignature,
+	NamespaceDef,
 	ParamDef,
 	ProcessorSignature,
 	PropertyDef
@@ -35,6 +36,7 @@ export function paramDocs(sig: CommandSignature | ProcessorSignature): ParamDoc[
 class WeaverVocabularyStore {
 	commands = $state<CommandSignature[]>([]);
 	processors = $state<ProcessorSignature[]>([]);
+	namespaces = $state<NamespaceDef[]>([]);
 	loaded = $state(false);
 
 	/** In-flight fetch, so concurrent editors don't each hit the endpoint. */
@@ -64,6 +66,7 @@ class WeaverVocabularyStore {
 			.then((vocab) => {
 				this.commands = vocab.commands;
 				this.processors = vocab.processors;
+				this.namespaces = vocab.namespaces;
 				this.loaded = true;
 			})
 			.finally(() => {

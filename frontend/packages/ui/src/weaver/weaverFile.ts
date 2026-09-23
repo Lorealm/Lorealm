@@ -1,5 +1,14 @@
-import { parse, parseDocument, type Document } from 'yaml';
+import type { Document } from 'yaml';
 import type { EntryMeta, LorebookConfig } from '../types/lorebook.js';
+
+/**
+ * The YAML parser is the single largest dependency outside the editor, and only
+ * the lorebook workspace ever reaches it, so it loads on first use rather than
+ * riding along with the shell. The `Document` import above is type-only and
+ * costs nothing at runtime.
+ */
+let parser: Promise<typeof import('yaml')> | undefined;
+const yaml = () => (parser ??= import('yaml'));
 
 export class WeaverFileError extends Error {
 	constructor(message: string) {
@@ -61,7 +70,8 @@ export function splitFrontmatter(source: string): { frontmatter: string; body: s
 
 // ── parse ─────────────────────────────────────────────────────────────────
 
-export function parseEntry(source: string): ParsedEntry {
+export async function parseEntry(source: string): Promise<ParsedEntry> {
+	const { parseDocument } = await yaml();
 	const { frontmatter, body } = splitFrontmatter(source);
 	const doc = parseDocument(frontmatter);
 	if (doc.errors.length > 0) {
@@ -86,7 +96,8 @@ export function parseEntry(source: string): ParsedEntry {
  *  round-tripped: the editor sends the whole structured object back as
  *  `UpdateLorebookRequest.config` and the server re-serializes, so extension
  *  keys survive by virtue of being parsed into the object. */
-export function parseConfig(configYaml: string): LorebookConfig {
+export async function parseConfig(configYaml: string): Promise<LorebookConfig> {
+	const { parse } = await yaml();
 	const parsed = parse(configYaml);
 	if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
 		throw new WeaverFileError('lorebook config is not a YAML mapping');

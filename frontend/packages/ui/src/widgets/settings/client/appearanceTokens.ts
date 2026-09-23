@@ -172,7 +172,7 @@ export const APPEARANCE_GROUPS: TokenGroup[] = [
 		blurb: 'Fixed dimensions of the frame around your content.',
 		fields: [
 			...lengths([
-        ['--width-sidebar-full', 'Sidebar'],
+				['--width-sidebar-full', 'Sidebar'],
 				['--width-sidebar-small', 'Inspector'],
 				['--width-sidebar-collapsed', 'Sidebar, collapsed'],
 				['--width-content-max', 'Content width'],

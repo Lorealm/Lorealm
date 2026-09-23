@@ -39,7 +39,7 @@
 			try {
 				state = (
 					chatStore.isRealm && viewer
-						? await api.chat.realm.agents.state(convoId, viewer.id, messageId)
+						? await api.chat.realm.agents.state(convoId, viewer.handle, messageId)
 						: ((await api.chat.messages.state(convoId, messageId))?.persistent ?? {})
 				) as Record<string, JsonValue>;
 			} catch {

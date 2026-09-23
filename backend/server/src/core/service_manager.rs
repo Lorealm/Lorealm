@@ -8,6 +8,7 @@ use tokio::task::JoinHandle;
 use crate::{
     config::{CharacterConfig, ConfigProvider, SessionConfig, TokenizerConfig, UserConfig},
     services::{
+        blueprint::BlueprintService,
         character::CharacterService,
         chat::ChatService,
         commands::{CommandService, Generation},
@@ -48,6 +49,7 @@ pub struct ServiceManager {
     widgets: Arc<UserWidgetService>,
     tokenizers: Arc<TokenizerService>,
     realms: Arc<RealmService>,
+    blueprints: Arc<BlueprintService>,
 }
 
 impl ServiceManager {
@@ -188,6 +190,12 @@ impl ServiceManager {
             Arc::clone(&conversation),
         ));
 
+        let blueprints = Arc::new(BlueprintService::new(
+            Arc::clone(&storage),
+            Arc::clone(&snowflake),
+            Arc::clone(&realms),
+        ));
+
         let cleanable: Vec<Arc<dyn CleanableService>> = vec![
             Arc::clone(&characters) as Arc<dyn CleanableService>,
             Arc::clone(&lorebook) as Arc<dyn CleanableService>,
@@ -213,6 +221,7 @@ impl ServiceManager {
             widgets,
             tokenizers,
             realms,
+            blueprints,
         }
     }
 
@@ -330,6 +339,10 @@ impl ServiceManager {
 
     pub fn realm(&self) -> &Arc<RealmService> {
         &self.realms
+    }
+
+    pub fn blueprints(&self) -> &Arc<BlueprintService> {
+        &self.blueprints
     }
 }
 

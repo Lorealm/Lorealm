@@ -754,7 +754,7 @@ impl ChatService {
             });
         }
 
-        let token_stream = self
+        let (available_tools, token_stream) = self
             .infer(
                 spec.owner,
                 spec.profile_id,
@@ -854,6 +854,7 @@ impl ChatService {
                 "conn_profile": profile_id,
                 "tok_id": tokenizer_id,
                 "template_id": template_id,
+                "available_tools": available_tools,
             });
 
             let message = match persist {
@@ -937,7 +938,13 @@ impl ChatService {
         prompt: Vec<super::PromptMessage>,
         state: Arc<StdMutex<StatePool>>,
         policy: &ToolPolicy,
-    ) -> Result<Pin<Box<dyn Stream<Item = Result<InferEvent, ChatError>> + Send>>, ChatError> {
+    ) -> Result<
+        (
+            Vec<String>,
+            Pin<Box<dyn Stream<Item = Result<InferEvent, ChatError>> + Send>>,
+        ),
+        ChatError,
+    > {
         let profile = self.connection.get_profile(owner, profile_id).await?;
         let connection = self
             .connection
@@ -1043,8 +1050,11 @@ impl ChatService {
             }
         }
 
+        let mut tool_names: Vec<String> = registry.defs().into_iter().map(|d| d.name).collect();
+        tool_names.sort();
+
         let http_client = Arc::new(reqwest::Client::new());
-        match connection.profile.provider.as_str() {
+        let stream = match connection.profile.provider.as_str() {
             "openrouter" => {
                 let Some(api_key) = api_key else {
                     return Err(ChatError::Connection("no api key".into()));
@@ -1094,7 +1104,8 @@ impl ChatService {
             other => Err(ChatError::Connection(format!(
                 "unsupported provider: {other}"
             ))),
-        }
+        }?;
+        Ok((tool_names, stream))
     }
 
     /// Run one completion to its end and hand back the text.
@@ -1115,7 +1126,7 @@ impl ChatService {
             ..Default::default()
         };
 
-        let stream = self
+        let (_, stream) = self
             .infer(owner, profile_id, prompt, state, &policy)
             .await?;
         futures_util::pin_mut!(stream);
@@ -1224,7 +1235,7 @@ impl ChatService {
         };
         let state_pool = Arc::new(StdMutex::new(working));
 
-        let stream = self
+        let (available_tools, stream) = self
             .infer(
                 spec.owner,
                 spec.profile_id,
@@ -1238,6 +1249,7 @@ impl ChatService {
             stream,
             trace,
             usage,
+            available_tools,
             state_pool,
             diff_base,
             activation,

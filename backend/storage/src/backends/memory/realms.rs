@@ -5,7 +5,7 @@ use crate::{
     RealmStorage, StorageError,
     backends::MemoryStorage,
     models::{
-        AgentObservation, Realm, RealmCast, RealmConfig, RealmEvent, RealmSummary,
+        AgentObservation, Realm, RealmCast, RealmEvent, RealmSummary,
         RealmVersionInfo, Snowflake, TurnCommit, VersionedSaveMode,
     },
 };
@@ -37,7 +37,9 @@ impl RealmStorage for MemoryStorage {
                 id: s.realm.id,
                 owner_id: s.realm.owner_id,
                 name: s.realm.definition.name.clone(),
+                description: s.realm.definition.description.clone(),
                 tags: s.realm.tags.clone(),
+                origin: s.realm.origin.clone(),
                 updated_at: s.updated_at,
             })
             .collect();
@@ -217,7 +219,7 @@ impl RealmStorage for MemoryStorage {
     async fn list_observations(
         &self,
         conversation_id: Snowflake,
-        agent_id: Snowflake,
+        agent_handle: &str,
         before: Option<Snowflake>,
         limit: i64,
     ) -> Result<Vec<AgentObservation>, StorageError> {
@@ -226,7 +228,7 @@ impl RealmStorage for MemoryStorage {
             .values()
             .filter(|o| {
                 o.conversation_id == conversation_id
-                    && o.agent_id == agent_id
+                    && o.agent_handle == agent_handle
                     && before.is_none_or(|b| o.id < b)
             })
             .cloned()
@@ -240,13 +242,13 @@ impl RealmStorage for MemoryStorage {
 
     async fn list_observations_for_messages(
         &self,
-        agent_id: Snowflake,
+        agent_handle: &str,
         message_ids: &[Snowflake],
     ) -> Result<Vec<AgentObservation>, StorageError> {
         let obs = self.agent_observations.read().await;
         let mut rows: Vec<AgentObservation> = obs
             .values()
-            .filter(|o| o.agent_id == agent_id && message_ids.contains(&o.message_id))
+            .filter(|o| o.agent_handle == agent_handle && message_ids.contains(&o.message_id))
             .cloned()
             .collect();
         rows.sort_by_key(|o| o.id);
@@ -265,26 +267,5 @@ impl RealmStorage for MemoryStorage {
         Ok(())
     }
 
-    async fn get_realm_config(&self, realm_id: Snowflake) -> Result<RealmConfig, StorageError> {
-        Ok(self
-            .realm_config
-            .read()
-            .await
-            .get(&realm_id)
-            .cloned()
-            .unwrap_or_default())
-    }
 
-    async fn put_realm_config(
-        &self,
-        realm_id: Snowflake,
-        _user_id: Snowflake,
-        config: &RealmConfig,
-    ) -> Result<(), StorageError> {
-        self.realm_config
-            .write()
-            .await
-            .insert(realm_id, config.clone());
-        Ok(())
-    }
 }
