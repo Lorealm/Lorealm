@@ -26,6 +26,7 @@ use crate::services::{
     context::{ContextService, SourceRegistry, builtin::register_builtin_sources},
     conversation::ConversationService,
     persona::PersonaService,
+    plugins::PluginService,
     realm::RealmService,
     snowflake::SnowflakeService,
     state::StateService,
@@ -64,6 +65,8 @@ pub(crate) struct Harness {
     pub blueprints: Arc<BlueprintService>,
     pub store: Arc<MemoryStorage>,
     pub snow: Arc<SnowflakeService>,
+    /// Reads plugins from the plugin crate's test fixtures.
+    pub plugins: Arc<PluginService>,
     /// The caller in every test unless one says otherwise.
     pub user: Snowflake,
     /// Someone else, for proving a template cannot reach across owners.
@@ -124,6 +127,11 @@ impl Harness {
             reqwest::Client::new(),
             Default::default(),
         ));
+        let plugins = Arc::new(PluginService::new(
+            Arc::clone(&storage),
+            Arc::clone(&state),
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../plugins/tests/fixtures"),
+        ));
         let chat = Arc::new(ChatService::new(
             Arc::clone(&storage),
             Arc::clone(&snow),
@@ -136,6 +144,7 @@ impl Harness {
             Arc::clone(&tokenizers),
             Arc::clone(&sources),
             Arc::clone(&variables),
+            Arc::clone(&plugins),
         ));
         chat.set_self(Arc::downgrade(&chat));
 
@@ -164,6 +173,7 @@ impl Harness {
             user: snow.generate(),
             stranger: snow.generate(),
             snow,
+            plugins,
         }
     }
 

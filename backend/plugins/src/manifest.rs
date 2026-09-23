@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use semver::{Version, VersionReq};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 pub const MANIFEST_FILE: &str = "manifest.toml";
 
@@ -26,7 +26,7 @@ pub struct Manifest {
     pub structure: Structure,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PluginInfo {
     pub name: String,
     pub handle: String,
@@ -114,8 +114,13 @@ mod tests {
         .unwrap();
 
         assert_eq!(manifest.plugin.version, Version::new(1, 2, 0));
-        assert!(manifest.compatibility.requires["markdown_extensions"].matches(&Version::new(1, 5, 0)));
-        assert_eq!(manifest.structure.backend, PathBuf::from("build/plugin.wasm"));
+        assert!(
+            manifest.compatibility.requires["markdown_extensions"].matches(&Version::new(1, 5, 0))
+        );
+        assert_eq!(
+            manifest.structure.backend,
+            PathBuf::from("build/plugin.wasm")
+        );
     }
 
     #[test]

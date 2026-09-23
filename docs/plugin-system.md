@@ -8,6 +8,7 @@ A living document to help us keep track of the plugin system implementation.
 | 09/09/26      | Created the initial ground plan     | ❌            |
 | 10/09/26      | Extended the plan with more details | ❌            |
 | 23/09/26      | Switched to the component model     | ✅            |
+| 23/09/26      | Resolved capability registration    | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -151,8 +152,6 @@ plugin
   b. We implement an optional `client_id` field in the manifest which accepts an arbitrary string. Clients can use these to broadcast support capabilites.
 2. How do we want to handle plugin installation? For max "user-friendliness", the ideal way is to paste in a GitHub link and let the server build the .wasm file from source. The other option is only accepting pre-built .wasm files,
 but this creates a significant technical overhead on plugin authors.
-3. When plugins want to register a capability, we have options. The first option is to be completely manifest driven. This keeps everything: permissions and hooks, in one place. It is a lot more finnicky to get around, though.
-The other option involves providing an interface through the PDK that lets authors just do: `register_processor([...])`. This is a lot more predictable, but creates a small split between permissions and hooks/capabilities. This
-gap can realistically be narrowed with expressive errors.
+3. ~~How do plugins register capabilities?~~ **Resolved:** through the interface. A WIT world can't have optional exports, so a plugin exports a single `handle(event)` and subscribes from `init` with `register-hook(hook)`. Permissions are declared in the manifest and checked at the host-function boundary, so `register-hook` fails with a clear error if the permission is missing.
 4. After plugins are loaded, what order should plugins be run in? Either they run in the configured load order, or we add some sort of machinery to allow plugins to optionally schedule themselves. This is important when a plugin
 5. mutates data, such as for the outbound/inbound request filters.

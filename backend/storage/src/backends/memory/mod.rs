@@ -4,6 +4,7 @@ pub mod connection;
 pub mod conversations;
 pub mod lorebook;
 pub mod permissions;
+pub mod plugins;
 pub mod persona;
 pub mod realms;
 pub mod sessions;
@@ -47,6 +48,8 @@ pub struct MemoryStorage {
     pub(crate) connection_profiles: RwLock<HashMap<Snowflake, ConnectionProfile>>,
     pub(crate) user_tools: RwLock<HashMap<Snowflake, UserTool>>,
     pub(crate) user_widgets: RwLock<HashMap<Snowflake, UserWidget>>,
+    /// Enabled plugin handles per user, in load order.
+    pub(crate) user_plugins: RwLock<HashMap<Snowflake, Vec<String>>>,
     pub(crate) tokenizers: RwLock<HashMap<Snowflake, Tokenizer>>,
     pub(crate) tokenizer_shares: RwLock<Vec<TokenizerShare>>,
     pub(crate) realms: RwLock<HashMap<Snowflake, StoredRealm>>,

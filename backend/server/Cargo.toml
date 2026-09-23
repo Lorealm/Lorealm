@@ -8,6 +8,7 @@ edition = "2024"
 lorealm_storage = { path = "../storage" }
 lorealm_encryption = { path = "../encryption" }
 lorealm_providers = { path = "../llm_providers"}
+lorealm_plugins = { path = "../plugins" }
 
 # Workspace dependencies
 thiserror = { workspace = true }

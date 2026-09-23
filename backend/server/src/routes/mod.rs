@@ -15,6 +15,7 @@ mod config;
 mod connection;
 mod lorebooks;
 mod persona;
+mod plugins;
 mod realm;
 mod templates;
 mod tokenizers;
@@ -76,6 +77,10 @@ pub async fn api_routes(
         .nest(
             "/widgets",
             widgets::router(Arc::clone(&app_state), session_state.clone()),
+        )
+        .nest(
+            "/plugins",
+            plugins::router(Arc::clone(&app_state), session_state.clone()),
         )
         .nest(
             "/tokenizers",

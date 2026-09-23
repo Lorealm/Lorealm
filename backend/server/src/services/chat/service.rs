@@ -43,6 +43,7 @@ use crate::{
         },
         conversation::{ConversationService, EditMode},
         persona::PersonaService,
+        plugins::PluginService,
         schedule::{Schedule, StageCx, stages::PrivacyStage},
         snowflake::SnowflakeService,
         state::{CapturedState, ReconstructedState, StatePool, StateService, apply_delta},
@@ -69,6 +70,7 @@ pub struct ChatService {
     tokenizers: Arc<TokenizerService>,
     sources: Arc<SourceRegistry>,
     variables: Arc<VariableRegistry>,
+    plugins: Arc<PluginService>,
     schedule: Arc<Schedule>,
     cancellations: Arc<DashMap<Snowflake, CancellationToken>>,
     /// A handle back to itself, for the `$[generate]` a tool body may call.
@@ -91,6 +93,7 @@ impl ChatService {
         tokenizers: Arc<TokenizerService>,
         sources: Arc<SourceRegistry>,
         variables: Arc<VariableRegistry>,
+        plugins: Arc<PluginService>,
     ) -> Self {
         Self {
             storage,
@@ -104,6 +107,7 @@ impl ChatService {
             tokenizers,
             sources,
             variables,
+            plugins,
             schedule: Arc::new(Schedule::new(vec![Box::new(PrivacyStage)])),
             cancellations: Arc::new(DashMap::new()),
             me: OnceLock::new(),
@@ -709,7 +713,7 @@ impl ChatService {
         turns.reverse();
 
         let Prepared {
-            mut prompt,
+            prompt,
             trace,
             captured,
             usage,
@@ -740,6 +744,8 @@ impl ChatService {
             None => (HashMap::new(), false),
         };
         let state_pool = Arc::new(StdMutex::new(working));
+
+        let mut prompt = self.plugins.prompt_build(user_id, prompt).await;
 
         let cx = self
             .stage_cx(user_id, Self::convo_character(&convo)?.0)

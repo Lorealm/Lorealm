@@ -6,6 +6,7 @@ mod conversations;
 mod core;
 mod lorebook;
 mod permissions;
+mod plugins;
 mod persona;
 mod realms;
 mod sessions;
@@ -24,6 +25,7 @@ pub use conversations::ConversationStorage;
 pub use core::StorageCore;
 pub use lorebook::LorebookStorage;
 pub use permissions::PermissionStorage;
+pub use plugins::PluginStorage;
 pub use persona::PersonaStorage;
 pub use realms::RealmStorage;
 pub use sessions::SessionStorage;
@@ -52,6 +54,7 @@ pub trait Storage:
     + TokenizerStorage
     + RealmStorage
     + BlueprintStorage
+    + PluginStorage
 {
 }
 
@@ -74,5 +77,6 @@ impl<T> Storage for T where
         + RealmStorage
         + BlueprintStorage
         + BlueprintStorage
+        + PluginStorage
 {
 }

@@ -1,0 +1,270 @@
+use std::{
+    path::PathBuf,
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
+use async_trait::async_trait;
+use dashmap::DashMap;
+use lorealm_plugins::{
+    HostServices, LoadedPlugin, Message, Persona, PluginHost, PluginInfo, PluginPackage, Role,
+};
+use lorealm_storage::{
+    Storage,
+    models::{Snowflake, is_identifier},
+};
+use serde::Serialize;
+use tokio::sync::Mutex;
+
+use crate::{
+    core::CleanableService,
+    errors::PluginError,
+    services::{chat::PromptMessage, context::PromptRole, state::StateService},
+};
+
+/// How long a user's plugins stay mounted without being used.
+const IDLE_TTL: Duration = Duration::from_secs(30 * 60);
+
+#[derive(Serialize)]
+pub struct InstalledPlugin {
+    #[serde(flatten)]
+    pub info: PluginInfo,
+    pub enabled: bool,
+}
+
+/// A user's mounted plugins, in load order.
+struct Mounted {
+    plugins: Vec<(String, LoadedPlugin)>,
+    last_used: Instant,
+}
+
+pub struct PluginService {
+    storage: Arc<dyn Storage>,
+    state: Arc<StateService>,
+    host: Arc<PluginHost>,
+    /// `{data_directory}/plugins`, one directory per plugin, named by handle.
+    dir: PathBuf,
+    /// Compiled components by handle. Shared by every user.
+    packages: DashMap<String, Arc<PluginPackage>>,
+    /// `None` until the user's plugins are first needed.
+    mounted: DashMap<Snowflake, Arc<Mutex<Option<Mounted>>>>,
+}
+
+impl PluginService {
+    pub fn new(storage: Arc<dyn Storage>, state: Arc<StateService>, dir: PathBuf) -> Self {
+        Self {
+            storage,
+            state,
+            host: Arc::new(PluginHost::new().expect("plugin host should initialize")),
+            dir,
+            packages: DashMap::new(),
+            mounted: DashMap::new(),
+        }
+    }
+
+    /// Every plugin in the plugins directory, flagged by whether `user_id` enabled it.
+    pub async fn list(&self, user_id: Snowflake) -> Result<Vec<InstalledPlugin>, PluginError> {
+        let enabled = self.storage.list_user_plugins(user_id).await?;
+
+        let Ok(entries) = std::fs::read_dir(&self.dir) else {
+            return Ok(Vec::new());
+        };
+        let mut installed = Vec::new();
+        for entry in entries.flatten() {
+            let handle = entry.file_name().to_string_lossy().into_owned();
+            match self.package(&handle).await {
+                Ok(package) => installed.push(InstalledPlugin {
+                    enabled: enabled.contains(&handle),
+                    info: package.manifest.plugin.clone(),
+                }),
+                Err(err) => tracing::warn!(%handle, error = %err, "skipping plugin"),
+            }
+        }
+        installed.sort_by(|a, b| a.info.handle.cmp(&b.info.handle));
+        Ok(installed)
+    }
+
+    pub async fn enable(&self, user_id: Snowflake, handle: &str) -> Result<(), PluginError> {
+        self.package(handle).await?;
+        self.storage.enable_user_plugin(user_id, handle).await?;
+        self.mounted.remove(&user_id);
+        Ok(())
+    }
+
+    pub async fn disable(&self, user_id: Snowflake, handle: &str) -> Result<(), PluginError> {
+        self.storage.disable_user_plugin(user_id, handle).await?;
+        self.mounted.remove(&user_id);
+        Ok(())
+    }
+
+    /// Runs the user's `prompt-build` hooks in load order. A plugin that fails
+    /// is logged and skipped.
+    pub async fn prompt_build(
+        &self,
+        user_id: Snowflake,
+        prompt: Vec<PromptMessage>,
+    ) -> Vec<PromptMessage> {
+        let slot = self.mount(user_id).await;
+        let mut guard = slot.lock().await;
+        let Some(mounted) = guard.as_mut() else {
+            return prompt;
+        };
+        mounted.last_used = Instant::now();
+        if mounted.plugins.is_empty() {
+            return prompt;
+        }
+
+        let mut messages: Vec<Message> = prompt.into_iter().map(Into::into).collect();
+        for (handle, plugin) in &mut mounted.plugins {
+            match plugin.prompt_build(messages.clone()).await {
+                Ok(next) => messages = next,
+                Err(err) => {
+                    tracing::warn!(%handle, %user_id, error = %err, "prompt-build hook failed")
+                }
+            }
+        }
+        messages.into_iter().map(Into::into).collect()
+    }
+
+    /// The user's mount slot, filled on first use. A plugin that fails to
+    /// load is logged and left out.
+    async fn mount(&self, user_id: Snowflake) -> Arc<Mutex<Option<Mounted>>> {
+        let slot = Arc::clone(self.mounted.entry(user_id).or_default().value());
+        let mut guard = slot.lock().await;
+        if guard.is_some() {
+            drop(guard);
+            return slot;
+        }
+
+        let handles = match self.storage.list_user_plugins(user_id).await {
+            Ok(handles) => handles,
+            Err(err) => {
+                tracing::error!(%user_id, error = %err, "failed to list plugins");
+                Vec::new()
+            }
+        };
+
+        let mut plugins = Vec::new();
+        for handle in handles {
+            let services = Arc::new(UserServices {
+                user_id,
+                state: Arc::clone(&self.state),
+            });
+            let loaded = match self.package(&handle).await {
+                Ok(package) => self
+                    .host
+                    .instantiate(&package, services)
+                    .await
+                    .map_err(|err| PluginError::Invalid(handle.clone(), err)),
+                Err(err) => Err(err),
+            };
+            match loaded {
+                Ok(plugin) => plugins.push((handle, plugin)),
+                Err(err) => {
+                    tracing::warn!(%handle, %user_id, error = %err, "failed to mount plugin")
+                }
+            }
+        }
+
+        *guard = Some(Mounted {
+            plugins,
+            last_used: Instant::now(),
+        });
+        drop(guard);
+        slot
+    }
+
+    /// The compiled plugin for `handle`, compiling it on first use.
+    async fn package(&self, handle: &str) -> Result<Arc<PluginPackage>, PluginError> {
+        if let Some(package) = self.packages.get(handle) {
+            return Ok(Arc::clone(&package));
+        }
+        let dir = self.dir.join(handle);
+        if !is_identifier(handle) || !dir.is_dir() {
+            return Err(PluginError::NotFound(handle.to_owned()));
+        }
+
+        let host = Arc::clone(&self.host);
+        let package = tokio::task::spawn_blocking(move || host.compile(&dir))
+            .await
+            .expect("plugin compilation should not panic")
+            .map_err(|err| PluginError::Invalid(handle.to_owned(), err))?;
+        if package.manifest.plugin.handle != handle {
+            return Err(PluginError::NotFound(handle.to_owned()));
+        }
+
+        let package = Arc::new(package);
+        self.packages
+            .insert(handle.to_owned(), Arc::clone(&package));
+        Ok(package)
+    }
+}
+
+#[async_trait]
+impl CleanableService for PluginService {
+    fn name(&self) -> &'static str {
+        "plugins"
+    }
+
+    /// Unmounts users whose plugins sat idle past [`IDLE_TTL`]. Slots in use
+    /// right now are kept.
+    async fn clean(&self) -> usize {
+        let before = self.mounted.len();
+        self.mounted.retain(|_, slot| match slot.try_lock() {
+            Ok(guard) => guard
+                .as_ref()
+                .is_some_and(|m| m.last_used.elapsed() < IDLE_TTL),
+            Err(_) => true,
+        });
+        before - self.mounted.len()
+    }
+}
+
+/// Host services bound to one user.
+struct UserServices {
+    user_id: Snowflake,
+    state: Arc<StateService>,
+}
+
+#[async_trait]
+impl HostServices for UserServices {
+    async fn active_persona(&self) -> Result<Persona, String> {
+        let persona = self
+            .state
+            .get_active_persona(self.user_id)
+            .await
+            .map_err(|err| err.to_string())?;
+        Ok(Persona {
+            name: persona.name,
+            description: persona.description.unwrap_or_default(),
+        })
+    }
+}
+
+impl From<PromptMessage> for Message {
+    fn from(m: PromptMessage) -> Self {
+        let role = match m.role {
+            PromptRole::System => Role::System,
+            PromptRole::User => Role::User,
+            PromptRole::Assistant => Role::Assistant,
+        };
+        Self {
+            role,
+            content: m.content,
+        }
+    }
+}
+
+impl From<Message> for PromptMessage {
+    fn from(m: Message) -> Self {
+        let role = match m.role {
+            Role::System => PromptRole::System,
+            Role::User => PromptRole::User,
+            Role::Assistant => PromptRole::Assistant,
+        };
+        Self {
+            role,
+            content: m.content,
+        }
+    }
+}
