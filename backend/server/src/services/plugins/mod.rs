@@ -141,18 +141,14 @@ impl PluginService {
 
         let mut installed = Vec::new();
         for handle in self.installed_handles() {
-            let latest = self.latest(&handle);
-            let pinned = enabled.iter().find(|p| p.handle == handle);
-            let version = match pinned {
-                Some(p) => p.version.parse().ok(),
-                None => latest.clone(),
+            let Some(version) = self.shown_version(&enabled, &handle) else {
+                continue;
             };
-            let Some(version) = version else { continue };
             match self.package(&handle, &version).await {
                 Ok(package) => installed.push(InstalledPlugin {
-                    enabled: pinned.is_some(),
+                    enabled: enabled.iter().any(|p| p.handle == handle),
+                    latest: self.latest(&handle),
                     info: package.manifest.plugin.clone(),
-                    latest,
                     slots: usable_slots(&package.manifest, allow_unsafe)
                         .cloned()
                         .collect(),
@@ -383,6 +379,28 @@ impl PluginService {
             .map_err(|e| PluginError::CallFailed(handle.to_owned(), e))?;
         serde_json::from_str(&json)
             .map_err(|_| PluginError::CallFailed(handle.to_owned(), "returned invalid JSON".into()))
+    }
+
+    /// The plugin's README, at the version the user is on or else the latest.
+    pub async fn readme(&self, user_id: Snowflake, handle: &str) -> Result<String, PluginError> {
+        let not_found = || PluginError::NotFound(handle.to_owned());
+        let enabled = self.storage.list_user_plugins(user_id).await?;
+        let version = self.shown_version(&enabled, handle).ok_or_else(not_found)?;
+        let package = self.package(handle, &version).await?;
+        let path = self
+            .version_dir(handle, &version)
+            .join(&package.manifest.structure.readme);
+        tokio::fs::read_to_string(path)
+            .await
+            .map_err(|_| not_found())
+    }
+
+    /// The version to show the user: the one they're on, or else the latest.
+    fn shown_version(&self, enabled: &[UserPlugin], handle: &str) -> Option<Version> {
+        match enabled.iter().find(|p| p.handle == handle) {
+            Some(pinned) => pinned.version.parse().ok(),
+            None => self.latest(handle),
+        }
     }
 
     /// The user's log for `handle`, newest first.

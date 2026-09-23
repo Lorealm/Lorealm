@@ -391,6 +391,9 @@ export function createApiClient(platform: PlatformAPI) {
 			/** Builds and installs the plugin in a folder on the server. */
 			install: (path: string) => http.post<InstallReport>('/api/v1/plugins/install', { path }),
 			uninstall: (handle: string) => http.delete(`/api/v1/plugins/${handle}`),
+			/** The plugin's README, as Markdown. */
+			readme: async (handle: string) =>
+				(await http.getBlob(`/api/v1/plugins/${handle}/readme`)).text(),
 			/** A slot entry's HTML. */
 			frontendEntry: async (handle: string, entry: string) =>
 				(

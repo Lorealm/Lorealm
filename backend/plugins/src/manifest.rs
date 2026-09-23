@@ -121,18 +121,26 @@ pub struct Structure {
     /// Path to the backend component, relative to the plugin directory.
     #[serde(default = "default_backend")]
     pub backend: PathBuf,
+    /// Shown on the plugin's page. Optional.
+    #[serde(default = "default_readme")]
+    pub readme: PathBuf,
 }
 
 impl Default for Structure {
     fn default() -> Self {
         Self {
             backend: default_backend(),
+            readme: default_readme(),
         }
     }
 }
 
 fn default_backend() -> PathBuf {
     PathBuf::from("plugin.wasm")
+}
+
+fn default_readme() -> PathBuf {
+    PathBuf::from("README.md")
 }
 
 impl Manifest {

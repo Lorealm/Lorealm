@@ -462,6 +462,7 @@ async fn staging_copies_only_the_built_plugin() {
     assert_eq!(manifest.structure.backend, PathBuf::from("backend.wasm"));
     assert_eq!(manifest.frontend.path, PathBuf::from("frontend"));
     assert!(into.join("frontend/panel.js").is_file());
+    assert!(!into.join("README.md").exists(), "hello_addon has none");
     assert!(package.is_ok(), "{:?}", package.err());
     std::fs::remove_dir_all(&into).unwrap();
 }

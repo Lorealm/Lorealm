@@ -24,6 +24,7 @@ pub(super) fn router(
     let session_only_routes = Router::new()
         .route("/", get(handlers::list_plugins))
         .route("/{handle}/logs", get(handlers::list_plugin_logs))
+        .route("/{handle}/readme", get(handlers::plugin_readme))
         .route("/{handle}/frontend/{entry}", get(handlers::frontend_entry))
         // Unsafe slots are only listed and served to users allowed them.
         .layer(axum::middleware::from_fn_with_state(

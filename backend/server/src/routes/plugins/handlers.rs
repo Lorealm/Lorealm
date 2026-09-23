@@ -87,6 +87,21 @@ pub async fn set_plugin_order(
     Ok(())
 }
 
+/// The plugin's README, as Markdown.
+pub async fn plugin_readme(
+    State(app_state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(handle): Path<String>,
+) -> Result<String, AppError> {
+    let readme = app_state
+        .services()
+        .plugins()
+        .readme(session.user_id, &handle)
+        .await?;
+
+    Ok(readme)
+}
+
 /// One of the plugin's declared frontend entries: HTML, or for an unsafe slot,
 /// a module. The client reads it as text either way.
 pub async fn frontend_entry(

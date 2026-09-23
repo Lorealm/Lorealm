@@ -1,4 +1,6 @@
 <script lang="ts">
+	import DOMPurify from 'dompurify';
+	import { marked } from 'marked';
 	import { onMount } from 'svelte';
 	import { Check, FolderInput, Trash2 } from '@lucide/svelte';
 	import { useApi } from '$lib/api/client.js';
@@ -44,6 +46,30 @@
 			buildLog = report.log || `Installed ${report.handle}@${report.version}.`;
 		});
 		installing = false;
+	}
+
+	/** The plugin whose README is showing. */
+	let open = $state<string | null>(null);
+	/** Rendered READMEs by handle; `null` for a plugin that ships none. */
+	let readmes = $state<Record<string, string | null>>({});
+
+	async function toggleReadme(handle: string) {
+		open = open === handle ? null : handle;
+		if (open === null || handle in readmes) return;
+		try {
+			const markdown = await api.plugins.readme(handle);
+			readmes[handle] = DOMPurify.sanitize(marked.parse(markdown, { async: false }));
+		} catch {
+			readmes[handle] = null;
+		}
+	}
+
+	/** Links leave the app instead of replacing it. */
+	function openLinksOutside(event: MouseEvent) {
+		const link = (event.target as Element).closest('a');
+		if (!link?.href) return;
+		event.preventDefault();
+		window.open(link.href, '_blank', 'noopener');
 	}
 
 	const hasUpdate = (p: InstalledPlugin) =>
@@ -99,10 +125,15 @@
 		<div class="list">
 			{#each pluginsStore.plugins as plugin (plugin.handle)}
 				<div class="item" class:active={plugin.enabled}>
-					<div class="meta">
+					<button
+						type="button"
+						class="meta"
+						aria-expanded={open === plugin.handle}
+						onclick={() => toggleReadme(plugin.handle)}
+					>
 						<span class="name">{plugin.name} <span class="version">{plugin.version}</span></span>
 						{#if plugin.description}<span class="description">{plugin.description}</span>{/if}
-					</div>
+					</button>
 					<div class="rowActions">
 						{#if hasUpdate(plugin)}
 							<button
@@ -132,6 +163,16 @@
 						</button>
 					</div>
 				</div>
+				{#if open === plugin.handle && plugin.handle in readmes}
+					{@const readme = readmes[plugin.handle]}
+					{#if readme === null}
+						<p class="readme none">This plugin has no README.</p>
+					{:else}
+						<!-- Sanitized with DOMPurify. -->
+						<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+						<div class="readme" onclickcapture={openLinksOutside}>{@html readme}</div>
+					{/if}
+				{/if}
 			{/each}
 		</div>
 	{/if}
@@ -242,7 +283,38 @@
 	.meta {
 		display: flex;
 		flex-direction: column;
+		align-items: flex-start;
 		min-width: 0;
+		padding: 0;
+		background: none;
+		text-align: left;
+		cursor: pointer;
+	}
+	.readme {
+		margin: 0;
+		padding: var(--spacing-sm) var(--spacing-lg);
+		border-left: 2px solid var(--color-border-subtle);
+	}
+	.readme :global(:is(h1, h2, h3)) {
+		margin: var(--spacing-sm) 0 var(--spacing-xs);
+		font-size: var(--font-size-h4);
+	}
+	.readme :global(:is(p, ul, ol, pre)) {
+		margin: 0 0 var(--spacing-sm);
+	}
+	.readme :global(code) {
+		font-family: var(--font-family-mono);
+		font-size: 0.9em;
+	}
+	.readme :global(pre) {
+		overflow-x: auto;
+		padding: var(--spacing-sm);
+		border-radius: var(--radius-sm);
+		background-color: var(--color-bg-input);
+	}
+	.readme.none {
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
 	}
 	.name {
 		overflow: hidden;
