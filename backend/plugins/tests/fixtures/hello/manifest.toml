@@ -1,0 +1,9 @@
+[plugin]
+name = "Hello"
+handle = "hello"
+description = "Test fixture that mounts and initialises successfully."
+author = "Lorealm"
+version = "0.1.0"
+
+[structure]
+backend = "target/wasm32-wasip2/release/hello.wasm"
