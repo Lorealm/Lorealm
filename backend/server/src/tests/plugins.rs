@@ -236,3 +236,102 @@ async fn log_keeps_only_the_newest_entries() {
         ["printed greeting #3", "greeting #3", "printed greeting #2"]
     );
 }
+
+#[tokio::test]
+async fn a_plugin_cannot_be_enabled_before_its_requirement() {
+    let h = harness().await;
+
+    let result = h.plugins.enable(h.user, "hello_addon").await;
+
+    assert!(
+        matches!(&result, Err(PluginError::CannotEnable(_, reason)) if reason.contains("requires `hello`")),
+        "{result:?}"
+    );
+}
+
+#[tokio::test]
+async fn a_plugin_loads_after_its_requirement() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    h.plugins.enable(h.user, "hello_addon").await.unwrap();
+
+    let out = h.plugins.prompt_build(h.user, prompt()).await;
+
+    assert_eq!(out.len(), 3);
+}
+
+#[tokio::test]
+async fn a_required_plugin_cannot_be_disabled() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    h.plugins.enable(h.user, "hello_addon").await.unwrap();
+
+    let result = h.plugins.disable(h.user, "hello").await;
+
+    assert!(
+        matches!(&result, Err(PluginError::Required(_, by)) if by == &["hello_addon"]),
+        "{result:?}"
+    );
+}
+
+#[tokio::test]
+async fn a_conflicting_plugin_cannot_be_enabled() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+
+    let result = h.plugins.enable(h.user, "hello_rival").await;
+
+    assert!(
+        matches!(&result, Err(PluginError::CannotEnable(_, reason)) if reason == "conflicts with `hello`"),
+        "{result:?}"
+    );
+}
+
+#[tokio::test]
+async fn a_conflict_that_got_past_enabling_is_skipped_and_logged() {
+    let h = harness().await;
+    h.store.enable_user_plugin(h.user, "hello").await.unwrap();
+    h.store
+        .enable_user_plugin(h.user, "hello_rival")
+        .await
+        .unwrap();
+
+    let out = h.plugins.prompt_build(h.user, prompt()).await;
+    let logs = h.plugins.logs(h.user, "hello_rival").await.unwrap();
+
+    assert_eq!(out.len(), 2);
+    assert!(
+        logged(
+            &logs,
+            PluginLogSource::Host,
+            PluginLogLevel::Error,
+            "Not loaded: it conflicts with `hello`."
+        ),
+        "{logs:#?}"
+    );
+}
+
+#[tokio::test]
+async fn load_order_must_list_exactly_the_enabled_plugins() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    h.plugins.enable(h.user, "unpermitted").await.unwrap();
+
+    for order in [
+        vec!["hello"],
+        vec!["hello", "unpermitted", "no_data"],
+        vec!["hello", "hello"],
+    ] {
+        let order = order.into_iter().map(String::from).collect();
+        let result = h.plugins.set_order(h.user, order).await;
+        assert!(
+            matches!(result, Err(PluginError::InvalidOrder)),
+            "{result:?}"
+        );
+    }
+
+    let order = vec!["unpermitted".to_owned(), "hello".to_owned()];
+    h.plugins.set_order(h.user, order.clone()).await.unwrap();
+
+    assert_eq!(h.store.list_user_plugins(h.user).await.unwrap(), order);
+}

@@ -55,3 +55,23 @@ pub async fn toggle_plugin_enabled(
 
     Ok(())
 }
+
+#[derive(Deserialize)]
+pub struct PluginOrder {
+    /// Every enabled plugin's handle, in the order to load them.
+    pub order: Vec<String>,
+}
+
+pub async fn set_plugin_order(
+    State(app_state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Json(payload): Json<PluginOrder>,
+) -> Result<(), AppError> {
+    app_state
+        .services()
+        .plugins()
+        .set_order(session.user_id, payload.order)
+        .await?;
+
+    Ok(())
+}

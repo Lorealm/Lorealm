@@ -35,6 +35,24 @@ impl PluginStorage for PostgresStorage {
         Ok(())
     }
 
+    async fn set_user_plugin_order(
+        &self,
+        user_id: Snowflake,
+        handles: &[String],
+    ) -> Result<(), StorageError> {
+        let mut tx = self.pool.begin().await?;
+        for (position, handle) in handles.iter().enumerate() {
+            sqlx::query("UPDATE user_plugins SET position = $3 WHERE user_id = $1 AND handle = $2")
+                .bind(user_id)
+                .bind(handle)
+                .bind(position as i32)
+                .execute(&mut *tx)
+                .await?;
+        }
+        tx.commit().await?;
+        Ok(())
+    }
+
     async fn disable_user_plugin(
         &self,
         user_id: Snowflake,

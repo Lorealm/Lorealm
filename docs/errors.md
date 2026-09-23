@@ -100,8 +100,11 @@ Messages containing quoted values are examples; the interpolated part varies.
 | `permission.denied` | 403 | You are not allowed to perform this action. |
 | `persona.not_found` | 404 | That persona no longer exists. |
 | `persona.unsupported_media_type` | 415 | That image format isn't supported. |
+| `plugin.cannot_enable` | 409 | This plugin can't be enabled: it requires `lib` ^1.4, which is not loaded. |
 | `plugin.invalid` | 400 | That plugin could not be loaded. |
+| `plugin.invalid_order` | 400 | The order must list each enabled plugin exactly once. |
 | `plugin.not_found` | 404 | That plugin is not installed. |
+| `plugin.required` | 409 | Disable the plugins that require this one first: `hello`, `other`. |
 | `realm.action_failed` | 400 | Action failed: roll failed. |
 | `realm.director_failed` | 400 | The realm could not decide who acts next: unknown handle. |
 | `realm.import_in_use` | 409 | This lorebook is still used by agent "Narrator" — unbind it there first. |

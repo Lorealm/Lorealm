@@ -115,6 +115,15 @@ fn contract_surface() -> Vec<(&'static str, Vec<Box<dyn DomainError>>)> {
                     "hello".into(),
                     lorealm_plugins::PluginError::Init("boom".into()),
                 )),
+                Box::new(PluginError::CannotEnable(
+                    "hello".into(),
+                    "requires `lib` ^1.4, which is not loaded".into(),
+                )),
+                Box::new(PluginError::Required(
+                    "lib".into(),
+                    vec!["hello".into(), "other".into()],
+                )),
+                Box::new(PluginError::InvalidOrder),
             ],
         ),
         (

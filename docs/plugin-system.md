@@ -10,6 +10,7 @@ A living document to help us keep track of the plugin system implementation.
 | 23/09/26      | Switched to the component model     | ✅            |
 | 23/09/26      | Resolved capability registration    | ✅            |
 | 23/09/26      | Added plugin logging                | ✅            |
+| 23/09/26      | Added load order and compatibility  | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -101,6 +102,15 @@ to inform them something went wrong.
 4. The plugin `init` functions in turn registers what it uses through `register_*` functions (permissions errors propagated to the last step)
 5. Plugins are cached in-memory and are now active.
 
+### Load Order and Compatibility
+A user's plugins load in the order they set (`PUT /plugins` with `{ "order": [...] }`, listing every enabled plugin; enabling appends to the end). Manifests override that order where they need to:
+- `requires`: the plugin must be enabled at a matching version, and loads after it.
+- `conflicts`: the two can't both be enabled. Either side declaring it is enough.
+- `loaded_before` / `loaded_after`: ordering only, and only between plugins that are both enabled.
+- `recommends`: marketplace only; ignored by the server.
+
+Enabling a plugin fails if it conflicts with an enabled plugin, needs one that isn't enabled, or would create a load-order cycle. Disabling one fails while other enabled plugins require it. The same rules run again whenever a user's plugins load, since installed files can change: a plugin that no longer fits is left out, with the reason in its log.
+
 ### Entry Points
 Lorealm will only serve one type of plugin which covers everything. This plugin will be able to:
 - Add custom ContextTemplate nodes
@@ -167,5 +177,4 @@ plugin
 2. How do we want to handle plugin installation? For max "user-friendliness", the ideal way is to paste in a GitHub link and let the server build the .wasm file from source. The other option is only accepting pre-built .wasm files,
 but this creates a significant technical overhead on plugin authors.
 3. ~~How do plugins register capabilities?~~ **Resolved:** through the interface. A WIT world can't have optional exports, so a plugin exports a single `handle(event)` and subscribes from `init` with `register-hook(hook)`. Permissions are declared in the manifest and checked at the host-function boundary, so `register-hook` fails with a clear error if the permission is missing.
-4. After plugins are loaded, what order should plugins be run in? Either they run in the configured load order, or we add some sort of machinery to allow plugins to optionally schedule themselves. This is important when a plugin
-5. mutates data, such as for the outbound/inbound request filters.
+4. ~~What order should plugins run in?~~ **Resolved:** the user's order, overridden by manifest constraints. See Load Order and Compatibility.

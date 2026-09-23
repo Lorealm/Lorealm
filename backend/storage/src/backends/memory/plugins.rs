@@ -31,6 +31,18 @@ impl PluginStorage for MemoryStorage {
         Ok(())
     }
 
+    async fn set_user_plugin_order(
+        &self,
+        user_id: Snowflake,
+        handles: &[String],
+    ) -> Result<(), StorageError> {
+        self.user_plugins
+            .write()
+            .await
+            .insert(user_id, handles.to_vec());
+        Ok(())
+    }
+
     async fn disable_user_plugin(
         &self,
         user_id: Snowflake,

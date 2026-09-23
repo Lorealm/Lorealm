@@ -9,7 +9,7 @@ use chrono::Utc;
 use dashmap::DashMap;
 use lorealm_plugins::{
     HostServices, Level, LoadedPlugin, LogEntry, LogSource, Message, Persona, PluginHost,
-    PluginInfo, PluginPackage, Role,
+    PluginInfo, PluginPackage, Role, resolve,
 };
 use lorealm_storage::{
     Storage, StorageError,
@@ -105,14 +105,69 @@ impl PluginService {
     }
 
     pub async fn enable(&self, user_id: Snowflake, handle: &str) -> Result<(), PluginError> {
-        self.package(handle).await?;
+        let package = self.package(handle).await?;
+        let enabled = self.storage.list_user_plugins(user_id).await?;
+        if enabled.iter().any(|h| h == handle) {
+            return Ok(());
+        }
+
+        let others = self.installed(&enabled).await;
+        let manifests: Vec<_> = others
+            .iter()
+            .map(|p| &p.manifest)
+            .chain([&package.manifest])
+            .collect();
+        if let Some((_, reason)) = resolve(&manifests)
+            .skipped
+            .into_iter()
+            .find(|(h, _)| h == handle)
+        {
+            return Err(PluginError::CannotEnable(handle.to_owned(), reason));
+        }
+
         self.storage.enable_user_plugin(user_id, handle).await?;
         self.mounted.remove(&user_id);
         Ok(())
     }
 
+    /// Disable this plugin.
+    /// 
+    /// Fails while other enabled plugins require this one.
     pub async fn disable(&self, user_id: Snowflake, handle: &str) -> Result<(), PluginError> {
+        let enabled = self.storage.list_user_plugins(user_id).await?;
+        let required_by: Vec<String> = self
+            .installed(&enabled)
+            .await
+            .iter()
+            .filter(|p| p.manifest.compatibility.requires.contains_key(handle))
+            .map(|p| p.manifest.plugin.handle.clone())
+            .collect();
+        if !required_by.is_empty() {
+            return Err(PluginError::Required(handle.to_owned(), required_by));
+        }
+
         self.storage.disable_user_plugin(user_id, handle).await?;
+        self.mounted.remove(&user_id);
+        Ok(())
+    }
+
+    /// Sets the user's load order. Manifest constraints still take precedence.
+    pub async fn set_order(
+        &self,
+        user_id: Snowflake,
+        handles: Vec<String>,
+    ) -> Result<(), PluginError> {
+        let mut enabled = self.storage.list_user_plugins(user_id).await?;
+        let mut given = handles.clone();
+        enabled.sort();
+        given.sort();
+        if enabled != given {
+            return Err(PluginError::InvalidOrder);
+        }
+
+        self.storage
+            .set_user_plugin_order(user_id, &handles)
+            .await?;
         self.mounted.remove(&user_id);
         Ok(())
     }
@@ -188,8 +243,32 @@ impl PluginService {
             }
         };
 
+        let mut packages = Vec::new();
+        for handle in &handles {
+            match self.package(handle).await {
+                Ok(package) => packages.push(package),
+                Err(err) => {
+                    self.logs
+                        .host(user_id, handle, Level::Error, err.to_string())
+                        .await;
+                }
+            }
+        }
+
+        let resolution = resolve(&packages.iter().map(|p| &p.manifest).collect::<Vec<_>>());
+        for (handle, reason) in resolution.skipped {
+            let message = format!("Not loaded: it {reason}.");
+            self.logs
+                .host(user_id, &handle, Level::Error, message)
+                .await;
+        }
+
         let mut plugins = Vec::new();
-        for handle in handles {
+        for handle in resolution.order {
+            let package = packages
+                .iter()
+                .find(|p| p.manifest.plugin.handle == handle)
+                .expect("resolved plugins come from `packages`");
             let services = Arc::new(UserServices {
                 user_id,
                 handle: handle.clone(),
@@ -197,15 +276,6 @@ impl PluginService {
                 state: Arc::clone(&self.state),
                 logs: Arc::clone(&self.logs),
             });
-            let package = match self.package(&handle).await {
-                Ok(package) => package,
-                Err(err) => {
-                    self.logs
-                        .host(user_id, &handle, Level::Error, err.to_string())
-                        .await;
-                    continue;
-                }
-            };
             // On failure, the plugin crate logged why.
             if let Ok(plugin) = self.host.instantiate(&package, services).await {
                 plugins.push((handle, plugin));
@@ -218,6 +288,18 @@ impl PluginService {
         });
         drop(guard);
         slot
+    }
+
+    /// The compiled plugins among `handles`, in the same order. Ones that fail
+    /// to load are left out.
+    async fn installed(&self, handles: &[String]) -> Vec<Arc<PluginPackage>> {
+        let mut packages = Vec::new();
+        for handle in handles {
+            if let Ok(package) = self.package(handle).await {
+                packages.push(package);
+            }
+        }
+        packages
     }
 
     /// The compiled plugin for `handle`, compiling it on first use.
@@ -341,7 +423,7 @@ impl PluginLogs {
     }
 
     /// Writes a list of [`LogEntry`]s to tracing
-    /// 
+    ///
     /// Host entries are mirrored to tracing at their own level,
     /// Guest logs are written to debug to avoid flooding stdout.
     async fn write(&self, user_id: Snowflake, handle: &str, entries: Vec<LogEntry>) {
