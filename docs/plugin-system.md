@@ -34,7 +34,7 @@ We will provide paths for common things, such as inspector modules, custom chat 
 ### Plugin Development
 Day one support includes *at least* Rust and Python, the native language and the most popular language.
 
-Plugins are WebAssembly components (wasmtime + WIT), not Extism modules. The WIT world lives in `backend/plugins/wit` and is the single source of truth for bindings in every language (`wit-bindgen` for Rust, `componentize-py` for Python).
+Plugins are WebAssembly components (wasmtime + WIT), not Extism modules. The WIT world lives in `backend/plugins/wit` and is the single source of truth for bindings in every language (`wit-bindgen` for Rust, `componentize-py` for Python). Both are exercised by the same test fixture in `backend/plugins/tests/fixtures` (`hello`, `hello_py`). Python components bundle CPython (~18 MB) and take roughly a second to compile in release builds; compiled plugins are cached, so this is paid once per plugin.
 
 WASI is linked so standard toolchains work, but the sandbox grants nothing by default: no filesystem, environment, arguments or network.
 
