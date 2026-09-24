@@ -188,21 +188,23 @@ pub fn namespaces() -> Vec<NamespaceDef> {
         },
         NamespaceDef {
             scope: "cmd".into(),
-            description: "The arguments this body was called with. Only accessible in tools and commands.".into(),
+            description:
+                "The arguments this body was called with. Only accessible in tools and commands."
+                    .into(),
             members: Vec::new(),
             profiles: Vec::new(),
         },
         NamespaceDef {
             scope: "props".into(),
-            description: "The properties used by widgets. Only accessible within widgets and attachements."
-                .into(),
+            description:
+                "The properties used by widgets. Only accessible within widgets and attachements."
+                    .into(),
             members: Vec::new(),
             profiles: Vec::new(),
         },
         NamespaceDef {
             scope: "input".into(),
-            description: "A WTN document's `#inputs`. Can not be used within a playthrough."
-                .into(),
+            description: "A WTN document's `#inputs`. Can not be used within a playthrough.".into(),
             members: Vec::new(),
             profiles: vec![WeaverProfile::RealmTemplate],
         },

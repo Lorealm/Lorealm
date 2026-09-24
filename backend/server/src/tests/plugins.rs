@@ -650,7 +650,7 @@ fn hello_source(version: &str) -> PathBuf {
         description = ""
         author = "Lorealm"
         version = "{version}"
-        permissions = ["prompt:write", "persona:read", "data:persist"]
+        permissions = ["prompt:write", "chat:read", "persona:read", "data:persist"]
 
         [structure]
         backend = "{}"
@@ -1086,4 +1086,21 @@ async fn a_chain_of_events_stops() {
         logged(&logs, Host, Warn, "a chain of events stops"),
         "{logs:#?}"
     );
+}
+
+#[tokio::test]
+async fn after_generate_reaches_enabled_plugins() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+
+    h.plugins
+        .after_generate(h.user, Snowflake(1), Snowflake(2), "Hi there".into())
+        .await;
+    let observed = h
+        .plugins
+        .call_frontend(h.user, "hello", "event".into(), serde_json::json!({}))
+        .await
+        .unwrap();
+
+    assert_eq!(observed, serde_json::json!("after-generate Hi there"));
 }

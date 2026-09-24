@@ -5,8 +5,8 @@ use std::sync::{Arc, Mutex, Once};
 use std::time::Duration;
 
 use lorealm_plugins::{
-    CommandContext, HostServices, HttpRequest, HttpResponse, Level, LogEntry, LogSource, Message,
-    Persona, PluginError, PluginHost, PluginPackage, Role,
+    CommandContext, Generated, HostServices, HttpRequest, HttpResponse, Level, LogEntry, LogSource,
+    Message, Persona, PluginError, PluginHost, PluginPackage, Role,
 };
 
 fn fixture(name: &str) -> PathBuf {
@@ -655,4 +655,29 @@ async fn a_plugin_subscribes_and_unsubscribes_after_init() {
 
     assert_eq!(subscribed, r#""hello_addon.other 1""#);
     assert_eq!(unsubscribed, subscribed);
+}
+
+#[tokio::test]
+async fn after_generate_observes_the_reply() {
+    let host = host();
+    let package = compile(&host, "hello");
+    let mut plugin = host
+        .instantiate(&package, Arc::new(TestServices::default()))
+        .await
+        .unwrap();
+
+    plugin
+        .after_generate(Generated {
+            conversation: 1,
+            message: 2,
+            content: "Hi there".into(),
+        })
+        .await
+        .unwrap();
+    let observed = plugin
+        .call_frontend("event".into(), "{}".into())
+        .await
+        .unwrap();
+
+    assert_eq!(observed, r#""after-generate Hi there""#);
 }

@@ -44,11 +44,11 @@ use crate::{
 };
 
 use super::{
-    project::{resolve_scenario_slugs, slug, unique_slug},
     agent::{
         AgentRegistry, EventDraft, MAIN_CHANNEL, PersistPlan, PlanCx, Production, ReadyTurn,
         TurnPlan, capture, push_emitted_events, push_state_events, speech_channel,
     },
+    project::{resolve_scenario_slugs, slug, unique_slug},
     validate::{
         apply_turn_order, realm_resources, validate_director, validate_grants, validate_playable,
         validate_scenario,
