@@ -7,7 +7,7 @@ use std::time::Duration;
 use lorealm_plugins::{
     CommandContext, Finalizing, Generated, HostServices, HttpRequest, HttpResponse, Level,
     LogEntry, LogSource, LorebookActivation, LorebookEntry, Message, Persona, PluginError,
-    PluginHost, PluginPackage, Role, UserInput, Verdict,
+    PluginHost, PluginPackage, Role, ToolInvocation, UserInput, Verdict,
 };
 
 fn fixture(name: &str) -> PathBuf {
@@ -751,4 +751,24 @@ async fn lorebook_activate_changes_the_entries() {
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].id, "dragons");
     assert_eq!(entries[0].content, "dragons!");
+}
+
+#[tokio::test]
+async fn tool_call_changes_or_refuses_the_call() {
+    let host = host();
+    let package = compile(&host, "hello");
+    let mut plugin = host
+        .instantiate(&package, Arc::new(TestServices::default()))
+        .await
+        .unwrap();
+    let call = |name: &str| ToolInvocation {
+        name: name.into(),
+        arguments: r#"{"city":"Oslo"}"#.into(),
+    };
+
+    let changed = plugin.tool_call(call("weather")).await.unwrap();
+    let denied = plugin.tool_call(call("forbidden")).await.unwrap();
+
+    assert!(matches!(changed, Verdict::Change(a) if a == r#"{"city":"Oslo","seen":1}"#));
+    assert!(matches!(denied, Verdict::Deny(r) if r == "denied on purpose"));
 }

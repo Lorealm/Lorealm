@@ -26,7 +26,7 @@ pub struct EvalContextHandle;
 use lorealm::plugin::types::{
     Block, CommandCall, CommandSignature, CustomEvent, Finalizing, FrontendCall, Generated, Hook,
     HttpRequest, HttpResponse, Level, LorebookActivation, LorebookEntry, Message, Persona,
-    ProcessorCall, ProcessorSignature, SourceCall, SourceNode, UserInput, Verdict,
+    ProcessorCall, ProcessorSignature, SourceCall, SourceNode, ToolInvocation, UserInput, Verdict,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -232,6 +232,7 @@ impl lorealm::plugin::host::Host for PluginState {
             Hook::PromptBuild | Hook::LorebookActivate => "prompt:write",
             Hook::AfterGenerate => "chat:read",
             Hook::MessageFinalize | Hook::UserMessage => "chat:write",
+            Hook::ToolCall => "tools:write",
         };
         self.require(permission)?;
         if !self.hooks.contains(&hook) {
@@ -526,6 +527,18 @@ impl LoadedPlugin {
         match self.handle(Event::LorebookActivate(activation)).await? {
             Response::LorebookActivate(entries) => Ok(entries),
             _ => Err(mismatch("lorebook-activate")),
+        }
+    }
+
+    /// Runs the `tool-call` hook. Allows the call if the plugin did not
+    /// register it.
+    pub async fn tool_call(&mut self, call: ToolInvocation) -> Result<Verdict, PluginError> {
+        if !self.store.data().hooks.contains(&Hook::ToolCall) {
+            return Ok(Verdict::Allow);
+        }
+        match self.handle(Event::ToolCall(call)).await? {
+            Response::ToolCall(verdict) => Ok(verdict),
+            _ => Err(mismatch("tool-call")),
         }
     }
 

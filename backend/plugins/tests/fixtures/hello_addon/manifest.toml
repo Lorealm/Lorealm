@@ -5,7 +5,7 @@ handle = "hello_addon"
 description = "Test fixture that requires the hello plugin."
 author = "Lorealm"
 version = "0.1.0"
-permissions = ["prompt:write", "chat:read", "chat:write", "persona:read", "data:persist"]
+permissions = ["prompt:write", "chat:read", "chat:write", "tools:write", "persona:read", "data:persist"]
 
 [compatibility]
 requires = { hello = "^0.1" }

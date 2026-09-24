@@ -11,7 +11,7 @@ use dashmap::DashMap;
 use lorealm_plugins::{
     Finalizing, FrontendSlot, Generated, HostServices, HttpRequest, HttpResponse, Level,
     LoadedPlugin, LogEntry, LogSource, Manifest, Message, Persona, PluginHost, PluginInfo,
-    PluginPackage, Role, UserInput, Verdict, Version, resolve,
+    PluginPackage, Role, ToolInvocation, UserInput, Verdict, Version, resolve,
 };
 use lorealm_storage::{
     Storage, StorageError,
@@ -645,6 +645,44 @@ impl PluginService {
             }
         }
         Ok(content)
+    }
+
+    /// Runs the user's `tool-call` hooks in load order, each seeing the last
+    /// one's arguments, until one refuses. A plugin that fails, or changes the
+    /// arguments to something other than JSON, is logged and skipped.
+    pub async fn tool_call(
+        &self,
+        user_id: Snowflake,
+        name: &str,
+        mut arguments: serde_json::Value,
+    ) -> Result<serde_json::Value, Refusal> {
+        let slot = self.mount(user_id).await;
+        let mut guard = slot.lock().await;
+        let Some(mounted) = guard.as_mut() else {
+            return Ok(arguments);
+        };
+        let handles: Vec<String> = mounted.plugins.iter().map(|(h, _)| h.clone()).collect();
+        for handle in handles {
+            let call = ToolInvocation {
+                name: name.to_owned(),
+                arguments: arguments.to_string(),
+            };
+            match mounted
+                .call(&handle, async move |p| p.tool_call(call).await)
+                .await
+            {
+                Ok(Verdict::Change(next)) => match serde_json::from_str(&next) {
+                    Ok(next) => arguments = next,
+                    Err(err) => {
+                        let message = format!("Ignored its change to `{name}`'s arguments: {err}");
+                        self.logs.host(user_id, &handle, Level::Warn, message).await;
+                    }
+                },
+                Ok(Verdict::Deny(reason)) => return Err(Refusal { handle, reason }),
+                Ok(Verdict::Allow) | Err(_) => {}
+            }
+        }
+        Ok(arguments)
     }
 
     /// Runs the user's `message-finalize` hooks in load order, each seeing
