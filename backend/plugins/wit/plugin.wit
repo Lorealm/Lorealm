@@ -41,6 +41,10 @@ interface types {
         tool-call,
         /// Requires the `tools:write` permission.
         tool-result,
+        /// Requires the `chat:read` permission.
+        turn-start,
+        /// Requires the `chat:read` permission.
+        turn-end,
     }
 
     /// A Weaver value as JSON text. WIT has no recursive types.
@@ -201,6 +205,22 @@ interface types {
         is-error: bool,
     }
 
+    /// A realm agent's turn, as it starts.
+    record turn-started {
+        conversation: s64,
+        /// The acting agent's handle.
+        agent: string,
+    }
+
+    /// A realm agent's turn, once it is saved.
+    record turn-ended {
+        conversation: s64,
+        /// The acting agent's handle.
+        agent: string,
+        message: s64,
+        content: string,
+    }
+
     /// A request for `http-fetch`.
     record http-request {
         /// Such as `GET` or `POST`.
@@ -241,6 +261,10 @@ interface types {
         tool-call(tool-invocation),
         /// A tool call's result, which the plugin may change.
         tool-result(tool-output),
+        /// Observes a realm turn starting. The turn doesn't wait for it.
+        turn-start(turn-started),
+        /// Observes a realm turn once it's saved. Nothing waits for it.
+        turn-end(turn-ended),
     }
 
     /// Answers `handle`, in the same case as the event.
@@ -259,6 +283,8 @@ interface types {
         tool-call(verdict),
         /// The result the model sees, as JSON.
         tool-result(json),
+        turn-start,
+        turn-end,
     }
 }
 

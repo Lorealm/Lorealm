@@ -10,8 +10,8 @@ use lorealm::plugin::host::{
 use lorealm::plugin::types::{
     Block, CommandCall, CommandSignature, CustomEvent, Finalizing, FrontendCall, Generated, Hook,
     HttpRequest, Level, LorebookActivation, LorebookEntry, Message, Param, ProcessorCall,
-    ProcessorSignature, Role, SourceCall, SourceNode, ToolInvocation, ToolOutput, UserInput,
-    ValueType, Verdict,
+    ProcessorSignature, Role, SourceCall, SourceNode, ToolInvocation, ToolOutput, TurnEnded,
+    TurnStarted, UserInput, ValueType, Verdict,
 };
 use serde_json::Value;
 
@@ -26,6 +26,8 @@ impl Guest for Hello {
         register_hook(Hook::LorebookActivate)?;
         register_hook(Hook::ToolCall)?;
         register_hook(Hook::ToolResult)?;
+        register_hook(Hook::TurnStart)?;
+        register_hook(Hook::TurnEnd)?;
         // Only `hello_addon` may emit it, as this component also runs as that.
         subscribe("hello_addon.ping")?;
         register_command(&CommandSignature {
@@ -115,7 +117,8 @@ impl Guest for Hello {
                     unsubscribe(string(Some(&args))?.as_str())?;
                     Ok(Response::Frontend("null".into()))
                 }
-                // The last event received, as `topic payload` (or `after-generate reply`).
+                // The last event received, as `topic payload`, or a hook's name and what
+                // it observed.
                 "event" => {
                     let event =
                         load_data("event")?.map(|b| String::from_utf8_lossy(&b).into_owned());
@@ -191,6 +194,14 @@ impl Guest for Hello {
                     value => value["checked"] = (value["checked"].as_u64().unwrap_or(0) + 1).into(),
                 }
                 Ok(Response::ToolResult(result.to_string()))
+            }
+            Event::TurnStart(TurnStarted { agent, .. }) => {
+                persist_data("event", format!("turn-start {agent}").as_bytes())?;
+                Ok(Response::TurnStart)
+            }
+            Event::TurnEnd(TurnEnded { agent, content, .. }) => {
+                persist_data("event", format!("turn-end {agent} {content}").as_bytes())?;
+                Ok(Response::TurnEnd)
             }
             // Test control: refuses `deny me`.
             Event::UserMessage(UserInput { content, .. }) => {

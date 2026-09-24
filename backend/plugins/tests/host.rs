@@ -7,7 +7,8 @@ use std::time::Duration;
 use lorealm_plugins::{
     CommandContext, Finalizing, Generated, HostServices, HttpRequest, HttpResponse, Level,
     LogEntry, LogSource, LorebookActivation, LorebookEntry, Message, Persona, PluginError,
-    PluginHost, PluginPackage, Role, ToolInvocation, ToolOutput, UserInput, Verdict,
+    PluginHost, PluginPackage, Role, ToolInvocation, ToolOutput, TurnEnded, TurnStarted, UserInput,
+    Verdict,
 };
 
 fn fixture(name: &str) -> PathBuf {
@@ -796,4 +797,42 @@ async fn tool_result_changes_the_result() {
 
     assert_eq!(value, r#"{"checked":1,"temp":3}"#);
     assert_eq!(error, r#""boom!""#);
+}
+
+#[tokio::test]
+async fn turn_hooks_observe_the_turn() {
+    let host = host();
+    let package = compile(&host, "hello");
+    let mut plugin = host
+        .instantiate(&package, Arc::new(TestServices::default()))
+        .await
+        .unwrap();
+    let last_event = async |plugin: &mut lorealm_plugins::LoadedPlugin| {
+        plugin
+            .call_frontend("event".into(), "{}".into())
+            .await
+            .unwrap()
+    };
+
+    plugin
+        .turn_start(TurnStarted {
+            conversation: 1,
+            agent: "narrator".into(),
+        })
+        .await
+        .unwrap();
+    let started = last_event(&mut plugin).await;
+    plugin
+        .turn_end(TurnEnded {
+            conversation: 1,
+            agent: "narrator".into(),
+            message: 2,
+            content: "Night falls.".into(),
+        })
+        .await
+        .unwrap();
+    let ended = last_event(&mut plugin).await;
+
+    assert_eq!(started, r#""turn-start narrator""#);
+    assert_eq!(ended, r#""turn-end narrator Night falls.""#);
 }
