@@ -1,3 +1,0 @@
-ALTER TABLE user_widgets
-    ADD COLUMN prompt TEXT NOT NULL DEFAULT '',
-    ADD COLUMN tools JSONB NOT NULL DEFAULT '[]';
