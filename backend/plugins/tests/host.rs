@@ -542,3 +542,22 @@ async fn time_spent_fetching_does_not_count_toward_the_limit() {
 
     assert!(fetched.is_ok(), "{fetched:?}");
 }
+
+#[tokio::test]
+async fn fetching_needs_permission() {
+    let host = host();
+    let package = compile(&host, "no_data");
+    let services = Arc::new(TestServices::default());
+    let mut plugin = host.instantiate(&package, services.clone()).await.unwrap();
+
+    let result = plugin
+        .call_frontend("fetch".into(), r#"{"url":"https://example.com/"}"#.into())
+        .await;
+
+    assert!(matches!(&result, Err(PluginError::Call(msg)) if msg.contains("net:fetch")));
+    assert!(services.logged(
+        Level::Warn,
+        LogSource::Host,
+        "missing permission `net:fetch`"
+    ));
+}

@@ -9,7 +9,8 @@
 		entry,
 		title,
 		context,
-		fill = false
+		fill = false,
+		autoplay = false
 	}: {
 		handle: string;
 		entry: string;
@@ -18,6 +19,8 @@
 		context: JsonValue;
 		/** Fill the parent, instead of growing to fit the content. */
 		fill?: boolean;
+		/** Lets it play media without a click first; the `ui:autoplay` permission. */
+		autoplay?: boolean;
 	} = $props();
 
 	const api = useApi();
@@ -191,6 +194,7 @@
 		{title}
 		class:fill
 		sandbox="allow-scripts"
+		allow={autoplay ? 'autoplay' : undefined}
 		{srcdoc}
 		bind:this={frame}
 		{onload}

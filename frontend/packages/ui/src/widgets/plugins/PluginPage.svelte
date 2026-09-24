@@ -14,10 +14,12 @@
 	/** What each permission lets a plugin do. */
 	const permissionLabels: Record<string, string> = {
 		'data:persist': 'Store its own data',
+		'net:fetch': 'Send requests to the hosts below',
 		'persona:read': 'Read your active persona',
 		'prompt:write': 'Change prompts before they are sent',
 		'state:read': 'Read script variables',
 		'state:write': 'Change script variables',
+		'ui:autoplay': 'Play media without you clicking it first',
 		'ui:unsafe': 'Run code directly in the app'
 	};
 
