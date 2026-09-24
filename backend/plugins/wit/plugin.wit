@@ -45,6 +45,9 @@ interface types {
         turn-start,
         /// Requires the `chat:read` permission.
         turn-end,
+        upgrade,
+        settings-changed,
+        shutdown,
     }
 
     /// A Weaver value as JSON text. WIT has no recursive types.
@@ -265,6 +268,15 @@ interface types {
         turn-start(turn-started),
         /// Observes a realm turn once it's saved. Nothing waits for it.
         turn-end(turn-ended),
+        /// After `init`, when another version of the plugin last ran against
+        /// the user's data: that version, or `none` on the user's first load.
+        /// Migrate the data here. If it fails, the plugin isn't loaded, and it
+        /// runs again the next time the user's plugins load.
+        upgrade(option<string>),
+        /// The user saved new settings. Read them with `settings`.
+        settings-changed,
+        /// The plugin is about to be unloaded. Flush anything unsaved.
+        shutdown,
     }
 
     /// Answers `handle`, in the same case as the event.
@@ -285,6 +297,9 @@ interface types {
         tool-result(json),
         turn-start,
         turn-end,
+        upgrade,
+        settings-changed,
+        shutdown,
     }
 }
 

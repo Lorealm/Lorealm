@@ -28,6 +28,9 @@ impl Guest for Hello {
         register_hook(Hook::ToolResult)?;
         register_hook(Hook::TurnStart)?;
         register_hook(Hook::TurnEnd)?;
+        register_hook(Hook::Upgrade)?;
+        register_hook(Hook::SettingsChanged)?;
+        register_hook(Hook::Shutdown)?;
         // Only `hello_addon` may emit it, as this component also runs as that.
         subscribe("hello_addon.ping")?;
         register_command(&CommandSignature {
@@ -202,6 +205,23 @@ impl Guest for Hello {
             Event::TurnEnd(TurnEnded { agent, content, .. }) => {
                 persist_data("event", format!("turn-end {agent} {content}").as_bytes())?;
                 Ok(Response::TurnEnd)
+            }
+            // Test control: refuses to upgrade from 0.0.0.
+            Event::Upgrade(from) => {
+                if from.as_deref() == Some("0.0.0") {
+                    return Err("can't upgrade from 0.0.0".into());
+                }
+                let from = from.as_deref().unwrap_or("nothing");
+                log(Level::Info, &format!("upgraded from {from}"));
+                Ok(Response::Upgrade)
+            }
+            Event::SettingsChanged => {
+                log(Level::Info, "settings changed");
+                Ok(Response::SettingsChanged)
+            }
+            Event::Shutdown => {
+                log(Level::Info, "shutting down");
+                Ok(Response::Shutdown)
             }
             // Test control: refuses `deny me`.
             Event::UserMessage(UserInput { content, .. }) => {

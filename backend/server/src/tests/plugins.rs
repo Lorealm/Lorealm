@@ -1236,3 +1236,143 @@ async fn turn_hooks_reach_enabled_plugins() {
     assert_eq!(started, serde_json::json!("turn-start narrator"));
     assert_eq!(ended, serde_json::json!("turn-end narrator Night falls."));
 }
+
+#[tokio::test]
+async fn loading_upgrades_data_from_the_version_that_last_ran() {
+    let h = harness().await;
+    let plugins = service(&h, fresh_dir(), PluginConfig::default());
+    plugins
+        .install_from_source(h.user, hello_source("0.1.0"))
+        .await
+        .unwrap();
+    plugins.enable(h.user, "hello").await.unwrap();
+    plugins.prompt_build(h.user, prompt()).await;
+    plugins
+        .install_from_source(h.user, hello_source("0.2.0"))
+        .await
+        .unwrap();
+
+    plugins.update(h.user, "hello", None).await.unwrap();
+    plugins.prompt_build(h.user, prompt()).await;
+    plugins.disable(h.user, "hello").await.unwrap();
+    plugins.enable(h.user, "hello").await.unwrap();
+    plugins.prompt_build(h.user, prompt()).await;
+    let logs = plugins.logs(h.user, "hello").await.unwrap();
+
+    use PluginLogLevel::Info;
+    use PluginLogSource::Guest;
+    assert!(
+        logged(&logs, Guest, Info, "upgraded from nothing"),
+        "{logs:#?}"
+    );
+    assert!(
+        logged(&logs, Guest, Info, "upgraded from 0.1.0"),
+        "{logs:#?}"
+    );
+    let upgrades = logs
+        .iter()
+        .filter(|l| l.message.starts_with("upgraded"))
+        .count();
+    assert_eq!(upgrades, 2, "only when the version changes: {logs:#?}");
+}
+
+#[tokio::test]
+async fn a_failed_upgrade_keeps_the_plugin_unloaded() {
+    let h = harness().await;
+    let plugins = service(&h, fresh_dir(), PluginConfig::default());
+    plugins
+        .install_from_source(h.user, hello_source("0.0.0"))
+        .await
+        .unwrap();
+    plugins.enable(h.user, "hello").await.unwrap();
+    plugins.prompt_build(h.user, prompt()).await;
+    plugins
+        .install_from_source(h.user, hello_source("0.1.0"))
+        .await
+        .unwrap();
+
+    plugins.update(h.user, "hello", None).await.unwrap();
+    let out = plugins.prompt_build(h.user, prompt()).await;
+    let logs = plugins.logs(h.user, "hello").await.unwrap();
+
+    assert_eq!(out.len(), 1, "not loaded");
+    assert!(
+        logged(
+            &logs,
+            PluginLogSource::Host,
+            PluginLogLevel::Error,
+            "upgrading your data failed"
+        ),
+        "{logs:#?}"
+    );
+}
+
+#[tokio::test]
+async fn unloading_shuts_plugins_down() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    h.plugins.prompt_build(h.user, prompt()).await;
+
+    h.plugins.disable(h.user, "hello").await.unwrap();
+    let logs = h.plugins.logs(h.user, "hello").await.unwrap();
+
+    assert!(
+        logged(
+            &logs,
+            PluginLogSource::Guest,
+            PluginLogLevel::Info,
+            "shutting down"
+        ),
+        "{logs:#?}"
+    );
+}
+
+#[tokio::test]
+async fn saving_settings_tells_a_loaded_plugin() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    h.plugins.prompt_build(h.user, prompt()).await;
+    let values = serde_json::json!({ "greeting": "hi", "key": null });
+
+    h.plugins
+        .save_settings(h.user, "hello", values.as_object().unwrap().clone())
+        .await
+        .unwrap();
+    // Delivered in the background.
+    let mut told = false;
+    for _ in 0..50 {
+        let logs = h.plugins.logs(h.user, "hello").await.unwrap();
+        told = logged(
+            &logs,
+            PluginLogSource::Guest,
+            PluginLogLevel::Info,
+            "settings changed",
+        );
+        if told {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+
+    assert!(told);
+}
+
+#[tokio::test]
+async fn plugins_shut_down_in_reverse_load_order() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    h.plugins.enable(h.user, "hello_addon").await.unwrap();
+    h.plugins.prompt_build(h.user, prompt()).await;
+
+    h.plugins.disable(h.user, "hello_addon").await.unwrap();
+    let addon = h.plugins.logs(h.user, "hello_addon").await.unwrap();
+    let hello = h.plugins.logs(h.user, "hello").await.unwrap();
+
+    let shut_down_at = |logs: &[PluginLog]| {
+        logs.iter()
+            .find(|l| l.message == "shutting down")
+            .map(|l| l.id)
+            .unwrap()
+    };
+    assert!(shut_down_at(&addon) < shut_down_at(&hello));
+}

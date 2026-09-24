@@ -836,3 +836,18 @@ async fn turn_hooks_observe_the_turn() {
     assert_eq!(started, r#""turn-start narrator""#);
     assert_eq!(ended, r#""turn-end narrator Night falls.""#);
 }
+
+#[tokio::test]
+async fn upgrade_is_told_the_previous_version() {
+    let host = host();
+    let package = compile(&host, "hello");
+    let services = Arc::new(TestServices::default());
+    let mut plugin = host.instantiate(&package, services.clone()).await.unwrap();
+
+    let upgraded = plugin.upgrade(Some("0.1.0".into())).await;
+    let refused = plugin.upgrade(Some("0.0.0".into())).await;
+
+    assert!(upgraded.is_ok());
+    assert!(services.logged(Level::Info, LogSource::Guest, "upgraded from 0.1.0"));
+    assert!(matches!(refused, Err(PluginError::Call(_))));
+}

@@ -107,6 +107,25 @@ impl PluginStorage for CachedStorage {
             .await
     }
 
+    async fn get_plugin_data_version(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+    ) -> Result<Option<String>, StorageError> {
+        self.backend.get_plugin_data_version(user_id, handle).await
+    }
+
+    async fn set_plugin_data_version(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        version: &str,
+    ) -> Result<(), StorageError> {
+        self.backend
+            .set_plugin_data_version(user_id, handle, version)
+            .await
+    }
+
     async fn append_plugin_logs(
         &self,
         user_id: Snowflake,

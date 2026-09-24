@@ -189,6 +189,40 @@ impl PluginStorage for PostgresStorage {
         Ok(())
     }
 
+    async fn get_plugin_data_version(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+    ) -> Result<Option<String>, StorageError> {
+        let version = sqlx::query_scalar::<_, String>(
+            "SELECT version FROM plugin_data_versions WHERE user_id = $1 AND handle = $2",
+        )
+        .bind(user_id)
+        .bind(handle)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(version)
+    }
+
+    async fn set_plugin_data_version(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        version: &str,
+    ) -> Result<(), StorageError> {
+        sqlx::query(
+            r#"INSERT INTO plugin_data_versions (user_id, handle, version)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (user_id, handle) DO UPDATE SET version = EXCLUDED.version"#,
+        )
+        .bind(user_id)
+        .bind(handle)
+        .bind(version)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     async fn append_plugin_logs(
         &self,
         user_id: Snowflake,
