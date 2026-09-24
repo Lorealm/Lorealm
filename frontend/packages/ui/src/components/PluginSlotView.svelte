@@ -19,5 +19,12 @@
 {#if slot.unsafe}
 	<PluginMount handle={slot.handle} entry={slot.entry} {context} />
 {:else}
-	<PluginFrame handle={slot.handle} entry={slot.entry} title={slot.title} {context} {fill} />
+	<PluginFrame
+		handle={slot.handle}
+		entry={slot.entry}
+		title={slot.title}
+		{context}
+		{fill}
+		autoplay={slot.autoplay}
+	/>
 {/if}

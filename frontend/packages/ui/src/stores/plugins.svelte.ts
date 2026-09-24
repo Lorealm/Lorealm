@@ -6,6 +6,8 @@ import { pluginWidgetKey, type PluginWidgetKey } from '$lib/widgets/inspector/re
 export interface PluginSlot extends FrontendSlot {
 	key: PluginWidgetKey;
 	handle: string;
+	/** May play media without the user clicking in it first. */
+	autoplay: boolean;
 }
 
 class PluginsStore {
@@ -26,7 +28,12 @@ class PluginsStore {
 			.flatMap((p) =>
 				p.slots
 					.filter((s) => s.slot === kind)
-					.map((s) => ({ ...s, key: pluginWidgetKey(p.handle, s.entry), handle: p.handle }))
+					.map((s) => ({
+						...s,
+						key: pluginWidgetKey(p.handle, s.entry),
+						handle: p.handle,
+						autoplay: p.permissions.includes('ui:autoplay')
+					}))
 			);
 	}
 

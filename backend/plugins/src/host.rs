@@ -261,6 +261,7 @@ impl lorealm::plugin::host::Host for PluginState {
     }
 
     async fn http_fetch(&mut self, request: HttpRequest) -> Result<HttpResponse, String> {
+        self.require("net:fetch")?;
         if !allowed(&self.hosts, &request.url) {
             let message = format!("`{}` isn't in the manifest's network hosts", request.url);
             self.logs

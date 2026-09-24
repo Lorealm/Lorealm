@@ -9,10 +9,12 @@ pub const MANIFEST_FILE: &str = "manifest.toml";
 /// Every permission a manifest may declare.
 pub const PERMISSIONS: &[&str] = &[
     "data:persist",
+    "net:fetch",
     "persona:read",
     "prompt:write",
     "state:read",
     "state:write",
+    "ui:autoplay",
     "ui:unsafe",
 ];
 

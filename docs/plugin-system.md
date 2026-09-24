@@ -20,6 +20,7 @@ A living document to help us keep track of the plugin system implementation.
 | 24/09/26      | Added API key types                 | ✅            |
 | 24/09/26      | Added the settings host function    | ✅            |
 | 24/09/26      | Added http-fetch                    | ✅            |
+| 24/09/26      | Gated fetching and autoplay         | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -65,7 +66,7 @@ entry = "panel.js"         # an unsafe slot is an ES module
 title = "Greeter"
 unsafe = true
 ```
-Both modes get the same API: `call(name, args)` reaches only the plugin's own backend (`POST /plugins/{handle}/call`, delivered to `handle` as a `frontend` event), `context` is what the slot provides (a `message` slot gets `{ message: { id, role, content } }`; `inspector` gets `{}`), and `onContext(listener)` reports changes. Anything touching user data goes through the backend half, where permissions apply.
+Both modes get the same API: `call(name, args)` reaches only the plugin's own backend (`POST /plugins/{handle}/call`, delivered to `handle` as a `frontend` event), `context` is what the slot provides (a `message` slot gets `{ message: { id, role, content } }`; `inspector` gets `{}`), and `onContext(listener)` reports changes. Anything touching user data goes through the backend half, where permissions apply. A secure frame may only play sound after the user clicks in it, unless the plugin has `ui:autoplay`, which lets its frames play sound on their own (`allow="autoplay"`).
 
 **Secure** (the default): the client fetches the entry through the API (`GET /plugins/{handle}/frontend/{entry}`, only for declared entries of enabled plugins) and renders it in an `iframe sandbox="allow-scripts"` as `srcdoc`, so it runs in an opaque origin with no session or access to the app. A CSP is put in front of it: no network (`connect-src` falls back to `default-src 'none'`), and no scripts, styles or images from outside the file, so entries inline everything. The API is `window.lorealm`. The app's style variables (everything declared on `:root`) are applied ahead of the entry's own styles, and the font faces the app has loaded are handed over as bytes, since the CSP refuses font URLs. Both are kept up to date, and user widgets get them the same way.
 
@@ -91,7 +92,7 @@ Every plugin must ship with a manifest.toml file. A manifest file ships the plug
 - tags
 - author
 - version (semver)
-- permissions (one of `data:persist`, `persona:read`, `prompt:write`, `state:read`, `state:write`, `ui:unsafe`; any other is refused when the plugin is installed or loaded, and the Plugins page lists them)
+- permissions (one of `data:persist`, `net:fetch`, `persona:read`, `prompt:write`, `state:read`, `state:write`, `ui:autoplay`, `ui:unsafe`; any other is refused when the plugin is installed or loaded, and the Plugins page lists them)
 
 #### Compatibility (optional)
 - loaded_before (array of handle (or author+handle), this plugin must be loaded before these plugins)
@@ -243,7 +244,7 @@ Only the host sets `source`, so a plugin cannot pass its lines off as the server
 ### Host Commands
 Apart from hook registering, a plugin will need to ship with a variety of commands to interact with the server. Most of these are permission-gated:
 - `settings()`: the user's settings for the plugin; see Settings.
-- `http-fetch(request)`: sends an http(s) request to a host in `[network] hosts` and returns the whole response (at most 16 MiB). Redirects aren't followed, so a request can't leave those hosts. A header value may contain `{secret:name}`, where `name` is a setting declared as `Ref<type>` of an API key type: the server puts the user's key there, only over https or to this machine, and the plugin never sees it. Time spent waiting doesn't count toward the call's limit; the request has its own of 30 seconds. Requests carry `User-Agent: Lorealm/{version} (plugin {handle}@{version})` unless the plugin sets its own.
+- `http-fetch(request)`, gated by `net:fetch`: sends an http(s) request to a host in `[network] hosts` and returns the whole response (at most 16 MiB). Redirects aren't followed, so a request can't leave those hosts. A header value may contain `{secret:name}`, where `name` is a setting declared as `Ref<type>` of an API key type: the server puts the user's key there, only over https or to this machine, and the plugin never sees it. Time spent waiting doesn't count toward the call's limit; the request has its own of 30 seconds. Requests carry `User-Agent: Lorealm/{version} (plugin {handle}@{version})` unless the plugin sets its own.
 - `persist-data(key, value)`, `load-data(key)`, `delete-data(key)`: bytes stored per user and plugin (keys up to 256 bytes, values up to 1 MiB), gated by `data:persist`. Data outlives disabling the plugin.
 - `generate_raw(prompt: String)`
 - `generate()`

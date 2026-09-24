@@ -188,6 +188,7 @@ interface host {
 
     /// Sends `request` and waits for the whole response. Redirects are not
     /// followed. Time spent waiting doesn't count toward the call's limit.
+    /// Requires the `net:fetch` permission.
     http-fetch: func(request: http-request) -> result<http-response, string>;
 
     /// Stores `value` under `key` for the current user. Requires `data:persist`.
