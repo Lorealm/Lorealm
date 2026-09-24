@@ -27,7 +27,7 @@ chrono = { version = "0.4", features = ["serde"] }
 sha2 = "0.11"
 
 # Database backends (optional features)
-sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio-rustls", "chrono"], optional = true }
+sqlx = { version = "0.8.6", features = ["postgres", "sqlite", "runtime-tokio-rustls", "chrono"], optional = true }
 
 # Redis caching
 redis = { version = "1", features = ["tokio-comp", "connection-manager"], optional = true }
@@ -51,10 +51,11 @@ tempfile = "3"
 futures = "0.3"
 
 [features]
-default = ["postgres", "redis", "test-utils"]
+default = ["postgres", "sqlite", "redis", "test-utils"]
 postgres = ["sqlx"]
+sqlite = ["sqlx"]
 redis = ["dep:redis"]
-all = ["postgres", "redis"]
+all = ["postgres", "sqlite", "redis"]
 
 # Test utilities
 test-utils = []
