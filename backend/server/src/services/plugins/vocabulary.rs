@@ -8,8 +8,8 @@ use std::{
 
 use async_trait::async_trait;
 use lorealm_plugins::{
-    CommandContext, CommandSignature, Param, ProcessorSignature, Role, SourceNode,
-    ValueType as PluginValueType,
+    CommandContext, CommandSignature, LorebookActivation, LorebookEntry, Param, ProcessorSignature,
+    Role, SourceNode, ValueType as PluginValueType,
 };
 use tokio::runtime::Handle;
 use weaver_lang::{
@@ -121,6 +121,35 @@ impl PluginVocabulary {
                 def: def.clone(),
             }) as Arc<dyn ContextSource>
         })
+    }
+
+    /// Runs the user's `lorebook-activate` hooks in load order, each seeing
+    /// the last one's output. A plugin that fails is logged and skipped.
+    pub async fn lorebook_activate(
+        &self,
+        slot: &str,
+        mut entries: Vec<LorebookEntry>,
+    ) -> Vec<LorebookEntry> {
+        let mut guard = self.slot.lock().await;
+        let Some(mounted) = guard.as_mut() else {
+            return entries;
+        };
+        let handles: Vec<String> = mounted.plugins.iter().map(|(h, _)| h.clone()).collect();
+        for handle in handles {
+            let activation = LorebookActivation {
+                slot: slot.to_owned(),
+                entries: entries.clone(),
+            };
+            if let Ok(next) = mounted
+                .call(&handle, async move |p| {
+                    p.lorebook_activate(activation).await
+                })
+                .await
+            {
+                entries = next;
+            }
+        }
+        entries
     }
 
     fn call_handle(&self, handle: &str) -> Caller {
