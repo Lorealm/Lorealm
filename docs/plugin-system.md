@@ -18,6 +18,7 @@ A living document to help us keep track of the plugin system implementation.
 | 24/09/26      | Validated and surfaced permissions  | ✅            |
 | 24/09/26      | Added plugin settings               | ✅            |
 | 24/09/26      | Added API key types                 | ✅            |
+| 24/09/26      | Added the settings host function    | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -207,7 +208,7 @@ The file must parse when the plugin is installed. Values are checked by Weaver t
 
 An API key setting is `Ref<type>`, where `type` is declared in `[definitions] api_keys` by any of the user's enabled plugins, so one plugin can declare a type that others use through `requires`. Any number of plugins may declare the same type. The user adds keys of these types in the key manager, and a setting holds the id of one of their own keys of that type; the plugin never sees the key itself. A `Ref` whose type no enabled plugin declares, and built-in types like `Ref<Character>`, are refused for now.
 
-**Planned:** a `settings()` host function, and logging values that no longer fit after an update.
+A plugin reads its settings with `settings()`: a JSON object with every input, set to the user's value or its default, with API key settings as key ids. It needs no permission. Key types are those declared by the user's loaded plugins. While the saved values don't fit (a required setting not filled in yet, or values an update made invalid), the call fails with the reason, and the plugin's log gets a warning telling the user where to fix them.
 
 ### Plugin Hooks
 On the server, we don't care what goes on inside the WASM sandbox. The main way a plugin triggers based on activity is through hooks.
@@ -237,6 +238,7 @@ Only the host sets `source`, so a plugin cannot pass its lines off as the server
 
 ### Host Commands
 Apart from hook registering, a plugin will need to ship with a variety of commands to interact with the server. Most of these are permission-gated:
+- `settings()`: the user's settings for the plugin; see Settings.
 - `persist-data(key, value)`, `load-data(key)`, `delete-data(key)`: bytes stored per user and plugin (keys up to 256 bytes, values up to 1 MiB), gated by `data:persist`. Data outlives disabling the plugin.
 - `generate_raw(prompt: String)`
 - `generate()`

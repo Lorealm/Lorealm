@@ -5,6 +5,8 @@ use weaver_lang::{
     evaluate_value_doc, parse_value_doc,
 };
 
+use lorealm_storage::{Storage, StorageError, models::Snowflake};
+
 use crate::util::weaver::{describe_parse_errors, json_to_weaver, weaver_to_json};
 
 /// The declarations in `source`, which holds only an `#inputs` block.
@@ -16,6 +18,33 @@ pub fn declarations(source: &str) -> Result<Vec<InputDecl>, String> {
 /// The user's API keys: the ids of their keys of each type the user's plugins
 /// declare. A `Ref<type>` setting holds one of them.
 pub type Keys = BTreeMap<String, Vec<String>>;
+
+/// Each of `types` with the ids of the user's keys of it.
+pub async fn keys(
+    storage: &dyn Storage,
+    user_id: Snowflake,
+    types: impl IntoIterator<Item = String>,
+) -> Result<Keys, StorageError> {
+    let mut keys: Keys = types.into_iter().map(|kind| (kind, Vec::new())).collect();
+    for secret in storage.list_secrets_by_owner(user_id).await? {
+        if let Some(ids) = keys.get_mut(&secret.provider) {
+            ids.push(secret.id.to_string());
+        }
+    }
+    Ok(keys)
+}
+
+/// What the user saved for `handle`, unchecked.
+pub async fn saved(
+    storage: &dyn Storage,
+    user_id: Snowflake,
+    handle: &str,
+) -> Result<serde_json::Map<String, serde_json::Value>, StorageError> {
+    Ok(match storage.get_plugin_settings(user_id, handle).await? {
+        Some(serde_json::Value::Object(values)) => values,
+        _ => serde_json::Map::new(),
+    })
+}
 
 /// Checks `values` against the declarations in `source`, and returns every
 /// setting: the value given, or else its default.
@@ -90,10 +119,10 @@ fn parse(source: &str) -> Result<ValueDoc, String> {
 /// Names the setting an error is about, where Weaver's message doesn't.
 fn describe(doc: &ValueDoc, e: EvalError) -> String {
     let decl = doc.inputs.iter().find(|d| Some(d.span) == e.span);
+    // Some of Weaver's messages already name it.
+    let named = e.message.starts_with("input ") || e.message.starts_with("missing required input");
     match decl {
-        Some(decl) if !e.message.starts_with("input ") => {
-            format!("input {}: {}", decl.name, e.message)
-        }
+        Some(decl) if !named => format!("input {}: {}", decl.name, e.message),
         _ => e.message,
     }
 }
