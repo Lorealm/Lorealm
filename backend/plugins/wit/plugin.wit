@@ -39,6 +39,8 @@ interface types {
         lorebook-activate,
         /// Requires the `tools:write` permission.
         tool-call,
+        /// Requires the `tools:write` permission.
+        tool-result,
     }
 
     /// A Weaver value as JSON text. WIT has no recursive types.
@@ -190,6 +192,15 @@ interface types {
         arguments: json,
     }
 
+    /// A tool call's result, before the model sees it.
+    record tool-output {
+        name: string,
+        arguments: json,
+        /// What the tool returned, or its error message as a JSON string.
+        %result: json,
+        is-error: bool,
+    }
+
     /// A request for `http-fetch`.
     record http-request {
         /// Such as `GET` or `POST`.
@@ -228,6 +239,8 @@ interface types {
         /// A tool call, which the plugin may change or refuse. A refusal is
         /// the result the model sees.
         tool-call(tool-invocation),
+        /// A tool call's result, which the plugin may change.
+        tool-result(tool-output),
     }
 
     /// Answers `handle`, in the same case as the event.
@@ -244,6 +257,8 @@ interface types {
         user-message(verdict),
         lorebook-activate(list<lorebook-entry>),
         tool-call(verdict),
+        /// The result the model sees, as JSON.
+        tool-result(json),
     }
 }
 

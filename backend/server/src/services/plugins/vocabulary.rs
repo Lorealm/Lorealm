@@ -2,7 +2,9 @@
 
 use std::{
     collections::{HashMap, HashSet},
+    convert::Infallible,
     future::Future,
+    ops::ControlFlow,
     sync::Arc,
 };
 
@@ -123,32 +125,29 @@ impl PluginVocabulary {
         })
     }
 
-    /// Runs the user's `lorebook-activate` hooks in load order, each seeing
-    /// the last one's output. A plugin that fails is logged and skipped.
+    /// Runs the user's `lorebook-activate` hooks. A plugin that fails is
+    /// logged and skipped.
     pub async fn lorebook_activate(
         &self,
         slot: &str,
-        mut entries: Vec<LorebookEntry>,
+        entries: Vec<LorebookEntry>,
     ) -> Vec<LorebookEntry> {
         let mut guard = self.slot.lock().await;
         let Some(mounted) = guard.as_mut() else {
             return entries;
         };
-        let handles: Vec<String> = mounted.plugins.iter().map(|(h, _)| h.clone()).collect();
-        for handle in handles {
-            let activation = LorebookActivation {
-                slot: slot.to_owned(),
-                entries: entries.clone(),
-            };
-            if let Ok(next) = mounted
-                .call(&handle, async move |p| {
-                    p.lorebook_activate(activation).await
-                })
-                .await
-            {
-                entries = next;
-            }
-        }
+        let slot = slot.to_owned();
+        let Ok(entries): Result<_, Infallible> = mounted
+            .pipe(entries, async move |_, p, entries| {
+                let activation = LorebookActivation {
+                    slot: slot.clone(),
+                    entries,
+                };
+                Ok(ControlFlow::Continue(
+                    p.lorebook_activate(activation).await?,
+                ))
+            })
+            .await;
         entries
     }
 
