@@ -650,7 +650,7 @@ fn hello_source(version: &str) -> PathBuf {
         description = ""
         author = "Lorealm"
         version = "{version}"
-        permissions = ["prompt:write", "chat:read", "persona:read", "data:persist"]
+        permissions = ["prompt:write", "chat:read", "chat:write", "persona:read", "data:persist"]
 
         [structure]
         backend = "{}"
@@ -1103,4 +1103,18 @@ async fn after_generate_reaches_enabled_plugins() {
         .unwrap();
 
     assert_eq!(observed, serde_json::json!("after-generate Hi there"));
+}
+
+#[tokio::test]
+async fn message_finalize_runs_in_load_order() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    h.plugins.enable(h.user, "hello_addon").await.unwrap();
+
+    let content = h
+        .plugins
+        .message_finalize(h.user, Snowflake(1), "Hi there".into())
+        .await;
+
+    assert_eq!(content, "Hi there!!");
 }

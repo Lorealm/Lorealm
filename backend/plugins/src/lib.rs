@@ -8,8 +8,8 @@ pub use host::{
     CommandContext, HostServices, LoadedPlugin, PluginError, PluginHost, PluginPackage,
     Registrations,
     lorealm::plugin::types::{
-        Block, CommandSignature, Generated, Hook, HttpRequest, HttpResponse, Level, Message, Param,
-        Persona, ProcessorSignature, Role, SourceNode, ValueType,
+        Block, CommandSignature, Finalizing, Generated, Hook, HttpRequest, HttpResponse, Level,
+        Message, Param, Persona, ProcessorSignature, Role, SourceNode, ValueType,
     },
 };
 pub use log::{LogEntry, LogSource};

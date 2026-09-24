@@ -9,9 +9,9 @@ use async_trait::async_trait;
 use chrono::Utc;
 use dashmap::DashMap;
 use lorealm_plugins::{
-    FrontendSlot, Generated, HostServices, HttpRequest, HttpResponse, Level, LoadedPlugin,
-    LogEntry, LogSource, Manifest, Message, Persona, PluginHost, PluginInfo, PluginPackage, Role,
-    Version, resolve,
+    Finalizing, FrontendSlot, Generated, HostServices, HttpRequest, HttpResponse, Level,
+    LoadedPlugin, LogEntry, LogSource, Manifest, Message, Persona, PluginHost, PluginInfo,
+    PluginPackage, Role, Version, resolve,
 };
 use lorealm_storage::{
     Storage, StorageError,
@@ -605,6 +605,35 @@ impl PluginService {
             }
         }
         messages.into_iter().map(Into::into).collect()
+    }
+
+    /// Runs the user's `message-finalize` hooks in load order, each seeing
+    /// the last one's output. A plugin that fails is logged and skipped.
+    pub async fn message_finalize(
+        &self,
+        user_id: Snowflake,
+        conversation: Snowflake,
+        mut content: String,
+    ) -> String {
+        let slot = self.mount(user_id).await;
+        let mut guard = slot.lock().await;
+        let Some(mounted) = guard.as_mut() else {
+            return content;
+        };
+        let handles: Vec<String> = mounted.plugins.iter().map(|(h, _)| h.clone()).collect();
+        for handle in handles {
+            let reply = Finalizing {
+                conversation: conversation.0,
+                content: content.clone(),
+            };
+            if let Ok(next) = mounted
+                .call(&handle, async move |p| p.message_finalize(reply).await)
+                .await
+            {
+                content = next;
+            }
+        }
+        content
     }
 
     /// Runs the user's `after-generate` hooks in load order. A plugin that

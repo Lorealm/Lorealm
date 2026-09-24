@@ -861,7 +861,8 @@ impl ChatService {
                 })
                 .collect();
 
-            let outcome = acc.finish();
+            let mut outcome = acc.finish();
+            outcome.spoken = plugins.message_finalize(spec.owner, convo_id, outcome.spoken).await;
             // meta/persist now read from `outcome`:
             let meta = json!({
                 "context": stored,

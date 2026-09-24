@@ -8,9 +8,9 @@ use lorealm::plugin::host::{
     register_hook, register_processor, register_source_node, settings, subscribe, unsubscribe,
 };
 use lorealm::plugin::types::{
-    Block, CommandCall, CommandSignature, CustomEvent, FrontendCall, Generated, Hook, HttpRequest,
-    Level, Message, Param, ProcessorCall, ProcessorSignature, Role, SourceCall, SourceNode,
-    ValueType,
+    Block, CommandCall, CommandSignature, CustomEvent, Finalizing, FrontendCall, Generated, Hook,
+    HttpRequest, Level, Message, Param, ProcessorCall, ProcessorSignature, Role, SourceCall,
+    SourceNode, ValueType,
 };
 use serde_json::Value;
 
@@ -20,6 +20,7 @@ impl Guest for Hello {
     fn init() -> Result<(), String> {
         register_hook(Hook::PromptBuild)?;
         register_hook(Hook::AfterGenerate)?;
+        register_hook(Hook::MessageFinalize)?;
         // Only `hello_addon` may emit it, as this component also runs as that.
         subscribe("hello_addon.ping")?;
         register_command(&CommandSignature {
@@ -147,6 +148,9 @@ impl Guest for Hello {
             Event::AfterGenerate(Generated { content, .. }) => {
                 persist_data("event", format!("after-generate {content}").as_bytes())?;
                 Ok(Response::AfterGenerate)
+            }
+            Event::MessageFinalize(Finalizing { content, .. }) => {
+                Ok(Response::MessageFinalize(format!("{content}!")))
             }
             Event::Source(SourceCall { settings, .. }) => {
                 let settings: Value = serde_json::from_str(&settings).map_err(|e| e.to_string())?;

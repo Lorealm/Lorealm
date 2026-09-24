@@ -24,9 +24,9 @@ wasmtime::component::bindgen!({
 pub struct EvalContextHandle;
 
 use lorealm::plugin::types::{
-    Block, CommandCall, CommandSignature, CustomEvent, FrontendCall, Generated, Hook, HttpRequest,
-    HttpResponse, Level, Message, Persona, ProcessorCall, ProcessorSignature, SourceCall,
-    SourceNode,
+    Block, CommandCall, CommandSignature, CustomEvent, Finalizing, FrontendCall, Generated, Hook,
+    HttpRequest, HttpResponse, Level, Message, Persona, ProcessorCall, ProcessorSignature,
+    SourceCall, SourceNode,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -231,6 +231,7 @@ impl lorealm::plugin::host::Host for PluginState {
         let permission = match hook {
             Hook::PromptBuild => "prompt:write",
             Hook::AfterGenerate => "chat:read",
+            Hook::MessageFinalize => "chat:write",
         };
         self.require(permission)?;
         if !self.hooks.contains(&hook) {
@@ -486,6 +487,18 @@ impl LoadedPlugin {
         match self.handle(Event::AfterGenerate(generated)).await? {
             Response::AfterGenerate => Ok(()),
             _ => Err(mismatch("after-generate")),
+        }
+    }
+
+    /// Runs the `message-finalize` hook. Returns the content unchanged if the
+    /// plugin did not register it.
+    pub async fn message_finalize(&mut self, reply: Finalizing) -> Result<String, PluginError> {
+        if !self.store.data().hooks.contains(&Hook::MessageFinalize) {
+            return Ok(reply.content);
+        }
+        match self.handle(Event::MessageFinalize(reply)).await? {
+            Response::MessageFinalize(content) => Ok(content),
+            _ => Err(mismatch("message-finalize")),
         }
     }
 
