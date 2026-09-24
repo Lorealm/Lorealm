@@ -9,8 +9,8 @@ use lorealm::plugin::host::{
 };
 use lorealm::plugin::types::{
     Block, CommandCall, CommandSignature, CustomEvent, Finalizing, FrontendCall, Generated, Hook,
-    HttpRequest, Level, Message, Param, ProcessorCall, ProcessorSignature, Role, SourceCall,
-    SourceNode, UserInput, ValueType, Verdict,
+    HttpRequest, Level, LorebookActivation, LorebookEntry, Message, Param, ProcessorCall,
+    ProcessorSignature, Role, SourceCall, SourceNode, UserInput, ValueType, Verdict,
 };
 use serde_json::Value;
 
@@ -22,6 +22,7 @@ impl Guest for Hello {
         register_hook(Hook::AfterGenerate)?;
         register_hook(Hook::MessageFinalize)?;
         register_hook(Hook::UserMessage)?;
+        register_hook(Hook::LorebookActivate)?;
         // Only `hello_addon` may emit it, as this component also runs as that.
         subscribe("hello_addon.ping")?;
         register_command(&CommandSignature {
@@ -152,6 +153,19 @@ impl Guest for Hello {
             }
             Event::MessageFinalize(Finalizing { content, .. }) => {
                 Ok(Response::MessageFinalize(format!("{content}!")))
+            }
+            // Test control: drops `drop me`.
+            Event::LorebookActivate(LorebookActivation { entries, .. }) => {
+                Ok(Response::LorebookActivate(
+                    entries
+                        .into_iter()
+                        .filter(|e| e.content != "drop me")
+                        .map(|e| LorebookEntry {
+                            content: format!("{}!", e.content),
+                            ..e
+                        })
+                        .collect(),
+                ))
             }
             // Test control: refuses `deny me`.
             Event::UserMessage(UserInput { content, .. }) => {

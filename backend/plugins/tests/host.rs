@@ -6,8 +6,8 @@ use std::time::Duration;
 
 use lorealm_plugins::{
     CommandContext, Finalizing, Generated, HostServices, HttpRequest, HttpResponse, Level,
-    LogEntry, LogSource, Message, Persona, PluginError, PluginHost, PluginPackage, Role, UserInput,
-    Verdict,
+    LogEntry, LogSource, LorebookActivation, LorebookEntry, Message, Persona, PluginError,
+    PluginHost, PluginPackage, Role, UserInput, Verdict,
 };
 
 fn fixture(name: &str) -> PathBuf {
@@ -721,4 +721,34 @@ async fn user_message_changes_or_refuses_the_input() {
 
     assert!(matches!(changed, Verdict::Change(c) if c == "Hi?"));
     assert!(matches!(denied, Verdict::Deny(r) if r == "denied on purpose"));
+}
+
+fn entry(content: &str) -> LorebookEntry {
+    LorebookEntry {
+        id: content.into(),
+        content: content.into(),
+        priority: 0,
+    }
+}
+
+#[tokio::test]
+async fn lorebook_activate_changes_the_entries() {
+    let host = host();
+    let package = compile(&host, "hello");
+    let mut plugin = host
+        .instantiate(&package, Arc::new(TestServices::default()))
+        .await
+        .unwrap();
+
+    let entries = plugin
+        .lorebook_activate(LorebookActivation {
+            slot: "setting".into(),
+            entries: vec![entry("dragons"), entry("drop me")],
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].id, "dragons");
+    assert_eq!(entries[0].content, "dragons!");
 }

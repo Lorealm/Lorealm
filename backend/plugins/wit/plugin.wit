@@ -35,6 +35,8 @@ interface types {
         message-finalize,
         /// Requires the `chat:write` permission.
         user-message,
+        /// Requires the `prompt:write` permission.
+        lorebook-activate,
     }
 
     /// A Weaver value as JSON text. WIT has no recursive types.
@@ -161,6 +163,24 @@ interface types {
         deny(string),
     }
 
+    /// A lorebook entry that activated.
+    record lorebook-entry {
+        /// The entry's id. Anything, for an entry the plugin adds.
+        id: string,
+        content: string,
+        /// Higher survives longer when the prompt is over budget.
+        priority: s32,
+    }
+
+    /// The entries that activated for one world info node, before they are
+    /// inserted.
+    record lorebook-activation {
+        /// `prelude`, `preamble`, `backdrop`, `setting`, `foreground` or `coda`.
+        slot: string,
+        /// In the order they are inserted.
+        entries: list<lorebook-entry>,
+    }
+
     /// A request for `http-fetch`.
     record http-request {
         /// Such as `GET` or `POST`.
@@ -194,6 +214,8 @@ interface types {
         message-finalize(finalizing),
         /// The user's message, which the plugin may change or refuse.
         user-message(user-input),
+        /// The entries to insert, in order.
+        lorebook-activate(lorebook-activation),
     }
 
     /// Answers `handle`, in the same case as the event.
@@ -208,6 +230,7 @@ interface types {
         after-generate,
         message-finalize(string),
         user-message(verdict),
+        lorebook-activate(list<lorebook-entry>),
     }
 }
 

@@ -1139,3 +1139,23 @@ async fn user_message_runs_in_load_order_until_refused() {
     assert_eq!(refusal.handle, "hello");
     assert_eq!(refusal.reason, "denied on purpose");
 }
+
+#[tokio::test]
+async fn lorebook_activate_runs_in_load_order() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    h.plugins.enable(h.user, "hello_addon").await.unwrap();
+    let entry = |content: &str| lorealm_plugins::LorebookEntry {
+        id: content.into(),
+        content: content.into(),
+        priority: 0,
+    };
+
+    let vocabulary = h.plugins.vocabulary(h.user).await.unwrap();
+    let entries = vocabulary
+        .lorebook_activate("setting", vec![entry("dragons"), entry("drop me")])
+        .await;
+
+    let contents: Vec<_> = entries.iter().map(|e| e.content.as_str()).collect();
+    assert_eq!(contents, ["dragons!!"]);
+}

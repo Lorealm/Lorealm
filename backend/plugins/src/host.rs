@@ -25,8 +25,8 @@ pub struct EvalContextHandle;
 
 use lorealm::plugin::types::{
     Block, CommandCall, CommandSignature, CustomEvent, Finalizing, FrontendCall, Generated, Hook,
-    HttpRequest, HttpResponse, Level, Message, Persona, ProcessorCall, ProcessorSignature,
-    SourceCall, SourceNode, UserInput, Verdict,
+    HttpRequest, HttpResponse, Level, LorebookActivation, LorebookEntry, Message, Persona,
+    ProcessorCall, ProcessorSignature, SourceCall, SourceNode, UserInput, Verdict,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -229,7 +229,7 @@ impl lorealm::plugin::host::Host for PluginState {
 
     async fn register_hook(&mut self, hook: Hook) -> Result<(), String> {
         let permission = match hook {
-            Hook::PromptBuild => "prompt:write",
+            Hook::PromptBuild | Hook::LorebookActivate => "prompt:write",
             Hook::AfterGenerate => "chat:read",
             Hook::MessageFinalize | Hook::UserMessage => "chat:write",
         };
@@ -511,6 +511,21 @@ impl LoadedPlugin {
         match self.handle(Event::UserMessage(input)).await? {
             Response::UserMessage(verdict) => Ok(verdict),
             _ => Err(mismatch("user-message")),
+        }
+    }
+
+    /// Runs the `lorebook-activate` hook. Returns the entries unchanged if the
+    /// plugin did not register it.
+    pub async fn lorebook_activate(
+        &mut self,
+        activation: LorebookActivation,
+    ) -> Result<Vec<LorebookEntry>, PluginError> {
+        if !self.store.data().hooks.contains(&Hook::LorebookActivate) {
+            return Ok(activation.entries);
+        }
+        match self.handle(Event::LorebookActivate(activation)).await? {
+            Response::LorebookActivate(entries) => Ok(entries),
+            _ => Err(mismatch("lorebook-activate")),
         }
     }
 
