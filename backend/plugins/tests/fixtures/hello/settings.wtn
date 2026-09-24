@@ -1,3 +1,4 @@
 #inputs
 greeting: string
 excited: bool = false
+key: Ref<elevenlabs>

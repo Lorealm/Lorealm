@@ -22,6 +22,7 @@
 <script lang="ts">
 	import { Plus, X } from '@lucide/svelte';
 	import NumberInput from '$lib/components/NumberInput.svelte';
+	import { connectionStore } from '$lib/stores/connection.svelte.js';
 	import { itemsOf } from './resources.svelte.js';
 	import Self from './InputControl.svelte';
 
@@ -92,6 +93,22 @@
 				<Plus size={12} /> Add
 			</button>
 		</div>
+	{/if}
+{:else if ty.type === 'reference' && ty.kind === null}
+	{@const keys = connectionStore.secretsFor(ty.name)}
+	{#if keys.length}
+		<select
+			aria-label={ariaLabel}
+			value={(value as string) ?? ''}
+			onchange={(e) => onchange(e.currentTarget.value)}
+		>
+			<option value="">— pick a key —</option>
+			{#each keys as key (key.id)}
+				<option value={key.id}>{key.label} (…{key.key_hint})</option>
+			{/each}
+		</select>
+	{:else}
+		<p class="none">You have no {ty.name} keys yet. Add one under Connections → API keys.</p>
 	{/if}
 {:else if ty.type === 'reference'}
 	<select

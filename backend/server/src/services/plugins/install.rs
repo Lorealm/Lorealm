@@ -9,7 +9,7 @@ use std::{
 };
 
 use lorealm_plugins::{Level, Manifest, Version};
-use lorealm_storage::models::{Snowflake, is_identifier};
+use lorealm_storage::models::{RealmResourceKind, Snowflake, is_identifier};
 use serde::Serialize;
 
 use super::PluginService;
@@ -48,6 +48,21 @@ impl PluginService {
             return Err(invalid(format!(
                 "the handle `{handle}` isn't an identifier"
             )));
+        }
+        for kind in &manifest.definitions.api_keys {
+            if !is_identifier(kind) {
+                return Err(invalid(format!(
+                    "the API key type `{kind}` isn't an identifier"
+                )));
+            }
+            if RealmResourceKind::ALL
+                .iter()
+                .any(|r| r.ref_name().eq_ignore_ascii_case(kind))
+            {
+                return Err(invalid(format!(
+                    "the API key type `{kind}` is taken by a built-in type"
+                )));
+            }
         }
         if let Ok(settings) = std::fs::read_to_string(source.join(&manifest.structure.settings)) {
             super::settings::declarations(&settings)

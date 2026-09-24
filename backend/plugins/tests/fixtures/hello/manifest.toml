@@ -6,6 +6,9 @@ author = "Lorealm"
 version = "0.1.0"
 permissions = ["prompt:write", "persona:read", "data:persist", "state:read", "state:write", "ui:unsafe"]
 
+[definitions]
+api_keys = ["elevenlabs"]
+
 [structure]
 backend = "target/wasm32-wasip2/release/hello.wasm"
 

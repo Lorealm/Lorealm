@@ -17,6 +17,7 @@ A living document to help us keep track of the plugin system implementation.
 | 23/09/26      | Added installation from source      | ✅            |
 | 24/09/26      | Validated and surfaced permissions  | ✅            |
 | 24/09/26      | Added plugin settings               | ✅            |
+| 24/09/26      | Added API key types                 | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -101,6 +102,9 @@ Every plugin must ship with a manifest.toml file. A manifest file ships the plug
 - backend (the relative path to the built backend component, defaults to "plugin.wasm")
 - readme (the relative path to a Markdown README, defaults to "README.md"; optional). Shown on the plugin's page in the client, and later in the marketplace.
 - settings (the relative path to the settings file, defaults to "settings.wtn"; optional). See Settings.
+
+#### Definitions (optional)
+- api_keys (API key types, e.g. `["elevenlabs"]`; identifiers that don't match a built-in type). See Settings.
 
 #### Build (optional)
 - backend (a command that builds the backend component, as a list of arguments)
@@ -192,7 +196,7 @@ Plugin callables are available wherever built-in vocabulary is: every Weaver hos
 Registering needs no permission: a registered callable only runs when the user's own script or template calls it.
 
 ### Settings
-A plugin's settings are the `#inputs` block of a WTN document, and nothing else; the user fills them in on the plugin's page.
+A plugin's settings are the `#inputs` block of a WTN document, and nothing else; the user fills them in under Settings → You → Plugins, which the plugin list and the plugin's page link to.
 ```
 #inputs
 voice: enum("rachel", "adam") = "rachel"
@@ -201,7 +205,9 @@ autoplay: bool
 ```
 The file must parse when the plugin is installed. Values are checked by Weaver the same way a blueprint's inputs are, when saved (`PUT /plugins/{handle}/settings`, refused with the reason) and when read (`GET`, with defaults applied). Settings are kept per user and plugin, and outlive disabling it.
 
-`Ref<...>` inputs are refused for now. **Planned:** API key types declared in `[definitions]`, a `settings()` host function, and logging values that no longer fit after an update.
+An API key setting is `Ref<type>`, where `type` is declared in `[definitions] api_keys` by any of the user's enabled plugins, so one plugin can declare a type that others use through `requires`. Any number of plugins may declare the same type. The user adds keys of these types in the key manager, and a setting holds the id of one of their own keys of that type; the plugin never sees the key itself. A `Ref` whose type no enabled plugin declares, and built-in types like `Ref<Character>`, are refused for now.
+
+**Planned:** a `settings()` host function, and logging values that no longer fit after an update.
 
 ### Plugin Hooks
 On the server, we don't care what goes on inside the WASM sandbox. The main way a plugin triggers based on activity is through hooks.

@@ -3,12 +3,13 @@
 	import type { UserSection } from '$lib/navigation/routes.js';
 	import ProfileSection from './user/ProfileSection.svelte';
 	import TokenizersSection from './user/TokenizersSection.svelte';
+	import PluginsSection from './user/PluginsSection.svelte';
 	import AppearanceSection from './client/AppearanceSection.svelte';
 	import EditorSection from './client/EditorSection.svelte';
 	import InspectorSection from './client/InspectorSection.svelte';
 	import KeybindsSection from './client/KeybindsSection.svelte';
 
-	let { section }: { section: UserSection } = $props();
+	let { section, id }: { section: UserSection; id?: string } = $props();
 
 	type Tab = { id: UserSection; label: string; go: () => void };
 
@@ -18,7 +19,8 @@
 			id: 'tokenizers',
 			label: 'Tokenizers',
 			go: () => navigator.start().settings().user().tokenizers()
-		}
+		},
+		{ id: 'plugins', label: 'Plugins', go: () => navigator.start().settings().user().plugins() }
 	];
 
 	const device: Tab[] = [
@@ -54,6 +56,8 @@
 		<ProfileSection />
 	{:else if section === 'tokenizers'}
 		<TokenizersSection />
+	{:else if section === 'plugins'}
+		<PluginsSection handle={id} />
 	{:else if section === 'appearance'}
 		<AppearanceSection />
 	{:else if section === 'editor'}

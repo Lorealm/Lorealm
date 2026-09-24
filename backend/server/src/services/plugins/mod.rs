@@ -51,6 +51,10 @@ pub struct InstalledPlugin {
     pub latest: Option<Version>,
     /// Where the plugin appears in the client.
     pub slots: Vec<FrontendSlot>,
+    /// The API key types it declares.
+    pub api_keys: Vec<String>,
+    /// Whether it ships a `settings.wtn` for the user to fill in.
+    pub has_settings: bool,
 }
 
 /// What a plugin's settings ask for, and the user's values.
@@ -161,6 +165,11 @@ impl PluginService {
                     slots: usable_slots(&package.manifest, allow_unsafe)
                         .cloned()
                         .collect(),
+                    api_keys: package.manifest.definitions.api_keys.clone(),
+                    has_settings: self
+                        .version_dir(&handle, &version)
+                        .join(&package.manifest.structure.settings)
+                        .is_file(),
                 }),
                 Err(err) => tracing::warn!(%handle, error = %err, "skipping plugin"),
             }
@@ -416,7 +425,8 @@ impl PluginService {
         let invalid = |reason| PluginError::InvalidSettings(handle.to_owned(), reason);
         let inputs = settings::declarations(&source).map_err(invalid)?;
         let saved = self.saved_settings(user_id, handle).await?;
-        let values = match settings::resolve(&source, &saved) {
+        let keys = self.keys(user_id).await?;
+        let values = match settings::resolve(&source, &saved, &keys) {
             Ok(serde_json::Value::Object(values)) => values,
             _ => saved,
         };
@@ -435,11 +445,43 @@ impl PluginService {
     ) -> Result<(), PluginError> {
         let invalid = |reason| PluginError::InvalidSettings(handle.to_owned(), reason);
         let source = self.settings_source(user_id, handle).await?;
-        settings::resolve(source.as_deref().unwrap_or("#inputs"), &values).map_err(invalid)?;
+        let keys = self.keys(user_id).await?;
+        settings::resolve(source.as_deref().unwrap_or("#inputs"), &values, &keys)
+            .map_err(invalid)?;
         self.storage
             .set_plugin_settings(user_id, handle, &serde_json::Value::Object(values))
             .await?;
         Ok(())
+    }
+
+    /// The API key types the user's enabled plugins declare.
+    pub async fn key_types(&self, user_id: Snowflake) -> Result<Vec<String>, PluginError> {
+        let enabled = self.storage.list_user_plugins(user_id).await?;
+        let mut types: Vec<String> = self
+            .installed(&enabled)
+            .await
+            .iter()
+            .flat_map(|p| p.manifest.definitions.api_keys.clone())
+            .collect();
+        types.sort();
+        types.dedup();
+        Ok(types)
+    }
+
+    /// Each key type the user's plugins declare, with the user's keys of it.
+    async fn keys(&self, user_id: Snowflake) -> Result<settings::Keys, PluginError> {
+        let mut keys: settings::Keys = self
+            .key_types(user_id)
+            .await?
+            .into_iter()
+            .map(|kind| (kind, Vec::new()))
+            .collect();
+        for secret in self.storage.list_secrets_by_owner(user_id).await? {
+            if let Some(ids) = keys.get_mut(&secret.provider) {
+                ids.push(secret.id.to_string());
+            }
+        }
+        Ok(keys)
     }
 
     /// The `settings.wtn` of the version shown to the user, if it has one.

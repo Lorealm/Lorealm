@@ -40,6 +40,16 @@ pub struct Manifest {
     pub frontend: Frontend,
     #[serde(default)]
     pub build: Build,
+    #[serde(default)]
+    pub definitions: Definitions,
+}
+
+/// Auxilliary types registered by a plugin
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct Definitions {
+    /// Custom API key types.
+    #[serde(default)]
+    pub api_keys: Vec<String>,
 }
 
 /// How to build the plugin from source. Each command runs in the plugin's

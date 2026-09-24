@@ -67,6 +67,7 @@ pub(crate) struct Harness {
     pub snow: Arc<SnowflakeService>,
     /// No plugins installed; plugin tests swap in their own.
     pub plugins: Arc<PluginService>,
+    pub connection: Arc<ConnectionService>,
     /// The caller in every test unless one says otherwise.
     pub user: Snowflake,
     /// Someone else, for proving a template cannot reach across owners.
@@ -156,7 +157,7 @@ impl Harness {
             chat,
             characters,
             context,
-            connection,
+            Arc::clone(&connection),
             persona,
             state,
             conversation,
@@ -177,6 +178,7 @@ impl Harness {
             stranger: snow.generate(),
             snow,
             plugins,
+            connection,
         }
     }
 

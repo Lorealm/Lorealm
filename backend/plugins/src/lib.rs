@@ -14,8 +14,8 @@ pub use host::{
 };
 pub use log::{LogEntry, LogSource};
 pub use manifest::{
-    Build, Compatibility, Frontend, FrontendSlot, Manifest, ManifestError, PluginInfo, SlotMode,
-    Structure,
+    Build, Compatibility, Definitions, Frontend, FrontendSlot, Manifest, ManifestError, PluginInfo,
+    SlotMode, Structure,
 };
 pub use resolve::{Resolution, resolve};
 pub use semver::Version;
