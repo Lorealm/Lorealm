@@ -10,7 +10,7 @@ pub use host::{
     lorealm::plugin::types::{
         Block, CommandSignature, Finalizing, Generated, Hook, HttpRequest, HttpResponse, Level,
         LorebookActivation, LorebookEntry, Message, Param, Persona, ProcessorSignature, Role,
-        SourceNode, ToolInvocation, UserInput, ValueType, Verdict,
+        SourceNode, ToolInvocation, ToolOutput, UserInput, ValueType, Verdict,
     },
 };
 pub use log::{LogEntry, LogSource};

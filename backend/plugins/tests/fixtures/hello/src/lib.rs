@@ -10,8 +10,8 @@ use lorealm::plugin::host::{
 use lorealm::plugin::types::{
     Block, CommandCall, CommandSignature, CustomEvent, Finalizing, FrontendCall, Generated, Hook,
     HttpRequest, Level, LorebookActivation, LorebookEntry, Message, Param, ProcessorCall,
-    ProcessorSignature, Role, SourceCall, SourceNode, ToolInvocation, UserInput, ValueType,
-    Verdict,
+    ProcessorSignature, Role, SourceCall, SourceNode, ToolInvocation, ToolOutput, UserInput,
+    ValueType, Verdict,
 };
 use serde_json::Value;
 
@@ -25,6 +25,7 @@ impl Guest for Hello {
         register_hook(Hook::UserMessage)?;
         register_hook(Hook::LorebookActivate)?;
         register_hook(Hook::ToolCall)?;
+        register_hook(Hook::ToolResult)?;
         // Only `hello_addon` may emit it, as this component also runs as that.
         subscribe("hello_addon.ping")?;
         register_command(&CommandSignature {
@@ -180,6 +181,16 @@ impl Guest for Hello {
                     serde_json::from_str(&arguments).map_err(|e| e.to_string())?;
                 arguments["seen"] = (arguments["seen"].as_u64().unwrap_or(0) + 1).into();
                 Ok(Response::ToolCall(Verdict::Change(arguments.to_string())))
+            }
+            // Test control: counts itself in an object's `checked`, and adds
+            // `!` to an error.
+            Event::ToolResult(ToolOutput { result, .. }) => {
+                let mut result: Value = serde_json::from_str(&result).map_err(|e| e.to_string())?;
+                match &mut result {
+                    Value::String(message) => message.push('!'),
+                    value => value["checked"] = (value["checked"].as_u64().unwrap_or(0) + 1).into(),
+                }
+                Ok(Response::ToolResult(result.to_string()))
             }
             // Test control: refuses `deny me`.
             Event::UserMessage(UserInput { content, .. }) => {

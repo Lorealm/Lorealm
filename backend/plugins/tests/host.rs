@@ -7,7 +7,7 @@ use std::time::Duration;
 use lorealm_plugins::{
     CommandContext, Finalizing, Generated, HostServices, HttpRequest, HttpResponse, Level,
     LogEntry, LogSource, LorebookActivation, LorebookEntry, Message, Persona, PluginError,
-    PluginHost, PluginPackage, Role, ToolInvocation, UserInput, Verdict,
+    PluginHost, PluginPackage, Role, ToolInvocation, ToolOutput, UserInput, Verdict,
 };
 
 fn fixture(name: &str) -> PathBuf {
@@ -771,4 +771,29 @@ async fn tool_call_changes_or_refuses_the_call() {
 
     assert!(matches!(changed, Verdict::Change(a) if a == r#"{"city":"Oslo","seen":1}"#));
     assert!(matches!(denied, Verdict::Deny(r) if r == "denied on purpose"));
+}
+
+#[tokio::test]
+async fn tool_result_changes_the_result() {
+    let host = host();
+    let package = compile(&host, "hello");
+    let mut plugin = host
+        .instantiate(&package, Arc::new(TestServices::default()))
+        .await
+        .unwrap();
+    let output = |result: &str, is_error| ToolOutput {
+        name: "weather".into(),
+        arguments: "{}".into(),
+        result: result.into(),
+        is_error,
+    };
+
+    let value = plugin
+        .tool_result(output(r#"{"temp":3}"#, false))
+        .await
+        .unwrap();
+    let error = plugin.tool_result(output(r#""boom""#, true)).await.unwrap();
+
+    assert_eq!(value, r#"{"checked":1,"temp":3}"#);
+    assert_eq!(error, r#""boom!""#);
 }

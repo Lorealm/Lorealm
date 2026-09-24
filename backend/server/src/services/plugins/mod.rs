@@ -1,5 +1,7 @@
 use std::{
     collections::VecDeque,
+    convert::Infallible,
+    ops::ControlFlow,
     path::PathBuf,
     sync::Arc,
     time::{Duration, Instant},
@@ -11,7 +13,7 @@ use dashmap::DashMap;
 use lorealm_plugins::{
     Finalizing, FrontendSlot, Generated, HostServices, HttpRequest, HttpResponse, Level,
     LoadedPlugin, LogEntry, LogSource, Manifest, Message, Persona, PluginHost, PluginInfo,
-    PluginPackage, Role, ToolInvocation, UserInput, Verdict, Version, resolve,
+    PluginPackage, Role, ToolInvocation, ToolOutput, UserInput, Verdict, Version, resolve,
 };
 use lorealm_storage::{
     Storage, StorageError,
@@ -76,6 +78,15 @@ pub struct Refusal {
     pub reason: String,
 }
 
+impl Refusal {
+    fn new(handle: &str, reason: String) -> Self {
+        Self {
+            handle: handle.to_owned(),
+            reason,
+        }
+    }
+}
+
 /// What a plugin's settings ask for, and the user's values.
 #[derive(Default, Serialize)]
 pub struct PluginSettings {
@@ -109,6 +120,33 @@ impl Mounted {
         let value = self.run(i, op).await?;
         let emitted = self.plugins[i].1.take_emitted();
         self.deliver(emitted).await;
+        Ok(value)
+    }
+
+    /// Hands `value` to each plugin in load order, each seeing the last one's
+    /// output, until `op` breaks. A plugin that fails is skipped; the plugin
+    /// crate logged why.
+    async fn pipe<T: Clone, B>(
+        &mut self,
+        mut value: T,
+        op: impl AsyncFn(
+            &str,
+            &mut LoadedPlugin,
+            T,
+        ) -> Result<ControlFlow<B, T>, lorealm_plugins::PluginError>,
+    ) -> Result<T, B> {
+        let handles: Vec<String> = self.plugins.iter().map(|(h, _)| h.clone()).collect();
+        for handle in handles {
+            let input = value.clone();
+            match self
+                .call(&handle, async |p| op(&handle, p, input).await)
+                .await
+            {
+                Ok(ControlFlow::Continue(next)) => value = next,
+                Ok(ControlFlow::Break(b)) => return Err(b),
+                Err(_) => {}
+            }
+        }
         Ok(value)
     }
 
@@ -585,137 +623,134 @@ impl PluginService {
             .await?)
     }
 
-    /// Runs the user's `prompt-build` hooks in load order. A plugin that fails
-    /// is logged and skipped.
+    /// Runs the user's `prompt-build` hooks. A plugin that fails is logged and
+    /// skipped.
     pub async fn prompt_build(
         &self,
         user_id: Snowflake,
         prompt: Vec<PromptMessage>,
     ) -> Vec<PromptMessage> {
-        let slot = self.mount(user_id).await;
-        let mut guard = slot.lock().await;
-        let Some(mounted) = guard.as_mut() else {
-            return prompt;
-        };
-        let handles: Vec<String> = mounted.plugins.iter().map(|(h, _)| h.clone()).collect();
-        if handles.is_empty() {
-            return prompt;
-        }
-
-        let mut messages: Vec<Message> = prompt.into_iter().map(Into::into).collect();
-        for handle in handles {
-            let input = messages.clone();
-            if let Ok(next) = mounted
-                .call(&handle, async move |p| p.prompt_build(input).await)
-                .await
-            {
-                messages = next;
-            }
-        }
+        let messages: Vec<Message> = prompt.into_iter().map(Into::into).collect();
+        let Ok(messages): Result<_, Infallible> = self
+            .pipe(user_id, messages, async move |_, p, messages| {
+                Ok(ControlFlow::Continue(p.prompt_build(messages).await?))
+            })
+            .await;
         messages.into_iter().map(Into::into).collect()
     }
 
-    /// Runs the user's `user-message` hooks in load order, each seeing the
-    /// last one's output, until one refuses. A plugin that fails is logged
-    /// and skipped.
+    /// Runs the user's `user-message` hooks until one refuses. A plugin that
+    /// fails is logged and skipped.
     pub async fn user_message(
         &self,
         user_id: Snowflake,
         conversation: Snowflake,
-        mut content: String,
+        content: String,
     ) -> Result<String, Refusal> {
-        let slot = self.mount(user_id).await;
-        let mut guard = slot.lock().await;
-        let Some(mounted) = guard.as_mut() else {
-            return Ok(content);
-        };
-        let handles: Vec<String> = mounted.plugins.iter().map(|(h, _)| h.clone()).collect();
-        for handle in handles {
+        self.pipe(user_id, content, async move |handle, p, content| {
             let input = UserInput {
                 conversation: conversation.0,
                 content: content.clone(),
             };
-            match mounted
-                .call(&handle, async move |p| p.user_message(input).await)
-                .await
-            {
-                Ok(Verdict::Change(next)) => content = next,
-                Ok(Verdict::Deny(reason)) => return Err(Refusal { handle, reason }),
-                Ok(Verdict::Allow) | Err(_) => {}
-            }
-        }
-        Ok(content)
+            Ok(match p.user_message(input).await? {
+                Verdict::Allow => ControlFlow::Continue(content),
+                Verdict::Change(next) => ControlFlow::Continue(next),
+                Verdict::Deny(reason) => ControlFlow::Break(Refusal::new(handle, reason)),
+            })
+        })
+        .await
     }
 
-    /// Runs the user's `tool-call` hooks in load order, each seeing the last
-    /// one's arguments, until one refuses. A plugin that fails, or changes the
-    /// arguments to something other than JSON, is logged and skipped.
+    /// Runs the user's `tool-call` hooks until one refuses. A plugin that
+    /// fails, or changes the arguments to something other than JSON, is logged
+    /// and skipped.
     pub async fn tool_call(
         &self,
         user_id: Snowflake,
         name: &str,
-        mut arguments: serde_json::Value,
+        arguments: serde_json::Value,
     ) -> Result<serde_json::Value, Refusal> {
-        let slot = self.mount(user_id).await;
-        let mut guard = slot.lock().await;
-        let Some(mounted) = guard.as_mut() else {
-            return Ok(arguments);
-        };
-        let handles: Vec<String> = mounted.plugins.iter().map(|(h, _)| h.clone()).collect();
-        for handle in handles {
+        let (logs, name) = (Arc::clone(&self.logs), name.to_owned());
+        self.pipe(user_id, arguments, async move |handle, p, arguments| {
             let call = ToolInvocation {
-                name: name.to_owned(),
+                name: name.clone(),
                 arguments: arguments.to_string(),
             };
-            match mounted
-                .call(&handle, async move |p| p.tool_call(call).await)
-                .await
-            {
-                Ok(Verdict::Change(next)) => match serde_json::from_str(&next) {
-                    Ok(next) => arguments = next,
-                    Err(err) => {
-                        let message = format!("Ignored its change to `{name}`'s arguments: {err}");
-                        self.logs.host(user_id, &handle, Level::Warn, message).await;
-                    }
-                },
-                Ok(Verdict::Deny(reason)) => return Err(Refusal { handle, reason }),
-                Ok(Verdict::Allow) | Err(_) => {}
-            }
-        }
-        Ok(arguments)
+            Ok(match p.tool_call(call).await? {
+                Verdict::Allow => ControlFlow::Continue(arguments),
+                Verdict::Change(next) => ControlFlow::Continue(
+                    parse(&logs, user_id, handle, &name, "arguments", &next)
+                        .await
+                        .unwrap_or(arguments),
+                ),
+                Verdict::Deny(reason) => ControlFlow::Break(Refusal::new(handle, reason)),
+            })
+        })
+        .await
     }
 
-    /// Runs the user's `message-finalize` hooks in load order, each seeing
-    /// the last one's output. A plugin that fails is logged and skipped.
+    /// Runs the user's `tool-result` hooks on a tool call's result: its value,
+    /// or its error message. A plugin that fails, or changes the result to
+    /// something other than JSON, is logged and skipped.
+    pub async fn tool_result(
+        &self,
+        user_id: Snowflake,
+        name: &str,
+        arguments: &serde_json::Value,
+        result: Result<serde_json::Value, String>,
+    ) -> Result<serde_json::Value, String> {
+        let is_error = result.is_err();
+        let value = result.unwrap_or_else(serde_json::Value::String);
+        let (logs, name, arguments) = (
+            Arc::clone(&self.logs),
+            name.to_owned(),
+            arguments.to_string(),
+        );
+        let Ok(value): Result<_, Infallible> = self
+            .pipe(user_id, value, async move |handle, p, value| {
+                let output = ToolOutput {
+                    name: name.clone(),
+                    arguments: arguments.clone(),
+                    result: value.to_string(),
+                    is_error,
+                };
+                let next = p.tool_result(output).await?;
+                Ok(ControlFlow::Continue(
+                    parse(&logs, user_id, handle, &name, "result", &next)
+                        .await
+                        .unwrap_or(value),
+                ))
+            })
+            .await;
+        match (is_error, value) {
+            (false, value) => Ok(value),
+            (true, serde_json::Value::String(message)) => Err(message),
+            (true, value) => Err(value.to_string()),
+        }
+    }
+
+    /// Runs the user's `message-finalize` hooks. A plugin that fails is
+    /// logged and skipped.
     pub async fn message_finalize(
         &self,
         user_id: Snowflake,
         conversation: Snowflake,
-        mut content: String,
+        content: String,
     ) -> String {
-        let slot = self.mount(user_id).await;
-        let mut guard = slot.lock().await;
-        let Some(mounted) = guard.as_mut() else {
-            return content;
-        };
-        let handles: Vec<String> = mounted.plugins.iter().map(|(h, _)| h.clone()).collect();
-        for handle in handles {
-            let reply = Finalizing {
-                conversation: conversation.0,
-                content: content.clone(),
-            };
-            if let Ok(next) = mounted
-                .call(&handle, async move |p| p.message_finalize(reply).await)
-                .await
-            {
-                content = next;
-            }
-        }
+        let Ok(content): Result<_, Infallible> = self
+            .pipe(user_id, content, async move |_, p, content| {
+                let reply = Finalizing {
+                    conversation: conversation.0,
+                    content,
+                };
+                Ok(ControlFlow::Continue(p.message_finalize(reply).await?))
+            })
+            .await;
         content
     }
 
-    /// Runs the user's `after-generate` hooks in load order. A plugin that
-    /// fails is logged and skipped. Callers shouldn't wait for it.
+    /// Runs the user's `after-generate` hooks. A plugin that fails is logged
+    /// and skipped. Callers shouldn't wait for it.
     pub async fn after_generate(
         &self,
         user_id: Snowflake,
@@ -723,21 +758,38 @@ impl PluginService {
         message: Snowflake,
         content: String,
     ) {
+        let _: Result<_, Infallible> = self
+            .pipe(user_id, (), async move |_, p, ()| {
+                let generated = Generated {
+                    conversation: conversation.0,
+                    message: message.0,
+                    content: content.clone(),
+                };
+                p.after_generate(generated).await?;
+                Ok(ControlFlow::Continue(()))
+            })
+            .await;
+    }
+
+    /// Hands `value` through the user's plugins; see [`Mounted::pipe`].
+    /// `op` should be an `async move` closure that owns what it captures:
+    /// borrowed captures make the future fail to be `Send` (a rustc
+    /// limitation with async closures), which breaks the chat stream.
+    async fn pipe<T: Clone, B>(
+        &self,
+        user_id: Snowflake,
+        value: T,
+        op: impl AsyncFn(
+            &str,
+            &mut LoadedPlugin,
+            T,
+        ) -> Result<ControlFlow<B, T>, lorealm_plugins::PluginError>,
+    ) -> Result<T, B> {
         let slot = self.mount(user_id).await;
         let mut guard = slot.lock().await;
-        let Some(mounted) = guard.as_mut() else {
-            return;
-        };
-        let handles: Vec<String> = mounted.plugins.iter().map(|(h, _)| h.clone()).collect();
-        for handle in handles {
-            let generated = Generated {
-                conversation: conversation.0,
-                message: message.0,
-                content: content.clone(),
-            };
-            let _ = mounted
-                .call(&handle, async move |p| p.after_generate(generated).await)
-                .await;
+        match guard.as_mut() {
+            Some(mounted) => mounted.pipe(value, op).await,
+            None => Ok(value),
         }
     }
 
@@ -900,6 +952,26 @@ impl CleanableService for PluginService {
             Err(_) => true,
         });
         before - self.mounted.len()
+    }
+}
+
+/// `json` as JSON. If it isn't, logs that `handle`'s change to the `what` of
+/// tool `name` was ignored.
+async fn parse(
+    logs: &PluginLogs,
+    user_id: Snowflake,
+    handle: &str,
+    name: &str,
+    what: &str,
+    json: &str,
+) -> Option<serde_json::Value> {
+    match serde_json::from_str(json) {
+        Ok(value) => Some(value),
+        Err(err) => {
+            let message = format!("Ignored its change to `{name}`'s {what}: {err}");
+            logs.host(user_id, handle, Level::Warn, message).await;
+            None
+        }
     }
 }
 

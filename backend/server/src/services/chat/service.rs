@@ -1407,6 +1407,7 @@ where
                     }
                     Err(refusal) => (input, Err(refusal.to_string())),
                 };
+                let result = plugins.tool_result(owner, &name, &input, result).await;
                 let (block, output, is_error) = match result {
                         Ok(value) => (
                             ContentBlock::ToolResult { tool_use_id: id.clone(), content: value.to_string(), is_error: false },

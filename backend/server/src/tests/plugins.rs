@@ -1181,3 +1181,28 @@ async fn tool_call_runs_in_load_order_until_refused() {
     assert_eq!(refusal.handle, "hello");
     assert_eq!(refusal.reason, "denied on purpose");
 }
+
+#[tokio::test]
+async fn tool_result_runs_in_load_order() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    h.plugins.enable(h.user, "hello_addon").await.unwrap();
+    let arguments = serde_json::json!({ "city": "Oslo" });
+
+    let value = h
+        .plugins
+        .tool_result(
+            h.user,
+            "weather",
+            &arguments,
+            Ok(serde_json::json!({ "temp": 3 })),
+        )
+        .await;
+    let error = h
+        .plugins
+        .tool_result(h.user, "weather", &arguments, Err("boom".into()))
+        .await;
+
+    assert_eq!(value, Ok(serde_json::json!({ "temp": 3, "checked": 2 })));
+    assert_eq!(error, Err("boom!!".into()));
+}
