@@ -69,7 +69,8 @@ async fn a_blueprint_describes_the_form_that_instantiates_it() {
             InputSpecType::List { of } if matches!(
                 **of,
                 InputSpecType::Reference {
-                    kind: Some(lorealm_storage::models::RealmResourceKind::Character)
+                    kind: Some(lorealm_storage::models::RealmResourceKind::Character),
+                    ..
                 }
             )
         ),

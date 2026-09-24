@@ -43,6 +43,8 @@ pub enum InputSpecType {
     /// An id the client picks and the server resolves.
     Reference {
         kind: Option<RealmResourceKind>,
+        /// The kind as written in `Ref<...>`, such as a plugin's API key type.
+        name: String,
     },
 }
 
@@ -95,6 +97,7 @@ impl InputSpecType {
             },
             InputType::Ref(kind) => Self::Reference {
                 kind: RealmResourceKind::from_ref_name(kind),
+                name: kind.clone(),
             },
         }
     }

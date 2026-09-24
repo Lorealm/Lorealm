@@ -48,16 +48,21 @@ impl ConnectionService {
 
     /// Store a new provider API key, encrypted and bound to its own row id.
     /// The plaintext never leaves this method except inside the ciphertext.
+    /// 
+    /// `key_types` refer to custom API key types defined by a plugin.
     pub async fn create_secret(
         &self,
         user_id: Snowflake,
         provider: String,
         label: String,
         plaintext_key: String,
+        key_types: &[String],
     ) -> Result<SecretMetadata, ConnectionError> {
         let plaintext_key = Zeroizing::new(plaintext_key);
 
-        validate_provider(&provider)?;
+        if !key_types.contains(&provider) {
+            validate_provider(&provider)?;
+        }
         if label.trim().is_empty() {
             return Err(ConnectionError::Validation(
                 "label must not be empty".into(),

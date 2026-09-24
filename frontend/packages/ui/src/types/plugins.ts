@@ -39,4 +39,8 @@ export interface InstalledPlugin {
 	/** The newest version that can be enabled; newer than `version` when an update is available. */
 	latest: string | null;
 	slots: FrontendSlot[];
+	/** The API key types it declares. */
+	api_keys: string[];
+	/** Whether it has settings for the user to fill in. */
+	has_settings: boolean;
 }

@@ -812,32 +812,61 @@ async fn an_installed_plugin_serves_its_readme() {
 async fn settings_are_checked_and_saved() {
     let h = harness().await;
     let values = |v: serde_json::Value| v.as_object().unwrap().clone();
+    let save = |v: serde_json::Value| h.plugins.save_settings(h.user, "hello", values(v));
+
+    // Key types come from enabled plugins.
+    let early = h
+        .connection
+        .create_secret(h.user, "elevenlabs".into(), "Mine".into(), "sk".into(), &[])
+        .await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    let key_types = h.plugins.key_types(h.user).await.unwrap();
+    let key = h
+        .connection
+        .create_secret(
+            h.user,
+            "elevenlabs".into(),
+            "Mine".into(),
+            "sk".into(),
+            &key_types,
+        )
+        .await
+        .unwrap();
+    let theirs = h
+        .connection
+        .create_secret(
+            h.stranger,
+            "elevenlabs".into(),
+            "Theirs".into(),
+            "sk".into(),
+            &key_types,
+        )
+        .await
+        .unwrap();
 
     let blank = h.plugins.settings(h.user, "hello").await.unwrap();
-    let wrong = h
-        .plugins
-        .save_settings(
-            h.user,
-            "hello",
-            values(serde_json::json!({ "greeting": 1 })),
-        )
-        .await;
-    h.plugins
-        .save_settings(
-            h.user,
-            "hello",
-            values(serde_json::json!({ "greeting": "hi" })),
-        )
+    let wrong_type = save(serde_json::json!({ "greeting": 1, "key": key.id })).await;
+    let wrong_key = save(serde_json::json!({ "greeting": "hi", "key": theirs.id })).await;
+    save(serde_json::json!({ "greeting": "hi", "key": key.id }))
         .await
         .unwrap();
     let saved = h.plugins.settings(h.user, "hello").await.unwrap();
     let none = h.plugins.settings(h.user, "hello_addon").await.unwrap();
 
-    assert_eq!(blank.inputs.len(), 2);
-    assert!(matches!(wrong, Err(PluginError::InvalidSettings(_, _))));
+    assert!(early.is_err());
+    assert_eq!(key_types, ["elevenlabs"]);
+    assert_eq!(blank.inputs.len(), 3);
+    assert!(matches!(
+        wrong_type,
+        Err(PluginError::InvalidSettings(_, _))
+    ));
+    assert!(
+        matches!(&wrong_key, Err(PluginError::InvalidSettings(_, r)) if r.contains("pick one of your elevenlabs keys")),
+        "{wrong_key:?}"
+    );
     assert_eq!(
         serde_json::Value::Object(saved.values),
-        serde_json::json!({ "greeting": "hi", "excited": false })
+        serde_json::json!({ "greeting": "hi", "excited": false, "key": key.id })
     );
     assert!(none.inputs.is_empty());
 }

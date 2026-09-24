@@ -53,6 +53,7 @@ const SCOPE_LABEL: Record<'user' | 'server', string> = {
 const USER_LABEL: Record<UserSection, string> = {
 	profile: 'Profile',
 	tokenizers: 'Tokenizers',
+	plugins: 'Plugins',
 	appearance: 'Appearance',
 	editor: 'Editor',
 	inspector: 'Inspector',
@@ -151,6 +152,15 @@ export function crumbsFor(route: Route): Crumb[] {
 		case 'settings': {
 			const section =
 				route.scope === 'user' ? USER_LABEL[route.section] : SERVER_LABEL[route.section];
+			if (route.scope === 'user' && route.id !== undefined) {
+				const plugin = pluginsStore.plugins.find((p) => p.handle === route.id);
+				return [
+					{ label: VIEW_LABEL.settings },
+					{ label: SCOPE_LABEL.user },
+					{ label: section, go: () => navigator.start().settings().user().plugins() },
+					{ label: plugin?.name ?? PENDING }
+				];
+			}
 			return [
 				{ label: VIEW_LABEL.settings },
 				{ label: SCOPE_LABEL[route.scope] },

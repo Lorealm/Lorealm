@@ -35,7 +35,7 @@
 	{#if scope === 'server' && configStore.canEditServer}
 		<ServerSettings section={serverSection} />
 	{:else}
-		<UserSettings section={userSection} />
+		<UserSettings section={userSection} id={settings?.scope === 'user' ? settings.id : undefined} />
 	{/if}
 </div>
 

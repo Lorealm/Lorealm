@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 
 use weaver_lang::{
-    EvalError, InputDecl, Registry, SimpleContext, ValueDoc, evaluate_value_doc, parse_value_doc,
+    EvalContext, EvalError, EvalErrorKind, InputDecl, Registry, Value, ValueDoc,
+    evaluate_value_doc, parse_value_doc,
 };
 
 use crate::util::weaver::{describe_parse_errors, json_to_weaver, weaver_to_json};
@@ -12,11 +13,16 @@ pub fn declarations(source: &str) -> Result<Vec<InputDecl>, String> {
     Ok(parse(&format!("{source}\n{{}}"))?.inputs)
 }
 
+/// The user's API keys: the ids of their keys of each type the user's plugins
+/// declare. A `Ref<type>` setting holds one of them.
+pub type Keys = BTreeMap<String, Vec<String>>;
+
 /// Checks `values` against the declarations in `source`, and returns every
 /// setting: the value given, or else its default.
 pub fn resolve(
     source: &str,
     values: &serde_json::Map<String, serde_json::Value>,
+    keys: &Keys,
 ) -> Result<serde_json::Value, String> {
     // The value collects every input, so evaluating it also applies defaults.
     let fields: Vec<String> = declarations(source)?
@@ -30,10 +36,51 @@ pub fn resolve(
         let value = json_to_weaver(value).map_err(|e| format!("input {name}: {e}"))?;
         bound.insert(name.clone(), value);
     }
-    // No entity kinds yet, so any `Ref<...>` is refused.
-    let settings = evaluate_value_doc(&doc, &bound, &mut SimpleContext::new(), &Registry::new())
+    let mut registry = Registry::new();
+    for kind in keys.keys() {
+        registry.register_kind(kind);
+    }
+    let settings = evaluate_value_doc(&doc, &bound, &mut KeyContext(keys.clone()), &registry)
         .map_err(|e| describe(&doc, e))?;
     weaver_to_json(&settings).map_err(|e| e.to_string())
+}
+
+/// Settings have no variables, triggers or documents; only their `Ref<type>`
+/// values need the host.
+struct KeyContext(Keys);
+
+impl EvalContext for KeyContext {
+    fn resolve_variable(&self, _: &str, _: &str) -> Result<Option<Value>, EvalError> {
+        Ok(None)
+    }
+
+    fn set_variable(&mut self, _: &str, _: &str, _: Value) -> Result<(), EvalError> {
+        Err(EvalError::host_error("settings can't set variables"))
+    }
+
+    fn fire_trigger(&mut self, _: &str, _: &Registry) -> Result<String, EvalError> {
+        Err(EvalError::host_error("settings can't fire triggers"))
+    }
+
+    fn resolve_document(&mut self, _: &str, _: &Registry) -> Result<String, EvalError> {
+        Err(EvalError::host_error("settings can't include documents"))
+    }
+
+    fn validate_input(&self, kind: &str, value: &Value) -> Result<(), EvalError> {
+        let held = value.as_string().is_some_and(|id| {
+            self.0
+                .get(kind)
+                .is_some_and(|ids| ids.iter().any(|i| i == id))
+        });
+        if held {
+            Ok(())
+        } else {
+            Err(EvalError::new(
+                EvalErrorKind::TypeError,
+                format!("pick one of your {kind} keys"),
+            ))
+        }
+    }
 }
 
 fn parse(source: &str) -> Result<ValueDoc, String> {
@@ -79,7 +126,7 @@ autoplay: bool
 
     #[test]
     fn applies_defaults() {
-        let settings = resolve(SOURCE, &values(json!({ "autoplay": true }))).unwrap();
+        let settings = resolve(SOURCE, &values(json!({ "autoplay": true })), &Keys::new()).unwrap();
         assert_eq!(
             settings,
             json!({ "voice": "rachel", "speed": 1, "autoplay": true })
@@ -102,18 +149,29 @@ autoplay: bool
             ),
         ];
         for (given, expected) in cases {
-            let err = resolve(SOURCE, &values(given)).unwrap_err();
+            let err = resolve(SOURCE, &values(given), &Keys::new()).unwrap_err();
             assert!(err.contains(expected), "{err}");
         }
     }
 
     #[test]
-    fn refuses_references_for_now() {
-        let err = resolve(
-            "#inputs\nkey: Ref<elevenlabs>\n",
-            &values(json!({ "key": "1" })),
+    fn a_key_must_be_one_of_the_users() {
+        let source = "#inputs\nkey: Ref<elevenlabs>\n";
+        let keys = Keys::from([("elevenlabs".into(), vec!["1".into()])]);
+        let resolve =
+            |key: &str, keys: &Keys| resolve(source, &values(json!({ "key": key })), keys);
+
+        assert_eq!(resolve("1", &keys).unwrap(), json!({ "key": "1" }));
+        assert!(
+            resolve("2", &keys)
+                .unwrap_err()
+                .contains("input key: pick one of your elevenlabs keys")
         );
-        assert!(err.unwrap_err().contains("unknown entity kind"));
+        assert!(
+            resolve("1", &Keys::new())
+                .unwrap_err()
+                .contains("unknown entity kind")
+        );
     }
 
     #[test]

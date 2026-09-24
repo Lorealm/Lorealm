@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Check, FolderInput, Trash2 } from '@lucide/svelte';
+	import { Check, FolderInput, Settings, Trash2 } from '@lucide/svelte';
 	import { useApi } from '$lib/api/client.js';
 	import { navigator } from '$lib/navigation/navigator.js';
 	import { pluginsStore } from '$lib/stores/plugins.svelte.js';
@@ -124,6 +124,17 @@
 						>
 							{#if plugin.enabled}<Check size={14} /> Enabled{:else}Enable{/if}
 						</button>
+						{#if plugin.has_settings}
+							<button
+								type="button"
+								class="outline"
+								aria-label="{plugin.name} settings"
+								title="Settings"
+								onclick={() => navigator.start().settings().user().plugins(plugin.handle)}
+							>
+								<Settings size={14} />
+							</button>
+						{/if}
 						<button
 							type="button"
 							class="icon"

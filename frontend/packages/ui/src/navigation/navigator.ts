@@ -46,12 +46,13 @@ class StudioStage {
 class UserSettingsStage {
 	constructor(private readonly chain: Chain) {}
 
-	#section(section: UserSection) {
-		this.chain.go({ view: 'settings', scope: 'user', section });
+	#section(section: UserSection, id?: string) {
+		this.chain.go({ view: 'settings', scope: 'user', section, id });
 	}
 
 	profile = () => this.#section('profile');
 	tokenizers = () => this.#section('tokenizers');
+	plugins = (handle?: string) => this.#section('plugins', handle);
 	appearance = () => this.#section('appearance');
 	editor = () => this.#section('editor');
 	inspector = () => this.#section('inspector');
