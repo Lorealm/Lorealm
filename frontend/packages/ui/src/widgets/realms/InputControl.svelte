@@ -95,12 +95,12 @@
 		</div>
 	{/if}
 {:else if ty.type === 'reference' && ty.kind === null}
-	{@const keys = connectionStore.secretsFor(ty.name)}
+	{@const keys = connectionStore.secretsFor(ty.ref_name)}
 	{#if keys.length}
 		<select
 			aria-label={ariaLabel}
 			value={(value as string) ?? ''}
-			onchange={(e) => onchange(e.currentTarget.value)}
+			onchange={(e) => onchange(e.currentTarget.value || null)}
 		>
 			<option value="">— pick a key —</option>
 			{#each keys as key (key.id)}
@@ -108,7 +108,7 @@
 			{/each}
 		</select>
 	{:else}
-		<p class="none">You have no {ty.name} keys yet. Add one under Connections → API keys.</p>
+		<p class="none">You have no {ty.ref_name} keys yet. Add one under Connections → API keys.</p>
 	{/if}
 {:else if ty.type === 'reference'}
 	<select

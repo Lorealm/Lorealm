@@ -95,12 +95,15 @@ impl EvalContext for KeyContext {
         Err(EvalError::host_error("settings can't include documents"))
     }
 
+    /// A key setting holds one of the user's keys of its type, or `null`
+    /// for none, so `key: Ref<type> = null` is optional.
     fn validate_input(&self, kind: &str, value: &Value) -> Result<(), EvalError> {
-        let held = value.as_string().is_some_and(|id| {
-            self.0
-                .get(kind)
-                .is_some_and(|ids| ids.iter().any(|i| i == id))
-        });
+        let held = matches!(value, Value::None)
+            || value.as_string().is_some_and(|id| {
+                self.0
+                    .get(kind)
+                    .is_some_and(|ids| ids.iter().any(|i| i == id))
+            });
         if held {
             Ok(())
         } else {
@@ -200,6 +203,11 @@ autoplay: bool
             resolve("1", &Keys::new())
                 .unwrap_err()
                 .contains("unknown entity kind")
+        );
+        let optional = "#inputs\nkey: Ref<elevenlabs> = null\n";
+        assert_eq!(
+            super::resolve(optional, &values(json!({})), &keys).unwrap(),
+            json!({ "key": null })
         );
     }
 

@@ -47,8 +47,8 @@ export type InputSpecType =
 	| { type: 'span'; min: number; max: number }
 	| { type: 'list'; of: InputSpecType }
 	| { type: 'object'; fields: Array<{ name: string } & InputSpecType> }
-	/** `name` is the kind as written in `Ref<...>`; `kind` is set when it's a built-in one. */
-	| { type: 'reference'; kind: RealmResourceKind | null; name: string };
+	/** `ref_name` is the kind as written in `Ref<...>`; `kind` is set when it's a built-in one. */
+	| { type: 'reference'; kind: RealmResourceKind | null; ref_name: string };
 
 /** Values for the declared inputs. */
 export interface ExpandBlueprintRequest {

@@ -1004,3 +1004,40 @@ async fn a_plugin_fetches_with_the_users_key() {
         ))
     );
 }
+
+/// The example in `plugins/tts`, short of calling a provider.
+#[tokio::test]
+async fn the_tts_example_installs_and_asks_for_a_key() {
+    let h = Harness::new().await;
+    let plugins = service(&h, fresh_dir(), PluginConfig::default());
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/tts");
+    plugins
+        .install_from_source(h.user, source)
+        .await
+        .unwrap_or_else(|e| panic!("installing: {e}"));
+    plugins.enable(h.user, "tts").await.unwrap();
+    let call = |name: &str, args: serde_json::Value| {
+        plugins.call_frontend(h.user, "tts", name.into(), args)
+    };
+
+    let speak = call("speak", serde_json::json!({ "text": "*Hello* there." }))
+        .await
+        .unwrap();
+    let first = call("autoplay", serde_json::json!({ "id": "1" }))
+        .await
+        .unwrap();
+    let again = call("autoplay", serde_json::json!({ "id": "1" }))
+        .await
+        .unwrap();
+
+    assert_eq!(
+        speak,
+        serde_json::json!({ "error": "Pick your OpenRouter key under Settings → You → Plugins." })
+    );
+    assert_eq!(first, serde_json::json!(true));
+    assert_eq!(again, serde_json::json!(false));
+    assert_eq!(
+        plugins.key_types(h.user).await.unwrap(),
+        ["elevenlabs", "openrouter"]
+    );
+}
