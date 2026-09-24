@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { connectionStore } from '$lib/stores/connection.svelte.js';
+	import { pluginsStore } from '$lib/stores/plugins.svelte.js';
 	import { PROVIDER_SCHEMAS } from '$lib/types/schema.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import type { SecretMetadata } from '$lib/types/connection.js';
@@ -31,6 +32,16 @@
 			console.error(e);
 		}
 	}
+
+	/** Key types the user's plugins declare, other than the built-in providers. */
+	const pluginKeyTypes = $derived(
+		[...new Set(pluginsStore.plugins.filter((p) => p.enabled).flatMap((p) => p.api_keys))]
+			.filter((t) => !PROVIDER_SCHEMAS.some((s) => s.provider === t))
+			.sort()
+	);
+	$effect(() => {
+		void pluginsStore.load();
+	});
 
 	let newProvider = $state(PROVIDER_SCHEMAS[0]?.provider ?? '');
 	let newLabel = $state('');
@@ -99,6 +110,11 @@
 				{#each PROVIDER_SCHEMAS as s (s.provider)}
 					<option value={s.provider}>{s.label}</option>
 				{/each}
+				{#if pluginKeyTypes.length}
+					<optgroup label="From plugins">
+						{#each pluginKeyTypes as t (t)}<option value={t}>{t}</option>{/each}
+					</optgroup>
+				{/if}
 			</select>
 		</label>
 		<label class="field">

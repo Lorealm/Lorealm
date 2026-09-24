@@ -1,0 +1,36 @@
+[plugin]
+name = "Hello"
+handle = "hello"
+description = "Test fixture that greets the active persona in the prompt and counts greetings."
+author = "Lorealm"
+version = "0.1.0"
+permissions = ["prompt:write", "chat:read", "chat:write", "tools:write", "persona:read", "data:persist", "state:read", "state:write", "ui:unsafe", "net:fetch", "ui:autoplay"]
+
+[network]
+hosts = ["example.com", "127.0.0.1:38417"]
+
+[definitions]
+api_keys = ["elevenlabs"]
+
+[structure]
+backend = "target/wasm32-wasip2/release/hello.wasm"
+
+[build]
+backend = ["cargo", "build", "--release", "--target", "wasm32-wasip2"]
+
+[[frontend.slots]]
+slot = "inspector"
+entry = "inspector.html"
+title = "Greeter"
+
+[[frontend.slots]]
+slot = "message"
+entry = "message.html"
+title = "Word count"
+mode = "every"
+
+[[frontend.slots]]
+slot = "inspector"
+entry = "panel.js"
+title = "Greeter (unsafe)"
+unsafe = true

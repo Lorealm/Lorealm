@@ -180,7 +180,9 @@ fn substitute(
                 RealmError::InvalidTemplate(format!("input '{input}': expected an object"))
             })?;
             for (name, ty) in fields {
-                let Some(field) = map.remove(name) else { continue };
+                let Some(field) = map.remove(name) else {
+                    continue;
+                };
                 let nested = format!("{input}.{name}");
                 map.insert(name.clone(), substitute(&nested, ty, field, projected)?);
             }
@@ -504,7 +506,10 @@ cast: [{char: Ref<Character>, talkativeness: range(0, 1)}]
         };
         let resolved = BTreeMap::from([(
             "cast".to_string(),
-            WeaverValue::Array(vec![entry(11, "Ito Kaede", 0.8), entry(22, "Mori Rin", 0.2)]),
+            WeaverValue::Array(vec![
+                entry(11, "Ito Kaede", 0.8),
+                entry(22, "Mori Rin", 0.2),
+            ]),
         )]);
 
         let definition = super::super::wtn::from_wtn(source, resolved).expect("expands");

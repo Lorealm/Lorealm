@@ -1,0 +1,15 @@
+[package]
+name = "tts"
+version = "0.1.0"
+edition = "2024"
+
+# Built separately for wasm32-wasip2; not part of the backend workspace.
+[workspace]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen = "0.62.0"
+serde_json = "1"
+base64 = "0.22"

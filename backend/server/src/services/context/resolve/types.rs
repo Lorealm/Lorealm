@@ -9,6 +9,7 @@ use tokio::sync::Mutex;
 use crate::services::{
     chat::{WidgetInstance, WidgetRenderer, sanitize_widget_markers},
     context::PromptRole,
+    plugins::PluginVocabulary,
     state::{CapturedState, ReconstructedState},
     variables::Variables,
 };
@@ -149,6 +150,8 @@ pub struct ResolveContext<'a> {
     pub widget_renders: &'a [String],
     /// The conversation's author's note. Empty when unset.
     pub author_note: &'a str,
+    /// The user's plugin vocabulary, for Weaver run during assembly.
+    pub plugins: Option<PluginVocabulary>,
 }
 
 /// A single prompt-visible turn, source-agnostic

@@ -48,16 +48,21 @@ impl ConnectionService {
 
     /// Store a new provider API key, encrypted and bound to its own row id.
     /// The plaintext never leaves this method except inside the ciphertext.
+    ///
+    /// `key_types` refer to custom API key types defined by a plugin.
     pub async fn create_secret(
         &self,
         user_id: Snowflake,
         provider: String,
         label: String,
         plaintext_key: String,
+        key_types: &[String],
     ) -> Result<SecretMetadata, ConnectionError> {
         let plaintext_key = Zeroizing::new(plaintext_key);
 
-        validate_provider(&provider)?;
+        if !key_types.contains(&provider) {
+            validate_provider(&provider)?;
+        }
         if label.trim().is_empty() {
             return Err(ConnectionError::Validation(
                 "label must not be empty".into(),
@@ -251,21 +256,7 @@ impl ConnectionService {
 
         let api_key = match profile.secret_id {
             None => None,
-            Some(secret_id) => {
-                let secret = self.owned_secret(secret_id, user_id).await?;
-                let encrypted = to_encrypted_data(&secret)?;
-                let binding = secret.id.to_be_bytes();
-
-                let mut plaintext = decrypt_bytes(&encrypted, &*self.key_manager, &binding).await?;
-                let bytes = std::mem::take(&mut *plaintext);
-                match String::from_utf8(bytes) {
-                    Ok(s) => Some(Zeroizing::new(s)),
-                    Err(e) => {
-                        drop(Zeroizing::new(e.into_bytes()));
-                        return Err(ConnectionError::Corrupted(secret.id));
-                    }
-                }
-            }
+            Some(secret_id) => Some(self.reveal_secret(user_id, secret_id).await?),
         };
 
         Ok(ResolvedConnection { profile, api_key })
@@ -324,6 +315,28 @@ impl ConnectionService {
     }
 
     /// Secret exists AND belongs to this user.
+    /// Decrypts one of the user's keys. Like [`Self::resolve_connection`],
+    /// this must never be exposed through an HTTP handler.
+    pub async fn reveal_secret(
+        &self,
+        user_id: Snowflake,
+        secret_id: Snowflake,
+    ) -> Result<Zeroizing<String>, ConnectionError> {
+        let secret = self.owned_secret(secret_id, user_id).await?;
+        let encrypted = to_encrypted_data(&secret)?;
+        let binding = secret.id.to_be_bytes();
+
+        let mut plaintext = decrypt_bytes(&encrypted, &*self.key_manager, &binding).await?;
+        let bytes = std::mem::take(&mut *plaintext);
+        match String::from_utf8(bytes) {
+            Ok(s) => Ok(Zeroizing::new(s)),
+            Err(e) => {
+                drop(Zeroizing::new(e.into_bytes()));
+                Err(ConnectionError::Corrupted(secret.id))
+            }
+        }
+    }
+
     async fn owned_secret(
         &self,
         secret_id: Snowflake,

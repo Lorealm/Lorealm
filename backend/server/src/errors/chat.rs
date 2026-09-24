@@ -4,6 +4,8 @@ use axum::http::StatusCode;
 use lorealm_storage::{StorageError, models::Snowflake};
 use thiserror::Error;
 
+use crate::services::plugins::Refusal;
+
 use crate::errors::{
     CharacterError, ConnectionError, ContextError, ConversationError, DomainError, ErrorDetails,
     PersonaError, StateError, TargetType, TokenizerError, UserToolError, impl_app_error, sentence,
@@ -41,6 +43,8 @@ pub enum ChatError {
     RealmConversation(Snowflake),
     #[error("message {0} is not an assistant reply")]
     NotContinuable(Snowflake),
+    #[error(transparent)]
+    Refused(#[from] Refusal),
 }
 
 impl DomainError for ChatError {
@@ -59,6 +63,7 @@ impl DomainError for ChatError {
             Self::Provider(_) | Self::Connection(_) => "chat.provider_failed",
             Self::RealmConversation(_) => "chat.realm_conversation",
             Self::NotContinuable(_) => "chat.not_continuable",
+            Self::Refused(_) => "chat.refused",
             Self::Storage(_) => "internal",
         }
     }
@@ -76,6 +81,7 @@ impl DomainError for ChatError {
             Self::NotFound(_, _) | Self::NotOwned(_, _) => StatusCode::NOT_FOUND,
             Self::Provider(_) | Self::Connection(_) => StatusCode::BAD_GATEWAY,
             Self::RealmConversation(_) | Self::NotContinuable(_) => StatusCode::CONFLICT,
+            Self::Refused(_) => StatusCode::UNPROCESSABLE_ENTITY,
             Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -101,6 +107,9 @@ impl DomainError for ChatError {
                 "Realm conversations advance through their turn endpoints.".into()
             }
             Self::NotContinuable(_) => "Only a reply from the model can be continued.".into(),
+            Self::Refused(r) => {
+                sentence(format!("{} refused your message: {}", r.handle, r.reason))
+            }
             Self::Storage(_) => "An internal error occurred".into(),
         }
     }
@@ -125,7 +134,7 @@ impl DomainError for ChatError {
             Self::Provider(_) | Self::Connection(_) => {
                 Some(ErrorDetails::resource(TargetType::ConnectionProfile))
             }
-            Self::Storage(_) => None,
+            Self::Storage(_) | Self::Refused(_) => None,
         }
     }
 }

@@ -11,6 +11,7 @@ use weaver_lang::{
 use lorealm_storage::models::{UserWidget, WidgetMode};
 
 use crate::services::commands::CommandEffect;
+use crate::services::plugins::PluginVocabulary;
 use crate::services::state::StatePool;
 use crate::services::weaver::{WeaverHost, WeaverProfile};
 use crate::util::weaver::{ConversionError, json_to_weaver, weaver_to_json};
@@ -307,6 +308,7 @@ pub struct WidgetRenderer {
     specs: HashMap<String, AttachmentSpec>,
     pool: Arc<Mutex<StatePool>>,
     rendered: HashSet<String>,
+    plugins: Option<PluginVocabulary>,
 }
 
 impl WidgetRenderer {
@@ -315,7 +317,14 @@ impl WidgetRenderer {
             specs: catalog.iter().map(|s| (s.id.clone(), s.clone())).collect(),
             pool: Arc::new(Mutex::new(pool)),
             rendered: HashSet::new(),
+            plugins: None,
         }
+    }
+
+    /// Lets `render` templates call the user's plugin commands and processors.
+    pub fn with_plugins(mut self, plugins: Option<PluginVocabulary>) -> Self {
+        self.plugins = plugins;
+        self
     }
 
     /// One message's content, with every marker resolved.
@@ -336,7 +345,13 @@ impl WidgetRenderer {
             .iter()
             .filter_map(|(k, v)| Some((k.clone(), json_to_weaver(v).ok()?)))
             .collect();
-        let text = eval_render(&spec.id, &spec.render, Arc::clone(&self.pool), props)?;
+        let text = eval_render(
+            &spec.id,
+            &spec.render,
+            Arc::clone(&self.pool),
+            props,
+            self.plugins.as_ref(),
+        )?;
 
         self.rendered.insert(widget.widget_id.clone());
         Some(text)
@@ -349,6 +364,7 @@ fn eval_render(
     template: &str,
     pool: Arc<Mutex<StatePool>>,
     props: HashMap<String, Value>,
+    plugins: Option<&PluginVocabulary>,
 ) -> Option<String> {
     if template.trim().is_empty() {
         return None;
@@ -360,6 +376,7 @@ fn eval_render(
         .profile(WeaverProfile::WidgetRender)
         .pool(pool)
         .args(props)
+        .plugins(plugins.cloned())
         .build()
         .evaluate_inline(body)
         .inspect_err(|e| tracing::warn!("widget {id} failed to render: {e}"))
@@ -368,14 +385,18 @@ fn eval_render(
     Some(text)
 }
 
-pub fn render_widgets(templates: &[String], pool: &StatePool) -> Vec<String> {
+pub fn render_widgets(
+    templates: &[String],
+    pool: &StatePool,
+    plugins: Option<&PluginVocabulary>,
+) -> Vec<String> {
     if templates.is_empty() {
         return Vec::new();
     }
     let pool = Arc::new(Mutex::new(pool.clone()));
     templates
         .iter()
-        .filter_map(|t| eval_render("", t, Arc::clone(&pool), HashMap::new()))
+        .filter_map(|t| eval_render("", t, Arc::clone(&pool), HashMap::new(), plugins))
         .filter(|text| !text.trim().is_empty())
         .collect()
 }
@@ -722,7 +743,8 @@ mod tests {
         assert_eq!(
             render_widgets(
                 &["Gold: {{n:gold}}".into(), String::new(), "   ".into()],
-                &pool
+                &pool,
+                None
             ),
             vec!["Gold: 3".to_string()]
         );

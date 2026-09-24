@@ -1,0 +1,14 @@
+# The hello component, without `data:persist` or `net:fetch`.
+[plugin]
+name = "No Data"
+handle = "no_data"
+description = "Test fixture whose hook fails on a permission check."
+author = "Lorealm"
+version = "0.1.0"
+permissions = ["prompt:write", "chat:read", "chat:write", "tools:write", "persona:read"]
+
+[network]
+hosts = ["example.com"]
+
+[structure]
+backend = "../hello/target/wasm32-wasip2/release/hello.wasm"

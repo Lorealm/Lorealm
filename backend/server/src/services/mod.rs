@@ -8,6 +8,7 @@ pub mod conversation;
 pub mod lorebook;
 pub mod permission;
 pub mod persona;
+pub mod plugins;
 pub mod realm;
 pub mod schedule;
 pub mod session;

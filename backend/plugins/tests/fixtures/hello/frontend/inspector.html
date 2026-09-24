@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+  <body>
+    <label>Name <input id="name" value="Ada" /></label>
+    <button id="greet">Greet</button>
+    <p id="out"></p>
+    <script>
+      const out = document.getElementById('out');
+      document.getElementById('greet').addEventListener('click', async () => {
+        try {
+          out.textContent = await lorealm.call('greet', {
+            name: document.getElementById('name').value
+          });
+        } catch (e) {
+          out.textContent = `Failed: ${e.message}`;
+        }
+      });
+    </script>
+  </body>
+</html>

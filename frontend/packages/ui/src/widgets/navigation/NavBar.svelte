@@ -6,6 +6,7 @@
 		Palette,
 		PencilIcon,
 		Plug2,
+		Blocks,
 		Settings,
 		User
 	} from '@lucide/svelte';
@@ -71,6 +72,13 @@
 	/>
 
 	<div style="margin-top: auto; margin-bottom: 0.33em;">
+		<NavButton
+			label="Plugins"
+			Icon={Blocks}
+			{collapsed}
+			view="plugins"
+			onselect={() => navigator.start().plugins()}
+		/>
 		<NavButton
 			label="Settings"
 			Icon={Settings}

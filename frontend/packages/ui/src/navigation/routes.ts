@@ -14,7 +14,7 @@ export type StudioSection =
 export type ClientSection = 'appearance' | 'editor' | 'inspector' | 'keybinds';
 
 /** Everything about you: the account itself, plus this device's preferences. */
-export type UserSection = 'profile' | 'tokenizers' | ClientSection;
+export type UserSection = 'profile' | 'tokenizers' | 'plugins' | ClientSection;
 
 export type ServerSection =
 	| 'hosting'
@@ -34,7 +34,8 @@ export type Route =
 	| { view: 'realms'; id?: Snowflake }
 	| { view: 'connections'; id?: Snowflake | typeof SECRETS }
 	| { view: 'studio'; section: StudioSection; id?: Snowflake }
-	| { view: 'settings'; scope: 'user'; section: UserSection }
+	| { view: 'plugins'; id?: string }
+	| { view: 'settings'; scope: 'user'; section: UserSection; id?: string }
 	| { view: 'settings'; scope: 'server'; section: ServerSection };
 
 /** The top-level view a route belongs to. What the nav bar highlights. */

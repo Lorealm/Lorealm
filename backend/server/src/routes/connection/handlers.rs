@@ -14,6 +14,11 @@ pub async fn create_secret(
     session: AuthenticatedSession,
     Json(request): Json<super::CreateSecretRequest>,
 ) -> Result<Json<SecretMetadata>, AppError> {
+    let key_types = state
+        .services()
+        .plugins()
+        .key_types(session.user_id)
+        .await?;
     let secret = state
         .services()
         .connections()
@@ -22,6 +27,7 @@ pub async fn create_secret(
             request.provider,
             request.label,
             request.key,
+            &key_types,
         )
         .await?;
 

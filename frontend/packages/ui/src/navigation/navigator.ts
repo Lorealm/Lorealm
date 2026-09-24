@@ -46,12 +46,13 @@ class StudioStage {
 class UserSettingsStage {
 	constructor(private readonly chain: Chain) {}
 
-	#section(section: UserSection) {
-		this.chain.go({ view: 'settings', scope: 'user', section });
+	#section(section: UserSection, id?: string) {
+		this.chain.go({ view: 'settings', scope: 'user', section, id });
 	}
 
 	profile = () => this.#section('profile');
 	tokenizers = () => this.#section('tokenizers');
+	plugins = (handle?: string) => this.#section('plugins', handle);
 	appearance = () => this.#section('appearance');
 	editor = () => this.#section('editor');
 	inspector = () => this.#section('inspector');
@@ -98,6 +99,7 @@ class Start {
 	characters = () => this.#chain.go({ view: 'characters' });
 	realms = (id?: Snowflake) => this.#chain.go({ view: 'realms', id });
 	connections = (id?: Snowflake | typeof SECRETS) => this.#chain.go({ view: 'connections', id });
+	plugins = (handle?: string) => this.#chain.go({ view: 'plugins', id: handle });
 
 	studio(): StudioStage {
 		this.#chain.go(router.recallStudio());

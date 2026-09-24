@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::HashMap,
     pin::Pin,
     sync::{Arc, OnceLock, Weak},
@@ -43,6 +44,7 @@ use crate::{
         },
         conversation::{ConversationService, EditMode},
         persona::PersonaService,
+        plugins::PluginService,
         schedule::{Schedule, StageCx, stages::PrivacyStage},
         snowflake::SnowflakeService,
         state::{CapturedState, ReconstructedState, StatePool, StateService, apply_delta},
@@ -69,6 +71,7 @@ pub struct ChatService {
     tokenizers: Arc<TokenizerService>,
     sources: Arc<SourceRegistry>,
     variables: Arc<VariableRegistry>,
+    plugins: Arc<PluginService>,
     schedule: Arc<Schedule>,
     cancellations: Arc<DashMap<Snowflake, CancellationToken>>,
     /// A handle back to itself, for the `$[generate]` a tool body may call.
@@ -91,6 +94,7 @@ impl ChatService {
         tokenizers: Arc<TokenizerService>,
         sources: Arc<SourceRegistry>,
         variables: Arc<VariableRegistry>,
+        plugins: Arc<PluginService>,
     ) -> Self {
         Self {
             storage,
@@ -104,6 +108,7 @@ impl ChatService {
             tokenizers,
             sources,
             variables,
+            plugins,
             schedule: Arc::new(Schedule::new(vec![Box::new(PrivacyStage)])),
             cancellations: Arc::new(DashMap::new()),
             me: OnceLock::new(),
@@ -414,6 +419,15 @@ impl ChatService {
             });
         }
 
+        let content = match content {
+            Some(text) => Some(
+                self.plugins
+                    .user_message(convo.user_id, convo.id, text)
+                    .await?,
+            ),
+            None => None,
+        };
+
         Ok(match (content, target) {
             (Some(text), None) => {
                 let user = self
@@ -549,7 +563,16 @@ impl ChatService {
             .load_kitoken_tokenizer(spec.tokenizer_id, spec.owner)
             .await?;
 
-        let widget_renders = render_widgets(widget_renders, &baseline.persistent);
+        let plugins = self.plugins.vocabulary(spec.owner).await;
+        let widget_renders = render_widgets(widget_renders, &baseline.persistent, plugins.as_ref());
+        let sources = match &plugins {
+            Some(plugins) => {
+                let mut sources = (*self.sources).clone();
+                plugins.sources().for_each(|s| sources.register(s));
+                Cow::Owned(sources)
+            }
+            None => Cow::Borrowed(&*self.sources),
+        };
 
         let captured;
         let trace = {
@@ -570,8 +593,9 @@ impl ChatService {
                 widget_prompts,
                 widget_renders: &widget_renders,
                 author_note,
+                plugins,
             };
-            let trace = assemble(&template, &self.sources, &ctx).await?;
+            let trace = assemble(&template, &sources, &ctx).await?;
             captured = ctx.lorebook_state.lock().await.take();
             trace
         };
@@ -592,6 +616,7 @@ impl ChatService {
             trace,
             usage,
         } = evaluator.build().evaluate(trace)?;
+        let messages = self.plugins.prompt_build(spec.owner, messages).await;
 
         Ok(Prepared {
             prompt: messages,
@@ -700,7 +725,8 @@ impl ChatService {
             self.active_widgets(user_id, &attached).await?;
 
         // Newest first
-        let mut renderer = WidgetRenderer::new(&attachments, baseline.persistent.clone());
+        let mut renderer = WidgetRenderer::new(&attachments, baseline.persistent.clone())
+            .with_plugins(self.plugins.vocabulary(user_id).await);
         let mut turns: Vec<PromptTurn> = thread
             .iter()
             .rev()
@@ -772,6 +798,7 @@ impl ChatService {
 
         let conversations = self.conversations.clone();
         let state_service = self.state.clone();
+        let plugins = Arc::clone(&self.plugins);
 
         let tokenizer_id = state_service.get_active_tokenizer_id(user_id).await?;
         let template_id = state_service.get_active_template_id(user_id).await?;
@@ -843,7 +870,8 @@ impl ChatService {
                 })
                 .collect();
 
-            let outcome = acc.finish();
+            let mut outcome = acc.finish();
+            outcome.spoken = plugins.message_finalize(spec.owner, convo_id, outcome.spoken).await;
             // meta/persist now read from `outcome`:
             let meta = json!({
                 "context": stored,
@@ -872,6 +900,11 @@ impl ChatService {
                 let captured = CapturedState { activation, persistent: delta };
                 state_service.persist(message.id, captured).await?;
             }
+
+            let (message_id, content) = (message.id, message.content.clone());
+            tokio::spawn(async move {
+                plugins.after_generate(spec.owner, convo_id, message_id, content).await;
+            });
 
             yield ChatStreamEvent::Done { message };
 
@@ -975,7 +1008,8 @@ impl ChatService {
         let mut host = WeaverHost::builder()
             .profile(WeaverProfile::ChatTurn)
             .attachments(policy.attachments.clone())
-            .pool(Arc::clone(&state));
+            .pool(Arc::clone(&state))
+            .plugins(self.plugins.vocabulary(owner).await);
 
         // Realm turns hand over a sink so the events a tool emits are read
         // back by the realm that scheduled the turn.
@@ -1075,6 +1109,8 @@ impl ChatService {
                     registry,
                     widget_sink,
                     effect_sink,
+                    Arc::clone(&self.plugins),
+                    owner,
                 )
                 .await
             }
@@ -1098,6 +1134,8 @@ impl ChatService {
                     registry,
                     widget_sink,
                     effect_sink,
+                    Arc::clone(&self.plugins),
+                    owner,
                 )
                 .await
             }
@@ -1266,6 +1304,7 @@ fn prompt_role_to_provider_role(role: PromptRole) -> lorealm_providers::Role {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn run_inference<P>(
     provider: P,
     mut messages: Vec<lorealm_providers::Message>,
@@ -1274,6 +1313,8 @@ async fn run_inference<P>(
     registry: lorealm_providers::ToolRegistry,
     widget_sink: WidgetSink,
     effect_sink: EffectSink,
+    plugins: Arc<PluginService>,
+    owner: Snowflake,
 ) -> Result<Pin<Box<dyn Stream<Item = Result<InferEvent, ChatError>> + Send>>, ChatError>
 where
     P: LlmProvider + 'static,
@@ -1359,14 +1400,22 @@ where
             let mut results = Vec::new();
             for (id, name, input) in uses {
                 let t0 = tokio::time::Instant::now();
-                let (block, output, is_error) = match registry.call(&name, input.clone()).await {
+                let (input, result) = match plugins.tool_call(owner, &name, input.clone()).await {
+                    Ok(input) => {
+                        let result = registry.call(&name, input.clone()).await;
+                        (input, result.map_err(|e| e.to_string()))
+                    }
+                    Err(refusal) => (input, Err(refusal.to_string())),
+                };
+                let result = plugins.tool_result(owner, &name, &input, result).await;
+                let (block, output, is_error) = match result {
                         Ok(value) => (
                             ContentBlock::ToolResult { tool_use_id: id.clone(), content: value.to_string(), is_error: false },
                             value, false,
                         ),
                         Err(e) => (
-                            ContentBlock::ToolResult { tool_use_id: id.clone(), content: e.to_string(), is_error: true },
-                            serde_json::Value::String(e.to_string()), true,
+                            ContentBlock::ToolResult { tool_use_id: id.clone(), content: e.clone(), is_error: true },
+                            serde_json::Value::String(e), true,
                         ),
                     };
                 results.push(block);

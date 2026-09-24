@@ -10,9 +10,7 @@ use lorealm_storage::{
 
 use crate::{
     errors::{StateError, TargetType},
-    services::{
-        state::{CapturedState, ReconstructedState, StatePool, apply_delta},
-    },
+    services::state::{CapturedState, ReconstructedState, StatePool, apply_delta},
 };
 
 pub struct StateService {
