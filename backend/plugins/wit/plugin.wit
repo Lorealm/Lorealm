@@ -193,9 +193,12 @@ interface host {
     /// to `topic` using the `subscribe` function.
     emit: func(topic: string, payload: json) -> result<_, string>;
 
-    /// Receives the events emitted under `topic` as `custom` events. Only
-    /// during `init`.
+    /// Receives the events emitted under `topic` as `custom` events, until
+    /// the plugin is unloaded. Subscribe in `init` to keep it across reloads.
     subscribe: func(topic: string) -> result<_, string>;
+
+    /// Stops receiving the events emitted under `topic`.
+    unsubscribe: func(topic: string) -> result<_, string>;
 
     /// The user's active persona. Requires the `persona:read` permission.
     active-persona: func() -> result<persona, string>;

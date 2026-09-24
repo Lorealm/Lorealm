@@ -281,12 +281,14 @@ impl lorealm::plugin::host::Host for PluginState {
     }
 
     async fn subscribe(&mut self, topic: String) -> Result<(), String> {
-        if !self.initializing {
-            return Err("events can only be subscribed to during `init`".into());
-        }
         if !self.subscriptions.contains(&topic) {
             self.subscriptions.push(topic);
         }
+        Ok(())
+    }
+
+    async fn unsubscribe(&mut self, topic: String) -> Result<(), String> {
+        self.subscriptions.retain(|t| *t != topic);
         Ok(())
     }
 

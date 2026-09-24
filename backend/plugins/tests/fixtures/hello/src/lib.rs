@@ -5,7 +5,7 @@ wit_bindgen::generate!({
 
 use lorealm::plugin::host::{
     active_persona, delete_data, emit, http_fetch, load_data, log, persist_data, register_command,
-    register_hook, register_processor, register_source_node, settings, subscribe,
+    register_hook, register_processor, register_source_node, settings, subscribe, unsubscribe,
 };
 use lorealm::plugin::types::{
     Block, CommandCall, CommandSignature, CustomEvent, FrontendCall, Hook, HttpRequest, Level,
@@ -97,6 +97,14 @@ impl Guest for Hello {
                         args["topic"].as_str().unwrap_or_default(),
                         &args["payload"].to_string(),
                     )?;
+                    Ok(Response::Frontend("null".into()))
+                }
+                "subscribe" => {
+                    subscribe(string(Some(&args))?.as_str())?;
+                    Ok(Response::Frontend("null".into()))
+                }
+                "unsubscribe" => {
+                    unsubscribe(string(Some(&args))?.as_str())?;
                     Ok(Response::Frontend("null".into()))
                 }
                 // The last event received, as `topic payload`.
