@@ -4,12 +4,12 @@ wit_bindgen::generate!({
 });
 
 use lorealm::plugin::host::{
-    active_persona, delete_data, load_data, log, persist_data, register_command, register_hook,
-    register_processor, register_source_node, settings,
+    active_persona, delete_data, http_fetch, load_data, log, persist_data, register_command,
+    register_hook, register_processor, register_source_node, settings,
 };
 use lorealm::plugin::types::{
-    Block, CommandCall, CommandSignature, FrontendCall, Hook, Level, Message, Param, ProcessorCall,
-    ProcessorSignature, Role, SourceCall, SourceNode, ValueType,
+    Block, CommandCall, CommandSignature, FrontendCall, Hook, HttpRequest, Level, Message, Param,
+    ProcessorCall, ProcessorSignature, Role, SourceCall, SourceNode, ValueType,
 };
 use serde_json::Value;
 
@@ -89,6 +89,25 @@ impl Guest for Hello {
                     Ok(Response::Frontend(json(&format!("Hello, {name}!"))))
                 }
                 "settings" => Ok(Response::Frontend(settings()?)),
+                // Answers with the response body as text.
+                "fetch" => {
+                    let args: Value = serde_json::from_str(&args).map_err(|e| e.to_string())?;
+                    let headers = args["headers"]
+                        .as_object()
+                        .into_iter()
+                        .flatten()
+                        .map(|(k, v)| (k.clone(), v.as_str().unwrap_or_default().to_owned()))
+                        .collect();
+                    let response = http_fetch(&HttpRequest {
+                        method: "GET".into(),
+                        url: args["url"].as_str().unwrap_or_default().into(),
+                        headers,
+                        body: None,
+                    })?;
+                    Ok(Response::Frontend(json(&String::from_utf8_lossy(
+                        &response.body,
+                    ))))
+                }
                 other => Err(format!("unknown frontend call `{other}`")),
             },
             Event::Source(SourceCall { settings, .. }) => {

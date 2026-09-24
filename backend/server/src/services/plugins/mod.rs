@@ -8,16 +8,20 @@ use async_trait::async_trait;
 use chrono::Utc;
 use dashmap::DashMap;
 use lorealm_plugins::{
-    FrontendSlot, HostServices, Level, LoadedPlugin, LogEntry, LogSource, Manifest, Message,
-    Persona, PluginHost, PluginInfo, PluginPackage, Role, Version, resolve,
+    FrontendSlot, HostServices, HttpRequest, HttpResponse, Level, LoadedPlugin, LogEntry,
+    LogSource, Manifest, Message, Persona, PluginHost, PluginInfo, PluginPackage, Role, Version,
+    resolve,
 };
 use lorealm_storage::{
     Storage, StorageError,
     models::{PluginLog, PluginLogLevel, PluginLogSource, Snowflake, UserPlugin, is_identifier},
 };
+use secrecy::zeroize::Zeroizing;
 use serde::Serialize;
 use tokio::sync::Mutex;
+use weaver_lang::InputType;
 
+mod fetch;
 mod install;
 mod settings;
 mod vocabulary;
@@ -30,8 +34,8 @@ use crate::{
     core::CleanableService,
     errors::PluginError,
     services::{
-        blueprint::InputSpec, chat::PromptMessage, context::PromptRole,
-        snowflake::SnowflakeService, state::StateService,
+        blueprint::InputSpec, chat::PromptMessage, connection::ConnectionService,
+        context::PromptRole, snowflake::SnowflakeService, state::StateService,
     },
 };
 
@@ -55,6 +59,8 @@ pub struct InstalledPlugin {
     pub api_keys: Vec<String>,
     /// Whether it ships a `settings.wtn` for the user to fill in.
     pub has_settings: bool,
+    /// Where it may send requests.
+    pub hosts: Vec<String>,
 }
 
 /// What a plugin's settings ask for, and the user's values.
@@ -117,6 +123,10 @@ pub struct PluginService {
     packages: DashMap<String, Arc<PluginPackage>>,
     /// `None` until the user's plugins are first needed.
     mounted: DashMap<Snowflake, Slot>,
+    /// Decrypts the keys plugins put in their requests.
+    connection: Arc<ConnectionService>,
+    /// Sends every plugin's `http-fetch` requests.
+    http: reqwest::Client,
 }
 
 impl PluginService {
@@ -124,6 +134,7 @@ impl PluginService {
         storage: Arc<dyn Storage>,
         snowflake: Arc<SnowflakeService>,
         state: Arc<StateService>,
+        connection: Arc<ConnectionService>,
         config: PluginConfig,
         dir: PathBuf,
     ) -> Self {
@@ -139,6 +150,8 @@ impl PluginService {
             dir,
             packages: DashMap::new(),
             mounted: DashMap::new(),
+            connection,
+            http: fetch::client(),
         }
     }
 
@@ -166,6 +179,7 @@ impl PluginService {
                         .cloned()
                         .collect(),
                     api_keys: package.manifest.definitions.api_keys.clone(),
+                    hosts: package.manifest.network.hosts.clone(),
                     has_settings: self
                         .version_dir(&handle, &version)
                         .join(&package.manifest.structure.settings)
@@ -612,6 +626,9 @@ impl PluginService {
                 logs: Arc::clone(&self.logs),
                 settings: tokio::fs::read_to_string(settings).await.ok(),
                 key_types: Arc::clone(&key_types),
+                connection: Arc::clone(&self.connection),
+                http: self.http.clone(),
+                user_agent: fetch::user_agent(&handle, &package.manifest.plugin.version),
             });
             // On failure, the plugin crate logged why.
             if let Ok(plugin) = self.host.instantiate(package, services).await {
@@ -722,6 +739,10 @@ struct UserServices {
     settings: Option<String>,
     /// The API key types the user's loaded plugins declare.
     key_types: Arc<Vec<String>>,
+    connection: Arc<ConnectionService>,
+    http: reqwest::Client,
+    /// Sent with its requests unless they set their own.
+    user_agent: String,
 }
 
 impl UserServices {
@@ -768,6 +789,55 @@ impl HostServices for UserServices {
     }
 
     async fn settings(&self) -> Result<String, String> {
+        Ok(self.resolved_settings().await?.to_string())
+    }
+
+    async fn http_fetch(&self, mut request: HttpRequest) -> Result<HttpResponse, String> {
+        let names: Vec<String> = request
+            .headers
+            .iter()
+            .flat_map(|(_, value)| fetch::placeholders(value))
+            .collect();
+        if !names.is_empty() {
+            if !fetch::may_carry_keys(&request.url) {
+                return Err("keys are only sent over https, or to this machine".into());
+            }
+            for name in names {
+                let key = self.key(&name).await?;
+                let placeholder = format!("{{secret:{name}}}");
+                for (_, value) in &mut request.headers {
+                    *value = value.replace(&placeholder, &key);
+                }
+            }
+        }
+        fetch::send(&self.http, request, &self.user_agent).await
+    }
+
+    async fn log(&self, entries: Vec<LogEntry>) {
+        self.logs.write(self.user_id, &self.handle, entries).await;
+    }
+}
+
+impl UserServices {
+    async fn key(&self, name: &str) -> Result<Zeroizing<String>, String> {
+        let source = self.settings.as_deref().unwrap_or("#inputs");
+        let is_key = settings::declarations(source)?.iter().any(|d| {
+            d.name == name && matches!(&d.ty, InputType::Ref(kind) if self.key_types.contains(kind))
+        });
+        if !is_key {
+            return Err(format!("`{name}` isn't an API key setting"));
+        }
+        let id: Snowflake = self.resolved_settings().await?[name]
+            .as_str()
+            .and_then(|id| id.parse().ok())
+            .ok_or_else(|| format!("`{name}` holds no key"))?;
+        self.connection
+            .reveal_secret(self.user_id, id)
+            .await
+            .map_err(|err| err.to_string())
+    }
+
+    async fn resolved_settings(&self) -> Result<serde_json::Value, String> {
         let saved = settings::saved(&*self.storage, self.user_id, &self.handle)
             .await
             .map_err(|err| self.storage_error(err))?;
@@ -776,7 +846,7 @@ impl HostServices for UserServices {
             .map_err(|err| self.storage_error(err))?;
         let source = self.settings.as_deref().unwrap_or("#inputs");
         match settings::resolve(source, &saved, &keys) {
-            Ok(values) => Ok(values.to_string()),
+            Ok(values) => Ok(values),
             Err(reason) => {
                 let message = format!(
                     "Couldn't read your settings: {reason}. Fix them under Settings → You → Plugins."
@@ -787,10 +857,6 @@ impl HostServices for UserServices {
                 Err(reason)
             }
         }
-    }
-
-    async fn log(&self, entries: Vec<LogEntry>) {
-        self.logs.write(self.user_id, &self.handle, entries).await;
     }
 }
 

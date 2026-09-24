@@ -43,4 +43,6 @@ export interface InstalledPlugin {
 	api_keys: string[];
 	/** Whether it has settings for the user to fill in. */
 	has_settings: boolean;
+	/** Where it may send requests. */
+	hosts: string[];
 }

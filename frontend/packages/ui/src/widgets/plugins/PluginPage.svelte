@@ -126,13 +126,19 @@
 			{#if error}<p class="error">{error}</p>{/if}
 
 			<h3>Permissions</h3>
-			{#if plugin.permissions.length}
+			{#if plugin.permissions.length || plugin.hosts.length}
 				<table>
 					<tbody>
 						{#each plugin.permissions as permission (permission)}
 							<tr>
 								<td>{permissionLabels[permission] ?? permission}</td>
 								<td class="muted"><code>{permission}</code></td>
+							</tr>
+						{/each}
+						{#each plugin.hosts as host (host)}
+							<tr>
+								<td>Send requests to</td>
+								<td class="muted"><code>{host}</code></td>
 							</tr>
 						{/each}
 					</tbody>

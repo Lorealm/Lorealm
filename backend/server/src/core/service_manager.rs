@@ -160,6 +160,7 @@ impl ServiceManager {
             Arc::clone(&storage),
             Arc::clone(&snowflake),
             Arc::clone(&state),
+            Arc::clone(&connection),
             config.get::<PluginConfig>(),
             config
                 .get::<lorealm_storage::StorageConfig>()

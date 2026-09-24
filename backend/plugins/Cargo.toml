@@ -10,6 +10,7 @@ bytes = "1.11.1"
 tokio = "1.51.0"
 serde = { version = "1.0.228", features = ["derive"] }
 toml = "1.1.6"
+url = "2.5.7"
 semver = { version = "1.0.28", features = ["serde"] }
 wasmtime = "49.0.0"
 wasmtime-wasi = "49.0.0"

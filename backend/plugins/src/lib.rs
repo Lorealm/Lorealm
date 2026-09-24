@@ -8,14 +8,14 @@ pub use host::{
     CommandContext, HostServices, LoadedPlugin, PluginError, PluginHost, PluginPackage,
     Registrations,
     lorealm::plugin::types::{
-        Block, CommandSignature, Hook, Level, Message, Param, Persona, ProcessorSignature, Role,
-        SourceNode, ValueType,
+        Block, CommandSignature, Hook, HttpRequest, HttpResponse, Level, Message, Param, Persona,
+        ProcessorSignature, Role, SourceNode, ValueType,
     },
 };
 pub use log::{LogEntry, LogSource};
 pub use manifest::{
-    Build, Compatibility, Definitions, Frontend, FrontendSlot, Manifest, ManifestError, PluginInfo,
-    SlotMode, Structure,
+    Build, Compatibility, Definitions, Frontend, FrontendSlot, Manifest, ManifestError, Network,
+    PluginInfo, SlotMode, Structure,
 };
 pub use resolve::{Resolution, resolve};
 pub use semver::Version;
