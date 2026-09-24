@@ -21,8 +21,7 @@ pub struct StorageConfig {
 
 impl Default for StorageConfig {
     fn default() -> Self {
-        // TODO: When SQLite/Turso support is added, swap to `Self::local_default()`
-        Self::server_default()
+        Self::local_default()
     }
 }
 
@@ -58,6 +57,12 @@ pub enum BackendConfig {
         max_connections: u32,
         create_automatically: bool,
     },
+    Sqlite {
+        /// Path to the database file.
+        path: PathBuf,
+        max_connections: u32,
+        create_automatically: bool,
+    },
     Memory {
         max_size: usize,
     },
@@ -66,11 +71,13 @@ pub enum BackendConfig {
 impl StorageConfig {
     /// Create a default config for single-user local deployment
     ///
-    /// Creates an in-memory storage with a 50MB capacity
+    /// Stores everything in a SQLite file under the data directory.
     pub fn local_default() -> Self {
         Self {
-            backends: vec![BackendConfig::Memory {
-                max_size: 50 * 1024 * 1024,
+            backends: vec![BackendConfig::Sqlite {
+                path: PathBuf::from("data").join("lorealm.db"),
+                max_connections: 5,
+                create_automatically: true,
             }],
             data_directory: PathBuf::from("data"),
             require_postgres_fallback: false,

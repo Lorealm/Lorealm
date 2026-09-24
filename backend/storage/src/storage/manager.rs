@@ -5,7 +5,9 @@ use crate::storage::Storage;
 use crate::{BackendConfig, StorageConfig, StorageError};
 use crate::{
     BlobStore,
-    backends::{blob::FsBlobStore, memory::MemoryStorage, postgres::PostgresStorage},
+    backends::{
+        blob::FsBlobStore, memory::MemoryStorage, postgres::PostgresStorage, sqlite::SqliteStorage,
+    },
 };
 use std::sync::Arc;
 use tracing::{error, info, warn};
@@ -116,6 +118,13 @@ impl StorageManager {
                     PostgresStorage::new(&url, *max_connections, *create_automatically).await?,
                 ) as Box<dyn Storage>)
             }
+            BackendConfig::Sqlite {
+                path,
+                max_connections,
+                create_automatically,
+            } => Ok(Box::new(
+                SqliteStorage::new(path, *max_connections, *create_automatically).await?,
+            ) as Box<dyn Storage>),
             BackendConfig::Memory { max_size: _ } => {
                 Ok(Box::new(MemoryStorage::new()) as Box<dyn Storage>)
             }
