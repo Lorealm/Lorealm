@@ -24,7 +24,7 @@ wasmtime::component::bindgen!({
 pub struct EvalContextHandle;
 
 use lorealm::plugin::types::{
-    Block, CommandCall, CommandSignature, CustomEvent, FrontendCall, Hook, HttpRequest,
+    Block, CommandCall, CommandSignature, CustomEvent, FrontendCall, Generated, Hook, HttpRequest,
     HttpResponse, Level, Message, Persona, ProcessorCall, ProcessorSignature, SourceCall,
     SourceNode,
 };
@@ -230,6 +230,7 @@ impl lorealm::plugin::host::Host for PluginState {
     async fn register_hook(&mut self, hook: Hook) -> Result<(), String> {
         let permission = match hook {
             Hook::PromptBuild => "prompt:write",
+            Hook::AfterGenerate => "chat:read",
         };
         self.require(permission)?;
         if !self.hooks.contains(&hook) {
@@ -474,6 +475,17 @@ impl LoadedPlugin {
         match self.handle(Event::PromptBuild(prompt)).await? {
             Response::PromptBuild(prompt) => Ok(prompt),
             _ => Err(mismatch("prompt-build")),
+        }
+    }
+
+    /// Runs the `after-generate` hook, if the plugin registered it.
+    pub async fn after_generate(&mut self, generated: Generated) -> Result<(), PluginError> {
+        if !self.store.data().hooks.contains(&Hook::AfterGenerate) {
+            return Ok(());
+        }
+        match self.handle(Event::AfterGenerate(generated)).await? {
+            Response::AfterGenerate => Ok(()),
+            _ => Err(mismatch("after-generate")),
         }
     }
 

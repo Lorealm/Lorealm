@@ -15,8 +15,8 @@ use std::{
 
 pub use characters::*;
 pub use hosting::HostingConfig;
-pub use plugins::PluginConfig;
 use indexmap::IndexMap;
+pub use plugins::PluginConfig;
 pub use session::*;
 pub use task::*;
 pub use tokenizers::TokenizerConfig;

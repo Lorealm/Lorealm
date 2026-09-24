@@ -9,9 +9,9 @@ use async_trait::async_trait;
 use chrono::Utc;
 use dashmap::DashMap;
 use lorealm_plugins::{
-    FrontendSlot, HostServices, HttpRequest, HttpResponse, Level, LoadedPlugin, LogEntry,
-    LogSource, Manifest, Message, Persona, PluginHost, PluginInfo, PluginPackage, Role, Version,
-    resolve,
+    FrontendSlot, Generated, HostServices, HttpRequest, HttpResponse, Level, LoadedPlugin,
+    LogEntry, LogSource, Manifest, Message, Persona, PluginHost, PluginInfo, PluginPackage, Role,
+    Version, resolve,
 };
 use lorealm_storage::{
     Storage, StorageError,
@@ -605,6 +605,33 @@ impl PluginService {
             }
         }
         messages.into_iter().map(Into::into).collect()
+    }
+
+    /// Runs the user's `after-generate` hooks in load order. A plugin that
+    /// fails is logged and skipped. Callers shouldn't wait for it.
+    pub async fn after_generate(
+        &self,
+        user_id: Snowflake,
+        conversation: Snowflake,
+        message: Snowflake,
+        content: String,
+    ) {
+        let slot = self.mount(user_id).await;
+        let mut guard = slot.lock().await;
+        let Some(mounted) = guard.as_mut() else {
+            return;
+        };
+        let handles: Vec<String> = mounted.plugins.iter().map(|(h, _)| h.clone()).collect();
+        for handle in handles {
+            let generated = Generated {
+                conversation: conversation.0,
+                message: message.0,
+                content: content.clone(),
+            };
+            let _ = mounted
+                .call(&handle, async move |p| p.after_generate(generated).await)
+                .await;
+        }
     }
 
     /// The user's mount slot, filled on first use. A plugin that fails to

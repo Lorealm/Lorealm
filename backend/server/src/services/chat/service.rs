@@ -789,6 +789,7 @@ impl ChatService {
 
         let conversations = self.conversations.clone();
         let state_service = self.state.clone();
+        let plugins = Arc::clone(&self.plugins);
 
         let tokenizer_id = state_service.get_active_tokenizer_id(user_id).await?;
         let template_id = state_service.get_active_template_id(user_id).await?;
@@ -889,6 +890,11 @@ impl ChatService {
                 let captured = CapturedState { activation, persistent: delta };
                 state_service.persist(message.id, captured).await?;
             }
+
+            let (message_id, content) = (message.id, message.content.clone());
+            tokio::spawn(async move {
+                plugins.after_generate(spec.owner, convo_id, message_id, content).await;
+            });
 
             yield ChatStreamEvent::Done { message };
 

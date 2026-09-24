@@ -24,6 +24,7 @@ A living document to help us keep track of the plugin system implementation.
 | 24/09/26      | Added the TTS example plugin        | ✅            |
 | 24/09/26      | Planned hook kinds and custom hooks | ✅            |
 | 24/09/26      | Added plugin events                 | ✅            |
+| 24/09/26      | Added the after-generate hook       | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -95,7 +96,7 @@ Every plugin must ship with a manifest.toml file. A manifest file ships the plug
 - tags
 - author
 - version (semver)
-- permissions (one of `data:persist`, `net:fetch`, `persona:read`, `prompt:write`, `state:read`, `state:write`, `ui:autoplay`, `ui:unsafe`; any other is refused when the plugin is installed or loaded, and the Plugins page lists them)
+- permissions (one of `chat:read`, `data:persist`, `net:fetch`, `persona:read`, `prompt:write`, `state:read`, `state:write`, `ui:autoplay`, `ui:unsafe`; any other is refused when the plugin is installed or loaded, and the Plugins page lists them)
 
 #### Compatibility (optional)
 - loaded_before (array of handle (or author+handle), this plugin must be loaded before these plugins)
@@ -233,7 +234,7 @@ Every hook is one of three kinds, which decides how the host runs it:
 The kind is part of the WIT, so an observer can never hold up a generation. Variations share one hook with a reason field rather than getting their own (`before-generate` has a `kind` of `new`, `regenerate`, `continue` or `swipe`), and `register-hook` should take a filter (only realms, only a given tool, ...) so plugins aren't called for everything.
 
 #### Planned hooks
-Only `prompt-build` exists so far.
+`prompt-build` (needs `prompt:write`) and `after-generate` (needs `chat:read`) exist so far. `after-generate` gets the saved reply's conversation, message id and content once a chat reply is saved; realm turns don't fire it.
 
 | Area          | Hook                                                  | Kind  |
 |---------------|-------------------------------------------------------|-------|

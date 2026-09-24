@@ -29,6 +29,8 @@ interface types {
     enum hook {
         /// Requires the `prompt:write` permission.
         prompt-build,
+        /// Requires the `chat:read` permission.
+        after-generate,
     }
 
     /// A Weaver value as JSON text. WIT has no recursive types.
@@ -126,6 +128,13 @@ interface types {
         payload: json,
     }
 
+    /// A reply the model finished, once it is saved.
+    record generated {
+        conversation: s64,
+        message: s64,
+        content: string,
+    }
+
     /// A request for `http-fetch`.
     record http-request {
         /// Such as `GET` or `POST`.
@@ -153,6 +162,8 @@ interface types {
         source(source-call),
         frontend(frontend-call),
         custom(custom-event),
+        /// Observes a finished reply. Generation doesn't wait for it.
+        after-generate(generated),
     }
 
     /// Answers `handle`, in the same case as the event.
@@ -164,6 +175,7 @@ interface types {
         source(list<block>),
         frontend(json),
         custom,
+        after-generate,
     }
 }
 

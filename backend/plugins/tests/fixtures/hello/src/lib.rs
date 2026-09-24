@@ -8,8 +8,9 @@ use lorealm::plugin::host::{
     register_hook, register_processor, register_source_node, settings, subscribe, unsubscribe,
 };
 use lorealm::plugin::types::{
-    Block, CommandCall, CommandSignature, CustomEvent, FrontendCall, Hook, HttpRequest, Level,
-    Message, Param, ProcessorCall, ProcessorSignature, Role, SourceCall, SourceNode, ValueType,
+    Block, CommandCall, CommandSignature, CustomEvent, FrontendCall, Generated, Hook, HttpRequest,
+    Level, Message, Param, ProcessorCall, ProcessorSignature, Role, SourceCall, SourceNode,
+    ValueType,
 };
 use serde_json::Value;
 
@@ -18,6 +19,7 @@ struct Hello;
 impl Guest for Hello {
     fn init() -> Result<(), String> {
         register_hook(Hook::PromptBuild)?;
+        register_hook(Hook::AfterGenerate)?;
         // Only `hello_addon` may emit it, as this component also runs as that.
         subscribe("hello_addon.ping")?;
         register_command(&CommandSignature {
@@ -107,7 +109,7 @@ impl Guest for Hello {
                     unsubscribe(string(Some(&args))?.as_str())?;
                     Ok(Response::Frontend("null".into()))
                 }
-                // The last event received, as `topic payload`.
+                // The last event received, as `topic payload` (or `after-generate reply`).
                 "event" => {
                     let event =
                         load_data("event")?.map(|b| String::from_utf8_lossy(&b).into_owned());
@@ -141,6 +143,10 @@ impl Guest for Hello {
                     emit(&topic, &payload)?;
                 }
                 Ok(Response::Custom)
+            }
+            Event::AfterGenerate(Generated { content, .. }) => {
+                persist_data("event", format!("after-generate {content}").as_bytes())?;
+                Ok(Response::AfterGenerate)
             }
             Event::Source(SourceCall { settings, .. }) => {
                 let settings: Value = serde_json::from_str(&settings).map_err(|e| e.to_string())?;

@@ -302,11 +302,7 @@ pub(super) fn push_emitted_events(
     }));
 }
 
-pub(super) fn push_state_events(
-    source: &str,
-    delta: &StateDelta,
-    events: &mut Vec<EventDraft>,
-) {
+pub(super) fn push_state_events(source: &str, delta: &StateDelta, events: &mut Vec<EventDraft>) {
     let mut namespaces: Vec<&String> = delta.writes.keys().chain(delta.deletes.keys()).collect();
     namespaces.sort();
     namespaces.dedup();
