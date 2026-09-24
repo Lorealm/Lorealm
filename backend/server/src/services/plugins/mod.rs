@@ -1,4 +1,5 @@
 use std::{
+    collections::VecDeque,
     path::PathBuf,
     sync::Arc,
     time::{Duration, Instant},
@@ -42,6 +43,10 @@ use crate::{
 /// How long a single call into a plugin may run.
 const CALL_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// How many events deep a chain of events, each emitted while handling the
+/// last, may go.
+const MAX_EVENT_DEPTH: usize = 8;
+
 /// How long a user's plugins stay mounted without being used.
 const IDLE_TTL: Duration = Duration::from_secs(30 * 60);
 
@@ -82,9 +87,8 @@ struct Mounted {
 type Slot = Arc<Mutex<Option<Mounted>>>;
 
 impl Mounted {
-    /// Runs `op` against `handle`'s plugin. A plugin whose call trapped (f.ex.
-    /// timed out) can't be entered again, so it is unmounted until the user's
-    /// plugins next load.
+    /// Runs `op` against `handle`'s plugin, then delivers the events it
+    /// emitted.
     async fn call<T>(
         &mut self,
         handle: &str,
@@ -94,6 +98,54 @@ impl Mounted {
         let Some(i) = self.plugins.iter().position(|(h, _)| h == handle) else {
             return Err(format!("plugin `{handle}` is not loaded"));
         };
+        let value = self.run(i, op).await?;
+        let emitted = self.plugins[i].1.take_emitted();
+        self.deliver(emitted).await;
+        Ok(value)
+    }
+
+    /// Hands each event to every plugin in load order, then the events those
+    /// emitted, up to [`MAX_EVENT_DEPTH`] deep.
+    async fn deliver(&mut self, emitted: Vec<(String, String)>) {
+        let mut queue: VecDeque<_> = emitted.into_iter().map(|e| (e, 1)).collect();
+        while let Some(((topic, payload), depth)) = queue.pop_front() {
+            let mut i = 0;
+            while i < self.plugins.len() {
+                let count = self.plugins.len();
+                let (t, p) = (topic.clone(), payload.clone());
+                let _ = self
+                    .run(i, async move |plugin| plugin.custom_event(t, p).await)
+                    .await;
+                // It crashed and was removed.
+                if self.plugins.len() < count {
+                    continue;
+                }
+                let emitted = self.plugins[i].1.take_emitted();
+                if depth < MAX_EVENT_DEPTH {
+                    queue.extend(emitted.into_iter().map(|e| (e, depth + 1)));
+                } else if !emitted.is_empty() {
+                    let message = format!(
+                        "Dropped the events it emitted: a chain of events stops at {MAX_EVENT_DEPTH}."
+                    );
+                    let handle = &self.plugins[i].0;
+                    self.logs
+                        .host(self.user_id, handle, Level::Warn, message)
+                        .await;
+                }
+                i += 1;
+            }
+        }
+    }
+
+    /// Runs `op` against the `i`th plugin. A plugin whose call trapped (f.ex.
+    /// timed out) can't be entered again, so it is unmounted until the user's
+    /// plugins next load.
+    async fn run<T>(
+        &mut self,
+        i: usize,
+        op: impl AsyncFnOnce(&mut LoadedPlugin) -> Result<T, lorealm_plugins::PluginError>,
+    ) -> Result<T, String> {
+        let handle = self.plugins[i].0.clone();
         // On failure, the plugin crate logged why.
         let err = match op(&mut self.plugins[i].1).await {
             Ok(value) => return Ok(value),
@@ -103,7 +155,7 @@ impl Mounted {
             let message =
                 "Plugin stopped after a crash. It will load again the next time your plugins load.";
             self.logs
-                .host(self.user_id, handle, Level::Warn, message.into())
+                .host(self.user_id, &handle, Level::Warn, message.into())
                 .await;
             self.plugins.remove(i);
         }

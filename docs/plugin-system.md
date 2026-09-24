@@ -22,6 +22,8 @@ A living document to help us keep track of the plugin system implementation.
 | 24/09/26      | Added http-fetch                    | ✅            |
 | 24/09/26      | Gated fetching and autoplay         | ✅            |
 | 24/09/26      | Added the TTS example plugin        | ✅            |
+| 24/09/26      | Planned hook kinds and custom hooks | ✅            |
+| 24/09/26      | Added plugin events                 | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -109,6 +111,9 @@ Every plugin must ship with a manifest.toml file. A manifest file ships the plug
 
 #### Network (optional)
 - hosts (where the plugin may send requests, e.g. `["api.elevenlabs.io", "localhost:8880"]`). A host alone matches the scheme's default port; `host:port` matches that port. Listed on the plugin's page.
+
+#### Provides (optional)
+- events (the events the plugin may emit, as names under its handle, e.g. `["ping"]` for `handle.ping`). See Custom hooks.
 
 #### Definitions (optional)
 - api_keys (API key types, e.g. `["elevenlabs"]`; identifiers that don't match a built-in type). See Settings.
@@ -218,18 +223,53 @@ A plugin reads its settings with `settings()`: a JSON object with every input, s
 
 ### Plugin Hooks
 On the server, we don't care what goes on inside the WASM sandbox. The main way a plugin triggers based on activity is through hooks.
-Here is a non-exhaustive list of hooks that will (probably) exist:
-- `on_prompt_build`
-- `before_request`
-- `on_stream_chunk`
-- `after_generate`
-- `on_generate_error`
-- `on_generate_abort`
-- `on_message_edit`
-- `on_message_delete`
-- `on_regenerate`
-- `on_continue`
-- [More...]
+
+#### Hook kinds (FOG)
+Every hook is one of three kinds, which decides how the host runs it:
+- **Filter (F)**: takes a value and returns it, possibly changed. Runs in load order, each plugin seeing the previous one's output, and blocks whatever triggered it. Used sparingly.
+- **Observe (O)**: fire-and-forget. The host doesn't wait for it and may deliver it later or to several plugins at once. It can't change anything. Most hooks are this kind.
+- **Gate (G)**: a filter that can also refuse: it answers allow, deny with a reason, or a changed input.
+
+The kind is part of the WIT, so an observer can never hold up a generation. Variations share one hook with a reason field rather than getting their own (`before-generate` has a `kind` of `new`, `regenerate`, `continue` or `swipe`), and `register-hook` should take a filter (only realms, only a given tool, ...) so plugins aren't called for everything.
+
+#### Planned hooks
+Only `prompt-build` exists so far.
+
+| Area          | Hook                                                  | Kind  |
+|---------------|-------------------------------------------------------|-------|
+| Generation    | `before-generate`                                     | G     |
+|               | `prompt-build`                                        | F     |
+|               | `before-request` (model, sampling, stop, max tokens)  | F     |
+|               | `stream-chunk` (batched, not per token)               | O     |
+|               | `message-finalize` (the reply before it's saved)      | F     |
+|               | `after-generate`                                      | O     |
+|               | `generate-error`, `generate-abort`                    | O     |
+| Messages      | `user-message` (the input before it's saved)          | F/G   |
+|               | `message-edited`, `message-deleted`, `branch-activated` | O   |
+|               | `conversation-created`, `conversation-deleted`        | O     |
+| Context       | `lorebook-activate` (entries before insertion)        | F     |
+|               | `variable-changed`                                    | O     |
+| Tools         | `tool-call`                                           | G     |
+|               | `tool-result`                                         | F     |
+| Realms        | `turn-start`, `turn-end`                              | O     |
+|               | `select-speaker`                                      | F     |
+|               | `player-turn`                                         | F/G   |
+|               | `action`                                              | G     |
+|               | `realm-event`, `observation`                          | O     |
+| Lifecycle     | `upgrade(from-version)` (migrate persisted data)      | —     |
+|               | `settings-changed`                                    | O     |
+|               | `shutdown` (flush before unloading)                   | —     |
+
+Rough order: `after-generate`, `message-finalize`, `user-message`, `lorebook-activate`, `tool-call`, then realms. A scheduled `tick` hook is undecided, since plugins only load while their user is active.
+
+#### Custom hooks
+Plugins should be able to talk to each other, so one plugin can act as a library or "script extender" that others build on. This comes in two forms:
+- **Events** (observe-only): `emit("handle.topic", json)`, which other plugins subscribe to. A plugin can only emit under its own handle. Events are delivered after the emitting call returns, never during it: a plugin's instance can't be re-entered, so A emitting to B, which emits back to A, would otherwise deadlock. Chains of events have a depth limit.
+- **Services** (request/response): a plugin registers callable functions, which plugins that `require` it call with `call("handle", "name", json)`. `requires` then versions that API and orders loading. A call into a plugin already on the call stack is refused. The callee runs with its own permissions, since the user granted them to it, and is told who's calling so it can decide what to allow. Time spent in the callee counts against the callee.
+
+Both are declared in the manifest (`[provides] events` and `exports`, with JSON schemas for their payloads), so the Plugins page can show what depends on what and an SDK can generate typed bindings. Payloads are JSON, so custom hooks never change the WIT.
+
+**Events exist so far.** A plugin calls `subscribe(topic)` during `init`, and `emit(topic, json)` afterwards, where `topic` is `handle.name` under its own handle, with `name` listed in `[provides] events`; anything else is refused and logged. Subscribers get a `custom` event with the topic and payload, in load order, once the emitting call has returned (still before the request that led to it finishes). Each delivery is its own call, with its own time limit. A failed call's events are dropped. Events emitted while handling an event are delivered in turn, up to 8 deep; past that they're dropped and the plugin's log says so. Payloads aren't checked, and `[provides]` has no schemas yet.
 
 **Planned:** record what each plugin's `prompt-build` hook changed, diffing the prompt before and after every plugin, so the context inspector can show which plugin changed what.
 

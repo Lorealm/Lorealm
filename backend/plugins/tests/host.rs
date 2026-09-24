@@ -561,3 +561,60 @@ async fn fetching_needs_permission() {
         "missing permission `net:fetch`"
     ));
 }
+
+#[tokio::test]
+async fn a_plugin_emits_only_its_declared_events() {
+    let host = host();
+    build_hello();
+    let hello = host.compile(&fixture("hello")).unwrap();
+    let addon = host.compile(&fixture("hello_addon")).unwrap();
+    let services = Arc::new(TestServices::default());
+    let mut hello = host.instantiate(&hello, services.clone()).await.unwrap();
+    let mut addon = host.instantiate(&addon, services.clone()).await.unwrap();
+    let emit = |topic: &str| format!(r#"{{"topic": "{topic}", "payload": 1}}"#);
+
+    let undeclared = hello.call_frontend("emit".into(), emit("hello.ping")).await;
+    let not_its_own = addon.call_frontend("emit".into(), emit("hello.ping")).await;
+    addon
+        .call_frontend("emit".into(), emit("hello_addon.ping"))
+        .await
+        .unwrap();
+
+    assert!(matches!(undeclared, Err(PluginError::Call(_))));
+    assert!(matches!(not_its_own, Err(PluginError::Call(_))));
+    assert!(services.logged(Level::Warn, LogSource::Host, "`hello.ping` isn't"));
+    assert_eq!(
+        addon.take_emitted(),
+        [("hello_addon.ping".to_owned(), "1".to_owned())]
+    );
+}
+
+#[tokio::test]
+async fn an_event_reaches_only_subscribers() {
+    let host = host();
+    let package = compile(&host, "hello");
+    let mut plugin = host
+        .instantiate(&package, Arc::new(TestServices::default()))
+        .await
+        .unwrap();
+
+    plugin
+        .custom_event("hello_addon.other".into(), "1".into())
+        .await
+        .unwrap();
+    let ignored = plugin
+        .call_frontend("event".into(), "{}".into())
+        .await
+        .unwrap();
+    plugin
+        .custom_event("hello_addon.ping".into(), "2".into())
+        .await
+        .unwrap();
+    let received = plugin
+        .call_frontend("event".into(), "{}".into())
+        .await
+        .unwrap();
+
+    assert_eq!(ignored, "null");
+    assert_eq!(received, r#""hello_addon.ping 2""#);
+}
