@@ -4,6 +4,7 @@
 	const connectionsView = () => import('../connections/ConnectionsView.svelte');
 	const settingsPage = () => import('../settings/SettingsPage.svelte');
 	const pluginsPage = () => import('../plugins/PluginsPage.svelte');
+	const pluginPage = () => import('../plugins/PluginPage.svelte');
 	const studioRouter = () => import('./StudioRouter.svelte');
 </script>
 
@@ -46,6 +47,10 @@
 {:else if route.view === 'studio'}
 	{#await lazy(studioRouter) then StudioRouter}
 		<StudioRouter section={route.section} id={route.id} />
+	{/await}
+{:else if route.view === 'plugins' && route.id !== undefined}
+	{#await lazy(pluginPage) then PluginPage}
+		<PluginPage handle={route.id} />
 	{/await}
 {:else if route.view === 'plugins'}
 	{#await lazy(pluginsPage) then PluginsPage}

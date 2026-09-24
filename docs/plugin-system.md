@@ -15,6 +15,7 @@ A living document to help us keep track of the plugin system implementation.
 | 23/09/26      | Added secure frontend slots         | ✅            |
 | 23/09/26      | Added message slots and unsafe mode | ✅            |
 | 23/09/26      | Added installation from source      | ✅            |
+| 24/09/26      | Validated and surfaced permissions  | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -86,7 +87,7 @@ Every plugin must ship with a manifest.toml file. A manifest file ships the plug
 - tags
 - author
 - version (semver)
-- permissions
+- permissions (one of `data:persist`, `persona:read`, `prompt:write`, `state:read`, `state:write`, `ui:unsafe`; any other is refused when the plugin is installed or loaded, and the Plugins page lists them)
 
 #### Compatibility (optional)
 - loaded_before (array of handle (or author+handle), this plugin must be loaded before these plugins)
@@ -114,7 +115,7 @@ description = "Live-renders Markdown files in a side panel as you type."
 tags = ["markdown", "preview", "editor"]
 author = "Jane Doe <jane@example.com>"
 version = "1.2.0"
-permissions = ["fs:read", "ui:modal"]
+permissions = ["prompt:write", "persona:read"]
 
 [compatibility]
 loaded_before = ["mermaid_render"]
