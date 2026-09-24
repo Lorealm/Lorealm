@@ -16,6 +16,7 @@ pub const PERMISSIONS: &[&str] = &[
     "prompt:write",
     "state:read",
     "state:write",
+    "tools:write",
     "ui:autoplay",
     "ui:unsafe",
 ];

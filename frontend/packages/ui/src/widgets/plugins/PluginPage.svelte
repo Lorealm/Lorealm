@@ -21,6 +21,7 @@
 		'prompt:write': 'Change prompts before they are sent',
 		'state:read': 'Read script variables',
 		'state:write': 'Change script variables',
+		'tools:write': 'Change or refuse tool calls before they run',
 		'ui:autoplay': 'Play media without you clicking it first',
 		'ui:unsafe': 'Run code directly in the app'
 	};

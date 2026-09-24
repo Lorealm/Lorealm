@@ -28,6 +28,7 @@ A living document to help us keep track of the plugin system implementation.
 | 24/09/26      | Added the message-finalize hook     | ✅            |
 | 24/09/26      | Added the user-message gate         | ✅            |
 | 24/09/26      | Added the lorebook-activate hook    | ✅            |
+| 24/09/26      | Added the tool-call gate            | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -99,7 +100,7 @@ Every plugin must ship with a manifest.toml file. A manifest file ships the plug
 - tags
 - author
 - version (semver)
-- permissions (one of `chat:read`, `chat:write`, `data:persist`, `net:fetch`, `persona:read`, `prompt:write`, `state:read`, `state:write`, `ui:autoplay`, `ui:unsafe`; any other is refused when the plugin is installed or loaded, and the Plugins page lists them)
+- permissions (one of `chat:read`, `chat:write`, `data:persist`, `net:fetch`, `persona:read`, `prompt:write`, `state:read`, `state:write`, `tools:write`, `ui:autoplay`, `ui:unsafe`; any other is refused when the plugin is installed or loaded, and the Plugins page lists them)
 
 #### Compatibility (optional)
 - loaded_before (array of handle (or author+handle), this plugin must be loaded before these plugins)
@@ -237,7 +238,7 @@ Every hook is one of three kinds, which decides how the host runs it:
 The kind is part of the WIT, so an observer can never hold up a generation. Variations share one hook with a reason field rather than getting their own (`before-generate` has a `kind` of `new`, `regenerate`, `continue` or `swipe`), and `register-hook` should take a filter (only realms, only a given tool, ...) so plugins aren't called for everything.
 
 #### Planned hooks
-`user-message` (needs `chat:write`), `lorebook-activate` and `prompt-build` (both need `prompt:write`), `message-finalize` (needs `chat:write`) and `after-generate` (needs `chat:read`) exist so far. `user-message` is a gate: it gets the conversation and the text the user sent for a reply (a new message or a branch, not an edit, which starts no generation) before it's saved, and answers a `verdict` of `allow`, `change(text)` or `deny(reason)`. The first denial stops the rest; nothing is saved, and the request fails with `chat.refused`, naming the plugin and its reason. `message-finalize` gets a chat reply's conversation and content just before it's saved, and returns the content to save; the client shows the saved version once streaming ends. `after-generate` then gets the saved reply's conversation, message id and content. Realm turns fire none of these except `lorebook-activate`, which runs wherever lorebooks are assembled (chat, realms, slash commands): once per world info node in the template, with that node's slot (`prelude`, `setting`, ...) and its activated entries as `{id, content, priority}` in insertion order. It returns the entries to insert, and may drop, rewrite, reorder or add them; the node's `max_entries` applies afterwards.
+`user-message` (needs `chat:write`), `lorebook-activate` and `prompt-build` (both need `prompt:write`), `message-finalize` (needs `chat:write`), `after-generate` (needs `chat:read`) and `tool-call` (needs `tools:write`) exist so far. `user-message` is a gate: it gets the conversation and the text the user sent for a reply (a new message or a branch, not an edit, which starts no generation) before it's saved, and answers a `verdict` of `allow`, `change(text)` or `deny(reason)`. The first denial stops the rest; nothing is saved, and the request fails with `chat.refused`, naming the plugin and its reason. `message-finalize` gets a chat reply's conversation and content just before it's saved, and returns the content to save; the client shows the saved version once streaming ends. `after-generate` then gets the saved reply's conversation, message id and content. Realm turns fire none of these except `lorebook-activate`, which runs wherever lorebooks are assembled (chat, realms, slash commands): once per world info node in the template, with that node's slot (`prelude`, `setting`, ...) and its activated entries as `{id, content, priority}` in insertion order. It returns the entries to insert, and may drop, rewrite, reorder or add them; the node's `max_entries` applies afterwards. `tool-call` is a gate that runs wherever tools do (chat, realm agents), before each call the model makes: it gets the tool's name and arguments as JSON, and answers `allow`, `change(arguments)` or `deny(reason)`. A change that isn't JSON is ignored and logged. A denial stops the rest, and the tool doesn't run; the model gets "refused by plugin `handle`: reason" as the call's error result, and the reply carries on.
 
 | Area          | Hook                                                  | Kind  |
 |---------------|-------------------------------------------------------|-------|

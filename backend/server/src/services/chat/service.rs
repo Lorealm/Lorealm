@@ -1109,6 +1109,8 @@ impl ChatService {
                     registry,
                     widget_sink,
                     effect_sink,
+                    Arc::clone(&self.plugins),
+                    owner,
                 )
                 .await
             }
@@ -1132,6 +1134,8 @@ impl ChatService {
                     registry,
                     widget_sink,
                     effect_sink,
+                    Arc::clone(&self.plugins),
+                    owner,
                 )
                 .await
             }
@@ -1300,6 +1304,7 @@ fn prompt_role_to_provider_role(role: PromptRole) -> lorealm_providers::Role {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn run_inference<P>(
     provider: P,
     mut messages: Vec<lorealm_providers::Message>,
@@ -1308,6 +1313,8 @@ async fn run_inference<P>(
     registry: lorealm_providers::ToolRegistry,
     widget_sink: WidgetSink,
     effect_sink: EffectSink,
+    plugins: Arc<PluginService>,
+    owner: Snowflake,
 ) -> Result<Pin<Box<dyn Stream<Item = Result<InferEvent, ChatError>> + Send>>, ChatError>
 where
     P: LlmProvider + 'static,
@@ -1393,14 +1400,21 @@ where
             let mut results = Vec::new();
             for (id, name, input) in uses {
                 let t0 = tokio::time::Instant::now();
-                let (block, output, is_error) = match registry.call(&name, input.clone()).await {
+                let (input, result) = match plugins.tool_call(owner, &name, input.clone()).await {
+                    Ok(input) => {
+                        let result = registry.call(&name, input.clone()).await;
+                        (input, result.map_err(|e| e.to_string()))
+                    }
+                    Err(refusal) => (input, Err(refusal.to_string())),
+                };
+                let (block, output, is_error) = match result {
                         Ok(value) => (
                             ContentBlock::ToolResult { tool_use_id: id.clone(), content: value.to_string(), is_error: false },
                             value, false,
                         ),
                         Err(e) => (
-                            ContentBlock::ToolResult { tool_use_id: id.clone(), content: e.to_string(), is_error: true },
-                            serde_json::Value::String(e.to_string()), true,
+                            ContentBlock::ToolResult { tool_use_id: id.clone(), content: e.clone(), is_error: true },
+                            serde_json::Value::String(e), true,
                         ),
                     };
                 results.push(block);

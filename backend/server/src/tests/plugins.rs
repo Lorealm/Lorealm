@@ -650,7 +650,7 @@ fn hello_source(version: &str) -> PathBuf {
         description = ""
         author = "Lorealm"
         version = "{version}"
-        permissions = ["prompt:write", "chat:read", "chat:write", "persona:read", "data:persist"]
+        permissions = ["prompt:write", "chat:read", "chat:write", "tools:write", "persona:read", "data:persist"]
 
         [structure]
         backend = "{}"
@@ -1158,4 +1158,26 @@ async fn lorebook_activate_runs_in_load_order() {
 
     let contents: Vec<_> = entries.iter().map(|e| e.content.as_str()).collect();
     assert_eq!(contents, ["dragons!!"]);
+}
+
+#[tokio::test]
+async fn tool_call_runs_in_load_order_until_refused() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    h.plugins.enable(h.user, "hello_addon").await.unwrap();
+    let arguments = serde_json::json!({ "city": "Oslo" });
+
+    let changed = h
+        .plugins
+        .tool_call(h.user, "weather", arguments.clone())
+        .await;
+    let denied = h.plugins.tool_call(h.user, "forbidden", arguments).await;
+
+    assert_eq!(
+        changed.unwrap(),
+        serde_json::json!({ "city": "Oslo", "seen": 2 })
+    );
+    let refusal = denied.unwrap_err();
+    assert_eq!(refusal.handle, "hello");
+    assert_eq!(refusal.reason, "denied on purpose");
 }

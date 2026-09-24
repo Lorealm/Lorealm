@@ -10,7 +10,8 @@ use lorealm::plugin::host::{
 use lorealm::plugin::types::{
     Block, CommandCall, CommandSignature, CustomEvent, Finalizing, FrontendCall, Generated, Hook,
     HttpRequest, Level, LorebookActivation, LorebookEntry, Message, Param, ProcessorCall,
-    ProcessorSignature, Role, SourceCall, SourceNode, UserInput, ValueType, Verdict,
+    ProcessorSignature, Role, SourceCall, SourceNode, ToolInvocation, UserInput, ValueType,
+    Verdict,
 };
 use serde_json::Value;
 
@@ -23,6 +24,7 @@ impl Guest for Hello {
         register_hook(Hook::MessageFinalize)?;
         register_hook(Hook::UserMessage)?;
         register_hook(Hook::LorebookActivate)?;
+        register_hook(Hook::ToolCall)?;
         // Only `hello_addon` may emit it, as this component also runs as that.
         subscribe("hello_addon.ping")?;
         register_command(&CommandSignature {
@@ -166,6 +168,18 @@ impl Guest for Hello {
                         })
                         .collect(),
                 ))
+            }
+            // Test control: refuses `forbidden`, and counts itself in `seen`.
+            Event::ToolCall(ToolInvocation { name, arguments }) => {
+                if name == "forbidden" {
+                    return Ok(Response::ToolCall(Verdict::Deny(
+                        "denied on purpose".into(),
+                    )));
+                }
+                let mut arguments: Value =
+                    serde_json::from_str(&arguments).map_err(|e| e.to_string())?;
+                arguments["seen"] = (arguments["seen"].as_u64().unwrap_or(0) + 1).into();
+                Ok(Response::ToolCall(Verdict::Change(arguments.to_string())))
             }
             // Test control: refuses `deny me`.
             Event::UserMessage(UserInput { content, .. }) => {
