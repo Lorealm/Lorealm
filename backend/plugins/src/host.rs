@@ -2,10 +2,10 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::ptr::NonNull;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use wasmtime::component::{Component, HasSelf, Linker, Resource, ResourceTable};
-use wasmtime::{Config, Engine, Store, Trap};
+use wasmtime::{Config, Engine, Store, Trap, UpdateDeadline};
 use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
 
 use crate::log::{LogBuffer, LogEntry, LogSource};
@@ -24,8 +24,8 @@ wasmtime::component::bindgen!({
 pub struct EvalContextHandle;
 
 use lorealm::plugin::types::{
-    Block, CommandCall, CommandSignature, FrontendCall, Hook, Level, Message, Persona,
-    ProcessorCall, ProcessorSignature, SourceCall, SourceNode,
+    Block, CommandCall, CommandSignature, FrontendCall, Hook, HttpRequest, HttpResponse, Level,
+    Message, Persona, ProcessorCall, ProcessorSignature, SourceCall, SourceNode,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -82,6 +82,8 @@ pub trait HostServices: Send + Sync {
     async fn delete_data(&self, key: String) -> Result<(), String>;
     /// The user's settings for the plugin, as a JSON object.
     async fn settings(&self) -> Result<String, String>;
+    /// Sends a request to a host the manifest allows.
+    async fn http_fetch(&self, request: HttpRequest) -> Result<HttpResponse, String>;
     /// Receives what the plugin and the host logged during one call.
     async fn log(&self, entries: Vec<LogEntry>);
 }
@@ -108,6 +110,12 @@ pub struct PluginState {
     /// Set only while a command runs, with whether it declared
     /// `mutates-context`.
     context: Option<(ContextPtr, bool)>,
+    /// The manifest's `[network] hosts`.
+    hosts: Vec<String>,
+    /// When the current call began, and how long it has spent in
+    /// `http-fetch`, which doesn't count toward its limit.
+    started: Instant,
+    waited: Duration,
 }
 
 impl PluginState {
@@ -252,6 +260,19 @@ impl lorealm::plugin::host::Host for PluginState {
         self.services.settings().await
     }
 
+    async fn http_fetch(&mut self, request: HttpRequest) -> Result<HttpResponse, String> {
+        if !allowed(&self.hosts, &request.url) {
+            let message = format!("`{}` isn't in the manifest's network hosts", request.url);
+            self.logs
+                .record(Level::Warn, LogSource::Host, message.clone());
+            return Err(message);
+        }
+        let start = Instant::now();
+        let response = self.services.http_fetch(request).await;
+        self.waited += start.elapsed();
+        response
+    }
+
     async fn persist_data(&mut self, key: String, value: Vec<u8>) -> Result<(), String> {
         self.require_data_key(&key)?;
         if value.len() > MAX_DATA_VALUE {
@@ -311,7 +332,7 @@ impl PluginHost {
         Ok(Self {
             engine,
             linker,
-            deadline: (call_timeout.as_millis() / EPOCH_TICK.as_millis()).max(1) as u64,
+            deadline: ticks(call_timeout).max(1),
         })
     }
 
@@ -352,9 +373,22 @@ impl PluginHost {
             services,
             logs,
             context: None,
+            hosts: package.manifest.network.hosts.clone(),
+            started: Instant::now(),
+            waited: Duration::ZERO,
         };
         let mut store = Store::new(&self.engine, state);
         store.set_epoch_deadline(self.deadline);
+        // Time spent in `http-fetch` is given back.
+        let deadline = self.deadline;
+        store.epoch_deadline_callback(move |store| {
+            let state = store.data();
+            let used = ticks(state.started.elapsed().saturating_sub(state.waited));
+            Ok(match deadline.checked_sub(used) {
+                Some(left) if left > 0 => UpdateDeadline::Continue(left),
+                _ => UpdateDeadline::Interrupt,
+            })
+        });
         let result: Result<Plugin, PluginError> = async {
             let instance =
                 Plugin::instantiate_async(&mut store, &package.component, &self.linker).await?;
@@ -488,6 +522,9 @@ impl LoadedPlugin {
 
     async fn handle(&mut self, event: Event) -> Result<Response, PluginError> {
         self.store.set_epoch_deadline(self.deadline);
+        let state = self.store.data_mut();
+        state.started = Instant::now();
+        state.waited = Duration::ZERO;
         let result = match self.instance.call_handle(&mut self.store, &event).await {
             Ok(result) => result.map_err(PluginError::Call),
             Err(err) => Err(err.into()),
@@ -495,6 +532,29 @@ impl LoadedPlugin {
         flush_logs(&mut self.store, result.as_ref().err()).await;
         result
     }
+}
+
+fn ticks(time: Duration) -> u64 {
+    (time.as_millis() / EPOCH_TICK.as_millis()) as u64
+}
+
+/// Whether `url` is http(s) to one of `hosts`. A host alone allows the
+/// scheme's default port; `host:port` allows that port.
+fn allowed(hosts: &[String], url: &str) -> bool {
+    let Ok(url) = url::Url::parse(url) else {
+        return false;
+    };
+    let Some(host) = url
+        .host_str()
+        .filter(|_| matches!(url.scheme(), "http" | "https"))
+    else {
+        return false;
+    };
+    let target = match url.port() {
+        Some(port) => format!("{host}:{port}"),
+        None => host.to_owned(),
+    };
+    hosts.iter().any(|h| h.eq_ignore_ascii_case(&target))
 }
 
 fn mismatch(event: &str) -> PluginError {

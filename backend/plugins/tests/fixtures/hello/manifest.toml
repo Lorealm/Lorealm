@@ -6,6 +6,9 @@ author = "Lorealm"
 version = "0.1.0"
 permissions = ["prompt:write", "persona:read", "data:persist", "state:read", "state:write", "ui:unsafe"]
 
+[network]
+hosts = ["example.com", "127.0.0.1:38417"]
+
 [definitions]
 api_keys = ["elevenlabs"]
 

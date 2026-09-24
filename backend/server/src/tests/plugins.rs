@@ -48,6 +48,7 @@ fn service(h: &Harness, dir: PathBuf, config: PluginConfig) -> Arc<PluginService
         Arc::clone(&storage),
         Arc::clone(&h.snow),
         Arc::new(StateService::new(storage)),
+        Arc::clone(&h.connection),
         config,
         dir,
     ))
@@ -920,5 +921,86 @@ async fn a_plugin_reads_its_settings() {
     assert_eq!(
         set,
         serde_json::json!({ "greeting": "hi", "excited": false, "key": key.id })
+    );
+}
+
+#[tokio::test]
+async fn a_plugin_fetches_with_the_users_key() {
+    // Answers with the header named in the path.
+    let echo = axum::Router::new().route(
+        "/{header}",
+        axum::routing::get(
+            |axum::extract::Path(header): axum::extract::Path<String>,
+             headers: axum::http::HeaderMap| async move {
+                headers
+                    .get(header)
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or_default()
+                    .to_owned()
+            },
+        ),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:38417")
+        .await
+        .unwrap();
+    tokio::spawn(async move { axum::serve(listener, echo).await.unwrap() });
+
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    let key_types = h.plugins.key_types(h.user).await.unwrap();
+    let key = h
+        .connection
+        .create_secret(
+            h.user,
+            "elevenlabs".into(),
+            "Mine".into(),
+            "sk-test".into(),
+            &key_types,
+        )
+        .await
+        .unwrap();
+    h.plugins
+        .save_settings(
+            h.user,
+            "hello",
+            serde_json::json!({ "greeting": "hi", "key": key.id })
+                .as_object()
+                .unwrap()
+                .clone(),
+        )
+        .await
+        .unwrap();
+    let fetch = |authorization: &str| {
+        let args = serde_json::json!({
+            "url": "http://127.0.0.1:38417/authorization",
+            "headers": { "authorization": authorization },
+        });
+        h.plugins
+            .call_frontend(h.user, "hello", "fetch".into(), args)
+    };
+
+    let with_key = fetch("Bearer {secret:key}").await.unwrap();
+    let not_a_key = fetch("Bearer {secret:greeting}").await;
+    let plain = fetch("Bearer nothing").await.unwrap();
+    let agent = h
+        .plugins
+        .call_frontend(
+            h.user,
+            "hello",
+            "fetch".into(),
+            serde_json::json!({ "url": "http://127.0.0.1:38417/user-agent" }),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(with_key, serde_json::json!("Bearer sk-test"));
+    assert!(matches!(not_a_key, Err(PluginError::CallFailed(_, _))));
+    assert_eq!(plain, serde_json::json!("Bearer nothing"));
+    assert_eq!(
+        agent,
+        serde_json::json!(format!(
+            "Lorealm/{} (plugin hello@0.1.0)",
+            env!("CARGO_PKG_VERSION")
+        ))
     );
 }

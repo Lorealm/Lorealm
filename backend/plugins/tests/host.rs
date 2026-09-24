@@ -5,8 +5,8 @@ use std::sync::{Arc, Mutex, Once};
 use std::time::Duration;
 
 use lorealm_plugins::{
-    CommandContext, HostServices, Level, LogEntry, LogSource, Message, Persona, PluginError,
-    PluginHost, PluginPackage, Role,
+    CommandContext, HostServices, HttpRequest, HttpResponse, Level, LogEntry, LogSource, Message,
+    Persona, PluginError, PluginHost, PluginPackage, Role,
 };
 
 fn fixture(name: &str) -> PathBuf {
@@ -33,6 +33,8 @@ fn host() -> PluginHost {
 struct TestServices {
     data: Mutex<HashMap<String, Vec<u8>>>,
     logs: Mutex<Vec<LogEntry>>,
+    /// How long `http_fetch` takes.
+    latency: Duration,
 }
 
 impl TestServices {
@@ -71,6 +73,16 @@ impl HostServices for TestServices {
 
     async fn settings(&self) -> Result<String, String> {
         Ok(r#"{"greeting":"Hi"}"#.into())
+    }
+
+    /// Answers with the URL it was sent to.
+    async fn http_fetch(&self, request: HttpRequest) -> Result<HttpResponse, String> {
+        tokio::time::sleep(self.latency).await;
+        Ok(HttpResponse {
+            status: 200,
+            headers: Vec::new(),
+            body: request.url.into_bytes(),
+        })
     }
 
     async fn log(&self, entries: Vec<LogEntry>) {
@@ -484,4 +496,49 @@ async fn plugin_reads_its_settings() {
         .unwrap();
 
     assert_eq!(settings, r#"{"greeting":"Hi"}"#);
+}
+
+#[tokio::test]
+async fn plugin_fetches_only_from_its_hosts() {
+    let host = host();
+    let package = compile(&host, "hello");
+    let services = Arc::new(TestServices::default());
+    let mut plugin = host.instantiate(&package, services.clone()).await.unwrap();
+    let mut fetch = async |url: &str| {
+        let args = format!(r#"{{"url":"{url}"}}"#);
+        plugin.call_frontend("fetch".into(), args).await
+    };
+
+    let allowed = fetch("https://example.com/speak").await.unwrap();
+    let other_port = fetch("https://example.com:8443/speak").await;
+    let other_host = fetch("https://example.org/speak").await;
+    let not_http = fetch("file:///etc/passwd").await;
+
+    assert_eq!(allowed, r#""https://example.com/speak""#);
+    assert!(matches!(other_port, Err(PluginError::Call(_))));
+    assert!(matches!(other_host, Err(PluginError::Call(_))));
+    assert!(matches!(not_http, Err(PluginError::Call(_))));
+    assert!(services.logged(
+        Level::Warn,
+        LogSource::Host,
+        "isn't in the manifest's network hosts"
+    ));
+}
+
+#[tokio::test]
+async fn time_spent_fetching_does_not_count_toward_the_limit() {
+    // Fetching takes longer than a whole call may.
+    let host = PluginHost::new(Duration::from_millis(200)).unwrap();
+    let package = compile(&host, "hello");
+    let services = Arc::new(TestServices {
+        latency: Duration::from_millis(500),
+        ..Default::default()
+    });
+    let mut plugin = host.instantiate(&package, services).await.unwrap();
+
+    let fetched = plugin
+        .call_frontend("fetch".into(), r#"{"url":"https://example.com/"}"#.into())
+        .await;
+
+    assert!(fetched.is_ok(), "{fetched:?}");
 }

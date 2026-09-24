@@ -412,10 +412,16 @@ mod tests {
             .await
             .unwrap();
 
+        let connection = Arc::new(crate::services::connection::ConnectionService::new(
+            store.clone(),
+            Arc::clone(&snow),
+            Arc::new(lorealm_encryption::LocalKeyManager::new_random()),
+        ));
         let plugins = Arc::new(PluginService::new(
             store.clone(),
             Arc::clone(&snow),
             Arc::clone(&state),
+            connection,
             Default::default(),
             // No plugins installed.
             std::path::PathBuf::new(),

@@ -119,6 +119,24 @@ interface types {
         settings: json,
     }
 
+    /// A request for `http-fetch`.
+    record http-request {
+        /// Such as `GET` or `POST`.
+        method: string,
+        /// Its host must be listed in the manifest's `[network] hosts`.
+        url: string,
+        /// A value may contain `{secret:name}`, where `name` is an API key
+        /// setting: the host puts the user's key there.
+        headers: list<tuple<string, string>>,
+        body: option<list<u8>>,
+    }
+
+    record http-response {
+        status: u16,
+        headers: list<tuple<string, string>>,
+        body: list<u8>,
+    }
+
     /// Delivered to `handle`.
     variant event {
         /// The assembled prompt, just before it is sent to the model.
@@ -141,7 +159,10 @@ interface types {
 }
 
 interface host {
-    use types.{command-signature, hook, json, level, persona, processor-signature, source-node};
+    use types.{
+        command-signature, hook, http-request, http-response, json, level, persona,
+        processor-signature, source-node,
+    };
 
     /// Writes to the plugin's log, which the user can read. Stdout and stderr
     /// are also captured, as `info` and `warn` lines.
@@ -164,6 +185,10 @@ interface host {
 
     /// The user's settings. Presented as a single JSON object.
     settings: func() -> result<json, string>;
+
+    /// Sends `request` and waits for the whole response. Redirects are not
+    /// followed. Time spent waiting doesn't count toward the call's limit.
+    http-fetch: func(request: http-request) -> result<http-response, string>;
 
     /// Stores `value` under `key` for the current user. Requires `data:persist`.
     persist-data: func(key: string, value: list<u8>) -> result<_, string>;

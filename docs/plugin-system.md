@@ -19,6 +19,7 @@ A living document to help us keep track of the plugin system implementation.
 | 24/09/26      | Added plugin settings               | ✅            |
 | 24/09/26      | Added API key types                 | ✅            |
 | 24/09/26      | Added the settings host function    | ✅            |
+| 24/09/26      | Added http-fetch                    | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -79,7 +80,7 @@ Plugins are WebAssembly components (wasmtime + WIT), not Extism modules. The WIT
 
 WASI is linked so standard toolchains work, but the sandbox grants nothing by default: no filesystem, environment, arguments or network.
 
-Every call into a plugin (`init` or a hook) has a wall-clock limit, currently 5 seconds, that includes time spent in host functions. A plugin that exceeds it is stopped and unmounted until the user's plugins are next loaded.
+Every call into a plugin (`init` or a hook) has a wall-clock limit, currently 5 seconds, that includes time spent in host functions, except `http-fetch`. A plugin that exceeds it is stopped and unmounted until the user's plugins are next loaded.
 
 ### Manifest
 Every plugin must ship with a manifest.toml file. A manifest file ships the plugin definition, and will contain *at least* these fields:
@@ -103,6 +104,9 @@ Every plugin must ship with a manifest.toml file. A manifest file ships the plug
 - backend (the relative path to the built backend component, defaults to "plugin.wasm")
 - readme (the relative path to a Markdown README, defaults to "README.md"; optional). Shown on the plugin's page in the client, and later in the marketplace.
 - settings (the relative path to the settings file, defaults to "settings.wtn"; optional). See Settings.
+
+#### Network (optional)
+- hosts (where the plugin may send requests, e.g. `["api.elevenlabs.io", "localhost:8880"]`). A host alone matches the scheme's default port; `host:port` matches that port. Listed on the plugin's page.
 
 #### Definitions (optional)
 - api_keys (API key types, e.g. `["elevenlabs"]`; identifiers that don't match a built-in type). See Settings.
@@ -239,6 +243,7 @@ Only the host sets `source`, so a plugin cannot pass its lines off as the server
 ### Host Commands
 Apart from hook registering, a plugin will need to ship with a variety of commands to interact with the server. Most of these are permission-gated:
 - `settings()`: the user's settings for the plugin; see Settings.
+- `http-fetch(request)`: sends an http(s) request to a host in `[network] hosts` and returns the whole response (at most 16 MiB). Redirects aren't followed, so a request can't leave those hosts. A header value may contain `{secret:name}`, where `name` is a setting declared as `Ref<type>` of an API key type: the server puts the user's key there, only over https or to this machine, and the plugin never sees it. Time spent waiting doesn't count toward the call's limit; the request has its own of 30 seconds. Requests carry `User-Agent: Lorealm/{version} (plugin {handle}@{version})` unless the plugin sets its own.
 - `persist-data(key, value)`, `load-data(key)`, `delete-data(key)`: bytes stored per user and plugin (keys up to 256 bytes, values up to 1 MiB), gated by `data:persist`. Data outlives disabling the plugin.
 - `generate_raw(prompt: String)`
 - `generate()`

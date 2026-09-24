@@ -132,6 +132,7 @@ impl Harness {
             Arc::clone(&storage),
             Arc::clone(&snow),
             Arc::clone(&state),
+            Arc::clone(&connection),
             Default::default(),
             std::path::PathBuf::new(),
         ));

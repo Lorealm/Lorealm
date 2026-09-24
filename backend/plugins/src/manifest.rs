@@ -27,6 +27,8 @@ pub enum ManifestError {
     Parse(#[from] toml::de::Error),
     #[error("unknown permission `{0}`")]
     UnknownPermission(String),
+    #[error("`{0}` isn't a host; write it like `api.example.com` or `localhost:8080`")]
+    InvalidHost(String),
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -42,6 +44,17 @@ pub struct Manifest {
     pub build: Build,
     #[serde(default)]
     pub definitions: Definitions,
+    #[serde(default)]
+    pub network: Network,
+}
+
+/// Where the plugin may send requests.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct Network {
+    /// A host alone matches it on the scheme's default port; `host:port`
+    /// matches that port.
+    #[serde(default)]
+    pub hosts: Vec<String>,
 }
 
 /// Auxilliary types registered by a plugin
@@ -188,6 +201,14 @@ impl Manifest {
             .find(|p| !PERMISSIONS.contains(&p.as_str()))
         {
             return Err(ManifestError::UnknownPermission(p.clone()));
+        }
+        if let Some(host) = manifest
+            .network
+            .hosts
+            .iter()
+            .find(|h| h.is_empty() || h.contains(['/', '@', ' ']))
+        {
+            return Err(ManifestError::InvalidHost(host.clone()));
         }
         Ok(manifest)
     }
