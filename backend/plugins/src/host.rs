@@ -24,8 +24,9 @@ wasmtime::component::bindgen!({
 pub struct EvalContextHandle;
 
 use lorealm::plugin::types::{
-    Block, CommandCall, CommandSignature, FrontendCall, Hook, HttpRequest, HttpResponse, Level,
-    Message, Persona, ProcessorCall, ProcessorSignature, SourceCall, SourceNode,
+    Block, CommandCall, CommandSignature, CustomEvent, FrontendCall, Hook, HttpRequest,
+    HttpResponse, Level, Message, Persona, ProcessorCall, ProcessorSignature, SourceCall,
+    SourceNode,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -103,6 +104,13 @@ pub struct PluginState {
     permissions: HashSet<String>,
     hooks: Vec<Hook>,
     registrations: Registrations,
+    handle: String,
+    /// The manifest's `[provides] events`.
+    provides: Vec<String>,
+    /// The topics passed to `subscribe`.
+    subscriptions: Vec<String>,
+    /// What the current call emitted, as `(topic, payload)`.
+    emitted: Vec<(String, String)>,
     /// Registering is only allowed while `init` runs.
     initializing: bool,
     services: Arc<dyn HostServices>,
@@ -251,6 +259,37 @@ impl lorealm::plugin::host::Host for PluginState {
         Ok(())
     }
 
+    async fn emit(&mut self, topic: String, payload: String) -> Result<(), String> {
+        if self.initializing {
+            return Err("events can't be emitted during `init`".into());
+        }
+        let declared = topic
+            .strip_prefix(self.handle.as_str())
+            .and_then(|t| t.strip_prefix('.'))
+            .is_some_and(|name| self.provides.iter().any(|e| e == name));
+        if !declared {
+            let message = format!(
+                "`{topic}` isn't `{}.<name>` with a name in the manifest's `[provides] events`",
+                self.handle
+            );
+            self.logs
+                .record(Level::Warn, LogSource::Host, message.clone());
+            return Err(message);
+        }
+        self.emitted.push((topic, payload));
+        Ok(())
+    }
+
+    async fn subscribe(&mut self, topic: String) -> Result<(), String> {
+        if !self.initializing {
+            return Err("events can only be subscribed to during `init`".into());
+        }
+        if !self.subscriptions.contains(&topic) {
+            self.subscriptions.push(topic);
+        }
+        Ok(())
+    }
+
     async fn active_persona(&mut self) -> Result<Persona, String> {
         self.require("persona:read")?;
         self.services.active_persona().await
@@ -370,6 +409,10 @@ impl PluginHost {
                 .collect(),
             hooks: Vec::new(),
             registrations: Registrations::default(),
+            handle: package.manifest.plugin.handle.clone(),
+            provides: package.manifest.provides.events.clone(),
+            subscriptions: Vec::new(),
+            emitted: Vec::new(),
             initializing: true,
             services,
             logs,
@@ -521,9 +564,35 @@ impl LoadedPlugin {
         }
     }
 
+    /// Delivers an event emitted under `topic`. Does nothing if the plugin
+    /// didn't subscribe to it.
+    pub async fn custom_event(
+        &mut self,
+        topic: String,
+        payload: String,
+    ) -> Result<(), PluginError> {
+        if !self.store.data().subscriptions.contains(&topic) {
+            return Ok(());
+        }
+        match self
+            .handle(Event::Custom(CustomEvent { topic, payload }))
+            .await?
+        {
+            Response::Custom => Ok(()),
+            _ => Err(mismatch("custom")),
+        }
+    }
+
+    /// Takes the events the last call emitted, as `(topic, payload)`. A failed
+    /// call's events are dropped.
+    pub fn take_emitted(&mut self) -> Vec<(String, String)> {
+        std::mem::take(&mut self.store.data_mut().emitted)
+    }
+
     async fn handle(&mut self, event: Event) -> Result<Response, PluginError> {
         self.store.set_epoch_deadline(self.deadline);
         let state = self.store.data_mut();
+        state.emitted.clear();
         state.started = Instant::now();
         state.waited = Duration::ZERO;
         let result = match self.instance.call_handle(&mut self.store, &event).await {
@@ -531,6 +600,9 @@ impl LoadedPlugin {
             Err(err) => Err(err.into()),
         };
         flush_logs(&mut self.store, result.as_ref().err()).await;
+        if result.is_err() {
+            self.store.data_mut().emitted.clear();
+        }
         result
     }
 }

@@ -119,6 +119,13 @@ interface types {
         settings: json,
     }
 
+    /// An event another plugin emitted, delivered to its subscribers.
+    record custom-event {
+        /// `handle.name`, under the emitting plugin's handle.
+        topic: string,
+        payload: json,
+    }
+
     /// A request for `http-fetch`.
     record http-request {
         /// Such as `GET` or `POST`.
@@ -145,6 +152,7 @@ interface types {
         processor(processor-call),
         source(source-call),
         frontend(frontend-call),
+        custom(custom-event),
     }
 
     /// Answers `handle`, in the same case as the event.
@@ -155,6 +163,7 @@ interface types {
         processor(json),
         source(list<block>),
         frontend(json),
+        custom,
     }
 }
 
@@ -179,6 +188,14 @@ interface host {
 
     /// Adds a node to the plugin's context template source. Only during `init`.
     register-source-node: func(node: source-node) -> result<_, string>;
+
+    /// Emits `payload` into the `topic` channel. Any other plugin may subscribe
+    /// to `topic` using the `subscribe` function.
+    emit: func(topic: string, payload: json) -> result<_, string>;
+
+    /// Receives the events emitted under `topic` as `custom` events. Only
+    /// during `init`.
+    subscribe: func(topic: string) -> result<_, string>;
 
     /// The user's active persona. Requires the `persona:read` permission.
     active-persona: func() -> result<persona, string>;
@@ -208,7 +225,8 @@ world plugin {
     /// Called once after the plugin is mounted.
     export init: func() -> result<_, string>;
 
-    /// Called for every hook the plugin registered, and whenever something it
-    /// registered (a command, processor or source node) is used.
+    /// Called for every hook the plugin registered, every event it subscribed
+    /// to, and whenever something it registered (a command, processor or
+    /// source node) is used.
     export handle: func(event: event) -> result<response, string>;
 }

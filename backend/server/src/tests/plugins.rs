@@ -1041,3 +1041,49 @@ async fn the_tts_example_installs_and_asks_for_a_key() {
         ["elevenlabs", "openrouter"]
     );
 }
+
+/// Has `hello_addon` emit `hello_addon.ping` with `payload`.
+async fn ping(h: &Harness, payload: serde_json::Value) {
+    h.plugins
+        .call_frontend(
+            h.user,
+            "hello_addon",
+            "emit".into(),
+            serde_json::json!({"topic": "hello_addon.ping", "payload": payload}),
+        )
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn an_emitted_event_reaches_other_plugins() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    h.plugins.enable(h.user, "hello_addon").await.unwrap();
+
+    ping(&h, serde_json::json!("hi")).await;
+    let received = h
+        .plugins
+        .call_frontend(h.user, "hello", "event".into(), serde_json::json!({}))
+        .await
+        .unwrap();
+
+    assert_eq!(received, serde_json::json!(r#"hello_addon.ping "hi""#));
+}
+
+#[tokio::test]
+async fn a_chain_of_events_stops() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    h.plugins.enable(h.user, "hello_addon").await.unwrap();
+
+    ping(&h, serde_json::json!("echo")).await;
+    let logs = h.plugins.logs(h.user, "hello_addon").await.unwrap();
+
+    use PluginLogLevel::Warn;
+    use PluginLogSource::Host;
+    assert!(
+        logged(&logs, Host, Warn, "a chain of events stops"),
+        "{logs:#?}"
+    );
+}

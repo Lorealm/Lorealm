@@ -4,12 +4,12 @@ wit_bindgen::generate!({
 });
 
 use lorealm::plugin::host::{
-    active_persona, delete_data, http_fetch, load_data, log, persist_data, register_command,
-    register_hook, register_processor, register_source_node, settings,
+    active_persona, delete_data, emit, http_fetch, load_data, log, persist_data, register_command,
+    register_hook, register_processor, register_source_node, settings, subscribe,
 };
 use lorealm::plugin::types::{
-    Block, CommandCall, CommandSignature, FrontendCall, Hook, HttpRequest, Level, Message, Param,
-    ProcessorCall, ProcessorSignature, Role, SourceCall, SourceNode, ValueType,
+    Block, CommandCall, CommandSignature, CustomEvent, FrontendCall, Hook, HttpRequest, Level,
+    Message, Param, ProcessorCall, ProcessorSignature, Role, SourceCall, SourceNode, ValueType,
 };
 use serde_json::Value;
 
@@ -18,6 +18,8 @@ struct Hello;
 impl Guest for Hello {
     fn init() -> Result<(), String> {
         register_hook(Hook::PromptBuild)?;
+        // Only `hello_addon` may emit it, as this component also runs as that.
+        subscribe("hello_addon.ping")?;
         register_command(&CommandSignature {
             name: "greet".into(),
             description: "Greet someone by name".into(),
@@ -89,6 +91,20 @@ impl Guest for Hello {
                     Ok(Response::Frontend(json(&format!("Hello, {name}!"))))
                 }
                 "settings" => Ok(Response::Frontend(settings()?)),
+                "emit" => {
+                    let args: Value = serde_json::from_str(&args).map_err(|e| e.to_string())?;
+                    emit(
+                        args["topic"].as_str().unwrap_or_default(),
+                        &args["payload"].to_string(),
+                    )?;
+                    Ok(Response::Frontend("null".into()))
+                }
+                // The last event received, as `topic payload`.
+                "event" => {
+                    let event =
+                        load_data("event")?.map(|b| String::from_utf8_lossy(&b).into_owned());
+                    Ok(Response::Frontend(Value::from(event).to_string()))
+                }
                 // Answers with the response body as text.
                 "fetch" => {
                     let args: Value = serde_json::from_str(&args).map_err(|e| e.to_string())?;
@@ -110,6 +126,14 @@ impl Guest for Hello {
                 }
                 other => Err(format!("unknown frontend call `{other}`")),
             },
+            Event::Custom(CustomEvent { topic, payload }) => {
+                persist_data("event", format!("{topic} {payload}").as_bytes())?;
+                // Test control: sends it on again, forever.
+                if payload == json("echo") {
+                    emit(&topic, &payload)?;
+                }
+                Ok(Response::Custom)
+            }
             Event::Source(SourceCall { settings, .. }) => {
                 let settings: Value = serde_json::from_str(&settings).map_err(|e| e.to_string())?;
                 let name = settings["name"].as_str().unwrap_or("stranger");

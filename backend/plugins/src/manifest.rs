@@ -48,6 +48,16 @@ pub struct Manifest {
     pub definitions: Definitions,
     #[serde(default)]
     pub network: Network,
+    #[serde(default)]
+    pub provides: Provides,
+}
+
+/// What the plugin offers other plugins.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct Provides {
+    /// The events it may emit, as names under its handle.
+    #[serde(default)]
+    pub events: Vec<String>,
 }
 
 /// Where the plugin may send requests.
