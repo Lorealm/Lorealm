@@ -35,7 +35,11 @@
 			.then((settings) => {
 				inputs = settings.inputs;
 				values = Object.fromEntries(
-					settings.inputs.map((spec) => [spec.name, settings.values[spec.name] ?? blankFor(spec)])
+					// `null` is a value: an optional key with none picked.
+					settings.inputs.map((spec) => [
+						spec.name,
+						spec.name in settings.values ? settings.values[spec.name] : blankFor(spec)
+					])
 				);
 			})
 			.catch((e) => (error = e instanceof Error ? e.message : String(e)));

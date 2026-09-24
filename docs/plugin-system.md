@@ -21,6 +21,7 @@ A living document to help us keep track of the plugin system implementation.
 | 24/09/26      | Added the settings host function    | ✅            |
 | 24/09/26      | Added http-fetch                    | ✅            |
 | 24/09/26      | Gated fetching and autoplay         | ✅            |
+| 24/09/26      | Added the TTS example plugin        | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -66,7 +67,7 @@ entry = "panel.js"         # an unsafe slot is an ES module
 title = "Greeter"
 unsafe = true
 ```
-Both modes get the same API: `call(name, args)` reaches only the plugin's own backend (`POST /plugins/{handle}/call`, delivered to `handle` as a `frontend` event), `context` is what the slot provides (a `message` slot gets `{ message: { id, role, content } }`; `inspector` gets `{}`), and `onContext(listener)` reports changes. Anything touching user data goes through the backend half, where permissions apply. A secure frame may only play sound after the user clicks in it, unless the plugin has `ui:autoplay`, which lets its frames play sound on their own (`allow="autoplay"`).
+Both modes get the same API: `call(name, args)` reaches only the plugin's own backend (`POST /plugins/{handle}/call`, delivered to `handle` as a `frontend` event), `context` is what the slot provides (a `message` slot gets `{ message: { id, role, content, updated_at } }`; `inspector` gets `{}`), and `onContext(listener)` reports changes. Anything touching user data goes through the backend half, where permissions apply. A secure frame may only play sound after the user clicks in it, unless the plugin has `ui:autoplay`, which lets its frames play sound on their own (`allow="autoplay"`).
 
 **Secure** (the default): the client fetches the entry through the API (`GET /plugins/{handle}/frontend/{entry}`, only for declared entries of enabled plugins) and renders it in an `iframe sandbox="allow-scripts"` as `srcdoc`, so it runs in an opaque origin with no session or access to the app. A CSP is put in front of it: no network (`connect-src` falls back to `default-src 'none'`), and no scripts, styles or images from outside the file, so entries inline everything. The API is `window.lorealm`. The app's style variables (everything declared on `:root`) are applied ahead of the entry's own styles, and the font faces the app has loaded are handed over as bytes, since the CSP refuses font URLs. Both are kept up to date, and user widgets get them the same way.
 
@@ -211,7 +212,7 @@ autoplay: bool
 ```
 The file must parse when the plugin is installed. Values are checked by Weaver the same way a blueprint's inputs are, when saved (`PUT /plugins/{handle}/settings`, refused with the reason) and when read (`GET`, with defaults applied). Settings are kept per user and plugin, and outlive disabling it.
 
-An API key setting is `Ref<type>`, where `type` is declared in `[definitions] api_keys` by any of the user's enabled plugins, so one plugin can declare a type that others use through `requires`. Any number of plugins may declare the same type. The user adds keys of these types in the key manager, and a setting holds the id of one of their own keys of that type; the plugin never sees the key itself. A `Ref` whose type no enabled plugin declares, and built-in types like `Ref<Character>`, are refused for now.
+An API key setting is `Ref<type>`, where `type` is declared in `[definitions] api_keys` by any of the user's enabled plugins, so one plugin can declare a type that others use through `requires`. Any number of plugins may declare the same type. The user adds keys of these types in the key manager, and a setting holds the id of one of their own keys of that type, or `null` for none (so `key: Ref<type> = null` is optional); the plugin never sees the key itself. A `Ref` whose type no enabled plugin declares, and built-in types like `Ref<Character>`, are refused for now.
 
 A plugin reads its settings with `settings()`: a JSON object with every input, set to the user's value or its default, with API key settings as key ids. It needs no permission. Key types are those declared by the user's loaded plugins. While the saved values don't fit (a required setting not filled in yet, or values an update made invalid), the call fails with the reason, and the plugin's log gets a warning telling the user where to fix them.
 
@@ -244,12 +245,15 @@ Only the host sets `source`, so a plugin cannot pass its lines off as the server
 ### Host Commands
 Apart from hook registering, a plugin will need to ship with a variety of commands to interact with the server. Most of these are permission-gated:
 - `settings()`: the user's settings for the plugin; see Settings.
-- `http-fetch(request)`, gated by `net:fetch`: sends an http(s) request to a host in `[network] hosts` and returns the whole response (at most 16 MiB). Redirects aren't followed, so a request can't leave those hosts. A header value may contain `{secret:name}`, where `name` is a setting declared as `Ref<type>` of an API key type: the server puts the user's key there, only over https or to this machine, and the plugin never sees it. Time spent waiting doesn't count toward the call's limit; the request has its own of 30 seconds. Requests carry `User-Agent: Lorealm/{version} (plugin {handle}@{version})` unless the plugin sets its own.
+- `http-fetch(request)`, gated by `net:fetch`: sends an http(s) request to a host in `[network] hosts` and returns the whole response (at most 16 MiB). Redirects aren't followed, so a request can't leave those hosts. A header value may contain `{secret:name}`, where `name` is a setting declared as `Ref<type>` of an API key type: the server puts the user's key there, only over https or to this machine, and the plugin never sees it. Time spent waiting doesn't count toward the call's limit. Instead, the request fails if connecting takes over 10 seconds or the response goes 30 seconds without sending anything; a steady stream, like audio, can take as long as it needs. Requests carry `User-Agent: Lorealm/{version} (plugin {handle}@{version})` unless the plugin sets its own.
 - `persist-data(key, value)`, `load-data(key)`, `delete-data(key)`: bytes stored per user and plugin (keys up to 256 bytes, values up to 1 MiB), gated by `data:persist`. Data outlives disabling the plugin.
 - `generate_raw(prompt: String)`
 - `generate()`
 - `get_character`, `get_lorebook`, `get_context_template`, `etc.`
 - `update_character`, `update_lorebook`, `update_context_template`, `etc.`
+
+### Example
+`plugins/tts` is a complete plugin in Rust: it reads replies aloud with OpenRouter or ElevenLabs. It shows settings with API keys (declaring `openrouter` to reuse the user's existing keys, and `elevenlabs` as a new type), `http-fetch` with `{secret:name}`, a `message` slot, and `ui:autoplay`. Install it with "Add from source" and its folder. A server test installs it and exercises it short of calling a provider.
 
 ### Proposed Plugin Structure
 ```

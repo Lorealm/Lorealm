@@ -2,8 +2,11 @@ use std::time::Duration;
 
 use lorealm_plugins::{HttpRequest, HttpResponse};
 
-/// How long a request may take, on top of the call's own limit.
-const TIMEOUT: Duration = Duration::from_secs(30);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// How long a response may go without sending anything. There's no limit on
+/// its total length, since audio and the like can stream in for a while.
+const READ_TIMEOUT: Duration = Duration::from_secs(30);
 
 const MAX_BODY: usize = 16 * 1024 * 1024;
 
@@ -11,7 +14,8 @@ const MAX_BODY: usize = 16 * 1024 * 1024;
 pub fn client() -> reqwest::Client {
     reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .timeout(TIMEOUT)
+        .connect_timeout(CONNECT_TIMEOUT)
+        .read_timeout(READ_TIMEOUT)
         .build()
         .expect("plugin HTTP client should build")
 }
@@ -65,7 +69,7 @@ pub async fn send(
         builder = builder.body(body);
     }
 
-    let mut response = builder.send().await.map_err(|e| e.to_string())?;
+    let mut response = builder.send().await.map_err(describe)?;
     let status = response.status().as_u16();
     let headers = response
         .headers()
@@ -76,7 +80,7 @@ pub async fn send(
         })
         .collect();
     let mut body = Vec::new();
-    while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
+    while let Some(chunk) = response.chunk().await.map_err(describe)? {
         if body.len() + chunk.len() > MAX_BODY {
             return Err(format!("the response is over {} MiB", MAX_BODY >> 20));
         }
@@ -87,6 +91,19 @@ pub async fn send(
         headers,
         body,
     })
+}
+
+/// reqwest's message with its causes; its own names only the step that
+/// failed, such as "error decoding response body".
+fn describe(err: reqwest::Error) -> String {
+    let mut message = err.to_string();
+    let mut cause = std::error::Error::source(&err);
+    while let Some(err) = cause {
+        message.push_str(": ");
+        message.push_str(&err.to_string());
+        cause = err.source();
+    }
+    message
 }
 
 #[cfg(test)]

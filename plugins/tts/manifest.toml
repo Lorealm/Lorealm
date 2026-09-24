@@ -1,0 +1,27 @@
+[plugin]
+name = "Text to Speech"
+handle = "tts"
+description = "Reads replies aloud with OpenRouter or ElevenLabs."
+tags = ["tts", "audio", "voice"]
+author = "Lorealm"
+version = "0.1.0"
+permissions = ["net:fetch", "ui:autoplay"]
+
+[network]
+hosts = ["openrouter.ai", "api.elevenlabs.io"]
+
+# `openrouter` is also a built-in provider, so the user's existing OpenRouter
+# keys can be picked.
+[definitions]
+api_keys = ["openrouter", "elevenlabs"]
+
+[structure]
+backend = "target/wasm32-wasip2/release/tts.wasm"
+
+[build]
+backend = ["cargo", "build", "--release", "--target", "wasm32-wasip2"]
+
+[[frontend.slots]]
+slot = "message"
+entry = "message.html"
+title = "Listen"
