@@ -33,6 +33,8 @@ interface types {
         after-generate,
         /// Requires the `chat:write` permission.
         message-finalize,
+        /// Requires the `chat:write` permission.
+        user-message,
     }
 
     /// A Weaver value as JSON text. WIT has no recursive types.
@@ -143,6 +145,22 @@ interface types {
         content: string,
     }
 
+    /// What the user sent for a reply, before it is saved.
+    record user-input {
+        conversation: s64,
+        content: string,
+    }
+
+    /// A gate hook's answer.
+    variant verdict {
+        /// Lets the input through unchanged.
+        allow,
+        /// Lets the input through as this instead.
+        change(string),
+        /// Refuses it, with a reason the user sees.
+        deny(string),
+    }
+
     /// A request for `http-fetch`.
     record http-request {
         /// Such as `GET` or `POST`.
@@ -174,6 +192,8 @@ interface types {
         after-generate(generated),
         /// The reply's content, to be saved as returned.
         message-finalize(finalizing),
+        /// The user's message, which the plugin may change or refuse.
+        user-message(user-input),
     }
 
     /// Answers `handle`, in the same case as the event.
@@ -187,6 +207,7 @@ interface types {
         custom,
         after-generate,
         message-finalize(string),
+        user-message(verdict),
     }
 }
 

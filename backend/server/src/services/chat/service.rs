@@ -419,6 +419,15 @@ impl ChatService {
             });
         }
 
+        let content = match content {
+            Some(text) => Some(
+                self.plugins
+                    .user_message(convo.user_id, convo.id, text)
+                    .await?,
+            ),
+            None => None,
+        };
+
         Ok(match (content, target) {
             (Some(text), None) => {
                 let user = self

@@ -1118,3 +1118,24 @@ async fn message_finalize_runs_in_load_order() {
 
     assert_eq!(content, "Hi there!!");
 }
+
+#[tokio::test]
+async fn user_message_runs_in_load_order_until_refused() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    h.plugins.enable(h.user, "hello_addon").await.unwrap();
+
+    let changed = h
+        .plugins
+        .user_message(h.user, Snowflake(1), "Hi".into())
+        .await;
+    let denied = h
+        .plugins
+        .user_message(h.user, Snowflake(1), "deny me".into())
+        .await;
+
+    assert_eq!(changed.unwrap(), "Hi??");
+    let refusal = denied.unwrap_err();
+    assert_eq!(refusal.handle, "hello");
+    assert_eq!(refusal.reason, "denied on purpose");
+}

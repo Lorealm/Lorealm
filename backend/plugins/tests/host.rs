@@ -6,7 +6,8 @@ use std::time::Duration;
 
 use lorealm_plugins::{
     CommandContext, Finalizing, Generated, HostServices, HttpRequest, HttpResponse, Level,
-    LogEntry, LogSource, Message, Persona, PluginError, PluginHost, PluginPackage, Role,
+    LogEntry, LogSource, Message, Persona, PluginError, PluginHost, PluginPackage, Role, UserInput,
+    Verdict,
 };
 
 fn fixture(name: &str) -> PathBuf {
@@ -700,4 +701,24 @@ async fn message_finalize_changes_the_reply() {
         .unwrap();
 
     assert_eq!(content, "Hi there!");
+}
+
+#[tokio::test]
+async fn user_message_changes_or_refuses_the_input() {
+    let host = host();
+    let package = compile(&host, "hello");
+    let mut plugin = host
+        .instantiate(&package, Arc::new(TestServices::default()))
+        .await
+        .unwrap();
+    let input = |content: &str| UserInput {
+        conversation: 1,
+        content: content.into(),
+    };
+
+    let changed = plugin.user_message(input("Hi")).await.unwrap();
+    let denied = plugin.user_message(input("deny me")).await.unwrap();
+
+    assert!(matches!(changed, Verdict::Change(c) if c == "Hi?"));
+    assert!(matches!(denied, Verdict::Deny(r) if r == "denied on purpose"));
 }

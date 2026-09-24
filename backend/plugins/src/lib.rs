@@ -9,7 +9,8 @@ pub use host::{
     Registrations,
     lorealm::plugin::types::{
         Block, CommandSignature, Finalizing, Generated, Hook, HttpRequest, HttpResponse, Level,
-        Message, Param, Persona, ProcessorSignature, Role, SourceNode, ValueType,
+        Message, Param, Persona, ProcessorSignature, Role, SourceNode, UserInput, ValueType,
+        Verdict,
     },
 };
 pub use log::{LogEntry, LogSource};

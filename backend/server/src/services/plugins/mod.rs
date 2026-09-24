@@ -11,7 +11,7 @@ use dashmap::DashMap;
 use lorealm_plugins::{
     Finalizing, FrontendSlot, Generated, HostServices, HttpRequest, HttpResponse, Level,
     LoadedPlugin, LogEntry, LogSource, Manifest, Message, Persona, PluginHost, PluginInfo,
-    PluginPackage, Role, Version, resolve,
+    PluginPackage, Role, UserInput, Verdict, Version, resolve,
 };
 use lorealm_storage::{
     Storage, StorageError,
@@ -66,6 +66,14 @@ pub struct InstalledPlugin {
     pub has_settings: bool,
     /// Where it may send requests.
     pub hosts: Vec<String>,
+}
+
+/// A gate hook's refusal.
+#[derive(Debug, thiserror::Error)]
+#[error("refused by plugin `{handle}`: {reason}")]
+pub struct Refusal {
+    pub handle: String,
+    pub reason: String,
 }
 
 /// What a plugin's settings ask for, and the user's values.
@@ -605,6 +613,38 @@ impl PluginService {
             }
         }
         messages.into_iter().map(Into::into).collect()
+    }
+
+    /// Runs the user's `user-message` hooks in load order, each seeing the
+    /// last one's output, until one refuses. A plugin that fails is logged
+    /// and skipped.
+    pub async fn user_message(
+        &self,
+        user_id: Snowflake,
+        conversation: Snowflake,
+        mut content: String,
+    ) -> Result<String, Refusal> {
+        let slot = self.mount(user_id).await;
+        let mut guard = slot.lock().await;
+        let Some(mounted) = guard.as_mut() else {
+            return Ok(content);
+        };
+        let handles: Vec<String> = mounted.plugins.iter().map(|(h, _)| h.clone()).collect();
+        for handle in handles {
+            let input = UserInput {
+                conversation: conversation.0,
+                content: content.clone(),
+            };
+            match mounted
+                .call(&handle, async move |p| p.user_message(input).await)
+                .await
+            {
+                Ok(Verdict::Change(next)) => content = next,
+                Ok(Verdict::Deny(reason)) => return Err(Refusal { handle, reason }),
+                Ok(Verdict::Allow) | Err(_) => {}
+            }
+        }
+        Ok(content)
     }
 
     /// Runs the user's `message-finalize` hooks in load order, each seeing
