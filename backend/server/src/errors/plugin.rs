@@ -28,6 +28,8 @@ pub enum PluginError {
     AlreadyInstalled(String),
     #[error("plugin {0} failed to build")]
     BuildFailed(String),
+    #[error("plugin {0} settings are invalid: {1}")]
+    InvalidSettings(String, String),
     /// The plugin failed a call made on its frontend's behalf.
     #[error("plugin {0} call failed: {1}")]
     CallFailed(String, String),
@@ -48,6 +50,7 @@ impl DomainError for PluginError {
             Self::InvalidSource(_) => "plugin.invalid_source",
             Self::AlreadyInstalled(_) => "plugin.already_installed",
             Self::BuildFailed(_) => "plugin.build_failed",
+            Self::InvalidSettings(_, _) => "plugin.invalid_settings",
             Self::Storage(_) => "internal",
         }
     }
@@ -59,7 +62,7 @@ impl DomainError for PluginError {
             Self::CannotEnable(_, _) | Self::Required(_, _) => StatusCode::CONFLICT,
             Self::CallFailed(_, _) | Self::BuildFailed(_) => StatusCode::UNPROCESSABLE_ENTITY,
             Self::CannotUpdate(_, _) | Self::AlreadyInstalled(_) => StatusCode::CONFLICT,
-            Self::InvalidSource(_) => StatusCode::BAD_REQUEST,
+            Self::InvalidSource(_) | Self::InvalidSettings(_, _) => StatusCode::BAD_REQUEST,
             Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -93,6 +96,9 @@ impl DomainError for PluginError {
                     .into()
             }
             Self::BuildFailed(_) => "The plugin failed to build. Its log has the output.".into(),
+            Self::InvalidSettings(_, reason) => {
+                sentence(format!("Those settings aren't valid: {reason}"))
+            }
             Self::Storage(_) => "An internal error occurred".into(),
         }
     }
@@ -108,7 +114,8 @@ impl DomainError for PluginError {
             | Self::CannotUpdate(_, _)
             | Self::InvalidSource(_)
             | Self::AlreadyInstalled(_)
-            | Self::BuildFailed(_) => Some(ErrorDetails::resource(TargetType::Plugin)),
+            | Self::BuildFailed(_)
+            | Self::InvalidSettings(_, _) => Some(ErrorDetails::resource(TargetType::Plugin)),
             Self::Storage(_) => None,
         }
     }

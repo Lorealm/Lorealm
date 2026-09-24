@@ -40,7 +40,7 @@ import type {
 	SetActiveLorebooksRequest
 } from '$lib/types/lorebook.js';
 import type { SourceDefinition } from '$lib/types/node.js';
-import type { InstallReport, InstalledPlugin } from '$lib/types/plugins.js';
+import type { InstallReport, InstalledPlugin, PluginSettings } from '$lib/types/plugins.js';
 import type {
 	Blueprint,
 	BlueprintSummary,
@@ -394,6 +394,9 @@ export function createApiClient(platform: PlatformAPI) {
 			/** The plugin's README, as Markdown. */
 			readme: async (handle: string) =>
 				(await http.getBlob(`/api/v1/plugins/${handle}/readme`)).text(),
+			settings: (handle: string) => http.get<PluginSettings>(`/api/v1/plugins/${handle}/settings`),
+			saveSettings: (handle: string, values: Record<string, unknown>) =>
+				http.put(`/api/v1/plugins/${handle}/settings`, values),
 			/** A slot entry's HTML. */
 			frontendEntry: async (handle: string, entry: string) =>
 				(

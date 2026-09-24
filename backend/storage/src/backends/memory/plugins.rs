@@ -118,6 +118,29 @@ impl PluginStorage for MemoryStorage {
         Ok(())
     }
 
+    async fn get_plugin_settings(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+    ) -> Result<Option<serde_json::Value>, StorageError> {
+        let id = (user_id, handle.to_owned());
+        Ok(self.plugin_settings.read().await.get(&id).cloned())
+    }
+
+    async fn set_plugin_settings(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        settings: &serde_json::Value,
+    ) -> Result<(), StorageError> {
+        let id = (user_id, handle.to_owned());
+        self.plugin_settings
+            .write()
+            .await
+            .insert(id, settings.clone());
+        Ok(())
+    }
+
     async fn append_plugin_logs(
         &self,
         user_id: Snowflake,

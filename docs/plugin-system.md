@@ -16,6 +16,7 @@ A living document to help us keep track of the plugin system implementation.
 | 23/09/26      | Added message slots and unsafe mode | ✅            |
 | 23/09/26      | Added installation from source      | ✅            |
 | 24/09/26      | Validated and surfaced permissions  | ✅            |
+| 24/09/26      | Added plugin settings               | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -99,6 +100,7 @@ Every plugin must ship with a manifest.toml file. A manifest file ships the plug
 #### Structure (optional)
 - backend (the relative path to the built backend component, defaults to "plugin.wasm")
 - readme (the relative path to a Markdown README, defaults to "README.md"; optional). Shown on the plugin's page in the client, and later in the marketplace.
+- settings (the relative path to the settings file, defaults to "settings.wtn"; optional). See Settings.
 
 #### Build (optional)
 - backend (a command that builds the backend component, as a list of arguments)
@@ -188,6 +190,18 @@ A command is lent an `eval-context` for the length of its call, to `get` and `se
 Plugin callables are available wherever built-in vocabulary is: every Weaver host (tool bodies, slash commands, realm scripts, conditions and directors, widget renders, WTN documents), lorebooks, and the editor's vocabulary and checker. A plugin can't add processors to a namespace a built-in already uses. A template node whose plugin isn't loaded is skipped (the plugin's log says why) instead of failing the generation.
 
 Registering needs no permission: a registered callable only runs when the user's own script or template calls it.
+
+### Settings
+A plugin's settings are the `#inputs` block of a WTN document, and nothing else; the user fills them in on the plugin's page.
+```
+#inputs
+voice: enum("rachel", "adam") = "rachel"
+speed: range(0.5, 2) = 1
+autoplay: bool
+```
+The file must parse when the plugin is installed. Values are checked by Weaver the same way a blueprint's inputs are, when saved (`PUT /plugins/{handle}/settings`, refused with the reason) and when read (`GET`, with defaults applied). Settings are kept per user and plugin, and outlive disabling it.
+
+`Ref<...>` inputs are refused for now. **Planned:** API key types declared in `[definitions]`, a `settings()` host function, and logging values that no longer fit after an update.
 
 ### Plugin Hooks
 On the server, we don't care what goes on inside the WASM sandbox. The main way a plugin triggers based on activity is through hooks.

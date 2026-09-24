@@ -107,6 +107,7 @@ Messages containing quoted values are examples; the interpolated part varies.
 | `plugin.cannot_update` | 409 | This plugin can't be updated: `hello_addon` requires `hello` ^0.1, but 0.2.0 is enabled. |
 | `plugin.invalid` | 400 | That plugin could not be loaded. |
 | `plugin.invalid_source` | 400 | That source can't be installed: no manifest.toml. |
+| `plugin.invalid_settings` | 400 | Those settings aren't valid: input autoplay: expected bool, got string. |
 | `plugin.invalid_order` | 400 | The order must list each enabled plugin exactly once. |
 | `plugin.not_found` | 404 | That plugin is not installed. |
 | `plugin.required` | 409 | Disable the plugins that require this one first: `hello`, `other`. |

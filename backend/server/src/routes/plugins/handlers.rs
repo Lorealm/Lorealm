@@ -14,7 +14,7 @@ use crate::{
     extract::{AuthenticatedSession, ResolvedPermissions},
     services::{
         permission::Permissions,
-        plugins::{InstallReport, InstalledPlugin},
+        plugins::{InstallReport, InstalledPlugin, PluginSettings},
     },
 };
 
@@ -100,6 +100,35 @@ pub async fn plugin_readme(
         .await?;
 
     Ok(readme)
+}
+
+pub async fn plugin_settings(
+    State(app_state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(handle): Path<String>,
+) -> Result<Json<PluginSettings>, AppError> {
+    let settings = app_state
+        .services()
+        .plugins()
+        .settings(session.user_id, &handle)
+        .await?;
+
+    Ok(Json(settings))
+}
+
+pub async fn save_plugin_settings(
+    State(app_state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(handle): Path<String>,
+    Json(values): Json<serde_json::Map<String, serde_json::Value>>,
+) -> Result<(), AppError> {
+    app_state
+        .services()
+        .plugins()
+        .save_settings(session.user_id, &handle, values)
+        .await?;
+
+    Ok(())
 }
 
 /// One of the plugin's declared frontend entries: HTML, or for an unsafe slot,

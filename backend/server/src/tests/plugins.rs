@@ -807,3 +807,37 @@ async fn an_installed_plugin_serves_its_readme() {
     assert!(readme.starts_with("# Hello"), "{readme}");
     assert!(matches!(none, Err(PluginError::NotFound(_))));
 }
+
+#[tokio::test]
+async fn settings_are_checked_and_saved() {
+    let h = harness().await;
+    let values = |v: serde_json::Value| v.as_object().unwrap().clone();
+
+    let blank = h.plugins.settings(h.user, "hello").await.unwrap();
+    let wrong = h
+        .plugins
+        .save_settings(
+            h.user,
+            "hello",
+            values(serde_json::json!({ "greeting": 1 })),
+        )
+        .await;
+    h.plugins
+        .save_settings(
+            h.user,
+            "hello",
+            values(serde_json::json!({ "greeting": "hi" })),
+        )
+        .await
+        .unwrap();
+    let saved = h.plugins.settings(h.user, "hello").await.unwrap();
+    let none = h.plugins.settings(h.user, "hello_addon").await.unwrap();
+
+    assert_eq!(blank.inputs.len(), 2);
+    assert!(matches!(wrong, Err(PluginError::InvalidSettings(_, _))));
+    assert_eq!(
+        serde_json::Value::Object(saved.values),
+        serde_json::json!({ "greeting": "hi", "excited": false })
+    );
+    assert!(none.inputs.is_empty());
+}
