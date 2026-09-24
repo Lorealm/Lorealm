@@ -49,6 +49,10 @@ impl PluginService {
                 "the handle `{handle}` isn't an identifier"
             )));
         }
+        if let Ok(settings) = std::fs::read_to_string(source.join(&manifest.structure.settings)) {
+            super::settings::declarations(&settings)
+                .map_err(|e| invalid(format!("invalid settings: {e}")))?;
+        }
         let target = self.version_dir(&handle, &version);
         if target.exists() {
             return Err(PluginError::AlreadyInstalled(format!("{handle}@{version}")));

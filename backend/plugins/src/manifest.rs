@@ -136,6 +136,9 @@ pub struct Structure {
     /// Shown on the plugin's page. Optional.
     #[serde(default = "default_readme")]
     pub readme: PathBuf,
+    /// The `#inputs` block the user fills in on the plugin's page. Optional.
+    #[serde(default = "default_settings")]
+    pub settings: PathBuf,
 }
 
 impl Default for Structure {
@@ -143,6 +146,7 @@ impl Default for Structure {
         Self {
             backend: default_backend(),
             readme: default_readme(),
+            settings: default_settings(),
         }
     }
 }
@@ -153,6 +157,10 @@ fn default_backend() -> PathBuf {
 
 fn default_readme() -> PathBuf {
     PathBuf::from("README.md")
+}
+
+fn default_settings() -> PathBuf {
+    PathBuf::from("settings.wtn")
 }
 
 impl Manifest {

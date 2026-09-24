@@ -1,3 +1,10 @@
+import type { InputSpec } from './blueprint.js';
+
+export interface PluginSettings {
+	inputs: InputSpec[];
+	values: Record<string, unknown>;
+}
+
 /** One place in the client a plugin fills. */
 export interface FrontendSlot {
 	/** Which slot, such as `inspector`. */

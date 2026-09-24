@@ -6,6 +6,8 @@
 	import { useApi } from '$lib/api/client.js';
 	import { navigator } from '$lib/navigation/navigator.js';
 	import { pluginsStore } from '$lib/stores/plugins.svelte.js';
+	import type { InputSpec } from '$lib/types/blueprint.js';
+	import InputControl, { blankFor } from '../realms/InputControl.svelte';
 
 	let { handle }: { handle: string } = $props();
 
@@ -44,6 +46,39 @@
 			.then((markdown) => (readme = DOMPurify.sanitize(marked.parse(markdown, { async: false }))))
 			.catch(() => (readme = null));
 	});
+
+	let inputs = $state<InputSpec[]>([]);
+	let values = $state<Record<string, unknown>>({});
+	let saving = $state(false);
+	let saved = $state(false);
+	let settingsError = $state('');
+
+	$effect(() => {
+		inputs = [];
+		settingsError = '';
+		api.plugins
+			.settings(handle)
+			.then((settings) => {
+				inputs = settings.inputs;
+				values = Object.fromEntries(
+					settings.inputs.map((spec) => [spec.name, settings.values[spec.name] ?? blankFor(spec)])
+				);
+			})
+			.catch((e) => (settingsError = e instanceof Error ? e.message : String(e)));
+	});
+
+	async function saveSettings() {
+		saving = true;
+		saved = false;
+		settingsError = '';
+		try {
+			await api.plugins.saveSettings(handle, values);
+			saved = true;
+		} catch (e) {
+			settingsError = e instanceof Error ? e.message : String(e);
+		}
+		saving = false;
+	}
 
 	async function act(change: () => Promise<unknown>) {
 		error = '';
@@ -114,6 +149,31 @@
 			</div>
 			{#if error}<p class="error">{error}</p>{/if}
 
+			{#if inputs.length}
+				<h3>Settings</h3>
+				{#each inputs as spec (spec.name)}
+					<div class="field">
+						<span class="label">{spec.name}</span>
+						<InputControl
+							ty={spec}
+							value={values[spec.name]}
+							ariaLabel={spec.name}
+							onchange={(next) => {
+								values[spec.name] = next;
+								saved = false;
+							}}
+						/>
+					</div>
+				{/each}
+				<div class="actions">
+					<button type="button" class="outline" onclick={saveSettings} disabled={saving}>
+						{saving ? 'Saving…' : 'Save settings'}
+					</button>
+					{#if saved}<span class="muted">Saved</span>{/if}
+				</div>
+			{/if}
+			{#if settingsError}<p class="error">{settingsError}</p>{/if}
+
 			<h3>Permissions</h3>
 			{#if plugin.permissions.length}
 				<table>
@@ -174,6 +234,15 @@
 	}
 	.muted {
 		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
+	}
+	.field {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-xs);
+	}
+	.label {
+		font-family: var(--font-family-mono);
 		font-size: var(--font-size-sm);
 	}
 	.tags {

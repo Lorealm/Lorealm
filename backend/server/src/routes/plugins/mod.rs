@@ -25,6 +25,7 @@ pub(super) fn router(
         .route("/", get(handlers::list_plugins))
         .route("/{handle}/logs", get(handlers::list_plugin_logs))
         .route("/{handle}/readme", get(handlers::plugin_readme))
+        .route("/{handle}/settings", get(handlers::plugin_settings))
         .route("/{handle}/frontend/{entry}", get(handlers::frontend_entry))
         // Unsafe slots are only listed and served to users allowed them.
         .layer(axum::middleware::from_fn_with_state(
@@ -40,8 +41,8 @@ pub(super) fn router(
         .route("/", put(handlers::set_plugin_order))
         .route("/{handle}", patch(handlers::toggle_plugin_enabled))
         .route("/{handle}/call", post(handlers::call_plugin))
+        .route("/{handle}/settings", put(handlers::save_plugin_settings))
         .route("/{handle}/update", post(handlers::update_plugin))
-        // Server-wide: installing runs the plugin's build on the host.
         .route("/install", post(handlers::install_plugin))
         .route("/{handle}", delete(handlers::uninstall_plugin))
         .layer(axum::middleware::from_fn_with_state(

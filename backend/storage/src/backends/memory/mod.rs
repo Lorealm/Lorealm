@@ -48,11 +48,9 @@ pub struct MemoryStorage {
     pub(crate) connection_profiles: RwLock<HashMap<Snowflake, ConnectionProfile>>,
     pub(crate) user_tools: RwLock<HashMap<Snowflake, UserTool>>,
     pub(crate) user_widgets: RwLock<HashMap<Snowflake, UserWidget>>,
-    /// Enabled plugin handles per user, in load order.
     pub(crate) user_plugins: RwLock<HashMap<Snowflake, Vec<UserPlugin>>>,
-    /// Keyed by (user, plugin handle, key).
     pub(crate) plugin_data: RwLock<HashMap<(Snowflake, String, String), Vec<u8>>>,
-    /// Oldest first, keyed by (user, plugin handle).
+    pub(crate) plugin_settings: RwLock<HashMap<(Snowflake, String), serde_json::Value>>,
     pub(crate) plugin_logs: RwLock<HashMap<(Snowflake, String), Vec<PluginLog>>>,
     pub(crate) tokenizers: RwLock<HashMap<Snowflake, Tokenizer>>,
     pub(crate) tokenizer_shares: RwLock<Vec<TokenizerShare>>,

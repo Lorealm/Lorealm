@@ -19,6 +19,7 @@ use serde::Serialize;
 use tokio::sync::Mutex;
 
 mod install;
+mod settings;
 mod vocabulary;
 
 pub use install::InstallReport;
@@ -29,7 +30,8 @@ use crate::{
     core::CleanableService,
     errors::PluginError,
     services::{
-        chat::PromptMessage, context::PromptRole, snowflake::SnowflakeService, state::StateService,
+        blueprint::InputSpec, chat::PromptMessage, context::PromptRole,
+        snowflake::SnowflakeService, state::StateService,
     },
 };
 
@@ -49,6 +51,13 @@ pub struct InstalledPlugin {
     pub latest: Option<Version>,
     /// Where the plugin appears in the client.
     pub slots: Vec<FrontendSlot>,
+}
+
+/// What a plugin's settings ask for, and the user's values.
+#[derive(Default, Serialize)]
+pub struct PluginSettings {
+    pub inputs: Vec<InputSpec>,
+    pub values: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A user's mounted plugins, in load order.
@@ -393,6 +402,74 @@ impl PluginService {
         tokio::fs::read_to_string(path)
             .await
             .map_err(|_| not_found())
+    }
+
+    /// A given plugin's settings for a given user
+    pub async fn settings(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+    ) -> Result<PluginSettings, PluginError> {
+        let Some(source) = self.settings_source(user_id, handle).await? else {
+            return Ok(PluginSettings::default());
+        };
+        let invalid = |reason| PluginError::InvalidSettings(handle.to_owned(), reason);
+        let inputs = settings::declarations(&source).map_err(invalid)?;
+        let saved = self.saved_settings(user_id, handle).await?;
+        let values = match settings::resolve(&source, &saved) {
+            Ok(serde_json::Value::Object(values)) => values,
+            _ => saved,
+        };
+        Ok(PluginSettings {
+            inputs: inputs.iter().map(InputSpec::of).collect(),
+            values,
+        })
+    }
+
+    /// Saves the user's settings for `handle`, if they fit what it asks for.
+    pub async fn save_settings(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        values: serde_json::Map<String, serde_json::Value>,
+    ) -> Result<(), PluginError> {
+        let invalid = |reason| PluginError::InvalidSettings(handle.to_owned(), reason);
+        let source = self.settings_source(user_id, handle).await?;
+        settings::resolve(source.as_deref().unwrap_or("#inputs"), &values).map_err(invalid)?;
+        self.storage
+            .set_plugin_settings(user_id, handle, &serde_json::Value::Object(values))
+            .await?;
+        Ok(())
+    }
+
+    /// The `settings.wtn` of the version shown to the user, if it has one.
+    async fn settings_source(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+    ) -> Result<Option<String>, PluginError> {
+        let enabled = self.storage.list_user_plugins(user_id).await?;
+        let version = self
+            .shown_version(&enabled, handle)
+            .ok_or_else(|| PluginError::NotFound(handle.to_owned()))?;
+        let package = self.package(handle, &version).await?;
+        let path = self
+            .version_dir(handle, &version)
+            .join(&package.manifest.structure.settings);
+        Ok(tokio::fs::read_to_string(path).await.ok())
+    }
+
+    async fn saved_settings(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+    ) -> Result<serde_json::Map<String, serde_json::Value>, PluginError> {
+        Ok(
+            match self.storage.get_plugin_settings(user_id, handle).await? {
+                Some(serde_json::Value::Object(values)) => values,
+                _ => serde_json::Map::new(),
+            },
+        )
     }
 
     /// The version to show the user: the one they're on, or else the latest.

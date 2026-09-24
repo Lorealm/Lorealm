@@ -153,6 +153,42 @@ impl PluginStorage for PostgresStorage {
         Ok(())
     }
 
+    async fn get_plugin_settings(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+    ) -> Result<Option<serde_json::Value>, StorageError> {
+        let settings = sqlx::query_scalar::<_, serde_json::Value>(
+            "SELECT settings FROM plugin_settings WHERE user_id = $1 AND handle = $2",
+        )
+        .bind(user_id)
+        .bind(handle)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(settings)
+    }
+
+    async fn set_plugin_settings(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        settings: &serde_json::Value,
+    ) -> Result<(), StorageError> {
+        sqlx::query(
+            r#"INSERT INTO plugin_settings (user_id, handle, settings)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (user_id, handle) DO UPDATE SET
+                settings = EXCLUDED.settings,
+                updated_at = now()"#,
+        )
+        .bind(user_id)
+        .bind(handle)
+        .bind(settings)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     async fn append_plugin_logs(
         &self,
         user_id: Snowflake,

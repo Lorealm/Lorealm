@@ -88,6 +88,25 @@ impl PluginStorage for CachedStorage {
         self.backend.delete_plugin_data(user_id, handle, key).await
     }
 
+    async fn get_plugin_settings(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+    ) -> Result<Option<serde_json::Value>, StorageError> {
+        self.backend.get_plugin_settings(user_id, handle).await
+    }
+
+    async fn set_plugin_settings(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        settings: &serde_json::Value,
+    ) -> Result<(), StorageError> {
+        self.backend
+            .set_plugin_settings(user_id, handle, settings)
+            .await
+    }
+
     async fn append_plugin_logs(
         &self,
         user_id: Snowflake,

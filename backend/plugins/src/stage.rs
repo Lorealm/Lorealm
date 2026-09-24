@@ -6,6 +6,7 @@ use crate::manifest::{MANIFEST_FILE, Manifest, ManifestError};
 const BACKEND: &str = "backend.wasm";
 const FRONTEND: &str = "frontend";
 const README: &str = "README.md";
+const SETTINGS: &str = "settings.wtn";
 
 #[derive(Debug, thiserror::Error)]
 pub enum StageError {
@@ -21,7 +22,7 @@ pub enum StageError {
 }
 
 /// Copies a built plugin from `source` into the empty directory `into`: the
-/// manifest, the backend, the frontend and the README, nothing else. The paths in the
+/// manifest, the backend, the frontend, the README and the settings, nothing else. The paths in the
 /// copied manifest are rewritten to fixed ones, so an installed plugin doesn't
 /// depend on how its source was laid out.
 pub fn stage(source: &Path, into: &Path) -> Result<Manifest, StageError> {
@@ -43,6 +44,11 @@ pub fn stage(source: &Path, into: &Path) -> Result<Manifest, StageError> {
     if readme.is_file() {
         copy_file(&readme, &into.join(README))?;
         set(&mut table, "structure", "readme", README);
+    }
+    let settings = source.join(&manifest.structure.settings);
+    if settings.is_file() {
+        copy_file(&settings, &into.join(SETTINGS))?;
+        set(&mut table, "structure", "settings", SETTINGS);
     }
     table.remove("build");
 
