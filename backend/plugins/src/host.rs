@@ -27,7 +27,7 @@ use lorealm::plugin::types::{
     Block, CommandCall, CommandSignature, CustomEvent, Finalizing, FrontendCall, Generated, Hook,
     HttpRequest, HttpResponse, Level, LorebookActivation, LorebookEntry, Message, Persona,
     ProcessorCall, ProcessorSignature, SourceCall, SourceNode, ToolInvocation, ToolOutput,
-    UserInput, Verdict,
+    TurnEnded, TurnStarted, UserInput, Verdict,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -231,7 +231,7 @@ impl lorealm::plugin::host::Host for PluginState {
     async fn register_hook(&mut self, hook: Hook) -> Result<(), String> {
         let permission = match hook {
             Hook::PromptBuild | Hook::LorebookActivate => "prompt:write",
-            Hook::AfterGenerate => "chat:read",
+            Hook::AfterGenerate | Hook::TurnStart | Hook::TurnEnd => "chat:read",
             Hook::MessageFinalize | Hook::UserMessage => "chat:write",
             Hook::ToolCall | Hook::ToolResult => "tools:write",
         };
@@ -552,6 +552,28 @@ impl LoadedPlugin {
         match self.handle(Event::ToolResult(output)).await? {
             Response::ToolResult(result) => Ok(result),
             _ => Err(mismatch("tool-result")),
+        }
+    }
+
+    /// Runs the `turn-start` hook, if the plugin registered it.
+    pub async fn turn_start(&mut self, turn: TurnStarted) -> Result<(), PluginError> {
+        if !self.store.data().hooks.contains(&Hook::TurnStart) {
+            return Ok(());
+        }
+        match self.handle(Event::TurnStart(turn)).await? {
+            Response::TurnStart => Ok(()),
+            _ => Err(mismatch("turn-start")),
+        }
+    }
+
+    /// Runs the `turn-end` hook, if the plugin registered it.
+    pub async fn turn_end(&mut self, turn: TurnEnded) -> Result<(), PluginError> {
+        if !self.store.data().hooks.contains(&Hook::TurnEnd) {
+            return Ok(());
+        }
+        match self.handle(Event::TurnEnd(turn)).await? {
+            Response::TurnEnd => Ok(()),
+            _ => Err(mismatch("turn-end")),
         }
     }
 

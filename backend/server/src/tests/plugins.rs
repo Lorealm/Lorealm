@@ -1206,3 +1206,33 @@ async fn tool_result_runs_in_load_order() {
     assert_eq!(value, Ok(serde_json::json!({ "temp": 3, "checked": 2 })));
     assert_eq!(error, Err("boom!!".into()));
 }
+
+#[tokio::test]
+async fn turn_hooks_reach_enabled_plugins() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    let last_event = async || {
+        h.plugins
+            .call_frontend(h.user, "hello", "event".into(), serde_json::json!({}))
+            .await
+            .unwrap()
+    };
+
+    h.plugins
+        .turn_start(h.user, Snowflake(1), "narrator".into())
+        .await;
+    let started = last_event().await;
+    h.plugins
+        .turn_end(
+            h.user,
+            Snowflake(1),
+            "narrator".into(),
+            Snowflake(2),
+            "Night falls.".into(),
+        )
+        .await;
+    let ended = last_event().await;
+
+    assert_eq!(started, serde_json::json!("turn-start narrator"));
+    assert_eq!(ended, serde_json::json!("turn-end narrator Night falls."));
+}

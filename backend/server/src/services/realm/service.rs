@@ -763,6 +763,7 @@ impl RealmService {
                 let config = config.clone();
                 let stream = async_stream::try_stream! {
                     let ReadyTurn { convo, cast, production } = *ready;
+                    service.announce_turn(&convo, &production.agent.handle);
                     yield RealmStreamEvent::TurnStarted {
                         handle: production.agent.handle.clone(),
                         name: production.agent.name.clone(),
@@ -781,6 +782,7 @@ impl RealmService {
             .ok_or(RealmError::NotRealmConversation(convo.id))?;
         let realm = self.get_realm(realm_id, user_id).await?;
 
+        self.announce_turn(&convo, &llm.agent.handle);
         let mut open = self
             .chat
             .open_agent_turn(
@@ -902,6 +904,7 @@ impl RealmService {
                 "a player turn needs text, an action, or both".into(),
             ));
         }
+        self.announce_turn(&convo, &agent.handle);
 
         let mut delta = StateDelta::default();
         let mut emitted = Vec::new();
@@ -1329,7 +1332,23 @@ impl RealmService {
             })
             .await?;
 
+        let plugins = Arc::clone(&self.plugins);
+        let (user_id, convo_id, handle) = (convo.user_id, convo.id, agent.handle.clone());
+        let (message_id, content) = (message.id, message.content.clone());
+        tokio::spawn(async move {
+            plugins
+                .turn_end(user_id, convo_id, handle, message_id, content)
+                .await;
+        });
+
         Ok(TurnResult { message, events })
+    }
+
+    /// Tells the user's plugins that `handle`'s turn started, without waiting.
+    fn announce_turn(&self, convo: &Conversation, handle: &str) {
+        let plugins = Arc::clone(&self.plugins);
+        let (user_id, convo_id, handle) = (convo.user_id, convo.id, handle.to_owned());
+        tokio::spawn(async move { plugins.turn_start(user_id, convo_id, handle).await });
     }
 
     async fn persist_message(

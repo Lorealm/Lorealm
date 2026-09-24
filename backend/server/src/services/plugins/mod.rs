@@ -13,7 +13,8 @@ use dashmap::DashMap;
 use lorealm_plugins::{
     Finalizing, FrontendSlot, Generated, HostServices, HttpRequest, HttpResponse, Level,
     LoadedPlugin, LogEntry, LogSource, Manifest, Message, Persona, PluginHost, PluginInfo,
-    PluginPackage, Role, ToolInvocation, ToolOutput, UserInput, Verdict, Version, resolve,
+    PluginPackage, Role, ToolInvocation, ToolOutput, TurnEnded, TurnStarted, UserInput, Verdict,
+    Version, resolve,
 };
 use lorealm_storage::{
     Storage, StorageError,
@@ -766,6 +767,45 @@ impl PluginService {
                     content: content.clone(),
                 };
                 p.after_generate(generated).await?;
+                Ok(ControlFlow::Continue(()))
+            })
+            .await;
+    }
+
+    /// Runs the user's `turn-start` hooks. A plugin that fails is logged and
+    /// skipped. Callers shouldn't wait for it.
+    pub async fn turn_start(&self, user_id: Snowflake, conversation: Snowflake, agent: String) {
+        let _: Result<_, Infallible> = self
+            .pipe(user_id, (), async move |_, p, ()| {
+                let turn = TurnStarted {
+                    conversation: conversation.0,
+                    agent: agent.clone(),
+                };
+                p.turn_start(turn).await?;
+                Ok(ControlFlow::Continue(()))
+            })
+            .await;
+    }
+
+    /// Runs the user's `turn-end` hooks. A plugin that fails is logged and
+    /// skipped. Callers shouldn't wait for it.
+    pub async fn turn_end(
+        &self,
+        user_id: Snowflake,
+        conversation: Snowflake,
+        agent: String,
+        message: Snowflake,
+        content: String,
+    ) {
+        let _: Result<_, Infallible> = self
+            .pipe(user_id, (), async move |_, p, ()| {
+                let turn = TurnEnded {
+                    conversation: conversation.0,
+                    agent: agent.clone(),
+                    message: message.0,
+                    content: content.clone(),
+                };
+                p.turn_end(turn).await?;
                 Ok(ControlFlow::Continue(()))
             })
             .await;
