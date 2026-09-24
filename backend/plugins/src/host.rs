@@ -26,7 +26,7 @@ pub struct EvalContextHandle;
 use lorealm::plugin::types::{
     Block, CommandCall, CommandSignature, CustomEvent, Finalizing, FrontendCall, Generated, Hook,
     HttpRequest, HttpResponse, Level, Message, Persona, ProcessorCall, ProcessorSignature,
-    SourceCall, SourceNode,
+    SourceCall, SourceNode, UserInput, Verdict,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -231,7 +231,7 @@ impl lorealm::plugin::host::Host for PluginState {
         let permission = match hook {
             Hook::PromptBuild => "prompt:write",
             Hook::AfterGenerate => "chat:read",
-            Hook::MessageFinalize => "chat:write",
+            Hook::MessageFinalize | Hook::UserMessage => "chat:write",
         };
         self.require(permission)?;
         if !self.hooks.contains(&hook) {
@@ -499,6 +499,18 @@ impl LoadedPlugin {
         match self.handle(Event::MessageFinalize(reply)).await? {
             Response::MessageFinalize(content) => Ok(content),
             _ => Err(mismatch("message-finalize")),
+        }
+    }
+
+    /// Runs the `user-message` hook. Allows the input if the plugin did not
+    /// register it.
+    pub async fn user_message(&mut self, input: UserInput) -> Result<Verdict, PluginError> {
+        if !self.store.data().hooks.contains(&Hook::UserMessage) {
+            return Ok(Verdict::Allow);
+        }
+        match self.handle(Event::UserMessage(input)).await? {
+            Response::UserMessage(verdict) => Ok(verdict),
+            _ => Err(mismatch("user-message")),
         }
     }
 

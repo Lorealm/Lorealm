@@ -10,7 +10,7 @@ use lorealm::plugin::host::{
 use lorealm::plugin::types::{
     Block, CommandCall, CommandSignature, CustomEvent, Finalizing, FrontendCall, Generated, Hook,
     HttpRequest, Level, Message, Param, ProcessorCall, ProcessorSignature, Role, SourceCall,
-    SourceNode, ValueType,
+    SourceNode, UserInput, ValueType, Verdict,
 };
 use serde_json::Value;
 
@@ -21,6 +21,7 @@ impl Guest for Hello {
         register_hook(Hook::PromptBuild)?;
         register_hook(Hook::AfterGenerate)?;
         register_hook(Hook::MessageFinalize)?;
+        register_hook(Hook::UserMessage)?;
         // Only `hello_addon` may emit it, as this component also runs as that.
         subscribe("hello_addon.ping")?;
         register_command(&CommandSignature {
@@ -151,6 +152,13 @@ impl Guest for Hello {
             }
             Event::MessageFinalize(Finalizing { content, .. }) => {
                 Ok(Response::MessageFinalize(format!("{content}!")))
+            }
+            // Test control: refuses `deny me`.
+            Event::UserMessage(UserInput { content, .. }) => {
+                Ok(Response::UserMessage(match content.as_str() {
+                    "deny me" => Verdict::Deny("denied on purpose".into()),
+                    _ => Verdict::Change(format!("{content}?")),
+                }))
             }
             Event::Source(SourceCall { settings, .. }) => {
                 let settings: Value = serde_json::from_str(&settings).map_err(|e| e.to_string())?;

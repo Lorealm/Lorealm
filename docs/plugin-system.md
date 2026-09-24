@@ -26,6 +26,7 @@ A living document to help us keep track of the plugin system implementation.
 | 24/09/26      | Added plugin events                 | ✅            |
 | 24/09/26      | Added the after-generate hook       | ✅            |
 | 24/09/26      | Added the message-finalize hook     | ✅            |
+| 24/09/26      | Added the user-message gate         | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -235,7 +236,7 @@ Every hook is one of three kinds, which decides how the host runs it:
 The kind is part of the WIT, so an observer can never hold up a generation. Variations share one hook with a reason field rather than getting their own (`before-generate` has a `kind` of `new`, `regenerate`, `continue` or `swipe`), and `register-hook` should take a filter (only realms, only a given tool, ...) so plugins aren't called for everything.
 
 #### Planned hooks
-`prompt-build` (needs `prompt:write`), `message-finalize` (needs `chat:write`) and `after-generate` (needs `chat:read`) exist so far. `message-finalize` gets a chat reply's conversation and content just before it's saved, and returns the content to save; the client shows the saved version once streaming ends. `after-generate` then gets the saved reply's conversation, message id and content. Realm turns fire neither.
+`user-message` (needs `chat:write`), `prompt-build` (needs `prompt:write`), `message-finalize` (needs `chat:write`) and `after-generate` (needs `chat:read`) exist so far. `user-message` is a gate: it gets the conversation and the text the user sent for a reply (a new message or a branch, not an edit, which starts no generation) before it's saved, and answers a `verdict` of `allow`, `change(text)` or `deny(reason)`. The first denial stops the rest; nothing is saved, and the request fails with `chat.refused`, naming the plugin and its reason. `message-finalize` gets a chat reply's conversation and content just before it's saved, and returns the content to save; the client shows the saved version once streaming ends. `after-generate` then gets the saved reply's conversation, message id and content. Realm turns fire none of these.
 
 | Area          | Hook                                                  | Kind  |
 |---------------|-------------------------------------------------------|-------|
