@@ -618,3 +618,41 @@ async fn an_event_reaches_only_subscribers() {
     assert_eq!(ignored, "null");
     assert_eq!(received, r#""hello_addon.ping 2""#);
 }
+
+#[tokio::test]
+async fn a_plugin_subscribes_and_unsubscribes_after_init() {
+    let host = host();
+    let package = compile(&host, "hello");
+    let mut plugin = host
+        .instantiate(&package, Arc::new(TestServices::default()))
+        .await
+        .unwrap();
+    let last_event = async |plugin: &mut lorealm_plugins::LoadedPlugin| {
+        plugin
+            .call_frontend("event".into(), "{}".into())
+            .await
+            .unwrap()
+    };
+
+    plugin
+        .call_frontend("subscribe".into(), r#""hello_addon.other""#.into())
+        .await
+        .unwrap();
+    plugin
+        .custom_event("hello_addon.other".into(), "1".into())
+        .await
+        .unwrap();
+    let subscribed = last_event(&mut plugin).await;
+    plugin
+        .call_frontend("unsubscribe".into(), r#""hello_addon.other""#.into())
+        .await
+        .unwrap();
+    plugin
+        .custom_event("hello_addon.other".into(), "2".into())
+        .await
+        .unwrap();
+    let unsubscribed = last_event(&mut plugin).await;
+
+    assert_eq!(subscribed, r#""hello_addon.other 1""#);
+    assert_eq!(unsubscribed, subscribed);
+}
