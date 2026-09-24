@@ -141,7 +141,7 @@ interface types {
 }
 
 interface host {
-    use types.{command-signature, hook, level, persona, processor-signature, source-node};
+    use types.{command-signature, hook, json, level, persona, processor-signature, source-node};
 
     /// Writes to the plugin's log, which the user can read. Stdout and stderr
     /// are also captured, as `info` and `warn` lines.
@@ -161,6 +161,9 @@ interface host {
 
     /// The user's active persona. Requires the `persona:read` permission.
     active-persona: func() -> result<persona, string>;
+
+    /// The user's settings. Presented as a single JSON object.
+    settings: func() -> result<json, string>;
 
     /// Stores `value` under `key` for the current user. Requires `data:persist`.
     persist-data: func(key: string, value: list<u8>) -> result<_, string>;

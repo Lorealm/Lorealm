@@ -870,3 +870,55 @@ async fn settings_are_checked_and_saved() {
     );
     assert!(none.inputs.is_empty());
 }
+
+#[tokio::test]
+async fn a_plugin_reads_its_settings() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    let key_types = h.plugins.key_types(h.user).await.unwrap();
+    let key = h
+        .connection
+        .create_secret(
+            h.user,
+            "elevenlabs".into(),
+            "Mine".into(),
+            "sk".into(),
+            &key_types,
+        )
+        .await
+        .unwrap();
+    let read = || {
+        h.plugins
+            .call_frontend(h.user, "hello", "settings".into(), serde_json::json!({}))
+    };
+
+    let unset = read().await;
+    let logs = h.plugins.logs(h.user, "hello").await.unwrap();
+    h.plugins
+        .save_settings(
+            h.user,
+            "hello",
+            serde_json::json!({ "greeting": "hi", "key": key.id })
+                .as_object()
+                .unwrap()
+                .clone(),
+        )
+        .await
+        .unwrap();
+    let set = read().await.unwrap();
+
+    assert!(matches!(unset, Err(PluginError::CallFailed(_, _))));
+    assert!(
+        logged(
+            &logs,
+            PluginLogSource::Host,
+            PluginLogLevel::Warn,
+            "Couldn't read your settings: missing required input: greeting"
+        ),
+        "{logs:#?}"
+    );
+    assert_eq!(
+        set,
+        serde_json::json!({ "greeting": "hi", "excited": false, "key": key.id })
+    );
+}

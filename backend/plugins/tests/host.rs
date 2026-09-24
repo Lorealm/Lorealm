@@ -69,6 +69,10 @@ impl HostServices for TestServices {
         Ok(())
     }
 
+    async fn settings(&self) -> Result<String, String> {
+        Ok(r#"{"greeting":"Hi"}"#.into())
+    }
+
     async fn log(&self, entries: Vec<LogEntry>) {
         self.logs.lock().unwrap().extend(entries);
     }
@@ -465,4 +469,19 @@ async fn staging_copies_only_the_built_plugin() {
     assert!(!into.join("README.md").exists(), "hello_addon has none");
     assert!(package.is_ok(), "{:?}", package.err());
     std::fs::remove_dir_all(&into).unwrap();
+}
+
+#[tokio::test]
+async fn plugin_reads_its_settings() {
+    let host = host();
+    let package = compile(&host, "hello");
+    let services = Arc::new(TestServices::default());
+    let mut plugin = host.instantiate(&package, services).await.unwrap();
+
+    let settings = plugin
+        .call_frontend("settings".into(), "{}".into())
+        .await
+        .unwrap();
+
+    assert_eq!(settings, r#"{"greeting":"Hi"}"#);
 }

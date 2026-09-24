@@ -80,6 +80,8 @@ pub trait HostServices: Send + Sync {
     async fn persist_data(&self, key: String, value: Vec<u8>) -> Result<(), String>;
     async fn load_data(&self, key: String) -> Result<Option<Vec<u8>>, String>;
     async fn delete_data(&self, key: String) -> Result<(), String>;
+    /// The user's settings for the plugin, as a JSON object.
+    async fn settings(&self) -> Result<String, String>;
     /// Receives what the plugin and the host logged during one call.
     async fn log(&self, entries: Vec<LogEntry>);
 }
@@ -244,6 +246,10 @@ impl lorealm::plugin::host::Host for PluginState {
     async fn active_persona(&mut self) -> Result<Persona, String> {
         self.require("persona:read")?;
         self.services.active_persona().await
+    }
+
+    async fn settings(&mut self) -> Result<String, String> {
+        self.services.settings().await
     }
 
     async fn persist_data(&mut self, key: String, value: Vec<u8>) -> Result<(), String> {

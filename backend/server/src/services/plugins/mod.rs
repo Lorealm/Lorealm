@@ -424,7 +424,7 @@ impl PluginService {
         };
         let invalid = |reason| PluginError::InvalidSettings(handle.to_owned(), reason);
         let inputs = settings::declarations(&source).map_err(invalid)?;
-        let saved = self.saved_settings(user_id, handle).await?;
+        let saved = settings::saved(&*self.storage, user_id, handle).await?;
         let keys = self.keys(user_id).await?;
         let values = match settings::resolve(&source, &saved, &keys) {
             Ok(serde_json::Value::Object(values)) => values,
@@ -470,18 +470,8 @@ impl PluginService {
 
     /// Each key type the user's plugins declare, with the user's keys of it.
     async fn keys(&self, user_id: Snowflake) -> Result<settings::Keys, PluginError> {
-        let mut keys: settings::Keys = self
-            .key_types(user_id)
-            .await?
-            .into_iter()
-            .map(|kind| (kind, Vec::new()))
-            .collect();
-        for secret in self.storage.list_secrets_by_owner(user_id).await? {
-            if let Some(ids) = keys.get_mut(&secret.provider) {
-                ids.push(secret.id.to_string());
-            }
-        }
-        Ok(keys)
+        let types = self.key_types(user_id).await?;
+        Ok(settings::keys(&*self.storage, user_id, types).await?)
     }
 
     /// The `settings.wtn` of the version shown to the user, if it has one.
@@ -499,19 +489,6 @@ impl PluginService {
             .version_dir(handle, &version)
             .join(&package.manifest.structure.settings);
         Ok(tokio::fs::read_to_string(path).await.ok())
-    }
-
-    async fn saved_settings(
-        &self,
-        user_id: Snowflake,
-        handle: &str,
-    ) -> Result<serde_json::Map<String, serde_json::Value>, PluginError> {
-        Ok(
-            match self.storage.get_plugin_settings(user_id, handle).await? {
-                Some(serde_json::Value::Object(values)) => values,
-                _ => serde_json::Map::new(),
-            },
-        )
     }
 
     /// The version to show the user: the one they're on, or else the latest.
@@ -602,18 +579,39 @@ impl PluginService {
                 .await;
         }
 
+        let loaded: Vec<_> = resolution
+            .order
+            .iter()
+            .map(|handle| {
+                packages
+                    .iter()
+                    .find(|p| &p.manifest.plugin.handle == handle)
+                    .expect("resolved plugins come from `packages`")
+            })
+            .collect();
+        // Settings may hold keys of any type a loaded plugin declares.
+        let mut key_types: Vec<String> = loaded
+            .iter()
+            .flat_map(|p| p.manifest.definitions.api_keys.clone())
+            .collect();
+        key_types.sort();
+        key_types.dedup();
+        let key_types = Arc::new(key_types);
+
         let mut plugins = Vec::new();
-        for handle in resolution.order {
-            let package = packages
-                .iter()
-                .find(|p| p.manifest.plugin.handle == handle)
-                .expect("resolved plugins come from `packages`");
+        for package in loaded {
+            let handle = package.manifest.plugin.handle.clone();
+            let settings = self
+                .version_dir(&handle, &package.manifest.plugin.version)
+                .join(&package.manifest.structure.settings);
             let services = Arc::new(UserServices {
                 user_id,
                 handle: handle.clone(),
                 storage: Arc::clone(&self.storage),
                 state: Arc::clone(&self.state),
                 logs: Arc::clone(&self.logs),
+                settings: tokio::fs::read_to_string(settings).await.ok(),
+                key_types: Arc::clone(&key_types),
             });
             // On failure, the plugin crate logged why.
             if let Ok(plugin) = self.host.instantiate(package, services).await {
@@ -720,6 +718,10 @@ struct UserServices {
     storage: Arc<dyn Storage>,
     state: Arc<StateService>,
     logs: Arc<PluginLogs>,
+    /// The plugin's `settings.wtn`, if it has one.
+    settings: Option<String>,
+    /// The API key types the user's loaded plugins declare.
+    key_types: Arc<Vec<String>>,
 }
 
 impl UserServices {
@@ -763,6 +765,28 @@ impl HostServices for UserServices {
             .delete_plugin_data(self.user_id, &self.handle, &key)
             .await
             .map_err(|err| self.storage_error(err))
+    }
+
+    async fn settings(&self) -> Result<String, String> {
+        let saved = settings::saved(&*self.storage, self.user_id, &self.handle)
+            .await
+            .map_err(|err| self.storage_error(err))?;
+        let keys = settings::keys(&*self.storage, self.user_id, self.key_types.iter().cloned())
+            .await
+            .map_err(|err| self.storage_error(err))?;
+        let source = self.settings.as_deref().unwrap_or("#inputs");
+        match settings::resolve(source, &saved, &keys) {
+            Ok(values) => Ok(values.to_string()),
+            Err(reason) => {
+                let message = format!(
+                    "Couldn't read your settings: {reason}. Fix them under Settings → You → Plugins."
+                );
+                self.logs
+                    .host(self.user_id, &self.handle, Level::Warn, message)
+                    .await;
+                Err(reason)
+            }
+        }
     }
 
     async fn log(&self, entries: Vec<LogEntry>) {

@@ -5,7 +5,7 @@ wit_bindgen::generate!({
 
 use lorealm::plugin::host::{
     active_persona, delete_data, load_data, log, persist_data, register_command, register_hook,
-    register_processor, register_source_node,
+    register_processor, register_source_node, settings,
 };
 use lorealm::plugin::types::{
     Block, CommandCall, CommandSignature, FrontendCall, Hook, Level, Message, Param, ProcessorCall,
@@ -88,6 +88,7 @@ impl Guest for Hello {
                     let name = args["name"].as_str().unwrap_or("stranger");
                     Ok(Response::Frontend(json(&format!("Hello, {name}!"))))
                 }
+                "settings" => Ok(Response::Frontend(settings()?)),
                 other => Err(format!("unknown frontend call `{other}`")),
             },
             Event::Source(SourceCall { settings, .. }) => {
