@@ -14,6 +14,7 @@
 	/** What each permission lets a plugin do. */
 	const permissionLabels: Record<string, string> = {
 		'chat:read': 'Read your chats',
+		'chat:write': 'Change replies before they are saved',
 		'data:persist': 'Store its own data',
 		'net:fetch': 'Send requests to the hosts below',
 		'persona:read': 'Read your active persona',

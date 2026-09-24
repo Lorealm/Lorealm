@@ -9,6 +9,7 @@ pub const MANIFEST_FILE: &str = "manifest.toml";
 /// Every permission a manifest may declare.
 pub const PERMISSIONS: &[&str] = &[
     "chat:read",
+    "chat:write",
     "data:persist",
     "net:fetch",
     "persona:read",

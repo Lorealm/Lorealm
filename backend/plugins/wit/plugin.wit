@@ -31,6 +31,8 @@ interface types {
         prompt-build,
         /// Requires the `chat:read` permission.
         after-generate,
+        /// Requires the `chat:write` permission.
+        message-finalize,
     }
 
     /// A Weaver value as JSON text. WIT has no recursive types.
@@ -135,6 +137,12 @@ interface types {
         content: string,
     }
 
+    /// A reply the model finished, before it is saved.
+    record finalizing {
+        conversation: s64,
+        content: string,
+    }
+
     /// A request for `http-fetch`.
     record http-request {
         /// Such as `GET` or `POST`.
@@ -164,6 +172,8 @@ interface types {
         custom(custom-event),
         /// Observes a finished reply. Generation doesn't wait for it.
         after-generate(generated),
+        /// The reply's content, to be saved as returned.
+        message-finalize(finalizing),
     }
 
     /// Answers `handle`, in the same case as the event.
@@ -176,6 +186,7 @@ interface types {
         frontend(json),
         custom,
         after-generate,
+        message-finalize(string),
     }
 }
 
