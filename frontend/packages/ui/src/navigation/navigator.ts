@@ -98,7 +98,7 @@ class Start {
 	characters = () => this.#chain.go({ view: 'characters' });
 	realms = (id?: Snowflake) => this.#chain.go({ view: 'realms', id });
 	connections = (id?: Snowflake | typeof SECRETS) => this.#chain.go({ view: 'connections', id });
-	plugins = () => this.#chain.go({ view: 'plugins' });
+	plugins = (handle?: string) => this.#chain.go({ view: 'plugins', id: handle });
 
 	studio(): StudioStage {
 		this.#chain.go(router.recallStudio());

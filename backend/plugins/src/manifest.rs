@@ -6,6 +6,16 @@ use serde::{Deserialize, Serialize};
 
 pub const MANIFEST_FILE: &str = "manifest.toml";
 
+/// Every permission a manifest may declare.
+pub const PERMISSIONS: &[&str] = &[
+    "data:persist",
+    "persona:read",
+    "prompt:write",
+    "state:read",
+    "state:write",
+    "ui:unsafe",
+];
+
 #[derive(Debug, thiserror::Error)]
 pub enum ManifestError {
     #[error("failed to read {path}: {source}")]
@@ -15,6 +25,8 @@ pub enum ManifestError {
     },
     #[error("invalid manifest: {0}")]
     Parse(#[from] toml::de::Error),
+    #[error("unknown permission `{0}`")]
+    UnknownPermission(String),
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -150,7 +162,16 @@ impl Manifest {
             path: path.clone(),
             source,
         })?;
-        Ok(toml::from_str(&source)?)
+        let manifest: Self = toml::from_str(&source)?;
+        if let Some(p) = manifest
+            .plugin
+            .permissions
+            .iter()
+            .find(|p| !PERMISSIONS.contains(&p.as_str()))
+        {
+            return Err(ManifestError::UnknownPermission(p.clone()));
+        }
+        Ok(manifest)
     }
 }
 
@@ -169,7 +190,7 @@ mod tests {
             tags = ["markdown", "preview", "editor"]
             author = "Jane Doe <jane@example.com>"
             version = "1.2.0"
-            permissions = ["fs:read", "ui:modal"]
+            permissions = ["prompt:write", "persona:read"]
 
             [compatibility]
             loaded_before = ["mermaid_render"]
@@ -234,5 +255,32 @@ mod tests {
         );
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn rejects_unknown_permission() {
+        let dir = std::env::temp_dir().join(format!("lorealm-manifest-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join(MANIFEST_FILE),
+            r#"
+            [plugin]
+            name = "Bad"
+            handle = "bad"
+            description = ""
+            author = "Jane Doe"
+            version = "0.1.0"
+            permissions = ["prompt:writ"]
+            "#,
+        )
+        .unwrap();
+
+        let result = Manifest::from_dir(&dir);
+        std::fs::remove_dir_all(&dir).unwrap();
+
+        assert!(matches!(
+            result,
+            Err(ManifestError::UnknownPermission(p)) if p == "prompt:writ"
+        ));
     }
 }
