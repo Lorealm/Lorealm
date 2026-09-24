@@ -246,7 +246,10 @@ fn formats(expr: &ExprKind, span: Span) -> Refused<HashMap<String, String>> {
             return Err(OutlineRefusal::bare("a loop or conditional in `config`"));
         };
         let Some(key) = entry.static_key() else {
-            return Err(OutlineRefusal::at(entry.key.span, "a computed key in `config`"));
+            return Err(OutlineRefusal::at(
+                entry.key.span,
+                "a computed key in `config`",
+            ));
         };
         out.insert(key.to_string(), text(&entry.value.node, entry.value.span)?);
     }
@@ -281,7 +284,10 @@ fn scenarios_of(expr: &ExprKind, span: Span) -> Refused<Vec<ScenarioBlock>> {
 
 fn one_scenario(expr: &weaver_lang::ast::expr::Expr) -> Refused<ScenarioBlock> {
     let ExprKind::ObjectLiteral(fields) = &expr.node else {
-        return Err(OutlineRefusal::at(expr.span, "every scenario must be an object"));
+        return Err(OutlineRefusal::at(
+            expr.span,
+            "every scenario must be an object",
+        ));
     };
 
     let mut out = ScenarioBlock::default();
@@ -306,7 +312,10 @@ fn director_of(expr: &ExprKind, span: Span) -> Refused<Option<DirectorBlock>> {
         return Ok(None);
     }
     let ExprKind::ObjectLiteral(items) = expr else {
-        return Err(OutlineRefusal::at(span, "`director` must be an object or null"));
+        return Err(OutlineRefusal::at(
+            span,
+            "`director` must be an object or null",
+        ));
     };
 
     let mut kind = String::new();
@@ -417,13 +426,18 @@ fn walked(expr: &ExprKind) -> Option<String> {
 
 fn agent(expr: &ExprKind, span: Span, source: &str) -> Refused<AgentBlock> {
     let ExprKind::ObjectLiteral(items) = expr else {
-        return Err(OutlineRefusal::at(span, "every cast member must be an object"));
+        return Err(OutlineRefusal::at(
+            span,
+            "every cast member must be an object",
+        ));
     };
 
     let mut block = AgentBlock::default();
     for item in items {
         let ObjectItem::Entry(entry) = item else {
-            return Err(OutlineRefusal::bare("a loop or conditional inside an agent"));
+            return Err(OutlineRefusal::bare(
+                "a loop or conditional inside an agent",
+            ));
         };
         let Some(key) = entry.static_key() else {
             return Err(OutlineRefusal::at(entry.key.span, "a computed key"));
@@ -467,7 +481,10 @@ fn tools(expr: &ExprKind, span: Span) -> Refused<Vec<ToolBinding>> {
                 return Err(OutlineRefusal::bare("a loop or conditional in `tools`"));
             };
             let ExprKind::ObjectLiteral(fields) = &expr.node else {
-                return Err(OutlineRefusal::at(expr.span, "every tool must be an object"));
+                return Err(OutlineRefusal::at(
+                    expr.span,
+                    "every tool must be an object",
+                ));
             };
 
             let mut tool = None;
@@ -478,7 +495,8 @@ fn tools(expr: &ExprKind, span: Span) -> Refused<Vec<ToolBinding>> {
                 };
                 match entry.static_key() {
                     Some("tool_id") => {
-                        tool = binding(&entry.value.node, RealmResourceKind::Tool, entry.value.span)?
+                        tool =
+                            binding(&entry.value.node, RealmResourceKind::Tool, entry.value.span)?
                     }
                     Some("event_channel") => {
                         event_channel = text(&entry.value.node, entry.value.span)?
@@ -487,8 +505,8 @@ fn tools(expr: &ExprKind, span: Span) -> Refused<Vec<ToolBinding>> {
                 }
             }
 
-            let tool = tool
-                .ok_or_else(|| OutlineRefusal::at(expr.span, "a tool with no `tool_id`"))?;
+            let tool =
+                tool.ok_or_else(|| OutlineRefusal::at(expr.span, "a tool with no `tool_id`"))?;
             Ok(ToolBinding {
                 tool,
                 event_channel,
@@ -508,7 +526,10 @@ fn grants(expr: &ExprKind, span: Span) -> Refused<Vec<Grant>> {
                 return Err(OutlineRefusal::bare("a loop or conditional in `grants`"));
             };
             let ExprKind::ObjectLiteral(fields) = &expr.node else {
-                return Err(OutlineRefusal::at(expr.span, "every grant must be an object"));
+                return Err(OutlineRefusal::at(
+                    expr.span,
+                    "every grant must be an object",
+                ));
             };
 
             let mut channel = String::new();
@@ -539,7 +560,9 @@ fn properties(expr: &ExprKind, span: Span, source: &str) -> Refused<Vec<Property
         .iter()
         .map(|item| {
             let ObjectItem::Entry(entry) = item else {
-                return Err(OutlineRefusal::bare("a loop or conditional in `properties`"));
+                return Err(OutlineRefusal::bare(
+                    "a loop or conditional in `properties`",
+                ));
             };
             let key = literal_key(&entry.key.node)
                 .ok_or_else(|| OutlineRefusal::at(entry.key.span, "a computed property key"))?;
@@ -576,9 +599,10 @@ fn binding(expr: &ExprKind, kind: RealmResourceKind, span: Span) -> Refused<Opti
     match expr {
         ExprKind::Literal(Value::None) => Ok(None),
         ExprKind::Literal(Value::String(id)) => {
-            let id = id.parse::<i64>().map(Snowflake).map_err(|_| {
-                OutlineRefusal::at(span, format!("`{id}` is not an id"))
-            })?;
+            let id = id
+                .parse::<i64>()
+                .map(Snowflake)
+                .map_err(|_| OutlineRefusal::at(span, format!("`{id}` is not an id")))?;
             Ok(Some(Binding::Resource { kind, id }))
         }
         ExprKind::Variable(VariableRef { scope, name, path }) if reads_id(path).is_some() => {
@@ -784,14 +808,25 @@ lead: Ref<Character>
         ));
         assert!(matches!(
             agent.template,
-            Some(Binding::Resource { id: Snowflake(20), .. })
+            Some(Binding::Resource {
+                id: Snowflake(20),
+                ..
+            })
         ));
         assert!(matches!(
             agent.lorebooks.as_slice(),
-            [Binding::Resource { id: Snowflake(40), .. }]
+            [Binding::Resource {
+                id: Snowflake(40),
+                ..
+            }]
         ));
 
-        let CastEntry::Foreach { var_name, over, body } = &got.cast[1] else {
+        let CastEntry::Foreach {
+            var_name,
+            over,
+            body,
+        } = &got.cast[1]
+        else {
             panic!("second entry should be a loop");
         };
         assert_eq!(var_name, "c");
@@ -844,7 +879,9 @@ lead: Ref<Character>
         )
         .expect("outlines");
 
-        let Some(DirectorBlock::RoundRobin { over: FilterBlock::Kind { kind } }) = got.director
+        let Some(DirectorBlock::RoundRobin {
+            over: FilterBlock::Kind { kind },
+        }) = got.director
         else {
             panic!("expected a kind-filtered rotation, got {:?}", got.director);
         };
@@ -944,11 +981,17 @@ lead: Ref<Character>
         assert_eq!(agent.tools[1].event_channel, "");
         assert!(matches!(
             agent.tools[0].tool,
-            Binding::Resource { id: Snowflake(77), .. }
+            Binding::Resource {
+                id: Snowflake(77),
+                ..
+            }
         ));
         assert!(matches!(
             agent.widgets.as_slice(),
-            [Binding::Resource { id: Snowflake(88), .. }]
+            [Binding::Resource {
+                id: Snowflake(88),
+                ..
+            }]
         ));
 
         let seen: Vec<(&str, &str)> = agent
@@ -994,8 +1037,7 @@ rounds: [span(0, 10)]
 
     #[test]
     fn deeply_nested_objects_round_trip() {
-        let declared =
-            "[{banner: string, leader: {char: Ref<Character>, traits: {guile: range(0, 10), books: [Ref<Lorebook>]}}}]";
+        let declared = "[{banner: string, leader: {char: Ref<Character>, traits: {guile: range(0, 10), books: [Ref<Lorebook>]}}}]";
         let got = outlined(&format!(
             "#inputs\nfactions: {declared}\n\n{{ name: r\"X\" }}"
         ))
@@ -1003,7 +1045,7 @@ rounds: [span(0, 10)]
 
         assert_eq!(got.inputs[0].declared, declared);
     }
-    
+
     #[test]
     fn a_loop_over_objects_reaches_through_the_field() {
         let got = outlined(

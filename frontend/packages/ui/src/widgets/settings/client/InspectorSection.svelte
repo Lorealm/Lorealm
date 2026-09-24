@@ -2,7 +2,13 @@
 	import IconPicker from '$lib/components/IconPicker.svelte';
 	import type { ViewName } from '$lib/navigation/routes.js';
 	import { inspectorMatrix } from '$lib/stores/inspectorMatrix.svelte.js';
-	import { inspectorRegistry, inspectorWidgetKeys } from '$lib/widgets/inspector/registry.js';
+	import { pluginsStore } from '$lib/stores/plugins.svelte.js';
+	import {
+		inspectorRegistry,
+		inspectorWidgetKeys,
+		isPluginWidgetKey,
+		type InspectorWidgetKey
+	} from '$lib/widgets/inspector/registry.js';
 	import { ChevronDown, ChevronUp, Plus, Search, Trash2, X } from '@lucide/svelte';
 
 	const VIEWS: Array<{ id: ViewName; label: string }> = [
@@ -11,6 +17,7 @@
 		{ id: 'realms', label: 'Realms' },
 		{ id: 'connections', label: 'Connections' },
 		{ id: 'studio', label: 'Studio' },
+		{ id: 'plugins', label: 'Plugins' },
 		{ id: 'settings', label: 'Settings' }
 	];
 
@@ -23,11 +30,25 @@
 	);
 	const stack = $derived(profile?.cells[view] ?? []);
 
+	$effect(() => {
+		void pluginsStore.load();
+	});
+
+	/** A plugin's widget keeps its key in a profile after the plugin is disabled. */
+	function label(key: InspectorWidgetKey): string {
+		if (!isPluginWidgetKey(key)) return inspectorRegistry[key].label;
+		return pluginsStore.inspectorSlot(key)?.title ?? `${key} (unavailable)`;
+	}
+
 	const available = $derived.by(() => {
 		const q = query.toLowerCase().trim();
-		return inspectorWidgetKeys
+		const keys: InspectorWidgetKey[] = [
+			...inspectorWidgetKeys,
+			...pluginsStore.slots('inspector').map((s) => s.key)
+		];
+		return keys
 			.filter((key) => !stack.includes(key))
-			.filter((key) => !q || inspectorRegistry[key].label.toLowerCase().includes(q));
+			.filter((key) => !q || label(key).toLowerCase().includes(q));
 	});
 
 	async function addProfile() {
@@ -93,7 +114,7 @@
 			<div class="stack">
 				{#each stack as key, i (key)}
 					<div class="entry">
-						<span class="entryLabel">{inspectorRegistry[key].label}</span>
+						<span class="entryLabel">{label(key)}</span>
 						<button
 							class="iconBtn"
 							title="Move up"
@@ -135,7 +156,7 @@
 					{#each available as key (key)}
 						<button class="result" onclick={() => inspectorMatrix.addWidget(profile.id, view, key)}>
 							<Plus size={13} />
-							{inspectorRegistry[key].label}
+							{label(key)}
 						</button>
 					{:else}
 						<span class="empty">

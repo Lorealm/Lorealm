@@ -43,6 +43,9 @@ pub enum InputSpecType {
     /// An id the client picks and the server resolves.
     Reference {
         kind: Option<RealmResourceKind>,
+        /// The kind as written in `Ref<...>`, such as a plugin's API key type.
+        /// Not `name`, which the flattened input already has.
+        ref_name: String,
     },
 }
 
@@ -95,7 +98,23 @@ impl InputSpecType {
             },
             InputType::Ref(kind) => Self::Reference {
                 kind: RealmResourceKind::from_ref_name(kind),
+                ref_name: kind.clone(),
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_reference_keeps_the_inputs_name() {
+        let doc = weaver_lang::parse_value_doc("#inputs\nkey: Ref<elevenlabs>\n\n{}").unwrap();
+
+        let spec = serde_json::to_value(InputSpec::of(&doc.inputs[0])).unwrap();
+
+        assert_eq!(spec["name"], "key");
+        assert_eq!(spec["ref_name"], "elevenlabs");
     }
 }

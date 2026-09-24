@@ -1,0 +1,9 @@
+#inputs
+provider: enum("openrouter", "elevenlabs") = "openrouter"
+autoplay: bool = true
+openrouter_key: Ref<openrouter> = null
+openrouter_model: string = "openai/gpt-4o-mini-tts-2025-12-15"
+openrouter_voice: string = "alloy"
+elevenlabs_key: Ref<elevenlabs> = null
+elevenlabs_model: string = "eleven_multilingual_v2"
+elevenlabs_voice: string = "JBFqnCBsd6RMkjVDRZzb"

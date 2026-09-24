@@ -10,6 +10,7 @@ use weaver_lang::{
     parse_value_doc,
 };
 
+use crate::services::plugins::PluginVocabulary;
 use crate::services::weaver::{WeaverHost, WeaverProfile};
 use crate::util::weaver::summarize_parser_text;
 
@@ -47,12 +48,13 @@ pub struct Diagnostic {
 }
 
 /// What the source is checked against.
-fn known_host(profile: Option<WeaverProfile>) -> WeaverHost {
+fn known_host(profile: Option<WeaverProfile>, plugins: Option<&PluginVocabulary>) -> WeaverHost {
     let builder = WeaverHost::builder();
-    match profile {
-        Some(profile) => builder.declarations_for(profile).build(),
-        None => builder.declarations_only().build(),
-    }
+    let builder = match profile {
+        Some(profile) => builder.declarations_for(profile),
+        None => builder.declarations_only(),
+    };
+    builder.plugins(plugins.cloned()).build()
 }
 
 fn host_commands() -> HashSet<String> {
@@ -63,11 +65,21 @@ fn host_commands() -> HashSet<String> {
 }
 
 pub fn check(source: &str, dialect: Dialect, profile: Option<WeaverProfile>) -> Vec<Diagnostic> {
+    check_with(source, dialect, profile, None)
+}
+
+/// [`check`], also knowing what the user's plugins registered.
+pub fn check_with(
+    source: &str,
+    dialect: Dialect,
+    profile: Option<WeaverProfile>,
+    plugins: Option<&PluginVocabulary>,
+) -> Vec<Diagnostic> {
     if source.trim().is_empty() {
         return Vec::new();
     }
 
-    let host = known_host(profile);
+    let host = known_host(profile, plugins);
     let mut checker = Checker {
         source,
         registry: host.registry(),

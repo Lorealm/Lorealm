@@ -1,0 +1,14 @@
+# The hello fixture, written in Python.
+[plugin]
+name = "Hello (Python)"
+handle = "hello_py"
+description = "Test fixture that greets the active persona in the prompt and counts greetings."
+author = "Lorealm"
+version = "0.1.0"
+permissions = ["prompt:write", "persona:read", "data:persist", "state:read", "state:write"]
+
+[structure]
+backend = "target/hello.wasm"
+
+[build]
+backend = ["uvx", "componentize-py@0.25.1", "-d", "../../../wit", "-w", "plugin", "componentize", "app", "-o", "target/hello.wasm"]

@@ -12,8 +12,11 @@ use crate::{
     errors::AppError,
     extract::AuthenticatedSession,
     routes::templates::{SetActiveRequest, WeaverVocabulary},
-    services::context::{ContextTemplate, SourceDefinition, weaver::check::check},
-    services::weaver::{WeaverHost, namespaces as weaver_namespaces},
+    services::{
+        context::{ContextTemplate, SourceDefinition, weaver::check::check_with},
+        plugins::PluginVocabulary,
+        weaver::{WeaverHost, namespaces as weaver_namespaces},
+    },
 };
 
 pub async fn list_templates(
@@ -98,18 +101,31 @@ pub async fn delete_template(
 
 pub async fn list_sources(
     State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
 ) -> Result<Json<Vec<SourceDefinition>>, AppError> {
-    let sources = state
-        .services()
-        .context()
-        .with_registry(|reg| reg.definitions());
+    let services = state.services();
+    let mut sources = services.context().with_registry(|reg| reg.definitions());
+    if let Some(plugins) = services.plugins().vocabulary(session.user_id).await {
+        sources.extend(plugins.sources().map(|s| s.definition()));
+    }
 
     Ok(Json(sources))
 }
 
-/// Lists every weaver command and processor available to editors.
-pub async fn list_weaver_vocabulary() -> Json<WeaverVocabulary> {
-    let host = WeaverHost::builder().declarations_only().build();
+/// Lists every weaver command and processor available to the user's editors.
+pub async fn list_weaver_vocabulary(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+) -> Json<WeaverVocabulary> {
+    let plugins = state.services().plugins().vocabulary(session.user_id).await;
+    Json(weaver_vocabulary(plugins))
+}
+
+fn weaver_vocabulary(plugins: Option<PluginVocabulary>) -> WeaverVocabulary {
+    let host = WeaverHost::builder()
+        .declarations_only()
+        .plugins(plugins)
+        .build();
     let registry = host.registry();
 
     let mut commands = registry.command_signatures();
@@ -121,20 +137,30 @@ pub async fn list_weaver_vocabulary() -> Json<WeaverVocabulary> {
         (a.namespace.as_str(), a.name.as_str()).cmp(&(b.namespace.as_str(), b.name.as_str()))
     });
 
-    Json(WeaverVocabulary {
+    WeaverVocabulary {
         commands,
         processors,
         namespaces: weaver_namespaces(),
-    })
+    }
 }
 
 /// Check weaver source and report what is wrong with it.
 pub async fn check_weaver(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
     Json(request): Json<super::WeaverCheckRequest>,
 ) -> Json<super::WeaverCheckResponse> {
-    Json(super::WeaverCheckResponse {
-        diagnostics: check(&request.source, request.dialect, request.profile),
-    })
+    let plugins = state.services().plugins().vocabulary(session.user_id).await;
+    Json(check_response(request, plugins.as_ref()))
+}
+
+fn check_response(
+    request: super::WeaverCheckRequest,
+    plugins: Option<&PluginVocabulary>,
+) -> super::WeaverCheckResponse {
+    super::WeaverCheckResponse {
+        diagnostics: check_with(&request.source, request.dialect, request.profile, plugins),
+    }
 }
 
 pub async fn add_node(
@@ -256,7 +282,7 @@ mod tests {
 
     #[tokio::test]
     async fn vocabulary_carries_editor_metadata() {
-        let vocab = list_weaver_vocabulary().await.0;
+        let vocab = weaver_vocabulary(None);
 
         // Standard library and the lorebook host commands are both present.
         let names: Vec<&str> = vocab.commands.iter().map(|c| c.name.as_str()).collect();
@@ -297,7 +323,7 @@ mod tests {
 
     async fn check_json(body: serde_json::Value) -> serde_json::Value {
         let request = serde_json::from_value(body).expect("request shape the client sends");
-        serde_json::to_value(check_weaver(Json(request)).await.0).unwrap()
+        serde_json::to_value(check_response(request, None)).unwrap()
     }
 
     #[tokio::test]

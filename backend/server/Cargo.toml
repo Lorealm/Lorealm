@@ -8,6 +8,7 @@ edition = "2024"
 lorealm_storage = { path = "../storage" }
 lorealm_encryption = { path = "../encryption" }
 lorealm_providers = { path = "../llm_providers"}
+lorealm_plugins = { path = "../plugins" }
 
 # Workspace dependencies
 thiserror = { workspace = true }
@@ -34,8 +35,8 @@ unicode-normalization = "0.1.25"
 futures-util = "0.3.32"
 bitflags = { version = "2.11.0", features = ["serde"] }
 crc32fast = "1.5.0"
-weaver_lang = { version = "0.8.0", features = ["macros", "serde", "wtn"]}
-context_weaver = "0.5.2"
+weaver_lang = { version = "0.8.1", features = ["macros", "serde", "wtn"]}
+context_weaver = "0.5.3"
 serde_yaml = "0.9.34"
 bytes = "1.11.1"
 infer = "0.19.0"

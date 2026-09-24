@@ -1,7 +1,7 @@
+use crate::util::double_option;
 use chrono::{DateTime, Utc};
 use lorealm_storage::models::Snowflake;
 use serde::{Deserialize, Serialize};
-use crate::util::double_option;
 
 #[derive(Deserialize)]
 pub struct LoginRequest {

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["storage", "llm_providers", "encryption", "server"]
+members = ["storage", "llm_providers", "encryption", "server", "plugins"]
 
 [workspace.dependencies]
 
@@ -8,3 +8,10 @@ members = ["storage", "llm_providers", "encryption", "server"]
 thiserror = "1"
 anyhow = "1"
 reqwest = { version = "0.13.4", features = ["json", "native-tls", "stream"] }
+
+# Optimized build speeds for Python plugins by ~6x. From ~12s to ~2s on a mid-high processor.
+[profile.dev.package.cranelift-codegen]
+opt-level = 3
+
+[profile.dev.package.regalloc2]
+opt-level = 3

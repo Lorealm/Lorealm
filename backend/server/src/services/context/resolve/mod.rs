@@ -5,7 +5,7 @@ use lorealm_storage::models::Snowflake;
 
 use crate::{
     errors::ContextError,
-    services::{context::GroupWrapMode, variables::substitute},
+    services::{context::GroupWrapMode, plugins::PLUGIN_SOURCE_PREFIX, variables::substitute},
 };
 
 use super::{
@@ -99,9 +99,13 @@ fn resolve_nodes<'a>(
                     node_id,
                     settings,
                 } => {
-                    let resolver = registry
-                        .get(source_id)
-                        .ok_or_else(|| ContextError::ResolverNotFound(source_id.clone()))?;
+                    let Some(resolver) = registry.get(source_id) else {
+                        // A plugin that isn't loaded. Its log says why.
+                        if source_id.starts_with(PLUGIN_SOURCE_PREFIX) {
+                            continue;
+                        }
+                        return Err(ContextError::ResolverNotFound(source_id.clone()));
+                    };
                     let kind = OriginKind::Source {
                         source_id: source_id.clone(),
                         node_id: node_id.clone(),

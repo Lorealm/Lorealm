@@ -108,6 +108,33 @@ fn contract_surface() -> Vec<(&'static str, Vec<Box<dyn DomainError>>)> {
             ],
         ),
         (
+            "plugin",
+            vec![
+                Box::new(PluginError::NotFound("hello".into())),
+                Box::new(PluginError::Invalid(
+                    "hello".into(),
+                    lorealm_plugins::PluginError::Init("boom".into()),
+                )),
+                Box::new(PluginError::CannotEnable(
+                    "hello".into(),
+                    "requires `lib` ^1.4, which is not loaded".into(),
+                )),
+                Box::new(PluginError::Required(
+                    "lib".into(),
+                    vec!["hello".into(), "other".into()],
+                )),
+                Box::new(PluginError::InvalidOrder),
+                Box::new(PluginError::CallFailed("hello".into(), "boom".into())),
+                Box::new(PluginError::CannotUpdate(
+                    "hello".into(),
+                    "`hello_addon` requires `hello` ^0.1, but 0.2.0 is enabled".into(),
+                )),
+                Box::new(PluginError::InvalidSource("no manifest.toml".into())),
+                Box::new(PluginError::AlreadyInstalled("hello@0.1.0".into())),
+                Box::new(PluginError::BuildFailed("hello".into())),
+            ],
+        ),
+        (
             "tokenizer",
             vec![
                 Box::new(TokenizerError::NotFound(id())),

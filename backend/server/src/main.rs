@@ -46,7 +46,9 @@ async fn main() -> anyhow::Result<()> {
                 .add_directive("sqlx=warn".parse().unwrap())
                 .add_directive("h2=warn".parse().unwrap())
                 .add_directive("hyper_util=warn".parse().unwrap())
-                .add_directive("reqwest=warn".parse().unwrap()),
+                .add_directive("reqwest=warn".parse().unwrap())
+                .add_directive("wasmtime=warn".parse().unwrap())
+                .add_directive("cranelift=warn".parse().unwrap()),
         )
         .init();
 
@@ -83,8 +85,11 @@ async fn main() -> anyhow::Result<()> {
 
     let app = if cfg_host.serve_frontend {
         let dir = cfg_host.frontend_dir.canonicalize().with_context(|| {
-            format!("serve_frontend is on but {:?} does not exist (cwd {:?})",
-                    cfg_host.frontend_dir, std::env::current_dir().unwrap())
+            format!(
+                "serve_frontend is on but {:?} does not exist (cwd {:?})",
+                cfg_host.frontend_dir,
+                std::env::current_dir().unwrap()
+            )
         })?;
         tracing::debug!("serving frontend from {}", dir.display());
 
@@ -96,17 +101,17 @@ async fn main() -> anyhow::Result<()> {
             ));
 
         let shell = Router::new()
-            .fallback_service(
-                ServeDir::new(&dir).fallback(ServeFile::new(dir.join("index.html"))),
-            )
+            .fallback_service(ServeDir::new(&dir).fallback(ServeFile::new(dir.join("index.html"))))
             .layer(SetResponseHeaderLayer::overriding(
                 header::CACHE_CONTROL,
                 HeaderValue::from_static("no-cache"),
             ));
 
         app.nest("/assets", assets).fallback_service(shell)
-    } else { app };
-    
+    } else {
+        app
+    };
+
     let ip: IpAddr = cfg_host.ip.parse()?;
     if !cfg_host.cookie_secure && !ip.is_loopback() {
         tracing::warn!(

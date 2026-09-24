@@ -4,6 +4,7 @@ pub mod connection;
 pub mod conversations;
 pub mod lorebook;
 pub mod permissions;
+pub mod plugins;
 pub mod persona;
 pub mod realms;
 pub mod sessions;
@@ -47,6 +48,11 @@ pub struct MemoryStorage {
     pub(crate) connection_profiles: RwLock<HashMap<Snowflake, ConnectionProfile>>,
     pub(crate) user_tools: RwLock<HashMap<Snowflake, UserTool>>,
     pub(crate) user_widgets: RwLock<HashMap<Snowflake, UserWidget>>,
+    pub(crate) user_plugins: RwLock<HashMap<Snowflake, Vec<UserPlugin>>>,
+    pub(crate) plugin_data: RwLock<HashMap<(Snowflake, String, String), Vec<u8>>>,
+    pub(crate) plugin_settings: RwLock<HashMap<(Snowflake, String), serde_json::Value>>,
+    pub(crate) plugin_data_versions: RwLock<HashMap<(Snowflake, String), String>>,
+    pub(crate) plugin_logs: RwLock<HashMap<(Snowflake, String), Vec<PluginLog>>>,
     pub(crate) tokenizers: RwLock<HashMap<Snowflake, Tokenizer>>,
     pub(crate) tokenizer_shares: RwLock<Vec<TokenizerShare>>,
     pub(crate) realms: RwLock<HashMap<Snowflake, StoredRealm>>,
@@ -54,7 +60,7 @@ pub struct MemoryStorage {
     pub(crate) conversation_casts: RwLock<HashMap<Snowflake, RealmCast>>,
     pub(crate) realm_events: RwLock<HashMap<Snowflake, RealmEvent>>,
     pub(crate) agent_observations: RwLock<HashMap<Snowflake, AgentObservation>>,
-    pub(crate) realm_config: RwLock<HashMap<Snowflake, RealmConfig>>,
+    pub(crate) _realm_config: RwLock<HashMap<Snowflake, RealmConfig>>,
 }
 
 impl MemoryStorage {

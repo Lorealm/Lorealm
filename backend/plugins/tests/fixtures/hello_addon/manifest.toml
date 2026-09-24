@@ -1,0 +1,27 @@
+# The hello component, requiring `hello`.
+[plugin]
+name = "Hello Addon"
+handle = "hello_addon"
+description = "Test fixture that requires the hello plugin."
+author = "Lorealm"
+version = "0.1.0"
+permissions = ["prompt:write", "chat:read", "chat:write", "tools:write", "persona:read", "data:persist"]
+
+[compatibility]
+requires = { hello = "^0.1" }
+
+[provides]
+events = ["ping"]
+
+[structure]
+backend = "../hello/target/wasm32-wasip2/release/hello.wasm"
+
+# Declares an unsafe slot without `ui:unsafe`, so it must never be offered.
+[frontend]
+path = "../hello/frontend"
+
+[[frontend.slots]]
+slot = "inspector"
+entry = "panel.js"
+title = "Unpermitted"
+unsafe = true

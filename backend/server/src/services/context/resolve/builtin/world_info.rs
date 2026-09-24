@@ -6,6 +6,7 @@ use context_weaver::{
     ContextWeaver, EngineConfig, GuesstimationTokenizer, NamespaceAccess, Slot,
 };
 use kitoken::Kitoken;
+use lorealm_plugins::LorebookEntry;
 use lorealm_storage::models::{ActivationState, Snowflake};
 use weaver_lang::Value as WeaverValue;
 
@@ -127,12 +128,23 @@ impl ContextSource for WorldInfoResolver {
             .and_then(|v| v.as_u64())
             .map(|n| n as usize);
 
-        let mut entries: Vec<BlockPart> = blocks
+        let mut entries: Vec<LorebookEntry> = blocks
             .iter()
             .filter(|b| b.slot == slot)
-            .map(|b| BlockPart {
+            .map(|b| LorebookEntry {
+                id: b.entry_id.clone(),
                 content: b.content.clone(),
                 priority: b.priority,
+            })
+            .collect();
+        if let Some(plugins) = &ctx.plugins {
+            entries = plugins.lorebook_activate(node_id, entries).await;
+        }
+        let mut entries: Vec<BlockPart> = entries
+            .into_iter()
+            .map(|e| BlockPart {
+                content: e.content,
+                priority: e.priority,
             })
             .collect();
 
@@ -201,6 +213,9 @@ impl WorldInfoResolver {
 
         weaver.set_tokenizer(Box::new(tokenizer));
         weaver.register_plugin(StdlibPlugin)?;
+        if let Some(plugins) = &ctx.plugins {
+            weaver.register_plugin(plugins.clone())?;
+        }
 
         book_ids.insert(first_sf, BookId(0)); // The first BookId is always 0
 

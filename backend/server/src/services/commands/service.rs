@@ -12,6 +12,7 @@ use crate::{
     services::{
         commands::{CommandArgs, CommandEffect, CommandRun, GenerateBridge, Generation},
         conversation::ConversationService,
+        plugins::PluginService,
         state::{CapturedState, StateService},
         tools::{UserToolService, builtin_tool},
         weaver::{WeaverHost, WeaverProfile, compile_template},
@@ -25,6 +26,7 @@ pub struct CommandService {
     state: Arc<StateService>,
     tools: Arc<UserToolService>,
     chat: Arc<dyn Generation>,
+    plugins: Arc<PluginService>,
 }
 
 impl CommandService {
@@ -34,6 +36,7 @@ impl CommandService {
         state: Arc<StateService>,
         tools: Arc<UserToolService>,
         chat: Arc<dyn Generation>,
+        plugins: Arc<PluginService>,
     ) -> Self {
         Self {
             storage,
@@ -41,6 +44,7 @@ impl CommandService {
             state,
             tools,
             chat,
+            plugins,
         }
     }
 
@@ -104,6 +108,7 @@ impl CommandService {
                 cancel: cancel.clone(),
             })
             .cancel(cancel.clone())
+            .plugins(self.plugins.vocabulary(user_id).await)
             .build();
 
         let body = compile_template(&command.body).map_err(|e| failed(e.to_string()))?;
@@ -407,6 +412,20 @@ mod tests {
             .await
             .unwrap();
 
+        let connection = Arc::new(crate::services::connection::ConnectionService::new(
+            store.clone(),
+            Arc::clone(&snow),
+            Arc::new(lorealm_encryption::LocalKeyManager::new_random()),
+        ));
+        let plugins = Arc::new(PluginService::new(
+            store.clone(),
+            Arc::clone(&snow),
+            Arc::clone(&state),
+            connection,
+            Default::default(),
+            // No plugins installed.
+            std::path::PathBuf::new(),
+        ));
         Harness {
             service: CommandService::new(
                 store.clone(),
@@ -414,6 +433,7 @@ mod tests {
                 state,
                 tools,
                 Arc::clone(&generator) as Arc<dyn Generation>,
+                plugins,
             ),
             generator,
             active_profile: profile.id,

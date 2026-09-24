@@ -26,6 +26,7 @@ use crate::services::{
     context::{ContextService, SourceRegistry, builtin::register_builtin_sources},
     conversation::ConversationService,
     persona::PersonaService,
+    plugins::PluginService,
     realm::RealmService,
     snowflake::SnowflakeService,
     state::StateService,
@@ -64,6 +65,9 @@ pub(crate) struct Harness {
     pub blueprints: Arc<BlueprintService>,
     pub store: Arc<MemoryStorage>,
     pub snow: Arc<SnowflakeService>,
+    /// No plugins installed; plugin tests swap in their own.
+    pub plugins: Arc<PluginService>,
+    pub connection: Arc<ConnectionService>,
     /// The caller in every test unless one says otherwise.
     pub user: Snowflake,
     /// Someone else, for proving a template cannot reach across owners.
@@ -124,6 +128,14 @@ impl Harness {
             reqwest::Client::new(),
             Default::default(),
         ));
+        let plugins = Arc::new(PluginService::new(
+            Arc::clone(&storage),
+            Arc::clone(&snow),
+            Arc::clone(&state),
+            Arc::clone(&connection),
+            Default::default(),
+            std::path::PathBuf::new(),
+        ));
         let chat = Arc::new(ChatService::new(
             Arc::clone(&storage),
             Arc::clone(&snow),
@@ -136,6 +148,7 @@ impl Harness {
             Arc::clone(&tokenizers),
             Arc::clone(&sources),
             Arc::clone(&variables),
+            Arc::clone(&plugins),
         ));
         chat.set_self(Arc::downgrade(&chat));
 
@@ -145,10 +158,11 @@ impl Harness {
             chat,
             characters,
             context,
-            connection,
+            Arc::clone(&connection),
             persona,
             state,
             conversation,
+            Arc::clone(&plugins),
         ));
 
         let blueprints = Arc::new(BlueprintService::new(
@@ -164,6 +178,8 @@ impl Harness {
             user: snow.generate(),
             stranger: snow.generate(),
             snow,
+            plugins,
+            connection,
         }
     }
 

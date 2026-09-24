@@ -6,7 +6,10 @@ use weaver_lang::Value as WeaverValue;
 
 use crate::{
     errors::RealmError,
-    services::weaver::{CompiledDoc, WeaverHost, WeaverProfile, compile_doc},
+    services::{
+        plugins::PluginVocabulary,
+        weaver::{CompiledDoc, WeaverHost, WeaverProfile, compile_doc},
+    },
 };
 
 /// Two spaces per level
@@ -29,9 +32,11 @@ pub fn compile(source: &str) -> Result<CompiledDoc, RealmError> {
 pub fn expand(
     doc: CompiledDoc,
     inputs: BTreeMap<String, WeaverValue>,
+    plugins: Option<&PluginVocabulary>,
 ) -> Result<RealmDefinition, RealmError> {
     let host = WeaverHost::builder()
         .profile(WeaverProfile::RealmTemplate)
+        .plugins(plugins.cloned())
         .build();
 
     let outcome = host
@@ -49,7 +54,7 @@ pub fn from_wtn(
     source: &str,
     inputs: BTreeMap<String, WeaverValue>,
 ) -> Result<RealmDefinition, RealmError> {
-    expand(compile(source)?, inputs)
+    expand(compile(source)?, inputs, None)
 }
 
 fn bad_template(e: impl ToString) -> RealmError {
