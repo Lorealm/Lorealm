@@ -230,12 +230,15 @@ impl lorealm::plugin::host::Host for PluginState {
 
     async fn register_hook(&mut self, hook: Hook) -> Result<(), String> {
         let permission = match hook {
-            Hook::PromptBuild | Hook::LorebookActivate => "prompt:write",
-            Hook::AfterGenerate | Hook::TurnStart | Hook::TurnEnd => "chat:read",
-            Hook::MessageFinalize | Hook::UserMessage => "chat:write",
-            Hook::ToolCall | Hook::ToolResult => "tools:write",
+            Hook::PromptBuild | Hook::LorebookActivate => Some("prompt:write"),
+            Hook::AfterGenerate | Hook::TurnStart | Hook::TurnEnd => Some("chat:read"),
+            Hook::MessageFinalize | Hook::UserMessage => Some("chat:write"),
+            Hook::ToolCall | Hook::ToolResult => Some("tools:write"),
+            Hook::Upgrade | Hook::SettingsChanged | Hook::Shutdown => None,
         };
-        self.require(permission)?;
+        if let Some(permission) = permission {
+            self.require(permission)?;
+        }
         if !self.hooks.contains(&hook) {
             self.hooks.push(hook);
         }
@@ -574,6 +577,39 @@ impl LoadedPlugin {
         match self.handle(Event::TurnEnd(turn)).await? {
             Response::TurnEnd => Ok(()),
             _ => Err(mismatch("turn-end")),
+        }
+    }
+
+    /// Runs the `upgrade` hook, if the plugin registered it.
+    pub async fn upgrade(&mut self, from: Option<String>) -> Result<(), PluginError> {
+        if !self.store.data().hooks.contains(&Hook::Upgrade) {
+            return Ok(());
+        }
+        match self.handle(Event::Upgrade(from)).await? {
+            Response::Upgrade => Ok(()),
+            _ => Err(mismatch("upgrade")),
+        }
+    }
+
+    /// Runs the `settings-changed` hook, if the plugin registered it.
+    pub async fn settings_changed(&mut self) -> Result<(), PluginError> {
+        if !self.store.data().hooks.contains(&Hook::SettingsChanged) {
+            return Ok(());
+        }
+        match self.handle(Event::SettingsChanged).await? {
+            Response::SettingsChanged => Ok(()),
+            _ => Err(mismatch("settings-changed")),
+        }
+    }
+
+    /// Runs the `shutdown` hook, if the plugin registered it.
+    pub async fn shutdown(&mut self) -> Result<(), PluginError> {
+        if !self.store.data().hooks.contains(&Hook::Shutdown) {
+            return Ok(());
+        }
+        match self.handle(Event::Shutdown).await? {
+            Response::Shutdown => Ok(()),
+            _ => Err(mismatch("shutdown")),
         }
     }
 

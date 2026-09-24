@@ -151,6 +151,21 @@ impl Mounted {
         Ok(value)
     }
 
+    /// Lets each plugin in `slot` flush with `shutdown`, then empties it.
+    async fn shut_down(slot: &mut Option<Mounted>) {
+        if let Some(mounted) = slot.as_mut() {
+            // Dependents first, so a plugin's dependencies outlive it.
+            mounted.plugins.reverse();
+            let _: Result<_, Infallible> = mounted
+                .pipe((), async move |_, p, ()| {
+                    p.shutdown().await?;
+                    Ok(ControlFlow::Continue(()))
+                })
+                .await;
+        }
+        *slot = None;
+    }
+
     /// Hands each event to every plugin in load order, then the events those
     /// emitted, up to [`MAX_EVENT_DEPTH`] deep.
     async fn deliver(&mut self, emitted: Vec<(String, String)>) {
@@ -317,7 +332,7 @@ impl PluginService {
         self.storage
             .enable_user_plugin(user_id, handle, &version.to_string())
             .await?;
-        self.mounted.remove(&user_id);
+        self.unmount(user_id).await;
         Ok(())
     }
 
@@ -374,7 +389,7 @@ impl PluginService {
         self.storage
             .set_user_plugin_version(user_id, handle, &target.to_string())
             .await?;
-        self.mounted.remove(&user_id);
+        self.unmount(user_id).await;
         self.collect(handle).await;
         Ok(())
     }
@@ -396,7 +411,7 @@ impl PluginService {
         }
 
         self.storage.disable_user_plugin(user_id, handle).await?;
-        self.mounted.remove(&user_id);
+        self.unmount(user_id).await;
         self.collect(handle).await;
         Ok(())
     }
@@ -424,7 +439,7 @@ impl PluginService {
         self.storage
             .set_user_plugin_order(user_id, &handles)
             .await?;
-        self.mounted.remove(&user_id);
+        self.unmount(user_id).await;
         Ok(())
     }
 
@@ -564,6 +579,18 @@ impl PluginService {
         self.storage
             .set_plugin_settings(user_id, handle, &serde_json::Value::Object(values))
             .await?;
+
+        // A plugin that isn't loaded reads them when it next loads.
+        if let Some(slot) = self.mounted.get(&user_id).map(|s| Arc::clone(s.value())) {
+            let handle = handle.to_owned();
+            tokio::spawn(async move {
+                if let Some(mounted) = slot.lock().await.as_mut() {
+                    let _ = mounted
+                        .call(&handle, async move |p| p.settings_changed().await)
+                        .await;
+                }
+            });
+        }
         Ok(())
     }
 
@@ -909,7 +936,11 @@ impl PluginService {
                 user_agent: fetch::user_agent(&handle, &package.manifest.plugin.version),
             });
             // On failure, the plugin crate logged why.
-            if let Ok(plugin) = self.host.instantiate(package, services).await {
+            let Ok(mut plugin) = self.host.instantiate(package, services).await else {
+                continue;
+            };
+            let version = package.manifest.plugin.version.to_string();
+            if self.upgrade(user_id, &handle, &version, &mut plugin).await {
                 plugins.push((handle, plugin));
             }
         }
@@ -922,6 +953,49 @@ impl PluginService {
         });
         drop(guard);
         slot
+    }
+
+    /// Brings the user's data up to `version` of the plugin.
+    /// 
+    /// Returns whether the plugin may run
+    async fn upgrade(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        version: &str,
+        plugin: &mut LoadedPlugin,
+    ) -> bool {
+        let result = async {
+            let from = self
+                .storage
+                .get_plugin_data_version(user_id, handle)
+                .await?;
+            if from.as_deref() != Some(version) {
+                // On failure, the plugin crate logged why.
+                if plugin.upgrade(from).await.is_err() {
+                    return Ok(false);
+                }
+                self.storage
+                    .set_plugin_data_version(user_id, handle, version)
+                    .await?;
+            }
+            Ok::<_, StorageError>(true)
+        }
+        .await;
+        let message = match result {
+            Ok(true) => return true,
+            Ok(false) => "Not loaded: upgrading your data failed. It will try again the next time your plugins load.".to_owned(),
+            Err(err) => format!("Not loaded: {err}"),
+        };
+        self.logs.host(user_id, handle, Level::Error, message).await;
+        false
+    }
+
+    /// Unloads the user's plugins, letting each flush with `shutdown` first.
+    async fn unmount(&self, user_id: Snowflake) {
+        if let Some((_, slot)) = self.mounted.remove(&user_id) {
+            Mounted::shut_down(&mut *slot.lock().await).await;
+        }
     }
 
     /// The compiled plugins `enabled` names, in the same order. Ones that
@@ -984,14 +1058,27 @@ impl CleanableService for PluginService {
     /// Unmounts users whose plugins sat idle past [`IDLE_TTL`]. Slots in use
     /// right now are kept.
     async fn clean(&self) -> usize {
-        let before = self.mounted.len();
-        self.mounted.retain(|_, slot| match slot.try_lock() {
-            Ok(guard) => guard
+        let slots: Vec<(Snowflake, Slot)> = self
+            .mounted
+            .iter()
+            .map(|e| (*e.key(), Arc::clone(e.value())))
+            .collect();
+        let mut cleaned = 0;
+        for (user_id, slot) in slots {
+            let Ok(mut guard) = slot.try_lock() else {
+                continue;
+            };
+            if guard
                 .as_ref()
-                .is_some_and(|m| m.last_used.elapsed() < IDLE_TTL),
-            Err(_) => true,
-        });
-        before - self.mounted.len()
+                .is_some_and(|m| m.last_used.elapsed() < IDLE_TTL)
+            {
+                continue;
+            }
+            self.mounted.remove(&user_id);
+            Mounted::shut_down(&mut guard).await;
+            cleaned += 1;
+        }
+        cleaned
     }
 }
 

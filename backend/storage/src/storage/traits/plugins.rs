@@ -74,6 +74,20 @@ pub trait PluginStorage: Send + Sync {
         handle: &str,
         settings: &serde_json::Value,
     ) -> Result<(), StorageError>;
+    /// The version of `handle` that last ran against the user's data.
+    async fn get_plugin_data_version(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+    ) -> Result<Option<String>, StorageError>;
+    /// Inserts or replaces the version of `handle` that last ran against the
+    /// user's data.
+    async fn set_plugin_data_version(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+        version: &str,
+    ) -> Result<(), StorageError>;
     /// Appends `logs` to one user's log for `handle`, then drops all but the
     /// newest `cap` entries.
     async fn append_plugin_logs(
