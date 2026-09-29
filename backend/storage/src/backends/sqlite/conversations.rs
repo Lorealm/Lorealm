@@ -91,11 +91,11 @@ impl ConversationStorage for SqliteStorage {
         title: Option<&str>,
         active_leaf_id: Option<Snowflake>,
     ) -> Result<(), StorageError> {
-        let result = sqlx::query(
-            &format!("UPDATE conversations
+        let result = sqlx::query(&format!(
+            "UPDATE conversations
                  SET title = $2, active_leaf_id = $3, updated_at = {NOW}
-                 WHERE id = $1"),
-        )
+                 WHERE id = $1"
+        ))
         .bind(id)
         .bind(title)
         .bind(active_leaf_id)
@@ -112,11 +112,13 @@ impl ConversationStorage for SqliteStorage {
     }
 
     async fn set_author_note(&self, id: Snowflake, note: &str) -> Result<(), StorageError> {
-        sqlx::query(&format!("UPDATE conversations SET author_note = $2, updated_at = {NOW} WHERE id = $1"))
-            .bind(id)
-            .bind(note)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(&format!(
+            "UPDATE conversations SET author_note = $2, updated_at = {NOW} WHERE id = $1"
+        ))
+        .bind(id)
+        .bind(note)
+        .execute(&self.pool)
+        .await?;
 
         Ok(())
     }
@@ -150,10 +152,12 @@ impl ConversationStorage for SqliteStorage {
         .execute(&mut *tx)
         .await?;
 
-        sqlx::query(&format!("UPDATE conversations SET updated_at = {NOW} WHERE id = $1"))
-            .bind(message.conversation_id)
-            .execute(&mut *tx)
-            .await?;
+        sqlx::query(&format!(
+            "UPDATE conversations SET updated_at = {NOW} WHERE id = $1"
+        ))
+        .bind(message.conversation_id)
+        .execute(&mut *tx)
+        .await?;
 
         tx.commit().await?;
 
@@ -165,9 +169,9 @@ impl ConversationStorage for SqliteStorage {
         conversation_id: Snowflake,
         leaf: Option<Snowflake>,
     ) -> Result<(), StorageError> {
-        let result = sqlx::query(
-            &format!("UPDATE conversations SET active_leaf_id = $2, updated_at = {NOW} WHERE id = $1"),
-        )
+        let result = sqlx::query(&format!(
+            "UPDATE conversations SET active_leaf_id = $2, updated_at = {NOW} WHERE id = $1"
+        ))
         .bind(conversation_id)
         .bind(leaf)
         .execute(&self.pool)
@@ -204,11 +208,11 @@ impl ConversationStorage for SqliteStorage {
         .execute(&mut *tx)
         .await?;
 
-        sqlx::query(
-            &format!("UPDATE conversations
+        sqlx::query(&format!(
+            "UPDATE conversations
                  SET active_leaf_id = $1, updated_at = {NOW}
-                 WHERE id = $2"),
-        )
+                 WHERE id = $2"
+        ))
         .bind(message.id)
         .bind(message.conversation_id)
         .execute(&mut *tx)
@@ -331,13 +335,13 @@ impl ConversationStorage for SqliteStorage {
     }
 
     async fn update_message(&self, id: Snowflake, edit: &MessageEdit) -> Result<(), StorageError> {
-        let result = sqlx::query(
-            &format!("UPDATE conversation_messages
+        let result = sqlx::query(&format!(
+            "UPDATE conversation_messages
                  SET content = COALESCE($2, content),
                      metadata = COALESCE($3, metadata),
                      updated_at = {NOW}
-                 WHERE id = $1"),
-        )
+                 WHERE id = $1"
+        ))
         .bind(id)
         .bind(edit.content.as_deref())
         .bind(edit.metadata.as_ref())

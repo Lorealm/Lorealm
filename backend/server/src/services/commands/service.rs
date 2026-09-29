@@ -306,6 +306,16 @@ mod tests {
             )
         }
 
+        fn try_begin_cancel(
+            &self,
+            conversation_id: Snowflake,
+        ) -> Option<(
+            tokio_util::sync::CancellationToken,
+            crate::services::chat::CancelGuard,
+        )> {
+            Some(self.begin_cancel(conversation_id))
+        }
+
         async fn complete(
             &self,
             _owner: Snowflake,

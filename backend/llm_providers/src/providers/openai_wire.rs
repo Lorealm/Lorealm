@@ -286,7 +286,7 @@ struct StreamFunction {
 }
 
 /// Parse one SSE `data:` payload into a delta.
-/// 
+///
 /// `Ok(None)` is to be treated as a termination token.
 pub(super) fn to_delta(data: &str) -> Result<Option<Delta>> {
     if data == "[DONE]" {

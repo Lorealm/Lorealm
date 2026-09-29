@@ -1,3 +1,4 @@
+use super::NOW;
 use crate::backends::SqliteStorage;
 use crate::error::StorageError;
 use crate::models::{
@@ -8,7 +9,6 @@ use crate::storage::CharacterStorage;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sqlx::FromRow;
-use super::NOW;
 
 /// `CharacterSummary` carries `tags: Vec<String>`, which sqlx can decode from a
 /// Postgres `TEXT[]` but not from SQLite. This row type takes the JSON array
@@ -101,9 +101,9 @@ impl CharacterStorage for SqliteStorage {
         let examples = fetch_examples(&self.pool, id).await?;
         let widgets = fetch_widgets(&self.pool, id).await?;
 
-        Ok(Some(row.into_character(
-            tags, greetings, examples, widgets,
-        )?))
+        Ok(Some(
+            row.into_character(tags, greetings, examples, widgets)?,
+        ))
     }
 
     async fn get_character_at_version(
@@ -175,8 +175,8 @@ impl CharacterStorage for SqliteStorage {
             definition: &character.definition,
         })?;
 
-        sqlx::query(
-            &format!(r#"
+        sqlx::query(&format!(
+            r#"
             INSERT INTO characters
                 (id, user_id, current_version_id, lorebook_id, extensions,
                  created_at, updated_at)
@@ -186,8 +186,8 @@ impl CharacterStorage for SqliteStorage {
                 lorebook_id = EXCLUDED.lorebook_id,
                 extensions = EXCLUDED.extensions,
                 updated_at = {NOW}
-            "#),
-        )
+            "#
+        ))
         .bind(character.id)
         .bind(character.user_id)
         .bind(character.current_version_id)

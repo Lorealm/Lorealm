@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 
+use super::NOW;
 use crate::{
     RealmStorage, StorageError,
     backends::SqliteStorage,
@@ -10,7 +11,6 @@ use crate::{
         RealmVersionInfo, Snowflake, TurnCommit, VersionedSaveMode,
     },
 };
-use super::NOW;
 
 #[async_trait]
 impl RealmStorage for SqliteStorage {
@@ -41,7 +41,9 @@ impl RealmStorage for SqliteStorage {
         .fetch_all(&self.pool)
         .await?;
 
-        rows.into_iter().map(RealmSummaryRow::into_summary).collect()
+        rows.into_iter()
+            .map(RealmSummaryRow::into_summary)
+            .collect()
     }
 
     async fn get_realm(&self, id: Snowflake) -> Result<Option<Realm>, StorageError> {
@@ -96,16 +98,16 @@ impl RealmStorage for SqliteStorage {
 
         let snapshot = serde_json::to_value(&realm.definition)?;
 
-        sqlx::query(
-            &format!(r#"
+        sqlx::query(&format!(
+            r#"
             INSERT INTO realms (id, owner_id, current_version_id, origin, created_at, updated_at)
             VALUES ($1, $2, $3, $4, {NOW}, {NOW})
             ON CONFLICT (id) DO UPDATE SET
                 current_version_id = EXCLUDED.current_version_id,
                 origin = EXCLUDED.origin,
                 updated_at = {NOW}
-            "#),
-        )
+            "#
+        ))
         .bind(realm.id)
         .bind(realm.owner_id)
         .bind(realm.current_version_id)
@@ -371,11 +373,7 @@ impl RealmStorage for SqliteStorage {
         tx.commit().await?;
         Ok(())
     }
-
-
 }
-
-
 
 #[derive(FromRow)]
 struct RealmSummaryRow {
@@ -468,7 +466,10 @@ impl From<VersionInfoRow> for RealmVersionInfo {
     }
 }
 
-async fn fetch_tags(pool: &sqlx::SqlitePool, realm_id: Snowflake) -> Result<Vec<String>, StorageError> {
+async fn fetch_tags(
+    pool: &sqlx::SqlitePool,
+    realm_id: Snowflake,
+) -> Result<Vec<String>, StorageError> {
     Ok(
         sqlx::query_scalar("SELECT tag FROM realm_tags WHERE realm_id = $1")
             .bind(realm_id)

@@ -40,7 +40,12 @@ import type {
 	SetActiveLorebooksRequest
 } from '$lib/types/lorebook.js';
 import type { SourceDefinition } from '$lib/types/node.js';
-import type { InstallReport, InstalledPlugin, PluginSettings } from '$lib/types/plugins.js';
+import type {
+	InstallReport,
+	InstalledPlugin,
+	PluginCallSlot,
+	PluginSettings
+} from '$lib/types/plugins.js';
 import type {
 	Blueprint,
 	BlueprintSummary,
@@ -402,9 +407,21 @@ export function createApiClient(platform: PlatformAPI) {
 				(
 					await http.getBlob(`/api/v1/plugins/${handle}/frontend/${encodeURIComponent(entry)}`)
 				).text(),
-			/** A call from the plugin's frontend to its own backend. */
-			call: (handle: string, name: string, args: JsonValue) =>
-				http.post<JsonValue>(`/api/v1/plugins/${handle}/call`, { name, args })
+			/**
+			 * A call from the plugin's frontend to its own backend.
+			 *
+			 * `slot` says
+			 * where the call came from: which conversation and message it is
+			 * showing, and whether the user is waiting for the answer.
+			 */
+			call: (handle: string, name: string, args: JsonValue, slot: PluginCallSlot) =>
+				http.post<JsonValue>(`/api/v1/plugins/${handle}/call`, {
+					name,
+					args,
+					conversation: slot.conversation,
+					message: slot.message,
+					blocking: slot.blocking
+				})
 		},
 		userWidgets: {
 			list: () => http.get<Array<UserWidget>>('/api/v1/widgets'),

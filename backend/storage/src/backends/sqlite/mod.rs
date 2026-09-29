@@ -22,9 +22,7 @@ use crate::StorageCore;
 use crate::error::StorageError;
 use async_trait::async_trait;
 use sqlx::SqlitePool;
-use sqlx::sqlite::{
-    SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous,
-};
+use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous};
 
 /// SQLite has no `now()`. This expression yields the same RFC3339 form sqlx
 /// writes when it encodes a `DateTime<Utc>`.

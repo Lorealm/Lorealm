@@ -5,10 +5,10 @@ use std::sync::{Arc, Mutex, Once};
 use std::time::Duration;
 
 use lorealm_plugins::{
-    CommandContext, Finalizing, Generated, HostServices, HttpRequest, HttpResponse, Level,
-    LogEntry, LogSource, LorebookActivation, LorebookEntry, Message, Persona, PluginError,
-    PluginHost, PluginPackage, Role, ToolInvocation, ToolOutput, TurnEnded, TurnStarted, UserInput,
-    Verdict,
+    ChatMessage, CommandContext, Finalizing, Generated, HostServices, HttpRequest, HttpResponse,
+    Level, LogEntry, LogSource, LorebookActivation, LorebookEntry, Message, MessageRange, Persona,
+    PluginError, PluginHost, PluginPackage, PromptAssembly, Role, ToolInvocation, ToolOutput,
+    TurnEnded, TurnStarted, UserInput, Verdict,
 };
 
 fn fixture(name: &str) -> PathBuf {
@@ -35,8 +35,15 @@ fn host() -> PluginHost {
 struct TestServices {
     data: Mutex<HashMap<String, Vec<u8>>>,
     logs: Mutex<Vec<LogEntry>>,
-    /// How long `http_fetch` takes.
+    /// How long external operations (`http_fetch`, `generate`, etc.) take.
     latency: Duration,
+    /// The branch `messages` answers with.
+    thread: Vec<ChatMessage>,
+    /// What `generate` answers with, and the profiles it was asked for.
+    reply: String,
+    profiles: Mutex<Vec<Option<i64>>>,
+    /// What each `generate` was told the call is acting on.
+    acting: Mutex<Vec<(Option<i64>, bool)>>,
 }
 
 impl TestServices {
@@ -87,6 +94,31 @@ impl HostServices for TestServices {
         })
     }
 
+    async fn messages(
+        &self,
+        _conversation: i64,
+        range: MessageRange,
+    ) -> Result<Vec<ChatMessage>, String> {
+        let take = match range {
+            MessageRange::All => self.thread.len(),
+            MessageRange::Latest(n) => (n as usize).min(self.thread.len()),
+        };
+        Ok(self.thread[self.thread.len() - take..].to_vec())
+    }
+
+    async fn generate(
+        &self,
+        _messages: Vec<Message>,
+        profile: Option<i64>,
+        conversation: Option<i64>,
+        blocking: bool,
+    ) -> Result<String, String> {
+        self.profiles.lock().unwrap().push(profile);
+        self.acting.lock().unwrap().push((conversation, blocking));
+        tokio::time::sleep(self.latency).await;
+        Ok(self.reply.clone())
+    }
+
     async fn log(&self, entries: Vec<LogEntry>) {
         self.logs.lock().unwrap().extend(entries);
     }
@@ -107,11 +139,14 @@ impl CommandContext for TestContext {
     }
 }
 
-fn ask(content: &str) -> Vec<Message> {
-    vec![Message {
-        role: Role::User,
-        content: content.into(),
-    }]
+fn ask(content: &str) -> PromptAssembly {
+    PromptAssembly {
+        conversation: None,
+        messages: vec![Message {
+            role: Role::User,
+            content: content.into(),
+        }],
+    }
 }
 
 /// Builds the Python hello component with componentize-py, once per test run:
@@ -210,7 +245,12 @@ async fn runaway_hook_times_out() {
         );
 
         // A trapped instance can't be entered again.
-        let result = plugin.prompt_build(Vec::new()).await;
+        let result = plugin
+            .prompt_build(PromptAssembly {
+                conversation: None,
+                messages: Vec::new(),
+            })
+            .await;
         assert!(
             matches!(result, Err(PluginError::Wasm(_))),
             "{name}: {:?}",
@@ -329,7 +369,7 @@ async fn registered_callables_are_listed_and_callable() {
             .await
             .unwrap();
         let blocks = plugin
-            .resolve_source("greeting".into(), r#"{"name": "Bo"}"#.into())
+            .resolve_source("greeting".into(), r#"{"name": "Bo"}"#.into(), None)
             .await
             .unwrap();
 
@@ -456,10 +496,18 @@ async fn the_frontend_calls_its_own_backend() {
             .unwrap();
 
         let greeting = plugin
-            .call_frontend("greet".into(), r#"{"name": "Ada"}"#.into())
+            .call_frontend(
+                "greet".into(),
+                r#"{"name": "Ada"}"#.into(),
+                None,
+                None,
+                false,
+            )
             .await
             .unwrap();
-        let unknown = plugin.call_frontend("nope".into(), "{}".into()).await;
+        let unknown = plugin
+            .call_frontend("nope".into(), "{}".into(), None, None, false)
+            .await;
 
         assert_eq!(greeting, r#""Hello, Ada!""#, "{name}");
         assert!(matches!(unknown, Err(PluginError::Call(_))), "{name}");
@@ -493,7 +541,7 @@ async fn plugin_reads_its_settings() {
     let mut plugin = host.instantiate(&package, services).await.unwrap();
 
     let settings = plugin
-        .call_frontend("settings".into(), "{}".into())
+        .call_frontend("settings".into(), "{}".into(), None, None, false)
         .await
         .unwrap();
 
@@ -508,7 +556,9 @@ async fn plugin_fetches_only_from_its_hosts() {
     let mut plugin = host.instantiate(&package, services.clone()).await.unwrap();
     let mut fetch = async |url: &str| {
         let args = format!(r#"{{"url":"{url}"}}"#);
-        plugin.call_frontend("fetch".into(), args).await
+        plugin
+            .call_frontend("fetch".into(), args, None, None, false)
+            .await
     };
 
     let allowed = fetch("https://example.com/speak").await.unwrap();
@@ -539,10 +589,134 @@ async fn time_spent_fetching_does_not_count_toward_the_limit() {
     let mut plugin = host.instantiate(&package, services).await.unwrap();
 
     let fetched = plugin
-        .call_frontend("fetch".into(), r#"{"url":"https://example.com/"}"#.into())
+        .call_frontend(
+            "fetch".into(),
+            r#"{"url":"https://example.com/"}"#.into(),
+            None,
+            None,
+            false,
+        )
         .await;
 
     assert!(fetched.is_ok(), "{fetched:?}");
+}
+
+fn saved(id: i64, role: Role, content: &str) -> ChatMessage {
+    ChatMessage {
+        id,
+        role,
+        content: content.into(),
+    }
+}
+
+#[tokio::test]
+async fn a_plugin_reads_a_range_of_a_conversation() {
+    let host = host();
+    let package = compile(&host, "hello");
+    let services = Arc::new(TestServices {
+        thread: vec![
+            saved(1, Role::User, "hi"),
+            saved(2, Role::Assistant, "hello"),
+        ],
+        ..Default::default()
+    });
+    let mut plugin = host.instantiate(&package, services).await.unwrap();
+    let mut read = async |args: &str| {
+        plugin
+            .call_frontend("messages".into(), args.into(), Some(7), None, false)
+            .await
+    };
+
+    let all = read("{}").await.unwrap();
+    let latest = read(r#"{"latest":1}"#).await.unwrap();
+
+    assert_eq!(all, "\"1:Role::User:hi\\n2:Role::Assistant:hello\"");
+    assert_eq!(latest, r#""2:Role::Assistant:hello""#);
+}
+
+#[tokio::test]
+async fn generating_answers_with_the_model_and_the_slot() {
+    let host = host();
+    let package = compile(&host, "hello");
+    let services = Arc::new(TestServices {
+        reply: "three coins".into(),
+        ..Default::default()
+    });
+    let mut plugin = host.instantiate(&package, services.clone()).await.unwrap();
+
+    let mut ask = async |blocking| {
+        plugin
+            .call_frontend(
+                "generate".into(),
+                r#"{"ask":"What is in the chest?","profile":"12"}"#.into(),
+                Some(7),
+                Some(9),
+                blocking,
+            )
+            .await
+    };
+    let reply = ask(false).await.unwrap();
+    let waited_on = ask(true).await.unwrap();
+
+    assert_eq!(reply, r#""three coins (Some(7)/Some(9)/false)""#);
+    assert_eq!(waited_on, r#""three coins (Some(7)/Some(9)/true)""#);
+    assert_eq!(*services.profiles.lock().unwrap(), [Some(12), Some(12)]);
+    // The host is told which conversation the call is acting on, and whether
+    // the user is waiting for it.
+    assert_eq!(
+        *services.acting.lock().unwrap(),
+        [(Some(7), false), (Some(7), true)]
+    );
+}
+
+#[tokio::test]
+async fn time_spent_generating_does_not_count_toward_the_limit() {
+    // Generating takes longer than a whole call may.
+    let host = PluginHost::new(Duration::from_millis(200)).unwrap();
+    let package = compile(&host, "hello");
+    let services = Arc::new(TestServices {
+        latency: Duration::from_millis(500),
+        reply: "ok".into(),
+        ..Default::default()
+    });
+    let mut plugin = host.instantiate(&package, services).await.unwrap();
+
+    let reply = plugin
+        .call_frontend(
+            "generate".into(),
+            r#"{"ask":"slowly"}"#.into(),
+            None,
+            None,
+            false,
+        )
+        .await;
+
+    assert!(reply.is_ok(), "{reply:?}");
+}
+
+#[tokio::test]
+async fn generating_needs_permission() {
+    let host = host();
+    let package = compile(&host, "no_data");
+    let services = Arc::new(TestServices::default());
+    let mut plugin = host.instantiate(&package, services.clone()).await.unwrap();
+
+    let result = plugin
+        .call_frontend(
+            "generate".into(),
+            r#"{"ask":"anything"}"#.into(),
+            None,
+            None,
+            false,
+        )
+        .await;
+
+    assert!(matches!(&result, Err(PluginError::Call(msg)) if msg.contains("model:generate")));
+    assert!(services.logged(
+        Level::Warn,
+        LogSource::Host,
+        "missing permission `model:generate`"
+    ));
 }
 
 #[tokio::test]
@@ -553,7 +727,13 @@ async fn fetching_needs_permission() {
     let mut plugin = host.instantiate(&package, services.clone()).await.unwrap();
 
     let result = plugin
-        .call_frontend("fetch".into(), r#"{"url":"https://example.com/"}"#.into())
+        .call_frontend(
+            "fetch".into(),
+            r#"{"url":"https://example.com/"}"#.into(),
+            None,
+            None,
+            false,
+        )
         .await;
 
     assert!(matches!(&result, Err(PluginError::Call(msg)) if msg.contains("net:fetch")));
@@ -575,10 +755,14 @@ async fn a_plugin_emits_only_its_declared_events() {
     let mut addon = host.instantiate(&addon, services.clone()).await.unwrap();
     let emit = |topic: &str| format!(r#"{{"topic": "{topic}", "payload": 1}}"#);
 
-    let undeclared = hello.call_frontend("emit".into(), emit("hello.ping")).await;
-    let not_its_own = addon.call_frontend("emit".into(), emit("hello.ping")).await;
+    let undeclared = hello
+        .call_frontend("emit".into(), emit("hello.ping"), None, None, false)
+        .await;
+    let not_its_own = addon
+        .call_frontend("emit".into(), emit("hello.ping"), None, None, false)
+        .await;
     addon
-        .call_frontend("emit".into(), emit("hello_addon.ping"))
+        .call_frontend("emit".into(), emit("hello_addon.ping"), None, None, false)
         .await
         .unwrap();
 
@@ -605,7 +789,7 @@ async fn an_event_reaches_only_subscribers() {
         .await
         .unwrap();
     let ignored = plugin
-        .call_frontend("event".into(), "{}".into())
+        .call_frontend("event".into(), "{}".into(), None, None, false)
         .await
         .unwrap();
     plugin
@@ -613,7 +797,7 @@ async fn an_event_reaches_only_subscribers() {
         .await
         .unwrap();
     let received = plugin
-        .call_frontend("event".into(), "{}".into())
+        .call_frontend("event".into(), "{}".into(), None, None, false)
         .await
         .unwrap();
 
@@ -631,13 +815,19 @@ async fn a_plugin_subscribes_and_unsubscribes_after_init() {
         .unwrap();
     let last_event = async |plugin: &mut lorealm_plugins::LoadedPlugin| {
         plugin
-            .call_frontend("event".into(), "{}".into())
+            .call_frontend("event".into(), "{}".into(), None, None, false)
             .await
             .unwrap()
     };
 
     plugin
-        .call_frontend("subscribe".into(), r#""hello_addon.other""#.into())
+        .call_frontend(
+            "subscribe".into(),
+            r#""hello_addon.other""#.into(),
+            None,
+            None,
+            false,
+        )
         .await
         .unwrap();
     plugin
@@ -646,7 +836,13 @@ async fn a_plugin_subscribes_and_unsubscribes_after_init() {
         .unwrap();
     let subscribed = last_event(&mut plugin).await;
     plugin
-        .call_frontend("unsubscribe".into(), r#""hello_addon.other""#.into())
+        .call_frontend(
+            "unsubscribe".into(),
+            r#""hello_addon.other""#.into(),
+            None,
+            None,
+            false,
+        )
         .await
         .unwrap();
     plugin
@@ -677,7 +873,7 @@ async fn after_generate_observes_the_reply() {
         .await
         .unwrap();
     let observed = plugin
-        .call_frontend("event".into(), "{}".into())
+        .call_frontend("event".into(), "{}".into(), None, None, false)
         .await
         .unwrap();
 
@@ -743,6 +939,7 @@ async fn lorebook_activate_changes_the_entries() {
 
     let entries = plugin
         .lorebook_activate(LorebookActivation {
+            conversation: None,
             slot: "setting".into(),
             entries: vec![entry("dragons"), entry("drop me")],
         })
@@ -809,7 +1006,7 @@ async fn turn_hooks_observe_the_turn() {
         .unwrap();
     let last_event = async |plugin: &mut lorealm_plugins::LoadedPlugin| {
         plugin
-            .call_frontend("event".into(), "{}".into())
+            .call_frontend("event".into(), "{}".into(), None, None, false)
             .await
             .unwrap()
     };

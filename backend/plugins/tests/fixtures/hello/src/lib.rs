@@ -4,14 +4,15 @@ wit_bindgen::generate!({
 });
 
 use lorealm::plugin::host::{
-    active_persona, delete_data, emit, http_fetch, load_data, log, persist_data, register_command,
-    register_hook, register_processor, register_source_node, settings, subscribe, unsubscribe,
+    active_persona, delete_data, emit, generate, http_fetch, load_data, log, messages,
+    persist_data, register_command, register_hook, register_processor, register_source_node,
+    settings, subscribe, unsubscribe,
 };
 use lorealm::plugin::types::{
     Block, CommandCall, CommandSignature, CustomEvent, Finalizing, FrontendCall, Generated, Hook,
-    HttpRequest, Level, LorebookActivation, LorebookEntry, Message, Param, ProcessorCall,
-    ProcessorSignature, Role, SourceCall, SourceNode, ToolInvocation, ToolOutput, TurnEnded,
-    TurnStarted, UserInput, ValueType, Verdict,
+    HttpRequest, Level, LorebookActivation, LorebookEntry, Message, MessageRange, Param,
+    ProcessorCall, ProcessorSignature, PromptAssembly, Role, SourceCall, SourceNode,
+    ToolInvocation, ToolOutput, TurnEnded, TurnStarted, UserInput, ValueType, Verdict,
 };
 use serde_json::Value;
 
@@ -97,7 +98,13 @@ impl Guest for Hello {
                     text.to_uppercase()
                 ))))
             }
-            Event::Frontend(FrontendCall { name, args }) => match name.as_str() {
+            Event::Frontend(FrontendCall {
+                name,
+                args,
+                conversation,
+                message,
+                blocking,
+            }) => match name.as_str() {
                 "greet" => {
                     let args: Value = serde_json::from_str(&args).map_err(|e| e.to_string())?;
                     let name = args["name"].as_str().unwrap_or("stranger");
@@ -126,6 +133,35 @@ impl Guest for Hello {
                     let event =
                         load_data("event")?.map(|b| String::from_utf8_lossy(&b).into_owned());
                     Ok(Response::Frontend(Value::from(event).to_string()))
+                }
+                // The conversation the slot names, as `id:role:content` lines.
+                "messages" => {
+                    let args: Value = serde_json::from_str(&args).map_err(|e| e.to_string())?;
+                    let range = match args["latest"].as_u64() {
+                        Some(n) => MessageRange::Latest(n as u32),
+                        None => MessageRange::All,
+                    };
+                    let id = conversation.ok_or("no conversation")?;
+                    let lines: Vec<String> = messages(id, range)?
+                        .iter()
+                        .map(|m| format!("{}:{:?}:{}", m.id, m.role, m.content))
+                        .collect();
+                    Ok(Response::Frontend(json(&lines.join("\n"))))
+                }
+                // Answers with what the model said, and where the slot is.
+                "generate" => {
+                    let args: Value = serde_json::from_str(&args).map_err(|e| e.to_string())?;
+                    let profile = args["profile"].as_str().and_then(|p| p.parse().ok());
+                    let reply = generate(
+                        &[Message {
+                            role: Role::User,
+                            content: args["ask"].as_str().unwrap_or_default().into(),
+                        }],
+                        profile,
+                    )?;
+                    Ok(Response::Frontend(json(&format!(
+                        "{reply} ({conversation:?}/{message:?}/{blocking})"
+                    ))))
                 }
                 // Answers with the response body as text.
                 "fetch" => {
@@ -242,7 +278,9 @@ impl Guest for Hello {
     }
 }
 
-fn prompt_build(mut prompt: Vec<Message>) -> Result<Vec<Message>, String> {
+fn prompt_build(assembly: PromptAssembly) -> Result<Vec<Message>, String> {
+    let conversation = assembly.conversation;
+    let mut prompt = assembly.messages;
     // Test controls: the last message's content.
     match prompt.last().map(|m| m.content.as_str()) {
         Some("loop forever") => loop {},
@@ -259,6 +297,12 @@ fn prompt_build(mut prompt: Vec<Message>) -> Result<Vec<Message>, String> {
         role: Role::System,
         content: format!("Hello, {}! #{count}", persona.name),
     });
+    if let Some(id) = conversation {
+        prompt.push(Message {
+            role: Role::System,
+            content: format!("in conversation {id}"),
+        });
+    }
     Ok(prompt)
 }
 

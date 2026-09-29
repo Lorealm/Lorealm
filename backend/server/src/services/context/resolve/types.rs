@@ -135,6 +135,7 @@ pub enum OriginKind {
 
 pub struct ResolveContext<'a> {
     pub character: Option<&'a Character>,
+    pub conversation: Option<Snowflake>,
     pub messages: &'a [PromptTurn],
     pub persona: Option<&'a UserPersona>,
     pub user_id: Snowflake,

@@ -13,12 +13,15 @@
 	import { characterStore } from '$lib/stores/character.svelte.js';
 	import { chatStore } from '$lib/stores/chat.svelte.js';
 	import { conversationManager } from '$lib/stores/conversationManager.svelte.js';
+	import { pluginCalls } from '$lib/stores/pluginCalls.svelte.js';
 	import { FilePlus, MessagesSquare, Paperclip, Send, Sparkles, Square } from '@lucide/svelte';
 	import { CHAT_COMPOSER_LAYER, type ChatComposerLayer } from '$lib/keys/commands.js';
 	import { keyLayer } from '$lib/keys/layers.svelte.js';
 
 	let runningCommand = $derived(serverCommands.running);
-	let busy = $derived(chatStore.isStreaming || runningCommand !== null);
+	/** The plugin the user is waiting for, if any. */
+	let waitingOn = $derived(pluginCalls.waitingOn(chatStore.conversationId));
+	let busy = $derived(chatStore.isStreaming || runningCommand !== null || waitingOn !== null);
 
 	let inputText = $state('');
 	let textareaEl: HTMLTextAreaElement;
@@ -143,6 +146,10 @@
 			await serverCommands.cancel();
 			return;
 		}
+		if (waitingOn) {
+			await pluginCalls.cancel(chatStore.conversationId);
+			return;
+		}
 		if (chatStore.isStreaming && !chatStore.isCancelling) {
 			await chatStore.cancelStream();
 		}
@@ -193,7 +200,11 @@
 		{:else}
 			<button
 				class="send-button"
-				title={runningCommand ? `Stop /${runningCommand.name}` : 'Stop generating'}
+				title={runningCommand
+					? `Stop /${runningCommand.name}`
+					: waitingOn
+						? `Stop ${waitingOn}`
+						: 'Stop generating'}
 				onclick={cancelGeneration}><Square /></button
 			>
 		{/if}

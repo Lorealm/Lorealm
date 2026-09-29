@@ -7,7 +7,7 @@ use std::{
 };
 
 use lorealm_storage::{
-    PersonaStorage, PluginStorage,
+    ConnectionStorage, ConversationStorage, PersonaStorage, PluginStorage,
     models::{PluginLog, PluginLogLevel, PluginLogSource, Snowflake},
 };
 use tokio::sync::OnceCell;
@@ -16,7 +16,8 @@ use crate::{
     config::PluginConfig,
     errors::PluginError,
     services::{
-        chat::PromptMessage,
+        chat::{CancelGuard, PromptMessage},
+        commands::Generation,
         context::PromptRole,
         plugins::{PluginService, PluginVocabulary},
         state::StateService,
@@ -112,7 +113,7 @@ async fn enabled_plugin_edits_the_prompt() {
     let h = harness().await;
     h.plugins.enable(h.user, "hello").await.unwrap();
 
-    let out = h.plugins.prompt_build(h.user, prompt()).await;
+    let out = h.plugins.prompt_build(h.user, None, prompt()).await;
 
     assert_eq!(out.len(), 2);
     assert_eq!(out[1].role, PromptRole::System);
@@ -123,10 +124,10 @@ async fn enabled_plugin_edits_the_prompt() {
 async fn disabling_unmounts_the_plugin() {
     let h = harness().await;
     h.plugins.enable(h.user, "hello").await.unwrap();
-    h.plugins.prompt_build(h.user, prompt()).await;
+    h.plugins.prompt_build(h.user, None, prompt()).await;
 
     h.plugins.disable(h.user, "hello").await.unwrap();
-    let out = h.plugins.prompt_build(h.user, prompt()).await;
+    let out = h.plugins.prompt_build(h.user, None, prompt()).await;
 
     assert_eq!(out.len(), 1);
 }
@@ -136,7 +137,7 @@ async fn plugins_are_per_user() {
     let h = harness().await;
     h.plugins.enable(h.user, "hello").await.unwrap();
 
-    let out = h.plugins.prompt_build(h.stranger, prompt()).await;
+    let out = h.plugins.prompt_build(h.stranger, None, prompt()).await;
 
     assert_eq!(out.len(), 1);
 }
@@ -146,7 +147,7 @@ async fn plugin_that_fails_init_is_skipped() {
     let h = harness().await;
     h.plugins.enable(h.user, "unpermitted").await.unwrap();
 
-    let out = h.plugins.prompt_build(h.user, prompt()).await;
+    let out = h.plugins.prompt_build(h.user, None, prompt()).await;
 
     assert_eq!(out.len(), 1);
 }
@@ -183,11 +184,11 @@ async fn list_marks_enabled_plugins() {
 async fn persisted_data_survives_remounting() {
     let h = harness().await;
     h.plugins.enable(h.user, "hello").await.unwrap();
-    h.plugins.prompt_build(h.user, prompt()).await;
+    h.plugins.prompt_build(h.user, None, prompt()).await;
 
     h.plugins.disable(h.user, "hello").await.unwrap();
     h.plugins.enable(h.user, "hello").await.unwrap();
-    let out = h.plugins.prompt_build(h.user, prompt()).await;
+    let out = h.plugins.prompt_build(h.user, None, prompt()).await;
 
     assert_eq!(out[1].content, "Hello, Ada! #2");
 }
@@ -202,9 +203,9 @@ async fn persisted_data_is_per_user() {
         .unwrap();
     h.plugins.enable(h.user, "hello").await.unwrap();
     h.plugins.enable(h.stranger, "hello").await.unwrap();
-    h.plugins.prompt_build(h.user, prompt()).await;
+    h.plugins.prompt_build(h.user, None, prompt()).await;
 
-    let out = h.plugins.prompt_build(h.stranger, prompt()).await;
+    let out = h.plugins.prompt_build(h.stranger, None, prompt()).await;
 
     assert_eq!(out[1].content, "Hello, Bo! #1");
 }
@@ -214,7 +215,7 @@ async fn plugin_logs_are_stored_per_user() {
     let h = harness().await;
     h.plugins.enable(h.user, "hello").await.unwrap();
 
-    h.plugins.prompt_build(h.user, prompt()).await;
+    h.plugins.prompt_build(h.user, None, prompt()).await;
     let logs = h.plugins.logs(h.user, "hello").await.unwrap();
     let theirs = h.plugins.logs(h.stranger, "hello").await.unwrap();
 
@@ -233,7 +234,7 @@ async fn crashing_plugin_is_logged_and_stopped() {
     let h = harness().await;
     h.plugins.enable(h.user, "hello").await.unwrap();
 
-    h.plugins.prompt_build(h.user, ask("crash")).await;
+    h.plugins.prompt_build(h.user, None, ask("crash")).await;
     let logs = h.plugins.logs(h.user, "hello").await.unwrap();
 
     use PluginLogSource::{Guest, Host};
@@ -255,7 +256,7 @@ async fn enabled_plugin_that_is_not_installed_is_logged() {
         .await
         .unwrap();
 
-    h.plugins.prompt_build(h.user, prompt()).await;
+    h.plugins.prompt_build(h.user, None, prompt()).await;
     let logs = h.plugins.logs(h.user, "missing").await.unwrap();
 
     assert!(
@@ -272,11 +273,18 @@ async fn enabled_plugin_that_is_not_installed_is_logged() {
 #[tokio::test]
 async fn log_keeps_only_the_newest_entries() {
     let h = harness().await;
-    let plugins = service(&h, installed_dir().await, PluginConfig { log_cap: 3 });
+    let plugins = service(
+        &h,
+        installed_dir().await,
+        PluginConfig {
+            log_cap: 3,
+            ..Default::default()
+        },
+    );
     plugins.enable(h.user, "hello").await.unwrap();
 
     for _ in 0..3 {
-        plugins.prompt_build(h.user, prompt()).await;
+        plugins.prompt_build(h.user, None, prompt()).await;
     }
     let logs = plugins.logs(h.user, "hello").await.unwrap();
     let messages: Vec<_> = logs.iter().map(|l| l.message.as_str()).collect();
@@ -305,7 +313,7 @@ async fn a_plugin_loads_after_its_requirement() {
     h.plugins.enable(h.user, "hello").await.unwrap();
     h.plugins.enable(h.user, "hello_addon").await.unwrap();
 
-    let out = h.plugins.prompt_build(h.user, prompt()).await;
+    let out = h.plugins.prompt_build(h.user, None, prompt()).await;
 
     assert_eq!(out.len(), 3);
 }
@@ -349,7 +357,7 @@ async fn a_conflict_that_got_past_enabling_is_skipped_and_logged() {
         .await
         .unwrap();
 
-    let out = h.plugins.prompt_build(h.user, prompt()).await;
+    let out = h.plugins.prompt_build(h.user, None, prompt()).await;
     let logs = h.plugins.logs(h.user, "hello_rival").await.unwrap();
 
     assert_eq!(out.len(), 2);
@@ -559,16 +567,35 @@ async fn the_frontend_reaches_its_own_backend() {
             "hello",
             "greet".into(),
             serde_json::json!({"name": "Ada"}),
+            None,
+            None,
+            false,
         )
         .await
         .unwrap();
     let unknown = h
         .plugins
-        .call_frontend(h.user, "hello", "nope".into(), serde_json::json!({}))
+        .call_frontend(
+            h.user,
+            "hello",
+            "nope".into(),
+            serde_json::json!({}),
+            None,
+            None,
+            false,
+        )
         .await;
     let not_enabled = h
         .plugins
-        .call_frontend(h.stranger, "hello", "greet".into(), serde_json::json!({}))
+        .call_frontend(
+            h.stranger,
+            "hello",
+            "greet".into(),
+            serde_json::json!({}),
+            None,
+            None,
+            false,
+        )
         .await;
 
     assert_eq!(greeting, serde_json::json!("Hello, Ada!"));
@@ -789,7 +816,7 @@ async fn uninstalling_keeps_versions_users_are_on() {
     plugins.uninstall("hello").await.unwrap();
     let kept = dir.join("hello@0.1.0").exists();
     let theirs = plugins.enable(h.stranger, "hello").await;
-    let out = plugins.prompt_build(h.user, prompt()).await;
+    let out = plugins.prompt_build(h.user, None, prompt()).await;
     plugins.disable(h.user, "hello").await.unwrap();
 
     assert!(kept);
@@ -889,8 +916,15 @@ async fn a_plugin_reads_its_settings() {
         .await
         .unwrap();
     let read = || {
-        h.plugins
-            .call_frontend(h.user, "hello", "settings".into(), serde_json::json!({}))
+        h.plugins.call_frontend(
+            h.user,
+            "hello",
+            "settings".into(),
+            serde_json::json!({}),
+            None,
+            None,
+            false,
+        )
     };
 
     let unset = read().await;
@@ -976,7 +1010,7 @@ async fn a_plugin_fetches_with_the_users_key() {
             "headers": { "authorization": authorization },
         });
         h.plugins
-            .call_frontend(h.user, "hello", "fetch".into(), args)
+            .call_frontend(h.user, "hello", "fetch".into(), args, None, None, false)
     };
 
     let with_key = fetch("Bearer {secret:key}").await.unwrap();
@@ -989,6 +1023,9 @@ async fn a_plugin_fetches_with_the_users_key() {
             "hello",
             "fetch".into(),
             serde_json::json!({ "url": "http://127.0.0.1:38417/user-agent" }),
+            None,
+            None,
+            false,
         )
         .await
         .unwrap();
@@ -1017,7 +1054,7 @@ async fn the_tts_example_installs_and_asks_for_a_key() {
         .unwrap_or_else(|e| panic!("installing: {e}"));
     plugins.enable(h.user, "tts").await.unwrap();
     let call = |name: &str, args: serde_json::Value| {
-        plugins.call_frontend(h.user, "tts", name.into(), args)
+        plugins.call_frontend(h.user, "tts", name.into(), args, None, None, false)
     };
 
     let speak = call("speak", serde_json::json!({ "text": "*Hello* there." }))
@@ -1050,6 +1087,9 @@ async fn ping(h: &Harness, payload: serde_json::Value) {
             "hello_addon",
             "emit".into(),
             serde_json::json!({"topic": "hello_addon.ping", "payload": payload}),
+            None,
+            None,
+            false,
         )
         .await
         .unwrap();
@@ -1064,7 +1104,15 @@ async fn an_emitted_event_reaches_other_plugins() {
     ping(&h, serde_json::json!("hi")).await;
     let received = h
         .plugins
-        .call_frontend(h.user, "hello", "event".into(), serde_json::json!({}))
+        .call_frontend(
+            h.user,
+            "hello",
+            "event".into(),
+            serde_json::json!({}),
+            None,
+            None,
+            false,
+        )
         .await
         .unwrap();
 
@@ -1098,7 +1146,15 @@ async fn after_generate_reaches_enabled_plugins() {
         .await;
     let observed = h
         .plugins
-        .call_frontend(h.user, "hello", "event".into(), serde_json::json!({}))
+        .call_frontend(
+            h.user,
+            "hello",
+            "event".into(),
+            serde_json::json!({}),
+            None,
+            None,
+            false,
+        )
         .await
         .unwrap();
 
@@ -1153,7 +1209,7 @@ async fn lorebook_activate_runs_in_load_order() {
 
     let vocabulary = h.plugins.vocabulary(h.user).await.unwrap();
     let entries = vocabulary
-        .lorebook_activate("setting", vec![entry("dragons"), entry("drop me")])
+        .lorebook_activate(None, "setting", vec![entry("dragons"), entry("drop me")])
         .await;
 
     let contents: Vec<_> = entries.iter().map(|e| e.content.as_str()).collect();
@@ -1213,7 +1269,15 @@ async fn turn_hooks_reach_enabled_plugins() {
     h.plugins.enable(h.user, "hello").await.unwrap();
     let last_event = async || {
         h.plugins
-            .call_frontend(h.user, "hello", "event".into(), serde_json::json!({}))
+            .call_frontend(
+                h.user,
+                "hello",
+                "event".into(),
+                serde_json::json!({}),
+                None,
+                None,
+                false,
+            )
             .await
             .unwrap()
     };
@@ -1246,17 +1310,17 @@ async fn loading_upgrades_data_from_the_version_that_last_ran() {
         .await
         .unwrap();
     plugins.enable(h.user, "hello").await.unwrap();
-    plugins.prompt_build(h.user, prompt()).await;
+    plugins.prompt_build(h.user, None, prompt()).await;
     plugins
         .install_from_source(h.user, hello_source("0.2.0"))
         .await
         .unwrap();
 
     plugins.update(h.user, "hello", None).await.unwrap();
-    plugins.prompt_build(h.user, prompt()).await;
+    plugins.prompt_build(h.user, None, prompt()).await;
     plugins.disable(h.user, "hello").await.unwrap();
     plugins.enable(h.user, "hello").await.unwrap();
-    plugins.prompt_build(h.user, prompt()).await;
+    plugins.prompt_build(h.user, None, prompt()).await;
     let logs = plugins.logs(h.user, "hello").await.unwrap();
 
     use PluginLogLevel::Info;
@@ -1285,14 +1349,14 @@ async fn a_failed_upgrade_keeps_the_plugin_unloaded() {
         .await
         .unwrap();
     plugins.enable(h.user, "hello").await.unwrap();
-    plugins.prompt_build(h.user, prompt()).await;
+    plugins.prompt_build(h.user, None, prompt()).await;
     plugins
         .install_from_source(h.user, hello_source("0.1.0"))
         .await
         .unwrap();
 
     plugins.update(h.user, "hello", None).await.unwrap();
-    let out = plugins.prompt_build(h.user, prompt()).await;
+    let out = plugins.prompt_build(h.user, None, prompt()).await;
     let logs = plugins.logs(h.user, "hello").await.unwrap();
 
     assert_eq!(out.len(), 1, "not loaded");
@@ -1311,7 +1375,7 @@ async fn a_failed_upgrade_keeps_the_plugin_unloaded() {
 async fn unloading_shuts_plugins_down() {
     let h = harness().await;
     h.plugins.enable(h.user, "hello").await.unwrap();
-    h.plugins.prompt_build(h.user, prompt()).await;
+    h.plugins.prompt_build(h.user, None, prompt()).await;
 
     h.plugins.disable(h.user, "hello").await.unwrap();
     let logs = h.plugins.logs(h.user, "hello").await.unwrap();
@@ -1331,7 +1395,7 @@ async fn unloading_shuts_plugins_down() {
 async fn saving_settings_tells_a_loaded_plugin() {
     let h = harness().await;
     h.plugins.enable(h.user, "hello").await.unwrap();
-    h.plugins.prompt_build(h.user, prompt()).await;
+    h.plugins.prompt_build(h.user, None, prompt()).await;
     let values = serde_json::json!({ "greeting": "hi", "key": null });
 
     h.plugins
@@ -1362,7 +1426,7 @@ async fn plugins_shut_down_in_reverse_load_order() {
     let h = harness().await;
     h.plugins.enable(h.user, "hello").await.unwrap();
     h.plugins.enable(h.user, "hello_addon").await.unwrap();
-    h.plugins.prompt_build(h.user, prompt()).await;
+    h.plugins.prompt_build(h.user, None, prompt()).await;
 
     h.plugins.disable(h.user, "hello_addon").await.unwrap();
     let addon = h.plugins.logs(h.user, "hello_addon").await.unwrap();
@@ -1375,4 +1439,391 @@ async fn plugins_shut_down_in_reverse_load_order() {
             .unwrap()
     };
     assert!(shut_down_at(&addon) < shut_down_at(&hello));
+}
+
+/// A conversation of `owner`'s, with `contents` said in turn.
+async fn chat(h: &Harness, owner: Snowflake, contents: &[&str]) -> (Snowflake, Vec<Snowflake>) {
+    let now = chrono::Utc::now();
+    let convo = lorealm_storage::models::Conversation {
+        id: h.snow.generate(),
+        user_id: owner,
+        character_id: Some(h.snow.generate()),
+        char_version_id: Some(h.snow.generate()),
+        realm_id: None,
+        active_leaf_id: None,
+        title: None,
+        author_note: String::new(),
+        created_at: now,
+        updated_at: now,
+    };
+    h.store.create_conversation(&convo).await.unwrap();
+
+    let mut ids = Vec::new();
+    let mut parent = None;
+    for (i, content) in contents.iter().enumerate() {
+        let message = lorealm_storage::models::ConversationMessage {
+            id: h.snow.generate(),
+            conversation_id: convo.id,
+            parent,
+            role: match i % 2 {
+                0 => lorealm_storage::models::ChatRole::User,
+                _ => lorealm_storage::models::ChatRole::Assistant,
+            },
+            content: (*content).into(),
+            order: i as i32,
+            metadata: serde_json::json!({}),
+            created_at: now,
+            updated_at: now,
+        };
+        h.store.append_and_advance(&message).await.unwrap();
+        parent = Some(message.id);
+        ids.push(message.id);
+    }
+    (convo.id, ids)
+}
+
+#[tokio::test]
+async fn a_plugin_reads_the_branch_of_a_conversation() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    let (convo, ids) = chat(&h, h.user, &["hi", "hello"]).await;
+
+    let read = |args: serde_json::Value| {
+        h.plugins.call_frontend(
+            h.user,
+            "hello",
+            "messages".into(),
+            args,
+            Some(convo),
+            None,
+            false,
+        )
+    };
+    let all = read(serde_json::json!({})).await.unwrap();
+    let latest = read(serde_json::json!({ "latest": 1 })).await.unwrap();
+
+    assert_eq!(
+        all,
+        serde_json::json!(format!(
+            "{}:Role::User:hi\n{}:Role::Assistant:hello",
+            ids[0], ids[1]
+        ))
+    );
+    assert_eq!(
+        latest,
+        serde_json::json!(format!("{}:Role::Assistant:hello", ids[1]))
+    );
+}
+
+#[tokio::test]
+async fn a_plugin_cannot_read_another_users_conversation() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    let (theirs, _) = chat(&h, h.stranger, &["secret"]).await;
+
+    let result = h
+        .plugins
+        .call_frontend(
+            h.user,
+            "hello",
+            "messages".into(),
+            serde_json::json!({}),
+            Some(theirs),
+            None,
+            false,
+        )
+        .await;
+
+    assert!(
+        matches!(&result, Err(PluginError::CallFailed(_, reason)) if reason.contains("no such conversation")),
+        "{result:?}"
+    );
+}
+
+/// Answers `generate` with a fixed reply, recording the profiles it was
+/// asked for.
+struct StubGenerator {
+    reply: String,
+    profiles: std::sync::Mutex<Vec<Snowflake>>,
+    /// Waits to be cancelled instead of answering.
+    hang: bool,
+    /// The slots conversations hold, as the chat service keeps them.
+    slots: Arc<dashmap::DashMap<Snowflake, tokio_util::sync::CancellationToken>>,
+}
+
+impl StubGenerator {
+    fn new(reply: &str) -> Arc<Self> {
+        Self::build(reply, false)
+    }
+
+    /// One that never answers until it is cancelled.
+    fn hanging() -> Arc<Self> {
+        Self::build("", true)
+    }
+
+    fn build(reply: &str, hang: bool) -> Arc<Self> {
+        Arc::new(Self {
+            reply: reply.into(),
+            profiles: std::sync::Mutex::new(Vec::new()),
+            hang,
+            slots: Arc::new(dashmap::DashMap::new()),
+        })
+    }
+
+    /// Cancels whatever holds `conversation`'s slot, as the cancel endpoint
+    /// does.
+    fn cancel(&self, conversation: Snowflake) -> bool {
+        match self.slots.get(&conversation) {
+            Some(token) => {
+                token.cancel();
+                true
+            }
+            None => false,
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl Generation for StubGenerator {
+    fn begin_cancel(
+        &self,
+        _conversation_id: Snowflake,
+    ) -> (tokio_util::sync::CancellationToken, CancelGuard) {
+        unimplemented!("a plugin's `generate` never cancels")
+    }
+
+    fn try_begin_cancel(
+        &self,
+        conversation_id: Snowflake,
+    ) -> Option<(tokio_util::sync::CancellationToken, CancelGuard)> {
+        let token = tokio_util::sync::CancellationToken::new();
+        match self.slots.entry(conversation_id) {
+            dashmap::Entry::Occupied(_) => None,
+            dashmap::Entry::Vacant(slot) => {
+                slot.insert(token.clone());
+                Some((
+                    token,
+                    CancelGuard {
+                        map: Arc::clone(&self.slots),
+                        key: conversation_id,
+                    },
+                ))
+            }
+        }
+    }
+
+    async fn complete(
+        &self,
+        _owner: Snowflake,
+        profile_id: Snowflake,
+        _prompt: Vec<PromptMessage>,
+        cancel: tokio_util::sync::CancellationToken,
+    ) -> Result<String, crate::errors::ChatError> {
+        self.profiles.lock().unwrap().push(profile_id);
+        if self.hang {
+            cancel.cancelled().await;
+        }
+        Ok(self.reply.clone())
+    }
+
+    async fn complete_with_context(
+        &self,
+        _owner: Snowflake,
+        _conversation_id: Snowflake,
+        _ask: String,
+        _profile_id: Snowflake,
+        _cancel: tokio_util::sync::CancellationToken,
+    ) -> Result<String, crate::errors::ChatError> {
+        unimplemented!("a plugin's `generate` sends its own messages")
+    }
+}
+
+#[tokio::test]
+async fn generate_answers_through_the_users_profiles() {
+    let h = harness().await;
+    let generator = StubGenerator::new("three coins");
+    h.plugins
+        .set_generation(Arc::downgrade(&generator) as std::sync::Weak<dyn Generation>);
+    let active = h.profile(h.user, "active").await;
+    let cheap = h.profile(h.user, "cheap").await;
+    h.store
+        .set_active_profile(h.user, Some(active))
+        .await
+        .unwrap();
+    h.plugins.enable(h.user, "hello").await.unwrap();
+
+    let ask = |args: serde_json::Value| {
+        h.plugins
+            .call_frontend(h.user, "hello", "generate".into(), args, None, None, false)
+    };
+    let default = ask(serde_json::json!({ "ask": "What is in the chest?" }))
+        .await
+        .unwrap();
+    ask(serde_json::json!({ "ask": "again", "profile": cheap.to_string() }))
+        .await
+        .unwrap();
+
+    assert_eq!(default, serde_json::json!("three coins (None/None/false)"));
+    assert_eq!(*generator.profiles.lock().unwrap(), [active, cheap]);
+}
+
+#[tokio::test]
+async fn generating_needs_the_permission() {
+    let h = harness().await;
+    let generator = StubGenerator::new("nope");
+    h.plugins
+        .set_generation(Arc::downgrade(&generator) as std::sync::Weak<dyn Generation>);
+    h.plugins.enable(h.user, "no_data").await.unwrap();
+
+    let result = h
+        .plugins
+        .call_frontend(
+            h.user,
+            "no_data",
+            "generate".into(),
+            serde_json::json!({ "ask": "anything" }),
+            None,
+            None,
+            false,
+        )
+        .await;
+
+    assert!(
+        matches!(&result, Err(PluginError::CallFailed(_, reason)) if reason.contains("model:generate")),
+        "{result:?}"
+    );
+    assert!(generator.profiles.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn prompt_build_is_told_which_conversation_it_is_for() {
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    let (convo, _) = chat(&h, h.user, &["hi"]).await;
+
+    let out = h.plugins.prompt_build(h.user, Some(convo), prompt()).await;
+
+    assert_eq!(
+        out.last().unwrap().content,
+        format!("in conversation {convo}")
+    );
+}
+
+/// Asks `hello` to generate, as a slot that the user is or isn't waiting for.
+async fn generate_in(
+    h: &Harness,
+    handle: &str,
+    conversation: Option<Snowflake>,
+    blocking: bool,
+) -> Result<serde_json::Value, PluginError> {
+    h.plugins
+        .call_frontend(
+            h.user,
+            handle,
+            "generate".into(),
+            serde_json::json!({ "ask": "What is in the chest?" }),
+            conversation,
+            None,
+            blocking,
+        )
+        .await
+}
+
+#[tokio::test]
+async fn a_blocking_generate_is_stopped_by_the_cancel_endpoint() {
+    let h = harness().await;
+    let generator = StubGenerator::hanging();
+    h.plugins
+        .set_generation(Arc::downgrade(&generator) as std::sync::Weak<dyn Generation>);
+    let profile = h.profile(h.user, "active").await;
+    h.store
+        .set_active_profile(h.user, Some(profile))
+        .await
+        .unwrap();
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    let (convo, _) = chat(&h, h.user, &["hi"]).await;
+
+    let plugins = Arc::clone(&h.plugins);
+    let (user, slots) = (h.user, Arc::clone(&generator.slots));
+    let call = tokio::spawn(async move {
+        plugins
+            .call_frontend(
+                user,
+                "hello",
+                "generate".into(),
+                serde_json::json!({ "ask": "slowly" }),
+                Some(convo),
+                None,
+                true,
+            )
+            .await
+    });
+    // It holds the conversation's slot while it waits.
+    while !slots.contains_key(&convo) {
+        tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    }
+    assert!(generator.cancel(convo));
+
+    assert!(call.await.unwrap().is_ok());
+    // The slot is given back once the call is over.
+    assert!(!generator.slots.contains_key(&convo));
+}
+
+#[tokio::test]
+async fn a_blocking_generate_is_refused_while_the_conversation_generates() {
+    let h = harness().await;
+    let generator = StubGenerator::new("three coins");
+    h.plugins
+        .set_generation(Arc::downgrade(&generator) as std::sync::Weak<dyn Generation>);
+    let profile = h.profile(h.user, "active").await;
+    h.store
+        .set_active_profile(h.user, Some(profile))
+        .await
+        .unwrap();
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    let (convo, _) = chat(&h, h.user, &["hi"]).await;
+    // Something else is already generating there, such as a streaming reply.
+    let _reply = generator.try_begin_cancel(convo).unwrap();
+
+    let blocked = generate_in(&h, "hello", Some(convo), true).await;
+    let parallel = generate_in(&h, "hello", Some(convo), false).await;
+    let elsewhere = generate_in(&h, "hello", None, true).await;
+
+    assert!(
+        matches!(&blocked, Err(PluginError::CallFailed(_, reason)) if reason.contains("already generating")),
+        "{blocked:?}"
+    );
+    // Background work doesn't queue behind the reply, and neither does a call
+    // that isn't about a conversation at all.
+    assert!(parallel.is_ok(), "{parallel:?}");
+    assert!(elsewhere.is_ok(), "{elsewhere:?}");
+}
+
+#[tokio::test]
+async fn generate_gives_up_after_the_configured_wait() {
+    let mut h = Harness::new().await;
+    h.plugins = service(
+        &h,
+        installed_dir().await,
+        PluginConfig {
+            generate_timeout: 1,
+            ..Default::default()
+        },
+    );
+    let generator = StubGenerator::hanging();
+    h.plugins
+        .set_generation(Arc::downgrade(&generator) as std::sync::Weak<dyn Generation>);
+    let profile = h.profile(h.user, "active").await;
+    h.store
+        .set_active_profile(h.user, Some(profile))
+        .await
+        .unwrap();
+    h.plugins.enable(h.user, "hello").await.unwrap();
+
+    let result = generate_in(&h, "hello", None, false).await;
+
+    assert!(
+        matches!(&result, Err(PluginError::CallFailed(_, reason)) if reason.contains("within 1s")),
+        "{result:?}"
+    );
 }

@@ -2,12 +2,12 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sqlx::types::Json;
 
+use super::NOW;
 use crate::{
     StorageError, UserWidgetStorage,
     backends::SqliteStorage,
     models::{Snowflake, UserWidget, WidgetMode, WidgetPlacement},
 };
-use super::NOW;
 
 #[derive(sqlx::FromRow)]
 struct SqliteUserWidget {
@@ -82,8 +82,8 @@ impl UserWidgetStorage for SqliteStorage {
     }
 
     async fn save_widget(&self, widget: UserWidget) -> Result<(), StorageError> {
-        sqlx::query(
-            &format!(r#"INSERT INTO user_widgets
+        sqlx::query(&format!(
+            r#"INSERT INTO user_widgets
                 (id, user_id, name, description, source, prompt, render, tools,
                  enabled, placement, mode, props)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
@@ -98,8 +98,8 @@ impl UserWidgetStorage for SqliteStorage {
                 placement = EXCLUDED.placement,
                 mode = EXCLUDED.mode,
                 props = EXCLUDED.props,
-                updated_at = {NOW}"#),
-        )
+                updated_at = {NOW}"#
+        ))
         .bind(widget.id)
         .bind(widget.user_id)
         .bind(&widget.name)
@@ -119,11 +119,13 @@ impl UserWidgetStorage for SqliteStorage {
     }
 
     async fn set_widget_enabled(&self, id: Snowflake, enabled: bool) -> Result<(), StorageError> {
-        sqlx::query(&format!(r#"UPDATE user_widgets SET enabled = $2, updated_at = {NOW} WHERE id = $1"#))
-            .bind(id)
-            .bind(enabled)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(&format!(
+            r#"UPDATE user_widgets SET enabled = $2, updated_at = {NOW} WHERE id = $1"#
+        ))
+        .bind(id)
+        .bind(enabled)
+        .execute(&self.pool)
+        .await?;
         Ok(())
     }
 

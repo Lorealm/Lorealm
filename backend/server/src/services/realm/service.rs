@@ -788,6 +788,7 @@ impl RealmService {
             .open_agent_turn(
                 &llm.spec,
                 &realm,
+                convo.id,
                 &llm.turns,
                 &llm.baseline,
                 &llm.policy,

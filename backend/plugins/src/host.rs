@@ -24,10 +24,10 @@ wasmtime::component::bindgen!({
 pub struct EvalContextHandle;
 
 use lorealm::plugin::types::{
-    Block, CommandCall, CommandSignature, CustomEvent, Finalizing, FrontendCall, Generated, Hook,
-    HttpRequest, HttpResponse, Level, LorebookActivation, LorebookEntry, Message, Persona,
-    ProcessorCall, ProcessorSignature, SourceCall, SourceNode, ToolInvocation, ToolOutput,
-    TurnEnded, TurnStarted, UserInput, Verdict,
+    Block, ChatMessage, CommandCall, CommandSignature, CustomEvent, Finalizing, FrontendCall,
+    Generated, Hook, HttpRequest, HttpResponse, Level, LorebookActivation, LorebookEntry, Message,
+    MessageRange, Persona, ProcessorCall, ProcessorSignature, PromptAssembly, SourceCall,
+    SourceNode, ToolInvocation, ToolOutput, TurnEnded, TurnStarted, UserInput, Verdict,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -86,6 +86,21 @@ pub trait HostServices: Send + Sync {
     async fn settings(&self) -> Result<String, String>;
     /// Sends a request to a host the manifest allows.
     async fn http_fetch(&self, request: HttpRequest) -> Result<HttpResponse, String>;
+    /// The active branch of one of the user's conversations, oldest first.
+    async fn messages(
+        &self,
+        conversation: i64,
+        range: MessageRange,
+    ) -> Result<Vec<ChatMessage>, String>;
+    /// Asks the model through one of the user's connection profiles, or the
+    /// active one.
+    async fn generate(
+        &self,
+        messages: Vec<Message>,
+        profile: Option<i64>,
+        conversation: Option<i64>,
+        blocking: bool,
+    ) -> Result<String, String>;
     /// Receives what the plugin and the host logged during one call.
     async fn log(&self, entries: Vec<LogEntry>);
 }
@@ -125,6 +140,10 @@ pub struct PluginState {
     /// `http-fetch`, which doesn't count toward its limit.
     started: Instant,
     waited: Duration,
+    /// The conversation the current call is acting on, if any.
+    conversation: Option<i64>,
+    /// Whether a user is waiting for the current call; see [`acting`].
+    blocking: bool,
 }
 
 impl PluginState {
@@ -322,6 +341,31 @@ impl lorealm::plugin::host::Host for PluginState {
         response
     }
 
+    async fn messages(
+        &mut self,
+        conversation: i64,
+        range: MessageRange,
+    ) -> Result<Vec<ChatMessage>, String> {
+        self.require("chat:read")?;
+        self.services.messages(conversation, range).await
+    }
+
+    async fn generate(
+        &mut self,
+        messages: Vec<Message>,
+        profile: Option<i64>,
+    ) -> Result<String, String> {
+        self.require("model:generate")?;
+        let (conversation, blocking) = (self.conversation, self.blocking);
+        let start = Instant::now();
+        let reply = self
+            .services
+            .generate(messages, profile, conversation, blocking)
+            .await;
+        self.waited += start.elapsed();
+        reply
+    }
+
     async fn persist_data(&mut self, key: String, value: Vec<u8>) -> Result<(), String> {
         self.require_data_key(&key)?;
         if value.len() > MAX_DATA_VALUE {
@@ -429,6 +473,8 @@ impl PluginHost {
             hosts: package.manifest.network.hosts.clone(),
             started: Instant::now(),
             waited: Duration::ZERO,
+            conversation: None,
+            blocking: false,
         };
         let mut store = Store::new(&self.engine, state);
         store.set_epoch_deadline(self.deadline);
@@ -473,10 +519,10 @@ impl LoadedPlugin {
     /// did not register it.
     pub async fn prompt_build(
         &mut self,
-        prompt: Vec<Message>,
+        prompt: PromptAssembly,
     ) -> Result<Vec<Message>, PluginError> {
         if !self.store.data().hooks.contains(&Hook::PromptBuild) {
-            return Ok(prompt);
+            return Ok(prompt.messages);
         }
         match self.handle(Event::PromptBuild(prompt)).await? {
             Response::PromptBuild(prompt) => Ok(prompt),
@@ -677,9 +723,14 @@ impl LoadedPlugin {
         &mut self,
         node: String,
         settings: String,
+        conversation: Option<i64>,
     ) -> Result<Vec<Block>, PluginError> {
         match self
-            .handle(Event::Source(SourceCall { node, settings }))
+            .handle(Event::Source(SourceCall {
+                node,
+                conversation,
+                settings,
+            }))
             .await?
         {
             Response::Source(blocks) => Ok(blocks),
@@ -692,9 +743,18 @@ impl LoadedPlugin {
         &mut self,
         name: String,
         args: String,
+        conversation: Option<i64>,
+        message: Option<i64>,
+        blocking: bool,
     ) -> Result<String, PluginError> {
         match self
-            .handle(Event::Frontend(FrontendCall { name, args }))
+            .handle(Event::Frontend(FrontendCall {
+                name,
+                args,
+                conversation,
+                message,
+                blocking,
+            }))
             .await?
         {
             Response::Frontend(value) => Ok(value),
@@ -733,6 +793,7 @@ impl LoadedPlugin {
         state.emitted.clear();
         state.started = Instant::now();
         state.waited = Duration::ZERO;
+        (state.conversation, state.blocking) = acting(&event);
         let result = match self.instance.call_handle(&mut self.store, &event).await {
             Ok(result) => result.map_err(PluginError::Call),
             Err(err) => Err(err.into()),
@@ -742,6 +803,29 @@ impl LoadedPlugin {
             self.store.data_mut().emitted.clear();
         }
         result
+    }
+}
+
+/// What a call is acting on
+fn acting(event: &Event) -> (Option<i64>, bool) {
+    match event {
+        Event::PromptBuild(prompt) => (prompt.conversation, false),
+        Event::LorebookActivate(activation) => (activation.conversation, false),
+        Event::Source(call) => (call.conversation, false),
+        Event::Frontend(call) => (call.conversation, call.blocking),
+        Event::AfterGenerate(generated) => (Some(generated.conversation), false),
+        Event::MessageFinalize(reply) => (Some(reply.conversation), false),
+        Event::UserMessage(input) => (Some(input.conversation), false),
+        Event::TurnStart(turn) => (Some(turn.conversation), false),
+        Event::TurnEnd(turn) => (Some(turn.conversation), false),
+        Event::ToolCall(_)
+        | Event::ToolResult(_)
+        | Event::Command(_)
+        | Event::Processor(_)
+        | Event::Custom(_)
+        | Event::Upgrade(_)
+        | Event::SettingsChanged
+        | Event::Shutdown => (None, false),
     }
 }
 

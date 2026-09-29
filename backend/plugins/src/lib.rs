@@ -8,10 +8,10 @@ pub use host::{
     CommandContext, HostServices, LoadedPlugin, PluginError, PluginHost, PluginPackage,
     Registrations,
     lorealm::plugin::types::{
-        Block, CommandSignature, Finalizing, Generated, Hook, HttpRequest, HttpResponse, Level,
-        LorebookActivation, LorebookEntry, Message, Param, Persona, ProcessorSignature, Role,
-        SourceNode, ToolInvocation, ToolOutput, TurnEnded, TurnStarted, UserInput, ValueType,
-        Verdict,
+        Block, ChatMessage, CommandSignature, Finalizing, Generated, Hook, HttpRequest,
+        HttpResponse, Level, LorebookActivation, LorebookEntry, Message, MessageRange, Param,
+        Persona, ProcessorSignature, PromptAssembly, Role, SourceNode, ToolInvocation, ToolOutput,
+        TurnEnded, TurnStarted, UserInput, ValueType, Verdict,
     },
 };
 pub use log::{LogEntry, LogSource};

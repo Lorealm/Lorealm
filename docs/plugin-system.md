@@ -32,6 +32,10 @@ A living document to help us keep track of the plugin system implementation.
 | 24/09/26      | Added the tool-result hook          | ✅            |
 | 24/09/26      | Added the realm turn hooks          | ✅            |
 | 24/09/26      | Added the lifecycle hooks           | ✅            |
+| 30/09/26      | Added conversation identity         | ✅            |
+| 30/09/26      | Added the messages host command     | ✅            |
+| 30/09/26      | Added the generate host command     | ✅            |
+| 30/09/26      | Made blocking calls stoppable       | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -77,7 +81,11 @@ entry = "panel.js"         # an unsafe slot is an ES module
 title = "Greeter"
 unsafe = true
 ```
-Both modes get the same API: `call(name, args)` reaches only the plugin's own backend (`POST /plugins/{handle}/call`, delivered to `handle` as a `frontend` event), `context` is what the slot provides (a `message` slot gets `{ message: { id, role, content, updated_at } }`; `inspector` gets `{}`), and `onContext(listener)` reports changes. Anything touching user data goes through the backend half, where permissions apply. A secure frame may only play sound after the user clicks in it, unless the plugin has `ui:autoplay`, which lets its frames play sound on their own (`allow="autoplay"`).
+Both modes get the same API: `call(name, args, options?)` reaches only the plugin's own backend (`POST /plugins/{handle}/call`, delivered to `handle` as a `frontend` event), `context` says where the slot is, and `onContext(listener)` reports changes. Every slot's context has the same shape, `{ conversation, message }`: `conversation` is the chat the client is showing, or `null` outside one, and `message` is `{ id, role, content, updated_at }` for a `message` slot and `null` for any other. The client sends both alongside every `call`, so the backend half is told which chat and message it is acting on instead of having to trust the arguments.
+
+Anything touching user data goes through the backend half, where permissions apply. A secure frame may only play sound after the user clicks in it, unless the plugin has `ui:autoplay`, which lets its frames play sound on their own (`allow="autoplay"`).
+
+A call is parallel by default: the chat carries on while it runs, which is what background work (reading a reply aloud, translating it) wants. A slot that the user is waiting for passes `{ blocking: true }`, and then the client holds the chat until the plugin answers — the composer shows a stop button naming the plugin, and slash commands report that something is running. A `generate` inside a blocking call takes that conversation's generation slot, so the stop button reaches it; see Host Commands.
 
 **Secure** (the default): the client fetches the entry through the API (`GET /plugins/{handle}/frontend/{entry}`, only for declared entries of enabled plugins) and renders it in an `iframe sandbox="allow-scripts"` as `srcdoc`, so it runs in an opaque origin with no session or access to the app. A CSP is put in front of it: no network (`connect-src` falls back to `default-src 'none'`), and no scripts, styles or images from outside the file, so entries inline everything. The API is `window.lorealm`. The app's style variables (everything declared on `:root`) are applied ahead of the entry's own styles, and the font faces the app has loaded are handed over as bytes, since the CSP refuses font URLs. Both are kept up to date, and user widgets get them the same way.
 
@@ -103,7 +111,7 @@ Every plugin must ship with a manifest.toml file. A manifest file ships the plug
 - tags
 - author
 - version (semver)
-- permissions (one of `chat:read`, `chat:write`, `data:persist`, `net:fetch`, `persona:read`, `prompt:write`, `state:read`, `state:write`, `tools:write`, `ui:autoplay`, `ui:unsafe`; any other is refused when the plugin is installed or loaded, and the Plugins page lists them)
+- permissions (one of `chat:read`, `chat:write`, `data:persist`, `model:generate`, `net:fetch`, `persona:read`, `prompt:write`, `state:read`, `state:write`, `tools:write`, `ui:autoplay`, `ui:unsafe`; any other is refused when the plugin is installed or loaded, and the Plugins page lists them)
 
 #### Compatibility (optional)
 - loaded_before (array of handle (or author+handle), this plugin must be loaded before these plugins)
@@ -241,6 +249,8 @@ Every hook is one of three kinds, which decides how the host runs it:
 The kind is part of the WIT, so an observer can never hold up a generation. Variations share one hook with a reason field rather than getting their own (`before-generate` has a `kind` of `new`, `regenerate`, `continue` or `swipe`), and `register-hook` should take a filter (only realms, only a given tool, ...) so plugins aren't called for everything.
 
 #### Planned hooks
+Every hook that happens inside a conversation carries its id, and its message id once one exists, so a plugin can tell which chat it is acting on: `prompt-build`, `lorebook-activate` and a source node's call carry the conversation as an optional id, since a slash command or a preview assembles a prompt outside one.
+
 `user-message` (needs `chat:write`), `lorebook-activate` and `prompt-build` (both need `prompt:write`), `message-finalize` (needs `chat:write`), `after-generate` (needs `chat:read`), `tool-call` and `tool-result` (both need `tools:write`), `turn-start` and `turn-end` (both need `chat:read`), and the lifecycle hooks `upgrade`, `settings-changed` and `shutdown` (no permission) exist so far. `user-message` is a gate: it gets the conversation and the text the user sent for a reply (a new message or a branch, not an edit, which starts no generation) before it's saved, and answers a `verdict` of `allow`, `change(text)` or `deny(reason)`. The first denial stops the rest; nothing is saved, and the request fails with `chat.refused`, naming the plugin and its reason. `message-finalize` gets a chat reply's conversation and content just before it's saved, and returns the content to save; the client shows the saved version once streaming ends. `after-generate` then gets the saved reply's conversation, message id and content. Realm turns fire none of these except `lorebook-activate`, which runs wherever lorebooks are assembled (chat, realms, slash commands): once per world info node in the template, with that node's slot (`prelude`, `setting`, ...) and its activated entries as `{id, content, priority}` in insertion order. It returns the entries to insert, and may drop, rewrite, reorder or add them; the node's `max_entries` applies afterwards. `tool-call` is a gate that runs wherever tools do (chat, realm agents), before each call the model makes: it gets the tool's name and arguments as JSON, and answers `allow`, `change(arguments)` or `deny(reason)`. A change that isn't JSON is ignored and logged. A denial stops the rest, and the tool doesn't run; the model gets "refused by plugin `handle`: reason" as the call's error result, and the reply carries on. `tool-result` then gets every call's name, arguments, result (what the tool returned, or its error message as a JSON string, refusals included) and whether it's an error, and returns the result the model sees, as JSON. It can't turn an error into a success or back; a change that isn't JSON is ignored and logged. `turn-start` and `turn-end` observe every realm turn (an agent's, whether or not it calls the model, or a player's): `turn-start` gets the conversation and the acting agent's handle once the agent is picked, before its prompt is built, and `turn-end` also gets the saved message's id and content. Observers aren't ordered against each other, so a quick turn's `turn-end` may arrive before its `turn-start`.
 
 The lifecycle hooks:
@@ -300,8 +310,10 @@ Apart from hook registering, a plugin will need to ship with a variety of comman
 - `settings()`: the user's settings for the plugin; see Settings.
 - `http-fetch(request)`, gated by `net:fetch`: sends an http(s) request to a host in `[network] hosts` and returns the whole response (at most 16 MiB). Redirects aren't followed, so a request can't leave those hosts. A header value may contain `{secret:name}`, where `name` is a setting declared as `Ref<type>` of an API key type: the server puts the user's key there, only over https or to this machine, and the plugin never sees it. Time spent waiting doesn't count toward the call's limit. Instead, the request fails if connecting takes over 10 seconds or the response goes 30 seconds without sending anything; a steady stream, like audio, can take as long as it needs. Requests carry `User-Agent: Lorealm/{version} (plugin {handle}@{version})` unless the plugin sets its own.
 - `persist-data(key, value)`, `load-data(key)`, `delete-data(key)`: bytes stored per user and plugin (keys up to 256 bytes, values up to 1 MiB), gated by `data:persist`. Data outlives disabling the plugin.
-- `generate_raw(prompt: String)`
-- `generate()`
+- `messages(conversation, range)`, gated by `chat:read`: the conversation's active branch, oldest first, as `{id, role, content}`. Only the user's own conversations; any other is refused. The `range` is either `all` or `latest(n)`, so a plugin that wants the last few messages doesn't read the whole chat.
+- `generate(messages, profile?)`, gated by `model:generate`: sends `messages` to one of the user's connection profiles, or the active one, and returns what the model said. No tools are offered and nothing is saved. It costs the user money, which is why it has a permission of its own rather than sharing `net:fetch`. Like `http-fetch`, time spent waiting doesn't count toward the call's limit; instead it gives up after `plugins.generate_timeout` seconds (default 120).
+
+  Inside a **blocking** frontend call about a conversation it takes that conversation's generation slot, the same one a streaming reply holds: `DELETE /chat/{id}/completions` — the user's stop button — cancels it, and it is refused with `that conversation is already generating` if a reply or command is already running there. Everywhere else, including every hook, it runs alongside whatever the conversation is doing and cannot be stopped, because taking the slot there would displace the token of the very generation that triggered the hook. A cancelled generation answers with whatever text had arrived, which may be empty, so a plugin can't tell a stop from a short reply.
 - `get_character`, `get_lorebook`, `get_context_template`, `etc.`
 - `update_character`, `update_lorebook`, `update_context_template`, `etc.`
 

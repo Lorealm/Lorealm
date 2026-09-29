@@ -2,12 +2,12 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sqlx::types::Json;
 
+use super::NOW;
 use crate::{
     StorageError, UserToolStorage,
     backends::SqliteStorage,
     models::{Param, Snowflake, ToolSurface, UserTool},
 };
-use super::NOW;
 
 #[derive(sqlx::FromRow)]
 struct SqliteUserTool {
@@ -74,8 +74,8 @@ impl UserToolStorage for SqliteStorage {
     }
 
     async fn save_tool(&self, tool: UserTool) -> Result<(), StorageError> {
-        sqlx::query(
-            &format!(r#"INSERT INTO user_tools
+        sqlx::query(&format!(
+            r#"INSERT INTO user_tools
                 (id, user_id, name, display_name, description, params, body, surface, enabled)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             ON CONFLICT (id) DO UPDATE SET
@@ -86,8 +86,8 @@ impl UserToolStorage for SqliteStorage {
                 body = EXCLUDED.body,
                 surface = EXCLUDED.surface,
                 enabled = EXCLUDED.enabled,
-                updated_at = {NOW}"#),
-        )
+                updated_at = {NOW}"#
+        ))
         .bind(tool.id)
         .bind(tool.user_id)
         .bind(&tool.name)
@@ -104,11 +104,13 @@ impl UserToolStorage for SqliteStorage {
     }
 
     async fn set_tool_enabled(&self, id: Snowflake, enabled: bool) -> Result<(), StorageError> {
-        sqlx::query(&format!(r#"UPDATE user_tools SET enabled = $2, updated_at = {NOW} WHERE id = $1"#))
-            .bind(id)
-            .bind(enabled)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(&format!(
+            r#"UPDATE user_tools SET enabled = $2, updated_at = {NOW} WHERE id = $1"#
+        ))
+        .bind(id)
+        .bind(enabled)
+        .execute(&self.pool)
+        .await?;
 
         Ok(())
     }

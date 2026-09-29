@@ -65,9 +65,9 @@ impl CharacterStorage for PostgresStorage {
         let examples = fetch_examples(&self.pool, id).await?;
         let widgets = fetch_widgets(&self.pool, id).await?;
 
-        Ok(Some(row.into_character(
-            tags, greetings, examples, widgets,
-        )?))
+        Ok(Some(
+            row.into_character(tags, greetings, examples, widgets)?,
+        ))
     }
 
     async fn get_character_at_version(

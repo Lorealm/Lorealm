@@ -4,6 +4,7 @@ import { layers } from '$lib/keys/layers.svelte.js';
 import { chatStore } from '$lib/stores/chat.svelte.js';
 import { showToast } from '$lib/stores/errorToast.svelte.js';
 import { messageStateStore } from '$lib/stores/messageState.svelte.js';
+import { pluginCalls } from '$lib/stores/pluginCalls.svelte.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type { CommandEffect, CommandRun, UserTool } from '$lib/types/tools.js';
 import { slashCommands } from './registry.svelte.js';
@@ -84,8 +85,9 @@ function toSlashCommand(tool: UserTool): SlashCommand {
 		enabled: () =>
 			chatStore.conversationId !== null &&
 			serverCommands.running === null &&
+			pluginCalls.waitingOn(chatStore.conversationId) === null &&
 			!chatStore.isStreaming,
-		unavailable: 'Wait for the current reply or command to finish.',
+		unavailable: 'Wait for the current reply, command or plugin to finish.',
 		run: async ({ named, rest }) => {
 			const conversationId = chatStore.conversationId;
 			if (!conversationId) return;

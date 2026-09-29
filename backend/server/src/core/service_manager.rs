@@ -1,4 +1,7 @@
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::{Arc, Weak},
+    time::Duration,
+};
 
 use async_trait::async_trait;
 use lorealm_encryption::LocalKeyManager;
@@ -184,8 +187,9 @@ impl ServiceManager {
         ));
 
         // The generate commands a tool body may call need an owned handle to
-        // the service that runs them.
+        // the service that runs them. A plugin's `generate` goes the same way.
         chat.set_self(Arc::downgrade(&chat));
+        plugins.set_generation(Arc::downgrade(&chat) as Weak<dyn Generation>);
 
         let commands = Arc::new(CommandService::new(
             Arc::clone(&storage),

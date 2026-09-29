@@ -53,7 +53,7 @@ class WitWorld(wit_world.WitWorld):
 
     def handle(self, event: wit_world.types.Event) -> wit_world.types.Response:
         if isinstance(event, Event_PromptBuild):
-            return Response_PromptBuild(prompt_build(event.value))
+            return Response_PromptBuild(prompt_build(event.value.messages, event.value.conversation))
         if isinstance(event, Event_Command):
             call = event.value
             arg = string(call.args[0] if call.args else None)
@@ -81,7 +81,7 @@ class WitWorld(wit_world.WitWorld):
         raise Err("unknown event")
 
 
-def prompt_build(prompt: list[Message]) -> list[Message]:
+def prompt_build(prompt: list[Message], conversation: int | None) -> list[Message]:
     # Test controls: the last message's content.
     last = prompt[-1].content if prompt else None
     if last == "loop forever":
@@ -98,6 +98,8 @@ def prompt_build(prompt: list[Message]) -> list[Message]:
     host.log(Level.INFO, f"greeting #{count}")
     print(f"printed greeting #{count}")
     prompt.append(Message(Role.SYSTEM, f"Hello, {persona.name}! #{count}"))
+    if conversation is not None:
+        prompt.append(Message(Role.SYSTEM, f"in conversation {conversation}"))
     return prompt
 
 

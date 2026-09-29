@@ -10,16 +10,8 @@
 	});
 
 	const slots = $derived(pluginsStore.slots('message').filter((s) => s.mode === 'every' || last));
-	const context = $derived({
-		message: {
-			id: message.id,
-			role: message.role,
-			content: message.content,
-			updated_at: message.updated_at
-		}
-	});
 </script>
 
 {#each slots as slot (slot.key)}
-	<PluginSlotView {slot} {context} />
+	<PluginSlotView {slot} conversation={message.conversation_id} {message} />
 {/each}

@@ -1,11 +1,11 @@
 use async_trait::async_trait;
 
+use super::NOW;
 use crate::{
     PersonaStorage, StorageError,
     backends::SqliteStorage,
     models::{PersonaOverride, Snowflake, UserPersona},
 };
-use super::NOW;
 
 #[async_trait]
 impl PersonaStorage for SqliteStorage {
@@ -19,8 +19,8 @@ impl PersonaStorage for SqliteStorage {
         Ok(personas)
     }
     async fn save_persona(&self, create: UserPersona) -> Result<(), StorageError> {
-        sqlx::query(
-            &format!(r#"INSERT INTO user_personas
+        sqlx::query(&format!(
+            r#"INSERT INTO user_personas
                 (id, user_id, name, display_name, pseudonym, avatar_uri, description, updated_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, {NOW})
             ON CONFLICT (id) DO UPDATE SET
@@ -28,8 +28,8 @@ impl PersonaStorage for SqliteStorage {
                 pseudonym = EXCLUDED.pseudonym,
                 avatar_uri = EXCLUDED.avatar_uri,
                 description = EXCLUDED.description,
-                updated_at = {NOW}"#),
-        )
+                updated_at = {NOW}"#
+        ))
         .bind(create.id)
         .bind(create.user_id)
         .bind(create.name)
