@@ -3,6 +3,7 @@
 	import { useApi } from '$lib/api/client.js';
 	import { frameTheme } from '$lib/stores/frameTheme.svelte.js';
 	import { pluginCalls } from '$lib/stores/pluginCalls.svelte.js';
+	import { pluginEvents } from '$lib/stores/pluginEvents.svelte.js';
 	import type { JsonValue, Snowflake } from '$lib/types/core.js';
 
 	let {
@@ -41,14 +42,14 @@
 		'img-src data: blob:; font-src data:; media-src data: blob:';
 
 	/**
-	 * Gives the frame `lorealm` (`call`, `context`, `onContext`) before any
+	 * Gives the frame `lorealm` (`call`, `on`, `context`, `onContext`) before any
 	 * plugin script runs, applies theme and font updates, and reports its height.
 	 */
 	function bridge(context: JsonValue): string {
 		// JSON is valid JS; escaping `<` keeps it from ending the script early.
 		const initial = JSON.stringify(context).replace(/</g, '\\u003c');
 		return `<script>(function () {
-  var pending = {}, next = 0, listeners = [], faces = [];
+  var pending = {}, next = 0, listeners = [], handlers = [], faces = [];
   window.lorealm = {
     context: ${initial},
     call: function (name, args, options) {
@@ -57,6 +58,11 @@
         pending[id] = { resolve: resolve, reject: reject };
         parent.postMessage({ type: 'lorealm:call', id: id, name: name, args: args === undefined ? null : args, blocking: !!(options && options.blocking) }, '*');
       });
+    },
+    on: function (name, listener) {
+      var h = { name: name, listener: listener };
+      handlers.push(h);
+      return function () { handlers = handlers.filter(function (x) { return x !== h; }); };
     },
     onContext: function (listener) {
       listeners.push(listener);
@@ -70,6 +76,8 @@
       var p = pending[d.id];
       delete pending[d.id];
       if (d.ok) p.resolve(d.value); else p.reject(new Error(d.error));
+    } else if (d.type === 'lorealm:event') {
+      handlers.forEach(function (h) { if (h.name === d.name) h.listener(d.payload); });
     } else if (d.type === 'lorealm:context') {
       lorealm.context = d.context;
       listeners.forEach(function (l) { l(d.context); });
@@ -157,6 +165,13 @@
 		const fonts = frameTheme.fonts;
 		if (untrack(() => loaded)) post({ type: 'lorealm:fonts', fonts });
 	});
+
+	// Whatever the plugin's backend sends, for the frame's `on` listeners.
+	$effect(() =>
+		pluginEvents.on(handle, (name, payload) => {
+			if (untrack(() => loaded)) post({ type: 'lorealm:event', name, payload });
+		})
+	);
 
 	function onMessage(e: MessageEvent) {
 		if (!frame || e.source !== frame.contentWindow) return;

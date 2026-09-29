@@ -371,6 +371,9 @@ interface host {
     /// Stops receiving the events emitted under `topic`.
     unsubscribe: func(topic: string) -> result<_, string>;
 
+    /// Sends `payload` to the plugin's own frontend.
+    send-frontend: func(name: string, payload: json) -> result<_, string>;
+
     /// The user's active persona. Requires the `persona:read` permission.
     active-persona: func() -> result<persona, string>;
 

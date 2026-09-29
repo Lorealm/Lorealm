@@ -6,7 +6,7 @@ wit_bindgen::generate!({
 use lorealm::plugin::host::{
     active_persona, delete_data, emit, generate, http_fetch, load_data, log, messages,
     persist_data, register_command, register_hook, register_processor, register_source_node,
-    settings, subscribe, unsubscribe,
+    send_frontend, settings, subscribe, unsubscribe,
 };
 use lorealm::plugin::types::{
     Block, CommandCall, CommandSignature, CustomEvent, Finalizing, FrontendCall, Generated, Hook,
@@ -117,6 +117,11 @@ impl Guest for Hello {
                         args["topic"].as_str().unwrap_or_default(),
                         &args["payload"].to_string(),
                     )?;
+                    Ok(Response::Frontend("null".into()))
+                }
+                // Sends `args` back to the frontend as `echo`.
+                "send" => {
+                    send_frontend("echo", &args)?;
                     Ok(Response::Frontend("null".into()))
                 }
                 "subscribe" => {

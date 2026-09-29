@@ -1,5 +1,5 @@
 import type { InputSpec } from './blueprint.js';
-import type { Snowflake } from './core.js';
+import type { JsonValue, Snowflake } from './core.js';
 
 export interface PluginSettings {
 	inputs: InputSpec[];
@@ -13,6 +13,13 @@ export interface PluginCallSlot {
 	/** The message it sits under, for a slot that sits under one. */
 	message: Snowflake | null;
 	blocking: boolean;
+}
+
+/** What a plugin's backend sent its frontend. */
+export interface PluginEvent {
+	handle: string;
+	name: string;
+	payload: JsonValue;
 }
 
 /** One place in the client a plugin fills. */

@@ -36,6 +36,7 @@ A living document to help us keep track of the plugin system implementation.
 | 30/09/26      | Added the messages host command     | ✅            |
 | 30/09/26      | Added the generate host command     | ✅            |
 | 30/09/26      | Made blocking calls stoppable       | ✅            |
+| 30/09/26      | Added backend-to-frontend sends     | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -81,7 +82,7 @@ entry = "panel.js"         # an unsafe slot is an ES module
 title = "Greeter"
 unsafe = true
 ```
-Both modes get the same API: `call(name, args, options?)` reaches only the plugin's own backend (`POST /plugins/{handle}/call`, delivered to `handle` as a `frontend` event), `context` says where the slot is, and `onContext(listener)` reports changes. Every slot's context has the same shape, `{ conversation, message }`: `conversation` is the chat the client is showing, or `null` outside one, and `message` is `{ id, role, content, updated_at }` for a `message` slot and `null` for any other. The client sends both alongside every `call`, so the backend half is told which chat and message it is acting on instead of having to trust the arguments.
+Both modes get the same API: `call(name, args, options?)` reaches only the plugin's own backend (`POST /plugins/{handle}/call`, delivered to `handle` as a `frontend` event), `on(name, listener)` receives what that backend sends with `send-frontend` (see Host Commands) and returns a function that stops listening, `context` says where the slot is, and `onContext(listener)` reports changes. Every slot's context has the same shape, `{ conversation, message }`: `conversation` is the chat the client is showing, or `null` outside one, and `message` is `{ id, role, content, updated_at }` for a `message` slot and `null` for any other. The client sends both alongside every `call`, so the backend half is told which chat and message it is acting on instead of having to trust the arguments.
 
 Anything touching user data goes through the backend half, where permissions apply. A secure frame may only play sound after the user clicks in it, unless the plugin has `ui:autoplay`, which lets its frames play sound on their own (`allow="autoplay"`).
 
@@ -308,6 +309,7 @@ Only the host sets `source`, so a plugin cannot pass its lines off as the server
 ### Host Commands
 Apart from hook registering, a plugin will need to ship with a variety of commands to interact with the server. Most of these are permission-gated:
 - `settings()`: the user's settings for the plugin; see Settings.
+- `send-frontend(name, payload)`: sends JSON to the plugin's own frontend, where every open slot's `on(name, listener)` receives it, in each client the user has open. It's sent right away, even if the call later fails. Nothing waits for an answer, and nothing is kept for slots that aren't open or clients that fall behind. The client gets it from one stream for all plugins, `POST /plugins/events`, which it opens when the first slot listens and reopens if it ends.
 - `http-fetch(request)`, gated by `net:fetch`: sends an http(s) request to a host in `[network] hosts` and returns the whole response (at most 16 MiB). Redirects aren't followed, so a request can't leave those hosts. A header value may contain `{secret:name}`, where `name` is a setting declared as `Ref<type>` of an API key type: the server puts the user's key there, only over https or to this machine, and the plugin never sees it. Time spent waiting doesn't count toward the call's limit. Instead, the request fails if connecting takes over 10 seconds or the response goes 30 seconds without sending anything; a steady stream, like audio, can take as long as it needs. Requests carry `User-Agent: Lorealm/{version} (plugin {handle}@{version})` unless the plugin sets its own.
 - `persist-data(key, value)`, `load-data(key)`, `delete-data(key)`: bytes stored per user and plugin (keys up to 256 bytes, values up to 1 MiB), gated by `data:persist`. Data outlives disabling the plugin.
 - `messages(conversation, range)`, gated by `chat:read`: the conversation's active branch, oldest first, as `{id, role, content}`. Only the user's own conversations; any other is refused. The `range` is either `all` or `latest(n)`, so a plugin that wants the last few messages doesn't read the whole chat.

@@ -41,6 +41,7 @@ pub(super) fn router(
         .route("/", put(handlers::set_plugin_order))
         .route("/{handle}", patch(handlers::toggle_plugin_enabled))
         .route("/{handle}/call", post(handlers::call_plugin))
+        .route("/events", post(handlers::frontend_events))
         .route("/{handle}/settings", put(handlers::save_plugin_settings))
         .route("/{handle}/update", post(handlers::update_plugin))
         .route("/install", post(handlers::install_plugin))

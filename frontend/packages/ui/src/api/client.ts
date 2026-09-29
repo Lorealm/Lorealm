@@ -44,6 +44,7 @@ import type {
 	InstallReport,
 	InstalledPlugin,
 	PluginCallSlot,
+	PluginEvent,
 	PluginSettings
 } from '$lib/types/plugins.js';
 import type {
@@ -421,7 +422,9 @@ export function createApiClient(platform: PlatformAPI) {
 					conversation: slot.conversation,
 					message: slot.message,
 					blocking: slot.blocking
-				})
+				}),
+			/** What the user's plugins send their frontends, from now on. */
+			events: () => http.stream<PluginEvent>('/api/v1/plugins/events')
 		},
 		userWidgets: {
 			list: () => http.get<Array<UserWidget>>('/api/v1/widgets'),
