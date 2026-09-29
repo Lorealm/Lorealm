@@ -24,6 +24,13 @@ use crate::{
 pub trait Generation: Send + Sync {
     fn begin_cancel(&self, conversation_id: Snowflake) -> (CancellationToken, CancelGuard);
 
+    /// Takes the conversation's cancellation slot, or `None` if something is
+    /// already generating there.
+    fn try_begin_cancel(
+        &self,
+        conversation_id: Snowflake,
+    ) -> Option<(CancellationToken, CancelGuard)>;
+
     async fn complete(
         &self,
         owner: Snowflake,
@@ -46,6 +53,13 @@ pub trait Generation: Send + Sync {
 impl Generation for ChatService {
     fn begin_cancel(&self, conversation_id: Snowflake) -> (CancellationToken, CancelGuard) {
         ChatService::begin_cancel(self, conversation_id)
+    }
+
+    fn try_begin_cancel(
+        &self,
+        conversation_id: Snowflake,
+    ) -> Option<(CancellationToken, CancelGuard)> {
+        ChatService::try_begin_cancel(self, conversation_id)
     }
 
     async fn complete(

@@ -533,6 +533,7 @@ impl ChatService {
         &self,
         spec: &AgentSpec,
         realm: Option<&Realm>,
+        conversation: Option<Snowflake>,
         thread: &[PromptTurn],
         baseline: &ReconstructedState,
         widget_prompts: &[String],
@@ -578,6 +579,7 @@ impl ChatService {
         let trace = {
             let ctx = ResolveContext {
                 character: character.as_ref(),
+                conversation,
                 messages: &thread,
                 persona: persona.as_ref(),
                 user_id: spec.owner,
@@ -616,7 +618,10 @@ impl ChatService {
             trace,
             usage,
         } = evaluator.build().evaluate(trace)?;
-        let messages = self.plugins.prompt_build(spec.owner, messages).await;
+        let messages = self
+            .plugins
+            .prompt_build(spec.owner, conversation, messages)
+            .await;
 
         Ok(Prepared {
             prompt: messages,
@@ -668,6 +673,28 @@ impl ChatService {
             profile_id: self.state.get_active_profile(user_id).await?.id,
             lorebook_ids: None,
         })
+    }
+
+    /// Like [`Self::begin_cancel`], but refuses when the conversation is
+    /// already generating rather than displacing its token.
+    pub(crate) fn try_begin_cancel(
+        &self,
+        convo_id: Snowflake,
+    ) -> Option<(CancellationToken, CancelGuard)> {
+        let cancel = CancellationToken::new();
+        match self.cancellations.entry(convo_id) {
+            dashmap::Entry::Occupied(_) => None,
+            dashmap::Entry::Vacant(slot) => {
+                slot.insert(cancel.clone());
+                Some((
+                    cancel,
+                    CancelGuard {
+                        map: Arc::clone(&self.cancellations),
+                        key: convo_id,
+                    },
+                ))
+            }
+        }
     }
 
     pub(crate) fn begin_cancel(&self, convo_id: Snowflake) -> (CancellationToken, CancelGuard) {
@@ -743,6 +770,7 @@ impl ChatService {
             .assemble_context(
                 &spec,
                 None,
+                Some(convo_id),
                 &turns,
                 &baseline,
                 &widget_prompts,
@@ -1222,7 +1250,16 @@ impl ChatService {
             prompt: mut messages,
             ..
         } = self
-            .assemble_context(&spec, None, &turns, &baseline, &[], &[], &convo.author_note)
+            .assemble_context(
+                &spec,
+                None,
+                Some(conversation_id),
+                &turns,
+                &baseline,
+                &[],
+                &[],
+                &convo.author_note,
+            )
             .await?;
 
         messages.push(PromptMessage {
@@ -1238,6 +1275,7 @@ impl ChatService {
         &self,
         spec: &AgentSpec,
         realm: &Realm,
+        conversation: Snowflake,
         turns: &[PromptTurn],
         baseline: &ReconstructedState,
         policy: &ToolPolicy,
@@ -1254,6 +1292,7 @@ impl ChatService {
             .assemble_context(
                 spec,
                 Some(realm),
+                Some(conversation),
                 turns,
                 baseline,
                 widget_prompts,

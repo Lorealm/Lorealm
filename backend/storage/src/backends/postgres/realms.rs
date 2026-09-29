@@ -37,7 +37,9 @@ impl RealmStorage for PostgresStorage {
         .fetch_all(&self.pool)
         .await?;
 
-        rows.into_iter().map(RealmSummaryRow::into_summary).collect()
+        rows.into_iter()
+            .map(RealmSummaryRow::into_summary)
+            .collect()
     }
 
     async fn get_realm(&self, id: Snowflake) -> Result<Option<Realm>, StorageError> {
@@ -363,11 +365,7 @@ impl RealmStorage for PostgresStorage {
         tx.commit().await?;
         Ok(())
     }
-
-
 }
-
-
 
 #[derive(FromRow)]
 struct RealmSummaryRow {

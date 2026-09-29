@@ -75,8 +75,8 @@ impl LorebookStorage for SqliteStorage {
     async fn save_lorebook(&self, lorebook: &Lorebook) -> Result<Snowflake, StorageError> {
         let mut tx = self.pool.begin().await?;
 
-        sqlx::query(
-            &format!("INSERT INTO lorebooks
+        sqlx::query(&format!(
+            "INSERT INTO lorebooks
                 (id, owner_id, current_version_id, name, description, config_yaml,
                  schema_version, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, {NOW}, {NOW})
@@ -87,8 +87,8 @@ impl LorebookStorage for SqliteStorage {
                 description        = EXCLUDED.description,
                 config_yaml        = EXCLUDED.config_yaml,
                 schema_version     = EXCLUDED.schema_version,
-                updated_at         = {NOW}"),
-        )
+                updated_at         = {NOW}"
+        ))
         .bind(lorebook.id)
         .bind(lorebook.owner_id)
         .bind(lorebook.current_version_id)

@@ -1,7 +1,7 @@
 //! Drives `OpenAiProvider` against a stub HTTP server that answers the way a
 //! local KoboldCPP-style endpoint does: no authentication, SSE streaming, and
 //! a bare `/models` listing.
-//! 
+//!
 //! This particular test was generated with Claude Opus 5
 
 use futures::StreamExt;

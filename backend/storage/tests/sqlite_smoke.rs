@@ -1,4 +1,4 @@
-//! AI-generated runtime smoke test for the SQLite backend. 
+//! AI-generated runtime smoke test for the SQLite backend.
 
 use std::collections::HashMap;
 
@@ -13,7 +13,9 @@ use lorealm_storage::{
 async fn db() -> SqliteStorage {
     let dir = std::env::temp_dir().join(format!("lorealm-sqlite-smoke-{}", uuid_like()));
     std::fs::create_dir_all(&dir).unwrap();
-    let mut s = SqliteStorage::new(dir.join("test.db"), 5, true).await.unwrap();
+    let mut s = SqliteStorage::new(dir.join("test.db"), 5, true)
+        .await
+        .unwrap();
     s.initialize().await.unwrap();
     s
 }
@@ -22,7 +24,10 @@ fn uuid_like() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     format!(
         "{}-{}",
-        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
         std::process::id()
     )
 }
@@ -98,11 +103,17 @@ async fn expired_sessions_are_not_returned() {
     s.create_session(&dead).await.unwrap();
 
     assert!(
-        s.get_session_by_token("live-token").await.unwrap().is_some(),
+        s.get_session_by_token("live-token")
+            .await
+            .unwrap()
+            .is_some(),
         "a session expiring in 2h must be returned"
     );
     assert!(
-        s.get_session_by_token("dead-token").await.unwrap().is_none(),
+        s.get_session_by_token("dead-token")
+            .await
+            .unwrap()
+            .is_none(),
         "a session that expired 2h ago must NOT be returned"
     );
 
@@ -111,8 +122,16 @@ async fn expired_sessions_are_not_returned() {
     assert_eq!(listed[0].token, "live-token");
 
     let purged = s.cleanup_expired().await.unwrap();
-    assert_eq!(purged, 1, "cleanup should remove exactly the expired session");
-    assert!(s.get_session_by_token("live-token").await.unwrap().is_some());
+    assert_eq!(
+        purged, 1,
+        "cleanup should remove exactly the expired session"
+    );
+    assert!(
+        s.get_session_by_token("live-token")
+            .await
+            .unwrap()
+            .is_some()
+    );
 }
 
 #[tokio::test]
@@ -162,7 +181,10 @@ async fn revoking_a_session_hides_it_from_listings() {
     assert_eq!(s.list_user_sessions(user).await.unwrap().len(), 1);
     s.revoke_session(Snowflake(20)).await.unwrap();
     assert_eq!(s.list_user_sessions(user).await.unwrap().len(), 0);
-    assert!(s.revoke_session(Snowflake(20)).await.is_err(), "double revoke errors");
+    assert!(
+        s.revoke_session(Snowflake(20)).await.is_err(),
+        "double revoke errors"
+    );
 }
 
 #[tokio::test]
@@ -288,7 +310,11 @@ async fn recursive_active_path_walks_the_message_tree() {
             id: *id,
             conversation_id: convo,
             parent,
-            role: if i % 2 == 0 { ChatRole::User } else { ChatRole::Assistant },
+            role: if i % 2 == 0 {
+                ChatRole::User
+            } else {
+                ChatRole::Assistant
+            },
             content: format!("msg{i}"),
             order: 0,
             metadata: serde_json::json!({"i": i}),
@@ -314,7 +340,10 @@ async fn recursive_active_path_walks_the_message_tree() {
 
     let listed = s.list_conversations(user).await.unwrap();
     assert_eq!(listed.len(), 1);
-    assert_eq!(listed[0].length, 3, "active-path length comes from the recursive CTE");
+    assert_eq!(
+        listed[0].length, 3,
+        "active-path length comes from the recursive CTE"
+    );
 }
 
 /// The Postgres CHECK uses `name ~ '^[a-zA-Z0-9_-]{1,64}$'`; SQLite uses a
@@ -338,13 +367,19 @@ async fn tool_name_check_matches_the_postgres_regex() {
         updated_at: Utc::now(),
     };
 
-    for (i, ok) in ["roll_dice", "a", "A-Z_0-9", &"x".repeat(64)].iter().enumerate() {
+    for (i, ok) in ["roll_dice", "a", "A-Z_0-9", &"x".repeat(64)]
+        .iter()
+        .enumerate()
+    {
         s.save_tool(tool(ok, 700 + i as i64))
             .await
             .unwrap_or_else(|e| panic!("{ok:?} should be accepted: {e}"));
     }
 
-    for (i, bad) in ["", "has space", "dots.bad", "sym!", &"y".repeat(65)].iter().enumerate() {
+    for (i, bad) in ["", "has space", "dots.bad", "sym!", &"y".repeat(65)]
+        .iter()
+        .enumerate()
+    {
         assert!(
             s.save_tool(tool(bad, 800 + i as i64)).await.is_err(),
             "{bad:?} should be rejected by the CHECK constraint"
@@ -366,22 +401,38 @@ async fn plugin_data_round_trips_arbitrary_bytes() {
     let user = a_user(&s, 8).await;
 
     let payload: Vec<u8> = vec![0x00, 0xff, 0xfe, 0x01, 0x80, b'\n', 0x7f];
-    s.set_plugin_data(user, "tts", "voice", &payload).await.unwrap();
+    s.set_plugin_data(user, "tts", "voice", &payload)
+        .await
+        .unwrap();
 
     let got = s.get_plugin_data(user, "tts", "voice").await.unwrap();
-    assert_eq!(got.as_deref(), Some(payload.as_slice()), "bytes must be unchanged");
+    assert_eq!(
+        got.as_deref(),
+        Some(payload.as_slice()),
+        "bytes must be unchanged"
+    );
 
     // Overwrite via the ON CONFLICT path.
     let replacement = vec![0xde, 0xad, 0xbe, 0xef];
-    s.set_plugin_data(user, "tts", "voice", &replacement).await.unwrap();
+    s.set_plugin_data(user, "tts", "voice", &replacement)
+        .await
+        .unwrap();
     assert_eq!(
-        s.get_plugin_data(user, "tts", "voice").await.unwrap().as_deref(),
+        s.get_plugin_data(user, "tts", "voice")
+            .await
+            .unwrap()
+            .as_deref(),
         Some(replacement.as_slice()),
         "upsert must replace, not append or duplicate"
     );
 
     s.delete_plugin_data(user, "tts", "voice").await.unwrap();
-    assert!(s.get_plugin_data(user, "tts", "voice").await.unwrap().is_none());
+    assert!(
+        s.get_plugin_data(user, "tts", "voice")
+            .await
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[tokio::test]
@@ -398,10 +449,17 @@ async fn plugin_settings_and_version_upsert() {
     let got = s.get_plugin_settings(user, "tts").await.unwrap();
     assert_eq!(got, Some(serde_json::json!({"rate": 2.0})));
 
-    s.set_plugin_data_version(user, "tts", "1.0.0").await.unwrap();
-    s.set_plugin_data_version(user, "tts", "1.1.0").await.unwrap();
+    s.set_plugin_data_version(user, "tts", "1.0.0")
+        .await
+        .unwrap();
+    s.set_plugin_data_version(user, "tts", "1.1.0")
+        .await
+        .unwrap();
     assert_eq!(
-        s.get_plugin_data_version(user, "tts").await.unwrap().as_deref(),
+        s.get_plugin_data_version(user, "tts")
+            .await
+            .unwrap()
+            .as_deref(),
         Some("1.1.0")
     );
 }
@@ -461,7 +519,10 @@ async fn foreign_keys_are_enforced() {
             updated_at: Utc::now(),
         })
         .await;
-    assert!(orphan.is_err(), "conversation for a nonexistent user must be rejected");
+    assert!(
+        orphan.is_err(),
+        "conversation for a nonexistent user must be rejected"
+    );
 }
 
 #[tokio::test]
@@ -567,7 +628,11 @@ async fn saving_a_character_satisfies_the_deferred_fk_cycle() {
         .await
         .expect("deferred FK cycle must commit");
 
-    let got = s.get_character(Snowflake(2000)).await.unwrap().expect("character");
+    let got = s
+        .get_character(Snowflake(2000))
+        .await
+        .unwrap()
+        .expect("character");
     assert_eq!(got.definition.name, "Aria");
     assert_eq!(got.metadata.card_version, "1.2.0");
     assert_eq!(got.extensions, serde_json::json!({"x": 1}));
@@ -599,10 +664,17 @@ async fn character_listing_reads_tags_and_json_fields() {
     let list = s.list_characters(user).await.unwrap();
     assert_eq!(list.len(), 2);
 
-    let tagged = list.iter().find(|c| c.id == Snowflake(2100)).expect("tagged");
+    let tagged = list
+        .iter()
+        .find(|c| c.id == Snowflake(2100))
+        .expect("tagged");
     let mut tags = tagged.tags.clone();
     tags.sort();
-    assert_eq!(tags, vec!["blue".to_string(), "red".to_string()], "json_group_array tags");
+    assert_eq!(
+        tags,
+        vec!["blue".to_string(), "red".to_string()],
+        "json_group_array tags"
+    );
 
     // These four all come from `snapshot->'...'->>'...'`
     assert_eq!(tagged.name, "Tagged", "name via ->> operator");
@@ -610,7 +682,10 @@ async fn character_listing_reads_tags_and_json_fields() {
     assert_eq!(tagged.avatar_uri.as_deref(), Some("blob://avatar"));
     assert_eq!(tagged.card_version, "1.2.0");
 
-    let untagged = list.iter().find(|c| c.id == Snowflake(2200)).expect("untagged");
+    let untagged = list
+        .iter()
+        .find(|c| c.id == Snowflake(2200))
+        .expect("untagged");
     assert!(
         untagged.tags.is_empty(),
         "a character with no tags must yield an empty vec, not NULL"
@@ -623,11 +698,15 @@ async fn character_versions_accumulate_and_restore() {
     let user = a_user(&s, 22).await;
 
     let mut ch = a_character(2300, user, "V1", vec![]);
-    s.save_character(&ch, VersionedSaveMode::NewVersion).await.unwrap();
+    s.save_character(&ch, VersionedSaveMode::NewVersion)
+        .await
+        .unwrap();
 
     ch.current_version_id = Snowflake(2300 + 2_000_000);
     ch.definition.name = "V2".into();
-    s.save_character(&ch, VersionedSaveMode::NewVersion).await.unwrap();
+    s.save_character(&ch, VersionedSaveMode::NewVersion)
+        .await
+        .unwrap();
 
     let versions = s.list_character_versions(Snowflake(2300)).await.unwrap();
     assert_eq!(versions.len(), 2, "both versions must be listed");
@@ -662,26 +741,40 @@ async fn template_listing_counts_nodes_via_json1() {
         updated_at: Utc::now(),
     };
 
-    s.save_template(&mk(2400, "three", serde_json::json!([{"a":1},{"b":2},{"c":3}])))
+    s.save_template(&mk(
+        2400,
+        "three",
+        serde_json::json!([{"a":1},{"b":2},{"c":3}]),
+    ))
+    .await
+    .unwrap();
+    s.save_template(&mk(2401, "empty", serde_json::json!([])))
         .await
         .unwrap();
-    s.save_template(&mk(2401, "empty", serde_json::json!([]))).await.unwrap();
     s.save_template(&mk(2402, "object", serde_json::json!({"not":"an array"})))
         .await
         .unwrap();
 
     let list = s.list_templates(user).await.unwrap();
-    let by_id = |id: i64| list.iter().find(|t| t.id == Snowflake(id)).expect("template");
+    let by_id = |id: i64| {
+        list.iter()
+            .find(|t| t.id == Snowflake(id))
+            .expect("template")
+    };
 
     assert_eq!(by_id(2400).node_count, 3, "array of 3 -> node_count 3");
     assert_eq!(by_id(2401).node_count, 0, "empty array -> 0");
     assert_eq!(
-        by_id(2402).node_count, 0,
+        by_id(2402).node_count,
+        0,
         "a JSON object is not an array, so node_count falls back to 0"
     );
 
     let fetched = s.get_template(Snowflake(2400)).await.unwrap().unwrap();
-    assert_eq!(fetched.nodes_json, serde_json::json!([{"a":1},{"b":2},{"c":3}]));
+    assert_eq!(
+        fetched.nodes_json,
+        serde_json::json!([{"a":1},{"b":2},{"c":3}])
+    );
     assert!(s.template_exists(Snowflake(2400)).await.unwrap());
     assert!(s.template_name_exists(user, "three", None).await.unwrap());
 }
@@ -700,6 +793,11 @@ async fn deleting_a_character_removes_versions_and_tags() {
 
     assert!(s.delete_character(Snowflake(2500)).await.unwrap());
     assert!(s.get_character(Snowflake(2500)).await.unwrap().is_none());
-    assert!(s.list_character_versions(Snowflake(2500)).await.unwrap().is_empty());
+    assert!(
+        s.list_character_versions(Snowflake(2500))
+            .await
+            .unwrap()
+            .is_empty()
+    );
     assert!(s.list_characters(user).await.unwrap().is_empty());
 }

@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { useApi } from '$lib/api/client.js';
-	import type { JsonValue } from '$lib/types/core.js';
+	import { pluginCalls } from '$lib/stores/pluginCalls.svelte.js';
+	import type { JsonValue, Snowflake } from '$lib/types/core.js';
 
 	/** What an unsafe slot's module is handed; the same as a frame's `lorealm`. */
 	interface PluginApi {
 		readonly context: JsonValue;
-		call(name: string, args?: JsonValue): Promise<JsonValue>;
+		call(name: string, args?: JsonValue, options?: { blocking?: boolean }): Promise<JsonValue>;
 		onContext(listener: (context: JsonValue) => void): () => void;
 	}
 
@@ -16,11 +17,16 @@
 	let {
 		handle,
 		entry,
-		context
+		context,
+		conversation = null,
+		message = null
 	}: {
 		handle: string;
 		entry: string;
 		context: JsonValue;
+		/** Where the slot is, sent with every call the plugin makes. */
+		conversation?: Snowflake | null;
+		message?: Snowflake | null;
 	} = $props();
 
 	const api = useApi();
@@ -51,7 +57,20 @@
 			get context() {
 				return current;
 			},
-			call: (name, args) => api.plugins.call(h, name, args ?? null),
+			call: async (name, args, options) => {
+				// A blocking call holds the chat until the plugin answers.
+				const blocking = options?.blocking === true;
+				const release = blocking ? pluginCalls.hold(h, conversation) : null;
+				try {
+					return await api.plugins.call(h, name, args ?? null, {
+						conversation,
+						message,
+						blocking
+					});
+				} finally {
+					release?.();
+				}
+			},
 			onContext(listener) {
 				listeners.add(listener);
 				return () => listeners.delete(listener);

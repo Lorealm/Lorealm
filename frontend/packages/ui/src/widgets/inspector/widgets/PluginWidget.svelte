@@ -1,5 +1,6 @@
 <script lang="ts">
 	import PluginSlotView from '$lib/components/PluginSlotView.svelte';
+	import { chatStore } from '$lib/stores/chat.svelte.js';
 	import type { PluginSlot } from '$lib/stores/plugins.svelte.js';
 	import { ChevronDown } from '@lucide/svelte';
 
@@ -15,7 +16,7 @@
 	</button>
 
 	{#if !collapsed}
-		<PluginSlotView {slot} context={{}} fill />
+		<PluginSlotView {slot} conversation={chatStore.conversationId} fill />
 	{/if}
 </div>
 

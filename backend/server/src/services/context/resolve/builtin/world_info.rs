@@ -138,7 +138,9 @@ impl ContextSource for WorldInfoResolver {
             })
             .collect();
         if let Some(plugins) = &ctx.plugins {
-            entries = plugins.lorebook_activate(node_id, entries).await;
+            entries = plugins
+                .lorebook_activate(ctx.conversation, node_id, entries)
+                .await;
         }
         let mut entries: Vec<BlockPart> = entries
             .into_iter()

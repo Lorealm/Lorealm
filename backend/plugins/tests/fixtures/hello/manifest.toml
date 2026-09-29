@@ -4,7 +4,7 @@ handle = "hello"
 description = "Test fixture that greets the active persona in the prompt and counts greetings."
 author = "Lorealm"
 version = "0.1.0"
-permissions = ["prompt:write", "chat:read", "chat:write", "tools:write", "persona:read", "data:persist", "state:read", "state:write", "ui:unsafe", "net:fetch", "ui:autoplay"]
+permissions = ["prompt:write", "chat:read", "chat:write", "tools:write", "persona:read", "data:persist", "state:read", "state:write", "ui:unsafe", "net:fetch", "ui:autoplay", "model:generate"]
 
 [network]
 hosts = ["example.com", "127.0.0.1:38417"]

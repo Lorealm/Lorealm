@@ -2,13 +2,16 @@
 	import { untrack } from 'svelte';
 	import { useApi } from '$lib/api/client.js';
 	import { frameTheme } from '$lib/stores/frameTheme.svelte.js';
-	import type { JsonValue } from '$lib/types/core.js';
+	import { pluginCalls } from '$lib/stores/pluginCalls.svelte.js';
+	import type { JsonValue, Snowflake } from '$lib/types/core.js';
 
 	let {
 		handle,
 		entry,
 		title,
 		context,
+		conversation = null,
+		message = null,
 		fill = false,
 		autoplay = false
 	}: {
@@ -17,6 +20,9 @@
 		title: string;
 		/** What the slot tells the plugin, such as the message it's attached to. */
 		context: JsonValue;
+		/** Where the slot is, sent with every call the plugin makes. */
+		conversation?: Snowflake | null;
+		message?: Snowflake | null;
 		/** Fill the parent, instead of growing to fit the content. */
 		fill?: boolean;
 		/** Lets it play media without a click first; the `ui:autoplay` permission. */
@@ -45,11 +51,11 @@
   var pending = {}, next = 0, listeners = [], faces = [];
   window.lorealm = {
     context: ${initial},
-    call: function (name, args) {
+    call: function (name, args, options) {
       return new Promise(function (resolve, reject) {
         var id = ++next;
         pending[id] = { resolve: resolve, reject: reject };
-        parent.postMessage({ type: 'lorealm:call', id: id, name: name, args: args === undefined ? null : args }, '*');
+        parent.postMessage({ type: 'lorealm:call', id: id, name: name, args: args === undefined ? null : args, blocking: !!(options && options.blocking) }, '*');
       });
     },
     onContext: function (listener) {
@@ -159,6 +165,7 @@
 			id?: unknown;
 			name?: unknown;
 			args?: unknown;
+			blocking?: unknown;
 			height?: unknown;
 		} | null;
 		if (data?.type === 'lorealm:height' && typeof data.height === 'number') {
@@ -172,16 +179,25 @@
 		)
 			return;
 		const id = data.id;
-		api.plugins.call(handle, data.name, (data.args ?? null) as JsonValue).then(
-			(value) => post({ type: 'lorealm:result', id, ok: true, value }),
-			(err: unknown) =>
-				post({
-					type: 'lorealm:result',
-					id,
-					ok: false,
-					error: err instanceof Error ? err.message : 'The call failed.'
-				})
-		);
+		// A blocking call holds the chat until the plugin answers.
+		const release = data.blocking === true ? pluginCalls.hold(handle, conversation) : null;
+		api.plugins
+			.call(handle, data.name, (data.args ?? null) as JsonValue, {
+				conversation,
+				message,
+				blocking: data.blocking === true
+			})
+			.finally(() => release?.())
+			.then(
+				(value) => post({ type: 'lorealm:result', id, ok: true, value }),
+				(err: unknown) =>
+					post({
+						type: 'lorealm:result',
+						id,
+						ok: false,
+						error: err instanceof Error ? err.message : 'The call failed.'
+					})
+			);
 	}
 </script>
 

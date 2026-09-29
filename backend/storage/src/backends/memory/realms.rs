@@ -5,8 +5,8 @@ use crate::{
     RealmStorage, StorageError,
     backends::MemoryStorage,
     models::{
-        AgentObservation, Realm, RealmCast, RealmEvent, RealmSummary,
-        RealmVersionInfo, Snowflake, TurnCommit, VersionedSaveMode,
+        AgentObservation, Realm, RealmCast, RealmEvent, RealmSummary, RealmVersionInfo, Snowflake,
+        TurnCommit, VersionedSaveMode,
     },
 };
 
@@ -266,6 +266,4 @@ impl RealmStorage for MemoryStorage {
         }
         Ok(())
     }
-
-
 }

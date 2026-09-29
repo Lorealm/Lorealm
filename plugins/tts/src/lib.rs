@@ -21,7 +21,7 @@ impl Guest for Tts {
     }
 
     fn handle(event: Event) -> Result<Response, String> {
-        let Event::Frontend(FrontendCall { name, args }) = event else {
+        let Event::Frontend(FrontendCall { name, args, .. }) = event else {
             return Err("unexpected event".into());
         };
         let args: Value = serde_json::from_str(&args).map_err(|e| e.to_string())?;

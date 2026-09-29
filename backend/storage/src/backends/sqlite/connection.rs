@@ -1,11 +1,11 @@
 use async_trait::async_trait;
 
+use super::NOW;
 use crate::{
     ConnectionStorage, SecretStorage, StorageError,
     backends::SqliteStorage,
     models::{ConnectionProfile, Secret, SecretMetadata, Snowflake},
 };
-use super::NOW;
 
 #[async_trait]
 impl SecretStorage for SqliteStorage {
@@ -38,8 +38,8 @@ impl SecretStorage for SqliteStorage {
     }
 
     async fn save_secret(&self, secret: &Secret) -> Result<(), StorageError> {
-        sqlx::query(
-            &format!("INSERT INTO secrets
+        sqlx::query(&format!(
+            "INSERT INTO secrets
                 (id, user_id, provider, label, key_hint, enc_version, context,
                  salt, nonce, ciphertext, tag, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, {NOW}, {NOW})
@@ -52,8 +52,8 @@ impl SecretStorage for SqliteStorage {
                 nonce       = EXCLUDED.nonce,
                 ciphertext  = EXCLUDED.ciphertext,
                 tag         = EXCLUDED.tag,
-                updated_at  = {NOW}"),
-        )
+                updated_at  = {NOW}"
+        ))
         .bind(secret.id)
         .bind(secret.user_id)
         .bind(&secret.provider)
@@ -112,8 +112,8 @@ impl ConnectionStorage for SqliteStorage {
     }
 
     async fn save_profile(&self, profile: &ConnectionProfile) -> Result<(), StorageError> {
-        sqlx::query(
-            &format!("INSERT INTO connection_profiles
+        sqlx::query(&format!(
+            "INSERT INTO connection_profiles
                 (id, user_id, secret_id, name, provider, model, token_budget,
                  common_params, provider_params, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, {NOW}, {NOW})
@@ -125,8 +125,8 @@ impl ConnectionStorage for SqliteStorage {
                 token_budget    = EXCLUDED.token_budget,
                 common_params   = EXCLUDED.common_params,
                 provider_params = EXCLUDED.provider_params,
-                updated_at      = {NOW}"),
-        )
+                updated_at      = {NOW}"
+        ))
         .bind(profile.id)
         .bind(profile.user_id)
         .bind(profile.secret_id)

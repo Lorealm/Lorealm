@@ -11,6 +11,7 @@ pub const PERMISSIONS: &[&str] = &[
     "chat:read",
     "chat:write",
     "data:persist",
+    "model:generate",
     "net:fetch",
     "persona:read",
     "prompt:write",

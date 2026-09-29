@@ -151,6 +151,9 @@ impl Harness {
             Arc::clone(&plugins),
         ));
         chat.set_self(Arc::downgrade(&chat));
+        plugins.set_generation(
+            Arc::downgrade(&chat) as std::sync::Weak<dyn crate::services::commands::Generation>
+        );
 
         let realms = Arc::new(RealmService::new(
             Arc::clone(&storage),

@@ -5,7 +5,7 @@ use axum::{
     extract::{Path, State},
 };
 use lorealm_plugins::Version;
-use lorealm_storage::models::PluginLog;
+use lorealm_storage::models::{PluginLog, Snowflake};
 use serde::Deserialize;
 
 use crate::{
@@ -157,6 +157,17 @@ pub struct PluginCall {
     pub name: String,
     #[serde(default)]
     pub args: serde_json::Value,
+    /// The conversation the slot is showing, if any.
+    #[serde(default)]
+    pub conversation: Option<Snowflake>,
+    /// The message the slot sits under, if any.
+    #[serde(default)]
+    pub message: Option<Snowflake>,
+    /// Whether the client is waiting for this call: it blocks its chat until
+    /// the plugin answers, and a `generate` inside it takes the conversation's
+    /// generation slot.
+    #[serde(default)]
+    pub blocking: bool,
 }
 
 /// A call from the plugin's frontend to its backend.
@@ -169,7 +180,15 @@ pub async fn call_plugin(
     let value = app_state
         .services()
         .plugins()
-        .call_frontend(session.user_id, &handle, payload.name, payload.args)
+        .call_frontend(
+            session.user_id,
+            &handle,
+            payload.name,
+            payload.args,
+            payload.conversation,
+            payload.message,
+            payload.blocking,
+        )
         .await?;
 
     Ok(Json(value))

@@ -13,6 +13,7 @@ use lorealm_plugins::{
     CommandContext, CommandSignature, LorebookActivation, LorebookEntry, Param, ProcessorSignature,
     Role, SourceNode, ValueType as PluginValueType,
 };
+use lorealm_storage::models::Snowflake;
 use tokio::runtime::Handle;
 use weaver_lang::{
     EvalContext, EvalError, EvalErrorKind, Registry, Value, WeaverCommand, WeaverProcessor,
@@ -129,6 +130,7 @@ impl PluginVocabulary {
     /// logged and skipped.
     pub async fn lorebook_activate(
         &self,
+        conversation: Option<Snowflake>,
         slot: &str,
         entries: Vec<LorebookEntry>,
     ) -> Vec<LorebookEntry> {
@@ -140,6 +142,7 @@ impl PluginVocabulary {
         let Ok(entries): Result<_, Infallible> = mounted
             .pipe(entries, async move |_, p, entries| {
                 let activation = LorebookActivation {
+                    conversation: conversation.map(|id| id.0),
                     slot: slot.clone(),
                     entries,
                 };
@@ -318,13 +321,14 @@ impl ContextSource for PluginSource {
         &self,
         node_id: &str,
         settings: &HashMap<String, serde_json::Value>,
-        _ctx: &ResolveContext<'_>,
+        ctx: &ResolveContext<'_>,
     ) -> Result<Vec<ResolvedBlock>, ContextError> {
         let settings = serde_json::to_string(settings).unwrap_or_else(|_| "{}".into());
         let node = node_id.to_owned();
+        let conversation = ctx.conversation.map(|id| id.0);
         let blocks = self
             .call
-            .call(async move |p| p.resolve_source(node, settings).await)
+            .call(async move |p| p.resolve_source(node, settings, conversation).await)
             .await
             .unwrap_or_default();
         Ok(blocks

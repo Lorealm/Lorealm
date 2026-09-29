@@ -16,6 +16,7 @@
 		'chat:read': 'Read your chats',
 		'chat:write': 'Change or refuse messages before they are saved',
 		'data:persist': 'Store its own data',
+		'model:generate': 'Generate a response on your behalf',
 		'net:fetch': 'Send requests to the hosts below',
 		'persona:read': 'Read your active persona',
 		'prompt:write': 'Change prompts before they are sent',

@@ -3,7 +3,7 @@ use std::{
     convert::Infallible,
     ops::ControlFlow,
     path::PathBuf,
-    sync::Arc,
+    sync::{Arc, OnceLock, Weak},
     time::{Duration, Instant},
 };
 
@@ -11,18 +11,21 @@ use async_trait::async_trait;
 use chrono::Utc;
 use dashmap::DashMap;
 use lorealm_plugins::{
-    Finalizing, FrontendSlot, Generated, HostServices, HttpRequest, HttpResponse, Level,
-    LoadedPlugin, LogEntry, LogSource, Manifest, Message, Persona, PluginHost, PluginInfo,
-    PluginPackage, Role, ToolInvocation, ToolOutput, TurnEnded, TurnStarted, UserInput, Verdict,
-    Version, resolve,
+    ChatMessage, Finalizing, FrontendSlot, Generated, HostServices, HttpRequest, HttpResponse,
+    Level, LoadedPlugin, LogEntry, LogSource, Manifest, Message, MessageRange, Persona, PluginHost,
+    PluginInfo, PluginPackage, PromptAssembly, Role, ToolInvocation, ToolOutput, TurnEnded,
+    TurnStarted, UserInput, Verdict, Version, resolve,
 };
 use lorealm_storage::{
     Storage, StorageError,
-    models::{PluginLog, PluginLogLevel, PluginLogSource, Snowflake, UserPlugin, is_identifier},
+    models::{
+        ChatRole, PluginLog, PluginLogLevel, PluginLogSource, Snowflake, UserPlugin, is_identifier,
+    },
 };
 use secrecy::zeroize::Zeroizing;
 use serde::Serialize;
 use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
 use weaver_lang::InputType;
 
 mod fetch;
@@ -38,8 +41,9 @@ use crate::{
     core::CleanableService,
     errors::PluginError,
     services::{
-        blueprint::InputSpec, chat::PromptMessage, connection::ConnectionService,
-        context::PromptRole, snowflake::SnowflakeService, state::StateService,
+        blueprint::InputSpec, chat::PromptMessage, commands::Generation,
+        connection::ConnectionService, context::PromptRole, snowflake::SnowflakeService,
+        state::StateService,
     },
 };
 
@@ -239,6 +243,10 @@ pub struct PluginService {
     mounted: DashMap<Snowflake, Slot>,
     /// Decrypts the keys plugins put in their requests.
     connection: Arc<ConnectionService>,
+    /// Answers `generate`. Weak, since the chat service holds this one.
+    generation: OnceLock<Weak<dyn Generation>>,
+    /// How long a plugin's `generate` may wait for the model.
+    generate_timeout: Duration,
     /// Sends every plugin's `http-fetch` requests.
     http: reqwest::Client,
 }
@@ -265,13 +273,19 @@ impl PluginService {
             packages: DashMap::new(),
             mounted: DashMap::new(),
             connection,
+            generation: OnceLock::new(),
+            generate_timeout: Duration::from_secs(config.generate_timeout),
             http: fetch::client(),
         }
     }
 
+    /// Hands the service what answers `generate`.
+    pub fn set_generation(&self, generation: Weak<dyn Generation>) {
+        let _ = self.generation.set(generation);
+    }
+
     /// Every installed plugin, at the version the user is on or else the
-    /// latest. `allow_unsafe` is whether the user may run unsafe slots; others
-    /// are left out of each plugin's `slots`.
+    /// latest.
     pub async fn list(
         &self,
         user_id: Snowflake,
@@ -511,6 +525,9 @@ impl PluginService {
         handle: &str,
         name: String,
         args: serde_json::Value,
+        conversation: Option<Snowflake>,
+        message: Option<Snowflake>,
+        blocking: bool,
     ) -> Result<serde_json::Value, PluginError> {
         let slot = self.mount(user_id).await;
         let mut guard = slot.lock().await;
@@ -519,8 +536,12 @@ impl PluginService {
             .filter(|m| m.plugins.iter().any(|(h, _)| h == handle))
             .ok_or_else(|| PluginError::NotFound(handle.to_owned()))?;
         let args = args.to_string();
+        let (conversation, message) = (conversation.map(|id| id.0), message.map(|id| id.0));
         let json = mounted
-            .call(handle, async |p| p.call_frontend(name, args).await)
+            .call(handle, async |p| {
+                p.call_frontend(name, args, conversation, message, blocking)
+                    .await
+            })
             .await
             .map_err(|e| PluginError::CallFailed(handle.to_owned(), e))?;
         serde_json::from_str(&json)
@@ -656,12 +677,18 @@ impl PluginService {
     pub async fn prompt_build(
         &self,
         user_id: Snowflake,
+        conversation: Option<Snowflake>,
         prompt: Vec<PromptMessage>,
     ) -> Vec<PromptMessage> {
         let messages: Vec<Message> = prompt.into_iter().map(Into::into).collect();
+        let conversation = conversation.map(|id| id.0);
         let Ok(messages): Result<_, Infallible> = self
             .pipe(user_id, messages, async move |_, p, messages| {
-                Ok(ControlFlow::Continue(p.prompt_build(messages).await?))
+                let assembly = PromptAssembly {
+                    conversation,
+                    messages,
+                };
+                Ok(ControlFlow::Continue(p.prompt_build(assembly).await?))
             })
             .await;
         messages.into_iter().map(Into::into).collect()
@@ -932,6 +959,8 @@ impl PluginService {
                 settings: tokio::fs::read_to_string(settings).await.ok(),
                 key_types: Arc::clone(&key_types),
                 connection: Arc::clone(&self.connection),
+                generation: self.generation.get().cloned(),
+                generate_timeout: self.generate_timeout,
                 http: self.http.clone(),
                 user_agent: fetch::user_agent(&handle, &package.manifest.plugin.version),
             });
@@ -956,7 +985,7 @@ impl PluginService {
     }
 
     /// Brings the user's data up to `version` of the plugin.
-    /// 
+    ///
     /// Returns whether the plugin may run
     async fn upgrade(
         &self,
@@ -1125,6 +1154,10 @@ struct UserServices {
     /// The API key types the user's loaded plugins declare.
     key_types: Arc<Vec<String>>,
     connection: Arc<ConnectionService>,
+    /// Answers `generate`, if the service was given one.
+    generation: Option<Weak<dyn Generation>>,
+    /// How long `generate` may wait for the model.
+    generate_timeout: Duration,
     http: reqwest::Client,
     /// Sent with its requests unless they set their own.
     user_agent: String,
@@ -1196,6 +1229,89 @@ impl HostServices for UserServices {
             }
         }
         fetch::send(&self.http, request, &self.user_agent).await
+    }
+
+    /// Only the user's own conversations, and only the branch they are on.
+    async fn messages(
+        &self,
+        conversation: i64,
+        range: MessageRange,
+    ) -> Result<Vec<ChatMessage>, String> {
+        let id = Snowflake(conversation);
+        let convo = self
+            .storage
+            .get_conversation(id)
+            .await
+            .map_err(|err| self.storage_error(err))?
+            .filter(|c| c.user_id == self.user_id)
+            .ok_or("no such conversation")?;
+        let path = self
+            .storage
+            .get_active_path(convo.id)
+            .await
+            .map_err(|err| self.storage_error(err))?;
+        let wanted = match range {
+            MessageRange::All => path.len(),
+            MessageRange::Latest(n) => (n as usize).min(path.len()),
+        };
+        Ok(path[path.len() - wanted..]
+            .iter()
+            .map(|m| ChatMessage {
+                id: m.id.0,
+                role: match m.role {
+                    ChatRole::System => Role::System,
+                    ChatRole::User => Role::User,
+                    ChatRole::Assistant => Role::Assistant,
+                },
+                content: m.content.clone(),
+            })
+            .collect())
+    }
+
+    /// Runs one completion through the user's profile. Nothing is saved.
+    async fn generate(
+        &self,
+        messages: Vec<Message>,
+        profile: Option<i64>,
+        conversation: Option<i64>,
+        blocking: bool,
+    ) -> Result<String, String> {
+        let chat = self
+            .generation
+            .as_ref()
+            .and_then(Weak::upgrade)
+            .ok_or("generating isn't available")?;
+        let profile = match profile {
+            Some(id) => Snowflake(id),
+            None => {
+                self.state
+                    .get_active_profile(self.user_id)
+                    .await
+                    .map_err(|err| format!("no connection profile: {err}"))?
+                    .id
+            }
+        };
+        let prompt = messages.into_iter().map(Into::into).collect();
+        // The guard holds the slot for as long as the completion runs.
+        let slot = match conversation.filter(|_| blocking).map(Snowflake) {
+            Some(id) => Some(
+                chat.try_begin_cancel(id)
+                    .ok_or("that conversation is already generating")?,
+            ),
+            None => None,
+        };
+        let cancel = match &slot {
+            Some((token, _)) => token.clone(),
+            None => CancellationToken::new(),
+        };
+        let waited = chat.complete(self.user_id, profile, prompt, cancel);
+        match tokio::time::timeout(self.generate_timeout, waited).await {
+            Ok(reply) => reply.map_err(|err| err.to_string()),
+            Err(_) => Err(format!(
+                "the model didn't answer within {}s",
+                self.generate_timeout.as_secs()
+            )),
+        }
     }
 
     async fn log(&self, entries: Vec<LogEntry>) {

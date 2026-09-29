@@ -1,11 +1,11 @@
 use async_trait::async_trait;
 
+use super::NOW;
 use crate::{
     PluginStorage, StorageError,
     backends::SqliteStorage,
     models::{PluginLog, Snowflake, UserPlugin},
 };
-use super::NOW;
 
 #[async_trait]
 impl PluginStorage for SqliteStorage {
@@ -123,13 +123,13 @@ impl PluginStorage for SqliteStorage {
         key: &str,
         value: &[u8],
     ) -> Result<(), StorageError> {
-        sqlx::query(
-            &format!(r#"INSERT INTO plugin_data (user_id, handle, key, value)
+        sqlx::query(&format!(
+            r#"INSERT INTO plugin_data (user_id, handle, key, value)
             VALUES ($1, $2, $3, $4)
             ON CONFLICT (user_id, handle, key) DO UPDATE SET
                 value = EXCLUDED.value,
-                updated_at = {NOW}"#),
-        )
+                updated_at = {NOW}"#
+        ))
         .bind(user_id)
         .bind(handle)
         .bind(key)
@@ -175,13 +175,13 @@ impl PluginStorage for SqliteStorage {
         handle: &str,
         settings: &serde_json::Value,
     ) -> Result<(), StorageError> {
-        sqlx::query(
-            &format!(r#"INSERT INTO plugin_settings (user_id, handle, settings)
+        sqlx::query(&format!(
+            r#"INSERT INTO plugin_settings (user_id, handle, settings)
             VALUES ($1, $2, $3)
             ON CONFLICT (user_id, handle) DO UPDATE SET
                 settings = EXCLUDED.settings,
-                updated_at = {NOW}"#),
-        )
+                updated_at = {NOW}"#
+        ))
         .bind(user_id)
         .bind(handle)
         .bind(settings)
