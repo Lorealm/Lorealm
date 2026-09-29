@@ -44,6 +44,8 @@ struct TestServices {
     profiles: Mutex<Vec<Option<i64>>>,
     /// What each `generate` was told the call is acting on.
     acting: Mutex<Vec<(Option<i64>, bool)>>,
+    /// What `send_frontend` was given, as `(name, payload)`.
+    sent: Mutex<Vec<(String, String)>>,
 }
 
 impl TestServices {
@@ -117,6 +119,11 @@ impl HostServices for TestServices {
         self.acting.lock().unwrap().push((conversation, blocking));
         tokio::time::sleep(self.latency).await;
         Ok(self.reply.clone())
+    }
+
+    async fn send_frontend(&self, name: String, payload: String) -> Result<(), String> {
+        self.sent.lock().unwrap().push((name, payload));
+        Ok(())
     }
 
     async fn log(&self, entries: Vec<LogEntry>) {
@@ -512,6 +519,24 @@ async fn the_frontend_calls_its_own_backend() {
         assert_eq!(greeting, r#""Hello, Ada!""#, "{name}");
         assert!(matches!(unknown, Err(PluginError::Call(_))), "{name}");
     }
+}
+
+#[tokio::test]
+async fn the_backend_sends_to_its_own_frontend() {
+    let host = host();
+    let package = compile(&host, "hello");
+    let services = Arc::new(TestServices::default());
+    let mut plugin = host.instantiate(&package, services.clone()).await.unwrap();
+
+    plugin
+        .call_frontend("send".into(), r#"{"n":1}"#.into(), None, None, false)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        *services.sent.lock().unwrap(),
+        [("echo".to_owned(), r#"{"n":1}"#.to_owned())]
+    );
 }
 
 #[tokio::test]

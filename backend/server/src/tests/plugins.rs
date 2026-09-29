@@ -604,6 +604,37 @@ async fn the_frontend_reaches_its_own_backend() {
 }
 
 #[tokio::test]
+async fn the_backend_reaches_only_its_users_frontend() {
+    use futures_util::StreamExt;
+
+    let h = harness().await;
+    h.plugins.enable(h.user, "hello").await.unwrap();
+    let mut mine = std::pin::pin!(h.plugins.frontend_events(h.user));
+    let mut theirs = std::pin::pin!(h.plugins.frontend_events(h.stranger));
+
+    h.plugins
+        .call_frontend(
+            h.user,
+            "hello",
+            "send".into(),
+            serde_json::json!({"n": 1}),
+            None,
+            None,
+            false,
+        )
+        .await
+        .unwrap();
+
+    let event = mine.next().await.unwrap();
+    assert_eq!(
+        (event.handle.as_str(), event.name.as_str(), event.payload),
+        ("hello", "echo", serde_json::json!({"n": 1}))
+    );
+    let leaked = tokio::time::timeout(std::time::Duration::from_millis(50), theirs.next()).await;
+    assert!(leaked.is_err());
+}
+
+#[tokio::test]
 async fn the_plugin_list_carries_frontend_slots() {
     let h = harness().await;
 

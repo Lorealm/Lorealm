@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { useApi } from '$lib/api/client.js';
 	import { pluginCalls } from '$lib/stores/pluginCalls.svelte.js';
+	import { pluginEvents } from '$lib/stores/pluginEvents.svelte.js';
 	import type { JsonValue, Snowflake } from '$lib/types/core.js';
 
 	/** What an unsafe slot's module is handed; the same as a frame's `lorealm`. */
 	interface PluginApi {
 		readonly context: JsonValue;
 		call(name: string, args?: JsonValue, options?: { blocking?: boolean }): Promise<JsonValue>;
+		on(name: string, listener: (payload: JsonValue) => void): () => void;
 		onContext(listener: (context: JsonValue) => void): () => void;
 	}
 
@@ -52,6 +54,8 @@
 		let cancelled = false;
 		let unmount: (() => void) | undefined;
 		let url: string | undefined;
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const stops = new Set<() => void>();
 
 		const pluginApi: PluginApi = {
 			get context() {
@@ -70,6 +74,16 @@
 				} finally {
 					release?.();
 				}
+			},
+			on(name, listener) {
+				const stop = pluginEvents.on(h, (sent, payload) => {
+					if (sent === name) listener(payload);
+				});
+				stops.add(stop);
+				return () => {
+					stop();
+					stops.delete(stop);
+				};
 			},
 			onContext(listener) {
 				listeners.add(listener);
@@ -95,6 +109,7 @@
 			cancelled = true;
 			unmount?.();
 			listeners.clear();
+			for (const stop of stops) stop();
 			if (url) URL.revokeObjectURL(url);
 		};
 	});

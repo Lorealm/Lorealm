@@ -101,6 +101,8 @@ pub trait HostServices: Send + Sync {
         conversation: Option<i64>,
         blocking: bool,
     ) -> Result<String, String>;
+    /// Sends `payload`, as JSON, to the plugin's frontend.
+    async fn send_frontend(&self, name: String, payload: String) -> Result<(), String>;
     /// Receives what the plugin and the host logged during one call.
     async fn log(&self, entries: Vec<LogEntry>);
 }
@@ -316,6 +318,10 @@ impl lorealm::plugin::host::Host for PluginState {
     async fn unsubscribe(&mut self, topic: String) -> Result<(), String> {
         self.subscriptions.retain(|t| *t != topic);
         Ok(())
+    }
+
+    async fn send_frontend(&mut self, name: String, payload: String) -> Result<(), String> {
+        self.services.send_frontend(name, payload).await
     }
 
     async fn active_persona(&mut self) -> Result<Persona, String> {

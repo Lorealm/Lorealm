@@ -10,6 +10,7 @@ use std::{
 use async_trait::async_trait;
 use chrono::Utc;
 use dashmap::DashMap;
+use futures_util::Stream;
 use lorealm_plugins::{
     ChatMessage, Finalizing, FrontendSlot, Generated, HostServices, HttpRequest, HttpResponse,
     Level, LoadedPlugin, LogEntry, LogSource, Manifest, Message, MessageRange, Persona, PluginHost,
@@ -24,7 +25,7 @@ use lorealm_storage::{
 };
 use secrecy::zeroize::Zeroizing;
 use serde::Serialize;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, broadcast};
 use tokio_util::sync::CancellationToken;
 use weaver_lang::InputType;
 
@@ -97,6 +98,16 @@ impl Refusal {
 pub struct PluginSettings {
     pub inputs: Vec<InputSpec>,
     pub values: serde_json::Map<String, serde_json::Value>,
+}
+
+/// What a plugin's backend sent its frontend.
+#[derive(Clone, Serialize)]
+pub struct FrontendEvent {
+    #[serde(skip)]
+    user_id: Snowflake,
+    pub handle: String,
+    pub name: String,
+    pub payload: serde_json::Value,
 }
 
 /// A user's mounted plugins, in load order.
@@ -249,6 +260,8 @@ pub struct PluginService {
     generate_timeout: Duration,
     /// Sends every plugin's `http-fetch` requests.
     http: reqwest::Client,
+    /// What every user's plugins send their frontends.
+    frontend: broadcast::Sender<FrontendEvent>,
 }
 
 impl PluginService {
@@ -276,6 +289,7 @@ impl PluginService {
             generation: OnceLock::new(),
             generate_timeout: Duration::from_secs(config.generate_timeout),
             http: fetch::client(),
+            frontend: broadcast::channel(256).0,
         }
     }
 
@@ -546,6 +560,20 @@ impl PluginService {
             .map_err(|e| PluginError::CallFailed(handle.to_owned(), e))?;
         serde_json::from_str(&json)
             .map_err(|_| PluginError::CallFailed(handle.to_owned(), "returned invalid JSON".into()))
+    }
+
+    /// What the user's plugins send their frontends from now on. Events
+    /// missed while the client falls behind are dropped.
+    pub fn frontend_events(&self, user_id: Snowflake) -> impl Stream<Item = FrontendEvent> + use<> {
+        futures_util::stream::unfold(self.frontend.subscribe(), move |mut events| async move {
+            loop {
+                match events.recv().await {
+                    Ok(event) if event.user_id == user_id => return Some((event, events)),
+                    Ok(_) | Err(broadcast::error::RecvError::Lagged(_)) => {}
+                    Err(broadcast::error::RecvError::Closed) => return None,
+                }
+            }
+        })
     }
 
     /// The plugin's README, at the version the user is on or else the latest.
@@ -963,6 +991,7 @@ impl PluginService {
                 generate_timeout: self.generate_timeout,
                 http: self.http.clone(),
                 user_agent: fetch::user_agent(&handle, &package.manifest.plugin.version),
+                frontend: self.frontend.clone(),
             });
             // On failure, the plugin crate logged why.
             let Ok(mut plugin) = self.host.instantiate(package, services).await else {
@@ -1161,6 +1190,7 @@ struct UserServices {
     http: reqwest::Client,
     /// Sent with its requests unless they set their own.
     user_agent: String,
+    frontend: broadcast::Sender<FrontendEvent>,
 }
 
 impl UserServices {
@@ -1266,6 +1296,18 @@ impl HostServices for UserServices {
                 content: m.content.clone(),
             })
             .collect())
+    }
+
+    /// Sent to every client the user has open; none is not an error.
+    async fn send_frontend(&self, name: String, payload: String) -> Result<(), String> {
+        let payload = serde_json::from_str(&payload).map_err(|_| "the payload isn't valid JSON")?;
+        let _ = self.frontend.send(FrontendEvent {
+            user_id: self.user_id,
+            handle: self.handle.clone(),
+            name,
+            payload,
+        });
+        Ok(())
     }
 
     /// Runs one completion through the user's profile. Nothing is saved.

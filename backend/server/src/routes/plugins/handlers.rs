@@ -3,7 +3,9 @@ use std::sync::Arc;
 use axum::{
     Json,
     extract::{Path, State},
+    response::sse::{Event, KeepAlive, Sse},
 };
+use futures_util::{Stream, StreamExt};
 use lorealm_plugins::Version;
 use lorealm_storage::models::{PluginLog, Snowflake};
 use serde::Deserialize;
@@ -163,9 +165,6 @@ pub struct PluginCall {
     /// The message the slot sits under, if any.
     #[serde(default)]
     pub message: Option<Snowflake>,
-    /// Whether the client is waiting for this call: it blocks its chat until
-    /// the plugin answers, and a `generate` inside it takes the conversation's
-    /// generation slot.
     #[serde(default)]
     pub blocking: bool,
 }
@@ -192,6 +191,20 @@ pub async fn call_plugin(
         .await?;
 
     Ok(Json(value))
+}
+
+/// What the user's plugins send their frontends, as they send it.
+pub async fn frontend_events(
+    State(app_state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+) -> Sse<impl Stream<Item = Result<Event, axum::Error>>> {
+    let events = app_state
+        .services()
+        .plugins()
+        .frontend_events(session.user_id)
+        .map(|event| Event::default().json_data(event));
+
+    Sse::new(events).keep_alive(KeepAlive::default())
 }
 
 #[derive(Deserialize)]
