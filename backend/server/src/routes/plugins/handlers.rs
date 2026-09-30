@@ -232,8 +232,9 @@ pub async fn update_plugin(
 
 #[derive(Deserialize)]
 pub struct InstallPlugin {
-    /// A plugin's source directory on the server.
-    pub path: std::path::PathBuf,
+    /// A folder on the server or a link; the server works out how to install
+    /// from it.
+    pub location: String,
 }
 
 pub async fn install_plugin(
@@ -242,14 +243,42 @@ pub async fn install_plugin(
     perms: ResolvedPermissions,
     Json(payload): Json<InstallPlugin>,
 ) -> Result<Json<InstallReport>, AppError> {
-    perms.require(Permissions::ALLOW_PLUGIN_INSTALL_FROM_SOURCE)?;
+    require_install(&perms)?;
+    let may_build = perms
+        .require(Permissions::ALLOW_PLUGIN_INSTALL_FROM_SOURCE)
+        .is_ok();
     let report = app_state
         .services()
         .plugins()
-        .install_from_source(session.user_id, payload.path)
+        .install(session.user_id, payload.location.trim(), may_build)
         .await?;
 
     Ok(Json(report))
+}
+
+/// Installs the zipped pre-built plugin in the body.
+pub async fn upload_plugin(
+    State(app_state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    perms: ResolvedPermissions,
+    body: axum::body::Bytes,
+) -> Result<Json<InstallReport>, AppError> {
+    require_install(&perms)?;
+    let report = app_state
+        .services()
+        .plugins()
+        .install_zip(session.user_id, body.to_vec())
+        .await?;
+
+    Ok(Json(report))
+}
+
+/// Installing pre-built plugins; building them allows it too.
+fn require_install(perms: &ResolvedPermissions) -> Result<(), AppError> {
+    perms
+        .require(Permissions::ALLOW_PLUGIN_INSTALL)
+        .or_else(|_| perms.require(Permissions::ALLOW_PLUGIN_INSTALL_FROM_SOURCE))?;
+    Ok(())
 }
 
 /// Uninstalls the plugin for everyone. Versions users are on stay until
@@ -259,7 +288,7 @@ pub async fn uninstall_plugin(
     perms: ResolvedPermissions,
     Path(handle): Path<String>,
 ) -> Result<(), AppError> {
-    perms.require(Permissions::ALLOW_PLUGIN_INSTALL_FROM_SOURCE)?;
+    require_install(&perms)?;
     app_state.services().plugins().uninstall(&handle).await?;
 
     Ok(())

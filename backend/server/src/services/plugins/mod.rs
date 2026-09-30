@@ -34,7 +34,7 @@ mod install;
 mod settings;
 mod vocabulary;
 
-pub use install::InstallReport;
+pub use install::{InstallReport, MAX_PACKAGE};
 pub use vocabulary::{PLUGIN_SOURCE_PREFIX, PluginVocabulary};
 
 use crate::{

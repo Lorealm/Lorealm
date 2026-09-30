@@ -35,7 +35,7 @@ export interface FrontendSlot {
 	mode: 'latest' | 'every';
 }
 
-/** What installing a plugin from source produced. */
+/** What installing a plugin produced. */
 export interface InstallReport {
 	handle: string;
 	version: string;

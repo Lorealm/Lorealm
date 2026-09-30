@@ -807,6 +807,158 @@ async fn users_stay_on_their_version_until_they_update() {
 }
 
 #[tokio::test]
+async fn a_prebuilt_plugin_installs_without_building() {
+    let h = harness().await;
+    let dir = fresh_dir();
+    let plugins = service(&h, dir.clone(), PluginConfig::default());
+    // An installed plugin is itself a pre-built one.
+    let built = installed_dir().await.join("hello@0.1.0");
+
+    let report = plugins.install_prebuilt(h.user, built).await.unwrap();
+
+    assert_eq!(report.handle, "hello");
+    assert!(report.log.is_empty());
+    assert!(dir.join("hello@0.1.0/frontend/inspector.html").is_file());
+}
+
+#[tokio::test]
+async fn an_unbuilt_zip_is_refused_with_its_missing_backend() {
+    use std::io::Write;
+
+    let h = harness().await;
+    let plugins = service(&h, fresh_dir(), PluginConfig::default());
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/tts");
+    let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    zip.start_file(
+        "tts/manifest.toml",
+        zip::write::SimpleFileOptions::default(),
+    )
+    .unwrap();
+    zip.write_all(&std::fs::read(source.join("manifest.toml")).unwrap())
+        .unwrap();
+    let zip = zip.finish().unwrap().into_inner();
+
+    let result = plugins.install_zip(h.user, zip).await.err();
+
+    assert!(
+        matches!(&result, Some(PluginError::InvalidSource(r))
+            if r == "its backend `target/wasm32-wasip2/release/tts.wasm` is missing; build the plugin before packaging it"),
+        "{result:?}"
+    );
+}
+
+#[tokio::test]
+async fn a_prebuilt_plugin_cannot_reach_outside_itself() {
+    let h = harness().await;
+    let plugins = service(&h, fresh_dir(), PluginConfig::default());
+
+    // Its backend is an absolute path into the fixtures.
+    let result = plugins
+        .install_prebuilt(h.user, hello_source("0.1.0"))
+        .await
+        .err();
+
+    assert!(
+        matches!(&result, Some(PluginError::InvalidSource(r)) if r.contains("outside the plugin")),
+        "{result:?}"
+    );
+}
+
+#[tokio::test]
+async fn a_folder_is_built_only_if_it_has_build_commands() {
+    let h = harness().await;
+    let dir = fresh_dir();
+    let plugins = service(&h, dir.clone(), PluginConfig::default());
+    let source = fixture("hello").to_string_lossy().into_owned();
+    let built = installed_dir().await.join("hello@0.1.0");
+
+    let refused = plugins.install(h.user, &source, false).await.err();
+    let report = plugins
+        .install(h.user, &built.to_string_lossy(), false)
+        .await
+        .unwrap();
+
+    assert!(matches!(refused, Some(PluginError::BuildForbidden(_))));
+    assert!(report.log.is_empty(), "not built: {}", report.log);
+    assert!(dir.join("hello@0.1.0/backend.wasm").is_file());
+}
+
+#[tokio::test]
+async fn a_zipped_plugin_installs_from_its_folder() {
+    use std::io::Write;
+
+    let h = harness().await;
+    let dir = fresh_dir();
+    let plugins = service(&h, dir.clone(), PluginConfig::default());
+    let built = installed_dir().await.join("hello@0.1.0");
+    let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    let options = zip::write::SimpleFileOptions::default();
+    for file in ["manifest.toml", "backend.wasm", "frontend/inspector.html"] {
+        zip.start_file(format!("hello/{file}"), options).unwrap();
+        zip.write_all(&std::fs::read(built.join(file)).unwrap())
+            .unwrap();
+    }
+    zip.start_file("../escaped", options).unwrap();
+    let zip = zip.finish().unwrap().into_inner();
+
+    let report = plugins.install_zip(h.user, zip).await.unwrap();
+
+    assert_eq!(report.handle, "hello");
+    assert!(dir.join("hello@0.1.0/frontend/inspector.html").is_file());
+    assert!(!dir.parent().unwrap().join("escaped").exists());
+}
+
+#[tokio::test]
+async fn a_git_repository_is_cloned_and_built() {
+    let h = harness().await;
+    let dir = fresh_dir();
+    let plugins = service(&h, dir.clone(), PluginConfig::default());
+    let repo = fresh_dir();
+    let wasm = fixture("hello/target/wasm32-wasip2/release/hello.wasm");
+    std::fs::write(
+        repo.join("manifest.toml"),
+        format!(
+            r#"
+            [plugin]
+            name = "Hello"
+            handle = "hello"
+            description = ""
+            author = "Lorealm"
+            version = "0.3.0"
+            permissions = ["prompt:write", "chat:read", "chat:write", "tools:write", "persona:read", "data:persist"]
+
+            [build]
+            backend = ["cp", "{}", "plugin.wasm"]
+            "#,
+            wasm.display()
+        ),
+    )
+    .unwrap();
+    let git = |args: &[&str]| {
+        let status = std::process::Command::new("git")
+            .args(["-c", "user.name=Lorealm", "-c", "user.email=test@lorealm"])
+            .args(args)
+            .current_dir(&repo)
+            .output()
+            .unwrap()
+            .status;
+        assert!(status.success(), "git {args:?}");
+    };
+    git(&["init", "--initial-branch", "release"]);
+    git(&["add", "."]);
+    git(&["commit", "-m", "init"]);
+
+    let report = plugins
+        .install_git(h.user, &repo.to_string_lossy(), Some("release"))
+        .await
+        .unwrap();
+
+    assert_eq!(report.version, "0.3.0");
+    assert!(report.log.contains("$ git clone"), "{}", report.log);
+    assert!(dir.join("hello@0.3.0/backend.wasm").is_file());
+}
+
+#[tokio::test]
 async fn an_update_that_breaks_a_dependent_is_refused() {
     let h = harness().await;
     let plugins = service(&h, fresh_dir(), PluginConfig::default());

@@ -19,10 +19,15 @@ bitflags! {
 
         // Plugins
         const ALLOW_TRUSTED_PLUGINS             = 1 << 9;
+        /// Allow unsafe plugins to run on the frontend. Administrator does not
+        /// automatically grant this.
         const ALLOW_UNSAFE_PLUGINS              = 1 << 10;
         /// Build and install plugins from source, server-wide. The build runs the
         /// plugin's own commands on the host, so this amounts to running code there.
         const ALLOW_PLUGIN_INSTALL_FROM_SOURCE  = 1 << 19;
+        /// Install pre-built plugins server-wide, from an upload or a GitHub
+        /// release. Nothing from the plugin runs on the host outside its sandbox.
+        const ALLOW_PLUGIN_INSTALL              = 1 << 20;
 
         // Moderation
         const CREATE_USERS                       = 1 << 11;

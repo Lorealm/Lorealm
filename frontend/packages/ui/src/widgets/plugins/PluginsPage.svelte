@@ -9,7 +9,9 @@
 	const api = useApi();
 
 	let panelOpen = $state(false);
-	let path = $state('');
+	let location = $state('');
+	let file = $state<File | null>(null);
+	let fileEl = $state<HTMLInputElement>();
 	let installing = $state(false);
 	let buildLog = $state('');
 	let error = $state('');
@@ -20,7 +22,9 @@
 
 	function closePanel() {
 		panelOpen = false;
-		path = '';
+		location = '';
+		file = null;
+		if (fileEl) fileEl.value = '';
 		buildLog = '';
 		error = '';
 	}
@@ -35,12 +39,16 @@
 		}
 	}
 
+	const ready = $derived(file !== null || location.trim() !== '');
+
 	async function install() {
-		if (!path.trim() || installing) return;
+		if (!ready || installing) return;
 		installing = true;
 		buildLog = '';
 		await act(async () => {
-			const report = await api.plugins.install(path.trim());
+			const report = file
+				? await api.plugins.upload(file)
+				: await api.plugins.install(location.trim());
 			buildLog = report.log || `Installed ${report.handle}@${report.version}.`;
 		});
 		installing = false;
@@ -56,7 +64,7 @@
 		<div class="actions">
 			<button type="button" class="primary" onclick={() => (panelOpen = true)}>
 				<FolderInput size={16} />
-				Add from source
+				Add plugin
 			</button>
 		</div>
 	</div>
@@ -64,11 +72,26 @@
 	{#if panelOpen}
 		<div class="panel">
 			<label class="field">
-				<span class="label">Folder on the server</span>
-				<input type="text" bind:value={path} placeholder="/path/to/plugin" />
+				<span class="label">Link or folder on the server</span>
+				<input
+					type="text"
+					bind:value={location}
+					disabled={file !== null}
+					placeholder="https://github.com/owner/name"
+				/>
 				<span class="hint">
-					The folder holding the plugin's manifest.toml.
+					A GitHub repository or release, a link to a .zip, a git repository, or a folder holding a
+					manifest.toml.
 				</span>
+			</label>
+			<label class="field">
+				<span class="label">Or upload a .zip</span>
+				<input
+					bind:this={fileEl}
+					type="file"
+					accept=".zip"
+					onchange={(e) => (file = e.currentTarget.files?.[0] ?? null)}
+				/>
 			</label>
 
 			{#if buildLog}<pre class="log">{buildLog}</pre>{/if}
@@ -76,13 +99,8 @@
 			<div class="panelActions">
 				<button type="button" class="ghost" onclick={closePanel} disabled={installing}>Close</button
 				>
-				<button
-					type="button"
-					class="primary"
-					onclick={install}
-					disabled={!path.trim() || installing}
-				>
-					{installing ? 'Building…' : 'Install'}
+				<button type="button" class="primary" onclick={install} disabled={!ready || installing}>
+					{installing ? 'Installing…' : 'Install'}
 				</button>
 			</div>
 		</div>
