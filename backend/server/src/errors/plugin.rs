@@ -28,6 +28,8 @@ pub enum PluginError {
     BuildFailed(String),
     #[error("plugin at {0} cannot be built without the permission")]
     BuildForbidden(String),
+    #[error("plugin {0} is not installed for development")]
+    NotInDevelopment(String),
     #[error("plugin {0} settings are invalid: {1}")]
     InvalidSettings(String, String),
     #[error("plugin {0} call failed: {1}")]
@@ -50,6 +52,7 @@ impl DomainError for PluginError {
             Self::AlreadyInstalled(_) => "plugin.already_installed",
             Self::BuildFailed(_) => "plugin.build_failed",
             Self::BuildForbidden(_) => "plugin.build_forbidden",
+            Self::NotInDevelopment(_) => "plugin.not_in_development",
             Self::InvalidSettings(_, _) => "plugin.invalid_settings",
             Self::Storage(_) => "internal",
         }
@@ -64,6 +67,7 @@ impl DomainError for PluginError {
             Self::CannotUpdate(_, _) | Self::AlreadyInstalled(_) => StatusCode::CONFLICT,
             Self::InvalidSource(_) | Self::InvalidSettings(_, _) => StatusCode::BAD_REQUEST,
             Self::BuildForbidden(_) => StatusCode::FORBIDDEN,
+            Self::NotInDevelopment(_) => StatusCode::CONFLICT,
             Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -97,6 +101,9 @@ impl DomainError for PluginError {
                     .into()
             }
             Self::BuildFailed(_) => "The plugin failed to build. Its log has the output.".into(),
+            Self::NotInDevelopment(_) => {
+                "This plugin wasn't installed for development, so it can't be reloaded.".into()
+            }
             Self::BuildForbidden(_) => {
                 "Installing this means building it on the server, which you aren't allowed to do."
                     .into()
@@ -121,6 +128,7 @@ impl DomainError for PluginError {
             | Self::AlreadyInstalled(_)
             | Self::BuildFailed(_)
             | Self::BuildForbidden(_)
+            | Self::NotInDevelopment(_)
             | Self::InvalidSettings(_, _) => Some(ErrorDetails::resource(TargetType::Plugin)),
             Self::Storage(_) => None,
         }

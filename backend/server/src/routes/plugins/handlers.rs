@@ -235,6 +235,9 @@ pub struct InstallPlugin {
     /// A folder on the server or a link; the server works out how to install
     /// from it.
     pub location: String,
+    /// Keeps the folder linked, so the plugin can be reloaded from it.
+    #[serde(default)]
+    pub dev: bool,
 }
 
 pub async fn install_plugin(
@@ -243,14 +246,36 @@ pub async fn install_plugin(
     perms: ResolvedPermissions,
     Json(payload): Json<InstallPlugin>,
 ) -> Result<Json<InstallReport>, AppError> {
+    let plugins = app_state.services().plugins();
+    let location = payload.location.trim();
+    if payload.dev {
+        perms.require(Permissions::ALLOW_PLUGIN_INSTALL_FROM_SOURCE)?;
+        return Ok(Json(plugins.install_dev(session.user_id, location).await?));
+    }
     require_install(&perms)?;
     let may_build = perms
         .require(Permissions::ALLOW_PLUGIN_INSTALL_FROM_SOURCE)
         .is_ok();
+    let report = plugins
+        .install(session.user_id, location, may_build)
+        .await?;
+
+    Ok(Json(report))
+}
+
+/// Builds a plugin installed for development from its folder again and
+/// reloads it for everyone.
+pub async fn reload_plugin(
+    State(app_state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    perms: ResolvedPermissions,
+    Path(handle): Path<String>,
+) -> Result<Json<InstallReport>, AppError> {
+    perms.require(Permissions::ALLOW_PLUGIN_INSTALL_FROM_SOURCE)?;
     let report = app_state
         .services()
         .plugins()
-        .install(session.user_id, payload.location.trim(), may_build)
+        .reload(session.user_id, &handle)
         .await?;
 
     Ok(Json(report))

@@ -2,7 +2,7 @@
 	import DOMPurify from 'dompurify';
 	import { marked } from 'marked';
 	import { onMount } from 'svelte';
-	import { Check, Settings, Trash2 } from '@lucide/svelte';
+	import { Check, RotateCw, Settings, Trash2 } from '@lucide/svelte';
 	import { useApi } from '$lib/api/client.js';
 	import { navigator } from '$lib/navigation/navigator.js';
 	import { pluginsStore } from '$lib/stores/plugins.svelte.js';
@@ -36,6 +36,7 @@
 	);
 
 	let error = $state('');
+	let reloading = $state(false);
 	/** Rendered README; `null` for a plugin that ships none, `undefined` while loading. */
 	let readme = $state<string | null | undefined>(undefined);
 
@@ -59,6 +60,12 @@
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		}
+	}
+
+	async function reload() {
+		reloading = true;
+		await act(() => api.plugins.reload(handle));
+		reloading = false;
 	}
 
 	async function uninstall() {
@@ -108,6 +115,18 @@
 						onclick={() => navigator.start().settings().user().plugins(handle)}
 					>
 						<Settings size={14} />
+					</button>
+				{/if}
+				{#if plugin.dev}
+					<button
+						type="button"
+						class="outline"
+						title="Rebuild from its folder and reload"
+						onclick={reload}
+						disabled={reloading}
+					>
+						<RotateCw size={14} />
+						{reloading ? 'Reloading…' : 'Reload'}
 					</button>
 				{/if}
 				{#if hasUpdate}

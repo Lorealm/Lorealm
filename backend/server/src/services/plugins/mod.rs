@@ -74,6 +74,8 @@ pub struct InstalledPlugin {
     pub has_settings: bool,
     /// Where it may send requests.
     pub hosts: Vec<String>,
+    /// Installed for development, so it can be reloaded from its folder.
+    pub dev: bool,
 }
 
 /// A gate hook's refusal.
@@ -322,6 +324,7 @@ impl PluginService {
                         .collect(),
                     api_keys: package.manifest.definitions.api_keys.clone(),
                     hosts: package.manifest.network.hosts.clone(),
+                    dev: self.is_dev(&handle, &version),
                     has_settings: self
                         .version_dir(&handle, &version)
                         .join(&package.manifest.structure.settings)
@@ -1053,6 +1056,26 @@ impl PluginService {
     async fn unmount(&self, user_id: Snowflake) {
         if let Some((_, slot)) = self.mounted.remove(&user_id) {
             Mounted::shut_down(&mut *slot.lock().await).await;
+        }
+    }
+
+    /// Unloads the plugins of every user running `handle`; they load again
+    /// when next needed.
+    async fn unmount_handle(&self, handle: &str) {
+        let slots: Vec<(Snowflake, Slot)> = self
+            .mounted
+            .iter()
+            .map(|e| (*e.key(), Arc::clone(e.value())))
+            .collect();
+        for (user_id, slot) in slots {
+            let runs = slot
+                .lock()
+                .await
+                .as_ref()
+                .is_some_and(|m| m.plugins.iter().any(|(h, _)| h == handle));
+            if runs {
+                self.unmount(user_id).await;
+            }
         }
     }
 

@@ -202,6 +202,8 @@ A zip, uploaded or linked, is pre-built if the backend its manifest points at is
 
 **Pre-built**: the manifest and the files it points at, already built; nothing from the plugin runs outside its sandbox. The manifest's paths must stay inside the plugin. A zip holds the manifest at its top or in its one folder. A GitHub release holds either the plugin's files, `manifest.toml` among them, downloaded side by side, or exactly one `.zip`. Assets can't hold folders, so a flat release's frontend lives next to the manifest (`frontend.path = "."`).
 
+**For development** (`{"location": "/path", "dev": true}`, needs `ALLOW_PLUGIN_INSTALL_FROM_SOURCE`): installs a folder on the server from source and remembers it. `POST /plugins/{handle}/reload` (same permission) then runs its `[build]` commands again, replaces the installed version in place, and unloads it for every user running it, so it loads fresh with `init` on next use; its data is kept. A new version in the manifest installs next to the current one instead, like any install. A failed build leaves the running version as it was.
+
 **Uninstalling** (`DELETE /plugins/{handle}`, needs either permission) stops every version from being enabled; each is removed once no user is on it.
 
 ### Load Order and Compatibility

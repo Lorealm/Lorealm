@@ -992,6 +992,80 @@ async fn a_git_repository_is_cloned_and_built() {
     assert!(dir.join("hello@0.3.0/backend.wasm").is_file());
 }
 
+/// A plugin folder whose build copies the built `hello` into place, with
+/// `readme` as its README.
+fn hello_dev(readme: &str) -> PathBuf {
+    let dir = fresh_dir();
+    let wasm = fixture("hello/target/wasm32-wasip2/release/hello.wasm");
+    let manifest = format!(
+        r#"
+        [plugin]
+        name = "Hello"
+        handle = "hello"
+        description = ""
+        author = "Lorealm"
+        version = "0.1.0"
+        permissions = ["prompt:write", "chat:read", "chat:write", "tools:write", "persona:read", "data:persist"]
+
+        [build]
+        backend = ["cp", "{}", "plugin.wasm"]
+        "#,
+        wasm.display()
+    );
+    std::fs::write(dir.join("manifest.toml"), manifest).unwrap();
+    std::fs::write(dir.join("README.md"), readme).unwrap();
+    dir
+}
+
+#[tokio::test]
+async fn a_development_plugin_reloads_from_its_folder() {
+    let h = harness().await;
+    let dir = fresh_dir();
+    let plugins = service(&h, dir.clone(), PluginConfig::default());
+    let source = hello_dev("first");
+    plugins
+        .install_dev(h.user, &source.to_string_lossy())
+        .await
+        .unwrap();
+    plugins.enable(h.user, "hello").await.unwrap();
+    plugins.prompt_build(h.user, None, prompt()).await;
+
+    std::fs::write(source.join("README.md"), "second").unwrap();
+    let report = plugins.reload(h.user, "hello").await.unwrap();
+    let logs = plugins.logs(h.user, "hello").await.unwrap();
+    let listed = plugins.list(h.user, false).await.unwrap();
+
+    assert!(report.log.contains("$ cp"), "{}", report.log);
+    assert_eq!(plugins.readme(h.user, "hello").await.unwrap(), "second");
+    assert!(
+        logged(
+            &logs,
+            PluginLogSource::Guest,
+            PluginLogLevel::Info,
+            "shutting down"
+        ),
+        "the running copy was unloaded: {logs:#?}"
+    );
+    assert!(listed[0].dev);
+}
+
+#[tokio::test]
+async fn only_development_plugins_reload() {
+    let h = harness().await;
+    let plugins = service(&h, fresh_dir(), PluginConfig::default());
+    plugins
+        .install_from_source(h.user, hello_dev("readme"))
+        .await
+        .unwrap();
+
+    let result = plugins.reload(h.user, "hello").await.err();
+
+    assert!(
+        matches!(result, Some(PluginError::NotInDevelopment(_))),
+        "{result:?}"
+    );
+}
+
 #[tokio::test]
 async fn an_update_that_breaks_a_dependent_is_refused() {
     let h = harness().await;
