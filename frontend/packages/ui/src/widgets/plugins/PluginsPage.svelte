@@ -11,6 +11,7 @@
 	let panelOpen = $state(false);
 	let location = $state('');
 	let file = $state<File | null>(null);
+	let dev = $state(false);
 	let fileEl = $state<HTMLInputElement>();
 	let installing = $state(false);
 	let buildLog = $state('');
@@ -24,6 +25,7 @@
 		panelOpen = false;
 		location = '';
 		file = null;
+		dev = false;
 		if (fileEl) fileEl.value = '';
 		buildLog = '';
 		error = '';
@@ -48,7 +50,7 @@
 		await act(async () => {
 			const report = file
 				? await api.plugins.upload(file)
-				: await api.plugins.install(location.trim());
+				: await api.plugins.install(location.trim(), dev);
 			buildLog = report.log || `Installed ${report.handle}@${report.version}.`;
 		});
 		installing = false;
@@ -82,6 +84,13 @@
 				<span class="hint">
 					A GitHub repository or release, a link to a .zip, a git repository, or a folder holding a
 					manifest.toml.
+				</span>
+			</label>
+			<label class="check">
+				<input type="checkbox" bind:checked={dev} disabled={file !== null} />
+				<span>
+					For development
+					<span class="hint">Rebuild and reload it from its folder whenever you change it.</span>
 				</span>
 			</label>
 			<label class="field">
@@ -229,6 +238,18 @@
 	.hint {
 		color: var(--color-text-muted);
 		font-size: var(--font-size-xs);
+	}
+	.check {
+		display: flex;
+		align-items: flex-start;
+		gap: var(--spacing-sm);
+		cursor: pointer;
+	}
+	.check > span {
+		display: flex;
+		flex-direction: column;
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-sm);
 	}
 	.log {
 		max-height: 240px;

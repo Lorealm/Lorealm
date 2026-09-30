@@ -62,4 +62,6 @@ export interface InstalledPlugin {
 	has_settings: boolean;
 	/** Where it may send requests. */
 	hosts: string[];
+	/** Installed for development. */
+	dev: boolean;
 }

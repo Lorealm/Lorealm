@@ -394,9 +394,10 @@ export function createApiClient(platform: PlatformAPI) {
 			/** To the latest installed version when `version` is left out. */
 			update: (handle: string, version?: string) =>
 				http.post(`/api/v1/plugins/${handle}/update`, { version }),
-			/** From a folder on the server or a link; the server works out how. */
-			install: (location: string) =>
-				http.post<InstallReport>('/api/v1/plugins/install', { location }),
+			install: (location: string, dev = false) =>
+				http.post<InstallReport>('/api/v1/plugins/install', { location, dev }),
+			/** Rebuilds a plugin installed for development and reloads it. */
+			reload: (handle: string) => http.post<InstallReport>(`/api/v1/plugins/${handle}/reload`),
 			/** Installs a zipped pre-built plugin. */
 			upload: (zip: Blob) => http.putBlob<InstallReport>('/api/v1/plugins/install/upload', zip),
 			uninstall: (handle: string) => http.delete(`/api/v1/plugins/${handle}`),

@@ -19,6 +19,9 @@ const BUILD_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 /// Marks an uninstalled version that's kept only while users are on it.
 const UNINSTALLED: &str = ".uninstalled";
 
+/// Marks a version installed for development; holds its source folder.
+const DEV: &str = ".dev";
+
 /// Build output kept in the plugin's log; the rest is only in the response.
 const LOGGED_OUTPUT: usize = 4000;
 
@@ -104,7 +107,71 @@ impl PluginService {
         user_id: Snowflake,
         source: PathBuf,
     ) -> Result<InstallReport, PluginError> {
-        let manifest = self.check(&source)?;
+        let manifest = self.check(&source, false)?;
+        self.build_and_place(user_id, source, manifest, None).await
+    }
+
+    /// Installs the plugin in the folder at `location` from source.
+    pub async fn install_dev(
+        &self,
+        user_id: Snowflake,
+        location: &str,
+    ) -> Result<InstallReport, PluginError> {
+        let invalid = |reason: String| PluginError::InvalidSource(reason);
+        let Location::Folder(source) = Location::parse(location) else {
+            return Err(invalid(
+                "only a folder on the server can be installed for development".into(),
+            ));
+        };
+        let source = source.canonicalize().map_err(|e| invalid(e.to_string()))?;
+        let manifest = self.check(&source, false)?;
+        tracing::info!(%location, "installing a folder for development");
+        self.build_and_place(user_id, source.clone(), manifest, Some(source))
+            .await
+    }
+
+    /// Builds the development plugin `handle` from its folder again and
+    /// replaces its installed version.
+    pub async fn reload(
+        &self,
+        user_id: Snowflake,
+        handle: &str,
+    ) -> Result<InstallReport, PluginError> {
+        let version = self
+            .latest(handle)
+            .ok_or_else(|| PluginError::NotFound(handle.to_owned()))?;
+        let source = std::fs::read_to_string(self.version_dir(handle, &version).join(DEV))
+            .map_err(|_| PluginError::NotInDevelopment(handle.to_owned()))?;
+        let source = PathBuf::from(source);
+        let manifest = self.check(&source, true)?;
+        if manifest.plugin.handle != handle {
+            return Err(PluginError::InvalidSource(format!(
+                "its manifest now names the plugin `{}`",
+                manifest.plugin.handle
+            )));
+        }
+        tracing::info!(%handle, "reloading a plugin in development");
+        let report = self
+            .build_and_place(user_id, source.clone(), manifest, Some(source))
+            .await?;
+        self.unmount_handle(handle).await;
+        Ok(report)
+    }
+
+    /// Whether `handle`'s `version` was installed for development.
+    pub(super) fn is_dev(&self, handle: &str, version: &Version) -> bool {
+        self.version_dir(handle, version).join(DEV).is_file()
+    }
+
+    /// Runs the `[build]` commands in `source`, then installs the result,
+    /// remembering `dev` as its source folder if given.
+    async fn build_and_place(
+        &self,
+        user_id: Snowflake,
+        source: PathBuf,
+        manifest: Manifest,
+        dev: Option<PathBuf>,
+    ) -> Result<InstallReport, PluginError> {
         let handle = manifest.plugin.handle.clone();
 
         let mut log = String::new();
@@ -121,8 +188,12 @@ impl PluginService {
                 return Err(PluginError::BuildFailed(handle));
             }
         }
-        self.place(user_id, source, manifest, log, "from source")
-            .await
+        let how = if dev.is_some() {
+            "for development"
+        } else {
+            "from source"
+        };
+        self.place(user_id, source, manifest, log, how, dev).await
     }
 
     /// Installs the already built plugin in `source` for everyone, without
@@ -132,7 +203,7 @@ impl PluginService {
         user_id: Snowflake,
         source: PathBuf,
     ) -> Result<InstallReport, PluginError> {
-        let manifest = self.check(&source)?;
+        let manifest = self.check(&source, false)?;
         // Nothing outside the plugin may be copied in, such as a README
         // pointing at the server's files.
         let root = source
@@ -159,7 +230,7 @@ impl PluginService {
                 manifest.structure.backend.display()
             )));
         }
-        self.place(user_id, source, manifest, String::new(), "pre-built")
+        self.place(user_id, source, manifest, String::new(), "pre-built", None)
             .await
     }
 
@@ -303,8 +374,8 @@ impl PluginService {
     }
 
     /// Reads and validates the manifest in `source`, refusing a version
-    /// that's already installed.
-    fn check(&self, source: &Path) -> Result<Manifest, PluginError> {
+    /// that's already installed unless `replacing` it.
+    fn check(&self, source: &Path, replacing: bool) -> Result<Manifest, PluginError> {
         let invalid = |reason: String| PluginError::InvalidSource(reason);
         let manifest = Manifest::from_dir(source).map_err(|e| invalid(e.to_string()))?;
         let handle = &manifest.plugin.handle;
@@ -333,13 +404,14 @@ impl PluginService {
             super::settings::declarations(&settings)
                 .map_err(|e| invalid(format!("invalid settings: {e}")))?;
         }
-        if self.version_dir(handle, version).exists() {
+        if !replacing && self.version_dir(handle, version).exists() {
             return Err(PluginError::AlreadyInstalled(format!("{handle}@{version}")));
         }
         Ok(manifest)
     }
 
-    /// Copies the built plugin in `source` into place and loads it.
+    /// Copies the built plugin in `source` into place and loads it, marking
+    /// it as developed in the folder `dev` if given.
     async fn place(
         &self,
         user_id: Snowflake,
@@ -347,6 +419,7 @@ impl PluginService {
         manifest: Manifest,
         log: String,
         how: &str,
+        dev: Option<PathBuf>,
     ) -> Result<InstallReport, PluginError> {
         let invalid = |reason: String| PluginError::InvalidSource(reason);
         let handle = manifest.plugin.handle;
@@ -372,6 +445,14 @@ impl PluginService {
                 return Err(invalid(reason));
             }
         };
+        if let Some(dev) = dev {
+            std::fs::write(staging.join(DEV), dev.to_string_lossy().as_bytes())
+                .map_err(|e| invalid(e.to_string()))?;
+        }
+        // Only a reload replaces an installed version.
+        if target.exists() {
+            std::fs::remove_dir_all(&target).map_err(|e| invalid(e.to_string()))?;
+        }
         std::fs::rename(&staging, &target).map_err(|e| invalid(e.to_string()))?;
         self.packages
             .insert(format!("{handle}@{version}"), Arc::new(package));
