@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use axum::{
     Router,
+    extract::DefaultBodyLimit,
     routing::{delete, get, patch, post, put},
 };
 use tower_cookies::CookieManagerLayer;
@@ -14,6 +15,7 @@ use crate::{
         PermissionMiddlewareState, SessionMiddlewareState, server_permission_middleware,
         session_auth_middleware, session_csrf_middleware,
     },
+    services::plugins::MAX_PACKAGE,
 };
 
 pub(super) fn router(
@@ -45,6 +47,10 @@ pub(super) fn router(
         .route("/{handle}/settings", put(handlers::save_plugin_settings))
         .route("/{handle}/update", post(handlers::update_plugin))
         .route("/install", post(handlers::install_plugin))
+        .route(
+            "/install/upload",
+            put(handlers::upload_plugin).layer(DefaultBodyLimit::max(MAX_PACKAGE)),
+        )
         .route("/{handle}", delete(handlers::uninstall_plugin))
         .layer(axum::middleware::from_fn_with_state(
             permission_state,

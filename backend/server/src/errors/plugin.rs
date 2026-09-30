@@ -12,10 +12,8 @@ pub enum PluginError {
     NotFound(String),
     #[error("plugin {0} failed to load: {1}")]
     Invalid(String, lorealm_plugins::PluginError),
-    /// The reason reads as a predicate: "conflicts with `x`".
     #[error("plugin {0} cannot be enabled: it {1}")]
     CannotEnable(String, String),
-    /// Enabled plugins that require this one.
     #[error("plugin {0} is required by {1:?}")]
     Required(String, Vec<String>),
     #[error("load order must list each enabled plugin exactly once")]
@@ -28,9 +26,10 @@ pub enum PluginError {
     AlreadyInstalled(String),
     #[error("plugin {0} failed to build")]
     BuildFailed(String),
+    #[error("plugin at {0} cannot be built without the permission")]
+    BuildForbidden(String),
     #[error("plugin {0} settings are invalid: {1}")]
     InvalidSettings(String, String),
-    /// The plugin failed a call made on its frontend's behalf.
     #[error("plugin {0} call failed: {1}")]
     CallFailed(String, String),
     #[error(transparent)]
@@ -50,6 +49,7 @@ impl DomainError for PluginError {
             Self::InvalidSource(_) => "plugin.invalid_source",
             Self::AlreadyInstalled(_) => "plugin.already_installed",
             Self::BuildFailed(_) => "plugin.build_failed",
+            Self::BuildForbidden(_) => "plugin.build_forbidden",
             Self::InvalidSettings(_, _) => "plugin.invalid_settings",
             Self::Storage(_) => "internal",
         }
@@ -63,6 +63,7 @@ impl DomainError for PluginError {
             Self::CallFailed(_, _) | Self::BuildFailed(_) => StatusCode::UNPROCESSABLE_ENTITY,
             Self::CannotUpdate(_, _) | Self::AlreadyInstalled(_) => StatusCode::CONFLICT,
             Self::InvalidSource(_) | Self::InvalidSettings(_, _) => StatusCode::BAD_REQUEST,
+            Self::BuildForbidden(_) => StatusCode::FORBIDDEN,
             Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -96,6 +97,10 @@ impl DomainError for PluginError {
                     .into()
             }
             Self::BuildFailed(_) => "The plugin failed to build. Its log has the output.".into(),
+            Self::BuildForbidden(_) => {
+                "Installing this means building it on the server, which you aren't allowed to do."
+                    .into()
+            }
             Self::InvalidSettings(_, reason) => {
                 sentence(format!("Those settings aren't valid: {reason}"))
             }
@@ -115,6 +120,7 @@ impl DomainError for PluginError {
             | Self::InvalidSource(_)
             | Self::AlreadyInstalled(_)
             | Self::BuildFailed(_)
+            | Self::BuildForbidden(_)
             | Self::InvalidSettings(_, _) => Some(ErrorDetails::resource(TargetType::Plugin)),
             Self::Storage(_) => None,
         }

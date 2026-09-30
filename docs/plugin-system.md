@@ -182,11 +182,27 @@ to inform them something went wrong.
 ### Installation
 Plugins are installed server-wide, one directory per version: `data/plugins/{handle}@{version}`. Users pin a version: enabling picks the newest, and a newer install doesn't move anyone. A user moves with `POST /plugins/{handle}/update` (to the newest, or a given `version`), which is refused if their other plugins wouldn't load together on it. A version is removed from disk once no user is on it, unless it's the newest. Plugin data and logs are keyed by handle, so they carry across versions.
 
-**From source** (`POST /plugins/install {"path": "..."}`, needs `ALLOW_PLUGIN_INSTALL_FROM_SOURCE`): reads the manifest in that directory, runs its `[build]` commands there, and copies only the result (manifest, backend, frontend) into place, with the manifest's paths rewritten to fixed ones. The build output comes back in the response, and a failure's tail goes to the installer's log for that plugin. The build runs with the server's rights, so this permission amounts to running code on the host; it's not granted by default. Installing a version that's already installed is refused.
+Installs go through `POST /plugins/install {"location": "..."}`, where the location is a folder on the server or a link, or `PUT /plugins/install/upload` with a zip as the body (up to 64 MiB). The server works out the method from the location and logs which one it used:
 
-**Uninstalling** (`DELETE /plugins/{handle}`, same permission) stops every version from being enabled; each is removed once no user is on it.
+| Location | Method |
+|---|---|
+| A folder whose manifest has `[build]` commands | from source |
+| Any other folder | pre-built |
+| A link ending in `.zip` | pre-built zip |
+| `https://github.com/owner/name` | its latest release; from git if it has none |
+| `https://github.com/owner/name/releases/tag/{tag}` | that release |
+| `https://github.com/owner/name/tree/{branch or tag}` | from git, at that branch or tag |
+| Any other link, or `git@...` | from git |
 
-**Planned:** installing from a git URL; installing pre-built plugins under a separate, less powerful permission.
+Installing a version that's already installed is refused. Pre-built installs need `ALLOW_PLUGIN_INSTALL`; those that build need `ALLOW_PLUGIN_INSTALL_FROM_SOURCE`, which also grants the former.
+
+**From source**: runs the manifest's `[build]` commands in the plugin's directory, and copies only the result (manifest, backend, frontend) into place, with the manifest's paths rewritten to fixed ones. The build output comes back in the response, and a failure's tail goes to the installer's log for that plugin. The build runs with the server's rights, so this permission amounts to running code on the host; it's not granted by default.
+
+**From git**: shallow-clones the repository, then installs it from source. The clone output leads the build output.
+
+**Pre-built**: the manifest and the files it points at, already built; nothing from the plugin runs outside its sandbox. The manifest's paths must stay inside the plugin. A zip holds the manifest at its top or in its one folder. A GitHub release holds either the plugin's files, `manifest.toml` among them, downloaded side by side, or exactly one `.zip`. Assets can't hold folders, so a flat release's frontend lives next to the manifest (`frontend.path = "."`).
+
+**Uninstalling** (`DELETE /plugins/{handle}`, needs either permission) stops every version from being enabled; each is removed once no user is on it.
 
 ### Load Order and Compatibility
 A user's plugins load in the order they set (`PUT /plugins` with `{ "order": [...] }`, listing every enabled plugin; enabling appends to the end). Manifests override that order where they need to:
