@@ -188,13 +188,13 @@ Installs go through `POST /plugins/install {"location": "..."}`, where the locat
 |---|---|
 | A folder whose manifest has `[build]` commands | from source |
 | Any other folder | pre-built |
-| A link ending in `.zip` | pre-built zip |
+| A link ending in `.zip` | zip |
 | `https://github.com/owner/name` | its latest release; from git if it has none |
 | `https://github.com/owner/name/releases/tag/{tag}` | that release |
 | `https://github.com/owner/name/tree/{branch or tag}` | from git, at that branch or tag |
 | Any other link, or `git@...` | from git |
 
-Installing a version that's already installed is refused. Pre-built installs need `ALLOW_PLUGIN_INSTALL`; those that build need `ALLOW_PLUGIN_INSTALL_FROM_SOURCE`, which also grants the former.
+A zip, uploaded or linked, is pre-built if the backend its manifest points at is in it, and otherwise built from source when its manifest has `[build]` commands. Installing a version that's already installed is refused. Pre-built installs need `ALLOW_PLUGIN_INSTALL`; those that build need `ALLOW_PLUGIN_INSTALL_FROM_SOURCE`, which also grants the former.
 
 **From source**: runs the manifest's `[build]` commands in the plugin's directory, and copies only the result (manifest, backend, frontend) into place, with the manifest's paths rewritten to fixed ones. The build output comes back in the response, and a failure's tail goes to the installer's log for that plugin. The build runs with the server's rights, so this permission amounts to running code on the host; it's not granted by default.
 

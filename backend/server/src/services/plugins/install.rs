@@ -69,11 +69,14 @@ impl PluginService {
             Location::Zip(url) => {
                 tracing::info!(%location, "installing a zip from a link");
                 let bytes = download(&download_client(), &url).await?;
-                self.install_zip(user_id, bytes).await
+                self.install_zip(user_id, bytes, may_build).await
             }
             Location::GitHub { repo, tag } => {
                 tracing::info!(%location, "installing a GitHub release");
-                if let Some(report) = self.install_release(user_id, &repo, tag.as_deref()).await? {
+                if let Some(report) = self
+                    .install_release(user_id, &repo, tag.as_deref(), may_build)
+                    .await?
+                {
                     return Ok(report);
                 }
                 if tag.is_some() {
@@ -160,12 +163,14 @@ impl PluginService {
             .await
     }
 
-    /// Installs a zipped pre-built plugin. The manifest may be at the top of
-    /// the archive or in its one folder.
+    /// Installs a zipped plugin. The manifest may be at the top of the
+    /// archive or in its one folder. It's pre-built if its backend is there,
+    /// and otherwise built, if it has `[build]` commands and `may_build`.
     pub async fn install_zip(
         &self,
         user_id: Snowflake,
         zip: Vec<u8>,
+        may_build: bool,
     ) -> Result<InstallReport, PluginError> {
         let temp = self.temp_dir()?;
         let into = temp.path().to_owned();
@@ -173,7 +178,18 @@ impl PluginService {
             .await
             .expect("unzipping should not panic")
             .map_err(PluginError::InvalidSource)?;
-        self.install_prebuilt(user_id, root).await
+        let manifest =
+            Manifest::from_dir(&root).map_err(|e| PluginError::InvalidSource(e.to_string()))?;
+        let has_build = !manifest.build.backend.is_empty() || !manifest.build.frontend.is_empty();
+        if root.join(&manifest.structure.backend).is_file() || !has_build {
+            tracing::info!("installing a pre-built zip");
+            return self.install_prebuilt(user_id, root).await;
+        }
+        if !may_build {
+            return Err(PluginError::BuildForbidden("a zip".into()));
+        }
+        tracing::info!("installing a zip from source");
+        self.install_from_source(user_id, root).await
     }
 
     /// Installs a pre-built plugin from the GitHub release of `repo`
@@ -185,6 +201,7 @@ impl PluginService {
         user_id: Snowflake,
         repo: &str,
         tag: Option<&str>,
+        may_build: bool,
     ) -> Result<Option<InstallReport>, PluginError> {
         let invalid = |reason: String| PluginError::InvalidSource(reason);
         let Some((owner, name)) = repo.split_once('/') else {
@@ -246,7 +263,7 @@ impl PluginService {
         match (zips.next(), zips.next()) {
             (Some(asset), None) => {
                 let bytes = download(&client, &asset.browser_download_url).await?;
-                self.install_zip(user_id, bytes).await.map(Some)
+                self.install_zip(user_id, bytes, may_build).await.map(Some)
             }
             (None, _) => Err(invalid(format!(
                 "the release has neither a {MANIFEST_FILE} nor a .zip"

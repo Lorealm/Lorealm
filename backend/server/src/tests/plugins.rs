@@ -821,30 +821,64 @@ async fn a_prebuilt_plugin_installs_without_building() {
     assert!(dir.join("hello@0.1.0/frontend/inspector.html").is_file());
 }
 
-#[tokio::test]
-async fn an_unbuilt_zip_is_refused_with_its_missing_backend() {
+/// A zip holding `files`, each with its contents.
+fn zipped(files: &[(&str, Vec<u8>)]) -> Vec<u8> {
     use std::io::Write;
 
+    let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    for (name, contents) in files {
+        zip.start_file(*name, zip::write::SimpleFileOptions::default())
+            .unwrap();
+        zip.write_all(contents).unwrap();
+    }
+    zip.finish().unwrap().into_inner()
+}
+
+#[tokio::test]
+async fn an_unbuilt_zip_needs_the_build_permission() {
     let h = harness().await;
     let plugins = service(&h, fresh_dir(), PluginConfig::default());
     let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/tts");
-    let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
-    zip.start_file(
+    let zip = zipped(&[(
         "tts/manifest.toml",
-        zip::write::SimpleFileOptions::default(),
-    )
-    .unwrap();
-    zip.write_all(&std::fs::read(source.join("manifest.toml")).unwrap())
-        .unwrap();
-    let zip = zip.finish().unwrap().into_inner();
+        std::fs::read(source.join("manifest.toml")).unwrap(),
+    )]);
 
-    let result = plugins.install_zip(h.user, zip).await.err();
+    let result = plugins.install_zip(h.user, zip, false).await.err();
 
     assert!(
-        matches!(&result, Some(PluginError::InvalidSource(r))
-            if r == "its backend `target/wasm32-wasip2/release/tts.wasm` is missing; build the plugin before packaging it"),
+        matches!(result, Some(PluginError::BuildForbidden(_))),
         "{result:?}"
     );
+}
+
+#[tokio::test]
+async fn an_unbuilt_zip_is_built() {
+    let h = harness().await;
+    let dir = fresh_dir();
+    let plugins = service(&h, dir.clone(), PluginConfig::default());
+    let wasm = fixture("hello/target/wasm32-wasip2/release/hello.wasm");
+    let manifest = format!(
+        r#"
+        [plugin]
+        name = "Hello"
+        handle = "hello"
+        description = ""
+        author = "Lorealm"
+        version = "0.4.0"
+        permissions = ["prompt:write", "chat:read", "chat:write", "tools:write", "persona:read", "data:persist"]
+
+        [build]
+        backend = ["cp", "{}", "plugin.wasm"]
+        "#,
+        wasm.display()
+    );
+    let zip = zipped(&[("hello/manifest.toml", manifest.into_bytes())]);
+
+    let report = plugins.install_zip(h.user, zip, true).await.unwrap();
+
+    assert!(report.log.contains("$ cp"), "{}", report.log);
+    assert!(dir.join("hello@0.4.0/backend.wasm").is_file());
 }
 
 #[tokio::test]
@@ -901,7 +935,7 @@ async fn a_zipped_plugin_installs_from_its_folder() {
     zip.start_file("../escaped", options).unwrap();
     let zip = zip.finish().unwrap().into_inner();
 
-    let report = plugins.install_zip(h.user, zip).await.unwrap();
+    let report = plugins.install_zip(h.user, zip, false).await.unwrap();
 
     assert_eq!(report.handle, "hello");
     assert!(dir.join("hello@0.1.0/frontend/inspector.html").is_file());

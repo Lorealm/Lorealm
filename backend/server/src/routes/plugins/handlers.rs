@@ -256,7 +256,7 @@ pub async fn install_plugin(
     Ok(Json(report))
 }
 
-/// Installs the zipped pre-built plugin in the body.
+/// Installs the zipped plugin in the body, building it if it isn't built.
 pub async fn upload_plugin(
     State(app_state): State<Arc<AppState>>,
     session: AuthenticatedSession,
@@ -264,10 +264,13 @@ pub async fn upload_plugin(
     body: axum::body::Bytes,
 ) -> Result<Json<InstallReport>, AppError> {
     require_install(&perms)?;
+    let may_build = perms
+        .require(Permissions::ALLOW_PLUGIN_INSTALL_FROM_SOURCE)
+        .is_ok();
     let report = app_state
         .services()
         .plugins()
-        .install_zip(session.user_id, body.to_vec())
+        .install_zip(session.user_id, body.to_vec(), may_build)
         .await?;
 
     Ok(Json(report))
