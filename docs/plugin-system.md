@@ -39,6 +39,7 @@ A living document to help us keep track of the plugin system implementation.
 | 30/09/26      | Added backend-to-frontend sends     | ✅            |
 | 17/10/26      | Added the composer slot and HypeBot | ✅            |
 | 17/10/26      | Added connection profile settings   | ✅            |
+| 30/10/26      | Added built-in resource settings    | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -254,7 +255,7 @@ autoplay: bool
 ```
 The file must parse when the plugin is installed. Values are checked by Weaver the same way a blueprint's inputs are, when saved (`PUT /plugins/{handle}/settings`, refused with the reason) and when read (`GET`, with defaults applied). Settings are kept per user and plugin, and outlive disabling it.
 
-An API key setting is `Ref<type>`, where `type` is declared in `[definitions] api_keys` by any of the user's enabled plugins, so one plugin can declare a type that others use through `requires`. Any number of plugins may declare the same type. The user adds keys of these types in the key manager, and a setting holds the id of one of their own keys of that type, or `null` for none (so `key: Ref<type> = null` is optional); the plugin never sees the key itself. A setting can also be `Ref<ConnectionProfile>`: it holds the id of one of the user's connection profiles, or `null`, and a plugin can hand it to `generate`. A `Ref` whose type no enabled plugin declares, and the other built-in types like `Ref<Character>`, are refused for now, since no host command takes them yet.
+An API key setting is `Ref<type>`, where `type` is declared in `[definitions] api_keys` by any of the user's enabled plugins, so one plugin can declare a type that others use through `requires`. Any number of plugins may declare the same type. The user adds keys of these types in the key manager, and a setting holds the id of one of their own keys of that type, or `null` for none (so `key: Ref<type> = null` is optional); the plugin never sees the key itself. A setting can also name a built-in type: `Ref<ConnectionProfile>`, `Ref<Template>`, `Ref<Lorebook>`, `Ref<Character>`, `Ref<Tool>` or `Ref<Persona>`. It holds the id of one of the user's own resources of that type, or `null`. A plugin can hand a connection profile to `generate`; no host command takes the others yet. A `Ref` whose type no enabled plugin declares, and `Ref<Widget>`, are refused.
 
 A plugin reads its settings with `settings()`: a JSON object with every input, set to the user's value or its default, with API key settings as key ids. It needs no permission. Key types are those declared by the user's loaded plugins. While the saved values don't fit (a required setting not filled in yet, or values an update made invalid), the call fails with the reason, and the plugin's log gets a warning telling the user where to fix them.
 
