@@ -6,6 +6,7 @@
 	import { pluginsStore } from '$lib/stores/plugins.svelte.js';
 	import type { InputSpec } from '$lib/types/blueprint.js';
 	import InputControl, { blankFor } from '../../realms/InputControl.svelte';
+	import { ensureLoaded } from '../../realms/resources.svelte.js';
 
 	let { handle }: { handle?: string } = $props();
 
@@ -34,6 +35,12 @@
 			.settings(handle)
 			.then((settings) => {
 				inputs = settings.inputs;
+				// Settings like `Ref<ConnectionProfile>` pick from these.
+				ensureLoaded(
+					settings.inputs.flatMap((spec) =>
+						spec.type === 'reference' && spec.kind ? [spec.kind] : []
+					)
+				);
 				values = Object.fromEntries(
 					// `null` is a value: an optional key with none picked.
 					settings.inputs.map((spec) => [
@@ -89,7 +96,8 @@
 						value={values[spec.name]}
 						ariaLabel={spec.name}
 						onchange={(next) => {
-							values[spec.name] = next;
+							// No pick is `null`, which an optional `Ref` takes.
+							values[spec.name] = spec.type === 'reference' && next === '' ? null : next;
 							saved = false;
 						}}
 					/>

@@ -21,6 +21,7 @@
 
 <script lang="ts">
 	import { Plus, X } from '@lucide/svelte';
+	import type { Attachment } from 'svelte/attachments';
 	import NumberInput from '$lib/components/NumberInput.svelte';
 	import { connectionStore } from '$lib/stores/connection.svelte.js';
 	import { itemsOf } from './resources.svelte.js';
@@ -44,6 +45,20 @@
 	function setSpan(from: number, to: number) {
 		onchange({ from: Math.min(from, to), to: Math.max(from, to) });
 	}
+
+	/** Grows a text area to fit its text, as it's typed and when the value changes. */
+	const grow: Attachment<HTMLTextAreaElement> = (area) => {
+		// Read so the attachment re-runs when the value changes, such as once
+		// saved settings load.
+		void value;
+		const fit = () => {
+			area.style.height = 'auto';
+			area.style.height = `${area.scrollHeight + area.offsetHeight - area.clientHeight}px`;
+		};
+		fit();
+		area.addEventListener('input', fit);
+		return () => area.removeEventListener('input', fit);
+	};
 </script>
 
 {#if ty.type === 'list'}
@@ -201,15 +216,21 @@
 		{/each}
 	</div>
 {:else}
-	<input
-		type="text"
+	<textarea
+		class="text"
+		rows="1"
 		aria-label={ariaLabel}
 		value={(value as string) ?? ''}
+		{@attach grow}
 		onchange={(e) => onchange(e.currentTarget.value)}
-	/>
+	></textarea>
 {/if}
 
 <style>
+	.text {
+		resize: none;
+		overflow: hidden;
+	}
 	.slider {
 		display: flex;
 		align-items: center;

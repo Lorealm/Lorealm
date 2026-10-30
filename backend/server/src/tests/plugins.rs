@@ -1370,6 +1370,59 @@ async fn the_tts_example_installs_and_asks_for_a_key() {
     );
 }
 
+/// The example in `plugins/hypebot`, with a stub model and the profile picked
+/// in its settings.
+#[tokio::test]
+async fn the_hypebot_example_comments_on_the_story() {
+    let h = Harness::new().await;
+    let plugins = service(&h, fresh_dir(), PluginConfig::default());
+    let generator = StubGenerator::new(" \"What a twist!\"\n");
+    plugins.set_generation(Arc::downgrade(&generator) as std::sync::Weak<dyn Generation>);
+    let profile = h.profile(h.user, "active").await;
+    h.store
+        .set_active_profile(h.user, Some(profile))
+        .await
+        .unwrap();
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/hypebot");
+    plugins
+        .install_from_source(h.user, source)
+        .await
+        .unwrap_or_else(|e| panic!("installing: {e}"));
+    plugins.enable(h.user, "hypebot").await.unwrap();
+    let cheap = h.profile(h.user, "cheap").await;
+    let picked = serde_json::json!({ "profile": cheap.to_string() });
+    plugins
+        .save_settings(h.user, "hypebot", picked.as_object().unwrap().clone())
+        .await
+        .unwrap();
+    let (convo, _) = chat(&h, h.user, &["I open the door.", "A dragon!"]).await;
+    let call = |name: &str, conversation: Option<Snowflake>| {
+        plugins.call_frontend(
+            h.user,
+            "hypebot",
+            name.into(),
+            serde_json::Value::Null,
+            conversation,
+            None,
+            false,
+        )
+    };
+
+    let before = call("last", Some(convo)).await.unwrap();
+    let comment = call("comment", Some(convo)).await.unwrap();
+    let after = call("last", Some(convo)).await.unwrap();
+    let outside = call("comment", None).await;
+
+    assert_eq!(before, serde_json::Value::Null);
+    assert_eq!(comment, serde_json::json!("What a twist!"));
+    assert_eq!(after, comment);
+    assert!(
+        matches!(&outside, Err(PluginError::CallFailed(_, reason)) if reason.contains("Open a chat")),
+        "{outside:?}"
+    );
+    assert_eq!(*generator.profiles.lock().unwrap(), [cheap]);
+}
+
 /// Has `hello_addon` emit `hello_addon.ping` with `payload`.
 async fn ping(h: &Harness, payload: serde_json::Value) {
     h.plugins
@@ -1956,6 +2009,60 @@ async fn generate_answers_through_the_users_profiles() {
 
     assert_eq!(default, serde_json::json!("three coins (None/None/false)"));
     assert_eq!(*generator.profiles.lock().unwrap(), [active, cheap]);
+}
+
+/// Through the real chat service, which must not wait on the plugins of the
+/// user whose plugin is asking.
+#[tokio::test]
+async fn generate_reaches_a_real_endpoint() {
+    let sse = concat!(
+        "data: {\"choices\":[{\"delta\":{\"content\":\"three \"}}]}\n\n",
+        "data: {\"choices\":[{\"delta\":{\"content\":\"coins\"},\"finish_reason\":\"stop\"}]}\n\n",
+        "data: [DONE]\n\n"
+    );
+    let endpoint = axum::Router::new().route(
+        "/v1/chat/completions",
+        axum::routing::post(move || async move {
+            (
+                [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
+                sse,
+            )
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base_url = format!("http://{}/v1", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, endpoint).await.unwrap() });
+
+    let h = Harness::with_plugins(installed_dir().await).await;
+    let profile = lorealm_storage::models::ConnectionProfile {
+        id: h.snow.generate(),
+        user_id: h.user,
+        secret_id: None,
+        name: "local".into(),
+        provider: "openai".into(),
+        model: Some("stub".into()),
+        token_budget: 4096,
+        common_params: serde_json::json!({}),
+        provider_params: serde_json::json!({ "base_url": base_url }),
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    h.store.save_profile(&profile).await.unwrap();
+    h.store
+        .set_active_profile(h.user, Some(profile.id))
+        .await
+        .unwrap();
+    h.plugins.enable(h.user, "hello").await.unwrap();
+
+    let answer = tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        generate_in(&h, "hello", None, false),
+    )
+    .await
+    .expect("generate waited on the plugin that called it")
+    .unwrap();
+
+    assert_eq!(answer, serde_json::json!("three coins (None/None/false)"));
 }
 
 #[tokio::test]
