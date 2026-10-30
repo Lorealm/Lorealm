@@ -18,16 +18,8 @@ pub fn declarations(source: &str) -> Result<Vec<InputDecl>, String> {
     Ok(parse(&format!("{source}\n{{}}"))?.inputs)
 }
 
-/// What a `Ref<type>` setting may hold, by type: the ids of the user's keys of
-/// each type the user's plugins declare, and of their connection profiles.
 pub type Keys = BTreeMap<String, Vec<String>>;
 
-/// The only built-in type a setting may name: a plugin can hand a profile to
-/// `generate`, but has nothing to do with a character's id yet.
-const PROFILE: RealmResourceKind = RealmResourceKind::ConnectionProfile;
-
-/// Each of `types` with the ids of the user's keys of it, and the user's
-/// connection profiles.
 pub async fn keys(
     storage: &dyn Storage,
     user_id: Snowflake,
@@ -39,12 +31,38 @@ pub async fn keys(
             ids.push(secret.id.to_string());
         }
     }
-    let profiles = storage.list_profiles_by_owner(user_id).await?;
-    keys.insert(
-        PROFILE.ref_name().into(),
-        profiles.iter().map(|p| p.id.to_string()).collect(),
-    );
+    use RealmResourceKind::*;
+    let built_in = [
+        (
+            Character,
+            ids(storage.list_characters_by_owner(user_id).await?, |c| c.id),
+        ),
+        (
+            Lorebook,
+            ids(storage.list_lorebooks_by_owner(user_id).await?, |l| l.id),
+        ),
+        (
+            Template,
+            ids(storage.list_templates(user_id).await?, |t| t.id),
+        ),
+        (Tool, ids(storage.list_tools(user_id).await?, |t| t.id)),
+        (
+            Persona,
+            ids(storage.list_personas(user_id).await?, |p| p.id),
+        ),
+        (
+            ConnectionProfile,
+            ids(storage.list_profiles_by_owner(user_id).await?, |p| p.id),
+        ),
+    ];
+    for (kind, ids) in built_in {
+        keys.insert(kind.ref_name().into(), ids);
+    }
     Ok(keys)
+}
+
+fn ids<T>(items: Vec<T>, id: impl Fn(&T) -> Snowflake) -> Vec<String> {
+    items.iter().map(|item| id(item).to_string()).collect()
 }
 
 /// What the user saved for `handle`, unchecked.
@@ -117,10 +135,10 @@ impl EvalContext for KeyContext {
             });
         if held {
             Ok(())
-        } else if kind == PROFILE.ref_name() {
+        } else if let Some(kind) = RealmResourceKind::from_ref_name(kind) {
             Err(EvalError::new(
                 EvalErrorKind::TypeError,
-                "pick one of your connection profiles",
+                format!("pick one of your {}s", kind.as_str()),
             ))
         } else {
             Err(EvalError::new(
@@ -242,6 +260,31 @@ autoplay: bool
             resolve(json!({ "profile": "8" }))
                 .unwrap_err()
                 .contains("input profile: pick one of your connection profiles")
+        );
+    }
+
+    #[test]
+    fn a_resource_must_be_one_of_the_users() {
+        let source = "#inputs\nbooks: [Ref<Lorebook>]\nwho: Ref<Character> = null\n";
+        let keys = Keys::from([
+            ("Lorebook".into(), vec!["1".into(), "2".into()]),
+            ("Character".into(), vec!["3".into()]),
+        ]);
+        let resolve = |given| super::resolve(source, &values(given), &keys);
+
+        assert_eq!(
+            resolve(json!({ "books": ["1", "2"], "who": "3" })).unwrap(),
+            json!({ "books": ["1", "2"], "who": "3" })
+        );
+        assert!(
+            resolve(json!({ "books": ["1", "4"] }))
+                .unwrap_err()
+                .contains("pick one of your lorebooks")
+        );
+        assert!(
+            resolve(json!({ "books": [], "who": "1" }))
+                .unwrap_err()
+                .contains("input who: pick one of your characters")
         );
     }
 
