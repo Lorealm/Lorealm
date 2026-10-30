@@ -76,6 +76,11 @@ pub(crate) struct Harness {
 
 impl Harness {
     pub async fn new() -> Self {
+        Self::with_plugins(std::path::PathBuf::new()).await
+    }
+
+    /// With the plugins installed in `dir`, wired to the real chat service.
+    pub async fn with_plugins(dir: std::path::PathBuf) -> Self {
         let snow = Arc::new(SnowflakeService::new(0));
         let store = Arc::new(MemoryStorage::new());
         let storage = Arc::clone(&store) as Arc<dyn lorealm_storage::Storage>;
@@ -134,7 +139,7 @@ impl Harness {
             Arc::clone(&state),
             Arc::clone(&connection),
             Default::default(),
-            std::path::PathBuf::new(),
+            dir,
         ));
         let chat = Arc::new(ChatService::new(
             Arc::clone(&storage),

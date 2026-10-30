@@ -37,6 +37,8 @@ A living document to help us keep track of the plugin system implementation.
 | 30/09/26      | Added the generate host command     | ✅            |
 | 30/09/26      | Made blocking calls stoppable       | ✅            |
 | 30/09/26      | Added backend-to-frontend sends     | ✅            |
+| 17/10/26      | Added the composer slot and HypeBot | ✅            |
+| 17/10/26      | Added connection profile settings   | ✅            |
 
 ## Ambitions
 The plugin system is the main way we provide extensibility to users. It is important we get this right before Lorealm goes public.
@@ -60,7 +62,7 @@ We will provide paths for common things, such as inspector modules, custom chat 
 **Unsafe** - Gated both by a plugin-level permission and a user-level permission in `ALLOW_UNSAFE_PLUGINS`. Allows (near) direct DOM access. Realistically speaking, this is going to be neccessary for plugins that want to add more advanced behavior.
 
 #### Frontend
-The manifest declares where the plugin appears; the client decides which slots exist and ignores ones it doesn't know. The official client has `inspector` (a widget in the inspector grid) and `message` (under assistant messages, like static widgets).
+The manifest declares where the plugin appears; the client decides which slots exist and ignores ones it doesn't know. The official client has `inspector` (a widget in the inspector grid), `message` (under assistant messages, like static widgets) and `composer` (right above the chat bar, in chats).
 ```toml
 [frontend]
 path = "frontend"          # defaults to "frontend"
@@ -252,7 +254,7 @@ autoplay: bool
 ```
 The file must parse when the plugin is installed. Values are checked by Weaver the same way a blueprint's inputs are, when saved (`PUT /plugins/{handle}/settings`, refused with the reason) and when read (`GET`, with defaults applied). Settings are kept per user and plugin, and outlive disabling it.
 
-An API key setting is `Ref<type>`, where `type` is declared in `[definitions] api_keys` by any of the user's enabled plugins, so one plugin can declare a type that others use through `requires`. Any number of plugins may declare the same type. The user adds keys of these types in the key manager, and a setting holds the id of one of their own keys of that type, or `null` for none (so `key: Ref<type> = null` is optional); the plugin never sees the key itself. A `Ref` whose type no enabled plugin declares, and built-in types like `Ref<Character>`, are refused for now.
+An API key setting is `Ref<type>`, where `type` is declared in `[definitions] api_keys` by any of the user's enabled plugins, so one plugin can declare a type that others use through `requires`. Any number of plugins may declare the same type. The user adds keys of these types in the key manager, and a setting holds the id of one of their own keys of that type, or `null` for none (so `key: Ref<type> = null` is optional); the plugin never sees the key itself. A setting can also be `Ref<ConnectionProfile>`: it holds the id of one of the user's connection profiles, or `null`, and a plugin can hand it to `generate`. A `Ref` whose type no enabled plugin declares, and the other built-in types like `Ref<Character>`, are refused for now, since no host command takes them yet.
 
 A plugin reads its settings with `settings()`: a JSON object with every input, set to the user's value or its default, with API key settings as key ids. It needs no permission. Key types are those declared by the user's loaded plugins. While the saved values don't fit (a required setting not filled in yet, or values an update made invalid), the call fails with the reason, and the plugin's log gets a warning telling the user where to fix them.
 
@@ -339,6 +341,8 @@ Apart from hook registering, a plugin will need to ship with a variety of comman
 
 ### Example
 `plugins/tts` is a complete plugin in Rust: it reads replies aloud with OpenRouter or ElevenLabs. It shows settings with API keys (declaring `openrouter` to reuse the user's existing keys, and `elevenlabs` as a new type), `http-fetch` with `{secret:name}`, a `message` slot, and `ui:autoplay`. Install it with "Add from source" and its folder. A server test installs it and exercises it short of calling a provider.
+
+`plugins/hypebot` recreates NovelAI's HypeBot: a robot in the `composer` slot that comments on the story, on click or after every reply. It shows `after-generate`, `messages`, `generate` with a `Ref<ConnectionProfile>` setting, and `send-frontend`.
 
 ### Proposed Plugin Structure
 ```

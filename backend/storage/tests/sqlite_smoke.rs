@@ -464,6 +464,37 @@ async fn plugin_settings_and_version_upsert() {
     );
 }
 
+#[tokio::test]
+async fn plugin_logs_keep_the_newest_cap_entries() {
+    let s = db().await;
+    let user = a_user(&s, 10).await;
+    let log = |n: i64| PluginLog {
+        id: Snowflake(n),
+        user_id: user,
+        handle: "tts".into(),
+        level: PluginLogLevel::Info,
+        source: PluginLogSource::Guest,
+        message: format!("line {n}"),
+        created_at: Utc::now(),
+    };
+
+    s.append_plugin_logs(user, "tts", &[log(1), log(2), log(3)], 2)
+        .await
+        .unwrap();
+    s.append_plugin_logs(user, "tts", &[log(4)], 2)
+        .await
+        .unwrap();
+
+    let kept: Vec<_> = s
+        .list_plugin_logs(user, "tts", 10)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|l| l.message)
+        .collect();
+    assert_eq!(kept, ["line 4", "line 3"]);
+}
+
 /// `updated_at` ordering across rows written at different times. Mixed timestamp
 /// formats in one column would silently misorder this.
 #[tokio::test]

@@ -13,6 +13,7 @@
 	import { router } from '$lib/navigation/router.svelte.js';
 	import ChatBox from '$lib/widgets/chat/ChatBox.svelte';
 	import ChatControls from '../chat/ChatControls.svelte';
+	import PluginComposerSlots from '$lib/components/PluginComposerSlots.svelte';
 	import RealmChatControls from '../chat/RealmChatControls.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte.js';
 
@@ -31,6 +32,7 @@
 	{#if chatStore.isRealm}
 		<RealmChatControls />
 	{/if}
+	<PluginComposerSlots />
 	<ChatControls />
 {:else if route.view === 'characters'}
 	{#await lazy(charactersPage) then CharactersPage}

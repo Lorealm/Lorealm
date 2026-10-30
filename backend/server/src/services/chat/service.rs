@@ -1033,11 +1033,20 @@ impl ChatService {
 
         let mut registry = lorealm_providers::ToolRegistry::new();
 
+        // Plugin callables are only reachable from tool bodies.
+        let offers_tools = policy.tool_ids.as_ref().is_none_or(|ids| !ids.is_empty())
+            || !policy.attachments.is_empty()
+            || !policy.extra_tool_ids.is_empty();
+        let plugins = match offers_tools {
+            true => self.plugins.vocabulary(owner).await,
+            false => None,
+        };
+
         let mut host = WeaverHost::builder()
             .profile(WeaverProfile::ChatTurn)
             .attachments(policy.attachments.clone())
             .pool(Arc::clone(&state))
-            .plugins(self.plugins.vocabulary(owner).await);
+            .plugins(plugins);
 
         // Realm turns hand over a sink so the events a tool emits are read
         // back by the realm that scheduled the turn.

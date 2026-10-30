@@ -250,7 +250,7 @@ impl PluginStorage for SqliteStorage {
         sqlx::query(
             r#"DELETE FROM plugin_logs WHERE user_id = $1 AND handle = $2 AND id < (
                 SELECT id FROM plugin_logs WHERE user_id = $1 AND handle = $2
-                ORDER BY id DESC OFFSET GREATEST($3 - 1, 0) LIMIT 1
+                ORDER BY id DESC LIMIT 1 OFFSET MAX($3 - 1, 0)
             )"#,
         )
         .bind(user_id)

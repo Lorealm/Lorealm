@@ -5,7 +5,10 @@ use weaver_lang::{
     evaluate_value_doc, parse_value_doc,
 };
 
-use lorealm_storage::{Storage, StorageError, models::Snowflake};
+use lorealm_storage::{
+    Storage, StorageError,
+    models::{RealmResourceKind, Snowflake},
+};
 
 use crate::util::weaver::{describe_parse_errors, json_to_weaver, weaver_to_json};
 
@@ -15,11 +18,16 @@ pub fn declarations(source: &str) -> Result<Vec<InputDecl>, String> {
     Ok(parse(&format!("{source}\n{{}}"))?.inputs)
 }
 
-/// The user's API keys: the ids of their keys of each type the user's plugins
-/// declare. A `Ref<type>` setting holds one of them.
+/// What a `Ref<type>` setting may hold, by type: the ids of the user's keys of
+/// each type the user's plugins declare, and of their connection profiles.
 pub type Keys = BTreeMap<String, Vec<String>>;
 
-/// Each of `types` with the ids of the user's keys of it.
+/// The only built-in type a setting may name: a plugin can hand a profile to
+/// `generate`, but has nothing to do with a character's id yet.
+const PROFILE: RealmResourceKind = RealmResourceKind::ConnectionProfile;
+
+/// Each of `types` with the ids of the user's keys of it, and the user's
+/// connection profiles.
 pub async fn keys(
     storage: &dyn Storage,
     user_id: Snowflake,
@@ -31,6 +39,11 @@ pub async fn keys(
             ids.push(secret.id.to_string());
         }
     }
+    let profiles = storage.list_profiles_by_owner(user_id).await?;
+    keys.insert(
+        PROFILE.ref_name().into(),
+        profiles.iter().map(|p| p.id.to_string()).collect(),
+    );
     Ok(keys)
 }
 
@@ -95,8 +108,6 @@ impl EvalContext for KeyContext {
         Err(EvalError::host_error("settings can't include documents"))
     }
 
-    /// A key setting holds one of the user's keys of its type, or `null`
-    /// for none, so `key: Ref<type> = null` is optional.
     fn validate_input(&self, kind: &str, value: &Value) -> Result<(), EvalError> {
         let held = matches!(value, Value::None)
             || value.as_string().is_some_and(|id| {
@@ -106,6 +117,11 @@ impl EvalContext for KeyContext {
             });
         if held {
             Ok(())
+        } else if kind == PROFILE.ref_name() {
+            Err(EvalError::new(
+                EvalErrorKind::TypeError,
+                "pick one of your connection profiles",
+            ))
         } else {
             Err(EvalError::new(
                 EvalErrorKind::TypeError,
@@ -208,6 +224,24 @@ autoplay: bool
         assert_eq!(
             super::resolve(optional, &values(json!({})), &keys).unwrap(),
             json!({ "key": null })
+        );
+    }
+
+    #[test]
+    fn a_profile_must_be_one_of_the_users() {
+        let source = "#inputs\nprofile: Ref<ConnectionProfile> = null\n";
+        let keys = Keys::from([("ConnectionProfile".into(), vec!["7".into()])]);
+        let resolve = |given| super::resolve(source, &values(given), &keys);
+
+        assert_eq!(
+            resolve(json!({ "profile": "7" })).unwrap(),
+            json!({ "profile": "7" })
+        );
+        assert_eq!(resolve(json!({})).unwrap(), json!({ "profile": null }));
+        assert!(
+            resolve(json!({ "profile": "8" }))
+                .unwrap_err()
+                .contains("input profile: pick one of your connection profiles")
         );
     }
 
