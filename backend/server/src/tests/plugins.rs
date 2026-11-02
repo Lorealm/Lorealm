@@ -2065,6 +2065,77 @@ async fn generate_reaches_a_real_endpoint() {
     assert_eq!(answer, serde_json::json!("three coins (None/None/false)"));
 }
 
+/// The Anthropic arm of the dispatch, with the key from a stored secret.
+#[tokio::test]
+async fn generate_reaches_anthropic_with_the_stored_key() {
+    let sse = concat!(
+        "data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+        "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"three coins\"}}\n\n",
+        "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"}}\n\n",
+    );
+    let keys: Arc<std::sync::Mutex<Vec<String>>> = Default::default();
+    let seen = Arc::clone(&keys);
+    let endpoint = axum::Router::new().route(
+        "/v1/messages",
+        axum::routing::post(move |headers: axum::http::HeaderMap| async move {
+            let key = headers["x-api-key"].to_str().unwrap().to_string();
+            seen.lock().unwrap().push(key);
+            (
+                [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
+                sse,
+            )
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base_url = format!("http://{}/v1", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, endpoint).await.unwrap() });
+
+    let h = Harness::with_plugins(installed_dir().await).await;
+    let secret = h
+        .connection
+        .create_secret(
+            h.user,
+            "anthropic".into(),
+            "main".into(),
+            "sk-test".into(),
+            &[],
+        )
+        .await
+        .unwrap();
+    let profile = h
+        .connection
+        .create_profile(
+            h.user,
+            crate::services::connection::ProfileInput {
+                secret_id: Some(secret.id),
+                name: "claude".into(),
+                model: Some("claude-opus-5".into()),
+                token_budget: 4096,
+                provider: "anthropic".into(),
+                common_params: serde_json::json!({}),
+                provider_params: serde_json::json!({ "base_url": base_url }),
+            },
+        )
+        .await
+        .unwrap();
+    h.store
+        .set_active_profile(h.user, Some(profile.id))
+        .await
+        .unwrap();
+    h.plugins.enable(h.user, "hello").await.unwrap();
+
+    let answer = tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        generate_in(&h, "hello", None, false),
+    )
+    .await
+    .expect("generate waited on the plugin that called it")
+    .unwrap();
+
+    assert_eq!(answer, serde_json::json!("three coins (None/None/false)"));
+    assert_eq!(*keys.lock().unwrap(), ["sk-test"]);
+}
+
 #[tokio::test]
 async fn generating_needs_the_permission() {
     let h = harness().await;

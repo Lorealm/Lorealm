@@ -9,8 +9,9 @@ use chrono::Utc;
 use dashmap::DashMap;
 use futures_util::{Stream, StreamExt};
 use lorealm_providers::{
-    Client, ContentBlock, LlmProvider, OpenAiOptions, OpenAiProvider, OpenRouterOptions,
-    OpenRouterProvider,
+    AnthropicOptions, AnthropicProvider, BlockAccumulator, Client, ContentBlock, LlmProvider,
+    OpenAiOptions, OpenAiProvider, OpenRouterOptions, OpenRouterProvider, VertexAuth,
+    VertexOptions, VertexProvider,
 };
 use lorealm_storage::{
     Storage,
@@ -1176,6 +1177,61 @@ impl ChatService {
                 )
                 .await
             }
+            "anthropic" => {
+                let Some(api_key) = api_key else {
+                    return Err(ChatError::Connection("no api key".into()));
+                };
+                let pp: AnthropicOptions =
+                    serde_json::from_value(connection.profile.provider_params.clone())
+                        .map_err(|e| ChatError::Connection(format!("bad provider params: {e}")))?;
+                let provider = AnthropicProvider::new(
+                    http_client,
+                    model,
+                    pp.base_url.clone(),
+                    api_key.as_str(),
+                );
+                run_inference(
+                    provider,
+                    messages,
+                    common,
+                    pp,
+                    registry,
+                    widget_sink,
+                    effect_sink,
+                    Arc::clone(&self.plugins),
+                    owner,
+                )
+                .await
+            }
+            "vertex" => {
+                let Some(api_key) = api_key else {
+                    return Err(ChatError::Connection("no api key".into()));
+                };
+                let pp: VertexOptions =
+                    serde_json::from_value(connection.profile.provider_params.clone())
+                        .map_err(|e| ChatError::Connection(format!("bad provider params: {e}")))?;
+                // A profile holds one long-lived secret, which rules out
+                // access tokens: they expire within the hour.
+                let provider = VertexProvider::new(
+                    http_client,
+                    model,
+                    VertexAuth::ApiKey(api_key.to_string()),
+                    pp.project_id.clone(),
+                    pp.location.clone(),
+                );
+                run_inference(
+                    provider,
+                    messages,
+                    common,
+                    pp,
+                    registry,
+                    widget_sink,
+                    effect_sink,
+                    Arc::clone(&self.plugins),
+                    owner,
+                )
+                .await
+            }
             other => Err(ChatError::Connection(format!(
                 "unsupported provider: {other}"
             ))),
@@ -1386,59 +1442,34 @@ where
                 .await
                 .map_err(ChatError::from)?;
 
-            let mut text = String::new();
-            let mut calls: Vec<(Option<String>, Option<String>, String)> = Vec::new();
+            let mut acc = BlockAccumulator::default();
 
             while let Some(delta) = upstream.next().await {
                 let delta = delta.map_err(ChatError::from)?;
                 if !delta.reasoning.is_empty() {
-                    yield InferEvent::Reasoning(delta.reasoning);
+                    yield InferEvent::Reasoning(delta.reasoning.clone());
                 }
                 if !delta.content.is_empty() {
-                    text.push_str(&delta.content);
-                    yield InferEvent::Text(delta.content);
+                    yield InferEvent::Text(delta.content.clone());
                 }
-                for tc in delta.tool_calls {
-                    if calls.len() <= tc.index {
-                        calls.resize(tc.index + 1, (None, None, String::new()));
-                    }
-                    let slot = &mut calls[tc.index];
-                    if tc.id.is_some() {
-                        slot.0 = tc.id;
-                    }
-                    if tc.name.is_some() {
-                        slot.1 = tc.name;
-                    }
-                    slot.2.push_str(&tc.arguments);
-                }
+                acc.push(delta);
             }
 
-            if calls.is_empty() {
+            let (blocks, _) = acc.finish().map_err(ChatError::from)?;
+            let uses: Vec<(String, String, serde_json::Value)> = blocks
+                .iter()
+                .filter_map(|block| match block {
+                    ContentBlock::ToolUse { id, name, input } => {
+                        Some((id.clone(), name.clone(), input.clone()))
+                    }
+                    _ => None,
+                })
+                .collect();
+
+            if uses.is_empty() {
                 break;
             }
 
-            // Record the assistant turn (text + tool uses) in the history.
-            let mut blocks = Vec::new();
-            if !text.is_empty() {
-                blocks.push(ContentBlock::Text { text });
-            }
-            let mut uses = Vec::new();
-            for (id, name, args) in calls {
-                let input = if args.is_empty() {
-                    serde_json::Value::Null
-                } else {
-                    serde_json::from_str(&args)
-                        .map_err(|e| ChatError::from(lorealm_providers::Error::from(e)))?
-                };
-                let id = id.unwrap_or_default();
-                let name = name.unwrap_or_default();
-                blocks.push(ContentBlock::ToolUse {
-                    id: id.clone(),
-                    name: name.clone(),
-                    input: input.clone(),
-                });
-                uses.push((id, name, input));
-            }
             messages.push(lorealm_providers::Message {
                 role: lorealm_providers::Role::Assistant,
                 content: blocks,
@@ -1495,4 +1526,122 @@ where
     };
 
     Ok(Box::pin(stream))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::Harness;
+    use lorealm_providers::{Message, Role, ToolDef, ToolRegistry};
+
+    struct Add;
+
+    #[async_trait::async_trait]
+    impl lorealm_providers::Tool for Add {
+        fn def(&self) -> ToolDef {
+            ToolDef {
+                name: "add".into(),
+                description: "Add".into(),
+                input_schema: json!({"type": "object"}),
+            }
+        }
+        async fn call(&self, _: serde_json::Value) -> lorealm_providers::Result<serde_json::Value> {
+            Ok(json!(3))
+        }
+    }
+
+    /// A tool round must hand back the model's signed reasoning: Anthropic and
+    /// Gemini check it when the conversation continues.
+    #[tokio::test]
+    async fn the_tool_loop_replays_signed_reasoning() {
+        let tool_round = concat!(
+            "data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\",\"signature\":\"\"}}\n\n",
+            "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"Sum it.\"}}\n\n",
+            "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"signature_delta\",\"signature\":\"sig\"}}\n\n",
+            "data: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+            "data: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"Adding.\"}}\n\n",
+            "data: {\"type\":\"content_block_start\",\"index\":2,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_1\",\"name\":\"add\",\"input\":{}}}\n\n",
+            "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\"}}\n\n",
+        );
+        let final_round = concat!(
+            "data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+            "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"3\"}}\n\n",
+            "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"}}\n\n",
+        );
+
+        let bodies: Arc<StdMutex<Vec<serde_json::Value>>> = Default::default();
+        let seen = Arc::clone(&bodies);
+        let endpoint = axum::Router::new().route(
+            "/v1/messages",
+            axum::routing::post(move |body: axum::Json<serde_json::Value>| async move {
+                let mut seen = seen.lock().unwrap();
+                seen.push(body.0);
+                let sse = if seen.len() == 1 {
+                    tool_round
+                } else {
+                    final_round
+                };
+                (
+                    [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
+                    sse,
+                )
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base_url = format!("http://{}/v1", listener.local_addr().unwrap());
+        tokio::spawn(async move { axum::serve(listener, endpoint).await.unwrap() });
+
+        let h = Harness::new().await;
+        let provider = AnthropicProvider::new(
+            Arc::new(reqwest::Client::new()),
+            "claude-opus-5",
+            Some(base_url),
+            "key",
+        );
+        let mut registry = ToolRegistry::new();
+        registry.register(Add);
+
+        let mut stream = run_inference(
+            provider,
+            vec![Message::text(Role::User, "1 + 2?")],
+            Default::default(),
+            AnthropicOptions::default(),
+            registry,
+            Default::default(),
+            Default::default(),
+            Arc::clone(&h.plugins),
+            h.user,
+        )
+        .await
+        .unwrap();
+
+        let mut text = String::new();
+        let mut reasoning = String::new();
+        while let Some(event) = stream.next().await {
+            match event.unwrap() {
+                InferEvent::Text(t) => text.push_str(&t),
+                InferEvent::Reasoning(r) => reasoning.push_str(&r),
+                _ => {}
+            }
+        }
+        assert_eq!(text, "Adding.3");
+        assert_eq!(reasoning, "Sum it.");
+
+        let bodies = bodies.lock().unwrap();
+        assert_eq!(bodies.len(), 2);
+        assert_eq!(
+            bodies[1]["messages"][1],
+            json!({"role": "assistant", "content": [
+                {"type": "thinking", "thinking": "Sum it.", "signature": "sig"},
+                {"type": "text", "text": "Adding."},
+                {"type": "tool_use", "id": "toolu_1", "name": "add", "input": {}}
+            ]})
+        );
+        assert_eq!(
+            bodies[1]["messages"][2],
+            json!({"role": "user", "content": [
+                {"type": "tool_result", "tool_use_id": "toolu_1", "content": "3"}
+            ]})
+        );
+    }
 }
