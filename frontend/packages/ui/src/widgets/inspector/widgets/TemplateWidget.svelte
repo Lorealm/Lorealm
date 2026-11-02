@@ -2,22 +2,27 @@
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import { showError } from '$lib/stores/errorToast.svelte.js';
 	import { templateStore } from '$lib/stores/template.svelte.js';
+	import { templateWidgetView } from '$lib/stores/templateWidget.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import type { ContextNode, NodeContentGroup } from '$lib/types/node.js';
-	import { ChevronDown, CircleDot, Folder, Plug } from '@lucide/svelte';
+	import { ChevronDown, CircleDot, Folder, LayoutGrid, ListTree, Plug } from '@lucide/svelte';
 	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	const groupOf = (node: ContextNode): NodeContentGroup | null =>
 		node.content.type === 'group' ? node.content : null;
 
 	let collapsed = $state(false);
-	/** Ids of the groups drilled into, outermost first. */
 	let trail = $state<Snowflake[]>([]);
+	const folded = new SvelteSet<Snowflake>();
 
 	let template = $derived(templateStore.activeTemplate);
 	let templateId = $derived(template?.id ?? null);
 
+	let tree = $derived(templateWidgetView.value === 'tree');
+
 	onMount(async () => {
+		void templateWidgetView.load();
 		await templateStore.loadActive();
 		const id = templateStore.activeId;
 		if (id) await templateStore.loadTemplate(id);
@@ -27,6 +32,7 @@
 	$effect(() => {
 		void templateId;
 		trail = [];
+		folded.clear();
 	});
 
 	/** Walks {@link trail} as far as it still resolves, yielding the visible level. */
@@ -48,16 +54,34 @@
 		if (view.crumbs.length !== trail.length) trail = view.crumbs.map((c) => c.id);
 	});
 
-	let enabledCount = $derived(view.nodes.filter((n) => n.enabled).length);
+	const flatten = (nodes: ContextNode[]): ContextNode[] =>
+		nodes.flatMap((n) => [n, ...flatten(groupOf(n)?.children ?? [])]);
+
+	let counted = $derived(tree ? flatten(template?.nodes ?? []) : view.nodes);
+	let enabledCount = $derived(counted.filter((n) => n.enabled).length);
+
+	function toggle(node: ContextNode) {
+		templateStore
+			.toggleActiveNode(node.id)
+			.catch((err) => showError(err, { title: 'Toggle failed' }));
+	}
 
 	function onBox(e: MouseEvent, node: ContextNode) {
 		if (e.shiftKey) {
 			if (groupOf(node)) trail = [...trail, node.id];
 			return;
 		}
-		templateStore
-			.toggleActiveNode(node.id)
-			.catch((err) => showError(err, { title: 'Toggle failed' }));
+		toggle(node);
+	}
+
+	function onRow(e: MouseEvent, node: ContextNode) {
+		const onArrow = (e.target as Element).closest('.fold') !== null;
+		if (!e.shiftKey && !(onArrow && groupOf(node))) {
+			toggle(node);
+			return;
+		}
+		if (!groupOf(node)) return;
+		if (!folded.delete(node.id)) folded.add(node.id);
 	}
 
 	function onBoxKey(e: KeyboardEvent) {
@@ -72,18 +96,79 @@
 	}
 </script>
 
-<div class="widget" class:collapsed>
-	<button class="head" aria-expanded={!collapsed} onclick={() => (collapsed = !collapsed)}>
-		<span class="chev" class:collapsed><ChevronDown /></span>
-		<span class="label">Template Nodes</span>
-		{#if template}
-			<span class="count">{enabledCount}/{view.nodes.length}</span>
+{#snippet branch(nodes: ContextNode[])}
+	{#each nodes as node (node.id)}
+		{@const group = groupOf(node)}
+		{@const isFolded = folded.has(node.id)}
+		<button
+			class="row"
+			class:on={node.enabled}
+			class:group={group !== null}
+			aria-pressed={node.enabled}
+			aria-expanded={group ? !isFolded : undefined}
+			{@attach tooltip(
+				group
+					? 'Click to toggle, shift-click to collapse'
+					: node.description || node.title
+			)}
+			onclick={(e) => onRow(e, node)}
+		>
+			<span class="fold" class:collapsed={isFolded}>
+				{#if group}<ChevronDown />{/if}
+			</span>
+			<span class="tick"></span>
+			<span class="row-name">{node.title || 'Untitled'}</span>
+			<span class="marks">
+				{#if group}
+					{#if group.mode === 'invariant'}
+						<CircleDot />
+					{/if}
+					<span class="children">{group.children.length}</span>
+				{:else if node.content.type === 'source'}
+					<Plug />
+				{/if}
+			</span>
+		</button>
+		{#if group && !isFolded && group.children.length > 0}
+			<div class="branch" class:off={!node.enabled}>
+				{@render branch(group.children)}
+			</div>
 		{/if}
-	</button>
+	{/each}
+{/snippet}
+
+<div class="widget" class:collapsed>
+	<div class="bar">
+		<button class="head" aria-expanded={!collapsed} onclick={() => (collapsed = !collapsed)}>
+			<span class="chev" class:collapsed><ChevronDown /></span>
+			<span class="label">Template Nodes</span>
+			{#if template}
+				<span class="count">{enabledCount}/{counted.length}</span>
+			{/if}
+		</button>
+		{#if template && !collapsed}
+			<button
+				class="switch"
+				aria-label={tree ? 'Show as grid' : 'Show as tree'}
+				{@attach tooltip(tree ? 'Show as grid' : 'Show as tree')}
+				onclick={() => templateWidgetView.set(tree ? 'grid' : 'tree')}
+			>
+				{#if tree}<LayoutGrid />{:else}<ListTree />{/if}
+			</button>
+		{/if}
+	</div>
 
 	{#if !collapsed}
 		{#if !template}
 			<div class="empty">No active template.</div>
+		{:else if tree}
+			<div class="tree" role="group" aria-label="Template nodes">
+				{#if template.nodes.length === 0}
+					<div class="empty">Empty template.</div>
+				{:else}
+					{@render branch(template.nodes)}
+				{/if}
+			</div>
 		{:else}
 			<div class="crumbs">
 				<button class="crumb" disabled={trail.length === 0} onclick={() => (trail = [])}>
@@ -150,25 +235,47 @@
 	.widget.collapsed {
 		height: auto;
 	}
-	.widget.collapsed .head {
+	.widget.collapsed .bar {
 		border-bottom: none;
 	}
 	.chev.collapsed {
 		transform: rotate(-90deg);
 	}
 
+	.bar {
+		display: flex;
+		align-items: stretch;
+		flex: 0 0 auto;
+		border-bottom: 1px solid var(--color-border-subtle);
+	}
 	.head {
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-sm);
-		flex: 0 0 auto;
-		width: 100%;
+		flex: 1;
+		min-width: 0;
 		background-color: transparent;
 		border-radius: 0;
 		padding: var(--spacing-sm) var(--spacing-md);
-		border-bottom: 1px solid var(--color-border-subtle);
 		text-align: left;
 		cursor: pointer;
+	}
+	.switch {
+		flex: 0 0 auto;
+		display: inline-flex;
+		align-items: center;
+		background-color: transparent;
+		border-radius: 0;
+		padding: 0 var(--spacing-md) 0 0;
+		color: var(--color-text-muted);
+		cursor: pointer;
+	}
+	.switch:hover {
+		color: var(--color-text-accent);
+	}
+	.switch :global(svg) {
+		width: 14px;
+		height: 14px;
 	}
 	.label {
 		flex: 1;
@@ -237,6 +344,84 @@
 		padding: var(--spacing-sm) var(--spacing-md);
 		align-content: start;
 	}
+	.tree {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		padding: var(--spacing-xs) var(--spacing-sm);
+	}
+	.branch {
+		margin-left: 11px;
+		padding-left: var(--spacing-xs);
+		border-left: 1px solid var(--color-border-subtle);
+	}
+	.branch.off {
+		opacity: 0.5;
+	}
+	.row {
+		display: flex;
+		align-items: center;
+		flex: 0 0 auto;
+		gap: var(--spacing-xs);
+		width: 100%;
+		padding: 2px var(--spacing-xs);
+		background-color: transparent;
+		border-radius: var(--radius-sm);
+		color: var(--color-text-muted);
+		font-size: var(--font-size-xs);
+		text-align: left;
+		cursor: pointer;
+		user-select: none;
+	}
+	.row.on {
+		color: var(--color-text-primary);
+	}
+	.row:hover {
+		background-color: var(--color-hover);
+	}
+	.row.group {
+		font-family: var(--font-family-heading);
+	}
+	.fold {
+		flex: 0 0 auto;
+		display: inline-flex;
+		width: 12px;
+		height: 12px;
+		color: var(--color-text-muted);
+		transition: transform var(--transition-fast) var(--easing-default);
+	}
+	.fold:hover {
+		color: var(--color-text-accent);
+	}
+	.fold.collapsed {
+		transform: rotate(-90deg);
+	}
+	.fold :global(svg) {
+		width: 12px;
+		height: 12px;
+	}
+	.tick {
+		flex: 0 0 auto;
+		width: 8px;
+		height: 8px;
+		border: 1px solid var(--color-border-medium);
+		border-radius: 2px;
+	}
+	.row.on .tick {
+		border-color: var(--color-border-active);
+		background-color: var(--color-border-active);
+	}
+	.row-name {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		line-height: var(--line-height-snug);
+	}
+
 	.empty {
 		grid-column: 1 / -1;
 		margin: auto;
