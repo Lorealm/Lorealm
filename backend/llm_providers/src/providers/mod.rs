@@ -27,12 +27,23 @@ pub trait LlmProvider: Send + Sync {
     }
 }
 
+mod anthropic;
+mod anthropic_wire;
+mod gemini_wire;
 mod openai;
 mod openai_wire;
 mod openrouter;
+mod vertex;
 
+pub use anthropic::{
+    ANTHROPIC_DEFAULT_BASE_URL, AnthropicOptions, AnthropicProvider, AnthropicThinking,
+};
 pub use openai::{OPENAI_DEFAULT_BASE_URL, OpenAiOptions, OpenAiProvider};
 pub use openrouter::{
     OpenRouterOptions, OpenRouterProvider, OpenRouterProviderPreference, OpenRouterReasoning,
 };
 use serde::Serialize;
+pub use vertex::{
+    VERTEX_DEFAULT_LOCATION, VertexAuth, VertexOptions, VertexProvider, VertexSafetySetting,
+    VertexThinking,
+};

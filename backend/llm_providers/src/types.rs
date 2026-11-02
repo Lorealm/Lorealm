@@ -39,10 +39,16 @@ pub enum ContentBlock {
         media_type: String,
         source: ImageSource,
     },
-    /// Reasoning/thinking produced by the model before its answer. Never
-    /// sent back over the wire; providers skip it when serializing.
+    /// Reasoning/thinking produced by the model before its answer.
+    ///
+    /// `signature` is an opaque, provider-issued token (Anthropic's thinking
+    /// `signature`, Gemini's `thoughtSignature`). Providers that issue one
+    /// require it echoed back unchanged when the conversation continues.
+    /// Unsigned blocks are never sent back over the wire; providers skip
+    /// them when serializing.
     Thinking {
         text: String,
+        signature: Option<String>,
     },
     /// A tool invocation requested by the model.
     ToolUse {
@@ -93,11 +99,14 @@ pub struct Usage {
     pub total_tokens: u32,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Delta {
     pub content: String,
     /// Reasoning/thinking tokens, when the model emits them. Empty otherwise.
     pub reasoning: String,
+    /// Closes the current reasoning block with its provider signature (see
+    /// [`ContentBlock::Thinking`]). Arrives after that block's reasoning text.
+    pub reasoning_signature: Option<String>,
     pub tool_calls: Vec<ToolCallDelta>,
     pub finish_reason: Option<String>,
 }
