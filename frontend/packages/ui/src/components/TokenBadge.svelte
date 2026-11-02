@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../stores/tooltip.svelte.ts';
 	import { countTokens, type TokenCount } from '$lib/stores/tokenCount.js';
 	import { tokenizerStore } from '$lib/stores/tokenizer.svelte.js';
 
@@ -40,7 +41,7 @@
 	);
 </script>
 
-<span class="tokenBadge" class:estimated={count?.estimated} {title}>
+<span class="tokenBadge" class:estimated={count?.estimated} {@attach tooltip(title)}>
 	{#if count === null}
 		…
 	{:else}

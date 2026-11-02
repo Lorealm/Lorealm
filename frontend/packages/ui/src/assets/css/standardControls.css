@@ -107,6 +107,11 @@ select:focus {
 	outline: none;
 }
 
+select:focus-visible,
+select[aria-expanded='true'] {
+	border-color: var(--color-border-active);
+}
+
 select:hover {
 	background-color: var(--color-hover);
 	color: var(--color-text-accent);

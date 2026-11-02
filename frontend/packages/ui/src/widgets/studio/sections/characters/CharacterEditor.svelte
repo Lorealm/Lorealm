@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { onDestroy } from 'svelte';
 	import { navigator } from '$lib/navigation/navigator.js';
 	import { characterStore } from '$lib/stores/character.svelte.js';
@@ -153,7 +154,7 @@
 					onclick={() => navigator.start().studio().characters()}
 					aria-label="Back to characters">←</button
 				>
-				<span class="char-name" title={draft?.name}>{draft?.name || 'Loading…'}</span>
+				<span class="char-name" {@attach tooltip(draft?.name)}>{draft?.name || 'Loading…'}</span>
 			</div>
 			<div class="save-row" class:error={save.status === 'error'}>
 				<span class="dot" data-status={save.status}></span>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { FileCode2, Plus, Trash2 } from '@lucide/svelte';
 	import { blueprintStore } from '$lib/stores/blueprint.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
@@ -107,7 +108,7 @@
 					<button
 						type="button"
 						class="del"
-						title="Delete blueprint"
+						{@attach tooltip('Delete blueprint')}
 						aria-label="Delete {blueprint.name}"
 						onclick={(e) => remove(e, blueprint.id)}
 					>

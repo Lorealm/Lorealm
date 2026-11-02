@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { connectionStore } from '$lib/stores/connection.svelte.js';
 	import type { ConnectionProfile } from '$lib/types/connection.js';
 	import type { Snowflake } from '$lib/types/core.js';
@@ -37,7 +38,9 @@
 			class="icon-button active-toggle"
 			class:on={profile.id === activeProfileId}
 			type="button"
-			title={profile.id === activeProfileId ? 'Active connection' : 'Set as active connection'}
+			{@attach tooltip(
+				profile.id === activeProfileId ? 'Active connection' : 'Set as active connection'
+			)}
 			aria-pressed={profile.id === activeProfileId}
 			aria-label={profile.id === activeProfileId
 				? `${profile.name} is the active connection`
@@ -49,7 +52,7 @@
 		<button
 			class="icon-button delete"
 			type="button"
-			title="Delete profile"
+			{@attach tooltip('Delete profile')}
 			aria-label={`Delete ${profile.name}`}
 			onclick={() => onDelete(profile.id)}
 		>

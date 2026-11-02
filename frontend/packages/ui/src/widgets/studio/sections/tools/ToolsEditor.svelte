@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { onDestroy } from 'svelte';
 	import { navigator } from '$lib/navigation/navigator.js';
 	import { toolStore } from '$lib/stores/tools.svelte.js';
@@ -170,7 +171,7 @@
 </script>
 
 {#snippet hint(text: string)}
-	<button type="button" class="hint" title={text} aria-label={`Help: ${text}`}>?</button>
+	<button type="button" class="hint" {@attach tooltip(text)} aria-label={`Help: ${text}`}>?</button>
 {/snippet}
 
 <div class="tool-editor">
@@ -213,7 +214,9 @@
 					class="switch enable-toggle"
 					checked={tool.enabled}
 					onchange={() => toolStore.setEnabled(tool.id, !tool.enabled)}
-					title={tool.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'}
+					{@attach tooltip(
+						tool.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'
+					)}
 					aria-label={tool.enabled ? `Disable ${tool.name}` : `Enable ${tool.name}`}
 				/>
 			</div>
@@ -376,7 +379,7 @@
 									{#if nameable(param)}
 										<select
 											class="param-resource"
-											title="Offer a search for this kind and store its id"
+											{@attach tooltip('Offer a search for this kind and store its id')}
 											value={param.resource ?? ''}
 											disabled={readOnly}
 											onchange={(e) => setResource(param, e.currentTarget.value)}
@@ -387,7 +390,7 @@
 											{/each}
 										</select>
 									{/if}
-									<div class="depth" title="Array nesting">
+									<div class="depth" {@attach tooltip('Array nesting')}>
 										{#if !readOnly}
 											<button
 												type="button"

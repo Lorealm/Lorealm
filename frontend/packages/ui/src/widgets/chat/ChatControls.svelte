@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { tick } from 'svelte';
 	import CommandAutocomplete from './CommandAutocomplete.svelte';
 	import PopupMenu from '$lib/components/PopupMenu.svelte';
@@ -182,7 +183,7 @@
 		>
 			{#snippet icon()}<Sparkles />{/snippet}
 		</PopupMenu>
-		<button class="attachement-button" title="Attachments"><Paperclip /></button>
+		<button class="attachement-button" {@attach tooltip('Attachments')}><Paperclip /></button>
 		<textarea
 			use:keyLayer={{ id: CHAT_COMPOSER_LAYER, data: composerLayer }}
 			class="text-input"
@@ -200,11 +201,13 @@
 		{:else}
 			<button
 				class="send-button"
-				title={runningCommand
-					? `Stop /${runningCommand.name}`
-					: waitingOn
-						? `Stop ${waitingOn}`
-						: 'Stop generating'}
+				{@attach tooltip(
+					runningCommand
+						? `Stop /${runningCommand.name}`
+						: waitingOn
+							? `Stop ${waitingOn}`
+							: 'Stop generating'
+				)}
 				onclick={cancelGeneration}><Square /></button
 			>
 		{/if}

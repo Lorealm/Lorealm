@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { useApi } from '$lib/api/client.js';
 	import { navigator } from '$lib/navigation/navigator.js';
 	import { CONVERSATION_MANAGER_LAYER } from '$lib/keys/commands.js';
@@ -79,7 +80,11 @@
 		<div class="modal" role="dialog" aria-modal="true" aria-label="Conversations">
 			<div class="header">
 				<h2>Conversations</h2>
-				<button class="icon-btn" title="Close" onclick={() => conversationManager.close()}>
+				<button
+					class="icon-btn"
+					{@attach tooltip('Close')}
+					onclick={() => conversationManager.close()}
+				>
 					<X />
 				</button>
 			</div>
@@ -98,7 +103,7 @@
 						<button
 							type="button"
 							class="icon-btn"
-							title="Delete conversation"
+							{@attach tooltip('Delete conversation')}
 							onclick={() => remove(meta)}
 						>
 							<Trash2 size={16} />

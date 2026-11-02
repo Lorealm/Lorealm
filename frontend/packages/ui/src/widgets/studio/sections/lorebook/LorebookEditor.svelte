@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { onDestroy } from 'svelte';
 	import { navigator } from '$lib/navigation/navigator.js';
 	import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
@@ -76,7 +77,7 @@
 					onclick={() => navigator.start().studio().lorebooks()}
 					aria-label="Back to lorebooks">←</button
 				>
-				<span class="book-name" title={draft?.name}>{draft?.name ?? 'Loading…'}</span>
+				<span class="book-name" {@attach tooltip(draft?.name)}>{draft?.name ?? 'Loading…'}</span>
 			</div>
 			<div class="header-row">
 				<button

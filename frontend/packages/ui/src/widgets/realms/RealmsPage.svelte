@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { showToast } from '$lib/stores/errorToast.svelte.js';
 	import { realmStore } from '$lib/stores/realm.svelte.js';
 	import { ArrowLeft, Play, Save } from '@lucide/svelte';
@@ -84,7 +85,12 @@
 	<header class="topbar">
 		<div class="left">
 			{#if blueprint}
-				<button type="button" class="icon" title="Back to Realms" onclick={closeBlueprint}>
+				<button
+					type="button"
+					class="icon"
+					{@attach tooltip('Back to Realms')}
+					onclick={closeBlueprint}
+				>
 					<ArrowLeft size={18} />
 				</button>
 				<input
@@ -101,7 +107,7 @@
 		{#if blueprint}
 			<div class="actions">
 				{#if blueprintStore.saveStatus === 'error'}
-					<span class="saveError" title={blueprintStore.saveError ?? ''}>
+					<span class="saveError" {@attach tooltip(blueprintStore.saveError ?? '')}>
 						Unsaved — the server refused it
 					</span>
 				{:else if blueprintStore.saveStatus === 'saving'}
@@ -109,7 +115,9 @@
 				{:else if blueprintStore.saveStatus === 'blocked'}
 					<span
 						class="saveError"
-						title="The editor is empty but this blueprint is not. Automatic saving stopped so nothing is accidentally lost. Press Save if you meant to clear it."
+						{@attach tooltip(
+							'The editor is empty but this blueprint is not. Automatic saving stopped so nothing is accidentally lost. Press Save if you meant to clear it.'
+						)}
 					>
 						AutoSave refused: editor is empty
 					</span>

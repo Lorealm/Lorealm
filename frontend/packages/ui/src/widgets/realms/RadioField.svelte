@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { CircleDot, X } from '@lucide/svelte';
 	import type { RealmResourceKind } from '$lib/types/realm.js';
 	import { activeDrag, carriesAsset, clearDrag, readDrag, type AssetDrag } from './drag.svelte.js';
@@ -270,7 +271,7 @@
 			<button
 				type="button"
 				class="clear"
-				title="Clear"
+				{@attach tooltip('Clear')}
 				aria-label="Clear {ariaLabel ?? 'field'}"
 				onclick={() => onchange(null)}
 			>
@@ -281,7 +282,7 @@
 		<button
 			type="button"
 			class="pick"
-			title="Pick a source"
+			{@attach tooltip('Pick a source')}
 			aria-label="Pick a source for {ariaLabel ?? 'this field'}"
 			role="combobox"
 			aria-expanded={open}

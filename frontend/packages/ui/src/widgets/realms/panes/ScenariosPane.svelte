@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import { BookOpen, Plus, Trash2 } from '@lucide/svelte';
 	import ContextField from '$lib/components/ContextField.svelte';
 	import { realmDraft } from '../draft.svelte.js';
@@ -47,7 +48,7 @@
 					<button
 						type="button"
 						class="remove"
-						title="Remove scenario"
+						{@attach tooltip('Remove scenario')}
 						aria-label="Remove {entry.name || 'scenario'}"
 						onclick={() => remove(entry.key)}
 					>

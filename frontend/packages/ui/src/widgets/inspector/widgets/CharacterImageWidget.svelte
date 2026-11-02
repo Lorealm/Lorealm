@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import TransportImage from '$lib/components/TransportImage.svelte';
 	import { blobUrl } from '$lib/api/blobs.js';
 	import { chatStore } from '$lib/stores/chat.svelte.js';
@@ -37,7 +38,7 @@
 					<button
 						class="mode"
 						class:active={option.id === mode}
-						title={option.hint}
+						{@attach tooltip(option.hint)}
 						aria-label={option.hint}
 						aria-pressed={option.id === mode}
 						onclick={() => (mode = option.id)}
@@ -52,7 +53,7 @@
 		{#if activeCharacter}
 			<button
 				class="image-container"
-				title="Change how the image fits"
+				{@attach tooltip('Change how the image fits')}
 				aria-label="Change how the image fits"
 				onclick={cycle}
 			>

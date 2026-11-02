@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { onDestroy } from 'svelte';
 	import { navigator } from '$lib/navigation/navigator.js';
 	import { personaStore } from '$lib/stores/persona.svelte.js';
@@ -169,7 +170,7 @@
 />
 
 {#snippet hint(text: string)}
-	<button type="button" class="hint" title={text} aria-label={`Help: ${text}`}>?</button>
+	<button type="button" class="hint" {@attach tooltip(text)} aria-label={`Help: ${text}`}>?</button>
 {/snippet}
 
 <div class="persona-editor">
@@ -224,7 +225,7 @@
 					class="icon-button active-toggle"
 					class:on={persona.id === activePersonaId}
 					type="button"
-					title={persona.id === activePersonaId ? 'Active persona' : 'Set as active'}
+					{@attach tooltip(persona.id === activePersonaId ? 'Active persona' : 'Set as active')}
 					aria-pressed={persona.id === activePersonaId}
 					aria-label={persona.id === activePersonaId
 						? `${persona.name} is the active persona`
@@ -328,7 +329,7 @@
 									<button
 										type="button"
 										class="unbind"
-										title="Remove override"
+										{@attach tooltip('Remove override')}
 										aria-label={`Unbind ${character.name}`}
 										onclick={() => unbind(character.id)}
 									>

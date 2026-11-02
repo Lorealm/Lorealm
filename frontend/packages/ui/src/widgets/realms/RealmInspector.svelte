@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { ExternalLink, Maximize2, Plus, Trash2 } from '@lucide/svelte';
 	import ContextField from '$lib/components/ContextField.svelte';
 	import NumberInput from '$lib/components/NumberInput.svelte';
@@ -488,7 +489,7 @@
 										type="button"
 										class="access"
 										class:write={grant.access === 'read_write'}
-										title="Click to change what this agent may do"
+										{@attach tooltip('Click to change what this agent may do')}
 										onclick={() =>
 											(a.grants[i].access = grant.access === 'read' ? 'read_write' : 'read')}
 									>

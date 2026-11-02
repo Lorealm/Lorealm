@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import { Plus, RotateCcw, X } from '@lucide/svelte';
 
 	import KeyChord from '$lib/components/KeyChord.svelte';
@@ -157,7 +158,7 @@
 									<KeyChord {chord} />
 									<button
 										class="icon"
-										title="Unbind"
+										{@attach tooltip('Unbind')}
 										aria-label="Unbind {chord}"
 										onclick={() => unbind(command, chord)}
 									>
@@ -185,7 +186,7 @@
 							{#if keybindConfig.isOverridden(command.id)}
 								<button
 									class="icon"
-									title="Reset to default"
+									{@attach tooltip('Reset to default')}
 									aria-label="Reset {command.title} to default"
 									onclick={() => keybindConfig.reset(command.id)}
 								>

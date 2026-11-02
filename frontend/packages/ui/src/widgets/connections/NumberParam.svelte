@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import type { NumberSpec } from '$lib/types/schema.js';
 	import NumberField from '$lib/components/NumberInput.svelte';
 
@@ -32,7 +33,7 @@
 			<button
 				class="reset"
 				type="button"
-				title="Use provider default"
+				{@attach tooltip('Use provider default')}
 				onclick={() => onChange(undefined)}>↺</button
 			>
 		{/if}

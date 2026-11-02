@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import { usePlatform } from '$lib/api/client.js';
 	import { BUILT_IN_STYLES, CLASSIC_NAME } from '$lib/assets/styles/builtin.js';
 	import NumberInput from '$lib/components/NumberInput.svelte';
@@ -137,7 +138,7 @@
 				oninput={(e) => set(field, withAlpha(e.currentTarget.value, color.alpha))}
 			/>
 		{:else}
-			<span class="swatch empty" title="Not a colour the picker can open"></span>
+			<span class="swatch empty" {@attach tooltip('Not a colour the picker can open')}></span>
 		{/if}
 		<input
 			class="text"
@@ -240,7 +241,11 @@
 					value={active.author ?? ''}
 					oninput={(e) => styles.setAuthor(e.currentTarget.value)}
 				/>
-				<button class="action" title="Delete this style" onclick={() => styles.remove(active.id)}>
+				<button
+					class="action"
+					{@attach tooltip('Delete this style')}
+					onclick={() => styles.remove(active.id)}
+				>
 					<Trash2 size={14} />
 					Delete
 				</button>
@@ -302,7 +307,7 @@
 						<span class="control">{@render control(field)}</span>
 						<button
 							class="revert"
-							title="Back to the shipped value"
+							{@attach tooltip('Back to the shipped value')}
 							disabled={!(field.name in styles.tokens)}
 							onclick={() => styles.removeToken(field.name)}
 						>

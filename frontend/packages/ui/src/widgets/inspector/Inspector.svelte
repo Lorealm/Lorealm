@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { iconFor } from '$lib/assets/icons/catalogue.js';
 	import { router } from '$lib/navigation/router.svelte.js';
 	import { inspectorMatrix } from '$lib/stores/inspectorMatrix.svelte.js';
@@ -59,7 +60,7 @@
 					class="profile"
 					class:active
 					class:unconfigured={!inspectorMatrix.isConfigured(profile, view)}
-					title={profile.name}
+					{@attach tooltip(profile.name)}
 					aria-pressed={active}
 					onclick={() => inspectorMatrix.select(profile.id)}
 				>
