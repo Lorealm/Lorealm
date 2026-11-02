@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { connectionStore, type ProfileDraft } from '$lib/stores/connection.svelte.js';
 	import {
+		ANTHROPIC_THINKING_BUDGET,
 		PROVIDER_SCHEMAS,
+		VERTEX_THINKING_BUDGET,
 		getProviderSchema,
 		OPENROUTER_REASONING_BUDGET,
 		TOKEN_BUDGET
@@ -88,14 +90,119 @@
 
 	const isOpenRouter = $derived(draft.provider === 'openrouter');
 	const isOpenAi = $derived(draft.provider === 'openai');
+	const isAnthropic = $derived(draft.provider === 'anthropic');
+	const isVertex = $derived(draft.provider === 'vertex');
 
-	const baseUrl = $derived(
-		typeof draft.provider_params.base_url === 'string' ? draft.provider_params.base_url : ''
+	function textParam(key: string): string {
+		const v = draft.provider_params[key];
+		return typeof v === 'string' ? v : '';
+	}
+	function setTextParam(key: string, e: Event) {
+		const v = (e.currentTarget as HTMLInputElement | HTMLSelectElement).value.trim();
+		if (v === '') delete draft.provider_params[key];
+		else draft.provider_params[key] = v;
+		requestSave();
+	}
+
+	// Recent Claude models refuse requests that set these.
+	const anthropicSamplingSet = $derived(
+		isAnthropic && ['temperature', 'top_p', 'top_k'].some((k) => commonNum(k) !== undefined)
 	);
-	function setBaseUrl(e: Event) {
-		const v = (e.currentTarget as HTMLInputElement).value.trim();
-		if (v === '') delete draft.provider_params.base_url;
-		else draft.provider_params.base_url = v;
+
+	// Mirrors the serde tagging of `AnthropicThinking` on the server.
+	type AnthropicThinking =
+		| { type: 'adaptive'; display?: string }
+		| { type: 'enabled'; budget_tokens: number }
+		| { type: 'disabled' };
+
+	const anthropicThinking = $derived(
+		draft.provider_params.thinking as unknown as AnthropicThinking | undefined
+	);
+	const anthropicThinkingMode = $derived.by(() => {
+		const t = anthropicThinking;
+		if (!t) return 'default';
+		if (t.type === 'adaptive') return t.display === 'summarized' ? 'summarized' : 'hidden';
+		return t.type === 'enabled' ? 'budget' : 'off';
+	});
+	function setAnthropicThinking(t: AnthropicThinking | undefined) {
+		if (t) draft.provider_params.thinking = t as unknown as JsonValue;
+		else delete draft.provider_params.thinking;
+		requestSave();
+	}
+	function changeAnthropicThinking(e: Event) {
+		const mode = (e.currentTarget as HTMLSelectElement).value;
+		if (mode === 'summarized') setAnthropicThinking({ type: 'adaptive', display: 'summarized' });
+		else if (mode === 'hidden') setAnthropicThinking({ type: 'adaptive' });
+		else if (mode === 'off') setAnthropicThinking({ type: 'disabled' });
+		else if (mode === 'budget') {
+			setAnthropicThinking({
+				type: 'enabled',
+				budget_tokens: ANTHROPIC_THINKING_BUDGET.default
+			});
+		} else setAnthropicThinking(undefined);
+	}
+
+	interface VertexThinking {
+		thinking_level?: string;
+		thinking_budget?: number;
+		include_thoughts?: boolean;
+	}
+	const vertexThinking = $derived(
+		(draft.provider_params.thinking ?? {}) as unknown as VertexThinking
+	);
+	const vertexThinkingMode = $derived(
+		typeof vertexThinking.thinking_budget === 'number'
+			? 'budget'
+			: (vertexThinking.thinking_level ?? 'default')
+	);
+	function setVertexThinking(t: VertexThinking) {
+		if (Object.keys(t).length === 0) delete draft.provider_params.thinking;
+		else draft.provider_params.thinking = t as unknown as JsonValue;
+		requestSave();
+	}
+	// The level and the budget are alternatives; a model takes one or the other.
+	function changeVertexThinking(e: Event) {
+		const mode = (e.currentTarget as HTMLSelectElement).value;
+		const t: VertexThinking = {};
+		if (vertexThinking.include_thoughts) t.include_thoughts = true;
+		if (mode === 'budget') t.thinking_budget = VERTEX_THINKING_BUDGET.default;
+		else if (mode !== 'default') t.thinking_level = mode;
+		setVertexThinking(t);
+	}
+	function setVertexBudget(budget: number | undefined) {
+		const t = { ...vertexThinking };
+		if (budget === undefined) delete t.thinking_budget;
+		else t.thinking_budget = budget;
+		setVertexThinking(t);
+	}
+	function toggleVertexThoughts(e: Event) {
+		const t = { ...vertexThinking };
+		if ((e.currentTarget as HTMLInputElement).checked) t.include_thoughts = true;
+		else delete t.include_thoughts;
+		setVertexThinking(t);
+	}
+
+	const VERTEX_SAFETY_CATEGORIES = [
+		'HARM_CATEGORY_HARASSMENT',
+		'HARM_CATEGORY_HATE_SPEECH',
+		'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+		'HARM_CATEGORY_DANGEROUS_CONTENT'
+	];
+	// One threshold across every category: the editor offers no per-category control.
+	const vertexSafety = $derived.by(() => {
+		const settings = draft.provider_params.safety_settings;
+		const first = Array.isArray(settings) ? settings[0] : undefined;
+		return (first as { threshold?: string } | undefined)?.threshold ?? 'default';
+	});
+	function changeVertexSafety(e: Event) {
+		const threshold = (e.currentTarget as HTMLSelectElement).value;
+		if (threshold === 'default') delete draft.provider_params.safety_settings;
+		else {
+			draft.provider_params.safety_settings = VERTEX_SAFETY_CATEGORIES.map((category) => ({
+				category,
+				threshold
+			}));
+		}
 		requestSave();
 	}
 
@@ -239,18 +346,43 @@
 		/>
 	</section>
 
-	{#if isOpenAi}
+	{#if isOpenAi || isAnthropic}
 		<section class="group">
 			<h3>Endpoint</h3>
 			<label class="field">
 				<span>Base URL</span>
 				<input
 					type="text"
-					value={baseUrl}
-					placeholder="https://api.openai.com/v1"
-					onchange={setBaseUrl}
+					value={textParam('base_url')}
+					placeholder={isAnthropic ? 'https://api.anthropic.com/v1' : 'https://api.openai.com/v1'}
+					onchange={(e) => setTextParam('base_url', e)}
 				/>
 			</label>
+		</section>
+	{/if}
+
+	{#if isVertex}
+		<section class="group">
+			<h3>Google Cloud</h3>
+			<label class="field">
+				<span>Project ID</span>
+				<input
+					type="text"
+					value={textParam('project_id')}
+					placeholder="my-project"
+					onchange={(e) => setTextParam('project_id', e)}
+				/>
+			</label>
+			<label class="field">
+				<span>Location</span>
+				<input
+					type="text"
+					value={textParam('location')}
+					placeholder="global"
+					onchange={(e) => setTextParam('location', e)}
+				/>
+			</label>
+			<p class="hint">Leave the project empty if your API key works without one.</p>
 		</section>
 	{/if}
 
@@ -292,6 +424,9 @@
 					value={commonNum('min_p')}
 					onChange={(v) => setCommon('min_p', v)}
 				/>
+			{/if}
+			{#if anthropicSamplingSet}
+				<p class="hint">Newer Claude models refuse these settings. Reset them if requests fail.</p>
 			{/if}
 		</section>
 	{/if}
@@ -383,6 +518,88 @@
 			<label class="check">
 				<input type="checkbox" checked={middleOut} onchange={toggleMiddleOut} />
 				<span>Middle-out compression</span>
+			</label>
+		</section>
+	{/if}
+
+	{#if isAnthropic}
+		<section class="group">
+			<h3>Anthropic</h3>
+			<label class="field">
+				<span>Thinking</span>
+				<select value={anthropicThinkingMode} onchange={changeAnthropicThinking}>
+					<option value="default">Model default</option>
+					<option value="summarized">On, show summaries</option>
+					<option value="hidden">On, hidden</option>
+					<option value="off">Off</option>
+					<option value="budget">Token budget (older models)</option>
+				</select>
+			</label>
+			{#if anthropicThinkingMode === 'off'}
+				<p class="hint">Some models can't turn thinking off, and will refuse requests.</p>
+			{/if}
+			{#if anthropicThinking?.type === 'enabled'}
+				<NumberParam
+					label="Thinking budget"
+					spec={ANTHROPIC_THINKING_BUDGET}
+					value={anthropicThinking.budget_tokens}
+					onChange={(v) =>
+						setAnthropicThinking(
+							v === undefined ? undefined : { type: 'enabled', budget_tokens: v }
+						)}
+				/>
+			{/if}
+			<label class="field">
+				<span>Effort</span>
+				<select value={textParam('effort')} onchange={(e) => setTextParam('effort', e)}>
+					<option value="">Model default</option>
+					<option value="low">Low</option>
+					<option value="medium">Medium</option>
+					<option value="high">High</option>
+					<option value="xhigh">Extra high</option>
+					<option value="max">Max</option>
+				</select>
+			</label>
+		</section>
+	{/if}
+
+	{#if isVertex}
+		<section class="group">
+			<h3>Gemini</h3>
+			<label class="field">
+				<span>Thinking</span>
+				<select value={vertexThinkingMode} onchange={changeVertexThinking}>
+					<option value="default">Model default</option>
+					<option value="low">Low</option>
+					<option value="high">High</option>
+					<option value="budget">Token budget (Gemini 2.5)</option>
+				</select>
+			</label>
+			{#if vertexThinkingMode === 'budget'}
+				<NumberParam
+					label="Thinking budget"
+					spec={VERTEX_THINKING_BUDGET}
+					value={vertexThinking.thinking_budget}
+					onChange={setVertexBudget}
+				/>
+			{/if}
+			<label class="check">
+				<input
+					type="checkbox"
+					checked={vertexThinking.include_thoughts === true}
+					onchange={toggleVertexThoughts}
+				/>
+				<span>Show thought summaries</span>
+			</label>
+			<label class="field">
+				<span>Safety filter</span>
+				<select value={vertexSafety} onchange={changeVertexSafety}>
+					<option value="default">Google default</option>
+					<option value="BLOCK_NONE">Off</option>
+					<option value="BLOCK_ONLY_HIGH">Block only high risk</option>
+					<option value="BLOCK_MEDIUM_AND_ABOVE">Block medium risk and above</option>
+					<option value="BLOCK_LOW_AND_ABOVE">Block low risk and above</option>
+				</select>
 			</label>
 		</section>
 	{/if}
