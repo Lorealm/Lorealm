@@ -34,7 +34,8 @@ pub(super) fn to_wire_messages(messages: &[Message]) -> Vec<WireMessage> {
                     });
                 }
                 // Reasoning is model-internal output; there is no slot for it
-                // in the request format, so it is never sent back.
+                // in the request format, so it is never sent back (nor is any
+                // signature another provider attached to it).
                 ContentBlock::Thinking { .. } => {}
                 ContentBlock::ToolUse { id, name, input } => tool_calls.push(WireToolCall {
                     id: id.clone(),
@@ -220,7 +221,10 @@ pub(super) fn to_response(response: ChatResponse) -> Result<Response> {
         .or(choice.message.reasoning_content)
     {
         if !text.is_empty() {
-            content.push(ContentBlock::Thinking { text });
+            content.push(ContentBlock::Thinking {
+                text,
+                signature: None,
+            });
         }
     }
     if let Some(text) = choice.message.content {
@@ -319,6 +323,7 @@ pub(super) fn to_delta(data: &str) -> Result<Option<Delta>> {
             .reasoning
             .or(choice.delta.reasoning_content)
             .unwrap_or_default(),
+        reasoning_signature: None,
         tool_calls,
         finish_reason: choice.finish_reason,
     }))
@@ -387,6 +392,7 @@ mod tests {
                 content: vec![
                     ContentBlock::Thinking {
                         text: "I should add these.".into(),
+                        signature: None,
                     },
                     ContentBlock::ToolUse {
                         id: "call_1".into(),
