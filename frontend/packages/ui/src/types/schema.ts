@@ -53,6 +53,22 @@ export const OPENROUTER_REASONING_BUDGET: NumberSpec = {
 	default: 2048
 };
 
+export const ANTHROPIC_THINKING_BUDGET: NumberSpec = {
+	kind: 'number',
+	min: 1024,
+	max: 64000,
+	step: 256,
+	default: 4096
+};
+
+export const VERTEX_THINKING_BUDGET: NumberSpec = {
+	kind: 'number',
+	min: 0,
+	max: 32768,
+	step: 256,
+	default: 8192
+};
+
 export const PROVIDER_SCHEMAS: ProviderSchema[] = [
 	{
 		provider: 'openrouter',
@@ -86,6 +102,31 @@ export const PROVIDER_SCHEMAS: ProviderSchema[] = [
 			top_k: { kind: 'number', min: 0, max: 200, step: 1, default: 0 },
 			min_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 0 },
 			repetition_penalty: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 }
+		}
+	},
+	{
+		provider: 'anthropic',
+		label: 'Anthropic',
+		common: {
+			temperature: { kind: 'number', min: 0, max: 1, step: 0.01, default: 1 },
+			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 1 },
+			top_k: { kind: 'number', min: 1, max: 500, step: 1, default: 40 },
+			// The server's default when unset; the API requires a value.
+			max_tokens: { kind: 'number', min: 1, max: 128000, step: 1, default: 16000 },
+			stop: { kind: 'string_list' }
+		}
+	},
+	{
+		provider: 'vertex',
+		label: 'Google Vertex AI',
+		common: {
+			temperature: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },
+			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 0.95 },
+			top_k: { kind: 'number', min: 1, max: 200, step: 1, default: 64 },
+			max_tokens: { kind: 'number', min: 1, max: 65536, step: 1, default: 8192 },
+			stop: { kind: 'string_list' },
+			frequency_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 },
+			presence_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 }
 		}
 	}
 ];
