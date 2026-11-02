@@ -4,7 +4,8 @@ use lorealm_encryption::{
     EncryptedData, EncryptionContext, decrypt_bytes, encrypt_bytes, traits::KeyManager,
 };
 use lorealm_providers::{
-    LlmProvider, ModelInfo, OpenAiOptions, OpenAiProvider, OpenRouterProvider,
+    AnthropicOptions, AnthropicProvider, LlmProvider, ModelInfo, OpenAiOptions, OpenAiProvider,
+    OpenRouterProvider,
 };
 use lorealm_storage::{
     Storage,
@@ -22,7 +23,7 @@ use crate::{
 
 /// Providers the app can build a client for. Keep in sync with the match in
 /// `validate_provider_params` and the dispatch in ChatService::infer.
-const SUPPORTED_PROVIDERS: &[&str] = &["openrouter", "openai", "anthropic"];
+const SUPPORTED_PROVIDERS: &[&str] = &["openrouter", "openai", "anthropic", "vertex"];
 
 /// How many trailing characters of a key are kept for display.
 const KEY_HINT_LEN: usize = 4;
@@ -304,6 +305,22 @@ impl ConnectionService {
                 .list_models()
                 .await?
             }
+            "anthropic" => {
+                let options: AnthropicOptions =
+                    serde_json::from_value(connection.profile.provider_params.clone()).map_err(
+                        |e| ConnectionError::Validation(format!("invalid anthropic params: {e}")),
+                    )?;
+                // Unlike OpenRouter's, this catalogue needs a key, so a
+                // profile without one has nothing to ask with yet.
+                let Some(api_key) = connection.api_key else {
+                    return Ok(Vec::new());
+                };
+                AnthropicProvider::new(http_client, "", options.base_url, api_key.as_str())
+                    .list_models()
+                    .await?
+            }
+            // Vertex offers no listing this provider can use.
+            "vertex" => None,
             other => {
                 return Err(ConnectionError::Validation(format!(
                     "unsupported provider: {other}"
@@ -518,9 +535,62 @@ fn validate_provider_params(
             }
             Ok(serde_json::to_value(&typed).expect("options serialization cannot fail"))
         }
+        "anthropic" => {
+            let typed: lorealm_providers::AnthropicOptions = serde_json::from_value(value.clone())
+                .map_err(|e| {
+                    ConnectionError::Validation(format!("invalid anthropic params: {e}"))
+                })?;
+            if let Some(base_url) = &typed.base_url {
+                validate_base_url(base_url)?;
+            }
+            Ok(serde_json::to_value(&typed).expect("options serialization cannot fail"))
+        }
+        "vertex" => {
+            let typed: lorealm_providers::VertexOptions = serde_json::from_value(value.clone())
+                .map_err(|e| ConnectionError::Validation(format!("invalid vertex params: {e}")))?;
+            if let Some(project_id) = &typed.project_id {
+                validate_vertex_project(project_id)?;
+            }
+            if let Some(location) = &typed.location {
+                validate_vertex_location(location)?;
+            }
+            Ok(serde_json::to_value(&typed).expect("options serialization cannot fail"))
+        }
         other => Err(ConnectionError::Validation(format!(
             "unsupported provider: {other}"
         ))),
+    }
+}
+
+/// The project becomes a URL path segment. Legacy ids may be domain-scoped,
+/// e.g. `example.com:my-project`.
+fn validate_vertex_project(project_id: &str) -> Result<(), ConnectionError> {
+    let valid = !project_id.is_empty()
+        && project_id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '.' | ':'));
+    if valid {
+        Ok(())
+    } else {
+        Err(ConnectionError::Validation(
+            "vertex project_id may only contain letters, digits, '-', '.' and ':'".into(),
+        ))
+    }
+}
+
+/// The location becomes part of the hostname the API key is sent to, so
+/// anything that could change the host must not get through.
+fn validate_vertex_location(location: &str) -> Result<(), ConnectionError> {
+    let valid = !location.is_empty()
+        && location
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
+    if valid {
+        Ok(())
+    } else {
+        Err(ConnectionError::Validation(
+            "vertex location must look like us-central1 or global".into(),
+        ))
     }
 }
 

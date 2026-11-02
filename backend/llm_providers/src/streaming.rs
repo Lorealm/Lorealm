@@ -61,10 +61,11 @@ where
     acc.finish()
 }
 
-/// The synchronous core of [`collect_blocks`], also used by providers whose
-/// non-streaming responses are easiest to build from deltas.
+/// The synchronous core of [`collect_blocks`], for callers that need to act
+/// on each delta as it arrives, and for providers whose non-streaming
+/// responses are easiest to build from deltas.
 #[derive(Default)]
-pub(crate) struct BlockAccumulator {
+pub struct BlockAccumulator {
     blocks: Vec<ContentBlock>,
     /// Per tool call index: (position in `blocks`, accumulated arguments).
     calls: Vec<Option<(usize, String)>>,
@@ -72,7 +73,7 @@ pub(crate) struct BlockAccumulator {
 }
 
 impl BlockAccumulator {
-    pub(crate) fn push(&mut self, delta: Delta) {
+    pub fn push(&mut self, delta: Delta) {
         if !delta.reasoning.is_empty() {
             match self.blocks.last_mut() {
                 Some(ContentBlock::Thinking {
@@ -131,7 +132,7 @@ impl BlockAccumulator {
         }
     }
 
-    pub(crate) fn finish(mut self) -> Result<(Vec<ContentBlock>, Option<String>)> {
+    pub fn finish(mut self) -> Result<(Vec<ContentBlock>, Option<String>)> {
         for (pos, arguments) in self.calls.into_iter().flatten() {
             if arguments.is_empty() {
                 continue;
