@@ -68,11 +68,7 @@
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && onclose()} />
 
-<div
-	class="backdrop"
-	role="presentation"
-	onclick={(e) => e.currentTarget === e.target && onclose()}
->
+<div class="overlay" role="presentation" onclick={(e) => e.currentTarget === e.target && onclose()}>
 	<div class="dialog" role="dialog" aria-modal="true" aria-label="Play {realm.name}">
 		<header>
 			<h2>{realm.name || 'Untitled Realm'}</h2>
@@ -128,7 +124,7 @@
 </div>
 
 <style>
-	.backdrop {
+	.overlay {
 		position: fixed;
 		inset: 0;
 		z-index: 100;

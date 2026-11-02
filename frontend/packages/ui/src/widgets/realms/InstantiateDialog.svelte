@@ -67,7 +67,7 @@
 <svelte:window onkeydown={(e) => e.key === 'Escape' && oncancel()} />
 
 <div
-	class="backdrop"
+	class="overlay"
 	role="presentation"
 	onclick={(e) => e.currentTarget === e.target && oncancel()}
 >
@@ -118,7 +118,7 @@
 </div>
 
 <style>
-	.backdrop {
+	.overlay {
 		position: fixed;
 		inset: 0;
 		z-index: 100;
