@@ -70,7 +70,7 @@
 {#if conversationManager.isOpen}
 	<div
 		use:keyLayer={{ id: CONVERSATION_MANAGER_LAYER, blocking: true }}
-		class="backdrop"
+		class="overlay"
 		role="presentation"
 		onclick={(e) => {
 			if (e.target === e.currentTarget) conversationManager.close();
@@ -115,7 +115,7 @@
 {/if}
 
 <style>
-	.backdrop {
+	.overlay {
 		position: fixed;
 		inset: 0;
 		z-index: var(--z-index-modal);

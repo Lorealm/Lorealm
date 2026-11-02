@@ -121,7 +121,9 @@ fn function_response(content: &str, is_error: bool) -> serde_json::Value {
 
 /// Convert advertised tool definitions to the wire `tools` array.
 pub(super) fn to_wire_tools(tools: Option<&Vec<ToolDef>>) -> Option<Vec<WireTool>> {
-    tools.map(|defs| {
+    // Callers may pass an empty list, but the API rejects a declaration group
+    // with nothing in it, so the field is left out instead.
+    tools.filter(|defs| !defs.is_empty()).map(|defs| {
         vec![WireTool {
             function_declarations: defs
                 .iter()
@@ -467,6 +469,13 @@ mod tests {
         let parts = &serde_json::to_value(contents).unwrap()[0]["parts"];
         assert_eq!(parts[0]["thoughtSignature"], "sig");
         assert!(parts[1].get("thoughtSignature").is_none());
+    }
+
+    #[test]
+    fn an_empty_tool_list_sends_no_tools() {
+        // A declaration group with nothing in it is a 400.
+        assert!(to_wire_tools(Some(&Vec::new())).is_none());
+        assert!(to_wire_tools(None).is_none());
     }
 
     #[test]
