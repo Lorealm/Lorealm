@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../stores/tooltip.svelte.ts';
 	import { iconFor, iconNames } from '$lib/assets/icons/catalogue.js';
 
 	let { icon, onpick }: { icon: string; onpick: (name: string) => void } = $props();
@@ -33,7 +34,7 @@
 	<button
 		type="button"
 		class="trigger"
-		title="Change icon"
+		{@attach tooltip('Change icon')}
 		aria-haspopup="dialog"
 		aria-expanded={open}
 		onclick={() => (open = !open)}
@@ -52,7 +53,7 @@
 						type="button"
 						class="option"
 						class:selected={name === icon}
-						title={name}
+						{@attach tooltip(name)}
 						onclick={() => pick(name)}
 					>
 						<Icon size={16} />

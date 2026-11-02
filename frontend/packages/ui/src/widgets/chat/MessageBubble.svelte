@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { chatStore } from '$lib/stores/chat.svelte.js';
 	import { characterStore } from '$lib/stores/character.svelte.js';
 	import type { ConversationMessage } from '$lib/types/conversation.js';
@@ -101,7 +102,7 @@
 {#if commandName !== null}
 	<!-- A command run reads as a mark in the timeline, not as someone speaking:
 	     it may carry no text at all and exist only to anchor its state writes. -->
-	<div class="command-mark" title={`Ran /${commandName}`}>
+	<div class="command-mark" {@attach tooltip(`Ran /${commandName}`)}>
 		<span class="command-name">/{commandName}</span>
 		{#if message.content}
 			<span class="command-output">{message.content}</span>
@@ -125,7 +126,7 @@
 						{#if hasContext}
 							<button
 								class="icon-btn"
-								title="Inspect context"
+								{@attach tooltip('Inspect context')}
 								onclick={() => contextInspector.open(message)}
 							>
 								<Layers />
@@ -134,19 +135,24 @@
 						{#if canContinue}
 							<button
 								class="icon-btn"
-								title="Continue this reply"
+								{@attach tooltip('Continue this reply')}
 								disabled={busy}
 								onclick={() => chatStore.continueMessage(message.id)}
 							>
 								<StepForward />
 							</button>
 						{/if}
-						<button class="icon-btn" title="Edit" disabled={busy} onclick={() => startEdit('edit')}>
+						<button
+							class="icon-btn"
+							{@attach tooltip('Edit')}
+							disabled={busy}
+							onclick={() => startEdit('edit')}
+						>
 							<Pencil />
 						</button>
 						<button
 							class="icon-btn"
-							title="Delete"
+							{@attach tooltip('Delete')}
 							disabled={busy}
 							onclick={() => chatStore.deleteMessage(message.id)}
 						>
@@ -210,7 +216,7 @@
 			<div class="slides">
 				<button
 					class="icon-btn"
-					title="Previous"
+					{@attach tooltip('Previous')}
 					disabled={busy || info.index === 0}
 					onclick={() => chatStore.swipePrev(message.id)}
 				>
@@ -219,7 +225,7 @@
 				{#if info.count > 1}
 					<span class="counter">{info.index + 1}/{info.count}</span>
 				{/if}
-				<button class="icon-btn" title="Next" disabled={busy} onclick={onRight}>
+				<button class="icon-btn" {@attach tooltip('Next')} disabled={busy} onclick={onRight}>
 					<ChevronRight />
 				</button>
 			</div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../../../stores/tooltip.svelte.ts';
 	import type { LorebookDraft, SaveState } from '$lib/stores/lorebook.svelte.js';
 	import type { NamespaceAccess, NamespaceConfig, Slot } from '$lib/types/lorebook.js';
 	import SlotPicker from '../SlotPicker.svelte';
@@ -168,7 +169,7 @@
 			<div class="map-list">
 				{#each groupRows as [key, value] (key)}
 					<div class="map-row">
-						<span class="map-key" title={key}>{key}</span>
+						<span class="map-key" {@attach tooltip(key)}>{key}</span>
 						<NumberInput
 							min={0}
 							step={1}
@@ -219,7 +220,7 @@
 		<div class="map-list">
 			{#each namespaceRows as [name, ns] (name)}
 				<div class="ns-row">
-					<code class="ns-name" title={name}>{name}</code>
+					<code class="ns-name" {@attach tooltip(name)}>{name}</code>
 					<select
 						class="ns-access"
 						value={ns.access}

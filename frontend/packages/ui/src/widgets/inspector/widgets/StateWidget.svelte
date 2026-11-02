@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
 	import { messageStateStore } from '$lib/stores/messageState.svelte.js';
 	import { flattenPaths } from '$lib/types/state.js';
@@ -142,17 +143,18 @@
 									{:else}
 										{#each group.entries as e (e.entryId)}
 											<div class="entry">
-												<span class="entry-name" title={e.entryId}>{e.entryId}</span>
+												<span class="entry-name" {@attach tooltip(e.entryId)}>{e.entryId}</span>
 												<span
 													class="chip"
 													class:dim={e.lastActivated === undefined}
-													title="last activated {e.lastActivated ?? '—'} turns ago"
+													{@attach tooltip(`last activated ${e.lastActivated ?? '—'} turns ago`)}
 													>act {e.lastActivated ?? '—'}</span
 												>
 												<span
 													class="chip"
 													class:dim={e.sticky === undefined}
-													title="{e.sticky ?? 0} sticky turns remaining">stk {e.sticky ?? '—'}</span
+													{@attach tooltip(`${e.sticky ?? 0} sticky turns remaining`)}
+													>stk {e.sticky ?? '—'}</span
 												>
 											</div>
 										{/each}
@@ -183,7 +185,7 @@
 								{:else}
 									{#each pool.entries as kv (kv.key)}
 										<div class="kv">
-											<span class="kv-key" title={kv.key}>{kv.key}</span>
+											<span class="kv-key" {@attach tooltip(kv.key)}>{kv.key}</span>
 											<pre class="kv-val">{fmt(kv.value)}</pre>
 										</div>
 									{/each}

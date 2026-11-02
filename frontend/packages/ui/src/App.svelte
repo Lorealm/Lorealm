@@ -15,6 +15,8 @@
 	import { frameTheme } from './stores/frameTheme.svelte.ts';
 	import { backdrop } from './stores/backdrop.svelte.ts';
 	import TransportImage from './components/TransportImage.svelte';
+	import SelectMenuHost from './components/SelectMenuHost.svelte';
+	import TooltipHost from './components/TooltipHost.svelte';
 	import { inspectorMatrix } from './stores/inspectorMatrix.svelte.ts';
 	import { keybindConfig } from './keys/config.svelte.ts';
 
@@ -69,6 +71,10 @@
 		<Router />
 	</div>
 </div>
+
+<!-- Outside `.app`: its `isolation` would otherwise keep these under the modals. -->
+<SelectMenuHost />
+<TooltipHost />
 
 <style>
 	.app {

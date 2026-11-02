@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { chatStore } from '$lib/stores/chat.svelte.js';
 	import { Eye, Pause, Play, Square, StepForward, User } from '@lucide/svelte';
 
@@ -29,9 +30,11 @@
 			<button
 				type="button"
 				onclick={() => (chatStore.realmDirectorView = !chatStore.realmDirectorView)}
-				title={chatStore.realmDirectorView
-					? 'Seeing every turn in the realm'
-					: 'Seeing only what your agent perceives'}
+				{@attach tooltip(
+					chatStore.realmDirectorView
+						? 'Seeing every turn in the realm'
+						: 'Seeing only what your agent perceives'
+				)}
 			>
 				{#if chatStore.realmDirectorView}
 					<Eye size={14} /> Director
@@ -45,12 +48,16 @@
 				<button
 					type="button"
 					onclick={() => chatStore.pauseRealm()}
-					title="Finish this turn, then stop"
+					{@attach tooltip('Finish this turn, then stop')}
 				>
 					<Pause size={14} /> Pause
 				</button>
 			{/if}
-			<button type="button" onclick={() => chatStore.cancelStream()} title="Cancel this turn">
+			<button
+				type="button"
+				onclick={() => chatStore.cancelStream()}
+				{@attach tooltip('Cancel this turn')}
+			>
 				<Square size={14} /> Stop
 			</button>
 		{:else}
@@ -58,7 +65,7 @@
 				type="button"
 				disabled={awaiting != null}
 				onclick={() => chatStore.runRealmTurn()}
-				title="Run a single turn"
+				{@attach tooltip('Run a single turn')}
 			>
 				<StepForward size={14} /> Step
 			</button>
@@ -67,7 +74,7 @@
 				class="primary"
 				disabled={awaiting != null}
 				onclick={() => chatStore.runRealmTurns()}
-				title="Run turns until it's your turn"
+				{@attach tooltip("Run turns until it's your turn")}
 			>
 				<Play size={14} /> Run
 			</button>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../stores/tooltip.svelte.ts';
 	import type { Snippet } from 'svelte';
 	import { Maximize2 } from '@lucide/svelte';
 	import MaximizeOverlay from './MaximizeOverlay.svelte';
@@ -34,8 +35,11 @@
 	<div class="head">
 		{#if label}<span class="label">{label}</span>{/if}
 		{#if hint}
-			<button type="button" class="hint" title={hint} aria-label={`Help: ${label ?? 'field'}`}
-				>?</button
+			<button
+				type="button"
+				class="hint"
+				{@attach tooltip(hint)}
+				aria-label={`Help: ${label ?? 'field'}`}>?</button
 			>
 		{/if}
 		<span class="spacer"></span>
@@ -45,7 +49,7 @@
 			<button
 				type="button"
 				class="maximize"
-				title="Maximize"
+				{@attach tooltip('Maximize')}
 				aria-label={`Maximize ${label ?? 'field'}`}
 				onclick={() => (maximized = true)}
 			>

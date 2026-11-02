@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { setContext } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import {
@@ -205,7 +206,9 @@
 					onclick={() => navigator.start().studio().templates()}
 					aria-label="Back to templates">←</button
 				>
-				<span class="tpl-name" title={template?.name}>{template?.name ?? 'Loading…'}</span>
+				<span class="tpl-name" {@attach tooltip(template?.name)}
+					>{template?.name ?? 'Loading…'}</span
+				>
 				<div class="add-controls">
 					<AddNodeButton onpick={(kind) => (creating = { kind })} />
 					<button class="add-btn" type="button" onclick={() => (creating = { kind: 'group' })}>

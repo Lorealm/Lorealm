@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import DOMPurify from 'dompurify';
 	import { marked } from 'marked';
 	import { onMount } from 'svelte';
@@ -111,7 +112,7 @@
 						type="button"
 						class="outline"
 						aria-label="{plugin.name} settings"
-						title="Settings"
+						{@attach tooltip('Settings')}
 						onclick={() => navigator.start().settings().user().plugins(handle)}
 					>
 						<Settings size={14} />
@@ -121,7 +122,7 @@
 					<button
 						type="button"
 						class="outline"
-						title="Rebuild from its folder and reload"
+						{@attach tooltip('Rebuild from its folder and reload')}
 						onclick={reload}
 						disabled={reloading}
 					>
@@ -142,7 +143,7 @@
 					type="button"
 					class="icon"
 					aria-label="Remove {plugin.name} for everyone"
-					title="Remove for everyone"
+					{@attach tooltip('Remove for everyone')}
 					onclick={uninstall}
 				>
 					<Trash2 size={16} />

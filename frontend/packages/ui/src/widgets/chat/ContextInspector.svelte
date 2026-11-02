@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { tick } from 'svelte';
 	import { useApi } from '$lib/api/client.js';
 	import { contextInspector } from '$lib/stores/contextInspector.svelte.js';
@@ -495,16 +496,16 @@
 							{#if templateName}
 								<span class="sep">·</span>{templateName}
 								{#if hintReady}
-									<span class="hint-anchor">
-										<button
-											type="button"
-											class="hint-btn"
-											aria-label="Generation settings"
-											aria-describedby="ctx-setup-hint"
-										>
-											<Info />
-										</button>
-										<span class="hint-card" id="ctx-setup-hint" role="tooltip">
+									<button
+										type="button"
+										class="hint-btn"
+										aria-label="Generation settings"
+										{@attach tooltip({ content: setupCard, side: 'bottom' })}
+									>
+										<Info />
+									</button>
+									{#snippet setupCard()}
+										<span class="hint-card">
 											{#if templateDesc}
 												<span class="hint-desc">{templateDesc}</span>
 											{/if}
@@ -517,10 +518,6 @@
 															: budgetShown === 0
 																? 'unlimited'
 																: fmtCount(budgetShown)}
-														{#if budgetIsLive}<em
-																title="Not recorded on this turn — showing the
-																profile's current value.">now</em
-															>{/if}
 													</dd>
 												</div>
 												{#if !profileFailed}
@@ -537,8 +534,14 @@
 											{:else if profileName}
 												<span class="hint-src">from {profileName}</span>
 											{/if}
+											{#if budgetIsLive}
+												<span class="hint-src"
+													>Token budget wasn't recorded on this turn, so this is the profile's
+													current value.</span
+												>
+											{/if}
 										</span>
-									</span>
+									{/snippet}
 								{/if}
 							{/if}
 							{#if modelName}<span class="sep">·</span><span class="mono">{modelName}</span
@@ -546,7 +549,11 @@
 						{/if}
 					</span>
 				</div>
-				<button class="icon-btn" title="Close" onclick={() => contextInspector.close()}>
+				<button
+					class="icon-btn"
+					{@attach tooltip('Close')}
+					onclick={() => contextInspector.close()}
+				>
 					<X />
 				</button>
 			</div>
@@ -567,9 +574,11 @@
 									class="seg accent-{roleClass(f.block.role)}"
 									class:active={selected === i}
 									style="flex-grow: {display.counts[i] ?? 0}"
-									title="{f.block.origin.node_title || 'node'} · {f.block.role} · {fmtCount(
-										display.counts[i] ?? 0
-									)} {display.unit}"
+									{@attach tooltip(
+										`${f.block.origin.node_title || 'node'} · ${f.block.role} · ${fmtCount(
+											display.counts[i] ?? 0
+										)} ${display.unit}`
+									)}
 									aria-label="{f.block.role} block, {fmtCount(
 										display.counts[i] ?? 0
 									)} {display.unit}"
@@ -590,9 +599,9 @@
 							{#if drift !== null}
 								<span
 									class="drift"
-									title="Recorded {fmtCount(drift)} tokens when this turn was sent. The
-									difference is content edited since — the panel recounts what those blocks
-									say now."
+									{@attach tooltip(
+										`Recorded ${fmtCount(drift)} tokens when this turn was sent. The difference is content edited since — the panel recounts what those blocks say now.`
+									)}
 								>
 									was {fmtCount(drift)}
 								</span>
@@ -602,10 +611,12 @@
 							{#each sourceRows as [source, n] (source)}
 								<li
 									style="--share: {pct(n, display.total)}%"
-									title="{SOURCE_LABELS[source]} · {fmtCount(n)} {display.unit} · {pct(
-										n,
-										display.total
-									).toFixed(1)}%"
+									{@attach tooltip(
+										`${SOURCE_LABELS[source]} · ${fmtCount(n)} ${display.unit} · ${pct(
+											n,
+											display.total
+										).toFixed(1)}%`
+									)}
 								>
 									<span class="fill" aria-hidden="true"></span>
 									<span class="src-name">{SOURCE_LABELS[source]}</span>
@@ -623,7 +634,9 @@
 							{#each trimmedRows as [source, n] (source)}
 								<li
 									style="--share: {pct(n, trimmedMax)}%"
-									title="{SOURCE_LABELS[source]} · {fmtCount(n)} tokens shed to fit the budget"
+									{@attach tooltip(
+										`${SOURCE_LABELS[source]} · ${fmtCount(n)} tokens shed to fit the budget`
+									)}
 								>
 									<span class="fill" aria-hidden="true"></span>
 									<span class="src-name">{SOURCE_LABELS[source]}</span>
@@ -673,7 +686,7 @@
 								class="raw-toggle"
 								class:active={raw}
 								aria-pressed={raw}
-								title="Show the context as raw text"
+								{@attach tooltip('Show the context as raw text')}
 								onclick={() => (raw = !raw)}
 							>
 								Raw
@@ -752,17 +765,18 @@
 											{:else}
 												{#each lore.entries as e (e.entryId)}
 													<div class="kv-row">
-														<span class="entry-name" title={e.entryId}>{e.entryId}</span>
+														<span class="entry-name" {@attach tooltip(e.entryId)}>{e.entryId}</span>
 														<span
 															class="chip"
 															class:dim={e.lastActivated === undefined}
-															title="last activated {e.lastActivated ?? '—'} turns ago"
-															>act {e.lastActivated ?? '—'}</span
+															{@attach tooltip(
+																`last activated ${e.lastActivated ?? '—'} turns ago`
+															)}>act {e.lastActivated ?? '—'}</span
 														>
 														<span
 															class="chip"
 															class:dim={e.sticky === undefined}
-															title="{e.sticky ?? 0} sticky turns remaining"
+															{@attach tooltip(`${e.sticky ?? 0} sticky turns remaining`)}
 															>stk {e.sticky ?? '—'}</span
 														>
 													</div>
@@ -795,7 +809,7 @@
 											{:else}
 												{#each pool.entries as kv (kv.key)}
 													<div class="kv">
-														<span class="kv-key" title={kv.key}>{kv.key}</span>
+														<span class="kv-key" {@attach tooltip(kv.key)}>{kv.key}</span>
 														<pre class="kv-val">{fmtValue(kv.value)}</pre>
 													</div>
 												{/each}
@@ -1086,10 +1100,6 @@
 	/* Deliberately unpositioned: the card anchors to `.titles` instead, so its
 	   placement doesn't drift with the length of the template and model names
 	   and can't run past the modal, which clips overflow. */
-	.hint-anchor {
-		display: inline-flex;
-		align-items: center;
-	}
 	.hint-btn {
 		display: inline-flex;
 		padding: 0;
@@ -1108,29 +1118,12 @@
 		color: var(--color-text-accent);
 	}
 
-	/* CSS-only: the panel has no popover primitive, and a hover hint doesn't
-	   warrant one. */
 	.hint-card {
-		position: absolute;
-		top: calc(100% + var(--spacing-xs));
-		left: 0;
-		z-index: 1;
-		display: none;
+		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-xs);
 		min-width: 13rem;
-		padding: var(--spacing-sm);
-		border: 1px solid var(--color-border-medium);
-		border-radius: var(--radius-lg);
-		background: var(--color-bg-elevated);
-		box-shadow: var(--shadow-xl);
-		text-transform: none;
-		letter-spacing: normal;
-		cursor: default;
-	}
-	.hint-anchor:hover .hint-card,
-	.hint-anchor:focus-within .hint-card {
-		display: flex;
+		padding: var(--spacing-xs) 0;
 	}
 	.hint-desc {
 		color: var(--color-text-secondary);
@@ -1156,13 +1149,6 @@
 		margin: 0;
 		font-family: var(--font-family-mono);
 		color: var(--color-text-primary);
-	}
-	.hint-card dd em {
-		margin-left: var(--spacing-xs);
-		color: var(--color-text-muted);
-		font-family: var(--font-family-base, inherit);
-		font-style: normal;
-		cursor: help;
 	}
 	.hint-src {
 		color: var(--color-text-muted);

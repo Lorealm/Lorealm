@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { ChevronRight, Plus, Search } from '@lucide/svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { tick } from 'svelte';
@@ -97,7 +98,7 @@
 			<button
 				type="button"
 				class="add"
-				title="Declare an input"
+				{@attach tooltip('Declare an input')}
 				aria-label="Declare an input"
 				onclick={() => realmDraft.addInput()}
 			>
@@ -189,7 +190,9 @@
 							})}
 						ondblclick={() => open(studio, item.id)}
 						onkeydown={(e) => e.key === 'Enter' && open(studio, item.id)}
-						title={studio ? 'Drag onto a field, or double-click to open' : 'Drag onto a field'}
+						{@attach tooltip(
+							studio ? 'Drag onto a field, or double-click to open' : 'Drag onto a field'
+						)}
 					>
 						<span class="name">{item.name}</span>
 						{#if item.hint}<span class="hint">{item.hint}</span>{/if}

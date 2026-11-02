@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../stores/tooltip.svelte.ts';
 	import type { Component, Snippet } from 'svelte';
 
 	type MenuItem = {
@@ -116,7 +117,7 @@
 	<button
 		class="trigger"
 		bind:this={triggerEl}
-		{title}
+		{@attach tooltip(title)}
 		aria-haspopup="menu"
 		aria-expanded={open}
 		onpointerdown={onPointerDown}

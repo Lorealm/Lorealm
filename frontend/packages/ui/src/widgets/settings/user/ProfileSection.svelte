@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import { daysSince, monthYear, relativeTime } from '$lib/assets/scripts/datetime.js';
 	import { blobUrl } from '$lib/api/blobs.js';
 	import { currentUser } from '$lib/stores/currentUser.svelte.js';
@@ -138,7 +139,7 @@
 				class="avatar"
 				onclick={() => avatarInput?.click()}
 				disabled={busy}
-				title="Change profile picture"
+				{@attach tooltip('Change profile picture')}
 			>
 				{#if avatar}
 					<img src={avatar} alt="" />
@@ -172,7 +173,7 @@
 						}}
 					/>
 				{:else}
-					<button class="name" onclick={startRename} title="Change display name">
+					<button class="name" onclick={startRename} {@attach tooltip('Change display name')}>
 						{currentUser.name}
 					</button>
 				{/if}

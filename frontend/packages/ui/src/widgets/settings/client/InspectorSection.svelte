@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import IconPicker from '$lib/components/IconPicker.svelte';
 	import type { ViewName } from '$lib/navigation/routes.js';
 	import { inspectorMatrix } from '$lib/stores/inspectorMatrix.svelte.js';
@@ -75,7 +76,7 @@
 					{p.name}
 				</button>
 			{/each}
-			<button class="chip add" title="Add profile" onclick={addProfile}>
+			<button class="chip add" {@attach tooltip('Add profile')} onclick={addProfile}>
 				<Plus size={14} />
 			</button>
 		</div>
@@ -93,7 +94,7 @@
 				/>
 				<button
 					class="delete"
-					title="Delete profile"
+					{@attach tooltip('Delete profile')}
 					disabled={inspectorMatrix.profiles.length < 2}
 					onclick={() => inspectorMatrix.removeProfile(profile.id)}
 				>
@@ -117,7 +118,7 @@
 						<span class="entryLabel">{label(key)}</span>
 						<button
 							class="iconBtn"
-							title="Move up"
+							{@attach tooltip('Move up')}
 							disabled={i === 0}
 							onclick={() => inspectorMatrix.moveWidget(profile.id, view, i, -1)}
 						>
@@ -125,7 +126,7 @@
 						</button>
 						<button
 							class="iconBtn"
-							title="Move down"
+							{@attach tooltip('Move down')}
 							disabled={i === stack.length - 1}
 							onclick={() => inspectorMatrix.moveWidget(profile.id, view, i, 1)}
 						>
@@ -133,7 +134,7 @@
 						</button>
 						<button
 							class="iconBtn"
-							title="Remove"
+							{@attach tooltip('Remove')}
 							onclick={() => inspectorMatrix.removeWidget(profile.id, view, i)}
 						>
 							<X size={14} />

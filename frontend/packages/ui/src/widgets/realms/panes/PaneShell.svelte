@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import {
 		BookOpen,
 		FileCode2,
@@ -73,7 +74,7 @@
 					<button
 						type="button"
 						class="close"
-						title="Close pane"
+						{@attach tooltip('Close pane')}
 						aria-label="Close {label(pane)}"
 						onclick={() => panes.close(id)}
 					>

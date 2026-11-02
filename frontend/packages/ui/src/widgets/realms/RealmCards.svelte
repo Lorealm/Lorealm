@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { FileCode2, Play, Trash2 } from '@lucide/svelte';
 	import { useApi } from '$lib/api/client.js';
 	import { blueprintStore } from '$lib/stores/blueprint.svelte.js';
@@ -48,7 +49,7 @@
 					<button
 						type="button"
 						class="del"
-						title="Delete realm"
+						{@attach tooltip('Delete realm')}
 						aria-label="Delete {realm.name}"
 						onclick={(e) => remove(e, realm.id)}
 					>

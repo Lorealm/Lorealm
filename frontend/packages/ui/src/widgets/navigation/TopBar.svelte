@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { ChevronLeft, ChevronRight } from '@lucide/svelte';
 	import { crumbsFor } from '$lib/navigation/breadcrumbs.svelte.js';
 	import { navigator } from '$lib/navigation/navigator.js';
@@ -11,7 +12,7 @@
 	<div class="history">
 		<button
 			class="step"
-			title="Back"
+			{@attach tooltip('Back')}
 			aria-label="Back"
 			disabled={!router.canGoBack}
 			onclick={() => navigator.back()}
@@ -20,7 +21,7 @@
 		</button>
 		<button
 			class="step"
-			title="Forward"
+			{@attach tooltip('Forward')}
 			aria-label="Forward"
 			disabled={!router.canGoForward}
 			onclick={() => navigator.forward()}

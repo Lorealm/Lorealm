@@ -200,6 +200,8 @@
 	--z-index-sticky: 80;
 	--z-index-always-top: 99;
 	--z-index-modal: 1000;
+	--z-index-popover: 1500;
+	--z-index-tooltip: 1600;
 	--z-index-toast: 2000;
 
 	/* BACKDROP */

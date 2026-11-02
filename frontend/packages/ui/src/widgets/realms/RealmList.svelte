@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { navigator } from '$lib/navigation/navigator.js';
 	import { realmStore } from '$lib/stores/realm.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
@@ -44,7 +45,7 @@
 					<button
 						type="button"
 						class="del"
-						title="Delete realm"
+						{@attach tooltip('Delete realm')}
 						onclick={(e) => remove(e, realm.id)}
 					>
 						<Trash2 size={14} />

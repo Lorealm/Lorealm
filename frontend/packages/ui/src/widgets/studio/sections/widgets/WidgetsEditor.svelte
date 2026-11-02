@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { navigator } from '$lib/navigation/navigator.js';
 	import { toolStore } from '$lib/stores/tools.svelte.js';
 	import { userWidgetStore } from '$lib/stores/userWidgets.svelte.js';
@@ -223,7 +224,7 @@ ${'</'}script>
 				<button class="widget-open" type="button" onclick={() => select(widget.id)}>
 					<span
 						class="widget-icon"
-						title={widget.placement === 'attachment' ? 'Attachment' : 'Widget'}
+						{@attach tooltip(widget.placement === 'attachment' ? 'Attachment' : 'Widget')}
 					>
 						{#if widget.placement === 'attachment'}
 							<Paperclip size={16} />
@@ -243,7 +244,9 @@ ${'</'}script>
 					class="switch enable-toggle"
 					checked={widget.enabled}
 					onchange={(e) => void userWidgetStore.setEnabled(widget.id, e.currentTarget.checked)}
-					title={widget.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'}
+					{@attach tooltip(
+						widget.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'
+					)}
 					aria-label={widget.enabled ? `Disable ${widget.name}` : `Enable ${widget.name}`}
 				/>
 			</div>
@@ -307,7 +310,12 @@ ${'</'}script>
 									bind:value={draftProps[i]}
 									oninput={requestSave}
 								/>
-								<button type="button" class="del" title="Remove prop" onclick={() => removeProp(i)}>
+								<button
+									type="button"
+									class="del"
+									{@attach tooltip('Remove prop')}
+									onclick={() => removeProp(i)}
+								>
 									×
 								</button>
 							</div>
@@ -380,7 +388,12 @@ ${'</'}script>
 					{#each draftTools as id (id)}
 						<div class="toolRow">
 							<span class="toolName">{toolName(id)}</span>
-							<button type="button" class="del" title="Remove tool" onclick={() => unbindTool(id)}>
+							<button
+								type="button"
+								class="del"
+								{@attach tooltip('Remove tool')}
+								onclick={() => unbindTool(id)}
+							>
 								×
 							</button>
 						</div>

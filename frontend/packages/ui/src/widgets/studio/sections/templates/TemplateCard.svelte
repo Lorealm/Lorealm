@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { navigator } from '$lib/navigation/navigator.js';
 	import { templateStore } from '$lib/stores/template.svelte.js';
 	import type { TemplateMetadata } from '$lib/types/template.js';
@@ -38,7 +39,7 @@
 
 <article class="card" class:active>
 	<header class="head">
-		<h3 class="name" title={meta.name}>{meta.name}</h3>
+		<h3 class="name" {@attach tooltip(meta.name)}>{meta.name}</h3>
 		{#if active}
 			<span class="pill">Active</span>
 		{/if}
@@ -49,14 +50,14 @@
 	</p>
 
 	<div class="meta">
-		<span class="stat" title="Top-level nodes">
+		<span class="stat" {@attach tooltip('Top-level nodes')}>
 			<Layers size={13} />
 			{meta.node_count}
 			{meta.node_count === 1 ? 'node' : 'nodes'}
 		</span>
 		<span class="stat">v{meta.version}</span>
 		{#if updated}
-			<span class="stat" title={meta.updated_at}>Updated {updated}</span>
+			<span class="stat" {@attach tooltip(meta.updated_at)}>Updated {updated}</span>
 		{/if}
 	</div>
 
@@ -85,7 +86,7 @@
 			<button
 				type="button"
 				class="del"
-				title="Delete template"
+				{@attach tooltip('Delete template')}
 				aria-label={`Delete ${meta.name}`}
 				disabled={busy}
 				onclick={() => (confirmingDelete = true)}

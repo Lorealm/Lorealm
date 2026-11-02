@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../../../stores/tooltip.svelte.ts';
 	import { getContext } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { dndzone, SHADOW_ITEM_MARKER_PROPERTY_NAME, type DndEvent } from 'svelte-dnd-action';
@@ -119,7 +120,7 @@
 		type="checkbox"
 		checked={node.enabled}
 		aria-label="Enabled"
-		title="Enabled"
+		{@attach tooltip('Enabled')}
 		onpointerdown={stop}
 		onclick={stop}
 		onchange={toggleEnabled}
@@ -136,13 +137,13 @@
 	{#if showBadges}
 		<div class="badges" class:selected={selectedId === node.id}>
 			{#if group?.mode === 'invariant'}
-				<span class="badge-item" data-tooltip="Invariant"><CircleDot /></span>
+				<span class="badge-item" {@attach tooltip('Invariant')}><CircleDot /></span>
 			{/if}
 			{#if group && group.children.length === 0}
-				<span class="badge-item" data-tooltip="Empty"><SquaresSubtract /></span>
+				<span class="badge-item" {@attach tooltip('Empty')}><SquaresSubtract /></span>
 			{/if}
 			{#if isSource}
-				<span class="badge-item" data-tooltip="Dynamic source"><Plug /></span>
+				<span class="badge-item" {@attach tooltip('Dynamic source')}><Plug /></span>
 			{/if}
 		</div>
 	{/if}
@@ -321,32 +322,6 @@
 		display: block;
 	}
 
-	.badge-item::after {
-		content: attr(data-tooltip);
-		position: absolute;
-		bottom: 140%;
-		left: 50%;
-		transform: translateX(-50%) scale(0.9);
-		background-color: var(--color-bg-elevated-2, #1e1e1e);
-		color: var(--color-text-primary, #ffffff);
-		padding: var(--spacing-xs) var(--spacing-sm);
-		font-size: 0.75rem;
-		white-space: nowrap;
-		border-radius: var(--radius-sm, 4px);
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-		border: 1px solid var(--color-border-subtle);
-		z-index: 10;
-		opacity: 0;
-		pointer-events: none;
-		transition:
-			opacity 0.15s ease,
-			transform 0.15s ease;
-	}
-
-	.badge-item:hover::after {
-		opacity: 1;
-		transform: translateX(-50%) scale(1);
-	}
 	.caret:hover {
 		background-color: var(--color-hover);
 		color: var(--color-text-accent);

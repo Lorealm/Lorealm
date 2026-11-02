@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import { showError } from '$lib/stores/errorToast.svelte.js';
 	import { templateStore } from '$lib/stores/template.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
@@ -111,9 +112,9 @@
 							class="box"
 							class:on={node.enabled}
 							class:group={group !== null}
-							title={group
-								? 'Click to toggle, shift-click to open'
-								: node.description || node.title}
+							{@attach tooltip(
+								group ? 'Click to toggle, shift-click to open' : node.description || node.title
+							)}
 							onclick={(e) => onBox(e, node)}
 							onkeydown={onBoxKey}
 						>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../../../stores/tooltip.svelte.ts';
 	import type { DraftEntry, SaveState } from '$lib/stores/lorebook.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import { sortEntries, SORT_KEYS, type SortKey } from '$lib/weaver/entryOrdering.js';
@@ -69,8 +70,8 @@
 						}}
 					/>
 					<button type="button" class="select" onclick={() => onSelect(entry.snowflake)}>
-						<span class="name" title={label(entry)}>{label(entry)}</span>
-						{#if invalid}<span class="badge" title="Unsaved — invalid">!</span>{/if}
+						<span class="name" {@attach tooltip(label(entry))}>{label(entry)}</span>
+						{#if invalid}<span class="badge" {@attach tooltip('Unsaved — invalid')}>!</span>{/if}
 					</button>
 					<button
 						type="button"

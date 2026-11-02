@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { navigator } from '$lib/navigation/navigator.js';
 	import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
 	import type { LorebookMetadata } from '$lib/types/lorebook.js';
@@ -36,7 +37,7 @@
 
 <article class="card" class:active>
 	<header class="head">
-		<h3 class="name" title={meta.name}>{meta.name}</h3>
+		<h3 class="name" {@attach tooltip(meta.name)}>{meta.name}</h3>
 		{#if active}
 			<span class="pill">Active</span>
 		{/if}
@@ -47,7 +48,7 @@
 	</p>
 
 	<div class="meta">
-		<span class="stat" title="Entries in this lorebook">
+		<span class="stat" {@attach tooltip('Entries in this lorebook')}>
 			<BookOpen size={13} />
 			{meta.entry_count}
 			{meta.entry_count === 1 ? 'entry' : 'entries'}
@@ -73,7 +74,7 @@
 			<button
 				type="button"
 				class="del"
-				title="Delete lorebook"
+				{@attach tooltip('Delete lorebook')}
 				aria-label={`Delete ${meta.name}`}
 				disabled={busy}
 				onclick={() => (confirmingDelete = true)}

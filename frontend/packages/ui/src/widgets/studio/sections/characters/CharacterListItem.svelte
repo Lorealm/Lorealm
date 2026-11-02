@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import PopupMenu from '$lib/components/PopupMenu.svelte';
 	import TransportImage from '$lib/components/TransportImage.svelte';
 	import { blobUrl } from '$lib/api/blobs.js';
@@ -21,7 +22,7 @@
 
 	<div class="details">
 		<div class="headerRow">
-			<h4 class="name" title={summary.name}>{summary.name}</h4>
+			<h4 class="name" {@attach tooltip(summary.name)}>{summary.name}</h4>
 
 			{#if summary.tags.length > 0}
 				<div class="tagContainer">
@@ -34,7 +35,7 @@
 		</div>
 
 		{#if relative}
-			<div class="subheader" title={summary.updated_at}>Updated {relative}</div>
+			<div class="subheader" {@attach tooltip(summary.updated_at)}>Updated {relative}</div>
 		{/if}
 	</div>
 
@@ -49,10 +50,22 @@
 		</button>
 
 		<div class="minorControls">
-			<button type="button" class="minor" title={unavailable} disabled aria-label="Export">
+			<button
+				type="button"
+				class="minor"
+				{@attach tooltip(unavailable)}
+				disabled
+				aria-label="Export"
+			>
 				<Upload size={16} />
 			</button>
-			<button type="button" class="minor del" title={unavailable} disabled aria-label="Delete">
+			<button
+				type="button"
+				class="minor del"
+				{@attach tooltip(unavailable)}
+				disabled
+				aria-label="Delete"
+			>
 				<Trash2 size={16} />
 			</button>
 			<PopupMenu

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import {
 		Bot,
 		FlagOff,
@@ -135,7 +136,7 @@
 			type="button"
 			class="agent"
 			class:selected={realmDraft.isSelected({ kind: 'agent', key: agent.key })}
-			title={agent.kind === 'script' ? 'Double-click to edit its script' : undefined}
+			{@attach tooltip(agent.kind === 'script' ? 'Double-click to edit its script' : undefined)}
 			onclick={() => realmDraft.select({ kind: 'agent', key: agent.key })}
 			ondblclick={() =>
 				agent.kind === 'script' && panes.show({ kind: 'script', agentKey: agent.key })}
@@ -148,7 +149,7 @@
 		<button
 			type="button"
 			class="remove"
-			title="Remove agent"
+			{@attach tooltip('Remove agent')}
 			aria-label="Remove {agent.handle}"
 			onclick={() => realmDraft.removeAgent(agent.key)}
 		>
@@ -186,7 +187,7 @@
 				<button
 					type="button"
 					class="grip"
-					title="Drag to reorder, or Alt+Arrow"
+					{@attach tooltip('Drag to reorder, or Alt+Arrow')}
 					aria-label="Reorder entry {index + 1} of {realmDraft.cast.length}"
 					onpointerdown={() => (gripped = entry.key)}
 					onpointerup={() => (gripped = null)}
@@ -245,7 +246,9 @@
 							{#if decl && loopReaches(decl.ty).length === 0}
 								<span
 									class="warn"
-									title="Its elements aren't references. Only &lbrace;&lbrace;{entry.varName}&rbrace;&rbrace; can be reached."
+									{@attach tooltip(
+										`Its elements aren't references. Only {{${entry.varName}}} can be reached.`
+									)}
 								>
 									<FlagOff size={12} />
 								</span>
@@ -253,7 +256,7 @@
 							<button
 								type="button"
 								class="remove"
-								title="Remove loop"
+								{@attach tooltip('Remove loop')}
 								aria-label="Remove loop"
 								onclick={() => realmDraft.removeEntry(entry.key)}
 							>

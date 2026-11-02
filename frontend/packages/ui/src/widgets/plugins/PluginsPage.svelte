@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { onMount } from 'svelte';
 	import { Check, FolderInput, Settings, Trash2 } from '@lucide/svelte';
 	import { useApi } from '$lib/api/client.js';
@@ -156,7 +157,7 @@
 								type="button"
 								class="outline"
 								aria-label="{plugin.name} settings"
-								title="Settings"
+								{@attach tooltip('Settings')}
 								onclick={() => navigator.start().settings().user().plugins(plugin.handle)}
 							>
 								<Settings size={14} />
@@ -166,7 +167,7 @@
 							type="button"
 							class="icon"
 							aria-label="Remove {plugin.name} for everyone"
-							title="Remove for everyone"
+							{@attach tooltip('Remove for everyone')}
 							onclick={() => act(() => api.plugins.uninstall(plugin.handle))}
 						>
 							<Trash2 size={16} />
