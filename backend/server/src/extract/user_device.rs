@@ -1,11 +1,13 @@
 //! TODO: replace/integrate with [woothee](https://woothee.github.io/)?
 
-use std::net::IpAddr;
+use std::{net::IpAddr, sync::Arc};
 
 use axum::{
     extract::FromRequestParts,
     http::{StatusCode, request::Parts},
 };
+
+use crate::{config::HostingConfig, core::AppState, extract::client_ip};
 
 #[derive(Debug, Clone)]
 pub struct UserDevice {
@@ -25,13 +27,13 @@ pub enum DeviceType {
     Unknown,
 }
 
-impl<S> FromRequestParts<S> for UserDevice
-where
-    S: Send + Sync,
-{
+impl FromRequestParts<Arc<AppState>> for UserDevice {
     type Rejection = StatusCode;
 
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &Arc<AppState>,
+    ) -> Result<Self, Self::Rejection> {
         let ua = parts
             .headers
             .get("user-agent")
@@ -43,7 +45,13 @@ where
         let device_type = classify_device(&lower);
         let os = extract_os(&lower);
         let browser = extract_browser(&lower);
-        let ip = extract_ip(parts);
+        let trusted =
+            client_ip::parse_trusted(&state.config().get::<HostingConfig>().trusted_proxies);
+        let peer = parts
+            .extensions
+            .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+            .map(|ci| ci.0.ip());
+        let ip = client_ip::resolve(peer, &parts.headers, &trusted);
 
         Ok(UserDevice {
             raw_user_agent: ua,
@@ -53,25 +61,6 @@ where
             ip,
         })
     }
-}
-
-fn extract_ip(parts: &Parts) -> Option<IpAddr> {
-    let proxy_headers = ["x-forwarded-for", "x-real-ip", "cf-connecting-ip"];
-
-    for header in proxy_headers {
-        if let Some(value) = parts.headers.get(header).and_then(|v| v.to_str().ok()) {
-            // X-Forwarded-For can be a comma-separated list; take the first IP
-            let candidate = value.split(',').next().unwrap_or(value).trim();
-            if let Ok(ip) = candidate.parse::<IpAddr>() {
-                return Some(ip);
-            }
-        }
-    }
-
-    parts
-        .extensions
-        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
-        .map(|ci| ci.0.ip())
 }
 
 fn classify_device(ua: &str) -> DeviceType {
