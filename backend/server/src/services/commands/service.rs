@@ -347,7 +347,7 @@ mod tests {
                 owner,
                 profile_id,
                 vec![crate::services::chat::PromptMessage {
-                    role: crate::services::context::PromptRole::User,
+                    role: crate::services::context_template::PromptRole::User,
                     content: ask,
                 }],
                 cancel,

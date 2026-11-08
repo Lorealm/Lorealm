@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use crate::{
     errors::{ContextError, TokenizerError},
-    services::context::{
+    services::context_template::{
         SelectOption, SettingDefinition, SettingType, SourceDefinition, SourceNodeDefinition,
         SourceType,
     },

@@ -5,7 +5,7 @@ use lorealm_storage::models::Snowflake;
 
 use crate::{
     errors::ContextError,
-    services::{context::GroupWrapMode, plugins::PLUGIN_SOURCE_PREFIX, variables::substitute},
+    services::{context_template::GroupWrapMode, plugins::PLUGIN_SOURCE_PREFIX, variables::substitute},
 };
 
 use super::{

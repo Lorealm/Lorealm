@@ -13,7 +13,7 @@ use crate::{
     errors::ChatError,
     services::{
         chat::{CancelGuard, ChatService, PromptMessage},
-        context::PromptRole,
+        context_template::PromptRole,
         state::StateService,
     },
 };

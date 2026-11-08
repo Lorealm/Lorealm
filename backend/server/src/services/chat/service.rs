@@ -39,7 +39,7 @@ use crate::{
         },
         commands::{CommandEffect, EffectSink, GenerateBridge, Generation},
         connection::ConnectionService,
-        context::{
+        context_template::{
             ContextTemplate, PromptRole, PromptTurn, ResolveContext, SourceRegistry, TracedBlock,
             assemble,
         },

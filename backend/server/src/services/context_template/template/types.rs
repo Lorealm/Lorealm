@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::services::context::{ContextNode, PromptRole};
+use crate::services::context_template::{ContextNode, PromptRole};
 
 /// The mode for a certain group node.
 ///

@@ -18,7 +18,7 @@ use crate::{
     services::{
         chat::{CancelGuard, PromptMessage},
         commands::Generation,
-        context::PromptRole,
+        context_template::PromptRole,
         plugins::{PluginService, PluginVocabulary},
         state::StateService,
         weaver::{WeaverHost, WeaverProfile, compile_template},

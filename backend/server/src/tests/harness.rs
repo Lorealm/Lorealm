@@ -23,7 +23,7 @@ use crate::services::{
     character::CharacterService,
     chat::ChatService,
     connection::ConnectionService,
-    context::{ContextService, SourceRegistry, builtin::register_builtin_sources},
+    context_template::{TemplateService, SourceRegistry, builtin::register_builtin_sources},
     conversation::ConversationService,
     permission::service::PermissionService,
     persona::PersonaService,
@@ -105,7 +105,7 @@ impl Harness {
             register_builtin_providers(&mut registry);
             Arc::new(registry)
         };
-        let context = Arc::new(ContextService::new(
+        let context = Arc::new(TemplateService::new(
             Arc::clone(&storage),
             Arc::clone(&snow),
             Arc::clone(&sources),

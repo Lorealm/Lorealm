@@ -3,7 +3,7 @@ pub mod character;
 pub mod chat;
 pub mod commands;
 pub mod connection;
-pub mod context;
+pub mod context_template;
 pub mod conversation;
 pub mod lorebook;
 pub mod permission;

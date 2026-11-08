@@ -7,7 +7,7 @@ mod types;
 pub mod weaver;
 
 pub use resolve::*;
-pub use service::ContextService;
+pub use service::TemplateService;
 pub use template::*;
 pub use types::*;
 

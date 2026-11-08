@@ -6,7 +6,7 @@ use serde_json::{Map, json};
 use crate::{
     errors::RealmError,
     services::blueprint::{InputSpec, InputSpecType},
-    services::context::weaver::check::{Dialect, Severity, check},
+    services::context_template::weaver::check::{Dialect, Severity, check},
     services::weaver::WeaverProfile,
     tests::Harness,
 };
