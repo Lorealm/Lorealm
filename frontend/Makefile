@@ -1,4 +1,4 @@
-.PHONY: install clean reset dev-web dev-tauri dev-tauri-nvidia build-web build-tauri build-ui check lint format docker-build docker-up docker-down help
+.PHONY: install clean reset dev-web dev-desktop dev-desktop-nvidia build-web build-desktop build-ui build-all check lint format docker-build docker-up docker-down docker-logs help
 
 # ─── Setup ───────────────────────────────────────────────────────────
 
@@ -7,7 +7,7 @@ install: ## Install all workspace dependencies
 
 clean: ## Remove all build artifacts
 	rm -rf apps/web/dist
-	rm -rf apps/tauri/dist
+	rm -rf apps/desktop/build
 	rm -rf packages/ui/dist
 	rm -rf packages/ui/.svelte-kit
 
@@ -44,7 +44,7 @@ build-web: ## Build the web app for production
 build-desktop: ## Build the tauri app for production
 	cd apps/desktop && bun run tauri build
 
-build-all: build-ui build-web build-tauri ## Build everything
+build-all: build-ui build-web build-desktop ## Build everything
 
 # ─── Quality ─────────────────────────────────────────────────────────
 
@@ -63,7 +63,7 @@ format: ## Format code
 
 docker-build: ## Build Docker image(s)
 	@echo "TODO: docker build"
-	# docker build -t changeit-web -f apps/web/Dockerfile .
+	# docker build -t lorealm -f apps/web/Dockerfile .
 
 docker-up: ## Start Docker containers
 	@echo "TODO: docker compose up"

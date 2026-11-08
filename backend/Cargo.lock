@@ -2165,6 +2165,7 @@ dependencies = [
  "dialoguer",
  "dotenv",
  "futures-util",
+ "hex",
  "indexmap",
  "infer",
  "itertools 0.15.0",

@@ -60,7 +60,11 @@ pub struct ServiceManager {
 }
 
 impl ServiceManager {
-    pub fn new(storage_manager: &StorageManager, config: Arc<ConfigProvider>) -> Self {
+    pub fn new(
+        storage_manager: &StorageManager,
+        config: Arc<ConfigProvider>,
+        key_manager: LocalKeyManager,
+    ) -> Self {
         // General services
         let storage = storage_manager.storage();
         let blob = storage_manager.blob();
@@ -145,10 +149,7 @@ impl ServiceManager {
         let connection = Arc::new(ConnectionService::new(
             Arc::clone(&storage),
             Arc::clone(&snowflake),
-            Arc::new(
-                LocalKeyManager::from_env_with_history("LOREALM_MASTER_KEY")
-                    .expect("Should be able to create key manager"),
-            ),
+            Arc::new(key_manager),
         ));
 
         let tokenizers = Arc::new(TokenizerService::new(

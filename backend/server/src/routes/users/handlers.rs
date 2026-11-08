@@ -241,6 +241,25 @@ pub async fn revoke_session(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// Revoke the session making the request and clear its cookies.
+pub async fn logout(
+    State(state): State<Arc<AppState>>,
+    cookies: Cookies,
+    session: AuthenticatedSession,
+) -> Result<StatusCode, AppError> {
+    state
+        .services()
+        .sessions()
+        .revoke_session(session.session_id)
+        .await?;
+
+    for name in ["session_token", "csrf_token"] {
+        cookies.remove(Cookie::build((name, "")).path("/").build());
+    }
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
 pub async fn revoke_other_sessions(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
