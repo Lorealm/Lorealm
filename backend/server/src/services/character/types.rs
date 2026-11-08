@@ -16,6 +16,7 @@ pub struct EditDefinition {
     pub scenario: Option<String>,
     pub system_prompt: Option<String>,
     pub post_history_instructions: Option<String>,
+    pub template_injection: Option<String>,
 }
 
 /// Partial patch over `CharacterMetadata`'s editable scalar fields.

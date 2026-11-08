@@ -1,13 +1,3 @@
-//! Host variables: the `{{scope:name}}` values shared by every weaver host.
-//!
-//! Lorealm evaluates weaver in three places — lorebook entries (through
-//! `ContextWeaver`'s internal host), command and script bodies (through
-//! [`ToolContext`](crate::services::tools::ToolContext)), and assembled block
-//! text. Each used to derive `char`/`user` separately, so the same token could
-//! mean different things depending on where it was written. Providers here are
-//! the single definition; [`VariableRegistry::materialize`] snapshots them once
-//! per turn and every host reads that one snapshot.
-
 use std::{collections::HashMap, sync::Arc};
 
 use lorealm_storage::models::{Character, Realm, UserPersona};
@@ -15,18 +5,13 @@ use weaver_lang::Value;
 
 pub mod builtin;
 
-/// What a provider may read. Deliberately narrower than
-/// [`ResolveContext`](crate::services::context::ResolveContext): variables are
-/// resolved on paths that have no template, no tokenizer and no state pool.
+/// What a provider may read.
 pub struct VariableContext<'a> {
     pub character: Option<&'a Character>,
     pub persona: Option<&'a UserPersona>,
     pub realm: Option<&'a Realm>,
 }
 
-/// Supplies every variable in one scope. `scope` is the half before the colon
-/// in `{{scope:name}}`; weaver treats the name half as opaque, so a provider
-/// owning `char` decides what `{{char:a.b}}` means.
 pub trait VariableProvider: Send + Sync {
     fn scope(&self) -> &str;
 
@@ -38,6 +23,11 @@ pub trait VariableProvider: Send + Sync {
 pub struct Variables(HashMap<String, HashMap<String, Value>>);
 
 impl Variables {
+    #[cfg(test)]
+    pub fn from_map(map: HashMap<String, HashMap<String, Value>>) -> Self {
+        Self(map)
+    }
+
     pub fn get(&self, scope: &str, name: &str) -> Option<&Value> {
         self.0.get(scope)?.get(name)
     }
@@ -49,12 +39,7 @@ impl Variables {
     }
 }
 
-/// Replace every `{{scope:name}}` that `vars` knows, in one pass. A token
-/// whose scope or name is unknown is left verbatim, so weaver syntax bound for
-/// another host survives untouched.
-///
-/// Single-pass by construction: a substituted value is never rescanned, so a
-/// value that happens to contain `{{...}}` cannot be substituted into.
+/// Replace every `{{scope:name}}` that `vars` knows
 pub fn substitute(content: &str, vars: &Variables) -> String {
     let mut out = String::with_capacity(content.len());
     let mut rest = content;
@@ -101,10 +86,11 @@ impl VariableRegistry {
             .insert(provider.scope().to_string(), provider);
     }
 
-    /// Snapshot every provider for one turn. Providers are cheap and their
-    /// values are wanted by more than one host, so this resolves eagerly
-    /// rather than per lookup.
-    pub fn materialize(&self, ctx: &VariableContext) -> Variables {
+    /// A snapshot over the current variables. This function resolves eagerly.
+    /// 
+    /// `ctx` serves a filter, meaning only variables belonging to an entity
+    /// within `ctx` is served.
+    pub fn snapshot(&self, ctx: &VariableContext) -> Variables {
         Variables(
             self.providers
                 .iter()
@@ -136,21 +122,18 @@ mod tests {
 
     #[test]
     fn renders_through_weavers_own_output_string() {
-        // Number renders bare, matching what a lorebook would produce.
         assert_eq!(substitute("lvl {{char:level}}", &vars()), "lvl 7");
     }
 
     #[test]
     fn leaves_unknown_tokens_verbatim() {
-        // Bound for another host, or simply undefined: must survive untouched.
         assert_eq!(
             substitute("{{nation:gold}} {{char:missing}} {{bare}}", &vars()),
             "{{nation:gold}} {{char:missing}} {{bare}}"
         );
     }
 
-    /// The old BulkReplace ran str::replace per variable over the accumulating
-    /// string, so a value containing a token was substituted into.
+
     #[test]
     fn substituted_values_are_not_rescanned() {
         let v = Variables(HashMap::from([(
@@ -185,7 +168,7 @@ mod tests {
 
         let mut reg = VariableRegistry::new();
         reg.register(Arc::new(Empty));
-        let snapshot = reg.materialize(&VariableContext {
+        let snapshot = reg.snapshot(&VariableContext {
             character: None,
             persona: None,
             realm: None,

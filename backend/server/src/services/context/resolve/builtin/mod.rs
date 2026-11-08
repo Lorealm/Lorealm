@@ -87,6 +87,7 @@ mod tests {
 
         assert!(has_node(&registry, "chat_history", "main"));
         assert!(has_node(&registry, "character", "definition"));
+        assert!(has_node(&registry, "character", "injection"));
         assert!(has_node(&registry, "widgets", "main"));
         assert!(has_node(&registry, "author_note", "main"));
 

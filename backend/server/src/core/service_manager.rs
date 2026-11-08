@@ -186,7 +186,7 @@ impl ServiceManager {
             Arc::clone(&plugins),
         ));
 
-        // The generate commands a tool body may call need an owned handle to
+        // Generations requires a tool body may call need an owned handle to
         // the service that runs them. A plugin's `generate` goes the same way.
         chat.set_self(Arc::downgrade(&chat));
         plugins.set_generation(Arc::downgrade(&chat) as Weak<dyn Generation>);
@@ -262,9 +262,9 @@ impl ServiceManager {
             ticker.tick().await;
 
             tracing::info!(
-                interval_secs = interval.as_secs(),
-                services = cleanable.len(),
-                "cleanup task started"
+                "Cleanup task started: {} systems, every {} min",
+                cleanable.len(),
+                interval.as_secs() / 60
             );
 
             loop {
@@ -288,14 +288,9 @@ impl ServiceManager {
 
                 if total > 0 {
                     tracing::info!(
+                        "Cleaned {} services in {}ms",
                         total,
-                        elapsed_ms = started.elapsed().as_millis(),
-                        "cleanup sweep complete"
-                    );
-                } else {
-                    tracing::trace!(
-                        elapsed_ms = started.elapsed().as_millis(),
-                        "cleanup sweep idle"
+                        started.elapsed().as_millis()
                     );
                 }
             }

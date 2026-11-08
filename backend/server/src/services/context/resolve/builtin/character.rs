@@ -1,14 +1,25 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use async_trait::async_trait;
 use lorealm_storage::models::{Character, ExampleDialogue};
+use weaver_lang::CompiledTemplate;
 
 use crate::{
     errors::ContextError,
-    services::context::{
-        CharacterPart, ContentRef, SettingDefinition, SettingType, SourceDefinition,
-        SourceNodeDefinition, SourceType, builtin::text_block,
+    services::{
+        context::{
+            CharacterPart, ContentRef, SelectOption, SettingDefinition, SettingType,
+            SourceDefinition, SourceNodeDefinition, SourceType, builtin::text_block,
+        },
+        plugins::PluginVocabulary,
+        state::{StatePool, write_var},
+        variables::Variables,
+        weaver::{WeaverHost, WeaverProfile},
     },
+    util::weaver::weaver_to_json,
 };
 
 use super::super::{ContextSource, PromptRole, ResolveContext, ResolvedBlock};
@@ -69,6 +80,48 @@ impl ContextSource for CharacterResolver {
                         required: false,
                     }],
                 },
+                SourceNodeDefinition {
+                    node_id: "injection".into(),
+                    title: "Character Injection".into(),
+                    description: "Your text here, combined with whatever the character's card \
+                                  adds to it"
+                        .into(),
+                    icon: Some("syringe".into()),
+                    settings: vec![
+                        SettingDefinition {
+                            key: "base".into(),
+                            label: "Text".into(),
+                            description: "Used as-is. A card's injection can include it by \
+                                          writing {{template}}."
+                                .into(),
+                            setting_type: SettingType::Text,
+                            default_value: serde_json::json!(""),
+                            required: false,
+                        },
+                        SettingDefinition {
+                            key: "mode".into(),
+                            label: "Card injection".into(),
+                            description: "How the character's injection combines with your text"
+                                .into(),
+                            setting_type: SettingType::Select {
+                                options: [
+                                    ("replace", "Replace"),
+                                    ("ignore", "Ignore"),
+                                    ("prepend", "Prepend"),
+                                    ("append", "Append"),
+                                ]
+                                .into_iter()
+                                .map(|(value, label)| SelectOption {
+                                    value: value.into(),
+                                    label: label.into(),
+                                })
+                                .collect(),
+                            },
+                            default_value: serde_json::json!("replace"),
+                            required: false,
+                        },
+                    ],
+                },
             ],
         }
     }
@@ -126,6 +179,27 @@ impl ContextSource for CharacterResolver {
                 resolve_examples(&character, max)
             }
 
+            "injection" => {
+                let base = settings.get("base").and_then(|v| v.as_str()).unwrap_or("");
+                let mode = settings
+                    .get("mode")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("replace");
+                let content = inject(
+                    &character.definition.template_injection,
+                    base,
+                    mode,
+                    &ctx.state.persistent,
+                    &ctx.variables,
+                    ctx.plugins.as_ref(),
+                );
+                if content.trim().is_empty() {
+                    Vec::new()
+                } else {
+                    text_block(PromptRole::System, &content, ContentRef::Verbatim)
+                }
+            }
+
             other => {
                 return Err(ContextError::UnknownSourceNode {
                     source_id: "character".into(),
@@ -136,6 +210,61 @@ impl ContextSource for CharacterResolver {
         };
 
         Ok(blocks)
+    }
+}
+
+const TEMPLATE_MACRO: &str = "{{template}}";
+/// Stands in for `{{template}}` while the injection is evaluated
+const TEMPLATE_MARK: &str = "\u{E002}";
+
+/// Combine a card's `injection` with the node's `base` text under `mode`.
+fn inject(
+    injection: &str,
+    base: &str,
+    mode: &str,
+    pool: &StatePool,
+    vars: &Variables,
+    plugins: Option<&PluginVocabulary>,
+) -> String {
+    if injection.trim().is_empty() {
+        return base.to_string();
+    }
+    let source = match mode {
+        "ignore" => return base.to_string(),
+        "prepend" => format!("{injection}\n\n{TEMPLATE_MACRO}"),
+        "append" => format!("{TEMPLATE_MACRO}\n\n{injection}"),
+        _ => injection.to_string(),
+    };
+    let source = source.replace(TEMPLATE_MACRO, TEMPLATE_MARK);
+
+    // Seed host variables (`{{char:name}}`, ...) the way lorebooks see them.
+    let mut pool = pool.clone();
+    for (scope, values) in vars.iter() {
+        let ns = pool.entry(scope.to_string()).or_default();
+        for (name, value) in values {
+            if let Ok(json) = weaver_to_json(value) {
+                write_var(ns, name, &json);
+            }
+        }
+    }
+
+    let rendered = CompiledTemplate::compile(&source)
+        .map_err(|e| format!("{e:?}"))
+        .and_then(|body| {
+            WeaverHost::builder()
+                .profile(WeaverProfile::WidgetRender)
+                .pool(Arc::new(Mutex::new(pool)))
+                .plugins(plugins.cloned())
+                .build()
+                .evaluate_inline(body)
+                .map_err(|e| e.to_string())
+        });
+    match rendered {
+        Ok(outcome) => outcome.to_output_string().replace(TEMPLATE_MARK, base),
+        Err(e) => {
+            tracing::warn!("character injection failed to evaluate: {e}");
+            base.to_string()
+        }
     }
 }
 
@@ -159,4 +288,154 @@ fn resolve_examples(character: &Character, max: Option<usize>) -> Vec<ResolvedBl
             )
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn pool() -> StatePool {
+        StatePool::from_iter([(
+            "story".to_string(),
+            HashMap::from([("traits".to_string(), json!("brave"))]),
+        )])
+    }
+
+    fn run(injection: &str, mode: &str) -> String {
+        inject(
+            injection,
+            "BASE",
+            mode,
+            &pool(),
+            &Variables::default(),
+            None,
+        )
+    }
+
+    #[test]
+    fn replace_substitutes_the_base_and_reads_state() {
+        assert_eq!(
+            run("{{template}} | Traits: {{story:traits}}", "replace"),
+            "BASE | Traits: brave"
+        );
+    }
+
+    #[test]
+    fn replace_without_the_macro_drops_the_base() {
+        assert_eq!(run("Traits: {{story:traits}}", "replace"), "Traits: brave");
+    }
+
+    #[test]
+    fn prepend_and_append_place_the_injection_around_the_base() {
+        assert_eq!(run("T: {{story:traits}}", "prepend"), "T: brave\n\nBASE");
+        assert_eq!(run("T: {{story:traits}}", "append"), "BASE\n\nT: brave");
+    }
+
+    #[test]
+    fn ignore_keeps_only_the_base() {
+        assert_eq!(run("T: {{story:traits}}", "ignore"), "BASE");
+    }
+
+    #[test]
+    fn an_unknown_mode_behaves_as_replace() {
+        assert_eq!(run("x {{template}}", "nonsense"), "x BASE");
+    }
+
+    #[test]
+    fn no_injection_leaves_the_base_in_every_mode() {
+        for mode in ["replace", "ignore", "prepend", "append"] {
+            assert_eq!(run("  ", mode), "BASE");
+        }
+    }
+
+    #[test]
+    fn the_base_is_never_evaluated() {
+        let out = inject(
+            "{{template}}",
+            "keep {{story:traits}} $[set_var(\"a:b\", 1)]",
+            "replace",
+            &pool(),
+            &Variables::default(),
+            None,
+        );
+        assert_eq!(out, "keep {{story:traits}} $[set_var(\"a:b\", 1)]");
+    }
+
+    #[test]
+    fn control_flow_works_in_the_injection() {
+        let pool = StatePool::from_iter([(
+            "story".to_string(),
+            HashMap::from([
+                ("traits".to_string(), json!(["brave", "curious"])),
+                ("cursed".to_string(), json!(true)),
+            ]),
+        )]);
+        let injection = "{{template}}\n\
+            {# foreach t in {{story:traits}} #}- {{t}}\n{# endforeach #}\
+            {# if {{story:cursed}} #}Cursed.{# endif #}\
+            {# if $[var_exists(\"story:missing\")] #}never{# endif #}";
+        let out = inject(
+            injection,
+            "BASE",
+            "replace",
+            &pool,
+            &Variables::default(),
+            None,
+        );
+        assert_eq!(out.matches("- brave").count(), 1, "{out:?}");
+        assert!(out.contains("- curious"), "{out:?}");
+        assert!(out.contains("Cursed."), "{out:?}");
+        assert!(!out.contains("never"), "{out:?}");
+        assert!(out.starts_with("BASE"), "{out:?}");
+    }
+
+    /// Reading a variable that was never written is an evaluation error, so
+    /// the whole injection falls back. Guard optional reads with `var_exists`.
+    #[test]
+    fn an_unset_variable_falls_back_unless_guarded() {
+        assert_eq!(run("{{story:missing}} hi", "replace"), "BASE");
+        assert_eq!(
+            run(
+                "{# if $[var_exists(\"story:missing\")] #}{{story:missing}}{# endif #}hi",
+                "replace"
+            ),
+            "hi"
+        );
+    }
+
+    #[test]
+    fn local_scratch_is_writable_but_stored_state_is_not() {
+        assert_eq!(run("$[set_var(\"local:n\", 2)]{{local:n}}", "replace"), "2");
+        // A write to stored state is refused, so the injection falls back.
+        assert_eq!(run("$[set_var(\"story:x\", 1)]hi", "replace"), "BASE");
+    }
+
+    #[test]
+    fn a_broken_injection_falls_back_to_the_base() {
+        assert_eq!(run("$[unclosed(", "replace"), "BASE");
+    }
+
+    #[test]
+    fn host_variables_resolve_inside_the_injection() {
+        let vars = Variables::from_map(HashMap::from([(
+            "char".to_string(),
+            HashMap::from([(
+                "name".to_string(),
+                weaver_lang::Value::String("Aria".into()),
+            )]),
+        )]));
+        assert_eq!(
+            inject(
+                "{{template}} with {{char:name}}",
+                "BASE",
+                "replace",
+                &pool(),
+                &vars,
+                None
+            ),
+            "BASE with Aria"
+        );
+    }
 }

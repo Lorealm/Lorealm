@@ -319,6 +319,15 @@
 								value={(settings[s.key] as number) ?? ''}
 								onchange={(v) => onNumberSetting(s.key, v.toString(), true)}
 							/>
+						{:else if st.type === 'text'}
+							<textarea
+								rows="6"
+								value={String(settings[s.key] ?? '')}
+								oninput={(e) => {
+									settings[s.key] = e.currentTarget.value;
+									scheduleSave('content');
+								}}
+							></textarea>
 						{:else}
 							<input
 								value={String(settings[s.key] ?? '')}

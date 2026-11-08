@@ -64,6 +64,7 @@ export interface SettingDefinition {
 
 export type SettingType =
 	| SettingTypeString
+	| SettingTypeText
 	| SettingTypeInteger
 	| SettingTypeFloat
 	| SettingTypeBoolean
@@ -73,6 +74,10 @@ export type SettingType =
 export interface SettingTypeString {
 	type: 'string';
 	max_length: number | null;
+}
+
+export interface SettingTypeText {
+	type: 'text';
 }
 
 export interface SettingTypeInteger {

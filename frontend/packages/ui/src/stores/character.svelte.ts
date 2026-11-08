@@ -48,6 +48,7 @@ export interface CharacterDraft {
 	scenario: string;
 	system_prompt: string;
 	post_history_instructions: string;
+	template_injection: string;
 	greetings: DraftGreeting[];
 	examples: DraftExample[];
 	widget_ids: Snowflake[];
@@ -308,6 +309,7 @@ function buildDraft(base: Character): CharacterDraft {
 		scenario: base.definition.scenario,
 		system_prompt: base.definition.system_prompt,
 		post_history_instructions: base.definition.post_history_instructions,
+		template_injection: base.definition.template_injection ?? '',
 		greetings: orderedGreetings(base).map((g) => ({ id: g.id, text: g.text })),
 		examples: orderedExamples(base).map((e) => ({ id: e.id, content: e.content })),
 		widget_ids: [...(base.widget_ids ?? [])]
@@ -341,6 +343,8 @@ function diffCharacter(
 		def.system_prompt = draft.system_prompt;
 	if (draft.post_history_instructions !== base.definition.post_history_instructions)
 		def.post_history_instructions = draft.post_history_instructions;
+	if (draft.template_injection !== (base.definition.template_injection ?? ''))
+		def.template_injection = draft.template_injection;
 	if (Object.keys(def).length > 0) edits.push({ op: 'definition', ...def });
 
 	// metadata scalars

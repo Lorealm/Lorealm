@@ -41,6 +41,7 @@ pub struct CreateUserTool {
 #[derive(Default, Deserialize)]
 pub struct UpdateUserTool {
     pub name: Option<String>,
+    #[serde(default, deserialize_with = "crate::util::double_option")]
     pub display_name: Option<Option<String>>,
     pub description: Option<String>,
     pub params: Option<Vec<Param>>,
@@ -274,5 +275,13 @@ mod tests {
     #[tokio::test]
     async fn stop_keeps_the_output_rendered_before_it() {
         assert_eq!(call("kept{# stop #}dropped").await, json!("kept"));
+    }
+
+    #[test]
+    fn a_null_display_name_clears_it_and_a_missing_one_leaves_it() {
+        let cleared: UpdateUserTool = serde_json::from_value(json!({"display_name": null})).unwrap();
+        assert_eq!(cleared.display_name, Some(None));
+        let untouched: UpdateUserTool = serde_json::from_value(json!({})).unwrap();
+        assert_eq!(untouched.display_name, None);
     }
 }

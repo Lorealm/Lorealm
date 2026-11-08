@@ -19,6 +19,13 @@ function isGroup(content: NodeContent): content is Extract<NodeContent, { type: 
 	return content.type === 'group';
 }
 
+function countNodes(nodes: ContextNode[]): number {
+	return nodes.reduce(
+		(sum, n) => sum + 1 + (isGroup(n.content) ? countNodes(n.content.children) : 0),
+		0
+	);
+}
+
 function childrenAt(roots: ContextNode[], parentPath: NodePath): ContextNode[] | undefined {
 	let nodes = roots;
 	for (const idx of parentPath) {
@@ -146,8 +153,7 @@ class TemplateStore {
 				owner_id: tpl.owner_id,
 				name: tpl.name,
 				description: tpl.description,
-				// Storage counts root nodes for the listing, so match that here.
-				node_count: tpl.nodes.length,
+				node_count: countNodes(tpl.nodes),
 				version: tpl.version,
 				created_at: tpl.created_at,
 				updated_at: tpl.updated_at

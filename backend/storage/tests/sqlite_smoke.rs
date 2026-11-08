@@ -639,6 +639,7 @@ fn a_character(id: i64, user: Snowflake, name: &str, tags: Vec<String>) -> Chara
                 order: 0,
                 text: "hello".into(),
             }],
+            template_injection: "inj {{template}}".into(),
         },
         lorebook_id: None,
         widget_ids: vec![],
@@ -670,6 +671,7 @@ async fn saving_a_character_satisfies_the_deferred_fk_cycle() {
     assert_eq!(got.definition.greetings.len(), 1);
     assert_eq!(got.definition.greetings[0].text, "hello");
     assert_eq!(got.definition.example_messages[0].content, "example");
+    assert_eq!(got.definition.template_injection, "inj {{template}}");
 }
 
 /// Exercises json_group_array (tags) plus the chained `->`/`->>` JSON operators
@@ -754,8 +756,8 @@ async fn character_versions_accumulate_and_restore() {
     assert_eq!(at_old.definition.name, "V1", "old snapshot must be intact");
 }
 
-/// Exercises `json_type` / `json_array_length`, which replace jsonb_typeof and
-/// jsonb_array_length in the template listing's node_count.
+/// The template listing's node_count reads `nodes_json` and counts nested
+/// group children too.
 #[tokio::test]
 async fn template_listing_counts_nodes_via_json1() {
     let s = db().await;
@@ -779,6 +781,19 @@ async fn template_listing_counts_nodes_via_json1() {
     ))
     .await
     .unwrap();
+    s.save_template(&mk(
+        2403,
+        "nested",
+        serde_json::json!([
+            {"content": {"type": "group", "children": [
+                {"content": {"type": "text"}},
+                {"content": {"type": "group", "children": [{"content": {"type": "text"}}]}}
+            ]}},
+            {"content": {"type": "text"}}
+        ]),
+    ))
+    .await
+    .unwrap();
     s.save_template(&mk(2401, "empty", serde_json::json!([])))
         .await
         .unwrap();
@@ -794,6 +809,7 @@ async fn template_listing_counts_nodes_via_json1() {
     };
 
     assert_eq!(by_id(2400).node_count, 3, "array of 3 -> node_count 3");
+    assert_eq!(by_id(2403).node_count, 5, "nested group children are counted");
     assert_eq!(by_id(2401).node_count, 0, "empty array -> 0");
     assert_eq!(
         by_id(2402).node_count,

@@ -31,16 +31,13 @@ impl TokenCounter for Kitoken {
 }
 
 /// A source of a certain piece of context.
-///
-/// Derived from a block's [`OriginKind`] rather than declared by hand, so a
-/// source that the template can resolve is a source the budget can see —
-/// including ones this crate has never heard of.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ContextSource {
     /// The chat history
     Conversation,
     /// Anything produced by nodes in a Context Template.
+    /// 
     /// This only includes text nodes, group prefixes or other flat nodes.
     ContextTemplate,
     /// Context produced by a lorebook

@@ -4,7 +4,7 @@ use sqlx::Row;
 use crate::{
     StorageError, TemplateStorage,
     backends::SqliteStorage,
-    models::{Snowflake, Template, TemplateMetadata},
+    models::{Snowflake, Template, TemplateMetadata, count_nodes},
 };
 
 fn row_to_template(row: &sqlx::sqlite::SqliteRow) -> Result<Template, sqlx::Error> {
@@ -108,11 +108,7 @@ impl TemplateStorage for SqliteStorage {
     ) -> Result<Vec<TemplateMetadata>, StorageError> {
         let rows = sqlx::query(
             r#"
-            SELECT id, owner_id, name, description,
-                   CASE WHEN json_type(nodes_json) = 'array'
-                        THEN json_array_length(nodes_json)
-                        ELSE 0
-                   END AS node_count,
+            SELECT id, owner_id, name, description, nodes_json,
                    version, created_at, updated_at
             FROM templates
             WHERE owner_id = $1
@@ -131,7 +127,7 @@ impl TemplateStorage for SqliteStorage {
                     owner_id: row.try_get("owner_id")?,
                     name: row.try_get("name")?,
                     description: row.try_get("description")?,
-                    node_count: row.try_get::<i32, _>("node_count")? as usize,
+                    node_count: count_nodes(&row.try_get("nodes_json")?),
                     version: row.try_get::<i32, _>("version")? as u32,
                     created_at: row.try_get("created_at")?,
                     updated_at: row.try_get("updated_at")?,
