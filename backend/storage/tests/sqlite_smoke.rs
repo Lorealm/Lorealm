@@ -6,7 +6,7 @@ use chrono::{Duration, Utc};
 use lorealm_storage::backends::SqliteStorage;
 use lorealm_storage::models::*;
 use lorealm_storage::{
-    ConversationStorage, PluginStorage, SessionStorage, StorageCore, UserStorage, UserToolStorage,
+    ConversationStorage, PermissionStorage, PluginStorage, SessionStorage, StorageCore, UserStorage, UserToolStorage,
     WeaverStateStorage,
 };
 
@@ -847,4 +847,48 @@ async fn deleting_a_character_removes_versions_and_tags() {
             .is_empty()
     );
     assert!(s.list_characters(user).await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn built_in_roles_are_seeded() {
+    let s = db().await;
+    let everyone = s.get_role(Snowflake(1)).await.unwrap().unwrap();
+    assert_eq!(everyone.name, "@everyone");
+    assert_eq!(everyone.permissions, 65547);
+    let admin = s.get_role(Snowflake(2)).await.unwrap().unwrap();
+    assert_eq!(admin.name, "Administrator");
+    assert_eq!(admin.permissions, 4611686018427650048);
+}
+
+#[tokio::test]
+async fn roles_round_trip_with_position_and_count_members() {
+    let s = db().await;
+    let role = s
+        .create_role(&CreateRole {
+            id: Snowflake(10),
+            name: "moderator".into(),
+            permissions: 5,
+            position: 3,
+        })
+        .await
+        .unwrap();
+    assert_eq!(role.position, 3);
+
+    let updated = s
+        .update_role(
+            role.id,
+            &UpdateRole {
+                position: Some(7),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!((updated.name.as_str(), updated.position), ("moderator", 7));
+
+    assert_eq!(s.count_role_members(role.id).await.unwrap(), 0);
+    let user = a_user(&s, 1).await;
+    s.assign_role(user, role.id).await.unwrap();
+    assert_eq!(s.count_role_members(role.id).await.unwrap(), 1);
+    assert_eq!(s.get_user_roles(user).await.unwrap()[0].id, role.id);
 }

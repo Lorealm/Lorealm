@@ -60,7 +60,7 @@ A plugin is defined as two parts: the backend code: compiled to wasm, and the cl
 When a plugin wants to define frontend components, they have two routes:
 **Secure** (default) - Limits plugin authoring to within an iframe. This is limited in the sense that a plugin can only exist at certain pre-defined locations, can't reliably control exterior styling and is limited to what the client provides.
 We will provide paths for common things, such as inspector modules, custom chat widgets, etc.
-**Unsafe** - Gated both by a plugin-level permission and a user-level permission in `ALLOW_UNSAFE_PLUGINS`. Allows (near) direct DOM access. Realistically speaking, this is going to be neccessary for plugins that want to add more advanced behavior.
+**Unsafe** - Gated both by a plugin-level permission and a user-level permission in `UNSAFE_PLUGINS`. Allows (near) direct DOM access. Realistically speaking, this is going to be neccessary for plugins that want to add more advanced behavior.
 
 #### Frontend
 The manifest declares where the plugin appears; the client decides which slots exist and ignores ones it doesn't know. The official client has `inspector` (a widget in the inspector grid), `message` (under assistant messages, like static widgets) and `composer` (right above the chat bar, in chats).
@@ -93,7 +93,7 @@ A call is parallel by default: the chat carries on while it runs, which is what 
 
 **Secure** (the default): the client fetches the entry through the API (`GET /plugins/{handle}/frontend/{entry}`, only for declared entries of enabled plugins) and renders it in an `iframe sandbox="allow-scripts"` as `srcdoc`, so it runs in an opaque origin with no session or access to the app. A CSP is put in front of it: no network (`connect-src` falls back to `default-src 'none'`), and no scripts, styles or images from outside the file, so entries inline everything. The API is `window.lorealm`. The app's style variables (everything declared on `:root`) are applied ahead of the entry's own styles, and the font faces the app has loaded are handed over as bytes, since the CSP refuses font URLs. Both are kept up to date, and user widgets get them the same way.
 
-**Unsafe**: needs the plugin's `ui:unsafe` permission and the user's `ALLOW_UNSAFE_PLUGINS`; otherwise the slot isn't listed or served. The entry is an ES module, imported into the client, exporting `mount(element, api)` and optionally returning an unmount function. It runs with the client's full privileges, and inherits the app's styles directly.
+**Unsafe**: needs the plugin's `ui:unsafe` permission and the user's `UNSAFE_PLUGINS`; otherwise the slot isn't listed or served. The entry is an ES module, imported into the client, exporting `mount(element, api)` and optionally returning an unmount function. It runs with the client's full privileges, and inherits the app's styles directly.
 
 Known gaps: a secure frame can still navigate itself to an outside URL, which CSP can't prevent; unsafe code in the desktop app shares the webview with Tauri's IPC.
 
@@ -197,7 +197,7 @@ Installs go through `POST /plugins/install {"location": "..."}`, where the locat
 | `https://github.com/owner/name/tree/{branch or tag}` | from git, at that branch or tag |
 | Any other link, or `git@...` | from git |
 
-A zip, uploaded or linked, is pre-built if the backend its manifest points at is in it, and otherwise built from source when its manifest has `[build]` commands. Installing a version that's already installed is refused. Pre-built installs need `ALLOW_PLUGIN_INSTALL`; those that build need `ALLOW_PLUGIN_INSTALL_FROM_SOURCE`, which also grants the former.
+A zip, uploaded or linked, is pre-built if the backend its manifest points at is in it, and otherwise built from source when its manifest has `[build]` commands. Installing a version that's already installed is refused. Pre-built installs need `INSTALL_PLUGINS`; those that build need `BUILD_PLUGINS`, which also grants the former. `ADMINISTRATOR` does not imply `BUILD_PLUGINS`; it has to be granted by name.
 
 **From source**: runs the manifest's `[build]` commands in the plugin's directory, and copies only the result (manifest, backend, frontend) into place, with the manifest's paths rewritten to fixed ones. The build output comes back in the response, and a failure's tail goes to the installer's log for that plugin. The build runs with the server's rights, so this permission amounts to running code on the host; it's not granted by default.
 
@@ -205,7 +205,7 @@ A zip, uploaded or linked, is pre-built if the backend its manifest points at is
 
 **Pre-built**: the manifest and the files it points at, already built; nothing from the plugin runs outside its sandbox. The manifest's paths must stay inside the plugin. A zip holds the manifest at its top or in its one folder. A GitHub release holds either the plugin's files, `manifest.toml` among them, downloaded side by side, or exactly one `.zip`. Assets can't hold folders, so a flat release's frontend lives next to the manifest (`frontend.path = "."`).
 
-**For development** (`{"location": "/path", "dev": true}`, needs `ALLOW_PLUGIN_INSTALL_FROM_SOURCE`): installs a folder on the server from source and remembers it. `POST /plugins/{handle}/reload` (same permission) then runs its `[build]` commands again, replaces the installed version in place, and unloads it for every user running it, so it loads fresh with `init` on next use; its data is kept. A new version in the manifest installs next to the current one instead, like any install. A failed build leaves the running version as it was.
+**For development** (`{"location": "/path", "dev": true}`, needs `BUILD_PLUGINS`): installs a folder on the server from source and remembers it. `POST /plugins/{handle}/reload` (same permission) then runs its `[build]` commands again, replaces the installed version in place, and unloads it for every user running it, so it loads fresh with `init` on next use; its data is kept. A new version in the manifest installs next to the current one instead, like any install. A failed build leaves the running version as it was.
 
 **Uninstalling** (`DELETE /plugins/{handle}`, needs either permission) stops every version from being enabled; each is removed once no user is on it.
 

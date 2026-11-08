@@ -19,7 +19,7 @@ use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberI
 use crate::{
     config::{HostingConfig, TaskConfig},
     core::AppState,
-    middleware::{PermissionMiddlewareState, SessionMiddlewareState},
+    middleware::SessionMiddlewareState,
     setup::run_setup,
 };
 
@@ -60,10 +60,8 @@ async fn main() -> anyhow::Result<()> {
     let cfg_task = state.config().get::<TaskConfig>();
 
     let session_service = Arc::clone(state.services().sessions());
-    let permission_service = Arc::clone(state.services().permissions());
     let session_state =
         SessionMiddlewareState::new(session_service, state.secret(), cfg_host.cookie_secure);
-    let permission_state = PermissionMiddlewareState::new(permission_service);
 
     // Extremely open for testing purposes
     // TODO: IMPORTANT: Make more restrictive
@@ -75,7 +73,7 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .nest(
             "/api/v1",
-            routes::api_routes(Arc::clone(&state), session_state, permission_state).await,
+            routes::api_routes(Arc::clone(&state), session_state).await,
         )
         .layer(cors);
 

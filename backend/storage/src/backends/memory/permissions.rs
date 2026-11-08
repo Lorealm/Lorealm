@@ -67,6 +67,9 @@ impl PermissionStorage for MemoryStorage {
         if let Some(perms) = input.permissions {
             role.permissions = perms;
         }
+        if let Some(position) = input.position {
+            role.position = position;
+        }
 
         Ok(role.clone())
     }
@@ -127,5 +130,10 @@ impl PermissionStorage for MemoryStorage {
             .collect();
 
         Ok(result)
+    }
+
+    async fn count_role_members(&self, role_id: Snowflake) -> Result<i64, StorageError> {
+        let user_roles = self.user_roles.read().await;
+        Ok(user_roles.iter().filter(|ur| ur.role_id == role_id).count() as i64)
     }
 }

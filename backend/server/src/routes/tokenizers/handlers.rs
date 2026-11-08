@@ -56,7 +56,10 @@ pub async fn import_tokenizer(
     Query(query): Query<ImportQuery>,
     body: Bytes,
 ) -> Result<Json<Tokenizer>, AppError> {
-    perms.require(Permissions::IMPORT_TOKENIZER)?;
+    perms.require(Permissions::UPLOAD_TOKENIZERS)?;
+    if query.is_public {
+        perms.require(Permissions::PUBLISH_PUBLIC)?;
+    }
 
     if body.is_empty() {
         return Err(AppError::request(
@@ -83,7 +86,10 @@ pub async fn create_from_network(
     perms: ResolvedPermissions,
     Json(request): Json<NetworkCreate>,
 ) -> Result<Json<Tokenizer>, AppError> {
-    perms.require(Permissions::IMPORT_TOKENIZER)?;
+    perms.require(Permissions::UPLOAD_TOKENIZERS)?;
+    if request.is_public {
+        perms.require(Permissions::PUBLISH_PUBLIC)?;
+    }
 
     let tokenizer = state
         .services()

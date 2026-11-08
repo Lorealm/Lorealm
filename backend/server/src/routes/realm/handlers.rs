@@ -12,12 +12,12 @@ use lorealm_storage::models::{
 use crate::{
     core::AppState,
     errors::{AppError, RealmError},
-    extract::AuthenticatedSession,
+    extract::{AuthenticatedSession, ResolvedPermissions},
     routes::realm::dto::{
         CreateAgentRequest, CreateRealmRequest, CreateScenarioRequest, ImportRealmRequest,
         UpdateRealmRequest,
     },
-    services::realm::ActionSpec,
+    services::{permission::Permissions, realm::ActionSpec},
     util::weaver::json_to_weaver,
 };
 
@@ -284,8 +284,10 @@ pub async fn set_grants(
 pub async fn import_realm(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
+    perms: ResolvedPermissions,
     Json(payload): Json<ImportRealmRequest>,
 ) -> Result<Json<Realm>, AppError> {
+    perms.require(Permissions::IMPORT_CONTENT)?;
     let inputs = payload
         .inputs
         .iter()

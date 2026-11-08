@@ -24,4 +24,6 @@ pub trait PermissionStorage: Send + Sync {
         role_id: Snowflake,
     ) -> Result<bool, StorageError>;
     async fn get_user_roles(&self, user_id: Snowflake) -> Result<Vec<Role>, StorageError>;
+    /// How many users hold the role directly.
+    async fn count_role_members(&self, role_id: Snowflake) -> Result<i64, StorageError>;
 }

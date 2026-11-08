@@ -10,7 +10,7 @@ impl PermissionStorage for SqliteStorage {
     async fn create_role(&self, input: &CreateRole) -> Result<Role, StorageError> {
         let role = sqlx::query_as::<_, Role>(
             "INSERT INTO roles (id, name, permissions, position)
-             VALUES ($1, $2, $3)
+             VALUES ($1, $2, $3, $4)
              RETURNING *",
         )
         .bind(input.id)
@@ -56,7 +56,7 @@ impl PermissionStorage for SqliteStorage {
             .ok_or_else(|| StorageError::NotFound(format!("Role {id} not found")))?;
 
         let role = sqlx::query_as::<_, Role>(
-            "UPDATE roles SET name = $2, permissions = $3 WHERE id = $1 RETURNING *",
+            "UPDATE roles SET name = $2, permissions = $3, position = $4 WHERE id = $1 RETURNING *",
         )
         .bind(id)
         .bind(input.name.as_deref().unwrap_or(&current.name))
@@ -124,5 +124,14 @@ impl PermissionStorage for SqliteStorage {
         .await?;
 
         Ok(roles)
+    }
+
+    async fn count_role_members(&self, role_id: Snowflake) -> Result<i64, StorageError> {
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM user_roles WHERE role_id = $1")
+            .bind(role_id)
+            .fetch_one(&self.pool)
+            .await?;
+
+        Ok(count)
     }
 }

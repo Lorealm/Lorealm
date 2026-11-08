@@ -6,66 +6,56 @@ pub mod service;
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct Permissions: i64 {
-        const MANAGE_CHARACTERS                 = 1 << 0;
-        const MANAGE_LOREBOOKS                  = 1 << 1;
-        const MANAGE_WORLDS                     = 1 << 2;
-        const MANAGE_PRESETS                    = 1 << 3;
-        const ALLOW_WEAVER_SCRIPTING            = 1 << 4;
-        // Imports
-        const IMPORT_3RD_PARTY_CHARACTER        = 1 << 5;
-        const IMPORT_3RD_PARTY_LOREBOOK         = 1 << 6;
-        const IMPORT_3RD_PARTY_WORLD            = 1 << 7;
-        const IMPORT_3RD_PARTY_PRESETS          = 1 << 8;
-
-        // Plugins
-        const ALLOW_TRUSTED_PLUGINS             = 1 << 9;
-        /// Allow unsafe plugins to run on the frontend. Administrator does not
-        /// automatically grant this.
-        const ALLOW_UNSAFE_PLUGINS              = 1 << 10;
-        /// Build and install plugins from source, server-wide. The build runs the
-        /// plugin's own commands on the host, so this amounts to running code there.
-        const ALLOW_PLUGIN_INSTALL_FROM_SOURCE  = 1 << 19;
+        /// Import character cards, realms, and other outside formats.
+        const IMPORT_CONTENT     = 1 << 0;
+        /// Upload tokenizers or have the server download them.
+        const UPLOAD_TOKENIZERS  = 1 << 1;
+        /// Make something visible to every user, such as a public tokenizer.
+        const PUBLISH_PUBLIC     = 1 << 2;
+        /// Point a connection profile at any URL. The server calls it, so this
+        /// reaches localhost and the LAN too.
+        const CUSTOM_ENDPOINTS   = 1 << 3;
+        /// Enable, configure and call plugins already installed on the server.
+        const USE_PLUGINS        = 1 << 16;
         /// Install pre-built plugins server-wide, from an upload or a GitHub
-        /// release. Nothing from the plugin runs on the host outside its sandbox.
-        const ALLOW_PLUGIN_INSTALL              = 1 << 20;
+        /// release, and uninstall them.
+        const INSTALL_PLUGINS    = 1 << 17;
+        /// Build and install plugins from source, server-wide. The build runs
+        /// the plugin's own commands on the host, so this amounts to running
+        /// code there. Administrator does not grant this.
+        const BUILD_PLUGINS      = 1 << 18;
+        /// Allow unsafe plugins to run on the frontend. Administrator does not
+        /// grant this.
+        const UNSAFE_PLUGINS     = 1 << 19;
 
-        // Moderation
-        const CREATE_USERS                       = 1 << 11;
-        const EDIT_USERS                         = 1 << 12;
-        const DELETE_USERS                       = 1 << 13;
-        const MANAGE_PERMISSIONS                 = 1 << 14;
-        const VIEW_METRICS                       = 1 << 15;
-        const EDIT_OWN_USER                      = 1 << 16;
+        // Administration
+        const MANAGE_USERS       = 1 << 32;
+        const MANAGE_ROLES       = 1 << 33;
+        /// Change server config and see it unredacted.
+        const MANAGE_SERVER      = 1 << 34;
 
-        const IMPORT_TOKENIZER                   = 1 << 17;
-        const EDIT_SERVER                        = 1 << 18;
-
-        const ADMINISTRATOR                      = 1 << 62;
+        /// Grants every permission apart from `BUILD_PLUGINS` and `UNSAFE_PLUGINS`
+        const ADMINISTRATOR      = 1 << 62;
     }
 }
+
+/// The role every user holds without being assigned it. Seeded by migration.
+pub const EVERYONE_ROLE_ID: Snowflake = Snowflake(1);
+/// The role the server's first user is given. Seeded by migration.
+pub const ADMINISTRATOR_ROLE_ID: Snowflake = Snowflake(2);
 
 impl Permissions {
     /// Wrap a raw i64 from the database into a Permissions value.
     pub fn from_db(bits: i64) -> Self {
         Self::from_bits_truncate(bits)
     }
-
-    /// Extract the raw i64 for writing back to the database.
-    pub fn to_db(self) -> i64 {
-        self.bits()
-    }
 }
 
-impl Default for Permissions {
-    fn default() -> Self {
-        Permissions::MANAGE_CHARACTERS
-            | Permissions::MANAGE_LOREBOOKS
-            | Permissions::MANAGE_WORLDS
-            | Permissions::MANAGE_PRESETS
-            | Permissions::ALLOW_WEAVER_SCRIPTING
-            | Permissions::ALLOW_TRUSTED_PLUGINS
-            | Permissions::EDIT_OWN_USER
-    }
+impl Permissions {
+    /// What [`Permissions::ADMINISTRATOR`] does not imply: both put code from
+    /// outside the server in a position to do harm, so they are granted only
+    /// by name.
+    pub const ADMIN_EXEMPT: Self = Self::BUILD_PLUGINS.union(Self::UNSAFE_PLUGINS);
 }
 
 impl std::fmt::Display for Permissions {
@@ -90,5 +80,24 @@ impl From<&lorealm_storage::models::Role> for Role {
             permissions: Permissions::from_db(value.permissions),
             position: value.position,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Permissions;
+
+    /// The built-in roles are seeded by `0002_roles.sql` as raw numbers; this
+    /// fails if the flags move out from under them.
+    #[test]
+    fn seeded_role_masks_match_the_flags() {
+        let everyone = Permissions::IMPORT_CONTENT
+            | Permissions::UPLOAD_TOKENIZERS
+            | Permissions::CUSTOM_ENDPOINTS
+            | Permissions::USE_PLUGINS;
+        assert_eq!(everyone.bits(), 65547);
+
+        let administrator = Permissions::ADMINISTRATOR | Permissions::BUILD_PLUGINS;
+        assert_eq!(administrator.bits(), 4611686018427650048);
     }
 }

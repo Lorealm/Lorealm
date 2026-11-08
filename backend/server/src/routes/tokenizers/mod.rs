@@ -11,8 +11,7 @@ use crate::{
     config::TokenizerConfig,
     core::AppState,
     middleware::{
-        PermissionMiddlewareState, SessionMiddlewareState, server_permission_middleware,
-        session_auth_middleware, session_csrf_middleware,
+        SessionMiddlewareState, session_auth_middleware, session_csrf_middleware,
     },
 };
 
@@ -22,7 +21,6 @@ mod handlers;
 pub(super) fn router(
     app_state: Arc<AppState>,
     middleware_state: SessionMiddlewareState,
-    permission_state: PermissionMiddlewareState,
 ) -> Router {
     let config = app_state.config().get::<TokenizerConfig>();
     let session_only_routes = Router::new()
@@ -48,10 +46,6 @@ pub(super) fn router(
             "/{tokenizer_id}/shares/{user_id}",
             delete(handlers::unshare_tokenizer),
         )
-        .layer(axum::middleware::from_fn_with_state(
-            permission_state.clone(),
-            server_permission_middleware,
-        ))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
             session_csrf_middleware,
