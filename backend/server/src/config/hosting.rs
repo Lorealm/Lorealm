@@ -14,6 +14,7 @@ pub struct HostingConfig {
     pub serve_frontend: bool,
     #[serde(default = "default_frontend_dir")]
     pub frontend_dir: PathBuf,
+    pub worker_id: i64,
     /// Set `Secure` on the session/CSRF cookies. Requires HTTPS.
     #[serde(default)]
     pub cookie_secure: bool,
@@ -33,6 +34,9 @@ fn last_setup_version() -> Option<String> {
 fn default_frontend_dir() -> PathBuf {
     PathBuf::from("../frontend/apps/web/dist")
 }
+fn default_worker_id() -> i64 {
+    0
+}
 
 impl Default for HostingConfig {
     fn default() -> Self {
@@ -41,6 +45,7 @@ impl Default for HostingConfig {
             port: default_port(),
             serve_frontend: false,
             frontend_dir: default_frontend_dir(),
+            worker_id: default_worker_id(),
             cookie_secure: false,
             last_setup_version: last_setup_version(),
         }

@@ -63,9 +63,6 @@ async fn main() -> anyhow::Result<()> {
     let session_state =
         SessionMiddlewareState::new(session_service, state.secret(), cfg_host.cookie_secure);
 
-    // No CORS layer: the API is same-origin only. The backend serves the web
-    // frontend itself, the Vite dev server proxies /api, and the desktop app
-    // sends its requests from Rust, so no browser ever makes a cross-origin call.
     let app = Router::new().nest(
         "/api/v1",
         routes::api_routes(Arc::clone(&state), session_state).await,

@@ -10,7 +10,7 @@ use tokio::task::JoinHandle;
 
 use crate::{
     config::{
-        CharacterConfig, ConfigProvider, PluginConfig, SessionConfig, TokenizerConfig, UserConfig,
+        CharacterConfig, ConfigProvider, HostingConfig, PluginConfig, SessionConfig, TokenizerConfig, UserConfig
     },
     services::{
         blueprint::BlueprintService,
@@ -68,7 +68,9 @@ impl ServiceManager {
         // General services
         let storage = storage_manager.storage();
         let blob = storage_manager.blob();
-        let snowflake = Arc::new(SnowflakeService::new(0)); // TODO: Change or derive from config
+
+        let worker_id = config.get::<HostingConfig>().worker_id;
+        let snowflake = Arc::new(SnowflakeService::new(worker_id));
 
         let http_client = reqwest::Client::new();
 
