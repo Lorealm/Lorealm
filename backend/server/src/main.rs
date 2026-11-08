@@ -10,7 +10,6 @@ use axum::{
     http::{HeaderValue, header},
 };
 use tower_http::{
-    cors::{Any, CorsLayer},
     services::{ServeDir, ServeFile},
     set_header::SetResponseHeaderLayer,
 };
@@ -42,7 +41,8 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::registry()
         .with(fmt::layer())
         .with(
-            EnvFilter::new("DEBUG")
+            EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| EnvFilter::new("info"))
                 .add_directive("sqlx=warn".parse().unwrap())
                 .add_directive("h2=warn".parse().unwrap())
                 .add_directive("hyper_util=warn".parse().unwrap())
@@ -63,19 +63,13 @@ async fn main() -> anyhow::Result<()> {
     let session_state =
         SessionMiddlewareState::new(session_service, state.secret(), cfg_host.cookie_secure);
 
-    // Extremely open for testing purposes
-    // TODO: IMPORTANT: Make more restrictive
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
-
-    let app = Router::new()
-        .nest(
-            "/api/v1",
-            routes::api_routes(Arc::clone(&state), session_state).await,
-        )
-        .layer(cors);
+    // No CORS layer: the API is same-origin only. The backend serves the web
+    // frontend itself, the Vite dev server proxies /api, and the desktop app
+    // sends its requests from Rust, so no browser ever makes a cross-origin call.
+    let app = Router::new().nest(
+        "/api/v1",
+        routes::api_routes(Arc::clone(&state), session_state).await,
+    );
 
     let _cleanup = state
         .services()
@@ -119,13 +113,15 @@ async fn main() -> anyhow::Result<()> {
     }
     let addr = SocketAddr::from((ip, cfg_host.port));
     tracing::info!("Server starting on {}", addr);
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .with_context(|| format!("could not bind to {addr}; is the port already in use?"))?;
     axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
     .await
-    .unwrap();
+    .context("server stopped unexpectedly")?;
 
     Ok(())
 }

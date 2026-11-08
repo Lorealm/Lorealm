@@ -3,13 +3,16 @@ use std::sync::{Arc, OnceLock};
 use lorealm_storage::{StorageConfig, StorageManager};
 use secrecy::SecretString;
 
-use crate::{config::ConfigProvider, core::ServiceManager};
+use crate::{
+    config::ConfigProvider,
+    core::{ServiceManager, secrets::Secrets},
+};
 
 #[derive(Clone)]
 pub struct AppState {
     config_provider: Arc<ConfigProvider>,
     service_manager: Arc<OnceLock<Arc<ServiceManager>>>,
-    secret: SecretString,
+    secret: Arc<OnceLock<SecretString>>,
 }
 
 impl AppState {
@@ -23,21 +26,24 @@ impl AppState {
         Ok(Self {
             config_provider: config,
             service_manager: Arc::new(OnceLock::new()),
-            secret: SecretString::new(
-                // TODO: CHANGE THIS
-                String::from("TEMPORARY_SECRET_CHANGE_THIS").into_boxed_str(),
-            ),
+            secret: Arc::new(OnceLock::new()),
         })
     }
 
     /// Build the storage backend + services and install them into the shared
     /// cell. Call once the one-time setup flow completes.
     pub(crate) async fn init_storage(&self, storage_config: StorageConfig) -> anyhow::Result<()> {
+        let secrets = Secrets::load(&storage_config.data_directory)?;
         let manager = StorageManager::new(storage_config).await?;
         let service_manager = Arc::new(ServiceManager::new(
             &manager,
             Arc::clone(&self.config_provider),
+            secrets.key_manager,
         ));
+
+        self.secret
+            .set(secrets.session_secret)
+            .map_err(|_| anyhow::anyhow!("secrets have already been loaded"))?;
 
         self.service_manager
             .set(service_manager)
@@ -58,6 +64,9 @@ impl AppState {
     }
 
     pub(crate) fn secret(&self) -> SecretString {
-        self.secret.clone()
+        self.secret
+            .get()
+            .expect("secrets should be loaded. has storage been initialized?")
+            .clone()
     }
 }

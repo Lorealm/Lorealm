@@ -21,7 +21,6 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
     let config = app_state.config().get::<CharacterConfig>();
     let session_only_routes = Router::new()
         .route("/", get(handlers::list_characters))
-        .route("/", post(handlers::create_character))
         .route("/{character_id}", get(handlers::get_character_latest))
         .route("/{character_id}/image", get(handlers::get_image_for_latest))
         .route("/{character_id}/chats", get(handlers::list_character_chats))
@@ -42,6 +41,7 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
             session_auth_middleware,
         ));
     let session_permission_routes = Router::new()
+        .route("/", post(handlers::create_character))
         .route("/import", put(handlers::import_card_blob))
         .route("/importBatch", put(handlers::import_card_multipart))
         .route("/{character_id}", put(handlers::edit_character))

@@ -2,6 +2,7 @@
 name = "lorealm_server"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
 
 [dependencies]
 # In-house dependencies
@@ -52,3 +53,4 @@ console = "0.16.3"
 itertools = "0.15.0"
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 tempfile = "3.27.0"
+hex = "0.4"

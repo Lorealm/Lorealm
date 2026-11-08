@@ -10,6 +10,7 @@
 	import { extractError } from '$lib/types/error.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import type { UserSession } from '$lib/types/user.js';
+	import { getPlatformApi } from '$lib/core/context.js';
 
 	const user = $derived(currentUser.user);
 	const avatar = $derived(blobUrl(user?.avatar_uri));
@@ -21,7 +22,6 @@
 
 	const memberSince = $derived(user ? monthYear(user.created_at) : null);
 
-	// TODO: implement the `null` placeholder fields
 	const stats = $derived([
 		{ label: 'Characters', value: characterStore.metadataList?.length ?? 0 },
 		{ label: 'Lorebooks', value: lorebookStore.metadataList?.length ?? 0 },
@@ -29,9 +29,7 @@
 		{
 			label: 'Days here',
 			value: user ? daysSince(user.created_at) : 0
-		},
-		{ label: 'Messages sent', value: null },
-		{ label: 'Words written', value: null }
+		}
 	]);
 
 	$effect(() => {
@@ -69,6 +67,15 @@
 			busy = false;
 			if (avatarInput) avatarInput.value = '';
 		}
+	}
+
+	const platform = getPlatformApi();
+
+	async function signOut() {
+		await platform.auth.logout();
+		// Reload rather than reset auth state, so nothing from this account
+		// stays in memory for whoever signs in next.
+		location.reload();
 	}
 
 	async function revoke(id: Snowflake) {
@@ -186,8 +193,8 @@
 
 		<div class="stats">
 			{#each stats as stat (stat.label)}
-				<div class="stat" class:pending={stat.value === null}>
-					<span class="value">{stat.value ?? '—'}</span>
+				<div class="stat">
+					<span class="value">{stat.value}</span>
 					<span class="label">{stat.label}</span>
 				</div>
 			{/each}
@@ -216,7 +223,9 @@
 								{relativeTime(session.last_rotated_at) ?? 'unknown'}
 							</span>
 						</div>
-						{#if !session.current}
+						{#if session.current}
+							<button class="linkish" onclick={signOut}>Sign out</button>
+						{:else}
 							<button class="linkish" onclick={() => revoke(session.id)}>Sign out</button>
 						{/if}
 					</li>
@@ -330,9 +339,6 @@
 	.label {
 		font-size: var(--font-size-xs);
 		color: var(--color-text-muted);
-	}
-	.stat.pending .value {
-		color: var(--color-text-disabled);
 	}
 	.sessionsHead {
 		display: flex;

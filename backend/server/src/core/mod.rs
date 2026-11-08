@@ -1,4 +1,5 @@
 mod app_state;
+mod secrets;
 mod service_manager;
 
 pub use app_state::AppState;

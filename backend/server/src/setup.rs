@@ -66,7 +66,7 @@ pub async fn run_storage_setup(state: &Arc<AppState>) -> anyhow::Result<()> {
             {
                 true => {
                     let redis_url: String = Input::with_theme(&theme)
-                        .with_prompt("Postgres connection string")
+                        .with_prompt("Redis connection string")
                         .default("redis://localhost:6379".to_string())
                         .interact_text()?;
 
