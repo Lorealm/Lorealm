@@ -64,6 +64,20 @@ pub async fn save_persona(
     Ok(Json(persona))
 }
 
+pub async fn delete_persona(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(persona_id): Path<Snowflake>,
+) -> Result<axum::http::StatusCode, AppError> {
+    state
+        .services()
+        .persona()
+        .delete_persona(persona_id, session.user_id)
+        .await?;
+
+    Ok(axum::http::StatusCode::NO_CONTENT)
+}
+
 pub async fn get_avatar(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,

@@ -16,6 +16,8 @@ pub enum PersonaError {
     NotOwned,
     #[error("unsupported media type")]
     UnsupportedMediaType,
+    #[error("cannot delete the last persona")]
+    LastPersona,
 }
 
 impl DomainError for PersonaError {
@@ -25,6 +27,7 @@ impl DomainError for PersonaError {
             // a persona exists under another account.
             Self::NotFound(_, _) | Self::NotOwned => "persona.not_found",
             Self::UnsupportedMediaType => "persona.unsupported_media_type",
+            Self::LastPersona => "persona.last_persona",
             Self::Storage(_) => "internal",
         }
     }
@@ -33,6 +36,7 @@ impl DomainError for PersonaError {
         match self {
             Self::NotFound(_, _) | Self::NotOwned => StatusCode::NOT_FOUND,
             Self::UnsupportedMediaType => StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            Self::LastPersona => StatusCode::CONFLICT,
             Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -44,6 +48,9 @@ impl DomainError for PersonaError {
             }
             Self::NotOwned => "That persona no longer exists.".into(),
             Self::UnsupportedMediaType => "That image format isn't supported.".into(),
+            Self::LastPersona => {
+                "You need at least one persona. Create another one before deleting this one.".into()
+            }
             Self::Storage(_) => "An internal error occurred".into(),
         }
     }
@@ -52,7 +59,7 @@ impl DomainError for PersonaError {
         match self {
             Self::NotFound(target, id) => Some(ErrorDetails::target(*target, *id)),
             Self::NotOwned => Some(ErrorDetails::resource(TargetType::Persona)),
-            Self::UnsupportedMediaType | Self::Storage(_) => None,
+            Self::UnsupportedMediaType | Self::LastPersona | Self::Storage(_) => None,
         }
     }
 }

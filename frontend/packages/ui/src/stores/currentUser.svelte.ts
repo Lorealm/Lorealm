@@ -40,6 +40,15 @@ class CurrentUserStore {
 		this.sessions = this.sessions.filter((s) => s.id !== id);
 	}
 
+	/** The server signs out every other session as part of this. */
+	async changePassword(currentPassword: string, newPassword: string) {
+		await this.#api.users.changePassword({
+			current_password: currentPassword,
+			new_password: newPassword
+		});
+		this.sessions = this.sessions.filter((s) => s.current);
+	}
+
 	async revokeOtherSessions() {
 		await this.#api.users.sessions.revokeOthers();
 		this.sessions = this.sessions.filter((s) => s.current);

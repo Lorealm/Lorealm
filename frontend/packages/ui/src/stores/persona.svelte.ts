@@ -84,6 +84,15 @@ class PersonaStore {
 		return persona;
 	}
 
+	/** Delete a persona. The server refuses the last one and picks a new active one if needed. */
+	async delete(id: Snowflake) {
+		await this.#api.personas.delete(id);
+		if (this.loadedPersonas) this.loadedPersonas = this.loadedPersonas.filter((p) => p.id !== id);
+		this.overrides = this.overrides.filter((o) => o.persona_id !== id);
+		if (this.editingId === id) this.stopEditing();
+		if (this.activePersonaId === id) await this.loadActive();
+	}
+
 	async loadOverrides() {
 		this.overrides = await this.#api.personas.overrides.list();
 	}

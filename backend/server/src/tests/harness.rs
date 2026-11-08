@@ -23,7 +23,7 @@ use crate::services::{
     character::CharacterService,
     chat::ChatService,
     connection::ConnectionService,
-    context_template::{TemplateService, SourceRegistry, builtin::register_builtin_sources},
+    context_template::{SourceRegistry, TemplateService, builtin::register_builtin_sources},
     conversation::ConversationService,
     permission::service::PermissionService,
     persona::PersonaService,
@@ -38,7 +38,7 @@ use crate::services::{
 
 /// Content-addressed blobs in a map.
 #[derive(Debug, Default)]
-struct MemoryBlobs(Mutex<HashMap<String, Bytes>>);
+pub(crate) struct MemoryBlobs(Mutex<HashMap<String, Bytes>>);
 
 #[async_trait]
 impl BlobStore for MemoryBlobs {

@@ -10,7 +10,8 @@ use tokio::task::JoinHandle;
 
 use crate::{
     config::{
-        CharacterConfig, ConfigProvider, HostingConfig, PluginConfig, SessionConfig, TokenizerConfig, UserConfig
+        CharacterConfig, ConfigProvider, HostingConfig, PluginConfig, SessionConfig,
+        TokenizerConfig, UserConfig,
     },
     services::{
         blueprint::BlueprintService,
@@ -18,7 +19,7 @@ use crate::{
         chat::ChatService,
         commands::{CommandService, Generation},
         connection::ConnectionService,
-        context_template::{TemplateService, SourceRegistry, builtin::register_builtin_sources},
+        context_template::{SourceRegistry, TemplateService, builtin::register_builtin_sources},
         conversation::ConversationService,
         lorebook::LorebookService,
         permission::service::PermissionService,

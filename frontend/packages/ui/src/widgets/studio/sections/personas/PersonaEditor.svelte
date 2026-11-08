@@ -9,7 +9,8 @@
 	import { blobUrl } from '$lib/api/blobs.js';
 	import ContextField from '$lib/components/ContextField.svelte';
 	import ListSidebar from '$lib/components/ListSidebar.svelte';
-	import { Star, X } from '@lucide/svelte';
+	import { Star, Trash2, X } from '@lucide/svelte';
+	import { showApiError } from '$lib/stores/errorActions.js';
 
 	const SAVE_MS = 500;
 
@@ -103,6 +104,26 @@
 			await personaStore.clearOverride(characterId);
 		} catch (err) {
 			bindError = err instanceof Error ? err.message : 'Could not unbind that character';
+		}
+	}
+
+	let confirmingDelete = $state(false);
+	let deleting = $state(false);
+	const isLastPersona = $derived(personas.length <= 1);
+
+	async function deletePersona() {
+		const id = personaStore.editingId;
+		if (!id) return;
+		clearTimeout(timer);
+		deleting = true;
+		try {
+			await personaStore.delete(id);
+			navigator.start().studio().personas();
+		} catch (e) {
+			showApiError(e, { title: 'Could not delete persona' });
+		} finally {
+			deleting = false;
+			confirmingDelete = false;
 		}
 	}
 
@@ -338,6 +359,38 @@
 								</li>
 							{/each}
 						</ul>
+					{/if}
+				</section>
+
+				<section class="danger-zone">
+					{#if confirmingDelete}
+						<p class="danger-text">
+							Delete {draft.name || 'this persona'}? Characters bound to it go back to using your
+							active persona.
+						</p>
+						<div class="danger-buttons">
+							<button type="button" class="danger" disabled={deleting} onclick={deletePersona}>
+								Delete
+							</button>
+							<button type="button" disabled={deleting} onclick={() => (confirmingDelete = false)}>
+								Cancel
+							</button>
+						</div>
+					{:else}
+						<button
+							type="button"
+							class="delete-persona"
+							disabled={isLastPersona}
+							onclick={() => (confirmingDelete = true)}
+						>
+							<Trash2 size={14} />
+							Delete persona
+						</button>
+						{#if isLastPersona}
+							<p class="danger-text">
+								You need at least one persona, so this one can't be deleted.
+							</p>
+						{/if}
 					{/if}
 				</section>
 			</div>
@@ -663,5 +716,42 @@
 	.unbind:hover {
 		background-color: var(--color-error-bg);
 		color: var(--color-error-text);
+	}
+
+	.danger-zone {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--spacing-sm);
+		margin-top: var(--spacing-lg);
+		padding-top: var(--spacing-lg);
+		border-top: 1px solid var(--color-border-subtle);
+	}
+	.danger-text {
+		margin: 0;
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-sm);
+	}
+	.danger-buttons {
+		display: flex;
+		gap: var(--spacing-xs);
+	}
+	.delete-persona {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+	}
+	.delete-persona:not(:disabled):hover,
+	.danger {
+		background-color: var(--color-error-bg);
+		color: var(--color-error-text);
+	}
+	.danger:not(:disabled):hover {
+		background-color: var(--color-error);
+		color: var(--color-text-white);
+	}
+	.delete-persona:disabled {
+		opacity: 0.5;
+		cursor: default;
 	}
 </style>

@@ -410,6 +410,13 @@ class ChatStore {
 		this.#resetSession();
 	}
 
+	/** Drop local traces of a deleted character's chats. */
+	forgetCharacter(characterId: Snowflake) {
+		if (this.characterId === characterId) this.closeConversation();
+		if (this.metadataList)
+			this.metadataList = this.metadataList.filter((m) => m.character_id !== characterId);
+	}
+
 	#resetSession() {
 		this._messages.clear();
 		this._conversation = null;

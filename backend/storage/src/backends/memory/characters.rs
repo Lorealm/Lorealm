@@ -190,6 +190,7 @@ impl CharacterStorage for MemoryStorage {
             .read()
             .await
             .iter()
+            .filter(|(_, v)| v.character_id == id)
             .max_by_key(|x| x.0.0)
             .map(|x| *x.0)
             .ok_or_else(|| StorageError::NotFound(format!("found no versions for character {id}")))

@@ -35,7 +35,10 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
             "/overrides/{character_id}",
             delete(handlers::clear_override),
         )
-        .route("/{persona_id}", put(handlers::save_persona))
+        .route(
+            "/{persona_id}",
+            put(handlers::save_persona).delete(handlers::delete_persona),
+        )
         .route("/{persona_id}/avatar", get(handlers::get_avatar))
         .route("/{persona_id}/avatar", put(handlers::put_avatar))
         .layer(DefaultBodyLimit::max(20 * 1024 * 1024))

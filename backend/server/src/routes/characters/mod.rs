@@ -44,7 +44,10 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         .route("/", post(handlers::create_character))
         .route("/import", put(handlers::import_card_blob))
         .route("/importBatch", put(handlers::import_card_multipart))
-        .route("/{character_id}", put(handlers::edit_character))
+        .route(
+            "/{character_id}",
+            put(handlers::edit_character).delete(handlers::delete_character),
+        )
         .route("/{character_id}/image", put(handlers::put_image))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
