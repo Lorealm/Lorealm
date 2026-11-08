@@ -845,14 +845,18 @@ mod tests {
         let mut template = ContextTemplate::new("t", Snowflake(1), &sf);
         template.nodes.push(group);
 
-        let path = template.add_node(text("second"), Some(&vec![0]), None).unwrap();
+        let path = template
+            .add_node(text("second"), Some(&vec![0]), None)
+            .unwrap();
         assert!(!template.get_node(&path).unwrap().enabled);
 
         // An empty invariant group still takes its first child as active.
         if let NodeContent::Group { children, .. } = &mut template.nodes[0].content {
             children.clear();
         }
-        let path = template.add_node(text("only"), Some(&vec![0]), None).unwrap();
+        let path = template
+            .add_node(text("only"), Some(&vec![0]), None)
+            .unwrap();
         assert!(template.get_node(&path).unwrap().enabled);
     }
 }

@@ -42,7 +42,9 @@ impl FromRequestParts<Arc<AppState>> for ResolvedPermissions {
     ) -> Result<Self, Self::Rejection> {
         let session = AuthenticatedSession::from_request_parts(parts, state)
             .await
-            .map_err(|(status, message)| AppError::request(status, "auth.unauthenticated", message))?;
+            .map_err(|(status, message)| {
+                AppError::request(status, "auth.unauthenticated", message)
+            })?;
 
         let permissions = state
             .services()

@@ -87,7 +87,7 @@ impl VariableRegistry {
     }
 
     /// A snapshot over the current variables. This function resolves eagerly.
-    /// 
+    ///
     /// `ctx` serves a filter, meaning only variables belonging to an entity
     /// within `ctx` is served.
     pub fn snapshot(&self, ctx: &VariableContext) -> Variables {
@@ -132,7 +132,6 @@ mod tests {
             "{{nation:gold}} {{char:missing}} {{bare}}"
         );
     }
-
 
     #[test]
     fn substituted_values_are_not_rescanned() {

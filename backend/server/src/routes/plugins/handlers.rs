@@ -263,9 +263,7 @@ pub async fn install_plugin(
         return Ok(Json(plugins.install_dev(session.user_id, location).await?));
     }
     require_install(&perms)?;
-    let may_build = perms
-        .require(Permissions::BUILD_PLUGINS)
-        .is_ok();
+    let may_build = perms.require(Permissions::BUILD_PLUGINS).is_ok();
     let report = plugins
         .install(session.user_id, location, may_build)
         .await?;
@@ -299,9 +297,7 @@ pub async fn upload_plugin(
     body: axum::body::Bytes,
 ) -> Result<Json<InstallReport>, AppError> {
     require_install(&perms)?;
-    let may_build = perms
-        .require(Permissions::BUILD_PLUGINS)
-        .is_ok();
+    let may_build = perms.require(Permissions::BUILD_PLUGINS).is_ok();
     let report = app_state
         .services()
         .plugins()

@@ -198,7 +198,7 @@ pub(super) fn convert_from_ccv2(
 fn convert_variables(content: &String) -> String {
     // TODO: consider extending with more common macros:
     // https://docs.sillytavern.app/usage/core-concepts/macros/#common-macros-by-category
-    // 
+    //
     // We may also want to add JanitorAI's pronoun macros.
     // As of writing this, I'm still unsure whether we should have
     // first-class support for those, or leave them to plugins.

@@ -10,18 +10,13 @@ use tower_cookies::CookieManagerLayer;
 use crate::{
     config::TokenizerConfig,
     core::AppState,
-    middleware::{
-        SessionMiddlewareState, session_auth_middleware, session_csrf_middleware,
-    },
+    middleware::{SessionMiddlewareState, session_auth_middleware, session_csrf_middleware},
 };
 
 pub(super) mod dto;
 mod handlers;
 
-pub(super) fn router(
-    app_state: Arc<AppState>,
-    middleware_state: SessionMiddlewareState,
-) -> Router {
+pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewareState) -> Router {
     let config = app_state.config().get::<TokenizerConfig>();
     let session_only_routes = Router::new()
         .route("/", get(handlers::list_tokenizers))
