@@ -37,7 +37,7 @@ pub enum ContextSource {
     /// The chat history
     Conversation,
     /// Anything produced by nodes in a Context Template.
-    /// 
+    ///
     /// This only includes text nodes, group prefixes or other flat nodes.
     ContextTemplate,
     /// Context produced by a lorebook

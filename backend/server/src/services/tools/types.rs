@@ -279,7 +279,8 @@ mod tests {
 
     #[test]
     fn a_null_display_name_clears_it_and_a_missing_one_leaves_it() {
-        let cleared: UpdateUserTool = serde_json::from_value(json!({"display_name": null})).unwrap();
+        let cleared: UpdateUserTool =
+            serde_json::from_value(json!({"display_name": null})).unwrap();
         assert_eq!(cleared.display_name, Some(None));
         let untouched: UpdateUserTool = serde_json::from_value(json!({})).unwrap();
         assert_eq!(untouched.display_name, None);

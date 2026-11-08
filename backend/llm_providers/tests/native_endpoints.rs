@@ -1,7 +1,7 @@
 //! Drives `AnthropicProvider` and `VertexProvider` against a stub HTTP
 //! server replaying their SSE formats, checking paths, auth headers and that
 //! a streamed tool call with signed reasoning comes back as ordered blocks.
-//! 
+//!
 //! Written with the help of Claude Opus 5.5.
 
 use lorealm_providers::*;

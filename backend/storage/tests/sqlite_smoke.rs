@@ -6,8 +6,8 @@ use chrono::{Duration, Utc};
 use lorealm_storage::backends::SqliteStorage;
 use lorealm_storage::models::*;
 use lorealm_storage::{
-    ConversationStorage, PermissionStorage, PluginStorage, SessionStorage, StorageCore, UserStorage, UserToolStorage,
-    WeaverStateStorage,
+    ConversationStorage, PermissionStorage, PluginStorage, SessionStorage, StorageCore,
+    UserStorage, UserToolStorage, WeaverStateStorage,
 };
 
 async fn db() -> SqliteStorage {
@@ -809,7 +809,11 @@ async fn template_listing_counts_nodes_via_json1() {
     };
 
     assert_eq!(by_id(2400).node_count, 3, "array of 3 -> node_count 3");
-    assert_eq!(by_id(2403).node_count, 5, "nested group children are counted");
+    assert_eq!(
+        by_id(2403).node_count,
+        5,
+        "nested group children are counted"
+    );
     assert_eq!(by_id(2401).node_count, 0, "empty array -> 0");
     assert_eq!(
         by_id(2402).node_count,

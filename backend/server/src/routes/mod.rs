@@ -2,10 +2,7 @@ use std::sync::Arc;
 
 use axum::Router;
 
-use crate::{
-    core::AppState,
-    middleware::SessionMiddlewareState,
-};
+use crate::{core::AppState, middleware::SessionMiddlewareState};
 
 mod blobs;
 mod blueprints;
@@ -29,10 +26,7 @@ pub use realm::{
     UpdateRealmRequest,
 };
 
-pub async fn api_routes(
-    app_state: Arc<AppState>,
-    session_state: SessionMiddlewareState,
-) -> Router {
+pub async fn api_routes(app_state: Arc<AppState>, session_state: SessionMiddlewareState) -> Router {
     Router::new()
         .nest(
             "/blobs",

@@ -9,7 +9,7 @@ use crate::{
     errors::PermissionError,
     services::{
         permission::{ADMINISTRATOR_ROLE_ID, EVERYONE_ROLE_ID, Permissions, Role},
-        snowflake::SnowflakeService
+        snowflake::SnowflakeService,
     },
 };
 
@@ -83,14 +83,8 @@ fn clean_name(name: &str) -> Result<String, PermissionError> {
 }
 
 impl PermissionService {
-    pub fn new(
-        storage: Arc<dyn Storage>,
-        snowflake: Arc<SnowflakeService>,
-    ) -> Self {
-        Self {
-            storage,
-            snowflake,
-        }
+    pub fn new(storage: Arc<dyn Storage>, snowflake: Arc<SnowflakeService>) -> Self {
+        Self { storage, snowflake }
     }
 
     pub async fn get_user_roles(&self, user_id: Snowflake) -> Result<Vec<Role>, PermissionError> {

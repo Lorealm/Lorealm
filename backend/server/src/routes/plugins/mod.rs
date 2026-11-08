@@ -11,16 +11,11 @@ use tower_cookies::CookieManagerLayer;
 
 use crate::{
     core::AppState,
-    middleware::{
-        SessionMiddlewareState, session_auth_middleware, session_csrf_middleware,
-    },
+    middleware::{SessionMiddlewareState, session_auth_middleware, session_csrf_middleware},
     services::plugins::MAX_PACKAGE,
 };
 
-pub(super) fn router(
-    app_state: Arc<AppState>,
-    middleware_state: SessionMiddlewareState,
-) -> Router {
+pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewareState) -> Router {
     let session_only_routes = Router::new()
         .route("/", get(handlers::list_plugins))
         .route("/{handle}/logs", get(handlers::list_plugin_logs))
