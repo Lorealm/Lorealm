@@ -42,6 +42,12 @@ pub async fn register(
         .register(payload.username, payload.email, payload.password)
         .await?;
 
+    state
+        .services()
+        .permissions()
+        .claim_administrator_if_unclaimed(user.id)
+        .await?;
+
     let config = state.config().get::<UserConfig>();
 
     if config.create_default_resources {

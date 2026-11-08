@@ -68,4 +68,8 @@ impl PermissionStorage for CachedStorage {
     async fn get_user_roles(&self, user_id: Snowflake) -> Result<Vec<Role>, StorageError> {
         self.backend.get_user_roles(user_id).await
     }
+
+    async fn count_role_members(&self, role_id: Snowflake) -> Result<i64, StorageError> {
+        self.backend.count_role_members(role_id).await
+    }
 }

@@ -27,7 +27,7 @@
 </nav>
 
 {#if !configStore.canEditServer}
-	<p class="readonly">Read-only — you don't have the EDIT_SERVER permission.</p>
+	<p class="readonly">Read-only. You don't have permission to change server settings.</p>
 {/if}
 
 <style>

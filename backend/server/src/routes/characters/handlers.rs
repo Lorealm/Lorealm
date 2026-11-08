@@ -275,7 +275,7 @@ pub async fn import_card_blob(
     perms: ResolvedPermissions,
     body: Bytes,
 ) -> Result<Json<ImportCharResponse>, AppError> {
-    perms.require(Permissions::IMPORT_3RD_PARTY_CHARACTER)?;
+    perms.require(Permissions::IMPORT_CONTENT)?;
     let kind = infer::get(&body).ok_or(CharacterError::UnsupportedMediaType)?;
     if !matches!(
         kind.mime_type(),
@@ -309,7 +309,7 @@ pub async fn import_card_multipart(
     perms: ResolvedPermissions,
     mut multipart: Multipart,
 ) -> Result<Json<ImportCharResponse>, AppError> {
-    perms.require(Permissions::IMPORT_3RD_PARTY_CHARACTER)?;
+    perms.require(Permissions::IMPORT_CONTENT)?;
 
     let mut results: Vec<ImportResult> = Vec::new();
 

@@ -4,7 +4,7 @@ use axum::Router;
 
 use crate::{
     core::AppState,
-    middleware::{PermissionMiddlewareState, SessionMiddlewareState},
+    middleware::SessionMiddlewareState,
 };
 
 mod blobs;
@@ -31,7 +31,6 @@ pub use realm::{
 pub async fn api_routes(
     app_state: Arc<AppState>,
     session_state: SessionMiddlewareState,
-    permission_state: PermissionMiddlewareState,
 ) -> Router {
     Router::new()
         .nest(
@@ -44,11 +43,7 @@ pub async fn api_routes(
         )
         .nest(
             "/characters",
-            characters::router(
-                Arc::clone(&app_state),
-                session_state.clone(),
-                permission_state.clone(),
-            ),
+            characters::router(Arc::clone(&app_state), session_state.clone()),
         )
         .nest(
             "/templates",
@@ -80,27 +75,15 @@ pub async fn api_routes(
         )
         .nest(
             "/plugins",
-            plugins::router(
-                Arc::clone(&app_state),
-                session_state.clone(),
-                permission_state.clone(),
-            ),
+            plugins::router(Arc::clone(&app_state), session_state.clone()),
         )
         .nest(
             "/tokenizers",
-            tokenizers::router(
-                Arc::clone(&app_state),
-                session_state.clone(),
-                permission_state.clone(),
-            ),
+            tokenizers::router(Arc::clone(&app_state), session_state.clone()),
         )
         .nest(
             "/config",
-            config::router(
-                Arc::clone(&app_state),
-                session_state.clone(),
-                permission_state.clone(),
-            ),
+            config::router(Arc::clone(&app_state), session_state.clone()),
         )
         .nest(
             "/realms",

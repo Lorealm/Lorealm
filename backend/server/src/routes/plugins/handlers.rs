@@ -56,11 +56,13 @@ pub struct ToggleEnabled {
 pub async fn toggle_plugin_enabled(
     State(app_state): State<Arc<AppState>>,
     session: AuthenticatedSession,
+    perms: ResolvedPermissions,
     Path(handle): Path<String>,
     Json(payload): Json<ToggleEnabled>,
 ) -> Result<(), AppError> {
     let plugins = app_state.services().plugins();
     if payload.enabled {
+        perms.require(Permissions::USE_PLUGINS)?;
         plugins.enable(session.user_id, &handle).await?;
     } else {
         plugins.disable(session.user_id, &handle).await?;
@@ -78,8 +80,10 @@ pub struct PluginOrder {
 pub async fn set_plugin_order(
     State(app_state): State<Arc<AppState>>,
     session: AuthenticatedSession,
+    perms: ResolvedPermissions,
     Json(payload): Json<PluginOrder>,
 ) -> Result<(), AppError> {
+    perms.require(Permissions::USE_PLUGINS)?;
     app_state
         .services()
         .plugins()
@@ -121,9 +125,11 @@ pub async fn plugin_settings(
 pub async fn save_plugin_settings(
     State(app_state): State<Arc<AppState>>,
     session: AuthenticatedSession,
+    perms: ResolvedPermissions,
     Path(handle): Path<String>,
     Json(values): Json<serde_json::Map<String, serde_json::Value>>,
 ) -> Result<(), AppError> {
+    perms.require(Permissions::USE_PLUGINS)?;
     app_state
         .services()
         .plugins()
@@ -151,7 +157,7 @@ pub async fn frontend_entry(
 }
 
 fn allows_unsafe(perms: &ResolvedPermissions) -> bool {
-    perms.require(Permissions::ALLOW_UNSAFE_PLUGINS).is_ok()
+    perms.has(Permissions::UNSAFE_PLUGINS)
 }
 
 #[derive(Deserialize)]
@@ -173,9 +179,11 @@ pub struct PluginCall {
 pub async fn call_plugin(
     State(app_state): State<Arc<AppState>>,
     session: AuthenticatedSession,
+    perms: ResolvedPermissions,
     Path(handle): Path<String>,
     Json(payload): Json<PluginCall>,
 ) -> Result<Json<serde_json::Value>, AppError> {
+    perms.require(Permissions::USE_PLUGINS)?;
     let value = app_state
         .services()
         .plugins()
@@ -218,9 +226,11 @@ pub struct UpdatePlugin {
 pub async fn update_plugin(
     State(app_state): State<Arc<AppState>>,
     session: AuthenticatedSession,
+    perms: ResolvedPermissions,
     Path(handle): Path<String>,
     Json(payload): Json<UpdatePlugin>,
 ) -> Result<(), AppError> {
+    perms.require(Permissions::USE_PLUGINS)?;
     app_state
         .services()
         .plugins()
@@ -249,12 +259,12 @@ pub async fn install_plugin(
     let plugins = app_state.services().plugins();
     let location = payload.location.trim();
     if payload.dev {
-        perms.require(Permissions::ALLOW_PLUGIN_INSTALL_FROM_SOURCE)?;
+        perms.require(Permissions::BUILD_PLUGINS)?;
         return Ok(Json(plugins.install_dev(session.user_id, location).await?));
     }
     require_install(&perms)?;
     let may_build = perms
-        .require(Permissions::ALLOW_PLUGIN_INSTALL_FROM_SOURCE)
+        .require(Permissions::BUILD_PLUGINS)
         .is_ok();
     let report = plugins
         .install(session.user_id, location, may_build)
@@ -271,7 +281,7 @@ pub async fn reload_plugin(
     perms: ResolvedPermissions,
     Path(handle): Path<String>,
 ) -> Result<Json<InstallReport>, AppError> {
-    perms.require(Permissions::ALLOW_PLUGIN_INSTALL_FROM_SOURCE)?;
+    perms.require(Permissions::BUILD_PLUGINS)?;
     let report = app_state
         .services()
         .plugins()
@@ -290,7 +300,7 @@ pub async fn upload_plugin(
 ) -> Result<Json<InstallReport>, AppError> {
     require_install(&perms)?;
     let may_build = perms
-        .require(Permissions::ALLOW_PLUGIN_INSTALL_FROM_SOURCE)
+        .require(Permissions::BUILD_PLUGINS)
         .is_ok();
     let report = app_state
         .services()
@@ -304,8 +314,8 @@ pub async fn upload_plugin(
 /// Installing pre-built plugins; building them allows it too.
 fn require_install(perms: &ResolvedPermissions) -> Result<(), AppError> {
     perms
-        .require(Permissions::ALLOW_PLUGIN_INSTALL)
-        .or_else(|_| perms.require(Permissions::ALLOW_PLUGIN_INSTALL_FROM_SOURCE))?;
+        .require(Permissions::INSTALL_PLUGINS)
+        .or_else(|_| perms.require(Permissions::BUILD_PLUGINS))?;
     Ok(())
 }
 

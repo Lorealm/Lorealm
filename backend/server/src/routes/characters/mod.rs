@@ -11,8 +11,7 @@ use crate::{
     config::CharacterConfig,
     core::AppState,
     middleware::{
-        PermissionMiddlewareState, SessionMiddlewareState, server_permission_middleware,
-        session_auth_middleware, session_csrf_middleware,
+        SessionMiddlewareState, session_auth_middleware, session_csrf_middleware,
     },
 };
 
@@ -23,7 +22,6 @@ pub(super) mod types;
 pub(super) fn router(
     app_state: Arc<AppState>,
     middleware_state: SessionMiddlewareState,
-    permission_state: PermissionMiddlewareState,
 ) -> Router {
     let config = app_state.config().get::<CharacterConfig>();
     let session_only_routes = Router::new()
@@ -53,10 +51,6 @@ pub(super) fn router(
         .route("/importBatch", put(handlers::import_card_multipart))
         .route("/{character_id}", put(handlers::edit_character))
         .route("/{character_id}/image", put(handlers::put_image))
-        .layer(axum::middleware::from_fn_with_state(
-            permission_state.clone(),
-            server_permission_middleware,
-        ))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
             session_csrf_middleware,

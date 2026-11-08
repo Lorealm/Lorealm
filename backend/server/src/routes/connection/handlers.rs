@@ -7,7 +7,26 @@ use axum::{
 use lorealm_providers::ModelInfo;
 use lorealm_storage::models::{ConnectionProfile, SecretMetadata, Snowflake};
 
-use crate::{core::AppState, errors::AppError, extract::AuthenticatedSession};
+use crate::{
+    core::AppState,
+    errors::AppError,
+    extract::{AuthenticatedSession, ResolvedPermissions},
+    services::permission::Permissions,
+};
+
+fn require_endpoint_permission(
+    perms: &ResolvedPermissions,
+    request: &super::ProfileRequest,
+) -> Result<(), AppError> {
+    let sets_base_url = request
+        .provider_params
+        .get("base_url")
+        .is_some_and(|v| !v.is_null());
+    if sets_base_url {
+        perms.require(Permissions::CUSTOM_ENDPOINTS)?;
+    }
+    Ok(())
+}
 
 pub async fn create_secret(
     State(state): State<Arc<AppState>>,
@@ -79,8 +98,10 @@ pub async fn delete_secret(
 pub async fn create_profile(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
+    perms: ResolvedPermissions,
     Json(request): Json<super::ProfileRequest>,
 ) -> Result<Json<ConnectionProfile>, AppError> {
+    require_endpoint_permission(&perms, &request)?;
     let profile = state
         .services()
         .connections()
@@ -135,9 +156,11 @@ pub async fn list_models(
 pub async fn update_profile(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
+    perms: ResolvedPermissions,
     Path(profile_id): Path<Snowflake>,
     Json(request): Json<super::ProfileRequest>,
 ) -> Result<Json<ConnectionProfile>, AppError> {
+    require_endpoint_permission(&perms, &request)?;
     let profile = state
         .services()
         .connections()

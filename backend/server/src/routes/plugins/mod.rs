@@ -12,8 +12,7 @@ use tower_cookies::CookieManagerLayer;
 use crate::{
     core::AppState,
     middleware::{
-        PermissionMiddlewareState, SessionMiddlewareState, server_permission_middleware,
-        session_auth_middleware, session_csrf_middleware,
+        SessionMiddlewareState, session_auth_middleware, session_csrf_middleware,
     },
     services::plugins::MAX_PACKAGE,
 };
@@ -21,7 +20,6 @@ use crate::{
 pub(super) fn router(
     app_state: Arc<AppState>,
     middleware_state: SessionMiddlewareState,
-    permission_state: PermissionMiddlewareState,
 ) -> Router {
     let session_only_routes = Router::new()
         .route("/", get(handlers::list_plugins))
@@ -29,11 +27,6 @@ pub(super) fn router(
         .route("/{handle}/readme", get(handlers::plugin_readme))
         .route("/{handle}/settings", get(handlers::plugin_settings))
         .route("/{handle}/frontend/{entry}", get(handlers::frontend_entry))
-        // Unsafe slots are only listed and served to users allowed them.
-        .layer(axum::middleware::from_fn_with_state(
-            permission_state.clone(),
-            server_permission_middleware,
-        ))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
             session_auth_middleware,
@@ -53,10 +46,6 @@ pub(super) fn router(
             put(handlers::upload_plugin).layer(DefaultBodyLimit::max(MAX_PACKAGE)),
         )
         .route("/{handle}", delete(handlers::uninstall_plugin))
-        .layer(axum::middleware::from_fn_with_state(
-            permission_state,
-            server_permission_middleware,
-        ))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
             session_csrf_middleware,

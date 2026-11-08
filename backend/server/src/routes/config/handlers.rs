@@ -33,7 +33,7 @@ pub async fn get_full_config(
     perms: ResolvedPermissions,
 ) -> impl IntoResponse {
     let mut all = state.config().get_all();
-    if perms.require(Permissions::EDIT_SERVER).is_err() {
+    if perms.require(Permissions::MANAGE_SERVER).is_err() {
         if let Some(storage) = all.get_mut("storage") {
             redact_storage(storage);
         }
@@ -50,7 +50,7 @@ pub async fn get_config(
     let config = state.config();
     match config.get_raw(&key) {
         Some(mut value) => {
-            if key == "storage" && perms.require(Permissions::EDIT_SERVER).is_err() {
+            if key == "storage" && perms.require(Permissions::MANAGE_SERVER).is_err() {
                 redact_storage(&mut value);
             }
             Json(value).into_response()
@@ -66,7 +66,7 @@ pub async fn patch_config(
     Path(key): Path<String>,
     Json(partial): Json<serde_json::Value>,
 ) -> Result<impl IntoResponse, AppError> {
-    perms.require(Permissions::EDIT_SERVER)?;
+    perms.require(Permissions::MANAGE_SERVER)?;
     let config = state.config();
     let value = config.patch_by_key(&key, partial)?;
 
