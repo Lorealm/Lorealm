@@ -28,3 +28,12 @@ pub struct TemplateMetadata {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+/// Counts every node in a serialized node tree, including those nested in groups.
+pub fn count_nodes(nodes: &serde_json::Value) -> usize {
+    nodes.as_array().map_or(0, |list| {
+        list.iter()
+            .map(|node| 1 + count_nodes(&node["content"]["children"]))
+            .sum()
+    })
+}

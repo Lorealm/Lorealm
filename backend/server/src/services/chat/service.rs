@@ -588,7 +588,7 @@ impl ChatService {
                 lorebook_state: Mutex::new(None),
                 lorebook_ids: spec.lorebook_ids.as_deref(),
                 tokenizer: &tokenizer,
-                variables: self.variables.materialize(&VariableContext {
+                variables: self.variables.snapshot(&VariableContext {
                     character: character.as_ref(),
                     persona: persona.as_ref(),
                     realm,

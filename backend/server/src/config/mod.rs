@@ -33,7 +33,6 @@ pub trait Config: Serialize + DeserializeOwned + Clone + Default + Send + Sync +
     /// Load from raw JSON, falling back to defaults for missing fields.
     fn from_value(value: serde_json::Value) -> Self {
         // Merge the incoming value on top of the serialized default,
-        // so any new fields that aren't in the stored config get filled in.
         let mut base = serde_json::to_value(Self::default()).unwrap();
         merge_json(&mut base, value);
         serde_json::from_value(base).unwrap_or_default()

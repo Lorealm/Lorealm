@@ -50,6 +50,7 @@ export interface CharacterDefinition {
 	scenario: string;
 	system_prompt: string;
 	post_history_instructions: string;
+	template_injection: string;
 	example_messages: ExampleDialogue[];
 	greetings: Greeting[];
 }
@@ -114,6 +115,7 @@ export interface EditDefinition {
 	scenario?: string | null;
 	system_prompt?: string | null;
 	post_history_instructions?: string | null;
+	template_injection?: string | null;
 }
 
 export interface EditMetadata {

@@ -240,6 +240,9 @@ impl CharacterService {
         if let Some(post_history) = edit.post_history_instructions {
             char.character.definition.post_history_instructions = post_history;
         }
+        if let Some(injection) = edit.template_injection {
+            char.character.definition.template_injection = injection;
+        }
 
         self.storage
             .save_character(&char.character, char.save_mode)

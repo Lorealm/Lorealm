@@ -219,6 +219,56 @@ impl ContextTemplate {
                 ),
                 ContextNode::group(
                     sg,
+                    "Author's Note",
+                    "A container for the author's note",
+                    vec![ContextNode::source(
+                        sg,
+                        "Author's Note",
+                        "Your active author's note",
+                        "author_note",
+                        "main",
+                    )],
+                    (
+                        Some("<authors_note>".into()),
+                        Some("</authors_note>".into()),
+                    ),
+                ),
+                ContextNode::group(
+                    sg,
+                    "Widgets",
+                    "A container for the widget state and directives",
+                    vec![
+                        ContextNode::group(
+                            sg,
+                            "Directives",
+                            "A container for the widget directives",
+                            vec![ContextNode::source(
+                                sg,
+                                "Widget Directives",
+                                "The widgets' instructions",
+                                "widgets",
+                                "main",
+                            )],
+                            (Some("<directives>".into()), Some("</directives>".into())),
+                        ),
+                        ContextNode::group(
+                            sg,
+                            "State",
+                            "A container for the widget states",
+                            vec![ContextNode::source(
+                                sg,
+                                "Widget Directives",
+                                "The widgets' states",
+                                "widgets",
+                                "state",
+                            )],
+                            (Some("<states>".into()), Some("</states>".into())),
+                        ),
+                    ],
+                    (Some("<scenario>".into()), Some("</scenario>".into())),
+                ),
+                ContextNode::group(
+                    sg,
                     "World Info (middle)",
                     "A container for world world info output",
                     vec![
@@ -251,6 +301,19 @@ impl ContextTemplate {
                         "example_messages",
                     )],
                     (Some("<examples>".into()), Some("</examples>".into())),
+                ),
+                ContextNode::group(
+                    sg,
+                    "State Template",
+                    "A container for the state template",
+                    vec![ContextNode::source(
+                        sg,
+                        "Character Injection",
+                        "Text the character's card adds",
+                        "character",
+                        "injection",
+                    )],
+                    (Some("<template>".into()), Some("</template>".into())),
                 ),
                 ContextNode::group(
                     sg,
@@ -409,7 +472,7 @@ impl ContextTemplate {
     /// Add a new node to the template
     pub fn add_node(
         &mut self,
-        node: ContextNode,
+        mut node: ContextNode,
         parent_path: Option<&NodePath>,
         index: Option<usize>,
     ) -> Result<NodePath, TemplateError> {
@@ -433,7 +496,11 @@ impl ContextTemplate {
                     .get_node_mut(path)
                     .ok_or_else(|| TemplateError::NodeNotFound(Snowflake(-1)))?;
 
-                if let NodeContent::Group { children, .. } = &mut parent.content {
+                if let NodeContent::Group { children, mode, .. } = &mut parent.content {
+                    // An invariant group allows only one active child.
+                    if *mode == GroupMode::Invariant && children.iter().any(|c| c.enabled) {
+                        node.enabled = false;
+                    }
                     children
                 } else {
                     let parent_id = self.get_node(path).map(|n| n.id).unwrap_or(Snowflake(-1));
@@ -756,23 +823,36 @@ impl ContextTemplate {
         search(&self.nodes, source_id, node_id)
     }
 
-    /// Count total number of nodes in the template
-    pub fn node_count(&self) -> usize {
-        fn count(nodes: &[ContextNode]) -> usize {
-            nodes.iter().fold(0, |acc, node| {
-                let child_count = if let NodeContent::Group { children, .. } = &node.content {
-                    count(children)
-                } else {
-                    0
-                };
-                acc + 1 + child_count
-            })
-        }
-        count(&self.nodes)
-    }
-
     /// Mark the template as updated
     fn mark_updated(&mut self) {
         self.updated_at = chrono::Utc::now();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn adding_to_an_invariant_group_keeps_one_child_active() {
+        let sf = Arc::new(SnowflakeService::new(1));
+        let text = |title: &str| ContextNode::text(&sf, title, "", "", PromptRole::System);
+
+        let mut group = ContextNode::group(&sf, "g", "", vec![text("first")], (None, None));
+        if let NodeContent::Group { mode, .. } = &mut group.content {
+            *mode = GroupMode::Invariant;
+        }
+        let mut template = ContextTemplate::new("t", Snowflake(1), &sf);
+        template.nodes.push(group);
+
+        let path = template.add_node(text("second"), Some(&vec![0]), None).unwrap();
+        assert!(!template.get_node(&path).unwrap().enabled);
+
+        // An empty invariant group still takes its first child as active.
+        if let NodeContent::Group { children, .. } = &mut template.nodes[0].content {
+            children.clear();
+        }
+        let path = template.add_node(text("only"), Some(&vec![0]), None).unwrap();
+        assert!(template.get_node(&path).unwrap().enabled);
     }
 }

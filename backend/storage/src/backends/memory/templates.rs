@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use crate::{
     StorageError, TemplateStorage,
     backends::MemoryStorage,
-    models::{Snowflake, Template, TemplateMetadata, UserSettings},
+    models::{Snowflake, Template, TemplateMetadata, UserSettings, count_nodes},
 };
 
 fn template_to_metadata(t: &Template) -> TemplateMetadata {
@@ -12,7 +12,7 @@ fn template_to_metadata(t: &Template) -> TemplateMetadata {
         owner_id: t.owner_id,
         name: t.name.clone(),
         description: t.description.clone(),
-        node_count: t.nodes_json.as_array().map(|a| a.len()).unwrap_or(0),
+        node_count: count_nodes(&t.nodes_json),
         version: t.version,
         created_at: t.created_at,
         updated_at: t.updated_at,

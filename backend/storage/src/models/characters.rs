@@ -52,6 +52,7 @@ pub struct CharacterDefinition {
     pub post_history_instructions: String,
     pub example_messages: Vec<ExampleDialogue>,
     pub greetings: Vec<Greeting>,
+    pub template_injection: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]

@@ -8,7 +8,7 @@ use weaver_lang::{
 
 /// Something a command body asked the host to do with its output.
 ///
-/// An effect is produced by an explicit weaver command in the tool
+/// An effect is produced by an explicit Weaver command in the tool
 /// body. Note that this differs from the tool's return value in the
 /// sense that effects are purely visual.
 ///

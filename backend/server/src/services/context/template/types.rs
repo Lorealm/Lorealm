@@ -83,6 +83,7 @@ pub struct SettingDefinition {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum SettingType {
     String { max_length: Option<usize> },
+    Text,
     Integer { min: Option<i64>, max: Option<i64> },
     Float { min: Option<f64>, max: Option<f64> },
     Boolean,

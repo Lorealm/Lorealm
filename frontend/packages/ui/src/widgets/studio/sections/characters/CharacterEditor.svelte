@@ -271,6 +271,12 @@
 							() => draft.post_history_instructions,
 							(v) => (draft.post_history_instructions = v)
 						)}
+						{@render field(
+							'Template injection',
+							'Fills the Character Injection node. Write {{template}} where that node’s own text should go, and read stored values like {{story:traits}}.',
+							() => draft.template_injection,
+							(v) => (draft.template_injection = v)
+						)}
 					{:else if section === 'greetings'}
 						<div class="section-head">
 							<h1>Greetings</h1>

@@ -1,12 +1,7 @@
 //! CCv2 compatibility layer.
 //!
-//! These types and functions are private to the character service module.
-//! Nothing here escapes `CharacterService` — external callers only ever
-//! see the domain `Character` type.
-//!
 //! Lorealm-specific data is carried inside CCv2's `extensions.lorealm`
-//! namespace rather than a separate spec. This keeps SillyTavern
-//! round-trip compatibility while letting us attach our own fields.
+//! namespace.
 
 mod lorebook;
 
@@ -34,12 +29,6 @@ pub(super) struct CharaV2 {
 }
 
 /// Deserialize a field that may be present but `null`.
-///
-/// `#[serde(default)]` alone only covers an *absent* key: an explicit
-/// `"mes_example": null` still reaches the field's own `Deserialize`, and
-/// `String`, `Vec` and `bool` all reject it. Exporters write `null` for
-/// "unset" freely, so every defaulted non-`Option` field on a card pairs
-/// `default` with this.
 pub(super) fn null_as_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -48,9 +37,6 @@ where
     Ok(Option::<T>::deserialize(deserializer)?.unwrap_or_default())
 }
 
-/// Every field is defaulted: V3 cards and the various exporters differ on
-/// which of these they bother to emit, and a missing `system_prompt` is no
-/// reason to reject a card.
 #[derive(Deserialize)]
 pub(super) struct CharaV2Data {
     #[serde(default, deserialize_with = "null_as_default")]
@@ -82,22 +68,18 @@ pub(super) struct CharaV2Data {
     #[serde(default, deserialize_with = "null_as_default")]
     pub extensions: HashMap<String, serde_json::Value>,
 
-    /// Held as a raw value and converted separately: books in the wild play
-    /// fast and loose with field types, and a book we can't read must never
-    /// take the character down with it.
+    /// Held as a raw value and converted separately
     #[serde(default)]
     pub character_book: Option<serde_json::Value>,
 }
 
 /// Fields Lorealm writes into CCv2's `extensions.lorealm` object on export
-/// and reads back on import. All fields are optional — cards missing this
-/// namespace, or missing individual fields, must import cleanly.
-///
-/// NEVER rename or remove fields on this struct.
+/// and reads back on import.
 #[derive(Deserialize, Default)]
 pub(super) struct LorealmExtension {
     pub display_name: Option<String>,
     pub alt_names: Option<Vec<String>>,
+    pub template_injection: Option<String>,
 }
 
 /// A card unpacked into the domain types it maps onto.
@@ -138,8 +120,8 @@ pub(super) fn convert_from_ccv2(
         })
         .collect();
 
-    // mes_example is <START>-delimited. Split, trim empty leading segment
-    // that appears when the string begins with <START>.
+    // This caters specifically to what SillyTavern recommends. There is no global
+    // standard, however. We may want to add more compatability layers down the road.
     let example_messages = data
         .mes_example
         .split("<START>")
@@ -153,14 +135,11 @@ pub(super) fn convert_from_ccv2(
         .collect();
 
     // Re-serialize extensions as a single JSON value for storage.
-    // The raw HashMap preserves everything, including our own lorealm key,
-    // which is correct — round-trip requires it to be there on export.
     let extensions = serde_json::to_value(&data.extensions).unwrap_or(serde_json::Value::Null);
 
     let now = Utc::now();
 
-    // A book that fails to deserialize is logged and dropped: the character
-    // is still worth importing without it.
+    // A book that fails to deserialize is logged and dropped
     let lorebook = data
         .character_book
         .and_then(|raw| match serde_json::from_value::<CharacterBook>(raw) {
@@ -206,6 +185,7 @@ pub(super) fn convert_from_ccv2(
             post_history_instructions: convert_variables(&data.post_history_instructions),
             example_messages,
             greetings,
+            template_injection: lorealm_ext.template_injection.unwrap_or_default(),
         },
     };
 
@@ -218,6 +198,10 @@ pub(super) fn convert_from_ccv2(
 fn convert_variables(content: &String) -> String {
     // TODO: consider extending with more common macros:
     // https://docs.sillytavern.app/usage/core-concepts/macros/#common-macros-by-category
+    // 
+    // We may also want to add JanitorAI's pronoun macros.
+    // As of writing this, I'm still unsure whether we should have
+    // first-class support for those, or leave them to plugins.
     BulkReplace::new(content)
         .register("{{user}}", "{{user:name}}")
         .register("{{char}}", "{{char:name}}")
@@ -265,5 +249,25 @@ mod tests {
         assert_eq!(converted.character.definition.name, "Nyx");
         assert_eq!(converted.character.metadata.card_version, "0.0.1");
         assert!(converted.lorebook.is_none());
+    }
+
+    #[test]
+    fn template_injection_imports_from_the_lorealm_extension() {
+        let card: CharaV2 = serde_json::from_value(serde_json::json!({
+            "spec": "chara_card_v2",
+            "spec_version": "2.0",
+            "data": {
+                "name": "Nyx",
+                "extensions": { "lorealm": { "template_injection": "{{template}} T" } }
+            }
+        }))
+        .unwrap();
+
+        let sf = SnowflakeService::new(1);
+        let converted = convert_from_ccv2(card, Snowflake(9), &sf);
+        assert_eq!(
+            converted.character.definition.template_injection,
+            "{{template}} T"
+        );
     }
 }

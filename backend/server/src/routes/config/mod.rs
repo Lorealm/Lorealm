@@ -25,6 +25,10 @@ pub(super) fn router(
         .route("/", get(handlers::get_full_config))
         .route("/{key}", get(handlers::get_config))
         .layer(axum::middleware::from_fn_with_state(
+            permission_state.clone(),
+            server_permission_middleware,
+        ))
+        .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
             session_auth_middleware,
         ));
