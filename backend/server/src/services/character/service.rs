@@ -98,6 +98,28 @@ impl CharacterService {
         Ok(char)
     }
 
+    /// Delete a character together with every chat that uses it.
+    pub async fn delete_character(
+        &self,
+        character_id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<(), CharacterError> {
+        let latest = self.get_latest_version_id(character_id).await?;
+        self.load_version(character_id, latest, user_id).await?;
+
+        let chats = self.storage.list_conversations(user_id).await?;
+        for chat in chats
+            .iter()
+            .filter(|c| c.character_id == Some(character_id))
+        {
+            self.storage.delete_conversation(chat.id).await?;
+        }
+
+        self.editing_sessions.write().await.remove(&character_id);
+        self.storage.delete_character(character_id).await?;
+        Ok(())
+    }
+
     pub async fn list_characters(
         &self,
         user_id: Snowflake,

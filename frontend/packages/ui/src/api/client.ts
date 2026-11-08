@@ -129,7 +129,12 @@ import type {
 	UpdateUserWidgetRequest,
 	UserWidget
 } from '$lib/types/widgets.js';
-import type { UpdateProfileRequest, User, UserSession } from '$lib/types/user.js';
+import type {
+	ChangePasswordRequest,
+	UpdateProfileRequest,
+	User,
+	UserSession
+} from '$lib/types/user.js';
 import type {
 	CreateRoleRequest,
 	MyPermissions,
@@ -175,6 +180,8 @@ export function createApiClient(platform: PlatformAPI) {
 			permissions: () => http.get<MyPermissions>('/api/v1/users/me/permissions'),
 			get: (id: Snowflake) => http.get<User>(`/api/v1/users/${id}`),
 			updateProfile: (update: UpdateProfileRequest) => http.patch<User>('/api/v1/users/me', update),
+			changePassword: (request: ChangePasswordRequest) =>
+				http.put('/api/v1/users/me/password', request),
 			setAvatar: (avatar: Blob) =>
 				http.putBlob<AvatarUpdateResponse>('/api/v1/users/me/avatar', avatar),
 			sessions: {
@@ -253,6 +260,8 @@ export function createApiClient(platform: PlatformAPI) {
 			 */
 			update: (characterId: Snowflake, edit: CharacterEdit[]) =>
 				http.put<Character>(`/api/v1/characters/${characterId}`, edit),
+			/** Deletes the character and every chat that uses it. */
+			delete: (characterId: Snowflake) => http.delete(`/api/v1/characters/${characterId}`),
 			avatar: (characterId: Snowflake) => http.getBlob(`/api/v1/characters/${characterId}/image`),
 			updateAvatar: (characterId: Snowflake, update: Blob) =>
 				http.putBlob<AvatarUpdateResponse>(`/api/v1/characters/${characterId}/image`, update),
@@ -337,6 +346,8 @@ export function createApiClient(platform: PlatformAPI) {
 			create: () => http.post<UserPersona>('/api/v1/persona'),
 			update: (persona_id: Snowflake, update: UpdatePersona) =>
 				http.put<UserPersona>(`/api/v1/persona/${persona_id}`, update),
+			/** Fails for the last persona. If it was active, another one takes over. */
+			delete: (persona_id: Snowflake) => http.delete(`/api/v1/persona/${persona_id}`),
 			setAvatar: (persona_id: Snowflake, avatar: Blob) =>
 				http.putBlob<AvatarUpdateResponse>(`/api/v1/persona/${persona_id}/avatar`, avatar),
 			active: {

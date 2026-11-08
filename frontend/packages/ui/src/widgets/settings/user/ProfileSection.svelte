@@ -78,6 +78,33 @@
 		location.reload();
 	}
 
+	let pwCurrent = $state('');
+	let pwNew = $state('');
+	let pwConfirm = $state('');
+	let pwBusy = $state(false);
+	let pwError = $state<string | null>(null);
+	const pwMismatch = $derived(pwConfirm !== '' && pwNew !== pwConfirm);
+	const pwReady = $derived(pwCurrent !== '' && pwNew !== '' && pwNew === pwConfirm);
+
+	async function changePassword(event: SubmitEvent) {
+		event.preventDefault();
+		if (!pwReady || pwBusy) return;
+		pwBusy = true;
+		pwError = null;
+		try {
+			await currentUser.changePassword(pwCurrent, pwNew);
+			pwCurrent = pwNew = pwConfirm = '';
+			showToast({
+				message: 'Password changed. Your other devices have been signed out.',
+				variant: 'success'
+			});
+		} catch (e) {
+			pwError = extractError(e).message;
+		} finally {
+			pwBusy = false;
+		}
+	}
+
 	async function revoke(id: Snowflake) {
 		try {
 			await currentUser.revokeSession(id);
@@ -199,6 +226,30 @@
 				</div>
 			{/each}
 		</div>
+
+		<form class="password" onsubmit={changePassword}>
+			<h3>Password</h3>
+			<label for="pw-current">Current password</label>
+			<input
+				id="pw-current"
+				type="password"
+				autocomplete="current-password"
+				bind:value={pwCurrent}
+			/>
+			<label for="pw-new">New password</label>
+			<input id="pw-new" type="password" autocomplete="new-password" bind:value={pwNew} />
+			<label for="pw-confirm">Confirm new password</label>
+			<input id="pw-confirm" type="password" autocomplete="new-password" bind:value={pwConfirm} />
+			{#if pwMismatch}
+				<p class="pwMessage">The new passwords don't match.</p>
+			{:else if pwError}
+				<p class="pwMessage">{pwError}</p>
+			{/if}
+			<button type="submit" disabled={!pwReady || pwBusy}>
+				{pwBusy ? 'Changing…' : 'Change password'}
+			</button>
+			<p class="pwNote">Changing your password signs out all your other devices.</p>
+		</form>
 
 		<div class="sessions">
 			<div class="sessionsHead">
@@ -339,6 +390,34 @@
 	.label {
 		font-size: var(--font-size-xs);
 		color: var(--color-text-muted);
+	}
+	.password {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--spacing-xs);
+		max-width: 22rem;
+	}
+	.password input {
+		width: 100%;
+		margin-bottom: var(--spacing-xs);
+	}
+	.password label {
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-sm);
+	}
+	.password button {
+		margin-top: var(--spacing-xs);
+	}
+	.pwMessage {
+		margin: 0;
+		color: var(--color-error-text);
+		font-size: var(--font-size-sm);
+	}
+	.pwNote {
+		margin: 0;
+		color: var(--color-text-muted);
+		font-size: var(--font-size-xs);
 	}
 	.sessionsHead {
 		display: flex;

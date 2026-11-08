@@ -241,6 +241,25 @@ pub async fn revoke_session(
     Ok(StatusCode::NO_CONTENT)
 }
 
+pub async fn change_password(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Json(payload): Json<super::dto::ChangePasswordRequest>,
+) -> Result<StatusCode, AppError> {
+    state
+        .services()
+        .users()
+        .change_password(
+            session.user_id,
+            session.session_id,
+            payload.current_password,
+            payload.new_password,
+        )
+        .await?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
 /// Revoke the session making the request and clear its cookies.
 pub async fn logout(
     State(state): State<Arc<AppState>>,

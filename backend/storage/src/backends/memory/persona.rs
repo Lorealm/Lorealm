@@ -107,6 +107,20 @@ impl PersonaStorage for MemoryStorage {
             .collect())
     }
 
+    async fn delete_persona(&self, id: Snowflake) -> Result<bool, StorageError> {
+        let removed = self.personas.write().await.remove(&id).is_some();
+        self.persona_overrides
+            .write()
+            .await
+            .retain(|_, o| o.persona_id != id);
+        for settings in self.user_state.write().await.values_mut() {
+            if settings.active_persona_id == Some(id) {
+                settings.active_persona_id = None;
+            }
+        }
+        Ok(removed)
+    }
+
     async fn delete_override(&self, character_id: Snowflake) -> Result<(), StorageError> {
         self.persona_overrides.write().await.remove(&character_id);
         Ok(())

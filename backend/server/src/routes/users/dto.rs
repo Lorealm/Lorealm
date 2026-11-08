@@ -42,6 +42,12 @@ pub struct UpdateProfileRequest {
     pub display_name: Option<Option<String>>,
 }
 
+#[derive(Deserialize)]
+pub struct ChangePasswordRequest {
+    pub current_password: String,
+    pub new_password: String,
+}
+
 /// What the signed-in user may do.
 #[derive(Serialize)]
 pub struct MyPermissionsResponse {

@@ -149,6 +149,45 @@ impl UserService {
         Ok(self.storage.update_user(user_id, &update).await?)
     }
 
+    /// Change the user's password after checking the current one, then sign
+    /// out every other session so a leaked password stops working everywhere.
+    pub async fn change_password(
+        &self,
+        user_id: Snowflake,
+        current_session: Snowflake,
+        current_password: String,
+        new_password: String,
+    ) -> Result<(), AuthError> {
+        let (min, max) = (
+            self.config.password_length.min,
+            self.config.password_length.max,
+        );
+        if !(min..=max).contains(&new_password.len()) {
+            return Err(AuthError::PasswordLength { min, max });
+        }
+
+        let user = self
+            .storage
+            .get_user_by_id(user_id)
+            .await?
+            .ok_or(AuthError::UserNotFound)?;
+
+        let is_valid = lorealm_encryption::verify_password(&current_password, &user.password_hash)
+            .map_err(|_| AuthError::WrongCurrentPassword)?;
+        if !is_valid {
+            return Err(AuthError::WrongCurrentPassword);
+        }
+
+        let update = UpdateUser {
+            password_hash: Some(new_password.hash().await?),
+            ..Default::default()
+        };
+        self.storage.update_user(user_id, &update).await?;
+
+        self.revoke_other_sessions(user_id, current_session).await?;
+        Ok(())
+    }
+
     pub async fn set_avatar(
         &self,
         user_id: Snowflake,

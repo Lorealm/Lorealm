@@ -22,7 +22,8 @@ impl UserStorage for MemoryStorage {
             return Err(StorageError::Conflict("Username already taken".into()));
         }
 
-        if users.values().any(|u| u.email == input.email) {
+        // Several users may have no email, as in the SQL backends' UNIQUE column.
+        if input.email.is_some() && users.values().any(|u| u.email == input.email) {
             return Err(StorageError::Conflict("Email already taken".into()));
         }
 

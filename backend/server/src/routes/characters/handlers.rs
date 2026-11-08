@@ -366,6 +366,21 @@ pub async fn import_card_multipart(
     Ok(Json(ImportCharResponse { results }))
 }
 
+/// Delete a character and every chat that uses it.
+pub async fn delete_character(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(character_id): Path<Snowflake>,
+) -> Result<StatusCode, AppError> {
+    state
+        .services()
+        .characters()
+        .delete_character(character_id, session.user_id)
+        .await?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
 pub async fn list_character_chats(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,

@@ -130,6 +130,15 @@ impl PersonaStorage for PostgresStorage {
         Ok(overrides)
     }
 
+    async fn delete_persona(&self, id: Snowflake) -> Result<bool, StorageError> {
+        let result = sqlx::query(r#"DELETE FROM user_personas WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
     async fn delete_override(&self, character_id: Snowflake) -> Result<(), StorageError> {
         sqlx::query(r#"DELETE FROM character_persona_overrides WHERE character_id = $1"#)
             .bind(character_id)

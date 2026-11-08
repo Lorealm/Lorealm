@@ -106,6 +106,36 @@ impl PersonaService {
         Ok(persona)
     }
 
+    /// Delete a persona. The last remaining persona cannot be deleted, since
+    /// chats need one. If it was the active persona, another one takes over.
+    pub async fn delete_persona(
+        &self,
+        persona_id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<(), PersonaError> {
+        self.get_persona(persona_id, user_id).await?;
+
+        let personas = self.storage.list_personas(user_id).await?;
+        let Some(successor) = personas.iter().find(|p| p.id != persona_id) else {
+            return Err(PersonaError::LastPersona);
+        };
+
+        let active = match self.storage.get_active_persona(user_id).await {
+            Ok(active) => active,
+            // The memory backend reports a user without settings as not found.
+            Err(StorageError::NotFound(_)) => None,
+            Err(e) => return Err(e.into()),
+        };
+        if active == Some(persona_id) {
+            self.storage
+                .set_active_persona(user_id, successor.id)
+                .await?;
+        }
+
+        self.storage.delete_persona(persona_id).await?;
+        Ok(())
+    }
+
     pub async fn avatar_from_uri(&self, avatar_uri: Option<String>) -> Result<Bytes, PersonaError> {
         let blob_id =
             avatar_uri

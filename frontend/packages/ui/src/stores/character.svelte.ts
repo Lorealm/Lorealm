@@ -112,6 +112,14 @@ class CharacterStore {
 		return created.id;
 	}
 
+	/** Delete a character and its chats. Waits for the server before touching local state. */
+	async delete(id: Snowflake) {
+		await this.#api.characters.delete(id);
+		if (this.metadataList) this.metadataList = this.metadataList.filter((c) => c.id !== id);
+		if (this.editingId === id) this.stopEditing();
+		if (this.activeCharacter?.id === id) this.activeCharacter = null;
+	}
+
 	async startEditing(id: Snowflake) {
 		this.#resetSession();
 		const base = await this.#api.characters.get(id);

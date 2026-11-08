@@ -12,6 +12,11 @@ export interface UpdateProfileRequest {
 	display_name?: string | null;
 }
 
+export interface ChangePasswordRequest {
+	current_password: string;
+	new_password: string;
+}
+
 export interface UserSession {
 	id: Snowflake;
 	ip_address: string | null;

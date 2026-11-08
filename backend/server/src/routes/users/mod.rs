@@ -29,6 +29,7 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
     let csrf_routes = Router::new()
         .route("/logout", post(handlers::logout))
         .route("/me", patch(handlers::update_profile))
+        .route("/me/password", put(handlers::change_password))
         .route("/me/avatar", put(handlers::put_avatar))
         .route("/me/sessions", delete(handlers::revoke_other_sessions))
         .route(

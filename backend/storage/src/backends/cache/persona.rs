@@ -23,6 +23,29 @@ impl PersonaStorage for CachedStorage {
         self.get_through(&key, self.backend.get_persona(id)).await
     }
 
+    async fn delete_persona(&self, id: Snowflake) -> Result<bool, StorageError> {
+        let stale_overrides = match self.backend.get_persona(id).await? {
+            Some(persona) => self
+                .backend
+                .list_overrides(persona.user_id)
+                .await?
+                .into_iter()
+                .filter(|o| o.persona_id == id)
+                .map(|o| o.character_id)
+                .collect(),
+            None => Vec::new(),
+        };
+
+        let removed = self.backend.delete_persona(id).await?;
+
+        self.cache_del(&self.key("persona", &id.to_string())).await;
+        for character_id in stale_overrides {
+            self.cache_del(&self.key("persona_override", &character_id.to_string()))
+                .await;
+        }
+        Ok(removed)
+    }
+
     async fn get_active_persona(
         &self,
         user_id: Snowflake,

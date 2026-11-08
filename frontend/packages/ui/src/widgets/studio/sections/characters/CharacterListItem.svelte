@@ -7,12 +7,30 @@
 	import type { CharacterSummary } from '$lib/types/character.js';
 	import { Copy, Ellipsis, MessageSquarePlus, Pencil, Trash2, Upload } from '@lucide/svelte';
 	import { relativeTime } from '$lib/assets/scripts/datetime.js';
+	import { characterStore } from '$lib/stores/character.svelte.js';
+	import { chatStore } from '$lib/stores/chat.svelte.js';
+	import { showApiError } from '$lib/stores/errorActions.js';
 
 	let { summary }: { summary: CharacterSummary } = $props();
 	const relative = $derived(relativeTime(summary.updated_at) ?? '');
 	let imageEndpoint = $derived(blobUrl(summary.avatar_uri));
 
 	const unavailable = 'Not available yet';
+
+	let confirmingDelete = $state(false);
+	let deleting = $state(false);
+
+	async function remove() {
+		deleting = true;
+		try {
+			await characterStore.delete(summary.id);
+			chatStore.forgetCharacter(summary.id);
+		} catch (e) {
+			showApiError(e, { title: 'Could not delete character' });
+			deleting = false;
+			confirmingDelete = false;
+		}
+	}
 </script>
 
 <article class="row">
@@ -39,47 +57,59 @@
 		{/if}
 	</div>
 
-	<div class="controls">
-		<button
-			type="button"
-			class="edit"
-			onclick={() => navigator.start().studio().characters(summary.id)}
-		>
-			<Pencil size={16} />
-			Edit
-		</button>
-
-		<div class="minorControls">
-			<button
-				type="button"
-				class="minor"
-				{@attach tooltip(unavailable)}
-				disabled
-				aria-label="Export"
-			>
-				<Upload size={16} />
-			</button>
-			<button
-				type="button"
-				class="minor del"
-				{@attach tooltip(unavailable)}
-				disabled
-				aria-label="Delete"
-			>
-				<Trash2 size={16} />
-			</button>
-			<PopupMenu
-				title="More actions"
-				placement="down"
-				items={[
-					{ label: 'Duplicate', icon: Copy, onSelect: () => {}, disabled: true },
-					{ label: 'Start chat', icon: MessageSquarePlus, onSelect: () => {}, disabled: true }
-				]}
-			>
-				{#snippet icon()}<Ellipsis size={16} />{/snippet}
-			</PopupMenu>
+	{#if confirmingDelete}
+		<div class="controls confirm">
+			<span class="confirmText">Delete {summary.name} and all of its chats?</span>
+			<div class="confirmButtons">
+				<button type="button" class="danger" disabled={deleting} onclick={remove}>Delete</button>
+				<button type="button" disabled={deleting} onclick={() => (confirmingDelete = false)}>
+					Cancel
+				</button>
+			</div>
 		</div>
-	</div>
+	{:else}
+		<div class="controls">
+			<button
+				type="button"
+				class="edit"
+				onclick={() => navigator.start().studio().characters(summary.id)}
+			>
+				<Pencil size={16} />
+				Edit
+			</button>
+
+			<div class="minorControls">
+				<button
+					type="button"
+					class="minor"
+					{@attach tooltip(unavailable)}
+					disabled
+					aria-label="Export"
+				>
+					<Upload size={16} />
+				</button>
+				<button
+					type="button"
+					class="minor del"
+					{@attach tooltip('Delete character')}
+					aria-label={`Delete ${summary.name}`}
+					onclick={() => (confirmingDelete = true)}
+				>
+					<Trash2 size={16} />
+				</button>
+				<PopupMenu
+					title="More actions"
+					placement="down"
+					items={[
+						{ label: 'Duplicate', icon: Copy, onSelect: () => {}, disabled: true },
+						{ label: 'Start chat', icon: MessageSquarePlus, onSelect: () => {}, disabled: true }
+					]}
+				>
+					{#snippet icon()}<Ellipsis size={16} />{/snippet}
+				</PopupMenu>
+			</div>
+		</div>
+	{/if}
 </article>
 
 <style>
@@ -204,5 +234,28 @@
 	.del:not(:disabled):hover {
 		background-color: var(--color-error-bg);
 		color: var(--color-error-text);
+	}
+
+	.confirm {
+		max-width: 14em;
+	}
+	.confirmText {
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-sm);
+	}
+	.confirmButtons {
+		display: flex;
+		gap: var(--spacing-xs);
+	}
+	.confirmButtons > button {
+		flex: 1 1 0;
+	}
+	.danger {
+		background-color: var(--color-error-bg);
+		color: var(--color-error-text);
+	}
+	.danger:not(:disabled):hover {
+		background-color: var(--color-error);
+		color: var(--color-text-white);
 	}
 </style>
