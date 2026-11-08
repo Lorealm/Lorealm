@@ -19,12 +19,7 @@ pub struct ResolvedPermissions {
 impl ResolvedPermissions {
     /// Check that a specific permission is present. Returns an error if not.
     pub fn require(&self, required: Permissions) -> Result<(), PermissionError> {
-        let mut held = self.permissions;
-        if held.contains(Permissions::ADMINISTRATOR) {
-            held |= Permissions::all() - Permissions::ADMIN_EXEMPT;
-        }
-
-        let missing = required - held;
+        let missing = required - self.permissions.effective();
         if missing.is_empty() {
             Ok(())
         } else {

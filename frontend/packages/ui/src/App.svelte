@@ -17,6 +17,7 @@
 	import TransportImage from './components/TransportImage.svelte';
 	import SelectMenuHost from './components/SelectMenuHost.svelte';
 	import TooltipHost from './components/TooltipHost.svelte';
+	import PopupHost from './components/PopupHost.svelte';
 	import { inspectorMatrix } from './stores/inspectorMatrix.svelte.ts';
 	import { keybindConfig } from './keys/config.svelte.ts';
 
@@ -75,6 +76,7 @@
 <!-- Outside `.app`: its `isolation` would otherwise keep these under the modals. -->
 <SelectMenuHost />
 <TooltipHost />
+<PopupHost />
 
 <style>
 	.app {

@@ -6,6 +6,7 @@
 	import StorageSection from './sections/StorageSection.svelte';
 	import SessionsSection from './sections/SessionsSection.svelte';
 	import UsersSection from './sections/UsersSection.svelte';
+	import RolesSection from './sections/RolesSection.svelte';
 	import CharactersSection from './sections/CharactersSection.svelte';
 	import TokenizersSection from './sections/TokenizersSection.svelte';
 	import TasksSection from './sections/TasksSection.svelte';
@@ -27,6 +28,8 @@
 			<SessionsSection />
 		{:else if section === 'users'}
 			<UsersSection />
+		{:else if section === 'roles'}
+			<RolesSection />
 		{:else if section === 'characters'}
 			<CharactersSection />
 		{:else if section === 'tokenizers'}

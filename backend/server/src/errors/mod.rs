@@ -69,6 +69,8 @@ pub enum TargetType {
     LorebookEntry,
     TemplateNode,
     Plugin,
+    Role,
+    User,
 }
 
 impl TargetType {
@@ -97,6 +99,8 @@ impl TargetType {
             TargetType::LorebookEntry => "lorebook entry",
             TargetType::TemplateNode => "template node",
             TargetType::Plugin => "plugin",
+            TargetType::Role => "role",
+            TargetType::User => "user",
         }
     }
 }
@@ -132,6 +136,8 @@ impl Display for TargetType {
             TargetType::LorebookEntry => write!(f, "lorebook_entry"),
             TargetType::TemplateNode => write!(f, "template_node"),
             TargetType::Plugin => write!(f, "plugin"),
+            TargetType::Role => write!(f, "role"),
+            TargetType::User => write!(f, "user"),
         }
     }
 }

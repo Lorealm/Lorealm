@@ -65,6 +65,7 @@ const SERVER_LABEL: Record<ServerSection, string> = {
 	storage: 'Storage',
 	sessions: 'Sessions',
 	users: 'Users',
+	roles: 'Roles',
 	characters: 'Characters',
 	tokenizers: 'Tokenizers',
 	tasks: 'Tasks'

@@ -1,4 +1,4 @@
-use crate::util::double_option;
+use crate::{services::permission::Permissions, util::double_option};
 use chrono::{DateTime, Utc};
 use lorealm_storage::models::Snowflake;
 use serde::{Deserialize, Serialize};
@@ -40,6 +40,16 @@ pub struct UserResponse {
 pub struct UpdateProfileRequest {
     #[serde(default, deserialize_with = "double_option")]
     pub display_name: Option<Option<String>>,
+}
+
+/// What the signed-in user may do.
+#[derive(Serialize)]
+pub struct MyPermissionsResponse {
+    /// Effective permission bits, as a decimal string.
+    #[serde(with = "crate::routes::roles::dto::bits")]
+    pub permissions: Permissions,
+    /// Position of their highest role; they can manage roles below it.
+    pub highest_position: i32,
 }
 
 #[derive(Serialize)]

@@ -30,9 +30,19 @@ fn contract_surface() -> Vec<(&'static str, Vec<Box<dyn DomainError>>)> {
         ),
         (
             "permission",
-            vec![Box::new(PermissionError::Missing(
-                crate::services::permission::Permissions::empty(),
-            ))],
+            vec![
+                Box::new(PermissionError::Missing(
+                    crate::services::permission::Permissions::empty(),
+                )),
+                Box::new(PermissionError::RoleNotFound(id())),
+                Box::new(PermissionError::UserNotFound),
+                Box::new(PermissionError::Outranked),
+                Box::new(PermissionError::BuiltIn),
+                Box::new(PermissionError::LastAdministrator),
+                Box::new(PermissionError::NameTaken),
+                Box::new(PermissionError::InvalidName),
+                Box::new(PermissionError::InvalidPosition),
+            ],
         ),
         ("config", vec![Box::new(ConfigError::UnknownKey)]),
         (

@@ -1,6 +1,6 @@
 use crate::PermissionStorage;
 use crate::error::StorageError;
-use crate::models::{CreateRole, Role, Snowflake, UpdateRole, UserRole};
+use crate::models::{CreateRole, Role, Snowflake, UpdateRole, User, UserRole};
 use async_trait::async_trait;
 
 use super::PostgresStorage;
@@ -133,5 +133,19 @@ impl PermissionStorage for PostgresStorage {
             .await?;
 
         Ok(count)
+    }
+
+    async fn get_role_members(&self, role_id: Snowflake) -> Result<Vec<User>, StorageError> {
+        let users = sqlx::query_as::<_, User>(
+            "SELECT u.* FROM users u
+             INNER JOIN user_roles ur ON ur.user_id = u.id
+             WHERE ur.role_id = $1
+             ORDER BY u.created_at, u.id",
+        )
+        .bind(role_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(users)
     }
 }

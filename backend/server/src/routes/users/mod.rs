@@ -19,6 +19,7 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
     let session_only_routes = Router::new()
         .route("/me", get(handlers::me))
         .route("/me/sessions", get(handlers::list_sessions))
+        .route("/me/permissions", get(handlers::my_permissions))
         .route("/{user_id}", get(handlers::get_user))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),

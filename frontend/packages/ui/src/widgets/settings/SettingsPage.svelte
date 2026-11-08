@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { navigator } from '$lib/navigation/navigator.js';
 	import { router } from '$lib/navigation/router.svelte.js';
 	import { configStore } from '$lib/stores/serverConfig.svelte';
@@ -10,10 +11,14 @@
 	const scope = $derived(settings?.scope ?? 'user');
 	const userSection = $derived(settings?.scope === 'user' ? settings.section : 'profile');
 	const serverSection = $derived(settings?.scope === 'server' ? settings.section : 'hosting');
+
+	onMount(() => {
+		configStore.loadPermissions();
+	});
 </script>
 
 <div class="settings">
-	{#if configStore.canEditServer}
+	{#if configStore.canSeeServer}
 		<nav class="scopeNav">
 			<button
 				class="tab"
@@ -32,7 +37,7 @@
 		</nav>
 	{/if}
 
-	{#if scope === 'server' && configStore.canEditServer}
+	{#if scope === 'server' && configStore.canSeeServer}
 		<ServerSettings section={serverSection} />
 	{:else}
 		<UserSettings section={userSection} id={settings?.scope === 'user' ? settings.id : undefined} />

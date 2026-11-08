@@ -136,6 +136,22 @@ pub async fn me(
     get_user_inner(&state, session.user_id).await
 }
 
+pub async fn my_permissions(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+) -> Result<Json<super::dto::MyPermissionsResponse>, AppError> {
+    let actor = state
+        .services()
+        .permissions()
+        .actor(session.user_id)
+        .await?;
+
+    Ok(Json(super::dto::MyPermissionsResponse {
+        permissions: actor.held,
+        highest_position: actor.top,
+    }))
+}
+
 pub async fn get_user(
     State(state): State<Arc<AppState>>,
     _session: AuthenticatedSession,

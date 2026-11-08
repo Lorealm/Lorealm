@@ -1,5 +1,5 @@
 use crate::error::StorageError;
-use crate::models::{CreateRole, Role, Snowflake, UpdateRole, UserRole};
+use crate::models::{CreateRole, Role, Snowflake, UpdateRole, User, UserRole};
 use async_trait::async_trait;
 
 #[async_trait]
@@ -26,4 +26,6 @@ pub trait PermissionStorage: Send + Sync {
     async fn get_user_roles(&self, user_id: Snowflake) -> Result<Vec<Role>, StorageError>;
     /// How many users hold the role directly.
     async fn count_role_members(&self, role_id: Snowflake) -> Result<i64, StorageError>;
+    /// The users who hold the role directly, oldest account first.
+    async fn get_role_members(&self, role_id: Snowflake) -> Result<Vec<User>, StorageError>;
 }

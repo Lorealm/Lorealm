@@ -57,7 +57,7 @@ if (errorDomain(err.code) === 'realm') return showRealmToast(err.message);
 `conversation`, `message`, `example_message`, `context_template`, `persona`,
 `connection_profile`, `secret`, `user_tool`, `user_widget`, `lorebook`, `realm`,
 `realm_agent`, `realm_version`, `scenario`, `tokenizer`, `lorebook_entry`,
-`template_node`.
+`template_node`, `role`, `user`.
 
 `details.id` is a snowflake string, present when the error concerns one specific
 instance.
@@ -97,7 +97,15 @@ Messages containing quoted values are examples; the interpolated part varies.
 | `conversation.message_not_found` | 404 | That message is no longer in this conversation. |
 | `conversation.not_found` | 404 | That conversation no longer exists. |
 | `lorebook.not_found` | 404 | That lorebook no longer exists. |
+| `permission.built_in_role` | 400 | Built-in roles can't be changed this way. |
 | `permission.denied` | 403 | You are not allowed to perform this action. |
+| `permission.invalid_role_name` | 400 | Role names can't be empty. |
+| `permission.invalid_role_position` | 400 | Role positions start at 1. |
+| `permission.last_administrator` | 409 | The server needs at least one administrator. |
+| `permission.role_name_taken` | 409 | A role with that name already exists. |
+| `permission.role_not_found` | 404 | That role no longer exists. |
+| `permission.role_outranked` | 403 | You can only manage roles below your highest role. |
+| `permission.user_not_found` | 404 | No user has that name. |
 | `persona.not_found` | 404 | That persona no longer exists. |
 | `persona.unsupported_media_type` | 415 | That image format isn't supported. |
 | `plugin.already_installed` | 409 | That version is already installed. Raise the version to install a new build. |

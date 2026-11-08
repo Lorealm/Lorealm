@@ -53,7 +53,9 @@ export type ResourceKind =
 	| 'scenario'
 	| 'tokenizer'
 	| 'lorebook_entry'
-	| 'template_node';
+	| 'template_node'
+	| 'role'
+	| 'user';
 
 /**
  * Machine-readable pointer to the resource an error concerns. Use this to route
@@ -107,7 +109,15 @@ export type ErrorCode =
 	| 'lorebook.evaluation_failed'
 	| 'lorebook.invalid_yaml'
 	| 'lorebook.not_found'
+	| 'permission.built_in_role'
 	| 'permission.denied'
+	| 'permission.invalid_role_name'
+	| 'permission.invalid_role_position'
+	| 'permission.last_administrator'
+	| 'permission.role_name_taken'
+	| 'permission.role_not_found'
+	| 'permission.role_outranked'
+	| 'permission.user_not_found'
 	| 'persona.not_found'
 	| 'persona.unsupported_media_type'
 	| 'realm.action_failed'

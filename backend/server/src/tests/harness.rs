@@ -25,6 +25,7 @@ use crate::services::{
     connection::ConnectionService,
     context::{ContextService, SourceRegistry, builtin::register_builtin_sources},
     conversation::ConversationService,
+    permission::service::PermissionService,
     persona::PersonaService,
     plugins::PluginService,
     realm::RealmService,
@@ -68,6 +69,7 @@ pub(crate) struct Harness {
     /// No plugins installed; plugin tests swap in their own.
     pub plugins: Arc<PluginService>,
     pub connection: Arc<ConnectionService>,
+    pub permissions: Arc<PermissionService>,
     /// The caller in every test unless one says otherwise.
     pub user: Snowflake,
     /// Someone else, for proving a template cannot reach across owners.
@@ -179,6 +181,11 @@ impl Harness {
             Arc::clone(&realms),
         ));
 
+        let permissions = Arc::new(PermissionService::new(
+            Arc::clone(&storage),
+            Arc::clone(&snow),
+        ));
+
         Self {
             realms,
             blueprints,
@@ -188,6 +195,7 @@ impl Harness {
             snow,
             plugins,
             connection,
+            permissions,
         }
     }
 

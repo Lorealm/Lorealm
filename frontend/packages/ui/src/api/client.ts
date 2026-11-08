@@ -130,6 +130,12 @@ import type {
 	UserWidget
 } from '$lib/types/widgets.js';
 import type { UpdateProfileRequest, User, UserSession } from '$lib/types/user.js';
+import type {
+	CreateRoleRequest,
+	MyPermissions,
+	Role,
+	UpdateRoleRequest
+} from '$lib/types/permissions.js';
 import type { StatusCodes } from 'http-status-codes';
 
 /**
@@ -166,6 +172,7 @@ export function createApiClient(platform: PlatformAPI) {
 		},
 		users: {
 			me: () => http.get<User>('/api/v1/users/me'),
+			permissions: () => http.get<MyPermissions>('/api/v1/users/me/permissions'),
 			get: (id: Snowflake) => http.get<User>(`/api/v1/users/${id}`),
 			updateProfile: (update: UpdateProfileRequest) => http.patch<User>('/api/v1/users/me', update),
 			setAvatar: (avatar: Blob) =>
@@ -536,6 +543,20 @@ export function createApiClient(platform: PlatformAPI) {
 					http.put<Scenario>(`/api/v1/realms/${realm_id}/scenarios/${slug}`, update),
 				delete: (realm_id: Snowflake, slug: string) =>
 					http.delete(`/api/v1/realms/${realm_id}/scenarios/${slug}`)
+			}
+		},
+		roles: {
+			list: () => http.get<Array<Role>>('/api/v1/roles'),
+			create: (role: CreateRoleRequest) => http.post<Role>('/api/v1/roles', role),
+			update: (id: Snowflake, update: UpdateRoleRequest) =>
+				http.patch<Role>(`/api/v1/roles/${id}`, update),
+			delete: (id: Snowflake) => http.delete<void>(`/api/v1/roles/${id}`),
+			members: {
+				list: (id: Snowflake) => http.get<Array<User>>(`/api/v1/roles/${id}/members`),
+				add: (id: Snowflake, username: string) =>
+					http.post<User>(`/api/v1/roles/${id}/members`, { username }),
+				remove: (id: Snowflake, userId: Snowflake) =>
+					http.delete<void>(`/api/v1/roles/${id}/members/${userId}`)
 			}
 		},
 		config: {
