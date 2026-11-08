@@ -9,6 +9,7 @@ pub mod lorebook;
 pub mod permission;
 pub mod persona;
 pub mod plugins;
+pub mod rate_limit;
 pub mod realm;
 pub mod schedule;
 pub mod session;

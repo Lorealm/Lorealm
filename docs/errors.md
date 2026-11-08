@@ -78,8 +78,11 @@ Messages containing quoted values are examples; the interpolated part varies.
 | `auth.email_taken` | 409 | That email is already registered. |
 | `auth.invalid_credentials` | 401 | Invalid credentials. |
 | `auth.missing_token` | 401 | You are not signed in. |
+| `auth.password_length` | 400 | Passwords must be between 8 and 64 characters. |
+| `auth.rate_limited` | 429 | Too many attempts. Try again in 2 minutes. |
 | `auth.session_invalid` | 401 | Your session has expired. Please sign in again. |
 | `auth.username_taken` | 409 | That username is already taken. |
+| `auth.wrong_current_password` | 403 | Your current password is incorrect. |
 | `character.not_found` | 404 | That character no longer exists. |
 | `character.unsupported_format` | 400 | Unsupported card format 'chara_card_v1' — expected chara_card_v2. |
 | `character.unsupported_media_type` | 415 | That image format isn't supported. |
@@ -106,6 +109,7 @@ Messages containing quoted values are examples; the interpolated part varies.
 | `permission.role_not_found` | 404 | That role no longer exists. |
 | `permission.role_outranked` | 403 | You can only manage roles below your highest role. |
 | `permission.user_not_found` | 404 | No user has that name. |
+| `persona.last_persona` | 409 | You need at least one persona. Create another one before deleting this one. |
 | `persona.not_found` | 404 | That persona no longer exists. |
 | `persona.unsupported_media_type` | 415 | That image format isn't supported. |
 | `plugin.already_installed` | 409 | That version is already installed. Raise the version to install a new build. |

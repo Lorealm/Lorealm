@@ -26,6 +26,11 @@ fn contract_surface() -> Vec<(&'static str, Vec<Box<dyn DomainError>>)> {
                 Box::new(AuthError::IncorrectPassword),
                 Box::new(AuthError::UsernameTaken("taken".into())),
                 Box::new(AuthError::EmailTaken("a@b.c".into())),
+                Box::new(AuthError::WrongCurrentPassword),
+                Box::new(AuthError::PasswordLength { min: 8, max: 64 }),
+                Box::new(AuthError::RateLimited {
+                    retry_after_secs: 90,
+                }),
             ],
         ),
         (
@@ -61,6 +66,7 @@ fn contract_surface() -> Vec<(&'static str, Vec<Box<dyn DomainError>>)> {
                 Box::new(PersonaError::NotFound(TargetType::Persona, id())),
                 Box::new(PersonaError::NotOwned),
                 Box::new(PersonaError::UnsupportedMediaType),
+                Box::new(PersonaError::LastPersona),
             ],
         ),
         (

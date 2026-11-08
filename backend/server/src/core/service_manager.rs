@@ -25,6 +25,7 @@ use crate::{
         permission::service::PermissionService,
         persona::PersonaService,
         plugins::PluginService,
+        rate_limit::AuthRateLimits,
         realm::RealmService,
         session::SessionService,
         snowflake::SnowflakeService,
@@ -58,6 +59,7 @@ pub struct ServiceManager {
     realms: Arc<RealmService>,
     blueprints: Arc<BlueprintService>,
     plugins: Arc<PluginService>,
+    rate_limits: Arc<AuthRateLimits>,
 }
 
 impl ServiceManager {
@@ -223,7 +225,10 @@ impl ServiceManager {
             Arc::clone(&realms),
         ));
 
+        let rate_limits = Arc::new(AuthRateLimits::new(Arc::clone(&config)));
+
         let cleanable: Vec<Arc<dyn CleanableService>> = vec![
+            Arc::clone(&rate_limits) as Arc<dyn CleanableService>,
             Arc::clone(&characters) as Arc<dyn CleanableService>,
             Arc::clone(&lorebook) as Arc<dyn CleanableService>,
             Arc::clone(&tokenizers) as Arc<dyn CleanableService>,
@@ -251,6 +256,7 @@ impl ServiceManager {
             realms,
             blueprints,
             plugins,
+            rate_limits,
         }
     }
 
@@ -307,6 +313,10 @@ impl ServiceManager {
 
     pub fn blobs(&self) -> &Arc<dyn BlobStore> {
         &self.blob
+    }
+
+    pub fn rate_limits(&self) -> &Arc<AuthRateLimits> {
+        &self.rate_limits
     }
 
     pub fn users(&self) -> &Arc<UserService> {

@@ -25,6 +25,7 @@ const REGISTER_DISABLED_REASON: &str = "Registrations are disabled on this serve
 
 pub async fn register(
     State(state): State<Arc<AppState>>,
+    user_device: UserDevice,
     Json(payload): Json<super::dto::RegisterRequest>,
 ) -> Result<StatusCode, AppError> {
     // Check if the register endpoint is disabled
@@ -35,6 +36,11 @@ pub async fn register(
             REGISTER_DISABLED_REASON,
         ));
     };
+
+    state
+        .services()
+        .rate_limits()
+        .register_attempt(user_device.ip)?;
 
     let user = state
         .services()
@@ -67,9 +73,17 @@ pub async fn login(
         return Err(AuthError::MalformedCredentials.into());
     }
 
+    let limits = state.services().rate_limits();
+    let account = payload
+        .username
+        .clone()
+        .or_else(|| payload.email.clone())
+        .unwrap_or_default();
+    limits.login_attempt(user_device.ip, &account)?;
+
     let secret = state.secret();
 
-    let result = state
+    let result = match state
         .services()
         .users()
         .login(
@@ -79,7 +93,15 @@ pub async fn login(
             &secret,
             user_device,
         )
-        .await?;
+        .await
+    {
+        Ok(result) => result,
+        Err(e @ (AuthError::UserNotFound | AuthError::IncorrectPassword)) => {
+            limits.login_failed(&account);
+            return Err(e.into());
+        }
+        Err(e) => return Err(e.into()),
+    };
 
     let max_age = (result.expires_at - Utc::now()).num_seconds().max(0);
     let cookie_secure = state.config().get::<HostingConfig>().cookie_secure;

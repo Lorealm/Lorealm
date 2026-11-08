@@ -1,6 +1,7 @@
 mod characters;
 mod hosting;
 mod plugins;
+mod rate_limit;
 mod session;
 mod storage;
 mod task;
@@ -17,6 +18,7 @@ pub use characters::*;
 pub use hosting::HostingConfig;
 use indexmap::IndexMap;
 pub use plugins::PluginConfig;
+pub use rate_limit::*;
 pub use session::*;
 pub use task::*;
 pub use tokenizers::TokenizerConfig;
@@ -100,6 +102,7 @@ impl ConfigProvider {
         provider.register::<TokenizerConfig>();
         provider.register::<PluginConfig>();
         provider.register::<TaskConfig>();
+        provider.register::<RateLimitConfig>();
 
         if !existed {
             let store = provider.store.read().unwrap();

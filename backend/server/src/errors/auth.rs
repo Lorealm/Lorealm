@@ -45,6 +45,8 @@ pub enum AuthError {
     WrongCurrentPassword,
     #[error("Password must be {min}-{max} characters")]
     PasswordLength { min: usize, max: usize },
+    #[error("Rate limited for {retry_after_secs}s")]
+    RateLimited { retry_after_secs: u64 },
 }
 
 impl DomainError for AuthError {
@@ -60,6 +62,7 @@ impl DomainError for AuthError {
             Self::EmailTaken(_) => "auth.email_taken",
             Self::WrongCurrentPassword => "auth.wrong_current_password",
             Self::PasswordLength { .. } => "auth.password_length",
+            Self::RateLimited { .. } => "auth.rate_limited",
             Self::DisplayNameTooLong => "user.display_name_too_long",
             Self::UnsupportedAvatarType => "user.unsupported_avatar_type",
             Self::TokenGenerationFailed | Self::Encryption(_) | Self::Storage(_) => "internal",
@@ -71,11 +74,19 @@ impl DomainError for AuthError {
             Self::UsernameTaken(_) | Self::EmailTaken(_) => StatusCode::CONFLICT,
             Self::DisplayNameTooLong | Self::PasswordLength { .. } => StatusCode::BAD_REQUEST,
             Self::WrongCurrentPassword => StatusCode::FORBIDDEN,
+            Self::RateLimited { .. } => StatusCode::TOO_MANY_REQUESTS,
             Self::UnsupportedAvatarType => StatusCode::UNSUPPORTED_MEDIA_TYPE,
             Self::TokenGenerationFailed | Self::Encryption(_) | Self::Storage(_) => {
                 StatusCode::INTERNAL_SERVER_ERROR
             }
             _ => StatusCode::UNAUTHORIZED,
+        }
+    }
+
+    fn retry_after(&self) -> Option<u64> {
+        match self {
+            Self::RateLimited { retry_after_secs } => Some(*retry_after_secs),
+            _ => None,
         }
     }
 
@@ -98,6 +109,11 @@ impl DomainError for AuthError {
             Self::PasswordLength { min, max } => {
                 format!("Passwords must be between {min} and {max} characters.").into()
             }
+            Self::RateLimited { retry_after_secs } => format!(
+                "Too many attempts. Try again in {}.",
+                human_wait(*retry_after_secs)
+            )
+            .into(),
             Self::UnsupportedAvatarType => "Avatars must be a PNG, JPEG, WebP or GIF image.".into(),
             Self::TokenGenerationFailed | Self::Encryption(_) | Self::Storage(_) => {
                 "An internal error occurred".into()
@@ -107,3 +123,13 @@ impl DomainError for AuthError {
 }
 
 impl_app_error!(AuthError);
+
+fn human_wait(secs: u64) -> String {
+    match secs {
+        0..=59 => format!("{secs} second{}", if secs == 1 { "" } else { "s" }),
+        _ => {
+            let minutes = secs.div_ceil(60);
+            format!("{minutes} minute{}", if minutes == 1 { "" } else { "s" })
+        }
+    }
+}

@@ -46,6 +46,11 @@ pub trait DomainError: std::error::Error {
     fn details(&self) -> Option<ErrorDetails> {
         None
     }
+
+    /// Seconds a client should wait before retrying, sent as `Retry-After`.
+    fn retry_after(&self) -> Option<u64> {
+        None
+    }
 }
 
 /// Punctuates a message that ends in interpolated text.

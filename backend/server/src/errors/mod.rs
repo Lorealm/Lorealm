@@ -156,6 +156,7 @@ pub enum AppError {
         code: &'static str,
         message: Cow<'static, str>,
         details: Option<ErrorDetails>,
+        retry_after: Option<u64>,
     },
     #[error("INTERNAL: {internal}")]
     Internal { internal: Cow<'static, str> },
@@ -175,6 +176,7 @@ impl AppError {
             code,
             message: message.into(),
             details: None,
+            retry_after: None,
         }
     }
 
@@ -198,6 +200,7 @@ impl AppError {
             code: err.code(),
             message: err.message(),
             details: err.details(),
+            retry_after: err.retry_after(),
         }
     }
 
@@ -253,6 +256,16 @@ impl AppError {
 
 impl IntoResponse for AppError {
     fn into_response(self) -> axum::response::Response {
-        (self.status_code(), Json(self.response_body())).into_response()
+        let mut response = (self.status_code(), Json(self.response_body())).into_response();
+        if let Self::Domain {
+            retry_after: Some(secs),
+            ..
+        } = self
+        {
+            response
+                .headers_mut()
+                .insert(axum::http::header::RETRY_AFTER, secs.into());
+        }
+        response
     }
 }
