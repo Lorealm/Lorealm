@@ -892,3 +892,22 @@ async fn roles_round_trip_with_position_and_count_members() {
     assert_eq!(s.count_role_members(role.id).await.unwrap(), 1);
     assert_eq!(s.get_user_roles(user).await.unwrap()[0].id, role.id);
 }
+
+#[tokio::test]
+async fn role_members_lists_holders_oldest_first() {
+    let s = db().await;
+    let first = a_user(&s, 1).await;
+    let second = a_user(&s, 2).await;
+    let _outsider = a_user(&s, 3).await;
+    s.assign_role(second, Snowflake(2)).await.unwrap();
+    s.assign_role(first, Snowflake(2)).await.unwrap();
+
+    let members: Vec<_> = s
+        .get_role_members(Snowflake(2))
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|u| u.id)
+        .collect();
+    assert_eq!(members, vec![first, second]);
+}

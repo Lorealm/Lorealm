@@ -70,6 +70,7 @@ class ServerSettingsStage {
 	storage = () => this.#section('storage');
 	sessions = () => this.#section('sessions');
 	users = () => this.#section('users');
+	roles = () => this.#section('roles');
 	characters = () => this.#section('characters');
 	tokenizers = () => this.#section('tokenizers');
 	tasks = () => this.#section('tasks');

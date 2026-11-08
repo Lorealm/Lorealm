@@ -1,6 +1,6 @@
 use crate::PermissionStorage;
 use crate::error::StorageError;
-use crate::models::{CreateRole, Role, Snowflake, UpdateRole, UserRole};
+use crate::models::{CreateRole, Role, Snowflake, UpdateRole, User, UserRole};
 use async_trait::async_trait;
 use chrono::Utc;
 
@@ -135,5 +135,18 @@ impl PermissionStorage for MemoryStorage {
     async fn count_role_members(&self, role_id: Snowflake) -> Result<i64, StorageError> {
         let user_roles = self.user_roles.read().await;
         Ok(user_roles.iter().filter(|ur| ur.role_id == role_id).count() as i64)
+    }
+
+    async fn get_role_members(&self, role_id: Snowflake) -> Result<Vec<User>, StorageError> {
+        let user_roles = self.user_roles.read().await;
+        let users = self.users.read().await;
+
+        let mut members: Vec<User> = user_roles
+            .iter()
+            .filter(|ur| ur.role_id == role_id)
+            .filter_map(|ur| users.get(&ur.user_id).cloned())
+            .collect();
+        members.sort_by_key(|u| (u.created_at, u.id));
+        Ok(members)
     }
 }

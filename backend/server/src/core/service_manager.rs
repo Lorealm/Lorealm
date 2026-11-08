@@ -85,7 +85,7 @@ impl ServiceManager {
 
         let permissions = Arc::new(PermissionService::new(
             Arc::clone(&storage),
-            Arc::clone(&users),
+            Arc::clone(&snowflake),
         ));
 
         let characters = Arc::new(CharacterService::new(

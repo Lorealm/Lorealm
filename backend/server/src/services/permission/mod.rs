@@ -52,10 +52,16 @@ impl Permissions {
 }
 
 impl Permissions {
-    /// What [`Permissions::ADMINISTRATOR`] does not imply: both put code from
-    /// outside the server in a position to do harm, so they are granted only
-    /// by name.
     pub const ADMIN_EXEMPT: Self = Self::BUILD_PLUGINS.union(Self::UNSAFE_PLUGINS);
+
+    /// What these permissions actually allow, with `ADMINISTRATOR` expanded.
+    pub fn effective(self) -> Self {
+        if self.contains(Self::ADMINISTRATOR) {
+            self | (Self::all() - Self::ADMIN_EXEMPT)
+        } else {
+            self
+        }
+    }
 }
 
 impl std::fmt::Display for Permissions {
@@ -66,8 +72,8 @@ impl std::fmt::Display for Permissions {
 
 #[derive(Debug, Clone)]
 pub struct Role {
-    pub id: Snowflake,
-    pub name: String,
+    pub _id: Snowflake,
+    pub _name: String,
     pub permissions: Permissions,
     pub position: i32,
 }
@@ -75,8 +81,8 @@ pub struct Role {
 impl From<&lorealm_storage::models::Role> for Role {
     fn from(value: &lorealm_storage::models::Role) -> Self {
         Self {
-            id: value.id,
-            name: value.name.clone(),
+            _id: value.id,
+            _name: value.name.clone(),
             permissions: Permissions::from_db(value.permissions),
             position: value.position,
         }

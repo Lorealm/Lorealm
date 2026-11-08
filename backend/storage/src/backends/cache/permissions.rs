@@ -1,6 +1,6 @@
 use crate::PermissionStorage;
 use crate::error::StorageError;
-use crate::models::{CreateRole, Role, Snowflake, UpdateRole, UserRole};
+use crate::models::{CreateRole, Role, Snowflake, UpdateRole, User, UserRole};
 use async_trait::async_trait;
 
 use super::CachedStorage;
@@ -71,5 +71,9 @@ impl PermissionStorage for CachedStorage {
 
     async fn count_role_members(&self, role_id: Snowflake) -> Result<i64, StorageError> {
         self.backend.count_role_members(role_id).await
+    }
+
+    async fn get_role_members(&self, role_id: Snowflake) -> Result<Vec<User>, StorageError> {
+        self.backend.get_role_members(role_id).await
     }
 }

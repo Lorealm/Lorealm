@@ -127,6 +127,12 @@ pub async fn run_admin_setup(state: &Arc<AppState>) -> anyhow::Result<()> {
         .register(admin_user, None, admin_password)
         .await?;
 
+    state
+        .services()
+        .permissions()
+        .claim_administrator_if_unclaimed(user.id)
+        .await?;
+
     if Confirm::with_theme(&theme)
         .with_prompt("Registration complete. Would you like to scaffold default resources?")
         .default(true)
