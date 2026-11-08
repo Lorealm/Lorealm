@@ -26,7 +26,7 @@ use weaver_lang::{
 use super::Slot;
 use crate::{
     errors::ContextError,
-    services::context::{
+    services::context_template::{
         ContentRef, ContextSource, PromptRole, ResolveContext, ResolvedBlock, SourceDefinition,
         SourceNodeDefinition, SourceType,
     },

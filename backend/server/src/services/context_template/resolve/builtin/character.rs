@@ -10,7 +10,7 @@ use weaver_lang::CompiledTemplate;
 use crate::{
     errors::ContextError,
     services::{
-        context::{
+        context_template::{
             CharacterPart, ContentRef, SelectOption, SettingDefinition, SettingType,
             SourceDefinition, SourceNodeDefinition, SourceType, builtin::text_block,
         },

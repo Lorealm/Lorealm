@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use crate::{
     errors::ContextError,
-    services::context::{
+    services::context_template::{
         ContentRef, ContextSource, PromptRole, ResolveContext, ResolvedBlock, SourceDefinition,
         SourceNodeDefinition, SourceType, builtin::text_block,
     },

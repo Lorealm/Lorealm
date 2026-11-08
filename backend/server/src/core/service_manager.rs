@@ -18,7 +18,7 @@ use crate::{
         chat::ChatService,
         commands::{CommandService, Generation},
         connection::ConnectionService,
-        context::{ContextService, SourceRegistry, builtin::register_builtin_sources},
+        context_template::{TemplateService, SourceRegistry, builtin::register_builtin_sources},
         conversation::ConversationService,
         lorebook::LorebookService,
         permission::service::PermissionService,
@@ -44,7 +44,7 @@ pub struct ServiceManager {
     users: Arc<UserService>,
     permissions: Arc<PermissionService>,
     characters: Arc<CharacterService>,
-    context: Arc<ContextService>,
+    context: Arc<TemplateService>,
     lorebook: Arc<LorebookService>,
     state: Arc<StateService>,
     chat: Arc<ChatService>,
@@ -116,7 +116,7 @@ impl ServiceManager {
             Arc::new(registry)
         };
 
-        let context = Arc::new(ContextService::new(
+        let context = Arc::new(TemplateService::new(
             Arc::clone(&storage),
             Arc::clone(&snowflake),
             Arc::clone(&sources),
@@ -320,7 +320,7 @@ impl ServiceManager {
         &self.characters
     }
 
-    pub fn context(&self) -> &Arc<ContextService> {
+    pub fn context(&self) -> &Arc<TemplateService> {
         &self.context
     }
 

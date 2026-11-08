@@ -10,7 +10,7 @@ use serde_json::json;
 use crate::{
     errors::RealmError,
     services::{
-        context::PromptTurn,
+        context_template::PromptTurn,
         plugins::PluginVocabulary,
         realm::{RealmService, weaver},
         state::{CapturedState, ReconstructedState},

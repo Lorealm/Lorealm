@@ -11,7 +11,7 @@ use crate::{
     errors::{ContextError, TokenizerError},
     services::{
         chat::PromptMessage,
-        context::{BlockPart, OriginKind, PromptRole, TracedBlock, Trim},
+        context_template::{BlockPart, OriginKind, PromptRole, TracedBlock, Trim},
     },
 };
 
@@ -599,7 +599,7 @@ impl ContextEvalBuilder {
 mod tests {
     use lorealm_storage::models::Snowflake;
 
-    use crate::services::context::{BlockOrigin, ContentRef, ResolvedBlock};
+    use crate::services::context_template::{BlockOrigin, ContentRef, ResolvedBlock};
 
     use super::*;
 

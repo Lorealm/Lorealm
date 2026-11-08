@@ -13,7 +13,7 @@ use crate::{
     extract::AuthenticatedSession,
     routes::templates::{SetActiveRequest, WeaverVocabulary},
     services::{
-        context::{ContextTemplate, SourceDefinition, weaver::check::check_with},
+        context_template::{ContextTemplate, SourceDefinition, weaver::check::check_with},
         plugins::PluginVocabulary,
         weaver::{WeaverHost, namespaces as weaver_namespaces},
     },

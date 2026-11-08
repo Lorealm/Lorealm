@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     errors::{ContextError, TemplateError},
-    services::{context::PromptRole, snowflake::SnowflakeService},
+    services::{context_template::PromptRole, snowflake::SnowflakeService},
     util::template::CORE_INSTRUCTIONS,
 };
 

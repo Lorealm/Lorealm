@@ -8,7 +8,7 @@ use tokio::sync::Mutex;
 
 use crate::services::{
     chat::{WidgetInstance, WidgetRenderer, sanitize_widget_markers},
-    context::PromptRole,
+    context_template::PromptRole,
     plugins::PluginVocabulary,
     state::{CapturedState, ReconstructedState},
     variables::Variables,

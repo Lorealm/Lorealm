@@ -8,7 +8,7 @@ use lorealm_storage::{
 use crate::{
     errors::{ContextError, ContextType, TemplateError},
     services::{
-        context::{
+        context_template::{
             ContextNode, CreateNode, GroupMode, MoveNode, MovedNode, NodeWithPath, SourceRegistry,
             UpdateNode, template::ContextTemplate,
         },
@@ -16,14 +16,13 @@ use crate::{
     },
 };
 
-// TODO: Rename to TemplateService. Module should also be renamed.
-pub struct ContextService {
+pub struct TemplateService {
     storage: Arc<dyn Storage>,
     snowflake_service: Arc<SnowflakeService>,
     registry: Arc<SourceRegistry>,
 }
 
-impl ContextService {
+impl TemplateService {
     pub fn new(
         storage: Arc<dyn Storage>,
         snowflake_service: Arc<SnowflakeService>,

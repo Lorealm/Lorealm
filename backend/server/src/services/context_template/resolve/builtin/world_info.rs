@@ -13,7 +13,7 @@ use weaver_lang::Value as WeaverValue;
 use crate::{
     errors::ContextError,
     services::{
-        context::{
+        context_template::{
             BlockPart, ContentRef, PromptTurn, SettingDefinition, SettingType, SourceDefinition,
             SourceNodeDefinition, SourceType, to_weaver_lorebook, weaver::stdlib::StdlibPlugin,
         },

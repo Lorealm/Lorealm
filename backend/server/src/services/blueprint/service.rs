@@ -11,7 +11,7 @@ use crate::{
     errors::{RealmError, TargetType},
     services::{
         blueprint::{InputSpec, OutlineResult, outline},
-        context::weaver::check::{Dialect, Severity, check},
+        context_template::weaver::check::{Dialect, Severity, check},
         realm::{RealmService, wtn},
         snowflake::SnowflakeService,
         weaver::WeaverProfile,

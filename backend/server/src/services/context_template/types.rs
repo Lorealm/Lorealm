@@ -1,4 +1,4 @@
-use crate::services::context::{ContextNode, NodeContent, NodePath};
+use crate::services::context_template::{ContextNode, NodeContent, NodePath};
 
 pub struct CreateNode {
     pub title: String,

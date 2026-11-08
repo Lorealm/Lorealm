@@ -10,7 +10,7 @@ use crate::{
         DomainError, ErrorDetails, LorebookError, StateError, TargetType, TokenizerError,
         impl_app_error, sentence,
     },
-    services::context::NodePath,
+    services::context_template::NodePath,
 };
 
 #[derive(Debug, Clone, Copy)]

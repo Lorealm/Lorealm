@@ -43,7 +43,7 @@ use crate::{
     errors::PluginError,
     services::{
         blueprint::InputSpec, chat::PromptMessage, commands::Generation,
-        connection::ConnectionService, context::PromptRole, snowflake::SnowflakeService,
+        connection::ConnectionService, context_template::PromptRole, snowflake::SnowflakeService,
         state::StateService,
     },
 };

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::services::{
-    context::{ContentRef, PromptRole, ResolvedBlock, builtin::persona::PersonaResolver},
+    context_template::{ContentRef, PromptRole, ResolvedBlock, builtin::persona::PersonaResolver},
     state::StateService,
 };
 
@@ -50,7 +50,7 @@ mod tests {
 
     use crate::{
         errors::ContextError,
-        services::context::{
+        services::context_template::{
             ContextSource, ResolveContext, ResolvedBlock, SourceDefinition, SourceNodeDefinition,
             SourceType,
         },

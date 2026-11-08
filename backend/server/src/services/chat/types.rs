@@ -17,7 +17,7 @@ use crate::{
     services::{
         chat::widgets::{InferEvent, ToolCallRecord, WidgetInstance, widget_marker},
         commands::CommandEffect,
-        context::{PromptRole, TracedBlock},
+        context_template::{PromptRole, TracedBlock},
         state::{CapturedState, StatePool, StateService},
     },
     util::context_eval::UsageReport,

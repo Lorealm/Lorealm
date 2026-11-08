@@ -13,7 +13,7 @@ use crate::services::{
         CommandEffect, EffectSink, GenerateBridge, GenerateCommand, GenerateRawCommand,
         register_effect_commands,
     },
-    context::weaver::stdlib,
+    context_template::weaver::stdlib,
     plugins::PluginVocabulary,
     state::{StatePool, diff},
     tools::{

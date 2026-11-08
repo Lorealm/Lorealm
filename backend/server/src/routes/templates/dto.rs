@@ -4,7 +4,7 @@ use lorealm_storage::models::Snowflake;
 use serde::{Deserialize, Serialize};
 
 use crate::services::{
-    context::{
+    context_template::{
         ContextNode, CreateNode, MoveNode, MovedNode, NodeContent, NodePath, NodeWithPath,
         UpdateNode,
         weaver::check::{Diagnostic, Dialect},
