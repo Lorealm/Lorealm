@@ -8,6 +8,104 @@ export function isBuiltIn(id: string): boolean {
 
 export const CLASSIC_NAME = 'Lorealm Classic';
 
+const lorealmLight: Style = {
+	id: `${BUILT_IN_PREFIX}lorealm-light`,
+	name: 'Lorealm Light',
+	author: 'Lorealm',
+	css: ':root {\n\tcolor-scheme: light;\n}',
+	tokens: {
+		'--color-primary': '#8462a6',
+		'--color-primary-light': '#9b7db8',
+		'--color-primary-lighter': '#c4a6d8',
+		'--color-primary-dark': '#6c4f8c',
+		'--color-primary-darker': '#553b72',
+		'--color-primary-dark-hover': 'rgba(132, 98, 166, 0.47)',
+
+		'--color-bg-base': '#f6f2f9',
+		'--color-bg-elevated': '#fdfbfe',
+		'--color-bg-elevated-2': '#f3eef7',
+		'--color-bg-elevated-3': '#ebe3f1',
+		'--color-bg-panel': 'rgba(253, 251, 254, 0.7)',
+		'--color-bg-panel-solid': '#faf7fc',
+		'--color-bg-overlay': 'rgba(246, 242, 249, 0.5)',
+		'--color-bg-input': '#ffffff',
+		'--color-bg-modal': 'rgba(253, 251, 254, 0.98)',
+		'--color-bg-disabled': '#e6e0eb',
+
+		'--color-text-primary': '#2a2033',
+		'--color-text-secondary': '#5e5068',
+		'--color-text-muted': '#857a8e',
+		'--color-text-disabled': '#b3aaba',
+		'--color-text-accent': '#6c4f8c',
+		'--color-text-inverse': '#faf7fc',
+
+		'--color-border-subtle': 'rgba(92, 66, 120, 0.1)',
+		'--color-border-medium': 'rgba(92, 66, 120, 0.18)',
+		'--color-border-strong': 'rgba(92, 66, 120, 0.28)',
+		'--color-border-active': 'rgba(132, 98, 166, 0.5)',
+		'--color-border-default': 'rgba(42, 32, 51, 0.1)',
+
+		'--color-success': '#0f9f6e',
+		'--color-success-bg': 'rgba(16, 185, 129, 0.12)',
+		'--color-success-text': '#0b7a55',
+		'--color-success-border': 'rgba(16, 185, 129, 0.35)',
+
+		'--color-error': '#d32f2f',
+		'--color-error-bg': 'rgba(239, 68, 68, 0.1)',
+		'--color-error-text': '#b42323',
+		'--color-error-border': 'rgba(239, 68, 68, 0.3)',
+
+		'--color-warning': '#c98a2e',
+		'--color-warning-bg': 'rgba(232, 176, 96, 0.18)',
+		'--color-warning-text': '#8f5a10',
+		'--color-warning-border': 'rgba(201, 138, 46, 0.35)',
+
+		'--color-info': '#4a86c0',
+		'--color-info-bg': 'rgba(124, 172, 220, 0.18)',
+		'--color-info-text': '#2f6496',
+		'--color-info-border': 'rgba(74, 134, 192, 0.3)',
+
+		'--color-role-system': '#3f8f84',
+		'--color-role-system-bg': 'rgba(95, 179, 168, 0.15)',
+		'--color-role-system-text': '#2d6d64',
+
+		'--color-role-user': '#c06286',
+		'--color-role-user-bg': 'rgba(217, 138, 168, 0.15)',
+		'--color-role-user-text': '#9c3f64',
+
+		'--color-role-assistant': '#8a62ab',
+		'--color-role-assistant-bg': 'rgba(176, 140, 200, 0.15)',
+		'--color-role-assistant-text': '#6c4f8c',
+
+		'--color-hover': 'rgba(132, 98, 166, 0.1)',
+		'--color-active': 'rgba(132, 98, 166, 0.18)',
+		'--color-focus': 'rgba(132, 98, 166, 0.35)',
+		'--color-disabled': 'rgba(42, 32, 51, 0.05)',
+		'--color-selected': 'rgba(132, 98, 166, 0.12)',
+
+		'--gradient-primary': 'linear-gradient(135deg, #9b7db8 0%, #7a5d9a 100%)',
+		'--gradient-bg': 'linear-gradient(135deg, #faf7fc 0%, #efe6f5 100%)',
+		'--gradient-portrait': 'linear-gradient(135deg, #c4a6d8 0%, #9b7db8 100%)',
+		'--gradient-subtle':
+			'linear-gradient(135deg, rgba(155, 125, 184, 0.1) 0%, rgba(155, 125, 184, 0.05) 100%)',
+
+		'--shadow-sm': '0 1px 3px rgba(42, 32, 51, 0.08)',
+		'--shadow-md': '0 4px 12px rgba(92, 66, 120, 0.1)',
+		'--shadow-lg': '0 6px 16px rgba(92, 66, 120, 0.16)',
+		'--shadow-xl': '0 12px 32px rgba(42, 32, 51, 0.18)',
+		'--shadow-inset': 'inset 0 1px 2px rgba(42, 32, 51, 0.08)',
+		'--shadow-glow': '0 0 0 3px rgba(132, 98, 166, 0.2)',
+
+		'--backdrop-ground': '#f6f2f9',
+
+		'--color-overlay-bg': 'rgba(42, 32, 51, 0.35)',
+		'--color-overlay-light': 'rgba(42, 32, 51, 0.18)',
+
+		'--scrollbar-thumb': 'rgba(42, 32, 51, 0.18)',
+		'--scrollbar-thumb-hover': 'rgba(42, 32, 51, 0.32)'
+	}
+};
+
 const githubDark: Style = {
 	id: `${BUILT_IN_PREFIX}github-dark`,
 	name: 'GitHub Dark',
@@ -308,4 +406,4 @@ const frostedGlass: Style = {
 	}
 };
 
-export const BUILT_IN_STYLES: Style[] = [githubDark, catppuccinMocha, frostedGlass];
+export const BUILT_IN_STYLES: Style[] = [lorealmLight, githubDark, catppuccinMocha, frostedGlass];
