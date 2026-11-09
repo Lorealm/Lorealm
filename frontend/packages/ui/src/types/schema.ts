@@ -26,6 +26,8 @@ export interface CommonParamsSchema {
 export interface ProviderSchema {
 	provider: string;
 	label: string;
+	/** Can't reach the provider without an API key. False where a local server can stand in. */
+	requiresKey: boolean;
 	common: CommonParamsSchema;
 }
 
@@ -73,6 +75,7 @@ export const PROVIDER_SCHEMAS: ProviderSchema[] = [
 	{
 		provider: 'openrouter',
 		label: 'OpenRouter',
+		requiresKey: true,
 		common: {
 			temperature: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },
 			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 1 },
@@ -90,6 +93,7 @@ export const PROVIDER_SCHEMAS: ProviderSchema[] = [
 	{
 		provider: 'openai',
 		label: 'OpenAI-compatible',
+		requiresKey: false,
 		common: {
 			temperature: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },
 			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 1 },
@@ -107,6 +111,7 @@ export const PROVIDER_SCHEMAS: ProviderSchema[] = [
 	{
 		provider: 'anthropic',
 		label: 'Anthropic',
+		requiresKey: true,
 		common: {
 			temperature: { kind: 'number', min: 0, max: 1, step: 0.01, default: 1 },
 			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 1 },
@@ -119,6 +124,7 @@ export const PROVIDER_SCHEMAS: ProviderSchema[] = [
 	{
 		provider: 'vertex',
 		label: 'Google Vertex AI',
+		requiresKey: true,
 		common: {
 			temperature: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },
 			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 0.95 },

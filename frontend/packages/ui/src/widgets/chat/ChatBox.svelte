@@ -3,12 +3,12 @@
 	import { userWidgetStore } from '$lib/stores/userWidgets.svelte.js';
 	import MessageBubble from './MessageBubble.svelte';
 	import ContextInspector from './ContextInspector.svelte';
+	import SetupGuide, { loadSetupState, setupComplete, setupKnown } from './SetupGuide.svelte';
 	import { onMount, tick } from 'svelte';
 
-	// Loaded once here rather than per bubble; every message renders the
-	// viewer's static widgets from this list.
 	onMount(() => {
 		if (!userWidgetStore.loadedWidgets) void userWidgetStore.loadWidgets();
+		loadSetupState();
 	});
 
 	let scrollEl: HTMLDivElement;
@@ -32,7 +32,9 @@
 </script>
 
 <div class="container" bind:this={scrollEl} onscroll={onScroll}>
-	{#if feed.length === 0}
+	{#if feed.length === 0 && setupKnown() && !setupComplete()}
+		<SetupGuide />
+	{:else if feed.length === 0}
 		<div class="empty">
 			{#if chatStore.isRealm}
 				A fresh playthrough — run the first turn below.
