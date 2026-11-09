@@ -6,12 +6,8 @@
 	import { memory, type CharacterSort } from '$lib/stores/memory.svelte.js';
 	import type { AttachmentReport, ImportedLorebook, ImportResult } from '$lib/types/character.js';
 	import { tooltip } from '$lib/stores/tooltip.svelte.js';
-
-	let {
-		oncreate
-	}: {
-		oncreate?: () => void;
-	} = $props();
+	import { extractError } from '$lib/types/error.js';
+	import { navigator } from '$lib/navigation/navigator.js';
 
 	type SortableMeta = {
 		id: string;
@@ -119,6 +115,20 @@
 			variant: skipped > 0 ? 'warning' : 'success'
 		});
 	}
+
+	async function createAndNavigateToCharacter() {
+		try {
+			const id = await characterStore.create('New Character');
+			navigator.start().studio().characters(id);
+		} catch (e) {
+			const error = extractError(e);
+			showToast({
+				title: "Couldn't create character",
+				message: error.message,
+				variant: 'error'
+			});
+		}
+	}
 </script>
 
 <input
@@ -161,7 +171,7 @@
 				<Upload size={16} />
 				{busy ? 'Uploading…' : 'Import'}
 			</button>
-			<button type="button" class="primary" onclick={() => oncreate?.()}>
+			<button type="button" class="primary" onclick={createAndNavigateToCharacter}>
 				<Plus size={16} />
 				New
 			</button>
