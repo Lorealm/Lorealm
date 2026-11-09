@@ -3,6 +3,7 @@
 mod accounts;
 mod attachments;
 mod blueprints;
+mod cards;
 mod connections;
 mod harness;
 mod plugins;

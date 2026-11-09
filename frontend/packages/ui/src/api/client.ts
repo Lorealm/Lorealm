@@ -3,6 +3,11 @@ import type { LoginRequest, Session } from '$lib/types/auth.js';
 import type {
 	AttachmentKind,
 	DuplicateAttachmentResponse,
+	ExportFormat,
+	ExportProfileId,
+	ExportProfileInfo,
+	ExportWarning,
+	ImportOptions,
 	AvatarUpdateResponse,
 	Character,
 	CharacterEdit,
@@ -170,6 +175,10 @@ function encodeCardBatch(cards: Blob[]): Blob {
 	return new Blob(parts, { type: `multipart/form-data; boundary=${boundary}` });
 }
 
+function importQuery(options: ImportOptions): string {
+	return options.reuseLorebooks ? '?reuse_lorebooks=true' : '';
+}
+
 export function createApiClient(platform: PlatformAPI) {
 	const { http } = platform;
 
@@ -262,6 +271,17 @@ export function createApiClient(platform: PlatformAPI) {
 			 */
 			update: (characterId: Snowflake, edit: CharacterEdit[]) =>
 				http.put<Character>(`/api/v1/characters/${characterId}`, edit),
+			/** The export profiles to offer. */
+			exportProfiles: () => http.get<ExportProfileInfo[]>('/api/v1/characters/export/profiles'),
+			exportWarnings: (characterId: Snowflake, profile: ExportProfileId, format: ExportFormat) =>
+				http.get<ExportWarning[]>(
+					`/api/v1/characters/${characterId}/export/warnings?profile=${encodeURIComponent(profile)}&format=${format}`
+				),
+			/** The card file: a PNG with the card embedded, or the card's JSON. */
+			export: (characterId: Snowflake, profile: ExportProfileId, format: ExportFormat) =>
+				http.getBlob(
+					`/api/v1/characters/${characterId}/export?profile=${encodeURIComponent(profile)}&format=${format}`
+				),
 			/** Copies an attachment and points the character at the copy. */
 			duplicateAttachment: (characterId: Snowflake, kind: AttachmentKind, id: Snowflake) =>
 				http.post<DuplicateAttachmentResponse>(
@@ -273,10 +293,14 @@ export function createApiClient(platform: PlatformAPI) {
 			avatar: (characterId: Snowflake) => http.getBlob(`/api/v1/characters/${characterId}/image`),
 			updateAvatar: (characterId: Snowflake, update: Blob) =>
 				http.putBlob<AvatarUpdateResponse>(`/api/v1/characters/${characterId}/image`, update),
-			import: (card: Blob) => http.putBlob<ImportCharResponse>(`/api/v1/characters/import`, card),
+			import: (card: Blob, options: ImportOptions = {}) =>
+				http.putBlob<ImportCharResponse>(`/api/v1/characters/import${importQuery(options)}`, card),
 			/** Imports every card in one request. Results come back in the order given. */
-			importBatch: (cards: Blob[]) =>
-				http.putBlob<ImportCharResponse>(`/api/v1/characters/importBatch`, encodeCardBatch(cards)),
+			importBatch: (cards: Blob[], options: ImportOptions = {}) =>
+				http.putBlob<ImportCharResponse>(
+					`/api/v1/characters/importBatch${importQuery(options)}`,
+					encodeCardBatch(cards)
+				),
 			chats: (characterId: Snowflake) =>
 				http.get<Array<ConversationMetadata>>(`/api/v1/characters/${characterId}/chats`),
 			versions: {

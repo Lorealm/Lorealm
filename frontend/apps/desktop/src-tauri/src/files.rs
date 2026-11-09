@@ -123,3 +123,39 @@ pub async fn save_file(
 
     Ok(true)
 }
+
+/// Like `save_file`, for bytes sent as base64.
+#[tauri::command]
+pub async fn save_file_binary(
+    app: AppHandle,
+    data_base64: String,
+    label: String,
+    extensions: Vec<String>,
+    suggested_name: Option<String>,
+) -> AppResult<bool> {
+    use base64::Engine as _;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(data_base64)
+        .map_err(|e| Error::Internal(format!("The file to save was garbled: {e}")))?;
+
+    let exts: Vec<&str> = extensions.iter().map(String::as_str).collect();
+    let (tx, rx) = tokio::sync::oneshot::channel();
+
+    let mut dialog = app.dialog().file().add_filter(&label, &exts);
+    if let Some(name) = suggested_name {
+        dialog = dialog.set_file_name(name);
+    }
+    dialog.save_file(move |path| {
+        let _ = tx.send(path);
+    });
+
+    let Some(path) = picked(rx).await? else {
+        return Ok(false);
+    };
+
+    tokio::fs::write(&path, bytes)
+        .await
+        .map_err(|e| Error::Internal(format!("Could not write {}: {e}", path.display())))?;
+
+    Ok(true)
+}

@@ -187,7 +187,7 @@ impl UserToolService {
         Ok(())
     }
 
-    fn validate_name(name: &str) -> Result<(), UserToolError> {
+    pub(crate) fn validate_name(name: &str) -> Result<(), UserToolError> {
         let ok = !name.is_empty()
             && name.len() <= 64
             && name
@@ -198,7 +198,10 @@ impl UserToolService {
     }
 
     /// Reject a reserved name
-    fn validate_command_name(name: &str, surface: ToolSurface) -> Result<(), UserToolError> {
+    pub(crate) fn validate_command_name(
+        name: &str,
+        surface: ToolSurface,
+    ) -> Result<(), UserToolError> {
         if surface.callable_by_user() && RESERVED_COMMAND_NAMES.contains(&name) {
             return Err(UserToolError::InvalidName(format!(
                 "'{name}' is reserved and cannot be used as a command"
@@ -207,7 +210,7 @@ impl UserToolService {
         Ok(())
     }
 
-    fn validate_params(params: &[Param]) -> Result<(), UserToolError> {
+    pub(crate) fn validate_params(params: &[Param]) -> Result<(), UserToolError> {
         for param in params {
             if param.resource.is_some() && !matches!(param.ty, ParamType::String) {
                 return Err(UserToolError::InvalidParam {
@@ -219,7 +222,7 @@ impl UserToolService {
         Ok(())
     }
 
-    fn validate_body(body: &str) -> Result<(), UserToolError> {
+    pub(crate) fn validate_body(body: &str) -> Result<(), UserToolError> {
         CompiledTemplate::compile(body)
             .map(drop)
             .map_err(|errs| UserToolError::InvalidBody(describe_parse_errors(body, &errs)))

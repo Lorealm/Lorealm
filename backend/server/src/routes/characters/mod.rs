@@ -24,6 +24,12 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         .route("/{character_id}", get(handlers::get_character_latest))
         .route("/{character_id}/image", get(handlers::get_image_for_latest))
         .route("/{character_id}/chats", get(handlers::list_character_chats))
+        .route("/export/profiles", get(handlers::list_export_profiles))
+        .route("/{character_id}/export", get(handlers::export_character))
+        .route(
+            "/{character_id}/export/warnings",
+            get(handlers::export_warnings),
+        )
         .route(
             "/{character_id}/versions",
             get(handlers::list_character_versions),

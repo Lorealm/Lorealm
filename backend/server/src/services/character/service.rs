@@ -1,4 +1,7 @@
-use crate::services::character::AttachmentKind;
+use crate::services::{
+    cards::import::{AttachmentReport, ImportOptions, import_attachments},
+    character::AttachmentKind,
+};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
@@ -31,6 +34,8 @@ pub struct ImportedCard {
     pub id: Snowflake,
     /// Set when the card carried a usable `character_book`.
     pub lorebook: Option<ImportedLorebook>,
+    /// What happened to the card's Lorealm attachments.
+    pub attachments: AttachmentReport,
 }
 
 struct EditingSession {
@@ -643,32 +648,37 @@ impl CharacterService {
 
     /// Import a character card from a PNG. Parses the embedded tEXt chunk,
     /// converts to the domain `Character` type, and persists it.
-    ///
-    /// A card carrying a `character_book` also yields a lorebook, saved first
-    /// so the character never points at a book that isn't there.
-    pub async fn import_from_png(
+    pub async fn import_card(
         &self,
-        png_bytes: &[u8],
+        bytes: &[u8],
         user_id: Snowflake,
+        options: ImportOptions,
     ) -> Result<ImportedCard, CharacterError> {
-        let parsed = parse_character_card_png(png_bytes, CARD_IDENTIFIERS)?;
+        let is_json = bytes
+            .iter()
+            .find(|b| !b.is_ascii_whitespace())
+            .is_some_and(|b| *b == b'{');
+        let (json, image) = if is_json {
+            (bytes.to_vec(), None)
+        } else {
+            let parsed = parse_character_card_png(bytes, CARD_IDENTIFIERS)?;
+            if let DetectedSpec::Unknown(spec) = parsed.detected_spec {
+                return Err(CharacterError::UnsupportedFormat(spec));
+            }
+            (parsed.json_bytes, Some(parsed.stripped_image))
+        };
 
         // V3 is a superset of the CCv2 fields we read, so one converter serves
         // both. Fields unique to V3 ride along in `extensions`.
-        let converted = match parsed.detected_spec {
-            DetectedSpec::CharaV2 | DetectedSpec::CharaV3 => {
-                let card: CharaV2 = serde_json::from_slice(&parsed.json_bytes)?;
-                convert_from_ccv2(card, user_id, &self.snowflake)
-            }
-            DetectedSpec::Unknown(spec) => {
-                return Err(CharacterError::UnsupportedFormat(spec));
-            }
-        };
-
+        let card: CharaV2 = serde_json::from_slice(&json)?;
+        if !matches!(card.spec.as_str(), "chara_card_v2" | "chara_card_v3") {
+            return Err(CharacterError::UnsupportedFormat(card.spec));
+        }
         let ConvertedCard {
             mut character,
             lorebook,
-        } = converted;
+            extension,
+        } = convert_from_ccv2(card, user_id, &self.snowflake);
         let character_id = character.id;
 
         let imported_lorebook = match lorebook {
@@ -679,9 +689,24 @@ impl CharacterService {
             None => None,
         };
 
-        // This always exists due to the scope of the function
-        let blob_id = self.blob.put(&parsed.stripped_image).await?;
-        character.metadata.avatar_uri = Some(blob_id.to_uri());
+        let attachments = import_attachments(
+            self.storage.as_ref(),
+            &self.snowflake,
+            user_id,
+            &extension,
+            options,
+        )
+        .await?;
+        if !attachments.lorebook_ids.is_empty() {
+            character.lorebook_ids = attachments.lorebook_ids;
+        }
+        character.tool_ids = attachments.tool_ids;
+        character.widget_ids = attachments.widget_ids;
+
+        if let Some(image) = image {
+            let blob_id = self.blob.put(&image).await?;
+            character.metadata.avatar_uri = Some(blob_id.to_uri());
+        }
         self.storage
             .save_character(&character, VersionedSaveMode::NewVersion)
             .await?;
@@ -693,6 +718,7 @@ impl CharacterService {
         Ok(ImportedCard {
             id: character_id,
             lorebook: imported_lorebook,
+            attachments: attachments.report,
         })
     }
 }

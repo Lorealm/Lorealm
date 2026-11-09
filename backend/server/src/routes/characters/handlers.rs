@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use axum::{
     Json,
-    extract::{Multipart, Path, State},
+    extract::{Multipart, Path, Query, State},
     http::{
-        StatusCode,
+        StatusCode, header,
         header::{CACHE_CONTROL, CONTENT_TYPE},
     },
     response::{IntoResponse, Response},
@@ -22,7 +22,14 @@ use crate::{
         dto::{AvatarUpdateResponse, CharacterEdit, CreateCharacterRequest, ImportCharResponse},
         types::ImportResult,
     },
-    services::{character::AttachmentKind, permission::Permissions},
+    services::{
+        cards::{
+            export::{self, CharacterBundle, ExportFormat, ExportProfile, ExportWarning},
+            import::ImportOptions,
+        },
+        character::AttachmentKind,
+        permission::Permissions,
+    },
 };
 
 pub async fn list_characters(
@@ -298,15 +305,22 @@ pub async fn import_card_blob(
     State(state): State<Arc<AppState>>,
     auth: AuthenticatedSession,
     perms: ResolvedPermissions,
+    Query(options): Query<ImportOptions>,
     body: Bytes,
 ) -> Result<Json<ImportCharResponse>, AppError> {
     perms.require(Permissions::IMPORT_CONTENT)?;
-    let kind = infer::get(&body).ok_or(CharacterError::UnsupportedMediaType)?;
-    if !matches!(
-        kind.mime_type(),
-        "image/png" | "image/jpeg" | "image/webp" | "image/gif"
-    ) {
-        return Err(CharacterError::UnsupportedMediaType)?;
+    let is_json = body
+        .iter()
+        .find(|b| !b.is_ascii_whitespace())
+        .is_some_and(|b| *b == b'{');
+    if !is_json {
+        let kind = infer::get(&body).ok_or(CharacterError::UnsupportedMediaType)?;
+        if !matches!(
+            kind.mime_type(),
+            "image/png" | "image/jpeg" | "image/webp" | "image/gif"
+        ) {
+            return Err(CharacterError::UnsupportedMediaType)?;
+        }
     }
 
     let mut results: Vec<ImportResult> = Vec::new();
@@ -318,7 +332,7 @@ pub async fn import_card_blob(
     match state
         .services()
         .characters()
-        .import_from_png(body.as_ref(), auth.user_id)
+        .import_card(body.as_ref(), auth.user_id, options)
         .await
     {
         Ok(card) => results.push(ImportResult::ok(card)),
@@ -332,6 +346,7 @@ pub async fn import_card_multipart(
     State(state): State<Arc<AppState>>,
     auth: AuthenticatedSession,
     perms: ResolvedPermissions,
+    Query(options): Query<ImportOptions>,
     mut multipart: Multipart,
 ) -> Result<Json<ImportCharResponse>, AppError> {
     perms.require(Permissions::IMPORT_CONTENT)?;
@@ -372,7 +387,7 @@ pub async fn import_card_multipart(
         match state
             .services()
             .characters()
-            .import_from_png(data.as_ref(), auth.user_id)
+            .import_card(data.as_ref(), auth.user_id, options)
             .await
         {
             Ok(card) => results.push(ImportResult::ok(card)),
@@ -389,6 +404,81 @@ pub async fn import_card_multipart(
     }
 
     Ok(Json(ImportCharResponse { results }))
+}
+
+#[derive(serde::Serialize)]
+pub struct ExportProfileInfo {
+    id: ExportProfile,
+    label: &'static str,
+    description: &'static str,
+}
+
+/// The export profiles a client can offer.
+pub async fn list_export_profiles(_session: AuthenticatedSession) -> Json<Vec<ExportProfileInfo>> {
+    Json(
+        ExportProfile::ALL
+            .iter()
+            .map(|p| ExportProfileInfo {
+                id: *p,
+                label: p.label(),
+                description: p.description(),
+            })
+            .collect(),
+    )
+}
+
+#[derive(serde::Deserialize)]
+pub struct ExportQuery {
+    profile: ExportProfile,
+    #[serde(default)]
+    format: ExportFormat,
+}
+
+async fn load_bundle(
+    state: &AppState,
+    character_id: Snowflake,
+    user_id: Snowflake,
+) -> Result<CharacterBundle, AppError> {
+    Ok(CharacterBundle::load(
+        state.services().storage().as_ref(),
+        state.services().characters(),
+        character_id,
+        user_id,
+    )
+    .await?)
+}
+
+/// What the export would leave behind, to show before downloading.
+pub async fn export_warnings(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(character_id): Path<Snowflake>,
+    Query(query): Query<ExportQuery>,
+) -> Result<Json<Vec<ExportWarning>>, AppError> {
+    let bundle = load_bundle(&state, character_id, session.user_id).await?;
+    Ok(Json(export::warnings(&bundle, query.profile, query.format)))
+}
+
+/// The character card as a file download.
+pub async fn export_character(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(character_id): Path<Snowflake>,
+    Query(query): Query<ExportQuery>,
+) -> Result<Response, AppError> {
+    let bundle = load_bundle(&state, character_id, session.user_id).await?;
+    let card = export::render(&bundle, query.profile, query.format)?;
+    Ok((
+        [
+            (header::CONTENT_TYPE, card.content_type.to_owned()),
+            (
+                header::CONTENT_DISPOSITION,
+                format!("attachment; filename=\"{}\"", card.file_name),
+            ),
+        ],
+        card.bytes,
+    )
+        .into_response())
 }
 
 /// Copy one of the character's attachments and point the character at the copy

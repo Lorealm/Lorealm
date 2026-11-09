@@ -50,8 +50,11 @@ export interface FileTransfer {
 	 */
 	openBinary(options: FileDialog): Promise<string | null>;
 
-	/** Ask where to put `contents` and write it. False when the user cancelled. */
-	save(contents: string, options: FileDialog): Promise<boolean>;
+	/**
+	 * Ask where to put `contents` and write it: text as-is, a `Blob` byte for
+	 * byte. False when the user cancelled.
+	 */
+	save(contents: string | Blob, options: FileDialog): Promise<boolean>;
 }
 
 export interface FileDialog {

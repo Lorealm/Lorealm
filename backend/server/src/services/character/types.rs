@@ -8,7 +8,7 @@ pub(super) struct EditableCharacter {
 }
 
 /// Partial patch over `CharacterDefinition`'s scalar fields.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct EditDefinition {
     pub name: Option<String>,
     pub description: Option<String>,
@@ -20,7 +20,7 @@ pub struct EditDefinition {
 }
 
 /// Partial patch over `CharacterMetadata`'s editable scalar fields.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct EditMetadata {
     pub creator: Option<String>,
     pub creator_notes: Option<String>,

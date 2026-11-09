@@ -4,6 +4,8 @@ import type { Snowflake } from '$lib/types/core.js';
 import type {
 	AttachmentKind,
 	Character,
+	ExportProfileInfo,
+	ImportOptions,
 	CharacterEdit,
 	CharacterSummary,
 	CharacterVersionInfo,
@@ -108,6 +110,23 @@ class CharacterStore {
 		this.metadataList = await this.#api.characters.list();
 	}
 
+	/** Export profiles the server offers. Loaded once, on first use. */
+	exportProfiles = $state<ExportProfileInfo[]>([]);
+	#exportProfilesLoading: Promise<void> | null = null;
+
+	loadExportProfiles(): Promise<void> {
+		this.#exportProfilesLoading ??= this.#api.characters
+			.exportProfiles()
+			.then((profiles) => {
+				this.exportProfiles = profiles;
+			})
+			.catch((e) => {
+				this.#exportProfilesLoading = null; // try again next time
+				throw e;
+			});
+		return this.#exportProfilesLoading;
+	}
+
 	async setActive(charId: Snowflake) {
 		this.activeCharacter = await this.#api.characters.get(charId);
 	}
@@ -202,10 +221,14 @@ class CharacterStore {
 	}
 
 	/** Import cards in bulk. */
-	async import(cards: Blob[], reloadList: boolean = false): Promise<ImportResult[]> {
+	async import(
+		cards: Blob[],
+		reloadList: boolean = false,
+		options: ImportOptions = {}
+	): Promise<ImportResult[]> {
 		const results: ImportResult[] = [];
 		for (const batch of batchBySize(cards, MAX_IMPORT_BATCH_BYTES)) {
-			const response = await this.#api.characters.importBatch(batch);
+			const response = await this.#api.characters.importBatch(batch, options);
 			results.push(...response.results);
 		}
 		if (reloadList) await this.loadList();
