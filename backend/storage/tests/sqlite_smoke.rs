@@ -3,10 +3,11 @@
 use std::collections::HashMap;
 
 use chrono::{Duration, Utc};
-use lorealm_storage::backends::SqliteStorage;
+use lorealm_storage::backends::{MemoryStorage, SqliteStorage};
 use lorealm_storage::models::*;
 use lorealm_storage::{
-    ConversationStorage, PermissionStorage, PluginStorage, SessionStorage, StorageCore,
+    ConversationStorage, PermissionStorage, PersonaStorage, PluginStorage, SessionStorage,
+    StorageCore,
     UserStorage, UserToolStorage, WeaverStateStorage,
 };
 
@@ -915,4 +916,31 @@ async fn role_members_lists_holders_oldest_first() {
         .map(|u| u.id)
         .collect();
     assert_eq!(members, vec![first, second]);
+}
+
+/// Saving an existing persona must update its name along with the other fields.
+async fn assert_persona_rename_persists(s: &dyn PersonaStorage, user_id: Snowflake) {
+    let mut persona = UserPersona {
+        id: Snowflake(7_300_000_000_000_000_500),
+        user_id,
+        name: "Before".into(),
+        display_name: None,
+        pseudonym: None,
+        avatar_uri: None,
+        description: None,
+        updated_at: Utc::now(),
+    };
+    s.save_persona(persona.clone()).await.unwrap();
+    persona.name = "After".into();
+    s.save_persona(persona.clone()).await.unwrap();
+    let saved = s.get_persona(persona.id).await.unwrap().unwrap();
+    assert_eq!(saved.name, "After");
+}
+
+#[tokio::test]
+async fn persona_rename_persists() {
+    let s = db().await;
+    let user = a_user(&s, 50).await;
+    assert_persona_rename_persists(&s, user).await;
+    assert_persona_rename_persists(&MemoryStorage::new(), user).await;
 }

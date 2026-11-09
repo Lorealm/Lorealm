@@ -155,6 +155,7 @@ import type {
 	Role,
 	UpdateRoleRequest
 } from '$lib/types/permissions.js';
+import type { TransferFile, TransferImportResponse, TransferKind } from '$lib/types/transfer.js';
 import type { StatusCodes } from 'http-status-codes';
 
 /**
@@ -513,6 +514,12 @@ export function createApiClient(platform: PlatformAPI) {
 			toggle: (widget_id: Snowflake, enabled: boolean) =>
 				http.patch(`/api/v1/widgets/${widget_id}`, { enabled }),
 			delete: (widget_id: Snowflake) => http.delete(`/api/v1/widgets/${widget_id}`)
+		},
+		transfer: {
+			export: (kind: TransferKind, id: Snowflake) =>
+				http.get<TransferFile>(`/api/v1/transfer/export/${kind}/${id}`),
+			import: (file: TransferFile) =>
+				http.post<TransferImportResponse>('/api/v1/transfer/import', file)
 		},
 		tokenizers: {
 			list: () => http.get<Array<Tokenizer>>('/api/v1/tokenizers'),

@@ -3,6 +3,8 @@
 	import { navigator } from '$lib/navigation/navigator.js';
 	import type { StudioSection } from '$lib/navigation/routes.js';
 	import { realmStore } from '$lib/stores/realm.svelte.js';
+	import { importFiles } from '$lib/stores/transfer.js';
+	import { Upload } from '@lucide/svelte';
 
 	let { section }: { section: StudioSection } = $props();
 
@@ -11,6 +13,15 @@
 	const realms = $derived(realmStore.summaries);
 
 	const activeRealmExists = $derived(selectedWorld !== 'None');
+
+	let inputEl: HTMLInputElement;
+
+	function onPick(e: Event) {
+		const input = e.currentTarget as HTMLInputElement;
+		const files = Array.from(input.files ?? []);
+		input.value = '';
+		if (files.length > 0) void importFiles(files);
+	}
 
 	const sections: Array<{ id: StudioSection; go: () => void }> = [
 		{ id: 'realm', go: () => navigator.start().studio().realm() },
@@ -39,6 +50,19 @@
 			</button>
 		{/if}
 	{/each}
+	<input
+		bind:this={inputEl}
+		type="file"
+		multiple
+		accept="image/png,.png,application/json,.json"
+		onchange={onPick}
+		hidden
+		style="display:none"
+	/>
+	<button class="tab import" onclick={() => inputEl.click()}>
+		<Upload size={16} />
+		Import
+	</button>
 </nav>
 
 <style>
@@ -57,6 +81,9 @@
 		border: 1px solid transparent;
 		background: none;
 		cursor: pointer;
+	}
+	.import {
+		margin-left: auto;
 	}
 	.tab.active {
 		border-color: currentColor;

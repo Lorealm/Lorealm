@@ -3,6 +3,7 @@
 	import { navigator } from '$lib/navigation/navigator.js';
 	import { toolStore } from '$lib/stores/tools.svelte.js';
 	import { userWidgetStore } from '$lib/stores/userWidgets.svelte.js';
+	import { exportItem } from '$lib/stores/transfer.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import type { WidgetMode, WidgetPlacement } from '$lib/types/widgets.js';
 	import { onDestroy } from 'svelte';
@@ -258,6 +259,13 @@ ${'</'}script>
 			<div class="pane">
 				<div class="pane-head">
 					<h1>Edit widget</h1>
+					<button
+						type="button"
+						class="export"
+						onclick={() => exportItem('widget', selected.id, selected.name)}
+					>
+						Export
+					</button>
 					<button
 						type="button"
 						class="delete"
@@ -531,6 +539,12 @@ ${'</'}script>
 	.empty-pane {
 		align-items: center;
 		justify-content: center;
+	}
+	.export {
+		flex: 0 0 auto;
+		margin-left: auto;
+		padding: var(--spacing-xs) var(--spacing-sm);
+		font-size: var(--font-size-sm);
 	}
 	.delete {
 		flex: 0 0 auto;

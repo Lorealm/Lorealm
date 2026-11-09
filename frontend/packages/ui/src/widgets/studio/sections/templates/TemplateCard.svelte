@@ -3,7 +3,8 @@
 	import { navigator } from '$lib/navigation/navigator.js';
 	import { templateStore } from '$lib/stores/template.svelte.js';
 	import type { TemplateMetadata } from '$lib/types/template.js';
-	import { Check, Layers, Pencil, Trash2 } from '@lucide/svelte';
+	import { Check, Download, Layers, Pencil, Trash2 } from '@lucide/svelte';
+	import { exportItem } from '$lib/stores/transfer.js';
 	import { relativeTime } from '$lib/assets/scripts/datetime.js';
 
 	let { meta }: { meta: TemplateMetadata } = $props();
@@ -82,6 +83,15 @@
 			<button type="button" onclick={() => navigator.start().studio().templates(meta.id)}>
 				<Pencil size={14} />
 				Edit
+			</button>
+			<button
+				type="button"
+				class="export"
+				{@attach tooltip('Export template')}
+				aria-label={`Export ${meta.name}`}
+				onclick={() => exportItem('template', meta.id, meta.name)}
+			>
+				<Download size={14} />
 			</button>
 			<button
 				type="button"
@@ -198,6 +208,7 @@
 		color: var(--color-success-text);
 		opacity: 1;
 	}
+	.export,
 	.del {
 		flex: 0 0 auto;
 		background-color: transparent;

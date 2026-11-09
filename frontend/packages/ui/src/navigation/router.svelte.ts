@@ -23,7 +23,7 @@ class Router {
 	#fallback: Route | null = null;
 
 	/** Sections to return to when a destination names a view but not a section. */
-	#studioSection: StudioSection = 'lorebooks';
+	#studioSection: StudioSection = 'characters';
 	#settingsScope: 'user' | 'server' = 'user';
 	#userSection: UserSection = 'profile';
 	#serverSection: ServerSection = 'hosting';
