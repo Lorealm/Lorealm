@@ -22,7 +22,7 @@ use crate::{
         dto::{AvatarUpdateResponse, CharacterEdit, CreateCharacterRequest, ImportCharResponse},
         types::ImportResult,
     },
-    services::permission::Permissions,
+    services::{character::AttachmentKind, permission::Permissions},
 };
 
 pub async fn list_characters(
@@ -178,7 +178,32 @@ pub async fn edit_character(
             }
             CharacterEdit::SetWidgets { widget_ids } => {
                 char_service
-                    .set_widgets(character_id, session.user_id, widget_ids)
+                    .set_attachments(
+                        character_id,
+                        session.user_id,
+                        AttachmentKind::Widget,
+                        widget_ids,
+                    )
+                    .await?
+            }
+            CharacterEdit::SetLorebooks { lorebook_ids } => {
+                char_service
+                    .set_attachments(
+                        character_id,
+                        session.user_id,
+                        AttachmentKind::Lorebook,
+                        lorebook_ids,
+                    )
+                    .await?
+            }
+            CharacterEdit::SetTools { tool_ids } => {
+                char_service
+                    .set_attachments(
+                        character_id,
+                        session.user_id,
+                        AttachmentKind::Tool,
+                        tool_ids,
+                    )
                     .await?
             }
         };
@@ -364,6 +389,59 @@ pub async fn import_card_multipart(
     }
 
     Ok(Json(ImportCharResponse { results }))
+}
+
+/// Copy one of the character's attachments and point the character at the copy
+pub async fn duplicate_attachment(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(character_id): Path<Snowflake>,
+    Json(request): Json<super::dto::DuplicateAttachmentRequest>,
+) -> Result<Json<super::dto::DuplicateAttachmentResponse>, AppError> {
+    let services = state.services();
+    let characters = services.characters();
+    let user_id = session.user_id;
+
+    let latest = characters.get_latest_version_id(character_id).await?;
+    let mut character = characters
+        .load_version(character_id, latest, user_id)
+        .await?;
+    if !request.kind.ids_mut(&mut character).contains(&request.id) {
+        return Err(CharacterError::NotFound(request.kind.target(), request.id).into());
+    }
+
+    let new_id = match request.kind {
+        AttachmentKind::Lorebook => {
+            services
+                .lorebooks()
+                .duplicate_lorebook(request.id, user_id)
+                .await?
+                .id
+        }
+        AttachmentKind::Tool => {
+            services
+                .tools()
+                .duplicate_tool(request.id, user_id)
+                .await?
+                .id
+        }
+        AttachmentKind::Widget => {
+            services
+                .widgets()
+                .duplicate_widget(request.id, user_id)
+                .await?
+                .id
+        }
+    };
+
+    let character = characters
+        .replace_attachment(character_id, user_id, request.kind, request.id, new_id)
+        .await?;
+
+    Ok(Json(super::dto::DuplicateAttachmentResponse {
+        character,
+        new_id,
+    }))
 }
 
 /// Delete a character and every chat that uses it.

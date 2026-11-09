@@ -12,7 +12,14 @@ pub struct Character {
 
     pub metadata: CharacterMetadata,
     pub definition: CharacterDefinition,
-    pub lorebook_id: Option<Snowflake>,
+    /// Attached lorebooks in order; the first is the character's main one
+    /// (the one a single-lorebook export like SillyTavern's carries).
+    #[serde(default)]
+    pub lorebook_ids: Vec<Snowflake>,
+    /// Attached tools, available in this character's chats even when they are
+    /// switched off globally.
+    #[serde(default)]
+    pub tool_ids: Vec<Snowflake>,
     #[serde(default)]
     pub widget_ids: Vec<Snowflake>,
 
@@ -78,6 +85,5 @@ pub struct CharacterSummary {
     pub tags: Vec<String>,
     pub avatar_uri: Option<String>,
     pub card_version: String,
-    pub lorebook_id: Option<Snowflake>,
     pub updated_at: DateTime<Utc>,
 }

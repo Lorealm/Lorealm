@@ -2,6 +2,7 @@ import { extractError } from '$lib/types/error.js';
 import { useApi } from '$lib/api/client.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type {
+	AttachmentKind,
 	Character,
 	CharacterEdit,
 	CharacterSummary,
@@ -51,8 +52,16 @@ export interface CharacterDraft {
 	template_injection: string;
 	greetings: DraftGreeting[];
 	examples: DraftExample[];
+	lorebook_ids: Snowflake[];
+	tool_ids: Snowflake[];
 	widget_ids: Snowflake[];
 }
+
+const ATTACHMENT_FIELD = {
+	lorebook: 'lorebook_ids',
+	tool: 'tool_ids',
+	widget: 'widget_ids'
+} as const satisfies Record<AttachmentKind, keyof CharacterDraft>;
 
 class CharacterStore {
 	metadataList = $state<Array<CharacterSummary>>([]);
@@ -87,9 +96,6 @@ class CharacterStore {
 		return this._draft?.id ?? null;
 	}
 	/** Lorebook attached to the character */
-	get lorebookId(): Snowflake | undefined {
-		return this.#baseline?.lorebook_id;
-	}
 	get hasUnsavedChanges(): boolean {
 		return this.#diffEdits().length > 0;
 	}
@@ -226,18 +232,39 @@ class CharacterStore {
 		swap(this._draft?.examples, index, index + dir);
 	}
 
-	isWidgetAttached(id: Snowflake): boolean {
-		return this._draft?.widget_ids.includes(id) ?? false;
+	attached(kind: AttachmentKind): Snowflake[] {
+		return this._draft?.[ATTACHMENT_FIELD[kind]] ?? [];
 	}
-	toggleWidget(id: Snowflake) {
+	isAttached(kind: AttachmentKind, id: Snowflake): boolean {
+		return this.attached(kind).includes(id);
+	}
+	toggleAttachment(kind: AttachmentKind, id: Snowflake) {
 		const draft = this._draft;
 		if (!draft) return;
-		const at = draft.widget_ids.indexOf(id);
-		if (at === -1) draft.widget_ids.push(id);
-		else draft.widget_ids.splice(at, 1);
+		const list = draft[ATTACHMENT_FIELD[kind]];
+		const at = list.indexOf(id);
+		if (at === -1) list.push(id);
+		else list.splice(at, 1);
 	}
-	moveWidget(index: number, dir: -1 | 1) {
-		swap(this._draft?.widget_ids, index, index + dir);
+	moveAttachment(kind: AttachmentKind, index: number, dir: -1 | 1) {
+		swap(this._draft?.[ATTACHMENT_FIELD[kind]], index, index + dir);
+	}
+
+	async duplicateAttachment(kind: AttachmentKind, id: Snowflake): Promise<Snowflake> {
+		const charId = this.editingId;
+		if (!charId) throw new Error('No character is being edited');
+
+		while (this.#saving) await new Promise((r) => setTimeout(r, 50));
+		if (this.hasUnsavedChanges) await this.save(true);
+
+		const { character, new_id } = await this.#api.characters.duplicateAttachment(charId, kind, id);
+		if (this.editingId !== charId) return new_id; // session moved on meanwhile
+
+		this.#baseline = character;
+		const list = this._draft?.[ATTACHMENT_FIELD[kind]];
+		const at = list?.indexOf(id) ?? -1;
+		if (list && at !== -1) list[at] = new_id;
+		return new_id;
 	}
 
 	#diffEdits(): CharacterEdit[] {
@@ -320,6 +347,8 @@ function buildDraft(base: Character): CharacterDraft {
 		template_injection: base.definition.template_injection ?? '',
 		greetings: orderedGreetings(base).map((g) => ({ id: g.id, text: g.text })),
 		examples: orderedExamples(base).map((e) => ({ id: e.id, content: e.content })),
+		lorebook_ids: [...(base.lorebook_ids ?? [])],
+		tool_ids: [...(base.tool_ids ?? [])],
 		widget_ids: [...(base.widget_ids ?? [])]
 	};
 }
@@ -373,6 +402,10 @@ function diffCharacter(
 		edits.push({ op: 'set_alt_names', alt_names: [...draft.alt_names] });
 	if (!arrayEq(draft.widget_ids, base.widget_ids ?? []))
 		edits.push({ op: 'set_widgets', widget_ids: [...draft.widget_ids] });
+	if (!arrayEq(draft.lorebook_ids, base.lorebook_ids ?? []))
+		edits.push({ op: 'set_lorebooks', lorebook_ids: [...draft.lorebook_ids] });
+	if (!arrayEq(draft.tool_ids, base.tool_ids ?? []))
+		edits.push({ op: 'set_tools', tool_ids: [...draft.tool_ids] });
 
 	// greetings
 	diffList(

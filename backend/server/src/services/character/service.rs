@@ -1,3 +1,4 @@
+use crate::services::character::AttachmentKind;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
@@ -77,7 +78,8 @@ impl CharacterService {
                 name,
                 ..Default::default()
             },
-            lorebook_id: None,
+            lorebook_ids: Vec::new(),
+            tool_ids: Vec::new(),
             widget_ids: Vec::new(),
             extensions: serde_json::Value::Null,
         };
@@ -533,38 +535,77 @@ impl CharacterService {
         Ok(char.character)
     }
 
-    /// Replace the character's attached widgets. Ids are resolved against the
-    /// caller's own widgets, de-duplicated, and stored in the order given.
-    pub async fn set_widgets(
+    /// Replace one kind of attachment on the character. Ids are checked against
+    /// the caller's own resources, de-duplicated, and stored in the order given.
+    pub async fn set_attachments(
         &self,
         character_id: Snowflake,
         user_id: Snowflake,
-        widget_ids: Vec<Snowflake>,
+        kind: AttachmentKind,
+        ids: Vec<Snowflake>,
     ) -> Result<Character, CharacterError> {
-        let mut resolved: Vec<Snowflake> = Vec::with_capacity(widget_ids.len());
-        for id in widget_ids {
+        let mut resolved: Vec<Snowflake> = Vec::with_capacity(ids.len());
+        for id in ids {
             if resolved.contains(&id) {
                 continue;
             }
-            let widget = self
-                .storage
-                .get_widget(id)
-                .await?
-                .ok_or(CharacterError::NotFound(TargetType::UserWidget, id))?;
-            if widget.user_id != user_id {
-                return Err(CharacterError::NotOwned(id));
-            }
+            self.check_attachable(user_id, kind, id).await?;
             resolved.push(id);
         }
 
         let mut char = self.get_character_for_edit(character_id, user_id).await?;
-        char.character.widget_ids = resolved;
+        *kind.ids_mut(&mut char.character) = resolved;
 
         self.storage
             .save_character(&char.character, char.save_mode)
             .await?;
 
         Ok(char.character)
+    }
+
+    /// Replaces an attachement with another. Used when duplicating character
+    /// attachements.
+    pub async fn replace_attachment(
+        &self,
+        character_id: Snowflake,
+        user_id: Snowflake,
+        kind: AttachmentKind,
+        old: Snowflake,
+        new: Snowflake,
+    ) -> Result<Character, CharacterError> {
+        self.check_attachable(user_id, kind, new).await?;
+
+        let mut char = self.get_character_for_edit(character_id, user_id).await?;
+        let ids = kind.ids_mut(&mut char.character);
+        let Some(slot) = ids.iter().position(|id| *id == old) else {
+            return Err(CharacterError::NotFound(kind.target(), old));
+        };
+        ids[slot] = new;
+        ids.dedup();
+
+        self.storage
+            .save_character(&char.character, char.save_mode)
+            .await?;
+
+        Ok(char.character)
+    }
+
+    /// The resource exists and belongs to `user_id`.
+    async fn check_attachable(
+        &self,
+        user_id: Snowflake,
+        kind: AttachmentKind,
+        id: Snowflake,
+    ) -> Result<(), CharacterError> {
+        let owner = match kind {
+            AttachmentKind::Lorebook => self.storage.get_lorebook(id).await?.map(|l| l.owner_id),
+            AttachmentKind::Tool => self.storage.get_tool(id).await?.map(|t| t.user_id),
+            AttachmentKind::Widget => self.storage.get_widget(id).await?.map(|w| w.user_id),
+        };
+        match owner {
+            Some(owner) if owner == user_id => Ok(()),
+            _ => Err(CharacterError::NotFound(kind.target(), id)),
+        }
     }
 
     pub async fn set_alt_names(

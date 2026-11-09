@@ -221,7 +221,8 @@ impl Harness {
                 description: format!("{name} the regent."),
                 ..Default::default()
             },
-            lorebook_id: None,
+            lorebook_ids: Vec::new(),
+            tool_ids: Vec::new(),
             widget_ids: Vec::new(),
             extensions: serde_json::json!({}),
         };

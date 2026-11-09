@@ -55,6 +55,9 @@ impl UserWidgetStorage for MemoryStorage {
 
     async fn delete_widget(&self, id: Snowflake) -> Result<(), StorageError> {
         self.user_widgets.write().await.remove(&id);
+        for c in self.characters.write().await.values_mut() {
+            c.widget_ids.retain(|w| *w != id);
+        }
         Ok(())
     }
 }

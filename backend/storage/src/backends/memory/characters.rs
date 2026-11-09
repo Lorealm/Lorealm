@@ -35,7 +35,6 @@ impl CharacterStorage for MemoryStorage {
                 tags: o.1.metadata.tags.clone(),
                 avatar_uri: o.1.metadata.avatar_uri.clone(),
                 card_version: o.1.metadata.card_version.clone(),
-                lorebook_id: o.1.lorebook_id,
                 updated_at: o.1.metadata.updated_at,
             })
             .collect();
@@ -64,6 +63,8 @@ impl CharacterStorage for MemoryStorage {
         };
 
         if let Some(head) = self.characters.read().await.get(&c.id) {
+            c.lorebook_ids = head.lorebook_ids.clone();
+            c.tool_ids = head.tool_ids.clone();
             c.widget_ids = head.widget_ids.clone();
         }
 

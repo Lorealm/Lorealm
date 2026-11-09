@@ -74,6 +74,24 @@ impl UserWidgetService {
         Ok(widget)
     }
 
+    pub async fn duplicate_widget(
+        &self,
+        id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<UserWidget, UserWidgetError> {
+        let original = self.get_widget(id, user_id).await?;
+        let copy = UserWidget {
+            id: self.snowflake.generate(),
+            name: format!("{} (copy)", original.name),
+            enabled: false,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            ..original
+        };
+        self.storage.save_widget(copy.clone()).await?;
+        Ok(copy)
+    }
+
     pub async fn list_widgets(
         &self,
         user_id: Snowflake,

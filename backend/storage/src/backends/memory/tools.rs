@@ -52,6 +52,9 @@ impl UserToolStorage for MemoryStorage {
 
     async fn delete_tool(&self, id: Snowflake) -> Result<(), StorageError> {
         self.user_tools.write().await.remove(&id);
+        for c in self.characters.write().await.values_mut() {
+            c.tool_ids.retain(|t| *t != id);
+        }
         Ok(())
     }
 }

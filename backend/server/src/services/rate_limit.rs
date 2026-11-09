@@ -132,7 +132,6 @@ impl AuthRateLimits {
         config.enabled.then_some(config)
     }
 
-    
     pub fn login_attempt(&self, ip: Option<IpAddr>, account: &str) -> Result<(), AuthError> {
         let Some(config) = self.config() else {
             return Ok(());

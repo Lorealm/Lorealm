@@ -185,14 +185,21 @@ impl WorldInfoResolver {
                 .unwrap_or_default(),
         };
 
-        if let Some(book_id) = ctx.character.and_then(|c| c.lorebook_id)
-            && !lorebooks.iter().any(|b| b.id == book_id)
-        {
-            lorebooks.extend(
-                self.state
-                    .get_lorebooks_by_ids(ctx.user_id, &[book_id])
-                    .await?,
-            );
+        // The character's own lorebooks join whatever is active, once each.
+        if let Some(character) = ctx.character {
+            let missing: Vec<Snowflake> = character
+                .lorebook_ids
+                .iter()
+                .copied()
+                .filter(|id| !lorebooks.iter().any(|b| b.id == *id))
+                .collect();
+            if !missing.is_empty() {
+                lorebooks.extend(
+                    self.state
+                        .get_lorebooks_by_ids(ctx.user_id, &missing)
+                        .await?,
+                );
+            }
         }
 
         // Init with the first book, stack the rest. No active books -> every slot empty.

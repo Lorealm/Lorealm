@@ -1,6 +1,7 @@
 //! Tests that need a real service graph.
 
 mod accounts;
+mod attachments;
 mod blueprints;
 mod connections;
 mod harness;

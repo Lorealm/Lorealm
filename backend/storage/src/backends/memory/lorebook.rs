@@ -93,6 +93,9 @@ impl LorebookStorage for MemoryStorage {
                 .write()
                 .await
                 .retain(|_, v| v.lorebook_id != id);
+            for c in self.characters.write().await.values_mut() {
+                c.lorebook_ids.retain(|l| *l != id);
+            }
         }
         Ok(removed)
     }

@@ -1,6 +1,8 @@
 import type { PlatformAPI } from '$lib/core/api.js';
 import type { LoginRequest, Session } from '$lib/types/auth.js';
 import type {
+	AttachmentKind,
+	DuplicateAttachmentResponse,
 	AvatarUpdateResponse,
 	Character,
 	CharacterEdit,
@@ -260,6 +262,12 @@ export function createApiClient(platform: PlatformAPI) {
 			 */
 			update: (characterId: Snowflake, edit: CharacterEdit[]) =>
 				http.put<Character>(`/api/v1/characters/${characterId}`, edit),
+			/** Copies an attachment and points the character at the copy. */
+			duplicateAttachment: (characterId: Snowflake, kind: AttachmentKind, id: Snowflake) =>
+				http.post<DuplicateAttachmentResponse>(
+					`/api/v1/characters/${characterId}/attachments/duplicate`,
+					{ kind, id }
+				),
 			/** Deletes the character and every chat that uses it. */
 			delete: (characterId: Snowflake) => http.delete(`/api/v1/characters/${characterId}`),
 			avatar: (characterId: Snowflake) => http.getBlob(`/api/v1/characters/${characterId}/image`),

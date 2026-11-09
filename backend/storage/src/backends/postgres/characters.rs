@@ -20,7 +20,6 @@ impl CharacterStorage for PostgresStorage {
             SELECT
                 c.id,
                 c.user_id,
-                c.lorebook_id,
                 c.updated_at,
                 COALESCE(v.snapshot->'definition'->>'name', '')       AS name,
                 v.snapshot->'metadata'->>'display_name'               AS display_name,
@@ -46,7 +45,7 @@ impl CharacterStorage for PostgresStorage {
     async fn get_character(&self, id: Snowflake) -> Result<Option<Character>, StorageError> {
         let head: Option<CharacterHeadRow> = sqlx::query_as(
             r#"
-            SELECT c.id, c.user_id, c.current_version_id, c.lorebook_id,
+            SELECT c.id, c.user_id, c.current_version_id,
                    c.extensions, c.created_at, c.updated_at,
                    v.snapshot
             FROM characters c
@@ -63,11 +62,14 @@ impl CharacterStorage for PostgresStorage {
         let tags = fetch_tags(&self.pool, id).await?;
         let greetings = fetch_greetings(&self.pool, id).await?;
         let examples = fetch_examples(&self.pool, id).await?;
-        let widgets = fetch_widgets(&self.pool, id).await?;
+        let attachments = fetch_attachments(&self.pool, id).await?;
 
-        Ok(Some(
-            row.into_character(tags, greetings, examples, widgets)?,
-        ))
+        Ok(Some(row.into_character(
+            tags,
+            greetings,
+            examples,
+            attachments,
+        )?))
     }
 
     async fn get_character_at_version(
@@ -78,7 +80,7 @@ impl CharacterStorage for PostgresStorage {
         let row: Option<CharacterVersionRow> = sqlx::query_as(
             r#"
             SELECT v.id AS version_id, v.character_id, v.snapshot,
-                   c.user_id, c.lorebook_id, c.extensions
+                   c.user_id, c.extensions
             FROM character_versions v
             JOIN characters c ON c.id = v.character_id
             WHERE v.character_id = $1 AND v.id = $2
@@ -93,9 +95,9 @@ impl CharacterStorage for PostgresStorage {
 
         // Attachments live on the head, so an older version still reports the
         // character's current widget set.
-        let widgets = fetch_widgets(&self.pool, row.character_id).await?;
+        let attachments = fetch_attachments(&self.pool, row.character_id).await?;
 
-        Ok(Some(row.into_character(widgets)?))
+        Ok(Some(row.into_character(attachments)?))
     }
 
     async fn list_characters_by_owner(
@@ -104,7 +106,7 @@ impl CharacterStorage for PostgresStorage {
     ) -> Result<Vec<Character>, StorageError> {
         let rows: Vec<CharacterHeadRow> = sqlx::query_as(
             r#"
-            SELECT c.id, c.user_id, c.current_version_id, c.lorebook_id,
+            SELECT c.id, c.user_id, c.current_version_id,
                    c.extensions, c.created_at, c.updated_at,
                    v.snapshot
             FROM characters c
@@ -123,8 +125,8 @@ impl CharacterStorage for PostgresStorage {
             let tags = fetch_tags(&self.pool, id).await?;
             let greetings = fetch_greetings(&self.pool, id).await?;
             let examples = fetch_examples(&self.pool, id).await?;
-            let widgets = fetch_widgets(&self.pool, id).await?;
-            out.push(row.into_character(tags, greetings, examples, widgets)?);
+            let attachments = fetch_attachments(&self.pool, id).await?;
+            out.push(row.into_character(tags, greetings, examples, attachments)?);
         }
         Ok(out)
     }
@@ -144,12 +146,11 @@ impl CharacterStorage for PostgresStorage {
         sqlx::query(
             r#"
             INSERT INTO characters
-                (id, user_id, current_version_id, lorebook_id, extensions,
+                (id, user_id, current_version_id, extensions,
                  created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, now(), now())
+            VALUES ($1, $2, $3, $4, now(), now())
             ON CONFLICT (id) DO UPDATE SET
                 current_version_id = EXCLUDED.current_version_id,
-                lorebook_id = EXCLUDED.lorebook_id,
                 extensions = EXCLUDED.extensions,
                 updated_at = now()
             "#,
@@ -157,7 +158,6 @@ impl CharacterStorage for PostgresStorage {
         .bind(character.id)
         .bind(character.user_id)
         .bind(character.current_version_id)
-        .bind(character.lorebook_id)
         .bind(&character.extensions)
         .execute(&mut *tx)
         .await?;
@@ -231,23 +231,30 @@ impl CharacterStorage for PostgresStorage {
                 .await?;
         }
 
-        sqlx::query("DELETE FROM character_widgets WHERE character_id = $1")
-            .bind(character.id)
-            .execute(&mut *tx)
-            .await?;
+        for (table, column, ids) in [
+            (
+                "character_lorebooks",
+                "lorebook_id",
+                &character.lorebook_ids,
+            ),
+            ("character_tools", "tool_id", &character.tool_ids),
+            ("character_widgets", "widget_id", &character.widget_ids),
+        ] {
+            sqlx::query(&format!("DELETE FROM {table} WHERE character_id = $1"))
+                .bind(character.id)
+                .execute(&mut *tx)
+                .await?;
 
-        for (position, widget_id) in character.widget_ids.iter().enumerate() {
-            sqlx::query(
-                r#"
-                INSERT INTO character_widgets (character_id, widget_id, position)
-                VALUES ($1, $2, $3)
-                "#,
-            )
-            .bind(character.id)
-            .bind(widget_id)
-            .bind(position as i32)
-            .execute(&mut *tx)
-            .await?;
+            for (position, id) in ids.iter().enumerate() {
+                sqlx::query(&format!(
+                    r#"INSERT INTO {table} (character_id, {column}, "position") VALUES ($1, $2, $3)"#
+                ))
+                .bind(character.id)
+                .bind(id)
+                .bind(position as i32)
+                .execute(&mut *tx)
+                .await?;
+            }
         }
 
         sqlx::query("DELETE FROM character_greetings WHERE character_id = $1")
@@ -364,7 +371,6 @@ struct CharacterHeadRow {
     id: Snowflake,
     user_id: Snowflake,
     current_version_id: Snowflake,
-    lorebook_id: Option<Snowflake>,
     extensions: serde_json::Value,
     #[allow(dead_code)]
     created_at: DateTime<Utc>,
@@ -379,7 +385,7 @@ impl CharacterHeadRow {
         tags: Vec<String>,
         greetings: Vec<Greeting>,
         example_messages: Vec<ExampleDialogue>,
-        widget_ids: Vec<Snowflake>,
+        attachments: Attachments,
     ) -> Result<Character, StorageError> {
         let snap: PersistedSnapshot = serde_json::from_value(self.snapshot)?;
 
@@ -394,8 +400,9 @@ impl CharacterHeadRow {
             id: self.id,
             user_id: self.user_id,
             current_version_id: self.current_version_id,
-            lorebook_id: self.lorebook_id,
-            widget_ids,
+            lorebook_ids: attachments.lorebooks,
+            tool_ids: attachments.tools,
+            widget_ids: attachments.widgets,
             extensions: self.extensions,
             metadata,
             definition,
@@ -408,21 +415,21 @@ struct CharacterVersionRow {
     version_id: Snowflake,
     character_id: Snowflake,
     user_id: Snowflake,
-    lorebook_id: Option<Snowflake>,
     extensions: serde_json::Value,
     snapshot: serde_json::Value,
 }
 
 impl CharacterVersionRow {
-    fn into_character(self, widget_ids: Vec<Snowflake>) -> Result<Character, StorageError> {
+    fn into_character(self, attachments: Attachments) -> Result<Character, StorageError> {
         let snap: PersistedSnapshot = serde_json::from_value(self.snapshot)?;
 
         Ok(Character {
             id: self.character_id,
             user_id: self.user_id,
             current_version_id: self.version_id,
-            lorebook_id: self.lorebook_id,
-            widget_ids,
+            lorebook_ids: attachments.lorebooks,
+            tool_ids: attachments.tools,
+            widget_ids: attachments.widgets,
             extensions: self.extensions,
             metadata: snap.metadata,
             definition: snap.definition,
@@ -473,16 +480,48 @@ async fn fetch_tags(
     )
 }
 
-async fn fetch_widgets(
+/// A character's attachments.
+struct Attachments {
+    lorebooks: Vec<Snowflake>,
+    tools: Vec<Snowflake>,
+    widgets: Vec<Snowflake>,
+}
+
+async fn fetch_attachments(
     pool: &sqlx::PgPool,
     character_id: Snowflake,
-) -> Result<Vec<Snowflake>, StorageError> {
-    Ok(sqlx::query_scalar(
-        "SELECT widget_id FROM character_widgets WHERE character_id = $1 ORDER BY position ASC",
-    )
-    .bind(character_id)
-    .fetch_all(pool)
-    .await?)
+) -> Result<Attachments, StorageError> {
+    async fn ids(
+        pool: &sqlx::PgPool,
+        sql: &str,
+        character_id: Snowflake,
+    ) -> Result<Vec<Snowflake>, StorageError> {
+        Ok(sqlx::query_scalar(sql)
+            .bind(character_id)
+            .fetch_all(pool)
+            .await?)
+    }
+
+    Ok(Attachments {
+        lorebooks: ids(
+            pool,
+            r#"SELECT lorebook_id FROM character_lorebooks WHERE character_id = $1 ORDER BY "position""#,
+            character_id,
+        )
+        .await?,
+        tools: ids(
+            pool,
+            r#"SELECT tool_id FROM character_tools WHERE character_id = $1 ORDER BY "position""#,
+            character_id,
+        )
+        .await?,
+        widgets: ids(
+            pool,
+            r#"SELECT widget_id FROM character_widgets WHERE character_id = $1 ORDER BY "position""#,
+            character_id,
+        )
+        .await?,
+    })
 }
 
 #[derive(FromRow)]
