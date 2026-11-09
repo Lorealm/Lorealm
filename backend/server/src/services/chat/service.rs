@@ -740,17 +740,21 @@ impl ChatService {
         // "Use this user's active selections." A Realm agent supplies its own spec.
         let spec = self.active_spec(user_id, &convo).await?;
 
-        let attached = match spec.character {
+        let (attached_widgets, attached_tools) = match spec.character {
             Some((cid, cvid)) => {
-                self.characters
-                    .load_version(cid, cvid, user_id)
-                    .await?
-                    .widget_ids
+                let character = self.characters.load_version(cid, cvid, user_id).await?;
+                (character.widget_ids, character.tool_ids)
             }
-            None => Vec::new(),
+            None => (Vec::new(), Vec::new()),
         };
-        let (widget_prompts, widget_renders, widget_tools, attachments) =
-            self.active_widgets(user_id, &attached).await?;
+        let (widget_prompts, widget_renders, mut extra_tool_ids, attachments) =
+            self.active_widgets(user_id, &attached_widgets).await?;
+        // The character's own tools join whatever is enabled, like its widgets.
+        for id in attached_tools {
+            if !extra_tool_ids.contains(&id) {
+                extra_tool_ids.push(id);
+            }
+        }
 
         // Newest first
         let mut renderer = WidgetRenderer::new(&attachments, baseline.persistent.clone())
@@ -816,7 +820,7 @@ impl ChatService {
                 prompt,
                 Arc::clone(&state_pool),
                 &ToolPolicy {
-                    extra_tool_ids: widget_tools,
+                    extra_tool_ids,
                     attachments,
                     conversation: Some(convo_id),
                     cancel: Some(cancel.clone()),
@@ -1094,14 +1098,26 @@ impl ChatService {
             }
         }
 
-        // Widgets bundle their tools regardless of the selection above.
+        // Widgets and characters bundle their tools regardless of the selection above.
         for id in &policy.extra_tool_ids {
             if rows.iter().any(|r| r.id == *id) {
                 continue;
             }
             rows.push(match builtin_tool(*id) {
                 Some(tool) => tool,
-                None => self.tools.get_tool(*id, owner).await?,
+                None => match self.tools.get_tool(*id, owner).await {
+                    Ok(tool) => tool,
+                    // Deleted (or no longer the owner's) since it was attached:
+                    // the chat goes on without it.
+                    Err(
+                        crate::errors::UserToolError::NotFound(..)
+                        | crate::errors::UserToolError::NotOwned,
+                    ) => {
+                        tracing::warn!("skipping attached tool {id}: it no longer exists");
+                        continue;
+                    }
+                    Err(e) => return Err(e.into()),
+                },
             });
         }
 

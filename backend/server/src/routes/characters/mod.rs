@@ -42,6 +42,10 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         ));
     let session_permission_routes = Router::new()
         .route("/", post(handlers::create_character))
+        .route(
+            "/{character_id}/attachments/duplicate",
+            post(handlers::duplicate_attachment),
+        )
         .route("/import", put(handlers::import_card_blob))
         .route("/importBatch", put(handlers::import_card_multipart))
         .route(

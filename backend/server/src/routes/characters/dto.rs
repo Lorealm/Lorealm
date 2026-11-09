@@ -36,6 +36,20 @@ pub enum CharacterEdit {
     SetTags { tags: Vec<String> },
     SetAltNames { alt_names: Vec<String> },
     SetWidgets { widget_ids: Vec<Snowflake> },
+    SetLorebooks { lorebook_ids: Vec<Snowflake> },
+    SetTools { tool_ids: Vec<Snowflake> },
+}
+
+#[derive(Deserialize)]
+pub struct DuplicateAttachmentRequest {
+    pub kind: crate::services::character::AttachmentKind,
+    pub id: Snowflake,
+}
+
+#[derive(Serialize)]
+pub struct DuplicateAttachmentResponse {
+    pub character: lorealm_storage::models::Character,
+    pub new_id: Snowflake,
 }
 
 #[derive(Serialize)]

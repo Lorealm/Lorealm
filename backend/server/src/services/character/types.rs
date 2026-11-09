@@ -34,3 +34,33 @@ pub struct EditMetadata {
     )]
     pub display_name: Option<Option<String>>,
 }
+
+/// The kinds of resource a character can carry with it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AttachmentKind {
+    Lorebook,
+    Tool,
+    Widget,
+}
+
+impl AttachmentKind {
+    pub fn ids_mut(
+        self,
+        character: &mut lorealm_storage::models::Character,
+    ) -> &mut Vec<lorealm_storage::models::Snowflake> {
+        match self {
+            Self::Lorebook => &mut character.lorebook_ids,
+            Self::Tool => &mut character.tool_ids,
+            Self::Widget => &mut character.widget_ids,
+        }
+    }
+
+    pub fn target(self) -> crate::errors::TargetType {
+        match self {
+            Self::Lorebook => crate::errors::TargetType::Lorebook,
+            Self::Tool => crate::errors::TargetType::UserTool,
+            Self::Widget => crate::errors::TargetType::UserWidget,
+        }
+    }
+}

@@ -70,6 +70,48 @@ impl LorebookService {
         Ok(db_lorebook)
     }
 
+    /// Copy a lorebook with all its entries under a new id. The copy is not
+    /// added to the active set.
+    pub async fn duplicate_lorebook(
+        &self,
+        lorebook_id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<Lorebook, ContextError> {
+        let original = self.get_lorebook(lorebook_id, user_id).await?;
+        let id = self.snowflake_service.generate();
+        let name = format!("{} (copy)", original.name);
+
+        let mut config: context_weaver::LorebookConfig =
+            serde_yaml::from_str(&original.config_yaml)
+                .map_err(|e| ContextError::Lorebook(LorebookError::Yaml(e)))?;
+        config.name = name.clone();
+
+        let copy = Lorebook {
+            id,
+            owner_id: user_id,
+            current_version_id: id, // placeholder while versioning is dormant, as in weaver_to_db
+            name,
+            description: original.description,
+            config_yaml: serde_yaml::to_string(&config)
+                .map_err(|e| ContextError::Lorebook(LorebookError::Yaml(e)))?,
+            schema_version: original.schema_version,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            entries: original
+                .entries
+                .into_iter()
+                .map(|entry| LorebookEntry {
+                    id: self.snowflake_service.generate(),
+                    lorebook_id: id,
+                    ..entry
+                })
+                .collect(),
+        };
+
+        self.storage.save_lorebook(&copy).await?;
+        Ok(copy)
+    }
+
     pub async fn list_lorebooks(
         &self,
         user_id: Snowflake,

@@ -158,7 +158,12 @@ pub(super) fn convert_from_ccv2(
         id: snowflake.generate(),
         user_id: owner,
         current_version_id: snowflake.generate(),
-        lorebook_id: lorebook.as_ref().map(|(book, _)| book.id),
+        lorebook_ids: lorebook
+            .as_ref()
+            .map(|(book, _)| book.id)
+            .into_iter()
+            .collect(),
+        tool_ids: Vec::new(),
         widget_ids: Vec::new(),
         extensions,
         metadata: CharacterMetadata {

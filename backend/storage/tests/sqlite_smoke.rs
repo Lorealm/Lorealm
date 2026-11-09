@@ -641,7 +641,8 @@ fn a_character(id: i64, user: Snowflake, name: &str, tags: Vec<String>) -> Chara
             }],
             template_injection: "inj {{template}}".into(),
         },
-        lorebook_id: None,
+        lorebook_ids: vec![],
+        tool_ids: vec![],
         widget_ids: vec![],
         extensions: serde_json::json!({"x": 1}),
     }

@@ -8,7 +8,6 @@ export interface CharacterSummary {
 	tags: string[];
 	avatar_uri?: string;
 	card_version: string;
-	lorebook_id?: Snowflake;
 	updated_at: string;
 }
 
@@ -18,7 +17,10 @@ export interface Character {
 	current_version_id: Snowflake;
 	metadata: CharacterMetadata;
 	definition: CharacterDefinition;
-	lorebook_id?: Snowflake;
+	/** In order; the first is the main lorebook, used by single-lorebook exports. */
+	lorebook_ids: Snowflake[];
+	/** Available in this character's chats even when switched off globally. */
+	tool_ids: Snowflake[];
 	widget_ids: Snowflake[];
 	/** CCv3 round-trip preservation. Opaque JSON blob. */
 	extensions: unknown;
@@ -106,7 +108,17 @@ export type CharacterEdit =
 	// whole-list replace
 	| { op: 'set_tags'; tags: string[] }
 	| { op: 'set_alt_names'; alt_names: string[] }
-	| { op: 'set_widgets'; widget_ids: Snowflake[] };
+	| { op: 'set_widgets'; widget_ids: Snowflake[] }
+	| { op: 'set_lorebooks'; lorebook_ids: Snowflake[] }
+	| { op: 'set_tools'; tool_ids: Snowflake[] };
+
+export type AttachmentKind = 'lorebook' | 'tool' | 'widget';
+
+export interface DuplicateAttachmentResponse {
+	/** The character, now pointing at the copy. */
+	character: Character;
+	new_id: Snowflake;
+}
 
 export interface EditDefinition {
 	name?: string | null;

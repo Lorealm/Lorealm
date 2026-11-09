@@ -7,5 +7,5 @@ mod types;
 pub use builtin::*;
 pub use context::*;
 pub use events::*;
-pub use service::UserToolService;
+pub use service::*;
 pub use types::*;

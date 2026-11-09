@@ -47,6 +47,33 @@ impl UserToolService {
         Ok(tool)
     }
 
+    /// Copy a tool under a free name (`roll` becomes `roll_2`).
+    pub async fn duplicate_tool(
+        &self,
+        id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<UserTool, UserToolError> {
+        let original = self.get_tool(id, user_id).await?;
+        let taken: std::collections::HashSet<String> = self
+            .storage
+            .list_tools(user_id)
+            .await?
+            .into_iter()
+            .map(|t| t.name)
+            .collect();
+
+        let copy = UserTool {
+            id: self.snowflake.generate(),
+            name: unique_tool_name(&original.name, &taken),
+            enabled: false,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            ..original
+        };
+        self.storage.save_tool(copy.clone()).await?;
+        Ok(copy)
+    }
+
     pub async fn list_tools(&self, user_id: Snowflake) -> Result<Vec<UserTool>, UserToolError> {
         Ok(self.storage.list_tools(user_id).await?)
     }
@@ -197,6 +224,20 @@ impl UserToolService {
             .map(drop)
             .map_err(|errs| UserToolError::InvalidBody(describe_parse_errors(body, &errs)))
     }
+}
+
+pub fn unique_tool_name(base: &str, taken: &std::collections::HashSet<String>) -> String {
+    if !taken.contains(base) {
+        return base.to_owned();
+    }
+    (2u32..)
+        .map(|n| {
+            let suffix = format!("_{n}");
+            let keep = base.len().min(64 - suffix.len());
+            format!("{}{suffix}", &base[..keep])
+        })
+        .find(|candidate| !taken.contains(candidate))
+        .expect("an unbounded range always finds a free name")
 }
 
 #[cfg(test)]
