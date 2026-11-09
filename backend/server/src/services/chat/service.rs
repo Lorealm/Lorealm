@@ -54,6 +54,7 @@ use crate::{
             ATTACHMENT_TOOL_IDS, CompiledUserTool, ToolPolicy, ToolSignature, UserToolService,
             builtin_tool,
         },
+        user_widgets::builtin_widgets,
         variables::{VariableContext, VariableRegistry},
         weaver::{WeaverHost, WeaverProfile},
     },
@@ -489,6 +490,12 @@ impl ChatService {
         ChatError,
     > {
         let mut widgets = self.storage.list_enabled_widgets(user_id).await?;
+        let builtins: Vec<_> = builtin_widgets()
+            .iter()
+            .filter(|b| widgets.iter().all(|w| w.name != b.name))
+            .cloned()
+            .collect();
+        widgets.extend(builtins);
         for &id in attached {
             if widgets.iter().any(|w| w.id == id) {
                 continue;

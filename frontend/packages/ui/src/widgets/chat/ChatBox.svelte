@@ -8,6 +8,7 @@
 
 	onMount(() => {
 		if (!userWidgetStore.loadedWidgets) void userWidgetStore.loadWidgets();
+		if (!userWidgetStore.builtinWidgets) void userWidgetStore.loadBuiltins();
 		loadSetupState();
 	});
 

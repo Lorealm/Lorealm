@@ -18,6 +18,7 @@
 	import FieldShell from '$lib/components/FieldShell.svelte';
 	import ContextField from '$lib/components/ContextField.svelte';
 	import ListSidebar from '$lib/components/ListSidebar.svelte';
+	import Badge from '$lib/widgets/realms/Badge.svelte';
 
 	const SAVE_MS = 500;
 	const MAX_DEPTH = 3; // UI cap on array nesting
@@ -35,6 +36,7 @@
 
 	let query = $state('');
 	let sort = $state('name-asc');
+	let showBuiltins = $state(true);
 
 	function arrange(list: UserTool[]): UserTool[] {
 		const needle = query.trim().toLowerCase();
@@ -49,9 +51,8 @@
 		return out.sort((a, b) => a.name.localeCompare(b.name));
 	}
 
-	const shownTools = $derived(arrange(tools));
-	const shownBuiltins = $derived(arrange(builtins));
-	const noMatches = $derived(shownTools.length === 0 && shownBuiltins.length === 0);
+	const builtinIds = $derived(new Set(builtins.map((t) => t.id)));
+	const shownTools = $derived(arrange([...tools, ...(showBuiltins ? builtins : [])]));
 
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	function requestSave() {
@@ -100,7 +101,6 @@
 		return ty;
 	}
 
-	/** Whether `resource` can apply: the server rejects it on anything else. */
 	function nameable(p: Param): boolean {
 		const flat = flatten(p.ty);
 		return flat.base === 'string' && flat.depth === 0;
@@ -132,8 +132,6 @@
 
 	const CLIENT_COMMAND_NAMES = new Set(builtInSlashCommands.map((c) => c.name));
 
-	/** Every name a command of your own would take over: the client built-ins
-	 *  and the shipped command rows. */
 	const overridable = $derived(
 		new Set([
 			...CLIENT_COMMAND_NAMES,
@@ -141,15 +139,12 @@
 		])
 	);
 
-	/** A command taking one of those names replaces it, which is supported but
-	 *  worth saying out loud before someone loses /newchat by accident. */
 	const shadowed = $derived(
 		draft && draft.surface !== 'tool' && overridable.has(draft.name) && draft.name !== 'send'
 			? draft.name
 			: null
 	);
 
-	/** A shipped row you have not already taken over. */
 	const forkable = $derived(
 		readOnly && shown && !tools.some((t) => t.name === shown.name) ? shown : null
 	);
@@ -181,6 +176,7 @@
 		oncreate={newTool}
 		bind:query
 		bind:sort
+		bind:showBuiltins
 		sortOptions={[
 			{ value: 'name-asc', label: 'Name (A–Z)' },
 			{ value: 'name-desc', label: 'Name (Z–A)' },
@@ -197,7 +193,7 @@
 			{/if}
 		{/snippet}
 
-		{#if noMatches}
+		{#if shownTools.length === 0}
 			<p class="empty">{tools.length === 0 ? 'No tools yet.' : 'No tools match that search.'}</p>
 		{/if}
 		{#each shownTools as tool (tool.id)}
@@ -210,34 +206,22 @@
 						{/if}
 					</span>
 				</button>
-				<input
-					type="checkbox"
-					class="switch enable-toggle"
-					checked={tool.enabled}
-					onchange={() => toolStore.setEnabled(tool.id, !tool.enabled)}
-					{@attach tooltip(
-						tool.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'
-					)}
-					aria-label={tool.enabled ? `Disable ${tool.name}` : `Enable ${tool.name}`}
-				/>
+				{#if builtinIds.has(tool.id)}
+					<Badge>Built-in</Badge>
+				{:else}
+					<input
+						type="checkbox"
+						class="switch enable-toggle"
+						checked={tool.enabled}
+						onchange={() => toolStore.setEnabled(tool.id, !tool.enabled)}
+						{@attach tooltip(
+							tool.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'
+						)}
+						aria-label={tool.enabled ? `Disable ${tool.name}` : `Enable ${tool.name}`}
+					/>
+				{/if}
 			</div>
 		{/each}
-
-		{#if shownBuiltins.length > 0}
-			<p class="group-label">Built-in</p>
-			{#each shownBuiltins as tool (tool.id)}
-				<div class="tool-item" class:selected={tool.id === selectedId}>
-					<button class="tool-open" type="button" onclick={() => select(tool.id)}>
-						<span class="tool-text">
-							<span class="tool-name">{tool.name}</span>
-							{#if tool.display_name}
-								<span class="tool-sub">{tool.display_name}</span>
-							{/if}
-						</span>
-					</button>
-				</div>
-			{/each}
-		{/if}
 	</ListSidebar>
 
 	<section class="col-content">
@@ -524,14 +508,6 @@
 	}
 	.dot[data-status='error'] {
 		background-color: var(--color-error);
-	}
-	.group-label {
-		margin: var(--spacing-md) 0 var(--spacing-xs);
-		padding: 0 var(--spacing-sm);
-		color: var(--color-text-muted);
-		font-size: var(--font-size-xs);
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
 	}
 	.tool-item {
 		display: flex;

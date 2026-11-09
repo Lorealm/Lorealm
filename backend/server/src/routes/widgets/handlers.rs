@@ -11,8 +11,13 @@ use crate::{
     core::AppState,
     errors::AppError,
     extract::AuthenticatedSession,
-    services::user_widgets::{CreateUserWidget, UpdateUserWidget},
+    services::user_widgets::{CreateUserWidget, UpdateUserWidget, builtin_widgets},
 };
+
+/// Server-shipped builtin widgets
+pub async fn list_builtin_widgets(_session: AuthenticatedSession) -> Json<Vec<UserWidget>> {
+    Json(builtin_widgets().to_vec())
+}
 
 pub async fn list_widgets(
     State(app_state): State<Arc<AppState>>,

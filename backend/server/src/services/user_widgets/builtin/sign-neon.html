@@ -1,0 +1,33 @@
+<style>
+	body { margin: 0; padding: 4px 16px 16px; }
+	.neon {
+		--tube: #34e2e2;
+		width: fit-content;
+		max-width: 75%;
+		padding: var(--spacing-md) var(--spacing-xl);
+		background: #15131c;
+		border: 1px solid color-mix(in srgb, var(--tube) 40%, #15131c);
+		border-radius: var(--radius-md);
+		box-shadow: 0 0 12px color-mix(in srgb, var(--tube) 35%, transparent), var(--shadow-md);
+	}
+	.text {
+		font-family: var(--font-family-heading);
+		text-transform: uppercase;
+		letter-spacing: var(--letter-spacing-uppercase);
+		color: #fff;
+		text-shadow: 0 0 4px var(--tube), 0 0 10px var(--tube), 0 0 20px var(--tube);
+		animation: flicker 4s infinite;
+	}
+	@keyframes flicker { 0%, 92%, 100% { opacity: 1; } 93% { opacity: 0.7; } 95% { opacity: 1; } 96% { opacity: 0.85; } }
+</style>
+<div class="neon"><span class="text"></span></div>
+<script>
+addEventListener("message", (e) => {
+	if (e.data?.type !== "lorealm:props") return;
+	const { text, color } = e.data.props;
+	document.querySelector(".text").textContent = text == null ? "" : String(text);
+	if (/^#[0-9a-fA-F]{3,8}$/.test(color)) {
+		document.querySelector(".neon").style.setProperty("--tube", color);
+	}
+});
+</script>

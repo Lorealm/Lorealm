@@ -507,6 +507,7 @@ export function createApiClient(platform: PlatformAPI) {
 		},
 		userWidgets: {
 			list: () => http.get<Array<UserWidget>>('/api/v1/widgets'),
+			builtins: () => http.get<Array<UserWidget>>('/api/v1/widgets/builtin'),
 			get: (widget_id: Snowflake) => http.get<UserWidget>(`/api/v1/widgets/${widget_id}`),
 			create: (create: CreateUserWidgetRequest) => http.post<UserWidget>('/api/v1/widgets', create),
 			update: (widget_id: Snowflake, update: UpdateUserWidgetRequest) =>

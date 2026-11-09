@@ -1,32 +1,17 @@
-<script lang="ts">
-	import { str } from '../util.js';
-	let { props }: { props: Record<string, unknown> } = $props();
-</script>
-
-<div class="widget note-parchment">
-	{#if props.title}
-		<span class="title">{str(props.title)}</span>
-	{/if}
-	<div class="body">{str(props.content)}</div>
-</div>
-
 <style>
-	.note-parchment {
-		--ink: #4a3722;
+	body { margin: 0; padding: 4px 10px 12px; }
+	.parchment {
 		position: relative;
 		width: fit-content;
 		max-width: 75%;
 		padding: var(--spacing-lg) var(--spacing-md);
-		color: var(--ink);
+		color: #4a3722;
 		background: radial-gradient(120% 100% at 50% 0%, #f8efd8 0%, #f1e2c4 60%, #d8c098 100%);
 		border: 1px solid #b89b6c;
 		border-radius: var(--radius-sm);
-		box-shadow:
-			inset 0 0 24px rgba(120, 90, 50, 0.25),
-			var(--shadow-md);
+		box-shadow: inset 0 0 24px rgba(120, 90, 50, 0.25), var(--shadow-md);
 		font-family: var(--font-family-body-alt);
 	}
-
 	.title {
 		display: block;
 		margin-bottom: var(--spacing-xs);
@@ -34,15 +19,8 @@
 		text-transform: uppercase;
 		letter-spacing: var(--letter-spacing-uppercase);
 	}
-
-	.body {
-		font-style: italic;
-		line-height: var(--line-height-normal);
-		white-space: pre-wrap;
-		overflow-wrap: anywhere;
-	}
-
-	.note-parchment::after {
+	.body { font-style: italic; line-height: var(--line-height-normal); white-space: pre-wrap; overflow-wrap: anywhere; }
+	.parchment::after {
 		content: '';
 		position: absolute;
 		right: -6px;
@@ -54,3 +32,17 @@
 		box-shadow: var(--shadow-sm);
 	}
 </style>
+<div class="parchment">
+	<span class="title" data-prop="title"></span>
+	<div class="body" data-prop="content"></div>
+</div>
+<script>
+addEventListener("message", (e) => {
+	if (e.data?.type !== "lorealm:props") return;
+	for (const el of document.querySelectorAll("[data-prop]")) {
+		const v = e.data.props[el.dataset.prop];
+		el.textContent = v == null ? "" : String(v);
+		el.style.display = el.textContent ? "" : "none";
+	}
+});
+</script>

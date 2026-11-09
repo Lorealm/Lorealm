@@ -8,7 +8,9 @@
 	let { widget }: { widget: WidgetInstance } = $props();
 
 	const source = $derived(
-		(userWidgetStore.loadedWidgets ?? []).find((w) => w.id === widget.widget_id)
+		[...(userWidgetStore.loadedWidgets ?? []), ...(userWidgetStore.builtinWidgets ?? [])].find(
+			(w) => w.id === widget.widget_id
+		)
 	);
 </script>
 

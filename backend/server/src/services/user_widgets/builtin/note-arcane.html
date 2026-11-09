@@ -1,17 +1,6 @@
-<script lang="ts">
-	import { str } from '../util.js';
-	let { props }: { props: Record<string, unknown> } = $props();
-</script>
-
-<div class="widget note-arcane">
-	{#if props.title}
-		<span class="title">{str(props.title)}</span>
-	{/if}
-	<div class="body">{str(props.content)}</div>
-</div>
-
 <style>
-	.note-arcane {
+	body { margin: 0; padding: 4px 10px 14px; }
+	.arcane {
 		--rune: #b890ff;
 		--rune-glow: #7b4dff;
 		position: relative;
@@ -28,7 +17,6 @@
 			var(--shadow-md);
 		font-family: var(--font-family-body-alt);
 	}
-
 	.title {
 		display: block;
 		margin-bottom: var(--spacing-xs);
@@ -38,32 +26,29 @@
 		color: var(--rune);
 		text-shadow: 0 0 8px var(--rune-glow);
 	}
-
-	.body {
-		font-style: italic;
-		line-height: var(--line-height-normal);
-		white-space: pre-wrap;
-		overflow-wrap: anywhere;
-	}
-
-	.note-arcane::before {
+	.body { font-style: italic; line-height: var(--line-height-normal); white-space: pre-wrap; overflow-wrap: anywhere; }
+	.arcane::before {
 		content: '✦';
 		position: absolute;
 		top: var(--spacing-xs);
 		right: var(--spacing-sm);
 		color: var(--rune);
 		text-shadow: 0 0 8px var(--rune-glow);
-		opacity: 0.8;
 		animation: pulse 3s ease-in-out infinite;
 	}
-
-	@keyframes pulse {
-		0%,
-		100% {
-			opacity: 0.5;
-		}
-		50% {
-			opacity: 0.9;
-		}
-	}
+	@keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.9; } }
 </style>
+<div class="arcane">
+	<span class="title" data-prop="title"></span>
+	<div class="body" data-prop="content"></div>
+</div>
+<script>
+addEventListener("message", (e) => {
+	if (e.data?.type !== "lorealm:props") return;
+	for (const el of document.querySelectorAll("[data-prop]")) {
+		const v = e.data.props[el.dataset.prop];
+		el.textContent = v == null ? "" : String(v);
+		el.style.display = el.textContent ? "" : "none";
+	}
+});
+</script>

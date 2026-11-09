@@ -23,6 +23,17 @@ class UserWidgetStore {
 		}
 	}
 
+	/** Server-shipped builtin widgets, read-only. */
+	builtinWidgets = $state<Array<UserWidget>>();
+
+	async loadBuiltins() {
+		try {
+			this.builtinWidgets = await this.#api.userWidgets.builtins();
+		} catch (e) {
+			showError(e instanceof Error ? e.message : String(e), { title: 'Failed to load widgets' });
+		}
+	}
+
 	byId(id: Snowflake): UserWidget | undefined {
 		return this.loadedWidgets?.find((w) => w.id === id);
 	}
