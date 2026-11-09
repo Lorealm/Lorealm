@@ -20,6 +20,7 @@
 	import DropGhost from './nodes/DropGhost.svelte';
 	import NodeContextMenu from './nodes/NodeContextMenu.svelte';
 	import EditSettingsModal from './modals/EditSettingsModal.svelte';
+	import TemplateSettings from './TemplateSettings.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	const FLIP_MS = 150;
@@ -31,6 +32,7 @@
 	const template = $derived(templateStore.editingTemplate);
 
 	let selectedId = $state<Snowflake | null>(null);
+	let showSettings = $state(false);
 	let saveState = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
 	/** Which create flow is open, and where the node should land. */
@@ -97,6 +99,7 @@
 
 	function select(nodeId: Snowflake) {
 		selectedId = nodeId;
+		showSettings = false;
 	}
 
 	function findNode(nodes: ContextNode[], target: Snowflake): ContextNode | null {
@@ -209,7 +212,15 @@
 				<span class="tpl-name" {@attach tooltip(template?.name)}
 					>{template?.name ?? 'Loading…'}</span
 				>
+			</div>
+			<div class="header-row">
 				<div class="add-controls">
+					<button
+						class="add-btn"
+						class:active={showSettings}
+						type="button"
+						onclick={() => (showSettings = true)}>Settings</button
+					>
 					<AddNodeButton onpick={(kind) => (creating = { kind })} />
 					<button class="add-btn" type="button" onclick={() => (creating = { kind: 'group' })}>
 						＋ Group
@@ -253,7 +264,11 @@
 	</section>
 
 	<section class="col-content">
-		<NodeEditor node={selectedNode} bind:saveState />
+		{#if showSettings && template}
+			<TemplateSettings {template} />
+		{:else}
+			<NodeEditor node={selectedNode} bind:saveState />
+		{/if}
 	</section>
 
 	{#if creating}
@@ -293,6 +308,7 @@
 
 	.col-hierarchy {
 		flex: 0 0 300px;
+		min-width: 0; /* don't let the nowrap name's intrinsic width widen the column */
 		display: flex;
 		flex-direction: column;
 		min-height: 0;
@@ -340,6 +356,10 @@
 	.add-btn {
 		font-size: var(--font-size-sm);
 		padding: var(--spacing-xs) var(--spacing-sm);
+	}
+	.add-btn.active {
+		font-weight: bold;
+		color: var(--color-text-primary);
 	}
 	.add-btn:disabled {
 		opacity: 0.45;

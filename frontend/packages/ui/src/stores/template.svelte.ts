@@ -217,7 +217,17 @@ class TemplateStore {
 		try {
 			const tpl = await this.#api.templates.update(id, req);
 			this.loadedTemplates.set(id, clone(tpl));
-			if (editingThis) this._draft = clone(tpl);
+			if (this._draft?.id === id) {
+				this._draft.name = tpl.name;
+				this._draft.description = tpl.description;
+				this._draft.updated_at = tpl.updated_at;
+			}
+			const meta = this.metadataList?.find((m) => m.id === id);
+			if (meta) {
+				meta.name = tpl.name;
+				meta.description = tpl.description;
+				meta.updated_at = tpl.updated_at;
+			}
 		} catch (e) {
 			if (editingThis) this.rollback();
 			throw e;
