@@ -1,4 +1,4 @@
-pub(super) mod card_parser;
+pub(crate) mod card_parser;
 pub(super) mod compat;
 mod service;
 mod types;

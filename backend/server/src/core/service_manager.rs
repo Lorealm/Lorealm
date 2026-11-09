@@ -5,7 +5,7 @@ use std::{
 
 use async_trait::async_trait;
 use lorealm_encryption::LocalKeyManager;
-use lorealm_storage::{BlobStore, StorageManager};
+use lorealm_storage::{BlobStore, Storage, StorageManager};
 use tokio::task::JoinHandle;
 
 use crate::{
@@ -41,6 +41,7 @@ use crate::{
 pub struct ServiceManager {
     /// A list of services which can be cleaned via a lazy routine sweep
     cleanable: Arc<Vec<Arc<dyn CleanableService>>>,
+    storage: Arc<dyn Storage>,
     blob: Arc<dyn BlobStore>,
     sessions: Arc<SessionService>,
     users: Arc<UserService>,
@@ -238,6 +239,7 @@ impl ServiceManager {
 
         Self {
             cleanable: Arc::new(cleanable),
+            storage,
             blob,
             sessions,
             users,
@@ -309,6 +311,10 @@ impl ServiceManager {
 
     pub fn sessions(&self) -> &Arc<SessionService> {
         &self.sessions
+    }
+
+    pub fn storage(&self) -> &Arc<dyn Storage> {
+        &self.storage
     }
 
     pub fn blobs(&self) -> &Arc<dyn BlobStore> {

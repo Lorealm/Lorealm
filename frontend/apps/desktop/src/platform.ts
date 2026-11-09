@@ -204,13 +204,23 @@ const files: FileTransfer = {
 			label: options.label,
 			extensions: options.extensions,
 		}),
-	save: (contents: string, options: FileDialog) =>
-		invoke<boolean>("save_file", {
-			contents,
+	save: async (contents: string | Blob, options: FileDialog) => {
+		const dialog = {
 			label: options.label,
 			extensions: options.extensions,
 			suggestedName: options.suggestedName ?? null,
-		}),
+		};
+		if (typeof contents === "string") {
+			return invoke<boolean>("save_file", { contents, ...dialog });
+		}
+		// Bytes cross into Rust as base64, like `pick_file_binary` sends them back.
+		const bytes = new Uint8Array(await contents.arrayBuffer());
+		let binary = "";
+		for (let i = 0; i < bytes.length; i += 0x8000) {
+			binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+		}
+		return invoke<boolean>("save_file_binary", { dataBase64: btoa(binary), ...dialog });
+	},
 };
 
 const server: ServerControls = {

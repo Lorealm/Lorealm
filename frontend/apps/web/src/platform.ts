@@ -313,8 +313,10 @@ const files: FileTransfer = {
 		});
 	},
 
-	async save(contents: string, options: FileDialog): Promise<boolean> {
-		const url = URL.createObjectURL(new Blob([contents], { type: "application/json" }));
+	async save(contents: string | Blob, options: FileDialog): Promise<boolean> {
+		const blob =
+			contents instanceof Blob ? contents : new Blob([contents], { type: "application/json" });
+		const url = URL.createObjectURL(blob);
 		const link = document.createElement("a");
 		link.href = url;
 		link.download = options.suggestedName ?? `download.${options.extensions[0] ?? "txt"}`;

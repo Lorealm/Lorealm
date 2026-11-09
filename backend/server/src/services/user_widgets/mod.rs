@@ -192,7 +192,7 @@ impl UserWidgetService {
         Ok(())
     }
 
-    fn validate_props(props: &[String]) -> Result<(), UserWidgetError> {
+    pub(crate) fn validate_props(props: &[String]) -> Result<(), UserWidgetError> {
         for p in props {
             if p.trim().is_empty() || !is_identifier(p) {
                 return Err(UserWidgetError::Invalid(format!(
@@ -203,7 +203,7 @@ impl UserWidgetService {
         Ok(())
     }
 
-    fn validate_name(name: &str) -> Result<(), UserWidgetError> {
+    pub(crate) fn validate_name(name: &str) -> Result<(), UserWidgetError> {
         if name.trim().is_empty() {
             return Err(UserWidgetError::Invalid("a widget needs a name".into()));
         }

@@ -4,8 +4,19 @@
 	import TransportImage from '$lib/components/TransportImage.svelte';
 	import { blobUrl } from '$lib/api/blobs.js';
 	import { navigator } from '$lib/navigation/navigator.js';
-	import type { CharacterSummary } from '$lib/types/character.js';
-	import { Copy, Ellipsis, MessageSquarePlus, Pencil, Trash2, Upload } from '@lucide/svelte';
+	import type { CharacterSummary, ExportFormat, ExportProfileInfo } from '$lib/types/character.js';
+	import {
+		Copy,
+		Ellipsis,
+		FileImage,
+		FileBraces,
+		MessageSquarePlus,
+		Pencil,
+		Trash2,
+		Upload
+	} from '@lucide/svelte';
+	import { useApi, usePlatform } from '$lib/api/client.js';
+	import { showPopup } from '$lib/stores/popup.svelte.js';
 	import { relativeTime } from '$lib/assets/scripts/datetime.js';
 	import { characterStore } from '$lib/stores/character.svelte.js';
 	import { chatStore } from '$lib/stores/chat.svelte.js';
@@ -15,7 +26,53 @@
 	const relative = $derived(relativeTime(summary.updated_at) ?? '');
 	let imageEndpoint = $derived(blobUrl(summary.avatar_uri));
 
-	const unavailable = 'Not available yet';
+	$effect(() => {
+		void characterStore.loadExportProfiles().catch(() => {});
+	});
+
+	const exportItems = $derived(
+		characterStore.exportProfiles.flatMap((profile) =>
+			(['png', 'json'] as const).map((format) => ({
+				label: `${profile.label} · ${format.toUpperCase()}`,
+				icon: format === 'png' ? FileImage : FileBraces,
+				onSelect: () => void exportAs(profile, format)
+			}))
+		)
+	);
+
+	/** The file name the server uses too: unsafe characters become `_`. */
+	function fileStem(name: string): string {
+		const stem = name.replace(/[^A-Za-z0-9 _-]/g, '_').trim();
+		return stem || 'character';
+	}
+
+	async function exportAs(profile: ExportProfileInfo, format: ExportFormat) {
+		const api = useApi();
+		try {
+			const warnings = await api.characters.exportWarnings(summary.id, profile.id, format);
+			if (warnings.length > 0) {
+				const choice = await showPopup({
+					title: `Export ${summary.name} as ${profile.label}`,
+					message: [
+						profile.description,
+						"**What won't carry over:**",
+						warnings.map((w) => `- ${w.message}`).join('\n')
+					].join('\n\n'),
+					variant: 'warning',
+					actions: [{ label: 'Cancel' }, { label: 'Download', tone: 'primary' }]
+				});
+				if (choice !== 'Download') return;
+			}
+			const file = await api.characters.export(summary.id, profile.id, format);
+			await usePlatform().files.save(file, {
+				label: format === 'png' ? 'Character card' : 'Character card (JSON)',
+				extensions: [format],
+				suggestedName: `${fileStem(summary.name)}.${format}`
+			});
+		} catch (e) {
+			showApiError(e, { title: 'Could not export character' });
+		}
+	}
 
 	let confirmingDelete = $state(false);
 	let deleting = $state(false);
@@ -79,15 +136,9 @@
 			</button>
 
 			<div class="minorControls">
-				<button
-					type="button"
-					class="minor"
-					{@attach tooltip(unavailable)}
-					disabled
-					aria-label="Export"
-				>
-					<Upload size={16} />
-				</button>
+				<PopupMenu title="Export" placement="down" items={exportItems}>
+					{#snippet icon()}<Upload size={16} />{/snippet}
+				</PopupMenu>
 				<button
 					type="button"
 					class="minor del"

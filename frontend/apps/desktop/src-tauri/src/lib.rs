@@ -59,7 +59,8 @@ pub fn run() {
             config::set_server_url,
             files::pick_file,
             files::pick_file_binary,
-            files::save_file
+            files::save_file,
+            files::save_file_binary
         ])
         .setup(|app| {
             match AppConfig::load(app.handle()) {

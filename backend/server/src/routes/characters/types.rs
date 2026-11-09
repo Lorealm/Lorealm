@@ -1,17 +1,19 @@
 use serde::Serialize;
 
-use crate::services::character::{ImportedCard, ImportedLorebook};
+use crate::services::{
+    cards::import::AttachmentReport,
+    character::{ImportedCard, ImportedLorebook},
+};
 
 #[derive(Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum ImportResult {
     Ok {
         id: lorealm_storage::models::Snowflake,
-        /// Present when the card shipped a `character_book` that converted.
-        /// Purely informational — the client uses it for feedback, not to
-        /// decide anything.
         #[serde(skip_serializing_if = "Option::is_none")]
         lorebook: Option<ImportedLorebook>,
+        #[serde(skip_serializing_if = "AttachmentReport::is_empty")]
+        attachments: AttachmentReport,
     },
     Failed {
         reason: String,
@@ -23,6 +25,7 @@ impl ImportResult {
         Self::Ok {
             id: card.id,
             lorebook: card.lorebook,
+            attachments: card.attachments,
         }
     }
 

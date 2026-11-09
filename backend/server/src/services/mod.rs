@@ -1,4 +1,5 @@
 pub mod blueprint;
+pub mod cards;
 pub mod character;
 pub mod chat;
 pub mod commands;

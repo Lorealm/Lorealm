@@ -1,8 +1,3 @@
-//! CCv2 compatibility layer.
-//!
-//! Lorealm-specific data is carried inside CCv2's `extensions.lorealm`
-//! namespace.
-
 mod lorebook;
 
 use std::collections::HashMap;
@@ -14,7 +9,14 @@ use lorealm_storage::models::{
 };
 use serde::Deserialize;
 
-use crate::{services::snowflake::SnowflakeService, util::BulkReplace};
+use crate::services::{
+    cards::{
+        export::{split_examples, split_greetings},
+        extension::{EXTENSION_KEY, LorealmCardExtension, TextDialect},
+        tokens::sillytavern_to_weaver,
+    },
+    snowflake::SnowflakeService,
+};
 
 pub use lorebook::ImportedLorebook;
 use lorebook::{CharacterBook, convert_character_book};
@@ -73,21 +75,14 @@ pub(super) struct CharaV2Data {
     pub character_book: Option<serde_json::Value>,
 }
 
-/// Fields Lorealm writes into CCv2's `extensions.lorealm` object on export
-/// and reads back on import.
-#[derive(Deserialize, Default)]
-pub(super) struct LorealmExtension {
-    pub display_name: Option<String>,
-    pub alt_names: Option<Vec<String>>,
-    pub template_injection: Option<String>,
-}
-
 /// A card unpacked into the domain types it maps onto.
 pub(super) struct ConvertedCard {
     pub character: Character,
     /// Present when the card embedded a usable `character_book`. The book
     /// must be persisted before the character, which already points at it.
     pub lorebook: Option<(Lorebook, ImportedLorebook)>,
+    /// The card's `extensions.lorealm`; its attachments are imported separately.
+    pub extension: LorealmCardExtension,
 }
 
 /// Convert a parsed CCv2/V3 card into a fresh `Character`, plus the lorebook
@@ -99,49 +94,64 @@ pub(super) fn convert_from_ccv2(
 ) -> ConvertedCard {
     let data = card.data;
 
-    let lorealm_ext: LorealmExtension = data
-        .extensions
-        .get("lorealm")
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+    let mut card_extensions = data.extensions;
+    let extension: LorealmCardExtension = card_extensions
+        .remove(EXTENSION_KEY)
+        .and_then(|v| serde_json::from_value(v).ok())
         .unwrap_or_default();
+    let read = |text: &str| match extension.dialect {
+        TextDialect::Weaver => text.to_owned(),
+        TextDialect::Sillytavern => sillytavern_to_weaver(text),
+    };
+    let fields = &extension.fields;
+    let field =
+        |native: &Option<String>, written: &str| native.clone().unwrap_or_else(|| read(written));
 
-    // Merge first_mes + alternate_greetings into a single ordered list.
-    let mut greeting_texts = Vec::with_capacity(1 + data.alternate_greetings.len());
-    greeting_texts.push(convert_variables(&data.first_mes));
-    greeting_texts.extend(data.alternate_greetings.iter().map(convert_variables));
-
+    let greeting_texts = fields.greetings.clone().unwrap_or_else(|| {
+        split_greetings(&data.first_mes, &data.alternate_greetings)
+            .iter()
+            .map(|g| read(g))
+            .collect()
+    });
     let greetings = greeting_texts
         .into_iter()
         .enumerate()
         .map(|(i, text)| Greeting {
             id: snowflake.generate(),
             order: i as u32,
-            text: convert_variables(&text),
+            text,
         })
         .collect();
 
-    // This caters specifically to what SillyTavern recommends. There is no global
-    // standard, however. We may want to add more compatability layers down the road.
-    let example_messages = data
-        .mes_example
-        .split("<START>")
-        .filter(|s| !s.trim().is_empty())
+    // `<START>`-separated, which is what SillyTavern recommends. There is no
+    // global standard, however.
+    let example_texts = fields.examples.clone().unwrap_or_else(|| {
+        split_examples(&data.mes_example)
+            .iter()
+            .map(|e| read(e))
+            .collect()
+    });
+    let example_messages = example_texts
+        .into_iter()
         .enumerate()
         .map(|(i, content)| ExampleDialogue {
             id: snowflake.generate(),
             order: i as u32,
-            content: convert_variables(&content.to_string()),
+            content,
         })
         .collect();
 
     // Re-serialize extensions as a single JSON value for storage.
-    let extensions = serde_json::to_value(&data.extensions).unwrap_or(serde_json::Value::Null);
+    // Other apps' extensions are kept for the round trip; Lorealm's own is
+    // rebuilt from the character on export.
+    let extensions = serde_json::to_value(&card_extensions).unwrap_or(serde_json::Value::Null);
 
     let now = Utc::now();
 
     // A book that fails to deserialize is logged and dropped
     let lorebook = data
         .character_book
+        .filter(|_| extension.lorebooks.is_empty())
         .and_then(|raw| match serde_json::from_value::<CharacterBook>(raw) {
             Ok(book) => Some(book),
             Err(e) => {
@@ -167,12 +177,13 @@ pub(super) fn convert_from_ccv2(
         widget_ids: Vec::new(),
         extensions,
         metadata: CharacterMetadata {
-            display_name: lorealm_ext.display_name,
-            alt_names: lorealm_ext.alt_names.unwrap_or_default(),
+            display_name: extension.display_name.clone(),
+            alt_names: extension.alt_names.clone().unwrap_or_default(),
             tags: data.tags,
             creator: data.creator,
             creator_notes: data.creator_notes,
-            card_version: if data.character_version.is_empty() {
+            // Lorealm's own cards say exactly what the version was, empty or not.
+            card_version: if data.character_version.is_empty() && extension.version == 0 {
                 "0.0.1".to_string()
             } else {
                 data.character_version
@@ -183,34 +194,25 @@ pub(super) fn convert_from_ccv2(
         },
         definition: CharacterDefinition {
             name: data.name,
-            description: convert_variables(&data.description),
-            personality: convert_variables(&data.personality),
-            scenario: convert_variables(&data.scenario),
-            system_prompt: convert_variables(&data.system_prompt),
-            post_history_instructions: convert_variables(&data.post_history_instructions),
+            description: field(&fields.description, &data.description),
+            personality: field(&fields.personality, &data.personality),
+            scenario: field(&fields.scenario, &data.scenario),
+            system_prompt: field(&fields.system_prompt, &data.system_prompt),
+            post_history_instructions: field(
+                &fields.post_history_instructions,
+                &data.post_history_instructions,
+            ),
             example_messages,
             greetings,
-            template_injection: lorealm_ext.template_injection.unwrap_or_default(),
+            template_injection: extension.template_injection.clone().unwrap_or_default(),
         },
     };
 
     ConvertedCard {
         character,
         lorebook,
+        extension,
     }
-}
-
-fn convert_variables(content: &String) -> String {
-    // TODO: consider extending with more common macros:
-    // https://docs.sillytavern.app/usage/core-concepts/macros/#common-macros-by-category
-    //
-    // We may also want to add JanitorAI's pronoun macros.
-    // As of writing this, I'm still unsure whether we should have
-    // first-class support for those, or leave them to plugins.
-    BulkReplace::new(content)
-        .register("{{user}}", "{{user:name}}")
-        .register("{{char}}", "{{char:name}}")
-        .execute()
 }
 
 #[cfg(test)]

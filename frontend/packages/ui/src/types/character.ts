@@ -82,8 +82,44 @@ export interface ImportedLorebook {
 }
 
 export type ImportResult =
-	| { status: 'ok'; id: Snowflake; lorebook?: ImportedLorebook }
+	| {
+			status: 'ok';
+			id: Snowflake;
+			lorebook?: ImportedLorebook;
+			/** Present when the card carried Lorealm tools, widgets or lorebooks. */
+			attachments?: AttachmentReport;
+	  }
 	| { status: 'failed'; reason: string };
+
+export interface AttachmentReport {
+	/** Existing resources attached instead of importing a copy. */
+	reused: number;
+	created: number;
+	/** Tools imported under a new name: [original name, new name]. */
+	renamed: [string, string][];
+	/** Attachments that were invalid and left out. */
+	skipped: string[];
+}
+
+export interface ImportOptions {
+	/** Attach an identical lorebook the user already has instead of importing a copy. */
+	reuseLorebooks?: boolean;
+}
+
+export type ExportFormat = 'png' | 'json';
+export type ExportProfileId = string;
+
+export interface ExportProfileInfo {
+	id: ExportProfileId;
+	label: string;
+	description: string;
+}
+
+/** Something an export can't carry over, shown before downloading. */
+export interface ExportWarning {
+	code: string;
+	message: string;
+}
 
 export interface ImportCharResponse {
 	results: ImportResult[];

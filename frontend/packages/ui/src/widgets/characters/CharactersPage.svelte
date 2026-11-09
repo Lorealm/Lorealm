@@ -4,7 +4,8 @@
 	import CharacterCard from './CharacterCard.svelte';
 	import { showToast } from '$lib/stores/errorToast.svelte.js';
 	import { memory, type CharacterSort } from '$lib/stores/memory.svelte.js';
-	import type { ImportedLorebook, ImportResult } from '$lib/types/character.js';
+	import type { AttachmentReport, ImportedLorebook, ImportResult } from '$lib/types/character.js';
+	import { tooltip } from '$lib/stores/tooltip.svelte.js';
 
 	let {
 		oncreate
@@ -25,6 +26,7 @@
 
 	let inputEl: HTMLInputElement;
 	let busy = $state(false);
+	let reuseLorebooks = $state(false);
 
 	const ts = (v: unknown): number => {
 		if (!v) return 0;
@@ -64,13 +66,40 @@
 		let results: ImportResult[];
 		busy = true;
 		try {
-			results = await characterStore.import(files, true);
+			results = await characterStore.import(files, true, { reuseLorebooks });
 		} finally {
 			busy = false;
 		}
 
 		const lorebooks = results.flatMap((r) => (r.status === 'ok' && r.lorebook ? [r.lorebook] : []));
 		reportImportedLorebooks(lorebooks);
+		reportAttachments(
+			results.flatMap((r) => (r.status === 'ok' && r.attachments ? [r.attachments] : []))
+		);
+	}
+
+	function reportAttachments(reports: AttachmentReport[]) {
+		if (reports.length === 0) return;
+
+		const reused = reports.reduce((sum, r) => sum + r.reused, 0);
+		const created = reports.reduce((sum, r) => sum + r.created, 0);
+		const renamed = reports.flatMap((r) => r.renamed);
+		const skipped = reports.flatMap((r) => r.skipped);
+
+		const parts = [];
+		if (created > 0) parts.push(`Imported ${created}.`);
+		if (reused > 0) parts.push(`Reused ${reused} you already had.`);
+		if (renamed.length > 0)
+			parts.push(
+				`Renamed ${renamed.map(([from, to]) => `${from} to ${to}`).join(', ')}, since those names were taken.`
+			);
+		if (skipped.length > 0) parts.push(`Left out ${skipped.join(', ')}, which couldn't be read.`);
+
+		showToast({
+			title: 'Lorebooks, tools and widgets',
+			message: parts.join(' '),
+			variant: skipped.length > 0 ? 'warning' : 'success'
+		});
 	}
 
 	function reportImportedLorebooks(lorebooks: ImportedLorebook[]) {
@@ -95,7 +124,7 @@
 <input
 	bind:this={inputEl}
 	type="file"
-	accept="image/*"
+	accept="image/png,.png,application/json,.json"
 	onchange={onPick}
 	hidden
 	style="display:none"
@@ -119,6 +148,15 @@
 		</div>
 
 		<div class="actions">
+			<label
+				class="reuse"
+				{@attach tooltip(
+					'When a card brings a lorebook identical to one you have, attach yours instead of importing a copy.'
+				)}
+			>
+				<input type="checkbox" bind:checked={reuseLorebooks} />
+				Reuse matching lorebooks
+			</label>
 			<button type="button" onclick={openPicker} disabled={busy}>
 				<Upload size={16} />
 				{busy ? 'Uploading…' : 'Import'}
@@ -182,6 +220,14 @@
 		align-items: center;
 		gap: var(--spacing-sm);
 		margin-left: auto;
+	}
+	.reuse {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-sm);
+		cursor: pointer;
 	}
 
 	.topbar button {
