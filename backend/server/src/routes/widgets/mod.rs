@@ -16,6 +16,7 @@ use crate::{
 pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewareState) -> Router {
     let session_only_routes = Router::new()
         .route("/", get(handlers::list_widgets))
+        .route("/builtin", get(handlers::list_builtin_widgets))
         .route("/{widget_id}", get(handlers::get_widget))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),

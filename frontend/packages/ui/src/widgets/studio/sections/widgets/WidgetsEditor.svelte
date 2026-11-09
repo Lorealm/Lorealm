@@ -9,6 +9,7 @@
 	import { onDestroy } from 'svelte';
 	import ContextField from '$lib/components/ContextField.svelte';
 	import ListSidebar from '$lib/components/ListSidebar.svelte';
+	import Badge from '$lib/widgets/realms/Badge.svelte';
 	import { LayoutDashboard, Paperclip } from '@lucide/svelte';
 
 	const SAVE_MS = 500;
@@ -37,15 +38,25 @@ ${'</'}script>
 	let { selectedId }: { selectedId: Snowflake | null } = $props();
 
 	const widgets = $derived(userWidgetStore.loadedWidgets ?? []);
-	const selected = $derived(widgets.find((w) => w.id === selectedId) ?? null);
+	const builtins = $derived(userWidgetStore.builtinWidgets ?? []);
+	const builtinIds = $derived(new Set(builtins.map((w) => w.id)));
+	const selected = $derived(
+		widgets.find((w) => w.id === selectedId) ?? builtins.find((w) => w.id === selectedId) ?? null
+	);
+	const readOnly = $derived(selected !== null && builtinIds.has(selected.id));
+
+	const forkable = $derived(
+		readOnly && selected && !widgets.some((w) => w.name === selected.name) ? selected : null
+	);
 
 	let query = $state('');
 	let sort = $state('name-asc');
+	let showBuiltins = $state(true);
 	let creating = $state(false);
 
 	const shownWidgets = $derived.by(() => {
 		const needle = query.trim().toLowerCase();
-		const out = widgets.filter(
+		const out = [...widgets, ...(showBuiltins ? builtins : [])].filter(
 			(w) =>
 				needle === '' ||
 				w.name.toLowerCase().includes(needle) ||
@@ -56,7 +67,6 @@ ${'</'}script>
 		return out.sort((a, b) => a.name.localeCompare(b.name));
 	});
 
-	// The tools a widget can bundle: the user's own tools plus the builtins.
 	const availableTools = $derived([
 		...(toolStore.loadedTools ?? []).map((t) => ({ id: t.id, name: t.display_name ?? t.name })),
 		...(toolStore.builtinTools ?? []).map((t) => ({
@@ -110,7 +120,7 @@ ${'</'}script>
 
 	async function saveNow() {
 		const id = loadedId;
-		if (!id) return;
+		if (!id || builtinIds.has(id)) return;
 		await userWidgetStore.updateWidget(id, {
 			name: draftName,
 			description: draftDescription,
@@ -167,6 +177,23 @@ ${'</'}script>
 		}
 	}
 
+	async function forkBuiltin() {
+		if (!forkable) return;
+		const { name, description, source, prompt, render, tools, placement, mode, props } = forkable;
+		const created = await userWidgetStore.createWidget({
+			name,
+			description,
+			source,
+			prompt,
+			render,
+			tools,
+			placement,
+			mode,
+			props
+		});
+		if (created) navigator.start().studio().widgets(created.id);
+	}
+
 	async function removeWidget(id: Snowflake, name: string) {
 		if (!confirm(`Delete "${name || 'Untitled'}"? This can't be undone.`)) return;
 		clearTimeout(timer);
@@ -204,6 +231,7 @@ ${'</'}script>
 		{creating}
 		bind:query
 		bind:sort
+		bind:showBuiltins
 		sortOptions={[
 			{ value: 'name-asc', label: 'Name (A–Z)' },
 			{ value: 'name-desc', label: 'Name (Z–A)' },
@@ -240,16 +268,20 @@ ${'</'}script>
 						{/if}
 					</span>
 				</button>
-				<input
-					type="checkbox"
-					class="switch enable-toggle"
-					checked={widget.enabled}
-					onchange={(e) => void userWidgetStore.setEnabled(widget.id, e.currentTarget.checked)}
-					{@attach tooltip(
-						widget.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'
-					)}
-					aria-label={widget.enabled ? `Disable ${widget.name}` : `Enable ${widget.name}`}
-				/>
+				{#if builtinIds.has(widget.id)}
+					<Badge>Built-in</Badge>
+				{:else}
+					<input
+						type="checkbox"
+						class="switch enable-toggle"
+						checked={widget.enabled}
+						onchange={(e) => void userWidgetStore.setEnabled(widget.id, e.currentTarget.checked)}
+						{@attach tooltip(
+							widget.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'
+						)}
+						aria-label={widget.enabled ? `Disable ${widget.name}` : `Enable ${widget.name}`}
+					/>
+				{/if}
 			</div>
 		{/each}
 	</ListSidebar>
@@ -258,166 +290,187 @@ ${'</'}script>
 		{#if selected}
 			<div class="pane">
 				<div class="pane-head">
-					<h1>Edit widget</h1>
-					<button
-						type="button"
-						class="export"
-						onclick={() => exportItem('widget', selected.id, selected.name)}
-					>
-						Export
-					</button>
-					<button
-						type="button"
-						class="delete"
-						onclick={() => void removeWidget(selected.id, selected.name)}
-					>
-						Delete
-					</button>
-				</div>
-
-				<div class="fields">
-					<label>
-						<span>Name</span>
-						<input type="text" bind:value={draftName} oninput={requestSave} />
-					</label>
-					<label>
-						<span>
-							{isAttachment ? 'Description' : 'Description'}
-						</span>
-						<input type="text" bind:value={draftDescription} oninput={requestSave} />
-					</label>
-					<label>
-						<span>Placement</span>
-						<select bind:value={draftPlacement} onchange={requestSave}>
-							<option value="widget">Widget — always on, reads state</option>
-							<option value="attachment">Attachment — the model places it inline</option>
-						</select>
-					</label>
-					{#if !isAttachment}
-						<label>
-							<span>Renders on</span>
-							<select bind:value={draftMode} onchange={requestSave}>
-								<option value="latest">Latest message only</option>
-								<option value="every">Every message (costly in long chats)</option>
-							</select>
-						</label>
+					<h1>{readOnly ? 'Built-in widget' : 'Edit widget'}</h1>
+					{#if !readOnly}
+						<button
+							type="button"
+							class="export"
+							onclick={() => exportItem('widget', selected.id, selected.name)}
+						>
+							Export
+						</button>
+						<button
+							type="button"
+							class="delete"
+							onclick={() => void removeWidget(selected.id, selected.name)}
+						>
+							Delete
+						</button>
 					{/if}
 				</div>
 
-				{#if isAttachment}
-					<div class="props">
-						<span class="propsLabel">
-							Properties
-							<code>{'{ type: "lorealm:props", props }'}</code>.
+				{#if readOnly}
+					<div class="readonly-note">
+						<p>Ships with Lorealm and is always available. Read-only — make a copy to change it.</p>
+						{#if forkable}
+							<button type="button" class="fork" onclick={forkBuiltin}>Create my version</button>
+						{:else}
+							<p class="already-forked">
+								You already have a <code>{selected.name}</code> of your own, which replaces this one while
+								it's enabled.
+							</p>
+						{/if}
+					</div>
+				{/if}
+
+				<fieldset class="body" disabled={readOnly}>
+					<div class="fields">
+						<label>
+							<span>Name</span>
+							<input type="text" bind:value={draftName} oninput={requestSave} />
+						</label>
+						<label>
+							<span>
+								{isAttachment ? 'Description' : 'Description'}
+							</span>
+							<input type="text" bind:value={draftDescription} oninput={requestSave} />
+						</label>
+						<label>
+							<span>Placement</span>
+							<select bind:value={draftPlacement} onchange={requestSave}>
+								<option value="widget">Widget — always on, reads state</option>
+								<option value="attachment">Attachment — the model places it inline</option>
+							</select>
+						</label>
+						{#if !isAttachment}
+							<label>
+								<span>Renders on</span>
+								<select bind:value={draftMode} onchange={requestSave}>
+									<option value="latest">Latest message only</option>
+									<option value="every">Every message (costly in long chats)</option>
+								</select>
+							</label>
+						{/if}
+					</div>
+
+					{#if isAttachment}
+						<div class="props">
+							<span class="propsLabel">
+								Properties
+								<code>{'{ type: "lorealm:props", props }'}</code>.
+							</span>
+							{#each draftProps, i (i)}
+								<div class="propRow">
+									<input
+										type="text"
+										placeholder="name"
+										bind:value={draftProps[i]}
+										oninput={requestSave}
+									/>
+									<button
+										type="button"
+										class="del"
+										{@attach tooltip('Remove prop')}
+										onclick={() => removeProp(i)}
+									>
+										×
+									</button>
+								</div>
+							{/each}
+							<button type="button" class="new" onclick={addProp}>Add prop</button>
+						</div>
+					{/if}
+
+					<div class="split">
+						<label class="sourceBox">
+							<span> HTML source </span>
+							<textarea spellcheck="false" bind:value={draftSource} oninput={requestSave}
+							></textarea>
+						</label>
+
+						<div class="previewBox">
+							<span>Preview (sample state)</span>
+							{#key draftSource}
+								<iframe
+									title="Widget preview"
+									sandbox="allow-scripts"
+									srcdoc={draftSource}
+									bind:this={previewFrame}
+									onload={feedPreview}
+								></iframe>
+							{/key}
+						</div>
+					</div>
+
+					<div class="prompt">
+						{#key syncedId}
+							<ContextField
+								label="Directive"
+								value={draftPrompt}
+								hint="A weaver-formatted prompt sent to the model. Describes how the model should maintain this "
+								rows={3}
+								{readOnly}
+								placeholder="When affection changes, update relationship:&lbrace;&lbrace;char:name&rbrace;&rbrace;.affection using the set_var tool."
+								onchange={(v) => {
+									draftPrompt = v;
+									requestSave();
+								}}
+							/>
+						{/key}
+					</div>
+
+					<div class="prompt">
+						{#key syncedId}
+							<ContextField
+								label="Text rendering"
+								value={draftRender}
+								hint={isAttachment
+									? 'What the model reads in place of this attachment. Props arrive as {{props:name}}. Leave empty to show [widget: id].'
+									: 'What the model reads for this widget, inserted wherever the node exists. Reads state as {{namespace:name}}.'}
+								rows={3}
+								{readOnly}
+								placeholder={isAttachment
+									? 'A handwritten note: \\{\\{props:content\\}\\}"'
+									: 'Affection \\{\\{relationship:affection\\}\\}/10, trust \\{\\{;relationship:trust\\}\\}/10.'}
+								onchange={(v) => {
+									draftRender = v;
+									requestSave();
+								}}
+							/>
+						{/key}
+					</div>
+
+					<div class="tools">
+						<span class="toolsLabel">
+							Tools — made available to the model whenever this widget is active. Imported into a
+							realm with the widget; no separate tool import needed.
 						</span>
-						{#each draftProps, i (i)}
-							<div class="propRow">
-								<input
-									type="text"
-									placeholder="name"
-									bind:value={draftProps[i]}
-									oninput={requestSave}
-								/>
+						{#each draftTools as id (id)}
+							<div class="toolRow">
+								<span class="toolName">{toolName(id)}</span>
 								<button
 									type="button"
 									class="del"
-									{@attach tooltip('Remove prop')}
-									onclick={() => removeProp(i)}
+									{@attach tooltip('Remove tool')}
+									onclick={() => unbindTool(id)}
 								>
 									×
 								</button>
 							</div>
 						{/each}
-						<button type="button" class="new" onclick={addProp}>Add prop</button>
+						{#if availableTools.some((t) => !draftTools.includes(t.id))}
+							<div class="bindRow">
+								<select bind:value={toolPick}>
+									<option value="">Add a tool…</option>
+									{#each availableTools.filter((t) => !draftTools.includes(t.id)) as t (t.id)}
+										<option value={t.id}>{t.name}</option>
+									{/each}
+								</select>
+								<button type="button" class="bind" onclick={bindTool}>Bind</button>
+							</div>
+						{/if}
 					</div>
-				{/if}
-
-				<div class="split">
-					<label class="sourceBox">
-						<span> HTML source </span>
-						<textarea spellcheck="false" bind:value={draftSource} oninput={requestSave}></textarea>
-					</label>
-
-					<div class="previewBox">
-						<span>Preview (sample state)</span>
-						{#key draftSource}
-							<iframe
-								title="Widget preview"
-								sandbox="allow-scripts"
-								srcdoc={draftSource}
-								bind:this={previewFrame}
-								onload={feedPreview}
-							></iframe>
-						{/key}
-					</div>
-				</div>
-
-				<div class="prompt">
-					{#key syncedId}
-						<ContextField
-							label="Directive"
-							value={draftPrompt}
-							hint="A weaver-formatted prompt sent to the model. Describes how the model should maintain this "
-							rows={3}
-							placeholder="When affection changes, update relationship:&lbrace;&lbrace;char:name&rbrace;&rbrace;.affection using the set_var tool."
-							onchange={(v) => {
-								draftPrompt = v;
-								requestSave();
-							}}
-						/>
-					{/key}
-				</div>
-
-				<div class="prompt">
-					{#key syncedId}
-						<ContextField
-							label="Text rendering"
-							value={draftRender}
-							hint={isAttachment
-								? 'What the model reads in place of this attachment. Props arrive as {{props:name}}. Leave empty to show [widget: id].'
-								: 'What the model reads for this widget, inserted wherever the node exists. Reads state as {{namespace:name}}.'}
-							rows={3}
-							placeholder={isAttachment
-								? 'A handwritten note: \\{\\{props:content\\}\\}"'
-								: 'Affection \\{\\{relationship:affection\\}\\}/10, trust \\{\\{;relationship:trust\\}\\}/10.'}
-							onchange={(v) => {
-								draftRender = v;
-								requestSave();
-							}}
-						/>
-					{/key}
-				</div>
-
-				<div class="tools">
-					<span class="toolsLabel">
-						Tools — made available to the model whenever this widget is active. Imported into a
-						realm with the widget; no separate tool import needed.
-					</span>
-					{#each draftTools as id (id)}
-						<div class="toolRow">
-							<span class="toolName">{toolName(id)}</span>
-							<button
-								type="button"
-								class="del"
-								{@attach tooltip('Remove tool')}
-								onclick={() => unbindTool(id)}
-							>
-								×
-							</button>
-						</div>
-					{/each}
-					{#if availableTools.some((t) => !draftTools.includes(t.id))}
-						<div class="bindRow">
-							<select bind:value={toolPick}>
-								<option value="">Add a tool…</option>
-								{#each availableTools.filter((t) => !draftTools.includes(t.id)) as t (t.id)}
-									<option value={t.id}>{t.name}</option>
-								{/each}
-							</select>
-							<button type="button" class="bind" onclick={bindTool}>Bind</button>
-						</div>
-					{/if}
-				</div>
+				</fieldset>
 			</div>
 		{:else}
 			<div class="pane empty-pane">
@@ -539,6 +592,30 @@ ${'</'}script>
 	.empty-pane {
 		align-items: center;
 		justify-content: center;
+	}
+	.body {
+		display: contents;
+	}
+	.readonly-note {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--spacing-sm);
+		padding: var(--spacing-sm) var(--spacing-md);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius-md);
+		background-color: var(--color-bg-elevated-3);
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-sm);
+	}
+	.readonly-note p {
+		margin: 0;
+	}
+	.fork {
+		width: auto;
+	}
+	.already-forked {
+		color: var(--color-text-muted);
 	}
 	.export {
 		flex: 0 0 auto;

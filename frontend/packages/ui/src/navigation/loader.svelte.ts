@@ -39,6 +39,7 @@ const resources = {
 	toolList: new Resource(() => toolStore.loadTools()),
 	builtinTools: new Resource(() => toolStore.loadBuiltins()),
 	widgetList: new Resource(() => userWidgetStore.loadWidgets()),
+	builtinWidgets: new Resource(() => userWidgetStore.loadBuiltins()),
 	personaList: new Resource(() => personaStore.loadPersonas()),
 	personaActive: new Resource(() => personaStore.loadActive()),
 	personaOverrides: new Resource(() => personaStore.loadOverrides()),
@@ -142,7 +143,7 @@ const SPECS: Record<string, RouteSpec> = {
 		blur: () => personaStore.stopEditing()
 	}),
 
-	'studio:widgets': studio({ needs: ['widgetList', 'toolList', 'builtinTools'] }),
+	'studio:widgets': studio({ needs: ['widgetList', 'builtinWidgets', 'toolList', 'builtinTools'] }),
 
 	'settings:user:profile': {
 		needs: ['currentUser', 'characterList', 'lorebookList', 'realmList']

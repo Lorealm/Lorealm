@@ -1,3 +1,5 @@
+mod builtin;
+
 use std::sync::Arc;
 
 use chrono::Utc;
@@ -6,6 +8,8 @@ use lorealm_storage::{
     models::{Snowflake, UserWidget, WidgetMode, WidgetPlacement, is_identifier},
 };
 use serde::Deserialize;
+
+pub use builtin::*;
 
 use crate::{
     errors::{TargetType, UserWidgetError},

@@ -11,6 +11,7 @@
 		sort = $bindable(''),
 		sortOptions = [],
 		searchPlaceholder = 'Search…',
+		showBuiltins = $bindable(),
 		status,
 		children
 	}: {
@@ -22,6 +23,8 @@
 		sort?: string;
 		sortOptions?: Array<{ value: string; label: string }>;
 		searchPlaceholder?: string;
+		/** Bind to offer a switch that hides shipped rows. */
+		showBuiltins?: boolean;
 		/** Save indicator and the like */
 		status?: Snippet;
 		/** The list rows. Styled by the caller. */
@@ -58,6 +61,12 @@
 						{/each}
 					</select>
 				</div>
+			{/if}
+			{#if showBuiltins !== undefined}
+				<label class="builtins">
+					<input type="checkbox" class="switch" bind:checked={showBuiltins} />
+					Show built-in
+				</label>
 			{/if}
 		</div>
 
@@ -140,6 +149,15 @@
 		min-width: 0;
 		width: auto;
 		background-color: transparent;
+		font-size: var(--font-size-sm);
+	}
+
+	.builtins {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+		padding: var(--spacing-xs) var(--spacing-sm) 0;
+		color: var(--color-text-muted);
 		font-size: var(--font-size-sm);
 	}
 

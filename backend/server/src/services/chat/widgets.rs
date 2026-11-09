@@ -340,11 +340,14 @@ impl WidgetRenderer {
         if spec.mode == WidgetMode::Latest && self.rendered.contains(&widget.widget_id) {
             return None;
         }
-        let props = widget
+        let mut props: HashMap<String, Value> = widget
             .props
             .iter()
             .filter_map(|(k, v)| Some((k.clone(), json_to_weaver(v).ok()?)))
             .collect();
+        for name in &spec.props {
+            props.entry(name.clone()).or_insert(Value::None);
+        }
         let text = eval_render(
             &spec.id,
             &spec.render,
@@ -480,8 +483,16 @@ mod tests {
         source: &str,
         cmd: &[(&str, serde_json::Value)],
     ) -> Result<(String, Vec<WidgetInstance>), EvalError> {
+        run_with(catalog(), source, cmd)
+    }
+
+    fn run_with(
+        catalog: Vec<AttachmentSpec>,
+        source: &str,
+        cmd: &[(&str, serde_json::Value)],
+    ) -> Result<(String, Vec<WidgetInstance>), EvalError> {
         let mut registry = WeaverHost::base().into_registry();
-        let sink = register_attachment_commands(&mut registry, catalog());
+        let sink = register_attachment_commands(&mut registry, catalog);
 
         let bound: HashMap<String, Value> = cmd
             .iter()
@@ -516,6 +527,43 @@ mod tests {
         assert_eq!(attached.len(), 1);
         assert_eq!(attached[0].widget_id, "101");
         assert_eq!(attached[0].props["content"], "Meet me at dusk.");
+    }
+
+    #[test]
+    fn builtins_can_be_searched_attached_and_rendered() {
+        use crate::services::tools::{ATTACH_ID, SEARCH_ATTACHMENTS_ID, builtin_tool};
+        use crate::services::user_widgets::builtin_widgets;
+
+        let catalog: Vec<AttachmentSpec> =
+            builtin_widgets().iter().map(AttachmentSpec::from).collect();
+        let search = builtin_tool(SEARCH_ATTACHMENTS_ID).unwrap().body;
+        let attach = builtin_tool(ATTACH_ID).unwrap().body;
+
+        let (found, _) = run_with(
+            catalog.clone(),
+            &search,
+            &[("keywords", serde_json::json!(["texting"]))],
+        )
+        .unwrap();
+        let sms = builtin_widgets()
+            .iter()
+            .find(|w| w.name == "SMS (received)")
+            .unwrap();
+        let id = serde_json::to_value(sms.id).unwrap();
+        assert!(found.contains(id.as_str().unwrap()), "{found}");
+
+        let (_, attached) = run_with(
+            catalog.clone(),
+            &attach,
+            &[
+                ("id", id),
+                ("props", serde_json::json!({ "content": "on my way" })),
+            ],
+        )
+        .unwrap();
+        let text =
+            WidgetRenderer::new(&catalog, StatePool::new()).apply(&widget_marker(0), &attached);
+        assert_eq!(text, "[Text message received: on my way]");
     }
 
     #[test]
