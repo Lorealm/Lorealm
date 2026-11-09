@@ -29,6 +29,7 @@ use tokio::sync::RwLock;
 pub struct MemoryStorage {
     pub(crate) blueprints: RwLock<HashMap<Snowflake, Blueprint>>,
     pub(crate) users: RwLock<HashMap<Snowflake, User>>,
+    pub(crate) invites: RwLock<HashMap<Snowflake, Invite>>,
     pub(crate) sessions: RwLock<HashMap<String, Session>>,
     pub(crate) roles: RwLock<HashMap<Snowflake, Role>>,
     pub(crate) user_roles: RwLock<Vec<UserRole>>,

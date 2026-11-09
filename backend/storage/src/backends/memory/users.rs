@@ -1,6 +1,6 @@
 use crate::UserStorage;
 use crate::error::StorageError;
-use crate::models::{CreateUser, Snowflake, UpdateUser, User};
+use crate::models::{CreateInvite, CreateUser, Invite, Snowflake, UpdateUser, User};
 use async_trait::async_trait;
 use chrono::Utc;
 
@@ -93,5 +93,66 @@ impl UserStorage for MemoryStorage {
 
     async fn delete_user(&self, id: Snowflake) -> Result<bool, StorageError> {
         Ok(self.users.write().await.remove(&id).is_some())
+    }
+
+    async fn list_users(&self) -> Result<Vec<User>, StorageError> {
+        let mut users: Vec<User> = self.users.read().await.values().cloned().collect();
+        users.sort_by_key(|u| (u.created_at, u.id));
+        Ok(users)
+    }
+
+    async fn create_invite(&self, input: &CreateInvite) -> Result<Invite, StorageError> {
+        let mut invites = self.invites.write().await;
+
+        if invites.values().any(|i| i.code_hash == input.code_hash) {
+            return Err(StorageError::Conflict("Invite code already exists".into()));
+        }
+
+        let invite = Invite {
+            id: input.id,
+            code_hash: input.code_hash.clone(),
+            role_id: input.role_id,
+            created_by: input.created_by,
+            max_uses: input.max_uses,
+            uses: 0,
+            expires_at: input.expires_at,
+            created_at: Utc::now(),
+        };
+
+        invites.insert(invite.id, invite.clone());
+        Ok(invite)
+    }
+
+    async fn list_invites(&self) -> Result<Vec<Invite>, StorageError> {
+        let mut invites: Vec<Invite> = self.invites.read().await.values().cloned().collect();
+        invites.sort_by_key(|i| std::cmp::Reverse((i.created_at, i.id)));
+        Ok(invites)
+    }
+
+    async fn delete_invite(&self, id: Snowflake) -> Result<bool, StorageError> {
+        Ok(self.invites.write().await.remove(&id).is_some())
+    }
+
+    async fn redeem_invite(&self, code_hash: &str) -> Result<Option<Invite>, StorageError> {
+        let mut invites = self.invites.write().await;
+        let now = Utc::now();
+
+        let Some(invite) = invites.values_mut().find(|i| {
+            i.code_hash == code_hash
+                && i.max_uses.is_none_or(|max| i.uses < max)
+                && i.expires_at.is_none_or(|at| at > now)
+        }) else {
+            return Ok(None);
+        };
+
+        invite.uses += 1;
+        Ok(Some(invite.clone()))
+    }
+
+    async fn release_invite(&self, id: Snowflake) -> Result<(), StorageError> {
+        if let Some(invite) = self.invites.write().await.get_mut(&id) {
+            invite.uses = (invite.uses - 1).max(0);
+        }
+        Ok(())
     }
 }

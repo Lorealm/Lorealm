@@ -262,3 +262,47 @@ async fn administrators_edit_their_own_role_but_cannot_break_it() {
         Err(PermissionError::Outranked)
     ));
 }
+
+#[tokio::test]
+async fn account_managers_only_reach_people_below_them() {
+    let (h, admin) = server().await;
+    let p = &h.permissions;
+
+    let managers = p
+        .create_role(admin, "Managers", Permissions::MANAGE_USERS, 10)
+        .await
+        .unwrap();
+    let manager = user(&h, "manager").await;
+    p.assign_role(admin, managers.id, "manager").await.unwrap();
+    let plain = user(&h, "plain").await;
+    let peer = user(&h, "peer").await;
+    p.assign_role(admin, managers.id, "peer").await.unwrap();
+
+    p.check_may_manage_user(manager, plain).await.unwrap();
+    p.check_may_delete_user(manager, plain).await.unwrap();
+    for target in [peer, admin] {
+        assert!(matches!(
+            p.check_may_manage_user(manager, target).await,
+            Err(PermissionError::UserOutranked)
+        ));
+    }
+
+    // Administrators reach anyone, but not themselves or the last of them.
+    p.check_may_manage_user(admin, peer).await.unwrap();
+    assert!(matches!(
+        p.check_may_delete_user(admin, admin).await,
+        Err(PermissionError::OwnAccount)
+    ));
+    let co_admins = p
+        .create_role(admin, "Co-admins", Permissions::ADMINISTRATOR, 20)
+        .await
+        .unwrap();
+    let co_admin = user(&h, "co-admin").await;
+    p.assign_role(admin, co_admins.id, "co-admin")
+        .await
+        .unwrap();
+    assert!(matches!(
+        p.check_may_delete_user(co_admin, admin).await,
+        Err(PermissionError::LastAdministrator)
+    ));
+}

@@ -25,6 +25,9 @@ pub struct RegisterRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub email: Option<String>,
     pub password: String,
+    /// Lets the user register while registration is disabled.
+    #[serde(default)]
+    pub invite_code: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -73,4 +76,92 @@ pub struct SessionResponse {
     pub last_rotated_at: DateTime<Utc>,
     /// True for the session making the request.
     pub current: bool,
+}
+
+#[derive(Deserialize)]
+pub struct CreateUserRequest {
+    pub username: String,
+    #[serde(default)]
+    pub email: Option<String>,
+    pub password: String,
+}
+
+#[derive(Deserialize)]
+pub struct AdminUpdateUserRequest {
+    #[serde(default)]
+    pub email: Option<String>,
+    #[serde(default, deserialize_with = "double_option")]
+    pub display_name: Option<Option<String>>,
+    /// Signs the user out everywhere.
+    #[serde(default)]
+    pub password: Option<String>,
+}
+
+/// A user as seen by someone who manages accounts.
+#[derive(Serialize)]
+pub struct AdminUserResponse {
+    pub id: Snowflake,
+    pub username: String,
+    pub email: Option<String>,
+    pub display_name: Option<String>,
+    pub avatar_uri: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<lorealm_storage::models::User> for AdminUserResponse {
+    fn from(user: lorealm_storage::models::User) -> Self {
+        Self {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            display_name: user.display_name,
+            avatar_uri: user.avatar_uri,
+            created_at: user.created_at,
+        }
+    }
+}
+
+#[derive(Deserialize)]
+pub struct CreateInviteRequest {
+    #[serde(default)]
+    pub role_id: Option<Snowflake>,
+    /// Omit for unlimited uses.
+    #[serde(default)]
+    pub max_uses: Option<i32>,
+    /// Omit for an invite that never expires.
+    #[serde(default)]
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Serialize)]
+pub struct InviteResponse {
+    pub id: Snowflake,
+    pub role_id: Option<Snowflake>,
+    pub created_by: Option<Snowflake>,
+    pub max_uses: Option<i32>,
+    pub uses: i32,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<lorealm_storage::models::Invite> for InviteResponse {
+    fn from(invite: lorealm_storage::models::Invite) -> Self {
+        Self {
+            id: invite.id,
+            role_id: invite.role_id,
+            created_by: invite.created_by,
+            max_uses: invite.max_uses,
+            uses: invite.uses,
+            expires_at: invite.expires_at,
+            created_at: invite.created_at,
+        }
+    }
+}
+
+/// The plain code is only ever returned here.
+#[derive(Serialize)]
+pub struct CreatedInviteResponse {
+    #[serde(flatten)]
+    pub invite: InviteResponse,
+    pub code: String,
 }

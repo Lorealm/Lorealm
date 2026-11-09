@@ -21,6 +21,7 @@ export type ServerSection =
 	| 'storage'
 	| 'sessions'
 	| 'users'
+	| 'accounts'
 	| 'roles'
 	| 'characters'
 	| 'tokenizers'

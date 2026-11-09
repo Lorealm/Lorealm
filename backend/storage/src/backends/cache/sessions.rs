@@ -83,7 +83,16 @@ impl SessionStorage for CachedStorage {
     }
 
     async fn revoke_all_user_sessions(&self, user_id: Snowflake) -> Result<u64, StorageError> {
-        self.backend.revoke_all_user_sessions(user_id).await
+        // Cached sessions would otherwise stay valid until they expire.
+        let sessions = self.backend.list_user_sessions(user_id).await?;
+        let revoked = self.backend.revoke_all_user_sessions(user_id).await?;
+        for session in sessions {
+            self.cache_del(&self.key("session", &session.token)).await;
+            if let Some(previous) = &session.previous_token {
+                self.cache_del(&self.key("session", previous)).await;
+            }
+        }
+        Ok(revoked)
     }
 
     async fn rotate_csrf_token(

@@ -137,7 +137,14 @@ import type {
 	UserWidget
 } from '$lib/types/widgets.js';
 import type {
+	AdminUpdateUserRequest,
+	AdminUser,
 	ChangePasswordRequest,
+	CreatedInvite,
+	CreateInviteRequest,
+	CreateUserRequest,
+	Invite,
+	RegisterRequest,
 	UpdateProfileRequest,
 	User,
 	UserSession
@@ -200,6 +207,23 @@ export function createApiClient(platform: PlatformAPI) {
 				revoke: (id: Snowflake) => http.delete(`/api/v1/users/me/sessions/${id}`),
 				/** Sign out every device except this one. */
 				revokeOthers: () => http.delete('/api/v1/users/me/sessions')
+			},
+			register: (request: RegisterRequest) => http.post<void>('/api/v1/users/register', request),
+			/** Managing other people's accounts. Needs the "Manage Users" permission. */
+			admin: {
+				list: () => http.get<Array<AdminUser>>('/api/v1/users'),
+				create: (request: CreateUserRequest) => http.post<AdminUser>('/api/v1/users', request),
+				update: (id: Snowflake, update: AdminUpdateUserRequest) =>
+					http.patch<AdminUser>(`/api/v1/users/${id}`, update),
+				delete: (id: Snowflake) => http.delete<void>(`/api/v1/users/${id}`),
+				/** Sign the user out on every device. */
+				signOut: (id: Snowflake) => http.delete<void>(`/api/v1/users/${id}/sessions`)
+			},
+			invites: {
+				list: () => http.get<Array<Invite>>('/api/v1/users/invites'),
+				create: (request: CreateInviteRequest) =>
+					http.post<CreatedInvite>('/api/v1/users/invites', request),
+				delete: (id: Snowflake) => http.delete<void>(`/api/v1/users/invites/${id}`)
 			}
 		},
 		templates: {

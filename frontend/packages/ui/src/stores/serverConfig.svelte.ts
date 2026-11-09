@@ -34,7 +34,9 @@ class ConfigStore {
 
 	/** Server settings are shown to anyone who can change some part of them. */
 	get canSeeServer(): boolean {
-		return this.canEditServer || this.can(Permission.MANAGE_ROLES);
+		return (
+			this.canEditServer || this.can(Permission.MANAGE_ROLES) || this.can(Permission.MANAGE_USERS)
+		);
 	}
 
 	async load() {

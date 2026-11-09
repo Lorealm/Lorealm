@@ -19,6 +19,10 @@ pub enum PermissionError {
     UserNotFound,
     #[error("Role is not below the actor's highest role")]
     Outranked,
+    #[error("User's highest role is not below the actor's")]
+    UserOutranked,
+    #[error("Actor cannot delete their own account")]
+    OwnAccount,
     #[error("Built-in role cannot be changed this way")]
     BuiltIn,
     #[error("Role must keep at least one member")]
@@ -40,6 +44,8 @@ impl DomainError for PermissionError {
             Self::RoleNotFound(_) => "permission.role_not_found",
             Self::UserNotFound => "permission.user_not_found",
             Self::Outranked => "permission.role_outranked",
+            Self::UserOutranked => "permission.user_outranked",
+            Self::OwnAccount => "permission.own_account",
             Self::BuiltIn => "permission.built_in_role",
             Self::LastAdministrator => "permission.last_administrator",
             Self::NameTaken => "permission.role_name_taken",
@@ -51,9 +57,11 @@ impl DomainError for PermissionError {
 
     fn status(&self) -> StatusCode {
         match self {
-            Self::Missing(_) | Self::Outranked => StatusCode::FORBIDDEN,
+            Self::Missing(_) | Self::Outranked | Self::UserOutranked => StatusCode::FORBIDDEN,
             Self::RoleNotFound(_) | Self::UserNotFound => StatusCode::NOT_FOUND,
-            Self::BuiltIn | Self::InvalidName | Self::InvalidPosition => StatusCode::BAD_REQUEST,
+            Self::BuiltIn | Self::InvalidName | Self::InvalidPosition | Self::OwnAccount => {
+                StatusCode::BAD_REQUEST
+            }
             Self::LastAdministrator | Self::NameTaken => StatusCode::CONFLICT,
             Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -65,6 +73,10 @@ impl DomainError for PermissionError {
             Self::RoleNotFound(_) => "That role no longer exists.".into(),
             Self::UserNotFound => "No user has that name.".into(),
             Self::Outranked => "You can only manage roles below your highest role.".into(),
+            Self::UserOutranked => {
+                "You can only manage people whose highest role is below yours.".into()
+            }
+            Self::OwnAccount => "You can't delete your own account.".into(),
             Self::BuiltIn => "Built-in roles can't be changed this way.".into(),
             Self::LastAdministrator => "The server needs at least one administrator.".into(),
             Self::NameTaken => "A role with that name already exists.".into(),

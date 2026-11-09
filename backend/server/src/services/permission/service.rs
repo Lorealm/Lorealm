@@ -145,6 +145,57 @@ impl PermissionService {
         Ok(true)
     }
 
+    pub async fn check_may_manage_user(
+        &self,
+        actor: Snowflake,
+        target: Snowflake,
+    ) -> Result<(), PermissionError> {
+        let actor = self.actor(actor).await?;
+        if actor.is_administrator() || self.actor(target).await?.top < actor.top {
+            Ok(())
+        } else {
+            Err(PermissionError::UserOutranked)
+        }
+    }
+
+    pub async fn check_may_delete_user(
+        &self,
+        actor: Snowflake,
+        target: Snowflake,
+    ) -> Result<(), PermissionError> {
+        if actor == target {
+            return Err(PermissionError::OwnAccount);
+        }
+        self.check_may_manage_user(actor, target).await?;
+
+        let is_admin = self
+            .storage
+            .get_user_roles(target)
+            .await?
+            .iter()
+            .any(|r| r.id == ADMINISTRATOR_ROLE_ID);
+        if is_admin
+            && self
+                .storage
+                .count_role_members(ADMINISTRATOR_ROLE_ID)
+                .await?
+                <= 1
+        {
+            return Err(PermissionError::LastAdministrator);
+        }
+        Ok(())
+    }
+
+    /// Whether the actor could give this role to someone directly.
+    pub async fn check_may_assign(
+        &self,
+        actor: Snowflake,
+        role_id: Snowflake,
+    ) -> Result<(), PermissionError> {
+        let actor = self.actor(actor).await?;
+        actor.check_may_assign(&self.role(role_id).await?)
+    }
+
     /// Every role, highest first.
     pub async fn list_roles(&self) -> Result<Vec<StoredRole>, PermissionError> {
         let mut roles = self.storage.get_all_roles().await?;

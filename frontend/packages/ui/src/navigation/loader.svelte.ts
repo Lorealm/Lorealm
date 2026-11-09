@@ -153,6 +153,7 @@ const SPECS: Record<string, RouteSpec> = {
 	'settings:server:storage': { needs: ['serverConfig'] },
 	'settings:server:sessions': { needs: ['serverConfig'] },
 	'settings:server:users': { needs: ['serverConfig'] },
+	'settings:server:accounts': { needs: ['serverConfig'] },
 	'settings:server:roles': { needs: ['serverConfig'] },
 	'settings:server:characters': { needs: ['serverConfig'] },
 	'settings:server:tokenizers': { needs: ['serverConfig'] },
