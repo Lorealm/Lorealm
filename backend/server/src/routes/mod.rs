@@ -18,6 +18,7 @@ mod roles;
 mod templates;
 mod tokenizers;
 mod tools;
+mod transfer;
 mod users;
 mod widgets;
 
@@ -67,6 +68,10 @@ pub async fn api_routes(app_state: Arc<AppState>, session_state: SessionMiddlewa
         .nest(
             "/widgets",
             widgets::router(Arc::clone(&app_state), session_state.clone()),
+        )
+        .nest(
+            "/transfer",
+            transfer::router(Arc::clone(&app_state), session_state.clone()),
         )
         .nest(
             "/plugins",

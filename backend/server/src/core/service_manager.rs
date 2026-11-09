@@ -61,6 +61,7 @@ pub struct ServiceManager {
     blueprints: Arc<BlueprintService>,
     plugins: Arc<PluginService>,
     rate_limits: Arc<AuthRateLimits>,
+    snowflake: Arc<SnowflakeService>,
 }
 
 impl ServiceManager {
@@ -259,6 +260,7 @@ impl ServiceManager {
             blueprints,
             plugins,
             rate_limits,
+            snowflake,
         }
     }
 
@@ -323,6 +325,10 @@ impl ServiceManager {
 
     pub fn rate_limits(&self) -> &Arc<AuthRateLimits> {
         &self.rate_limits
+    }
+
+    pub fn snowflake(&self) -> &Arc<SnowflakeService> {
+        &self.snowflake
     }
 
     pub fn users(&self) -> &Arc<UserService> {

@@ -3,6 +3,7 @@
 	import { onDestroy } from 'svelte';
 	import { navigator } from '$lib/navigation/navigator.js';
 	import { personaStore } from '$lib/stores/persona.svelte.js';
+	import { exportItem } from '$lib/stores/transfer.js';
 	import { characterStore } from '$lib/stores/character.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import TransportImage from '$lib/components/TransportImage.svelte';
@@ -262,7 +263,12 @@
 	<section class="col-content">
 		{#if draft}
 			<div class="pane">
-				<h1>Edit persona</h1>
+				<div class="pane-head">
+					<h1>Edit persona</h1>
+					<button type="button" onclick={() => exportItem('persona', draft.id, draft.name)}>
+						Export
+					</button>
+				</div>
 
 				<div class="identity-top">
 					<div class="identity-fields">
@@ -544,6 +550,11 @@
 	.empty-pane {
 		align-items: center;
 		justify-content: center;
+	}
+	.pane-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
 	}
 	.pane h1 {
 		font-size: var(--font-size-h3);

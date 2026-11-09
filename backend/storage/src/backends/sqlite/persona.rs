@@ -24,6 +24,7 @@ impl PersonaStorage for SqliteStorage {
                 (id, user_id, name, display_name, pseudonym, avatar_uri, description, updated_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, {NOW})
             ON CONFLICT (id) DO UPDATE SET
+                name = EXCLUDED.name,
                 display_name = EXCLUDED.display_name,
                 pseudonym = EXCLUDED.pseudonym,
                 avatar_uri = EXCLUDED.avatar_uri,

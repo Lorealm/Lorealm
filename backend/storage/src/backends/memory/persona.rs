@@ -25,6 +25,7 @@ impl PersonaStorage for MemoryStorage {
         let mut personas = self.personas.write().await;
         match personas.get_mut(&create.id) {
             Some(existing) => {
+                existing.name = create.name;
                 existing.display_name = create.display_name;
                 existing.pseudonym = create.pseudonym;
                 existing.avatar_uri = create.avatar_uri;

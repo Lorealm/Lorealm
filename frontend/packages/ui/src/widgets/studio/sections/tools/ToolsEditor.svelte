@@ -3,6 +3,7 @@
 	import { onDestroy } from 'svelte';
 	import { navigator } from '$lib/navigation/navigator.js';
 	import { toolStore } from '$lib/stores/tools.svelte.js';
+	import { exportItem } from '$lib/stores/transfer.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import type {
 		Param,
@@ -245,6 +246,13 @@
 				<div class="pane-head">
 					<h1>{readOnly ? 'Built-in tool' : 'Edit tool'}</h1>
 					{#if !readOnly}
+						<button
+							type="button"
+							class="export"
+							onclick={() => exportItem('tool', shown.id, shown.name)}
+						>
+							Export
+						</button>
 						<button type="button" class="delete" onclick={() => removeTool(shown.id, shown.name)}>
 							Delete
 						</button>
@@ -604,6 +612,12 @@
 	.pane h1 {
 		font-size: var(--font-size-h3);
 		margin: 0;
+	}
+	.export {
+		flex: 0 0 auto;
+		margin-left: auto;
+		padding: var(--spacing-xs) var(--spacing-sm);
+		font-size: var(--font-size-sm);
 	}
 	.delete {
 		flex: 0 0 auto;
