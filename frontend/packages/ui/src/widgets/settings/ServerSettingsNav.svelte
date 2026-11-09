@@ -12,6 +12,7 @@
 		{ id: 'storage', label: 'Storage', go: () => server().storage() },
 		{ id: 'sessions', label: 'Sessions', go: () => server().sessions() },
 		{ id: 'users', label: 'Users', go: () => server().users() },
+		{ id: 'accounts', label: 'Accounts', go: () => server().accounts() },
 		{ id: 'roles', label: 'Roles', go: () => server().roles() },
 		{ id: 'characters', label: 'Characters', go: () => server().characters() },
 		{ id: 'tokenizers', label: 'Tokenizers', go: () => server().tokenizers() },
@@ -27,7 +28,7 @@
 	{/each}
 </nav>
 
-{#if !configStore.canEditServer && section !== 'roles'}
+{#if !configStore.canEditServer && section !== 'roles' && section !== 'accounts'}
 	<p class="readonly">Read-only. You don't have permission to change server settings.</p>
 {/if}
 

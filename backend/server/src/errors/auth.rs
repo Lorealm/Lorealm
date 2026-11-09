@@ -45,6 +45,10 @@ pub enum AuthError {
     WrongCurrentPassword,
     #[error("Password must be {min}-{max} characters")]
     PasswordLength { min: usize, max: usize },
+    #[error("Invite invalid")]
+    InviteInvalid,
+    #[error("Invite must allow at least one use")]
+    InvalidInviteLimit,
     #[error("Rate limited for {retry_after_secs}s")]
     RateLimited { retry_after_secs: u64 },
 }
@@ -63,6 +67,8 @@ impl DomainError for AuthError {
             Self::WrongCurrentPassword => "auth.wrong_current_password",
             Self::PasswordLength { .. } => "auth.password_length",
             Self::RateLimited { .. } => "auth.rate_limited",
+            Self::InviteInvalid => "auth.invite_invalid",
+            Self::InvalidInviteLimit => "auth.invalid_invite_limit",
             Self::DisplayNameTooLong => "user.display_name_too_long",
             Self::UnsupportedAvatarType => "user.unsupported_avatar_type",
             Self::TokenGenerationFailed | Self::Encryption(_) | Self::Storage(_) => "internal",
@@ -72,8 +78,10 @@ impl DomainError for AuthError {
     fn status(&self) -> StatusCode {
         match self {
             Self::UsernameTaken(_) | Self::EmailTaken(_) => StatusCode::CONFLICT,
-            Self::DisplayNameTooLong | Self::PasswordLength { .. } => StatusCode::BAD_REQUEST,
-            Self::WrongCurrentPassword => StatusCode::FORBIDDEN,
+            Self::DisplayNameTooLong | Self::PasswordLength { .. } | Self::InvalidInviteLimit => {
+                StatusCode::BAD_REQUEST
+            }
+            Self::WrongCurrentPassword | Self::InviteInvalid => StatusCode::FORBIDDEN,
             Self::RateLimited { .. } => StatusCode::TOO_MANY_REQUESTS,
             Self::UnsupportedAvatarType => StatusCode::UNSUPPORTED_MEDIA_TYPE,
             Self::TokenGenerationFailed | Self::Encryption(_) | Self::Storage(_) => {
@@ -115,6 +123,8 @@ impl DomainError for AuthError {
             )
             .into(),
             Self::UnsupportedAvatarType => "Avatars must be a PNG, JPEG, WebP or GIF image.".into(),
+            Self::InviteInvalid => "That invite code is invalid, used up or expired.".into(),
+            Self::InvalidInviteLimit => "An invite must allow at least one use.".into(),
             Self::TokenGenerationFailed | Self::Encryption(_) | Self::Storage(_) => {
                 "An internal error occurred".into()
             }

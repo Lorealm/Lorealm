@@ -17,7 +17,8 @@ use crate::{
     config::{HostingConfig, UserConfig},
     core::AppState,
     errors::{AppError, AuthError},
-    extract::{AuthenticatedSession, UserDevice},
+    extract::{AuthenticatedSession, ResolvedPermissions, UserDevice},
+    services::permission::Permissions,
     util::scaffold_user,
 };
 
@@ -28,8 +29,8 @@ pub async fn register(
     user_device: UserDevice,
     Json(payload): Json<super::dto::RegisterRequest>,
 ) -> Result<StatusCode, AppError> {
-    // Check if the register endpoint is disabled
-    if state.config().get::<UserConfig>().disable_register {
+    // Check if the register endpoint is disabled. An invite gets around it.
+    if state.config().get::<UserConfig>().disable_register && payload.invite_code.is_none() {
         return Err(AppError::request(
             StatusCode::FORBIDDEN,
             "auth.registration_disabled",
@@ -42,11 +43,19 @@ pub async fn register(
         .rate_limits()
         .register_attempt(user_device.ip)?;
 
-    let user = state
-        .services()
-        .users()
-        .register(payload.username, payload.email, payload.password)
-        .await?;
+    let users = state.services().users();
+    let user = match payload.invite_code {
+        Some(code) => {
+            users
+                .register_with_invite(payload.username, payload.email, payload.password, &code)
+                .await?
+        }
+        None => {
+            users
+                .register(payload.username, payload.email, payload.password)
+                .await?
+        }
+    };
 
     state
         .services()
@@ -311,5 +320,151 @@ pub async fn revoke_other_sessions(
         .revoke_other_sessions(session.user_id, session.session_id)
         .await?;
 
+    Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn list_users(
+    State(state): State<Arc<AppState>>,
+    perms: ResolvedPermissions,
+) -> Result<Json<Vec<super::dto::AdminUserResponse>>, AppError> {
+    perms.require(Permissions::MANAGE_USERS)?;
+    let users = state.services().users().list_users().await?;
+    Ok(Json(users.into_iter().map(Into::into).collect()))
+}
+
+pub async fn create_user(
+    State(state): State<Arc<AppState>>,
+    perms: ResolvedPermissions,
+    Json(payload): Json<super::dto::CreateUserRequest>,
+) -> Result<Json<super::dto::AdminUserResponse>, AppError> {
+    perms.require(Permissions::MANAGE_USERS)?;
+    let user = state
+        .services()
+        .users()
+        .register(payload.username, payload.email, payload.password)
+        .await?;
+
+    if state.config().get::<UserConfig>().create_default_resources {
+        scaffold_user(&state, &user).await?;
+    }
+
+    Ok(Json(user.into()))
+}
+
+pub async fn admin_update_user(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    perms: ResolvedPermissions,
+    Path(user_id): Path<Snowflake>,
+    Json(payload): Json<super::dto::AdminUpdateUserRequest>,
+) -> Result<Json<super::dto::AdminUserResponse>, AppError> {
+    perms.require(Permissions::MANAGE_USERS)?;
+    state
+        .services()
+        .permissions()
+        .check_may_manage_user(session.user_id, user_id)
+        .await?;
+
+    let user = state
+        .services()
+        .users()
+        .admin_update(
+            user_id,
+            payload.email,
+            payload.display_name,
+            payload.password,
+        )
+        .await?;
+    Ok(Json(user.into()))
+}
+
+pub async fn delete_user(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    perms: ResolvedPermissions,
+    Path(user_id): Path<Snowflake>,
+) -> Result<StatusCode, AppError> {
+    perms.require(Permissions::MANAGE_USERS)?;
+    state
+        .services()
+        .permissions()
+        .check_may_delete_user(session.user_id, user_id)
+        .await?;
+
+    state.services().users().delete_user(user_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn revoke_user_sessions(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    perms: ResolvedPermissions,
+    Path(user_id): Path<Snowflake>,
+) -> Result<StatusCode, AppError> {
+    perms.require(Permissions::MANAGE_USERS)?;
+    state
+        .services()
+        .permissions()
+        .check_may_manage_user(session.user_id, user_id)
+        .await?;
+
+    state
+        .services()
+        .users()
+        .revoke_all_sessions(user_id)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn list_invites(
+    State(state): State<Arc<AppState>>,
+    perms: ResolvedPermissions,
+) -> Result<Json<Vec<super::dto::InviteResponse>>, AppError> {
+    perms.require(Permissions::MANAGE_USERS)?;
+    let invites = state.services().users().list_invites().await?;
+    Ok(Json(invites.into_iter().map(Into::into).collect()))
+}
+
+pub async fn create_invite(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    perms: ResolvedPermissions,
+    Json(payload): Json<super::dto::CreateInviteRequest>,
+) -> Result<Json<super::dto::CreatedInviteResponse>, AppError> {
+    perms.require(Permissions::MANAGE_USERS)?;
+    // Same rule as giving the role to someone directly.
+    if let Some(role_id) = payload.role_id {
+        perms.require(Permissions::MANAGE_ROLES)?;
+        state
+            .services()
+            .permissions()
+            .check_may_assign(session.user_id, role_id)
+            .await?;
+    }
+
+    let (invite, code) = state
+        .services()
+        .users()
+        .create_invite(
+            session.user_id,
+            payload.role_id,
+            payload.max_uses,
+            payload.expires_at,
+        )
+        .await?;
+
+    Ok(Json(super::dto::CreatedInviteResponse {
+        invite: invite.into(),
+        code,
+    }))
+}
+
+pub async fn delete_invite(
+    State(state): State<Arc<AppState>>,
+    perms: ResolvedPermissions,
+    Path(invite_id): Path<Snowflake>,
+) -> Result<StatusCode, AppError> {
+    perms.require(Permissions::MANAGE_USERS)?;
+    state.services().users().delete_invite(invite_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }

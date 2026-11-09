@@ -192,7 +192,7 @@ impl SessionService {
     }
 }
 
-fn generate_token(length: usize) -> Result<String, AuthError> {
+pub(crate) fn generate_token(length: usize) -> Result<String, AuthError> {
     let mut random_bytes = vec![0u8; length];
     SysRng
         .try_fill_bytes(&mut random_bytes)

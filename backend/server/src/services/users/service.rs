@@ -1,21 +1,32 @@
 use std::sync::Arc;
 
 use bytes::Bytes;
+use chrono::{DateTime, Utc};
 use lorealm_encryption::Hashable;
 use lorealm_storage::{
-    BlobStore, Storage,
-    models::{CreateUser, Session, Snowflake, UpdateUser, User},
+    BlobStore, Storage, StorageError,
+    models::{CreateInvite, CreateUser, Invite, Session, Snowflake, UpdateUser, User},
 };
 use secrecy::SecretString;
+use sha2::{Digest, Sha256};
 
 use crate::{
     config::UserConfig,
     errors::AuthError,
     extract::UserDevice,
-    services::{session::SessionService, snowflake::SnowflakeService, users::LoginResult},
+    services::{
+        session::{SessionService, generate_token},
+        snowflake::SnowflakeService,
+        users::LoginResult,
+    },
 };
 
 const MAX_DISPLAY_NAME_CHARS: usize = 64;
+const INVITE_CODE_BYTES: usize = 18;
+
+fn hash_invite_code(code: &str) -> String {
+    hex::encode(Sha256::digest(code.trim().as_bytes()))
+}
 
 pub struct UserService {
     storage: Arc<dyn Storage>,
@@ -237,5 +248,143 @@ impl UserService {
         }
 
         Ok(revoked)
+    }
+
+    /// Register using an invite code.
+    pub async fn register_with_invite(
+        &self,
+        username: String,
+        email: Option<String>,
+        password: String,
+        code: &str,
+    ) -> Result<User, AuthError> {
+        let invite = self
+            .storage
+            .redeem_invite(&hash_invite_code(code))
+            .await?
+            .ok_or(AuthError::InviteInvalid)?;
+
+        let user = match self.register(username, email, password).await {
+            Ok(user) => user,
+            Err(e) => {
+                self.storage.release_invite(invite.id).await?;
+                return Err(e);
+            }
+        };
+
+        if let Some(role_id) = invite.role_id {
+            match self.storage.assign_role(user.id, role_id).await {
+                Ok(_) | Err(StorageError::Conflict(_)) => {}
+                Err(e) => return Err(e.into()),
+            }
+        }
+
+        Ok(user)
+    }
+
+    pub async fn list_users(&self) -> Result<Vec<User>, AuthError> {
+        Ok(self.storage.list_users().await?)
+    }
+
+    /// Edit a user's account settings on behalf of an administrator.
+    pub async fn admin_update(
+        &self,
+        user_id: Snowflake,
+        email: Option<String>,
+        display_name: Option<Option<String>>,
+        password: Option<String>,
+    ) -> Result<User, AuthError> {
+        let mut user = self.get_user(user_id).await?;
+
+        if let Some(display_name) = display_name {
+            user = self.set_display_name(user_id, display_name).await?;
+        }
+
+        let mut update = UpdateUser::default();
+        if let Some(email) = email.filter(|e| user.email.as_ref() != Some(e)) {
+            if self.storage.get_user_by_email(&email).await?.is_some() {
+                return Err(AuthError::EmailTaken(email));
+            }
+            update.email = Some(email);
+        }
+        if let Some(password) = &password {
+            let (min, max) = (
+                self.config.password_length.min,
+                self.config.password_length.max,
+            );
+            if !(min..=max).contains(&password.len()) {
+                return Err(AuthError::PasswordLength { min, max });
+            }
+            update.password_hash = Some(password.hash().await?);
+        }
+
+        if update.email.is_some() || update.password_hash.is_some() {
+            user = self.storage.update_user(user_id, &update).await?;
+        }
+        if password.is_some() {
+            self.storage.revoke_all_user_sessions(user_id).await?;
+        }
+        Ok(user)
+    }
+
+    pub async fn revoke_all_sessions(&self, user_id: Snowflake) -> Result<(), AuthError> {
+        self.get_user(user_id).await?;
+        self.storage.revoke_all_user_sessions(user_id).await?;
+        Ok(())
+    }
+
+    pub async fn delete_user(&self, user_id: Snowflake) -> Result<(), AuthError> {
+        self.get_user(user_id).await?;
+        self.storage.revoke_all_user_sessions(user_id).await?;
+
+        for chat in self.storage.list_conversations(user_id).await? {
+            self.storage.delete_conversation(chat.id).await?;
+        }
+        for character in self.storage.list_characters_by_owner(user_id).await? {
+            self.storage.delete_character(character.id).await?;
+        }
+        for tokenizer in self.storage.list_tokenizers_by_owner(user_id).await? {
+            self.storage.delete_tokenizer(tokenizer.id).await?;
+        }
+
+        self.storage.delete_user(user_id).await?;
+        Ok(())
+    }
+
+    /// Create an invite. The code is returned once and only its hash is kept.
+    pub async fn create_invite(
+        &self,
+        created_by: Snowflake,
+        role_id: Option<Snowflake>,
+        max_uses: Option<i32>,
+        expires_at: Option<DateTime<Utc>>,
+    ) -> Result<(Invite, String), AuthError> {
+        if max_uses.is_some_and(|m| m < 1) {
+            return Err(AuthError::InvalidInviteLimit);
+        }
+
+        let code = generate_token(INVITE_CODE_BYTES)?;
+        let invite = self
+            .storage
+            .create_invite(&CreateInvite {
+                id: self.snowflake.generate(),
+                code_hash: hash_invite_code(&code),
+                role_id,
+                created_by: Some(created_by),
+                max_uses,
+                expires_at,
+            })
+            .await?;
+
+        Ok((invite, code))
+    }
+
+    pub async fn list_invites(&self) -> Result<Vec<Invite>, AuthError> {
+        Ok(self.storage.list_invites().await?)
+    }
+
+    pub async fn delete_invite(&self, id: Snowflake) -> Result<(), AuthError> {
+        self.storage.delete_invite(id).await?;
+        Ok(())
     }
 }

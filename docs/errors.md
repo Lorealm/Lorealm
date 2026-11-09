@@ -77,6 +77,8 @@ Messages containing quoted values are examples; the interpolated part varies.
 | `auth.csrf_invalid` | 401 | Invalid or missing CSRF token. |
 | `auth.email_taken` | 409 | That email is already registered. |
 | `auth.invalid_credentials` | 401 | Invalid credentials. |
+| `auth.invalid_invite_limit` | 400 | An invite must allow at least one use. |
+| `auth.invite_invalid` | 403 | That invite code is invalid, used up or expired. |
 | `auth.missing_token` | 401 | You are not signed in. |
 | `auth.password_length` | 400 | Passwords must be between 8 and 64 characters. |
 | `auth.rate_limited` | 429 | Too many attempts. Try again in 2 minutes. |
@@ -105,10 +107,12 @@ Messages containing quoted values are examples; the interpolated part varies.
 | `permission.invalid_role_name` | 400 | Role names can't be empty. |
 | `permission.invalid_role_position` | 400 | Role positions start at 1. |
 | `permission.last_administrator` | 409 | The server needs at least one administrator. |
+| `permission.own_account` | 400 | You can't delete your own account. |
 | `permission.role_name_taken` | 409 | A role with that name already exists. |
 | `permission.role_not_found` | 404 | That role no longer exists. |
 | `permission.role_outranked` | 403 | You can only manage roles below your highest role. |
 | `permission.user_not_found` | 404 | No user has that name. |
+| `permission.user_outranked` | 403 | You can only manage people whose highest role is below yours. |
 | `persona.last_persona` | 409 | You need at least one persona. Create another one before deleting this one. |
 | `persona.not_found` | 404 | That persona no longer exists. |
 | `persona.unsupported_media_type` | 415 | That image format isn't supported. |

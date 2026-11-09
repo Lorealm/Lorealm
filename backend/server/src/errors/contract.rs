@@ -28,6 +28,8 @@ fn contract_surface() -> Vec<(&'static str, Vec<Box<dyn DomainError>>)> {
                 Box::new(AuthError::EmailTaken("a@b.c".into())),
                 Box::new(AuthError::WrongCurrentPassword),
                 Box::new(AuthError::PasswordLength { min: 8, max: 64 }),
+                Box::new(AuthError::InviteInvalid),
+                Box::new(AuthError::InvalidInviteLimit),
                 Box::new(AuthError::RateLimited {
                     retry_after_secs: 90,
                 }),
@@ -42,6 +44,8 @@ fn contract_surface() -> Vec<(&'static str, Vec<Box<dyn DomainError>>)> {
                 Box::new(PermissionError::RoleNotFound(id())),
                 Box::new(PermissionError::UserNotFound),
                 Box::new(PermissionError::Outranked),
+                Box::new(PermissionError::UserOutranked),
+                Box::new(PermissionError::OwnAccount),
                 Box::new(PermissionError::BuiltIn),
                 Box::new(PermissionError::LastAdministrator),
                 Box::new(PermissionError::NameTaken),

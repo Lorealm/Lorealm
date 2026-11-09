@@ -1,6 +1,6 @@
 use crate::UserStorage;
 use crate::error::StorageError;
-use crate::models::{CreateUser, Snowflake, UpdateUser, User};
+use crate::models::{CreateInvite, CreateUser, Invite, Snowflake, UpdateUser, User};
 use async_trait::async_trait;
 
 use super::CachedStorage;
@@ -40,5 +40,29 @@ impl UserStorage for CachedStorage {
             self.cache_del(&self.key("user", &id.to_string())).await;
         }
         Ok(result)
+    }
+
+    async fn list_users(&self) -> Result<Vec<User>, StorageError> {
+        self.backend.list_users().await
+    }
+
+    async fn create_invite(&self, input: &CreateInvite) -> Result<Invite, StorageError> {
+        self.backend.create_invite(input).await
+    }
+
+    async fn list_invites(&self) -> Result<Vec<Invite>, StorageError> {
+        self.backend.list_invites().await
+    }
+
+    async fn delete_invite(&self, id: Snowflake) -> Result<bool, StorageError> {
+        self.backend.delete_invite(id).await
+    }
+
+    async fn redeem_invite(&self, code_hash: &str) -> Result<Option<Invite>, StorageError> {
+        self.backend.redeem_invite(code_hash).await
+    }
+
+    async fn release_invite(&self, id: Snowflake) -> Result<(), StorageError> {
+        self.backend.release_invite(id).await
     }
 }

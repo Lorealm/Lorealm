@@ -5,7 +5,9 @@ use lorealm_encryption::Hashable;
 use lorealm_storage::{
     BlobStore, Storage, StorageCore,
     backends::{MemoryStorage, SqliteStorage},
-    models::{Conversation, CreateSession, CreateUser, PersonaOverride, Snowflake},
+    models::{
+        Conversation, CreateRole, CreateSession, CreateUser, PersonaOverride, Snowflake, Tokenizer,
+    },
 };
 
 use crate::{
@@ -304,5 +306,197 @@ async fn changing_the_password_checks_the_old_one_and_signs_out_other_sessions()
 
         let live = e.storage.list_user_sessions(owner).await.unwrap();
         assert_eq!(live.iter().map(|s| s.id).collect::<Vec<_>>(), vec![here]);
+    }
+}
+
+#[tokio::test]
+async fn an_invite_is_used_up_and_a_failed_registration_gives_its_use_back() {
+    for e in both().await {
+        let admin = user(&e, "admin", "password1").await;
+        let (_, code) = e
+            .users
+            .create_invite(admin, None, Some(1), None)
+            .await
+            .unwrap();
+
+        // Too short a password: the use is handed back.
+        let err = e
+            .users
+            .register_with_invite("first".into(), None, "short".into(), &code)
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::MalformedCredentials), "{err:?}");
+
+        e.users
+            .register_with_invite("first".into(), None, "password1".into(), &code)
+            .await
+            .unwrap();
+
+        let err = e
+            .users
+            .register_with_invite("second".into(), None, "password1".into(), &code)
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::InviteInvalid), "{err:?}");
+
+        let invites = e.users.list_invites().await.unwrap();
+        assert_eq!(invites[0].uses, 1);
+    }
+}
+
+#[tokio::test]
+async fn expired_and_unknown_invites_are_refused() {
+    for e in both().await {
+        let admin = user(&e, "admin", "password1").await;
+        let (_, code) = e
+            .users
+            .create_invite(admin, None, None, Some(Utc::now() - Duration::minutes(1)))
+            .await
+            .unwrap();
+
+        for code in [code.as_str(), "not-a-code"] {
+            let err = e
+                .users
+                .register_with_invite("someone".into(), None, "password1".into(), code)
+                .await
+                .unwrap_err();
+            assert!(matches!(err, AuthError::InviteInvalid), "{err:?}");
+        }
+
+        let err = e
+            .users
+            .create_invite(admin, None, Some(0), None)
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AuthError::InvalidInviteLimit), "{err:?}");
+    }
+}
+
+#[tokio::test]
+async fn an_invite_gives_its_role() {
+    for e in both().await {
+        let admin = user(&e, "admin", "password1").await;
+        let role = e
+            .storage
+            .create_role(&CreateRole {
+                id: e.snow.generate(),
+                name: "Guest".into(),
+                permissions: 0,
+                position: 5,
+            })
+            .await
+            .unwrap();
+        let (_, code) = e
+            .users
+            .create_invite(admin, Some(role.id), None, None)
+            .await
+            .unwrap();
+
+        let guest = e
+            .users
+            .register_with_invite("guest".into(), None, "password1".into(), &code)
+            .await
+            .unwrap();
+
+        let roles = e.storage.get_user_roles(guest.id).await.unwrap();
+        assert_eq!(
+            roles.iter().map(|r| r.id).collect::<Vec<_>>(),
+            vec![role.id]
+        );
+    }
+}
+
+#[tokio::test]
+async fn deleting_a_user_removes_what_does_not_cascade() {
+    for e in both().await {
+        let doomed = user(&e, "doomed", "password1").await;
+        let kept = user(&e, "kept", "password1").await;
+        session(&e, doomed).await;
+
+        let character = e
+            .characters
+            .create_character(doomed, "Theirs".into())
+            .await
+            .unwrap();
+        chat(&e, doomed, character.id, character.current_version_id).await;
+        e.storage
+            .save_tokenizer(&Tokenizer {
+                id: e.snow.generate(),
+                name: "tok".into(),
+                blob_uri: "blob://tok".into(),
+                owner_id: doomed,
+                is_public: true,
+            })
+            .await
+            .unwrap();
+        let other = e
+            .characters
+            .create_character(kept, "Mine".into())
+            .await
+            .unwrap();
+
+        e.users.delete_user(doomed).await.unwrap();
+
+        assert!(e.storage.get_user_by_id(doomed).await.unwrap().is_none());
+        assert!(
+            e.storage
+                .list_conversations(doomed)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            e.storage
+                .list_characters_by_owner(doomed)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            e.storage
+                .list_tokenizers_by_owner(doomed)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            e.storage
+                .list_user_sessions(doomed)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+
+        let theirs = e.storage.list_characters_by_owner(kept).await.unwrap();
+        assert_eq!(
+            theirs.iter().map(|c| c.id).collect::<Vec<_>>(),
+            vec![other.id]
+        );
+    }
+}
+
+#[tokio::test]
+async fn resetting_a_password_signs_the_user_out_everywhere() {
+    for e in both().await {
+        let target = user(&e, "target", "old-password").await;
+        session(&e, target).await;
+        session(&e, target).await;
+
+        e.users
+            .admin_update(target, None, None, Some("new-password".into()))
+            .await
+            .unwrap();
+
+        let stored = e.storage.get_user_by_id(target).await.unwrap().unwrap();
+        assert!(
+            lorealm_encryption::verify_password("new-password", &stored.password_hash).unwrap()
+        );
+        assert!(
+            e.storage
+                .list_user_sessions(target)
+                .await
+                .unwrap()
+                .is_empty()
+        );
     }
 }

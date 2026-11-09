@@ -5,6 +5,7 @@
 	import type { LoginRequest } from '$lib/types/auth.js';
 	import type { AppError, ServerError } from '$lib/types/error.js';
 	import { memory } from '$lib/stores/memory.svelte.js';
+	import { useApi } from '$lib/api/client.js';
 	import { onMount } from 'svelte';
 
 	const platform = getPlatformApi();
@@ -15,6 +16,9 @@
 	let password = $state('');
 	let serverUrl = $state('');
 	let error = $state('');
+	let registering = $state(false);
+	let email = $state('');
+	let inviteCode = $state('');
 
 	// This view mounts before the boot in App.svelte has read local config back.
 	let prefilled = false;
@@ -28,6 +32,15 @@
 		server?.url().then((url) => (serverUrl = url));
 	});
 
+	function showError(e: unknown) {
+		if ((e as AppError).error_type == 'Server') {
+			const data = (e as ServerError).data;
+			error = `<b>${data.error_code}:</b> ${data.message}`;
+			return;
+		}
+		error = JSON.stringify(e);
+	}
+
 	async function handleLogin() {
 		try {
 			if (server) await server.setUrl(serverUrl);
@@ -35,13 +48,28 @@
 			await memory.set('lastUsername', username);
 			setAuthState({ status: 'authenticated', session });
 		} catch (e: unknown) {
-			if ((e as AppError).error_type == 'Server') {
-				const data = (e as ServerError).data;
-				error = `<b>${data.error_code}:</b> ${data.message}`;
+			showError(e);
+		}
+	}
+
+	async function handleRegister() {
+		try {
+			if (server) await server.setUrl(serverUrl);
+			await useApi().users.register({
+				username,
+				password,
+				email: email.trim() || undefined,
+				invite_code: inviteCode.trim() || undefined
+			});
+		} catch (e: unknown) {
+			if (e instanceof Error) {
+				error = e.message;
 				return;
 			}
-			error = JSON.stringify(e);
+			showError(e);
+			return;
 		}
+		await handleLogin();
 	}
 </script>
 
@@ -64,7 +92,29 @@
 		<label for="PasswordInput">Password</label>
 		<input id="PasswordInput" type="password" class="standard-input" bind:value={password} />
 	</div>
-	<button class="push-button" onclick={handleLogin}>Log in</button>
+	{#if registering}
+		<div class="input-row" style="margin-bottom: var(--spacing-xs);">
+			<label for="EmailInput">Email (optional)</label>
+			<input id="EmailInput" type="email" class="standard-input" bind:value={email} />
+		</div>
+		<div class="input-row" style="margin-bottom: var(--spacing-md);">
+			<label for="InviteInput">Invite code</label>
+			<input
+				id="InviteInput"
+				type="text"
+				class="standard-input"
+				placeholder="Needed if sign-ups are closed"
+				bind:value={inviteCode}
+			/>
+		</div>
+		<button class="push-button" onclick={handleRegister}>Create account</button>
+		<button class="link-button" onclick={() => (registering = false)}>
+			I already have an account
+		</button>
+	{:else}
+		<button class="push-button" onclick={handleLogin}>Log in</button>
+		<button class="link-button" onclick={() => (registering = true)}>Create an account</button>
+	{/if}
 </div>
 
 <ErrorToast />
@@ -87,6 +137,12 @@
 	.input-row label {
 		min-width: 8em;
 		flex-shrink: 0;
+	}
+	.link-button {
+		align-self: center;
+		margin-top: var(--spacing-sm);
+		background: none;
+		color: var(--color-text-secondary);
 	}
 	.error-box {
 		padding: var(--spacing-md);

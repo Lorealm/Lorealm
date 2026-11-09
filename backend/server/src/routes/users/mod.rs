@@ -21,6 +21,8 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         .route("/me/sessions", get(handlers::list_sessions))
         .route("/me/permissions", get(handlers::my_permissions))
         .route("/{user_id}", get(handlers::get_user))
+        .route("/", get(handlers::list_users))
+        .route("/invites", get(handlers::list_invites))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
             session_auth_middleware,
@@ -36,6 +38,15 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
             "/me/sessions/{session_id}",
             delete(handlers::revoke_session),
         )
+        .route("/", post(handlers::create_user))
+        .route("/{user_id}", patch(handlers::admin_update_user))
+        .route("/{user_id}", delete(handlers::delete_user))
+        .route(
+            "/{user_id}/sessions",
+            delete(handlers::revoke_user_sessions),
+        )
+        .route("/invites", post(handlers::create_invite))
+        .route("/invites/{invite_id}", delete(handlers::delete_invite))
         .layer(DefaultBodyLimit::max(20 * 1024 * 1024))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
