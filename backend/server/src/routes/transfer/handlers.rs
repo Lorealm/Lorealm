@@ -124,7 +124,10 @@ pub async fn import(
                 pseudonym: Some(pseudonym),
                 description: Some(description),
             };
-            services.persona().update_persona(id, user_id, update).await?;
+            services
+                .persona()
+                .update_persona(id, user_id, update)
+                .await?;
             return Ok(Json(ImportResponse {
                 kind: Kind::Persona,
                 id: Some(id),

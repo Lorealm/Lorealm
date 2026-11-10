@@ -77,7 +77,7 @@ pub async fn import_attachments(
 
     let library = storage.list_tools(user_id).await?;
     let mut taken: HashSet<String> = library.iter().map(|t| t.name.clone()).collect();
-    
+
     let mut tool_by_hash: HashMap<String, Snowflake> = HashMap::new();
     for t in builtin_tools().iter().chain(&library) {
         keep_oldest(&mut tool_by_hash, ToolData::from_tool(t, false).hash, t.id);

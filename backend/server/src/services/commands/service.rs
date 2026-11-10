@@ -69,9 +69,6 @@ impl CommandService {
         if conversation.user_id != user_id {
             return Err(CommandError::NotOwned(conversation_id));
         }
-        if conversation.realm_id.is_some() {
-            return Err(CommandError::RealmConversation(conversation_id));
-        }
 
         // Shipped rows belong to no user, so the ownership gate in `get_tool`
         // would reject them; `infer` resolves the model's builtins the same way.
@@ -640,7 +637,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_realm_playthrough_refuses_commands() {
+    async fn a_realm_playthrough_runs_commands() {
         let h = harness().await;
         let now = Utc::now();
         let realm_convo = Conversation {
@@ -659,12 +656,12 @@ mod tests {
         h.store.create_conversation(&realm_convo).await.unwrap();
         let id = h.define("noop", "hi", ToolSurface::Command).await;
 
-        assert!(matches!(
-            h.service
-                .run(h.user, realm_id, id, CommandArgs::default())
-                .await,
-            Err(CommandError::RealmConversation(_))
-        ));
+        let run = h
+            .service
+            .run(h.user, realm_id, id, CommandArgs::default())
+            .await
+            .unwrap();
+        assert_eq!(run.output, json!("hi"));
     }
 
     #[tokio::test]

@@ -14,7 +14,7 @@
 	import ChatBox from '$lib/widgets/chat/ChatBox.svelte';
 	import ChatControls from '../chat/ChatControls.svelte';
 	import PluginComposerSlots from '$lib/components/PluginComposerSlots.svelte';
-	import RealmChatControls from '../chat/RealmChatControls.svelte';
+	import TurnControls from '../chat/TurnControls.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte.js';
 
 	const route = $derived(router.current);
@@ -29,8 +29,8 @@
 
 {#if route.view === 'write'}
 	<ChatBox />
-	{#if chatStore.isRealm}
-		<RealmChatControls />
+	{#if chatStore.isEnsemble}
+		<TurnControls />
 	{/if}
 	<PluginComposerSlots />
 	<ChatControls />

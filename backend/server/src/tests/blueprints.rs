@@ -190,12 +190,12 @@ async fn the_shipped_group_chat_expands_into_a_realm_that_can_be_played() {
     );
 
     let convo = h
-        .realms
-        .start_conversation(realm.id, h.user, None)
+        .chat
+        .start_with_realm(h.user, realm.id, None)
         .await
         .expect("starts");
     assert_eq!(
-        h.realms
+        h.chat
             .next_agent(convo.metadata.id, h.user)
             .await
             .expect("resolves a turn"),
@@ -206,7 +206,11 @@ async fn the_shipped_group_chat_expands_into_a_realm_that_can_be_played() {
 #[tokio::test]
 async fn a_realm_that_was_never_expanded_has_no_origin() {
     let h = Harness::new().await;
-    let realm = h.realms.create_realm("By hand", h.user).await.unwrap();
+    let realm = h
+        .realms
+        .import(h.user, r#"{ name: "By hand" }"#, Default::default(), None)
+        .await
+        .unwrap();
     assert!(realm.origin.is_none());
 }
 

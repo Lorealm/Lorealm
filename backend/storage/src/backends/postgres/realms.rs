@@ -6,8 +6,8 @@ use crate::{
     RealmStorage, StorageError,
     backends::PostgresStorage,
     models::{
-        AgentObservation, Realm, RealmCast, RealmDefinition, RealmEvent, RealmSummary,
-        RealmVersionInfo, Snowflake, TurnCommit, VersionedSaveMode,
+        Realm, RealmCast, RealmDefinition, RealmSummary, RealmVersionInfo, Snowflake,
+        VersionedSaveMode,
     },
 };
 
@@ -256,113 +256,6 @@ impl RealmStorage for PostgresStorage {
         .bind(sqlx::types::Json(cast))
         .execute(&self.pool)
         .await?;
-        Ok(())
-    }
-
-    async fn list_realm_events(
-        &self,
-        conversation_id: Snowflake,
-        before: Option<Snowflake>,
-        limit: i64,
-    ) -> Result<Vec<RealmEvent>, StorageError> {
-        let mut rows = sqlx::query_as::<_, RealmEvent>(
-            "SELECT id, conversation_id, message_id, seq, source, channel, kind, content, payload
-             FROM realm_events
-             WHERE conversation_id = $1 AND ($2::BIGINT IS NULL OR id < $2)
-             ORDER BY id DESC
-             LIMIT $3",
-        )
-        .bind(conversation_id)
-        .bind(before)
-        .bind(limit)
-        .fetch_all(&self.pool)
-        .await?;
-        rows.reverse();
-        Ok(rows)
-    }
-
-    async fn list_observations(
-        &self,
-        conversation_id: Snowflake,
-        agent_handle: &str,
-        before: Option<Snowflake>,
-        limit: i64,
-    ) -> Result<Vec<AgentObservation>, StorageError> {
-        let mut rows = sqlx::query_as::<_, AgentObservation>(
-            "SELECT id, conversation_id, message_id, agent_handle, event_id, role, content
-             FROM agent_observations
-             WHERE conversation_id = $1 AND agent_handle = $2
-               AND ($3::BIGINT IS NULL OR id < $3)
-             ORDER BY id DESC
-             LIMIT $4",
-        )
-        .bind(conversation_id)
-        .bind(agent_handle)
-        .bind(before)
-        .bind(limit)
-        .fetch_all(&self.pool)
-        .await?;
-        rows.reverse();
-        Ok(rows)
-    }
-
-    async fn list_observations_for_messages(
-        &self,
-        agent_handle: &str,
-        message_ids: &[Snowflake],
-    ) -> Result<Vec<AgentObservation>, StorageError> {
-        Ok(sqlx::query_as::<_, AgentObservation>(
-            "SELECT id, conversation_id, message_id, agent_handle, event_id, role, content
-             FROM agent_observations
-             WHERE agent_handle = $1 AND message_id = ANY($2)
-             ORDER BY id",
-        )
-        .bind(agent_handle)
-        .bind(message_ids)
-        .fetch_all(&self.pool)
-        .await?)
-    }
-
-    async fn commit_turn(&self, commit: TurnCommit) -> Result<(), StorageError> {
-        let mut tx = self.pool.begin().await?;
-
-        for e in &commit.events {
-            sqlx::query(
-                "INSERT INTO realm_events
-                     (id, conversation_id, message_id, seq, source, channel, kind, content, payload)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
-            )
-            .bind(e.id)
-            .bind(e.conversation_id)
-            .bind(e.message_id)
-            .bind(e.seq)
-            .bind(&e.source)
-            .bind(&e.channel)
-            .bind(&e.kind)
-            .bind(&e.content)
-            .bind(&e.payload)
-            .execute(&mut *tx)
-            .await?;
-        }
-
-        for o in &commit.observations {
-            sqlx::query(
-                "INSERT INTO agent_observations
-                     (id, conversation_id, message_id, agent_handle, event_id, role, content)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7)",
-            )
-            .bind(o.id)
-            .bind(o.conversation_id)
-            .bind(o.message_id)
-            .bind(&o.agent_handle)
-            .bind(o.event_id)
-            .bind(&o.role)
-            .bind(&o.content)
-            .execute(&mut *tx)
-            .await?;
-        }
-
-        tx.commit().await?;
         Ok(())
     }
 }

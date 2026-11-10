@@ -31,13 +31,13 @@ pub struct Actor {
 /// The realm a weaver body runs inside, as the `cast:` and `turn:` namespaces
 /// see it.
 #[derive(Clone, Default)]
-pub struct RealmView(Arc<ToolStatePool>);
+pub struct RealmVariables(Arc<ToolStatePool>);
 
 /// The namespaces [`RealmView`] owns. Reserved in every [`ToolContext`], with
 /// or without a view behind them, the way `actor:` is.
 pub const REALM_SCOPES: [&str; 3] = ["cast", "turn", "scenario"];
 
-impl RealmView {
+impl RealmVariables {
     pub fn new(pool: ToolStatePool) -> Self {
         Self(Arc::new(pool))
     }
@@ -70,7 +70,7 @@ pub struct ToolContext {
     state: Arc<Mutex<ToolStatePool>>,
     read_only: bool,
     actor: Option<Actor>,
-    realm: Option<RealmView>,
+    realm: Option<RealmVariables>,
 }
 
 impl ToolContext {
@@ -98,7 +98,7 @@ impl ToolContext {
     }
 
     /// Mount `cast:` and `turn:` for a body running inside a realm.
-    pub fn with_realm(mut self, realm: Option<RealmView>) -> Self {
+    pub fn with_realm(mut self, realm: Option<RealmVariables>) -> Self {
         self.realm = realm;
         self
     }
@@ -366,7 +366,7 @@ mod tests {
     }
 
     fn realm_ctx() -> ToolContext {
-        ctx().with_realm(Some(RealmView::new(ToolStatePool::from([
+        ctx().with_realm(Some(RealmVariables::new(ToolStatePool::from([
             (
                 "cast".to_string(),
                 std::collections::HashMap::from([

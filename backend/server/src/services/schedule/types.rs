@@ -13,13 +13,10 @@ pub trait Stage: Send + Sync {
     fn outbound(&self, prompt: &mut Vec<PromptMessage>, cx: &StageCx) -> Box<dyn ResponseFilter>;
 }
 
-/// Inbound half. Fed model deltas one at a time; returns only text that is
-/// safe to emit now. `finish` flushes whatever was held back at stream end.
+/// The inbound filter. Works on deltas
 pub trait ResponseFilter: Send {
     fn push(&mut self, delta: &str) -> String;
-    fn finish(&mut self) -> String;
-    /// One-shot transform of a detached string (e.g. tool-call output that
-    /// bypasses the token stream). Must not touch streaming state.
+    fn drain(&mut self) -> String;
     fn apply(&self, text: &str) -> String;
 }
 
@@ -31,7 +28,7 @@ impl ResponseFilter for Identity {
     fn push(&mut self, delta: &str) -> String {
         delta.to_owned()
     }
-    fn finish(&mut self) -> String {
+    fn drain(&mut self) -> String {
         String::new()
     }
     fn apply(&self, text: &str) -> String {

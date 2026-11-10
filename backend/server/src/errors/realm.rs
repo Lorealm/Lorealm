@@ -4,22 +4,16 @@ use axum::http::StatusCode;
 use lorealm_storage::{StorageError, models::Snowflake};
 
 use crate::errors::{
-    CharacterError, ChatError, ConnectionError, ContextError, ConversationError, DomainError,
-    ErrorDetails, PersonaError, StateError, TargetType, impl_app_error, sentence,
+    CharacterError, ConnectionError, ContextError, ConversationError, DomainError, ErrorDetails,
+    PersonaError, StateError, TargetType, impl_app_error, sentence,
 };
 
 #[derive(Debug, thiserror::Error)]
 pub enum RealmError {
-    #[error("conversation {0} was not started from a realm")]
-    NotRealmConversation(Snowflake),
     #[error("no agents: {0}")]
     NoAgents(Snowflake),
-    #[error("no agent's run condition passed this turn")]
-    NoRunnableAgent,
     #[error("not your turn: it is \"{0}\"'s")]
     NotYourTurn(String),
-    #[error("malformed agent: {1} ({0})")]
-    MalformedAgent(String, String),
     #[error("no cast member with handle \"{0}\"")]
     NoSuchAgent(String),
     #[error("no scenario with slug \"{0}\"")]
@@ -43,8 +37,6 @@ pub enum RealmError {
     #[error("director failed: {0}")]
     DirectorFailed(String),
     #[error(transparent)]
-    Chat(#[from] ChatError),
-    #[error(transparent)]
     Conversation(#[from] ConversationError),
     #[error(transparent)]
     State(#[from] StateError),
@@ -65,18 +57,14 @@ pub enum RealmError {
 impl DomainError for RealmError {
     fn code(&self) -> &'static str {
         match self {
-            Self::Chat(err) => err.code(),
             Self::Conversation(err) => err.code(),
             Self::State(err) => err.code(),
             Self::Character(err) => err.code(),
             Self::Context(err) => err.code(),
             Self::Persona(err) => err.code(),
             Self::Connection(err) => err.code(),
-            Self::NotRealmConversation(_) => "realm.not_realm_conversation",
             Self::NoAgents(_) => "realm.no_agents",
-            Self::NoRunnableAgent => "realm.no_runnable_agent",
             Self::NotYourTurn(_) => "realm.not_your_turn",
-            Self::MalformedAgent(_, _) => "realm.malformed_agent",
             Self::NoSuchAgent(_) => "realm.no_such_agent",
             Self::NoSuchScenario(_) => "realm.no_such_scenario",
             Self::NotFound(_, _) | Self::NotOwned(_, _) => "realm.not_found",
@@ -93,7 +81,6 @@ impl DomainError for RealmError {
 
     fn status(&self) -> StatusCode {
         match self {
-            Self::Chat(err) => err.status(),
             Self::Conversation(err) => err.status(),
             Self::State(err) => err.status(),
             Self::Character(err) => err.status(),
@@ -101,10 +88,8 @@ impl DomainError for RealmError {
             Self::Persona(err) => err.status(),
             Self::Connection(err) => err.status(),
             Self::NotFound(_, _) | Self::NotOwned(_, _) => StatusCode::NOT_FOUND,
-            Self::NotYourTurn(_) | Self::NoRunnableAgent => StatusCode::CONFLICT,
-            Self::NotRealmConversation(_)
-            | Self::NoAgents(_)
-            | Self::MalformedAgent(_, _)
+            Self::NotYourTurn(_) => StatusCode::CONFLICT,
+            Self::NoAgents(_)
             | Self::NoSuchAgent(_)
             | Self::NoSuchScenario(_)
             | Self::InvalidAgent(_)
@@ -120,29 +105,19 @@ impl DomainError for RealmError {
 
     fn message(&self) -> Cow<'static, str> {
         match self {
-            Self::Chat(err) => err.message(),
             Self::Conversation(err) => err.message(),
             Self::State(err) => err.message(),
             Self::Character(err) => err.message(),
             Self::Context(err) => err.message(),
             Self::Persona(err) => err.message(),
             Self::Connection(err) => err.message(),
-            Self::NotRealmConversation(_) => {
-                "This conversation was not started from a realm.".into()
-            }
             Self::NoAgents(_) => "This realm has no agents yet.".into(),
-            Self::NoRunnableAgent => {
-                "No agent could run this turn — every run condition was false.".into()
-            }
             Self::NotYourTurn(_) => "It isn't this agent's turn.".into(),
             Self::NoSuchAgent(handle) => {
                 Cow::Owned(format!("No cast member is called \"{handle}\"."))
             }
             Self::NoSuchScenario(slug) => {
                 Cow::Owned(format!("This realm has no opening called \"{slug}\"."))
-            }
-            Self::MalformedAgent(_, hint) => {
-                sentence(format!("This agent is misconfigured: {hint}"))
             }
             Self::NotFound(target, _) | Self::NotOwned(target, _) => {
                 Cow::Owned(format!("That {} no longer exists.", target.label()))
@@ -162,7 +137,6 @@ impl DomainError for RealmError {
 
     fn details(&self) -> Option<ErrorDetails> {
         match self {
-            Self::Chat(err) => err.details(),
             Self::Conversation(err) => err.details(),
             Self::State(err) => err.details(),
             Self::Character(err) => err.details(),
@@ -172,19 +146,15 @@ impl DomainError for RealmError {
             Self::NotFound(target, id) | Self::NotOwned(target, id) => {
                 Some(ErrorDetails::target(*target, *id))
             }
-            Self::NotRealmConversation(id) => {
-                Some(ErrorDetails::target(TargetType::Conversation, *id))
-            }
             Self::NoAgents(id) => Some(ErrorDetails::target(TargetType::Realm, *id)),
-            Self::NotYourTurn(_) | Self::MalformedAgent(_, _) | Self::NoSuchAgent(_) => {
+            Self::NotYourTurn(_) | Self::NoSuchAgent(_) => {
                 Some(ErrorDetails::resource(TargetType::RealmAgent))
             }
             Self::NoSuchScenario(_) => Some(ErrorDetails::resource(TargetType::Scenario)),
             Self::ToolNotBound(id) => Some(ErrorDetails::target(TargetType::UserTool, *id)),
             Self::InvalidAgent(_) => Some(ErrorDetails::resource(TargetType::RealmAgent)),
             Self::InvalidScenario(_) => Some(ErrorDetails::resource(TargetType::Scenario)),
-            Self::NoRunnableAgent
-            | Self::InvalidTurn(_)
+            Self::InvalidTurn(_)
             | Self::ActionFailed(_)
             | Self::InvalidTemplate(_)
             | Self::DirectorFailed(_) => Some(ErrorDetails::resource(TargetType::Realm)),

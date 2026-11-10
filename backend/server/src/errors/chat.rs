@@ -8,7 +8,8 @@ use crate::services::plugins::Refusal;
 
 use crate::errors::{
     CharacterError, ConnectionError, ContextError, ConversationError, DomainError, ErrorDetails,
-    PersonaError, StateError, TargetType, TokenizerError, UserToolError, impl_app_error, sentence,
+    PersonaError, RealmError, StateError, TargetType, TokenizerError, UserToolError,
+    impl_app_error, sentence,
 };
 
 #[derive(Debug, Error)]
@@ -39,8 +40,8 @@ pub enum ChatError {
     UserTool(#[from] UserToolError),
     #[error("tokenizer error: {0}")]
     Tokenizer(#[from] TokenizerError),
-    #[error("conversation {0} is a realm playthrough")]
-    RealmConversation(Snowflake),
+    #[error(transparent)]
+    Realm(#[from] RealmError),
     #[error("message {0} is not an assistant reply")]
     NotContinuable(Snowflake),
     #[error(transparent)]
@@ -58,10 +59,10 @@ impl DomainError for ChatError {
             Self::ConnectionProfile(err) => err.code(),
             Self::UserTool(err) => err.code(),
             Self::Tokenizer(err) => err.code(),
+            Self::Realm(err) => err.code(),
             Self::NotFound(_, _) | Self::NotOwned(_, _) => "chat.not_found",
             // Both are failures of the upstream LLM call.
             Self::Provider(_) | Self::Connection(_) => "chat.provider_failed",
-            Self::RealmConversation(_) => "chat.realm_conversation",
             Self::NotContinuable(_) => "chat.not_continuable",
             Self::Refused(_) => "chat.refused",
             Self::Storage(_) => "internal",
@@ -78,9 +79,10 @@ impl DomainError for ChatError {
             Self::ConnectionProfile(err) => err.status(),
             Self::UserTool(err) => err.status(),
             Self::Tokenizer(err) => err.status(),
+            Self::Realm(err) => err.status(),
             Self::NotFound(_, _) | Self::NotOwned(_, _) => StatusCode::NOT_FOUND,
             Self::Provider(_) | Self::Connection(_) => StatusCode::BAD_GATEWAY,
-            Self::RealmConversation(_) | Self::NotContinuable(_) => StatusCode::CONFLICT,
+            Self::NotContinuable(_) => StatusCode::CONFLICT,
             Self::Refused(_) => StatusCode::UNPROCESSABLE_ENTITY,
             Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -96,15 +98,13 @@ impl DomainError for ChatError {
             Self::ConnectionProfile(err) => err.message(),
             Self::UserTool(err) => err.message(),
             Self::Tokenizer(err) => err.message(),
+            Self::Realm(err) => err.message(),
             Self::NotFound(target, _) | Self::NotOwned(target, _) => {
                 Cow::Owned(format!("That {} no longer exists.", target.label()))
             }
             Self::Provider(err) => sentence(format!("The model provider failed: {err}")),
             Self::Connection(reason) => {
                 sentence(format!("Could not reach the model provider: {reason}"))
-            }
-            Self::RealmConversation(_) => {
-                "Realm conversations advance through their turn endpoints.".into()
             }
             Self::NotContinuable(_) => "Only a reply from the model can be continued.".into(),
             Self::Refused(r) => {
@@ -124,11 +124,9 @@ impl DomainError for ChatError {
             Self::ConnectionProfile(err) => err.details(),
             Self::UserTool(err) => err.details(),
             Self::Tokenizer(err) => err.details(),
+            Self::Realm(err) => err.details(),
             Self::NotFound(target, id) | Self::NotOwned(target, id) => {
                 Some(ErrorDetails::target(*target, *id))
-            }
-            Self::RealmConversation(id) => {
-                Some(ErrorDetails::target(TargetType::Conversation, *id))
             }
             Self::NotContinuable(id) => Some(ErrorDetails::target(TargetType::Message, *id)),
             Self::Provider(_) | Self::Connection(_) => {

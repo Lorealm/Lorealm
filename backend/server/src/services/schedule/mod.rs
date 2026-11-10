@@ -38,12 +38,13 @@ impl FilterChain {
         buf
     }
 
-    pub fn finish(&mut self) -> String {
-        // Flush each filter in order; its output still has to pass through
-        // everything downstream of it (which is flushed on its own turn).
+    /// Steps through every filter in the chain, drains the outstanding chunks,
+    /// then hands it to the next filter in the sequence, until all filters are
+    /// drained. Returns the reconstructed, modified chunks.
+    pub fn finalize(&mut self) -> String {
         let mut out = String::new();
         for i in 0..self.filters.len() {
-            let mut chunk = self.filters[i].finish();
+            let mut chunk = self.filters[i].drain();
             for j in i + 1..self.filters.len() {
                 chunk = self.filters[j].push(&chunk);
             }

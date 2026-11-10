@@ -4,8 +4,8 @@
 	import { Eye, Pause, Play, Square, StepForward, User } from '@lucide/svelte';
 
 	const streaming = $derived(chatStore.isStreaming);
-	const awaiting = $derived(chatStore.awaitingRealmPlayer);
-	const nextAgent = $derived(chatStore.nextRealmAgent);
+	const awaiting = $derived(chatStore.awaitingPlayer);
+	const nextAgent = $derived(chatStore.nextAgent);
 	const empty = $derived(chatStore.activePath.length === 0);
 	const canToggleView = $derived(chatStore.viewerAgent != null);
 </script>
@@ -17,7 +17,7 @@
 		{:else if awaiting}
 			Your turn as <strong>{awaiting.name}</strong>
 		{:else if empty}
-			Fresh playthrough — run the first turn.
+			Nothing has happened yet — run the first turn.
 		{:else if nextAgent}
 			Next to act: <strong>{nextAgent.name}</strong>
 		{:else}
@@ -29,14 +29,12 @@
 		{#if canToggleView}
 			<button
 				type="button"
-				onclick={() => (chatStore.realmDirectorView = !chatStore.realmDirectorView)}
+				onclick={() => (chatStore.directorView = !chatStore.directorView)}
 				{@attach tooltip(
-					chatStore.realmDirectorView
-						? 'Seeing every turn in the realm'
-						: 'Seeing only what your agent perceives'
+					chatStore.directorView ? 'Seeing every turn' : 'Seeing only what your agent perceives'
 				)}
 			>
-				{#if chatStore.realmDirectorView}
+				{#if chatStore.directorView}
 					<Eye size={14} /> Director
 				{:else}
 					<User size={14} /> Player
@@ -44,10 +42,10 @@
 			</button>
 		{/if}
 		{#if streaming}
-			{#if chatStore.realmAutoRun}
+			{#if chatStore.autoRun}
 				<button
 					type="button"
-					onclick={() => chatStore.pauseRealm()}
+					onclick={() => chatStore.pause()}
 					{@attach tooltip('Finish this turn, then stop')}
 				>
 					<Pause size={14} /> Pause
@@ -64,7 +62,7 @@
 			<button
 				type="button"
 				disabled={awaiting != null}
-				onclick={() => chatStore.runRealmTurn()}
+				onclick={() => chatStore.step()}
 				{@attach tooltip('Run a single turn')}
 			>
 				<StepForward size={14} /> Step
@@ -73,7 +71,7 @@
 				type="button"
 				class="primary"
 				disabled={awaiting != null}
-				onclick={() => chatStore.runRealmTurns()}
+				onclick={() => chatStore.play()}
 				{@attach tooltip("Run turns until it's your turn")}
 			>
 				<Play size={14} /> Run

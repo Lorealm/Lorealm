@@ -30,10 +30,10 @@ import type {
 	ConversationMetadata,
 	ChatEdit,
 	ChatStreamEvent,
-	CompletionsRequest,
 	ConversationMessage,
 	FullConversation,
-	StartChatRequest
+	StartChatRequest,
+	TurnRequest
 } from '$lib/types/conversation.js';
 import type { JsonValue, Snowflake } from '$lib/types/core.js';
 import type { ProviderModel } from '$lib/types/schema.js';
@@ -76,28 +76,14 @@ import type {
 } from '$lib/types/persona.js';
 import type {
 	ActionSpec,
-	AgentGrant,
-	AgentObservation,
-	CreateAgentRequest,
-	CreateRealmRequest,
-	CreateScenarioRequest,
 	RealmResourceRef,
 	NextTurn,
-	PlayerTurnRequest,
 	Realm,
-	RealmAgent,
 	RealmCast,
-	RealmConfig,
-	RealmEvent,
-	RealmStreamEvent,
 	RealmSummary,
 	RealmVersionInfo,
-	RunTurnRequest,
-	Scenario,
 	StartRealmChatRequest,
-	StateSlice,
-	TurnResult,
-	UpdateRealmRequest
+	StateSlice
 } from '$lib/types/realm.js';
 import type { ReconstructedState } from '$lib/types/state.js';
 import type {
@@ -345,43 +331,26 @@ export function createApiClient(platform: PlatformAPI) {
 			delete: (conversation_id: Snowflake) => http.delete(`/api/v1/chat/${conversation_id}`),
 			setAuthorNote: (conversation_id: Snowflake, author_note: string) =>
 				http.patch(`/api/v1/chat/${conversation_id}/author-note`, { author_note }),
-			completions: (conversation_id: Snowflake, request: CompletionsRequest) =>
-				http.stream<ChatStreamEvent>(`/api/v1/chat/${conversation_id}/completions`, request),
-			cancel: (conversation_id: Snowflake) =>
-				http.delete(`/api/v1/chat/${conversation_id}/completions`),
-			realm: {
-				/** Instantiate a realm preset into a fresh playthrough conversation. */
-				start: (request: StartRealmChatRequest) =>
-					http.post<FullConversation>('/api/v1/chat/realm', request),
-				/** The cast snapshot pinned when this playthrough started. */
-				cast: (conversation_id: Snowflake) =>
-					http.get<RealmCast>(`/api/v1/chat/${conversation_id}/cast`),
-				nextTurn: (conversation_id: Snowflake) =>
-					http.get<NextTurn>(`/api/v1/chat/${conversation_id}/turn/next`),
-				/** The playthrough's objective timeline (id-paged backward). */
-				events: (conversation_id: Snowflake, before?: Snowflake) =>
-					http.get<Array<RealmEvent>>(
-						`/api/v1/chat/${conversation_id}/events${before !== undefined ? `?before=${before}` : ''}`
-					),
-				/** Run the next LLM turn (or regenerate `target`) and stream it. */
-				turnStream: (conversation_id: Snowflake, request: RunTurnRequest = {}) =>
-					http.stream<RealmStreamEvent>(`/api/v1/chat/${conversation_id}/turn/stream`, request),
-				/** Submit the current player's turn (text and/or one bound action). */
-				playerTurn: (conversation_id: Snowflake, turn: PlayerTurnRequest) =>
-					http.post<TurnResult>(`/api/v1/chat/${conversation_id}/turn`, turn),
-				agents: {
-					observations: (conversation_id: Snowflake, handle: string, before?: Snowflake) =>
-						http.get<Array<AgentObservation>>(
-							`/api/v1/chat/${conversation_id}/agents/${handle}/observations${before !== undefined ? `?before=${before}` : ''}`
-						),
-					actions: (conversation_id: Snowflake, handle: string) =>
-						http.get<Array<ActionSpec>>(`/api/v1/chat/${conversation_id}/agents/${handle}/actions`),
-					/** The agent's granted slice: at `at` when given, else the active leaf. */
-					state: (conversation_id: Snowflake, handle: string, at?: Snowflake) =>
-						http.get<StateSlice>(
-							`/api/v1/chat/${conversation_id}/agents/${handle}/state${at !== undefined ? `?at=${at}` : ''}`
-						)
-				}
+			/** Start a playthrough of a realm. */
+			startRealm: (request: StartRealmChatRequest) =>
+				http.post<FullConversation>('/api/v1/chat/realm', request),
+			/** The cast this conversation plays with, pinned when it started. */
+			cast: (conversation_id: Snowflake) =>
+				http.get<RealmCast>(`/api/v1/chat/${conversation_id}/cast`),
+			nextTurn: (conversation_id: Snowflake) =>
+				http.get<NextTurn>(`/api/v1/chat/${conversation_id}/turn/next`),
+			/** Advance the conversation and stream what happens. */
+			turn: (conversation_id: Snowflake, request: TurnRequest) =>
+				http.stream<ChatStreamEvent>(`/api/v1/chat/${conversation_id}/turn`, request),
+			cancel: (conversation_id: Snowflake) => http.delete(`/api/v1/chat/${conversation_id}/turn`),
+			agents: {
+				actions: (conversation_id: Snowflake, handle: string) =>
+					http.get<Array<ActionSpec>>(`/api/v1/chat/${conversation_id}/agents/${handle}/actions`),
+				/** What the agent's grants let it read: at `at` when given, else the active leaf. */
+				state: (conversation_id: Snowflake, handle: string, at?: Snowflake) =>
+					http.get<StateSlice>(
+						`/api/v1/chat/${conversation_id}/agents/${handle}/state${at !== undefined ? `?at=${at}` : ''}`
+					)
 			},
 			messages: {
 				list: (conversation_id: Snowflake) =>
@@ -568,56 +537,15 @@ export function createApiClient(platform: PlatformAPI) {
 		realms: {
 			list: () => http.get<Array<RealmSummary>>('/api/v1/realms'),
 			get: (realm_id: Snowflake) => http.get<Realm>(`/api/v1/realms/${realm_id}`),
-			create: (create: CreateRealmRequest) => http.post<Realm>('/api/v1/realms', create),
-			update: (realm_id: Snowflake, update: UpdateRealmRequest) =>
-				http.patch<Realm>(`/api/v1/realms/${realm_id}`, update),
 			delete: (realm_id: Snowflake) => http.delete(`/api/v1/realms/${realm_id}`),
 			/** Every resource the cast references, inferred server-side. */
 			resources: (realm_id: Snowflake) =>
 				http.get<Array<RealmResourceRef>>(`/api/v1/realms/${realm_id}/resources`),
-			/** A realm's formatting overrides. */
-			config: {
-				get: (realm_id: Snowflake) => http.get<RealmConfig>(`/api/v1/realms/${realm_id}/config`),
-				set: (realm_id: Snowflake, config: RealmConfig) =>
-					http.put<RealmConfig>(`/api/v1/realms/${realm_id}/config`, config)
-			},
 			versions: {
 				list: (realm_id: Snowflake) =>
 					http.get<Array<RealmVersionInfo>>(`/api/v1/realms/${realm_id}/versions`),
 				get: (realm_id: Snowflake, version_id: Snowflake) =>
-					http.get<Realm>(`/api/v1/realms/${realm_id}/versions/${version_id}`),
-				restore: (realm_id: Snowflake, version_id: Snowflake) =>
-					http.post<Realm>(`/api/v1/realms/${realm_id}/versions/${version_id}/restore`)
-			},
-			agents: {
-				list: (realm_id: Snowflake) =>
-					http.get<Array<RealmAgent>>(`/api/v1/realms/${realm_id}/agents`),
-				create: (realm_id: Snowflake, create: CreateAgentRequest) =>
-					http.post<RealmAgent>(`/api/v1/realms/${realm_id}/agents`, create),
-				update: (realm_id: Snowflake, handle: string, update: CreateAgentRequest) =>
-					http.put<RealmAgent>(`/api/v1/realms/${realm_id}/agents/${handle}`, update),
-				/** Rewrite the turn order; must be a permutation of the cast's ids. */
-				reorder: (realm_id: Snowflake, order: string[]) =>
-					http.put<Array<RealmAgent>>(`/api/v1/realms/${realm_id}/agents/order`, order),
-				delete: (realm_id: Snowflake, handle: string) =>
-					http.delete(`/api/v1/realms/${realm_id}/agents/${handle}`),
-				grants: {
-					get: (realm_id: Snowflake, handle: string) =>
-						http.get<Array<AgentGrant>>(`/api/v1/realms/${realm_id}/agents/${handle}/grants`),
-					set: (realm_id: Snowflake, handle: string, grants: AgentGrant[]) =>
-						http.put(`/api/v1/realms/${realm_id}/agents/${handle}/grants`, grants)
-				},
-				/** The agent's action space as currently authored in the preset. */
-				actions: (realm_id: Snowflake, handle: string) =>
-					http.get<Array<ActionSpec>>(`/api/v1/realms/${realm_id}/agents/${handle}/actions`)
-			},
-			scenarios: {
-				create: (realm_id: Snowflake, create: CreateScenarioRequest) =>
-					http.post<Scenario>(`/api/v1/realms/${realm_id}/scenarios`, create),
-				update: (realm_id: Snowflake, slug: string, update: CreateScenarioRequest) =>
-					http.put<Scenario>(`/api/v1/realms/${realm_id}/scenarios/${slug}`, update),
-				delete: (realm_id: Snowflake, slug: string) =>
-					http.delete(`/api/v1/realms/${realm_id}/scenarios/${slug}`)
+					http.get<Realm>(`/api/v1/realms/${realm_id}/versions/${version_id}`)
 			}
 		},
 		roles: {

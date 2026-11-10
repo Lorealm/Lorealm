@@ -12,13 +12,12 @@ pub struct StartChatRequest {
     pub character_id: Snowflake,
     pub version_id: Option<Snowflake>,
     pub greeting_id: Snowflake,
-    pub content: String,
     /// Seeds the new conversation's author's note. Empty for none.
     #[serde(default)]
     pub author_note: String,
 }
 
-/// Instantiate a realm preset into a fresh playthrough conversation.
+/// Start a playthrough of a realm.
 #[derive(Deserialize)]
 pub struct StartRealmChatRequest {
     pub realm_id: Snowflake,
@@ -33,24 +32,17 @@ pub struct StartRealmChatRequest {
 pub enum ChatEdit {
     /// Edit a message in place
     Edit { id: Snowflake, content: String },
-    /// Swipe/branch a user message
-    BranchUser { id: Snowflake, content: String },
     /// Move the active path to run through this message
     Activate { id: Snowflake },
-}
-
-#[derive(Debug, Deserialize)]
-pub struct CompletionsRequest {
-    #[serde(default)]
-    pub content: Option<String>,
-    #[serde(default)]
-    pub target: Option<Snowflake>,
-    /// Write on from an existing assistant reply instead of starting a new one.
-    #[serde(default, rename = "continue")]
-    pub continued: bool,
 }
 
 #[derive(Deserialize)]
 pub struct SetAuthorNoteRequest {
     pub author_note: String,
+}
+
+#[derive(Deserialize)]
+pub struct AgentStateQuery {
+    /// Reconstruct state up to this message
+    pub at: Option<Snowflake>,
 }

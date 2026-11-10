@@ -10,36 +10,37 @@
 
 	const api = useApi();
 
+	/** Whose eyes the widgets look through. Nobody's, in director view. */
+	const viewer = $derived(chatStore.directorView ? null : chatStore.viewerAgent);
+
 	const widgets = $derived.by((): UserWidget[] => {
 		const all = userWidgetStore.loadedWidgets ?? [];
 		if (!chatStore.conversationId) return [];
-		const bound = chatStore.isRealm
-			? (() => {
-					const viewer = chatStore.viewerAgent;
-					const ids = new Set(
-						viewer && !chatStore.realmDirectorView
-							? viewer.widgets
-							: (chatStore.realmCast?.agents ?? []).flatMap((a) => a.widgets)
-					);
-					return all.filter((w) => ids.has(w.id));
-				})()
-			: all.filter((w) => w.enabled);
+		// What you have switched on, plus what the cast brings with it.
+		const bound = new Set(
+			(viewer ? [viewer] : (chatStore.cast?.agents ?? [])).flatMap((a) => a.widgets)
+		);
 
-		return bound.filter((w) => w.placement !== 'attachment' && (w.mode === 'every' || last));
+		return all.filter(
+			(w) =>
+				(w.enabled || bound.has(w.id)) &&
+				w.placement !== 'attachment' &&
+				(w.mode === 'every' || last)
+		);
 	});
 
 	let state = $state<Record<string, JsonValue>>({});
 
 	$effect(() => {
 		const convoId = chatStore.conversationId;
-		const viewer = chatStore.realmDirectorView ? null : chatStore.viewerAgent;
+		const handle = viewer?.handle;
 		if (!convoId || widgets.length === 0 || messageId.startsWith('tmp_')) return;
 
 		void (async () => {
 			try {
 				state = (
-					chatStore.isRealm && viewer
-						? await api.chat.realm.agents.state(convoId, viewer.handle, messageId)
+					handle
+						? await api.chat.agents.state(convoId, handle, messageId)
 						: ((await api.chat.messages.state(convoId, messageId))?.persistent ?? {})
 				) as Record<string, JsonValue>;
 			} catch {
@@ -49,7 +50,7 @@
 	});
 
 	function onAction(toolId: string, args: JsonValue) {
-		void chatStore.submitRealmPlayerTurn(null, { tool_id: toolId, args });
+		void chatStore.act({ tool_id: toolId, args });
 	}
 </script>
 

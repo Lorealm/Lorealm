@@ -13,7 +13,7 @@ use crate::{
     services::{
         plugins::PluginVocabulary,
         state::StatePool,
-        tools::{Actor, EmittedEvent, RealmView},
+        tools::{Actor, EmittedEvent, RealmVariables},
         weaver::{
             WeaverError, WeaverHost, WeaverProfile, bind_json_args, compile_expr, compile_template,
         },
@@ -53,12 +53,12 @@ fn member_view(agent: &RealmAgent, turn_order: usize, world: &StatePool) -> serd
     fields.into()
 }
 
-pub(super) fn realm_view(
+pub(super) fn build_realm_state(
     agents: &[RealmAgent],
     turn: &TurnInfo,
     scenario: Option<&Scenario>,
     world: &StatePool,
-) -> RealmView {
+) -> RealmVariables {
     let roster: Vec<(usize, &RealmAgent)> = agents.iter().enumerate().collect();
 
     let group = |of: &[(usize, &RealmAgent)]| {
@@ -120,7 +120,7 @@ pub(super) fn realm_view(
         })
         .unwrap_or_default();
 
-    RealmView::new(HashMap::from([
+    RealmVariables::new(HashMap::from([
         ("cast".to_string(), cast),
         ("turn".to_string(), this_turn),
         ("scenario".to_string(), scenario),
@@ -149,6 +149,8 @@ pub(super) fn actor_of(agent: &RealmAgent) -> Actor {
     }
 }
 
+/// Copies and injkects everything under `agents:<name>.*` into `self:*` for the
+/// given agent. Just a quality-of-life alias.
 pub(super) fn inject_self_alias(agent: &RealmAgent, slice: &mut StatePool) {
     let own: HashMap<String, serde_json::Value> = slice
         .get(AGENTS_SCOPE)
@@ -161,8 +163,9 @@ pub(super) fn inject_self_alias(agent: &RealmAgent, slice: &mut StatePool) {
     }
 }
 
-/// Keep the parts of `value` reachable at a granted dotted path.
-fn prune(
+/// Filters the variable tree under or at `{{ns:path}}` according to
+/// the provided `ScopePattern`s.
+fn filter_granted(
     ns: &str,
     path: &str,
     value: &serde_json::Value,
@@ -171,13 +174,12 @@ fn prune(
     if read.iter().any(|g| g.matches_var(ns, path)) {
         return Some(value.clone());
     }
-    // Not granted outright — a descendant still might be.
     let fields = value.as_object()?;
     let kept: serde_json::Map<_, _> = fields
         .iter()
         .filter_map(|(key, child)| {
             let child_path = format!("{path}.{key}");
-            Some((key.clone(), prune(ns, &child_path, child, read)?))
+            Some((key.clone(), filter_granted(ns, &child_path, child, read)?))
         })
         .collect();
     (!kept.is_empty()).then(|| serde_json::Value::Object(kept))
@@ -190,7 +192,7 @@ pub(super) fn slice(world: &StatePool, read: &[ScopePattern]) -> StatePool {
         .filter_map(|(ns, vars)| {
             let kept: HashMap<_, _> = vars
                 .iter()
-                .filter_map(|(name, v)| Some((name.clone(), prune(ns, name, v, read)?)))
+                .filter_map(|(name, v)| Some((name.clone(), filter_granted(ns, name, v, read)?)))
                 .collect();
             (!kept.is_empty()).then(|| (ns.clone(), kept))
         })
@@ -205,11 +207,9 @@ pub(super) async fn run_scoped(
     args: serde_json::Value,
     agent: &RealmAgent,
     world: &StatePool,
-    view: &RealmView,
+    view: &RealmVariables,
     plugins: Option<&PluginVocabulary>,
 ) -> Result<(String, StateDelta, Vec<EmittedEvent>), RealmError> {
-    // Declared params land in the `cmd:` namespace the source reads. Scripts
-    // declare none, so this is a no-op for them.
     let host = WeaverHost::builder()
         .profile(WeaverProfile::RealmScript)
         .args(bind_json_args(params, &args).map_err(action_failed)?)
@@ -236,7 +236,7 @@ fn action_failed(e: WeaverError) -> RealmError {
 pub(super) fn run_condition_passes(
     agent: &RealmAgent,
     world: &StatePool,
-    view: &RealmView,
+    view: &RealmVariables,
     plugins: Option<&PluginVocabulary>,
 ) -> bool {
     let Some(src) = agent
@@ -271,7 +271,7 @@ pub(super) fn run_condition_passes(
 pub(super) fn run_director(
     source: &str,
     world: &StatePool,
-    view: &RealmView,
+    view: &RealmVariables,
     plugins: Option<&PluginVocabulary>,
 ) -> Result<Vec<String>, RealmError> {
     let body = compile_template(source).map_err(director_failed)?;
@@ -362,7 +362,7 @@ mod tests {
 
     fn condition_passes(condition: &str, grants: Vec<AgentGrant>, world: &StatePool) -> bool {
         let a = agent(grants, Some(condition));
-        let view = realm_view(std::slice::from_ref(&a), &TurnInfo::opening(), None, world);
+        let view = build_realm_state(std::slice::from_ref(&a), &TurnInfo::opening(), None, world);
         run_condition_passes(&a, world, &view, None)
     }
 
@@ -430,7 +430,7 @@ mod tests {
         assert!(run_condition_passes(
             &agent(vec![grant("counter")], None),
             &world(),
-            &RealmView::default(),
+            &RealmVariables::default(),
             None,
         ));
         assert!(condition_passes("   ", vec![grant("counter")], &world()));
@@ -530,7 +530,7 @@ mod tests {
     #[test]
     fn the_roster_counts_the_cast_by_kind() {
         let agents = troupe();
-        let view = realm_view(&agents, &TurnInfo::opening(), None, &StatePool::new());
+        let view = build_realm_state(&agents, &TurnInfo::opening(), None, &StatePool::new());
         let read = |scope: &str, name: &str| {
             ToolContext::new(HashMap::new(), Default::default())
                 .with_realm(Some(view.clone()))
@@ -562,7 +562,7 @@ mod tests {
     #[test]
     fn every_cast_member_is_addressable_by_handle() {
         let agents = troupe();
-        let view = realm_view(&agents, &TurnInfo::opening(), None, &StatePool::new());
+        let view = build_realm_state(&agents, &TurnInfo::opening(), None, &StatePool::new());
         let ctx = ToolContext::new(HashMap::new(), Default::default()).with_realm(Some(view));
 
         for agent in &agents {
@@ -589,7 +589,7 @@ mod tests {
             opening: None,
         };
         let agents = troupe();
-        let view = realm_view(
+        let view = build_realm_state(
             &agents,
             &TurnInfo::opening(),
             Some(&scenario),
@@ -610,7 +610,7 @@ mod tests {
     #[test]
     fn a_realm_without_an_opening_has_no_scenario_to_read() {
         let agents = troupe();
-        let view = realm_view(&agents, &TurnInfo::opening(), None, &StatePool::new());
+        let view = build_realm_state(&agents, &TurnInfo::opening(), None, &StatePool::new());
         let ctx = ToolContext::new(HashMap::new(), Default::default()).with_realm(Some(view));
 
         assert_eq!(ctx.resolve_variable("scenario", "name").unwrap(), None);
@@ -619,7 +619,7 @@ mod tests {
     #[test]
     fn a_run_condition_reads_the_cast_around_it() {
         let agents = troupe();
-        let view = realm_view(&agents, &TurnInfo::opening(), None, &StatePool::new());
+        let view = build_realm_state(&agents, &TurnInfo::opening(), None, &StatePool::new());
         let mut alice = agents[2].clone();
         alice.run_condition = Some("{{cast:llm.count}} == 2".into());
 
@@ -629,7 +629,7 @@ mod tests {
     #[test]
     fn a_director_names_a_handle() {
         let agents = troupe();
-        let view = realm_view(&agents, &TurnInfo::opening(), None, &StatePool::new());
+        let view = build_realm_state(&agents, &TurnInfo::opening(), None, &StatePool::new());
         let world = StatePool::new();
 
         assert_eq!(
@@ -661,7 +661,7 @@ mod tests {
     #[tokio::test]
     async fn a_script_agent_reads_the_turn_it_runs_on() {
         let agents = troupe();
-        let view = realm_view(&agents, &TurnInfo::opening(), None, &StatePool::new());
+        let view = build_realm_state(&agents, &TurnInfo::opening(), None, &StatePool::new());
         let (_, delta, _) = run_scoped(
             r#"$[set_var("run:idx", @[math.mod(a: {{turn:index}}, b: {{cast:llm.count}})])]"#,
             &[],
@@ -711,7 +711,7 @@ mod tests {
             .or_default()
             .insert("alice".into(), json!({ "talkativeness": 0.5 }));
 
-        let view = realm_view(
+        let view = build_realm_state(
             &cast,
             &TurnInfo {
                 index: 3,
@@ -772,7 +772,7 @@ mod tests {
             .insert("alice".into(), json!({ "talkativeness": 1.0 }));
 
         // Turn zero: nobody has acted, so the opening is the player's.
-        let view = realm_view(&cast, &TurnInfo::opening(), None, &world);
+        let view = build_realm_state(&cast, &TurnInfo::opening(), None, &world);
         assert_eq!(
             run_director(&source, &world, &view, None).unwrap(),
             vec!["me".to_string()]
@@ -783,7 +783,7 @@ mod tests {
             index: 1,
             last: Some((&cast[1], "Hello.")),
         };
-        let view = realm_view(&cast, &after_llm, None, &world);
+        let view = build_realm_state(&cast, &after_llm, None, &world);
         assert_eq!(
             run_director(&source, &world, &view, None).unwrap(),
             vec!["me".to_string()]
@@ -794,7 +794,7 @@ mod tests {
             index: 2,
             last: Some((&cast[0], "Hi.")),
         };
-        let view = realm_view(&cast, &after_player, None, &world);
+        let view = build_realm_state(&cast, &after_player, None, &world);
         assert_eq!(
             run_director(&source, &world, &view, None).unwrap(),
             vec!["alice".to_string()]
@@ -816,7 +816,7 @@ mod tests {
             .or_default()
             .insert("alice".into(), json!({ "talkativeness": 1.0 }));
 
-        let view = realm_view(&cast, &TurnInfo::opening(), None, &world);
+        let view = build_realm_state(&cast, &TurnInfo::opening(), None, &world);
         assert_eq!(
             run_director(&source, &world, &view, None).unwrap(),
             vec!["alice".to_string()],
@@ -845,7 +845,7 @@ mod tests {
         };
 
         let world = weighted(1.0, 0.0);
-        let view = realm_view(&cast, &TurnInfo::opening(), None, &world);
+        let view = build_realm_state(&cast, &TurnInfo::opening(), None, &world);
         for _ in 0..50 {
             assert_eq!(
                 run_director(&source, &world, &view, None).unwrap(),
@@ -855,7 +855,7 @@ mod tests {
         }
 
         let world = weighted(0.5, 0.5);
-        let view = realm_view(&cast, &TurnInfo::opening(), None, &world);
+        let view = build_realm_state(&cast, &TurnInfo::opening(), None, &world);
         let picked: std::collections::BTreeSet<String> = (0..200)
             .flat_map(|_| run_director(&source, &world, &view, None).unwrap())
             .collect();
