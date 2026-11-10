@@ -7,8 +7,7 @@ use lorealm_storage::backends::{MemoryStorage, SqliteStorage};
 use lorealm_storage::models::*;
 use lorealm_storage::{
     ConversationStorage, PermissionStorage, PersonaStorage, PluginStorage, SessionStorage,
-    StorageCore,
-    UserStorage, UserToolStorage, WeaverStateStorage,
+    StorageCore, UserStorage, UserToolStorage, WeaverStateStorage,
 };
 
 async fn db() -> SqliteStorage {
@@ -73,10 +72,6 @@ async fn user_roundtrip_preserves_snowflake_precision() {
     assert!(s.get_user_by_username("precise").await.unwrap().is_some());
 }
 
-/// The bug this guards against: `expires_at > CURRENT_TIMESTAMP` compares sqlx's
-/// `2026-09-24T22:54:17.909+00:00` against SQLite's `2026-09-24 22:54:17`.
-/// Because 'T' sorts above ' ', an expired session still matches and
-/// authenticates. Both sides must use the same format.
 #[tokio::test]
 async fn expired_sessions_are_not_returned() {
     let s = db().await;
@@ -161,8 +156,6 @@ async fn session_expiry_round_trips_through_text_storage() {
     );
 }
 
-/// `revoke_session` writes `revoked_at = {NOW}`; the revoked row must then drop
-/// out of `list_user_sessions`, which filters on `revoked_at IS NULL`.
 #[tokio::test]
 async fn revoking_a_session_hides_it_from_listings() {
     let s = db().await;
@@ -599,12 +592,6 @@ async fn cascade_delete_removes_dependent_rows() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// The paths that diverge most from the Postgres source: json_group_array in
-// place of ARRAY(), the -> / ->> JSON operators, json_type/json_array_length,
-// and the deferred characters <-> character_versions FK cycle.
-// ---------------------------------------------------------------------------
-
 use lorealm_storage::{CharacterStorage, TemplateStorage};
 
 fn a_character(id: i64, user: Snowflake, name: &str, tags: Vec<String>) -> Character {
@@ -649,9 +636,6 @@ fn a_character(id: i64, user: Snowflake, name: &str, tags: Vec<String>) -> Chara
     }
 }
 
-/// `save_character` inserts the character and its version in one transaction,
-/// which only works because the FK on `current_version_id` is
-/// DEFERRABLE INITIALLY DEFERRED. Postgres needs that; so does SQLite.
 #[tokio::test]
 async fn saving_a_character_satisfies_the_deferred_fk_cycle() {
     let s = db().await;
@@ -676,8 +660,6 @@ async fn saving_a_character_satisfies_the_deferred_fk_cycle() {
     assert_eq!(got.definition.template_injection, "inj {{template}}");
 }
 
-/// Exercises json_group_array (tags) plus the chained `->`/`->>` JSON operators
-/// that read name/display_name/avatar_uri/card_version out of the snapshot.
 #[tokio::test]
 async fn character_listing_reads_tags_and_json_fields() {
     let s = db().await;
@@ -758,8 +740,6 @@ async fn character_versions_accumulate_and_restore() {
     assert_eq!(at_old.definition.name, "V1", "old snapshot must be intact");
 }
 
-/// The template listing's node_count reads `nodes_json` and counts nested
-/// group children too.
 #[tokio::test]
 async fn template_listing_counts_nodes_via_json1() {
     let s = db().await;

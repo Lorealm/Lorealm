@@ -8,19 +8,9 @@ use weaver_lang::CompiledExpr;
 
 use crate::{
     errors::{RealmError, TargetType},
-    routes::CreateAgentRequest,
     services::{realm::RealmService, tools::builtin_tool},
     util::weaver::describe_parse_errors,
 };
-
-/// The identity bundle a validated create/update agent request resolves to.
-pub(super) struct AgentParts {
-    pub character_id: Option<Snowflake>,
-    pub char_version_id: Option<Snowflake>,
-    pub template_id: Option<Snowflake>,
-    pub profile_id: Option<Snowflake>,
-    pub user_id: Option<Snowflake>,
-}
 
 impl RealmService {
     /// The resource exists and the caller owns it.
@@ -82,157 +72,6 @@ impl RealmService {
             }
         }
         Ok(())
-    }
-
-    pub(super) async fn validate_agent(
-        &self,
-        user_id: Snowflake,
-        req: &CreateAgentRequest,
-        cast: &[RealmAgent],
-        exclude: Option<&str>,
-    ) -> Result<AgentParts, RealmError> {
-        validate_handle(&req.handle, cast, exclude)?;
-        validate_properties(&req.properties)?;
-
-        let parts = match req.kind {
-            AgentKind::Player => {
-                if req.character_id.is_some()
-                    || req.char_version_id.is_some()
-                    || req.template_id.is_some()
-                    || !req.lorebooks.is_empty()
-                {
-                    return Err(RealmError::InvalidAgent(
-                        "player agents cannot have character/template/lorebooks".into(),
-                    ));
-                }
-                let profile_id = match req.profile_id {
-                    Some(id) => {
-                        self.connection.get_profile(user_id, id).await?;
-                        Some(id)
-                    }
-                    None => None,
-                };
-                AgentParts {
-                    character_id: None,
-                    char_version_id: None,
-                    template_id: None,
-                    profile_id,
-                    user_id: Some(user_id),
-                }
-            }
-            AgentKind::Script => {
-                if req.character_id.is_some()
-                    || req.char_version_id.is_some()
-                    || req.template_id.is_some()
-                    || req.profile_id.is_some()
-                    || req.persona_id.is_some()
-                    || !req.lorebooks.is_empty()
-                    || !req.tools.is_empty()
-                    || !req.widgets.is_empty()
-                {
-                    return Err(RealmError::InvalidAgent(
-                        "script agents cannot have character/template/profile/persona/lorebooks/tools/widgets"
-                            .into(),
-                    ));
-                }
-                if req.script.as_ref().is_none_or(|s| s.trim().is_empty()) {
-                    return Err(RealmError::InvalidAgent(
-                        "a script agent needs inline script content — the weaver logic it runs"
-                            .into(),
-                    ));
-                }
-                AgentParts {
-                    character_id: None,
-                    char_version_id: None,
-                    template_id: None,
-                    profile_id: None,
-                    user_id: None,
-                }
-            }
-            AgentKind::Llm => {
-                // both-or-neither, validated for ownership when present
-                let character = match (req.character_id, req.char_version_id) {
-                    (Some(c), Some(v)) => {
-                        self.characters.load_version(c, v, user_id).await?;
-                        (Some(c), Some(v))
-                    }
-                    (None, None) => (None, None),
-                    _ => {
-                        return Err(RealmError::InvalidAgent(
-                            "character_id and char_version_id must be set together".into(),
-                        ));
-                    }
-                };
-
-                let template_id = req.template_id.ok_or_else(|| {
-                    RealmError::InvalidAgent("llm agents require an explicit template_id".into())
-                })?;
-                self.templates.get_template(template_id, user_id).await?;
-
-                let profile_id = req.profile_id.ok_or_else(|| {
-                    RealmError::InvalidAgent("llm agents require an explicit profile_id".into())
-                })?;
-                self.connection.get_profile(user_id, profile_id).await?;
-
-                for &lorebook_id in &req.lorebooks {
-                    self.validate_resource(user_id, RealmResourceKind::Lorebook, lorebook_id)
-                        .await?;
-                }
-
-                AgentParts {
-                    character_id: character.0,
-                    char_version_id: character.1,
-                    template_id: Some(template_id),
-                    profile_id: Some(profile_id),
-                    user_id: None,
-                }
-            }
-        };
-
-        if !matches!(req.kind, AgentKind::Script)
-            && req.script.as_ref().is_some_and(|s| !s.trim().is_empty())
-        {
-            return Err(RealmError::InvalidAgent(
-                "only script agents carry inline script content".into(),
-            ));
-        }
-
-        if let Some(id) = req.persona_id {
-            self.personas.get_persona(id, user_id).await?;
-        }
-
-        for &widget_id in &req.widgets {
-            self.validate_resource(user_id, RealmResourceKind::Widget, widget_id)
-                .await?;
-        }
-
-        // Builtins ship with the server and belong to nobody.
-        for binding in &req.tools {
-            if builtin_tool(binding.tool_id).is_some() {
-                continue;
-            }
-            self.validate_resource(user_id, RealmResourceKind::Tool, binding.tool_id)
-                .await?;
-        }
-
-        // A run_condition must compile now so the author sees the error at
-        // edit time
-        if let Some(src) = req.run_condition.as_ref().filter(|s| !s.trim().is_empty()) {
-            CompiledExpr::compile(src).map_err(|errors| {
-                RealmError::InvalidAgent(format!(
-                    "run condition failed to compile: {}",
-                    describe_parse_errors(src, &errors)
-                ))
-            })?;
-        }
-
-        validate_grants(&req.grants)?;
-        validate_channel("speech_channel", req.speech_channel.as_deref())?;
-        for binding in &req.tools {
-            validate_channel("event_channel", binding.event_channel.as_deref())?;
-        }
-
-        Ok(parts)
     }
 }
 
@@ -296,12 +135,6 @@ impl RealmService {
             }
             // The shapes that would otherwise fail at play time instead.
             match agent.kind {
-                AgentKind::Llm if agent.template_id.is_none() || agent.profile_id.is_none() => {
-                    return Err(RealmError::InvalidAgent(format!(
-                        "llm agent '{}' needs a template and a connection profile",
-                        agent.handle
-                    )));
-                }
                 AgentKind::Llm
                     if agent.character_id.is_none() && agent.char_version_id.is_some() =>
                 {
@@ -325,8 +158,14 @@ impl RealmService {
                 .await?;
         }
 
-        for scenario in &definition.scenarios {
-            validate_scenario(&scenario.name)?;
+        if definition
+            .scenarios
+            .iter()
+            .any(|s| s.name.trim().is_empty())
+        {
+            return Err(RealmError::InvalidScenario(
+                "a scenario needs a name".into(),
+            ));
         }
 
         if let Some(director) = &definition.director {
@@ -372,15 +211,6 @@ pub(super) fn validate_properties(
     Ok(())
 }
 
-pub(super) fn validate_scenario(name: &str) -> Result<(), RealmError> {
-    if name.trim().is_empty() {
-        return Err(RealmError::InvalidScenario(
-            "a scenario needs a name".into(),
-        ));
-    }
-    Ok(())
-}
-
 /// A director must compile, and must be able to reach the cast it schedules.
 pub(super) fn validate_director(
     director: &Director,
@@ -389,7 +219,9 @@ pub(super) fn validate_director(
     let over = match director {
         Director::Script { source } => {
             if source.trim().is_empty() {
-                return Ok(());
+                return Err(RealmError::DirectorFailed(
+                    "the script director has no body".into(),
+                ));
             }
             weaver_lang::CompiledTemplate::compile(source).map_err(|errors| {
                 RealmError::DirectorFailed(format!(
@@ -426,16 +258,6 @@ pub(super) fn validate_director(
     }
 
     Ok(())
-}
-
-/// A realm about to be played needs a director that can actually answer.
-pub(super) fn validate_playable(director: &Director) -> Result<(), RealmError> {
-    match director {
-        Director::Script { source } if source.trim().is_empty() => Err(RealmError::DirectorFailed(
-            "the script director has no body yet".into(),
-        )),
-        _ => Ok(()),
-    }
 }
 
 /// Grants must be weaver `scope[:name]` patterns ([`ScopePattern::validate`]).
@@ -498,40 +320,6 @@ pub(super) fn realm_resources(definition: &RealmDefinition) -> Vec<RealmResource
         .flat_map(agent_resources)
         .filter(|r| seen.insert(*r))
         .collect()
-}
-
-pub(super) fn apply_turn_order(
-    agents: &mut [RealmAgent],
-    order: &[String],
-) -> Result<(), RealmError> {
-    if order.len() != agents.len() {
-        return Err(RealmError::InvalidAgent(format!(
-            "order lists {} agents, the cast has {}",
-            order.len(),
-            agents.len()
-        )));
-    }
-    let positions: HashMap<&str, usize> = order
-        .iter()
-        .enumerate()
-        .map(|(i, handle)| (handle.as_str(), i))
-        .collect();
-    if positions.len() != order.len() {
-        return Err(RealmError::InvalidAgent(
-            "order contains duplicate handles".into(),
-        ));
-    }
-    if agents
-        .iter()
-        .any(|a| !positions.contains_key(a.handle.as_str()))
-    {
-        return Err(RealmError::InvalidAgent(
-            "order must list every cast member exactly once".into(),
-        ));
-    }
-
-    agents.sort_by_key(|a| positions[a.handle.as_str()]);
-    Ok(())
 }
 
 #[cfg(test)]
@@ -687,35 +475,17 @@ mod tests {
         );
     }
 
-    fn cast_of(handles: &[&str]) -> Vec<RealmAgent> {
-        handles.iter().map(|h| agent(h)).collect()
-    }
-
-    fn order(handles: &[&str]) -> Vec<String> {
-        handles.iter().map(|h| h.to_string()).collect()
-    }
-
     #[test]
-    fn reorder_applies_permutation_and_reindexes() {
-        let mut agents = cast_of(&["a", "b", "c"]);
-        apply_turn_order(&mut agents, &order(&["c", "a", "b"])).unwrap();
-        let got: Vec<&str> = agents.iter().map(|a| a.handle.as_str()).collect();
-        assert_eq!(got, vec!["c", "a", "b"]);
-    }
-
-    #[test]
-    fn a_blank_script_director_saves_but_will_not_play() {
+    fn a_blank_script_director_is_rejected() {
         let blank = Director::Script {
             source: String::new(),
         };
-        assert!(validate_director(&blank, &[]).is_ok());
-        assert!(validate_playable(&blank).is_err());
+        assert!(validate_director(&blank, &[]).is_err());
 
         let written = Director::Script {
             source: "alice".into(),
         };
         assert!(validate_director(&written, &[]).is_ok());
-        assert!(validate_playable(&written).is_ok());
     }
 
     #[test]
@@ -740,23 +510,5 @@ mod tests {
         assert!(validate_director(&llm_only, &cast).is_err());
         // The same filter is fine when there is no player to strand.
         assert!(validate_director(&llm_only, &[agent("alice")]).is_ok());
-    }
-
-    #[test]
-    fn reorder_rejects_non_permutations() {
-        // wrong length
-        let mut agents = cast_of(&["a", "b", "c"]);
-        assert!(apply_turn_order(&mut agents, &order(&["a", "b"])).is_err());
-        // duplicate handle
-        let mut agents = cast_of(&["a", "b", "c"]);
-        assert!(apply_turn_order(&mut agents, &order(&["a", "a", "b"])).is_err());
-        // unknown handle in place of a real one
-        let mut agents = cast_of(&["a", "b", "c"]);
-        assert!(apply_turn_order(&mut agents, &order(&["a", "b", "nobody"])).is_err());
-        // failures leave the cast in the order it already had
-        assert_eq!(
-            agents.iter().map(|a| a.handle.as_str()).collect::<Vec<_>>(),
-            vec!["a", "b", "c"]
-        );
     }
 }

@@ -1,14 +1,15 @@
 import type { JsonValue, PromptRole, Snowflake } from './core.ts';
+import type { PlayerAction } from './realm.ts';
 import type { CommandEffect } from './tools.ts';
 import type { WidgetInstance } from './widgets.ts';
 
 export interface Conversation {
 	id: Snowflake;
 	user_id: Snowflake;
-	/** Null for realm conversations — they have a cast, not one character. */
+	/** The character this chat was started with, if it was started with one. */
 	character_id: Snowflake | null;
 	char_version_id: Snowflake | null;
-	/** The realm preset this playthrough was instantiated from, if any. */
+	/** The realm this playthrough was started from, if it was started from one. */
 	realm_id: Snowflake | null;
 	active_leaf_id: Snowflake | null;
 	title: string | null;
@@ -44,31 +45,26 @@ export interface StartChatRequest {
 	character_id: Snowflake;
 	version_id?: Snowflake | null;
 	greeting_id: Snowflake;
-	content: string;
 	/** Seeds the new conversation's author's note. */
 	author_note?: string;
 }
 
-export interface SendMessageRequest {
-	content: string; // TODO: enrich with multimodal
-}
-
-export interface CompletionsRequest {
+/**
+ * One request to advance a conversation. With `content` or `action` it
+ * carries the player's turn, committed first; then at most one other cast
+ * member acts.
+ */
+export interface TurnRequest {
 	content?: string | null;
-	target?: Snowflake | null;
-	/**
-	 * Write on from an existing assistant reply instead of starting a new one,
-	 * for when the provider cut it short. `target` picks the message; without
-	 * it the active leaf is continued, and `content` is ignored.
-	 */
+	/** A bound tool the player triggers. */
+	action?: PlayerAction | null;
+	swipe_from?: Snowflake | null;
 	continue?: boolean;
 }
 
 export type ChatEdit =
 	/** Edit a message in place */
 	| { op: 'edit'; id: Snowflake; content: string }
-	/** Swipe/branch a user message */
-	| { op: 'branch_user'; id: Snowflake; content: string }
 	/** Move the active path to run through this message. */
 	| { op: 'activate'; id: Snowflake };
 
@@ -78,14 +74,10 @@ export interface FullConversation {
 }
 
 export type ChatStreamEvent =
-	| { type: 'user_message'; message: ConversationMessage }
-	/** A chunk of generated text */
+	| { type: 'turn_started'; handle: string; name: string }
 	| { type: 'delta'; content: string }
 	| { type: 'widget'; widget: WidgetInstance }
 	| { type: 'reasoning'; content: string }
-	/** A tool asked the client to do something */
 	| { type: 'effect'; effect: CommandEffect }
-	| { type: 'done'; message: ConversationMessage }
-	/** A system message a tool wrote with `$[sys]`. Arrives *after* `done`,
-	 *  since it is persisted as a child of the reply. */
-	| { type: 'system_message'; message: ConversationMessage };
+	| { type: 'message'; message: ConversationMessage }
+	| { type: 'done'; next: string | null };

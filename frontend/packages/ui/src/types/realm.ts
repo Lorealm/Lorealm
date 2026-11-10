@@ -1,7 +1,5 @@
-import type { ConversationMessage } from './conversation.ts';
-import type { JsonValue, PromptRole, Snowflake } from './core.ts';
-import type { CommandEffect, Param } from './tools.ts';
-import type { WidgetInstance } from './widgets.ts';
+import type { JsonValue, Snowflake } from './core.ts';
+import type { Param } from './tools.ts';
 
 export interface Realm {
 	id: Snowflake;
@@ -47,12 +45,6 @@ export interface Scenario {
 	slug: string;
 	name: string;
 	description: string;
-	opening?: string | null;
-}
-
-export interface CreateScenarioRequest {
-	name: string;
-	description?: string;
 	opening?: string | null;
 }
 
@@ -137,35 +129,19 @@ export interface ToolBinding {
 	event_channel?: string | null;
 }
 
+/** The cast a conversation plays with. Every conversation has one. */
 export interface RealmCast {
-	realm_id: Snowflake;
 	version_id: Snowflake | null;
 	agents: RealmAgent[];
 	director?: Director | null;
 }
 
-export type EventKind = 'spoke' | 'acted' | 'state_changed' | 'system';
+export type EventKind = 'spoke' | 'acted' | 'system';
 
-export interface RealmEvent {
-	id: Snowflake;
-	conversation_id: Snowflake;
-	message_id: Snowflake;
-	seq: number;
-	/** Handle of the cast member that produced it; null for engine events. */
-	source: string | null;
+/** Something a turn did besides speak, kept in its message's `events` metadata. */
+export interface TurnEvent {
 	channel: string;
 	kind: EventKind;
-	content: string;
-	payload: JsonValue;
-}
-
-export interface AgentObservation {
-	id: Snowflake;
-	conversation_id: Snowflake;
-	message_id: Snowflake;
-	agent_handle: string;
-	event_id: Snowflake | null;
-	role: PromptRole;
 	content: string;
 }
 
@@ -179,18 +155,6 @@ export interface ActionSpec {
 }
 
 export type StateSlice = Record<string, JsonValue>;
-
-export interface CreateRealmRequest {
-	name: string;
-}
-
-export interface UpdateRealmRequest {
-	name?: string | null;
-	description?: string | null;
-	tags?: string[] | null;
-	/** Omitted leaves the director alone; null resets it to the default rotation. */
-	director?: Director | null;
-}
 
 export interface RealmConfig {
 	/** How another agent's speech reads in an observer's feed. `{name}`, `{content}`. */
@@ -207,40 +171,9 @@ export const REALM_CONFIG_DEFAULTS: Required<{ [K in keyof RealmConfig]: string 
 	tool_result_format: '[{tool} result: {output}]'
 };
 
-export interface CreateAgentRequest {
-	name: string;
-	handle: string;
-	kind: AgentKind;
-
-	// character: llm only, both-or-neither
-	character_id?: Snowflake | null;
-	char_version_id?: Snowflake | null;
-
-	// llm or player
-	template_id?: Snowflake | null;
-	profile_id?: Snowflake | null;
-	persona_id?: Snowflake | null;
-
-	/** Seeded as `agents:<handle>.<key>` at instantiation. Keys are dotted paths. */
-	properties?: Record<string, JsonValue>;
-	grants?: AgentGrant[];
-	tools?: ToolBinding[];
-	speech_channel?: string | null;
-	lorebooks?: Snowflake[];
-	/** Static display widgets shown when this agent is the viewer. */
-	widgets?: Snowflake[];
-	script?: string | null;
-	run_condition?: string | null;
-}
-
 export interface StartRealmChatRequest {
 	realm_id: Snowflake;
 	scenario?: string | null;
-}
-
-export interface PlayerTurnRequest {
-	content?: string | null;
-	action?: PlayerAction | null;
 }
 
 export interface PlayerAction {
@@ -248,26 +181,7 @@ export interface PlayerAction {
 	args: JsonValue;
 }
 
-export interface RunTurnRequest {
-	target?: Snowflake | null;
-}
-
-export interface TurnResult {
-	message: ConversationMessage;
-	events: RealmEvent[];
-}
-
 export interface NextTurn {
-	/** Null when every agent is gated off at the active leaf. */
+	/** Null when nobody in the cast can act at the active leaf. */
 	handle: string | null;
 }
-
-export type RealmStreamEvent =
-	| { type: 'awaiting_player'; handle: string }
-	| { type: 'turn_started'; handle: string; name: string }
-	| { type: 'delta'; content: string }
-	| { type: 'reasoning'; content: string }
-	| { type: 'widget'; widget: WidgetInstance }
-	| { type: 'effect'; effect: CommandEffect }
-	| { type: 'action'; name: string; is_error: boolean }
-	| { type: 'committed'; message: ConversationMessage; events: RealmEvent[] };

@@ -296,11 +296,6 @@ fn stand_in(widget: Option<&WidgetInstance>) -> String {
     }
 }
 
-/// Replaces [`widget_marker`] spans with a plain-text stand-in.
-pub fn sanitize_widget_markers(content: &str, widgets: &[WidgetInstance]) -> String {
-    replace_markers(content, |i| stand_in(widgets.get(i)))
-}
-
 /// Turns attached widgets into the text the model reads, by evaluating each
 /// one's `render` template over the props it was attached with.
 #[derive(Default)]
@@ -618,6 +613,11 @@ mod tests {
         .unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&out).unwrap();
         assert_eq!(parsed["matches"].as_array().unwrap().len(), catalog().len());
+    }
+
+    /// A renderer with no catalog leaves a stand-in for every widget.
+    fn sanitize_widget_markers(content: &str, widgets: &[WidgetInstance]) -> String {
+        WidgetRenderer::default().apply(content, widgets)
     }
 
     #[test]

@@ -17,9 +17,6 @@ impl Replace {
         }
     }
 
-    /// Replace boundary-delimited matches in pending[..end]. Left context for a
-    /// match at the front comes from `self.prev`; right context is the following
-    /// char (None == end of stream == boundary, only reachable from finish()).
     fn scan(&self, end: usize) -> String {
         let mut out = String::new();
         if self.from.is_empty() {
@@ -36,11 +33,11 @@ impl Replace {
             out.push_str(&self.pending[cursor..i]);
 
             let left = if i > 0 {
-                self.pending[..i].chars().next_back()
+                self.pending[..i].chars().next_back() // M
             } else {
                 self.prev
             };
-            let right = self.pending[j..].chars().next();
+            let right = self.pending[j..].chars().next(); // F
             if left.map_or(true, |c| !is_word(c)) && right.map_or(true, |c| !is_word(c)) {
                 out.push_str(&self.to);
             } else {
@@ -66,7 +63,7 @@ impl ResponseFilter for Replace {
         out
     }
 
-    fn finish(&mut self) -> String {
+    fn drain(&mut self) -> String {
         let out = self.scan(self.pending.len());
         self.pending.clear();
         self.prev = None;
@@ -78,11 +75,11 @@ impl ResponseFilter for Replace {
     }
 }
 
-fn held_prefix_len(s: &str, needle: &str) -> usize {
-    let max = needle.len().min(s.len());
+fn held_prefix_len(s: &str, pred: &str) -> usize {
+    let max = pred.len().min(s.len());
     for n in (1..=max).rev() {
         if s.is_char_boundary(s.len() - n)
-            && needle.as_bytes().starts_with(&s.as_bytes()[s.len() - n..])
+            && pred.as_bytes().starts_with(&s.as_bytes()[s.len() - n..])
         {
             return n;
         }

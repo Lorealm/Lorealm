@@ -15,6 +15,7 @@ places. Everything still true has been carried over.
 | 16/09/26      | Round-trip via `/outline`; autosave                   | ✅            |
 | 17/09/26      | Objects/range/span in inputs; scenarios keyed by slug | ✅            |
 | 17/09/26      | State changes stop reaching prompts; config in the doc | ✅            |
+| 09/11/26      | One turn pipeline for every conversation; perception derived | ✅            |
 
 ---
 
@@ -73,9 +74,16 @@ Three stages, not two. This is the most important thing to internalise:
 |---|---|---|
 | **Blueprint** | The authored WTN document. Everything you write, you write here. | No |
 | **Realm** | One instantiation of a blueprint. Owns conversations and versions. | Yes |
-| **Conversation** | A realm plus a picked scenario. One playthrough. | — |
+| **Conversation** | A cast plus a message tree. One playthrough. | — |
 
 `expand(blueprint, inputs) → realm`, then `start(realm, scenario) → conversation`.
+
+**Every conversation has a cast, and nothing else decides how it runs.** A
+playthrough copies its realm's cast when it starts. A chat with a single
+character gets a cast of two — you and that character — with no realm behind
+it. From there the two are the same thing: one turn pipeline, one endpoint
+(`POST /chat/{id}/turn`), one stream of events. Whatever works in one works in
+the other, because there is no second path for it to be missing from.
 
 **What separates them is authored versus instantiated, not whether anything is
 still a hole.** A blueprint that declares no `#inputs` is still a blueprint,
@@ -148,7 +156,7 @@ reason matters more than the rule.
 ### Handles are identity
 A definition agent has no Snowflake. Its `handle` is its identity everywhere —
 the `agents:<handle>` state subtree, the `cast:` roster, the source of its
-events, the key of its observation feed.
+events and the name its turns are stamped with.
 
 **Why:** a template generates its cast in a loop, and a loop can mint a handle
 from its input. It cannot mint a Snowflake.
@@ -222,8 +230,31 @@ script as `{{scenario:slug}}` rather than an opaque number.
 becomes `the_thaw_2`. Renaming an opening keeps its slug, because renaming is
 not the same as replacing.
 
+### Perception is derived, not stored
+What an agent sees is worked out from the messages on the active path every
+time its turn comes: its own turns as the assistant's, everyone else's as the
+user's through the cast's `speech_format`. A turn's events — an action
+announced, something a script emitted — live in that turn's message, under
+`events` in its metadata. There is no event log and no per-agent feed.
+
+**Why:** a stored feed was a copy, and copies go stale. Editing a message
+changed what you saw and not what the model saw. Deriving it makes edit,
+delete, branch and swipe mean the same thing for every agent with no code to
+keep anything in step.
+
+**Hearing.** Everyone hears `main`. Any other channel takes a grant, and a
+grant of `*` covers every channel and every state namespace.
+
+### Nothing is pinned unless the cast pins it
+An agent's `template_id`, `profile_id`, `persona_id` and `lorebooks` are
+overrides. Left empty, a turn uses whatever its owner has active when it runs,
+so switching model mid-conversation works everywhere.
+
+**The trade:** a realm that leaves these open behaves differently for whoever
+plays it next. Pin what the realm depends on.
+
 ### State changes are recorded, not narrated
-A `StateChanged` event is written to the realm's log and reaches no agent's
+A turn's state changes are stored as that turn's delta and reach no agent's
 prompt. Nothing formats one, and there is no setting to turn on.
 
 **Why:** every `set_var` used to become a line in someone's context, so the
@@ -288,10 +319,8 @@ provenance true.
 rebuilding. If that becomes painful, the answer is "fork this realm into a new
 blueprint", not "make realms editable".
 
-**Note the seam.** `PATCH /realms/{id}` and the agent CRUD under
-`/realms/{id}/agents` still exist and still work. This is a decision the editor
-keeps, not one the backend enforces. If it should be enforced, that is a
-separate change, and worth making deliberately rather than discovering.
+**This is now enforced.** The endpoints that edited a realm in place are gone:
+a realm is read, exported, played and deleted, and nothing else.
 
 ### Weaver fields cannot read inputs
 `to_wtn` writes every string through `raw_string`, as `r"..."`. That is what
@@ -343,6 +372,9 @@ The backend side of this rewrite is finished and covered by tests:
 
 | | |
 |---|---|
+| `services/chat/turn.rs` | The turn pipeline: player, script and model turns |
+| `services/chat/stage.rs` | The director: whose turn it is |
+| `services/chat/perceive.rs` | What one agent perceives of a path |
 | `services/realm/wtn.rs` | Document ↔ definition, both directions |
 | `services/realm/project.rs` | `Ref` resolution and the projection shape |
 | `services/realm/validate.rs` | Per-field and whole-definition validation |

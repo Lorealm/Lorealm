@@ -37,8 +37,8 @@
 		<SetupGuide />
 	{:else if feed.length === 0}
 		<div class="empty">
-			{#if chatStore.isRealm}
-				A fresh playthrough — run the first turn below.
+			{#if chatStore.conversationId}
+				Nothing has happened yet.
 			{:else}
 				Pick a character and send a message to begin.
 			{/if}
@@ -48,8 +48,8 @@
 			{#if entry.audible}
 				<MessageBubble message={entry.message} last={i === feed.length - 1} />
 			{/if}
-			{#each entry.observations as observation (observation.id)}
-				<div class="dispatch">{observation.content}</div>
+			{#each entry.notices as notice, n (n)}
+				<div class="dispatch">{notice}</div>
 			{/each}
 		{/each}
 	{/if}

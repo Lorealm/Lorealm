@@ -14,6 +14,7 @@ pub struct EmittedEvent {
     pub content: String,
 }
 
+/// A shared interior-mutable reference to a vector of type [`EmittedEvent`]
 pub type EventSink = Arc<Mutex<Vec<EmittedEvent>>>;
 
 /// `$[emit_event(scope, content, kind?)]` — draft a realm event on channel

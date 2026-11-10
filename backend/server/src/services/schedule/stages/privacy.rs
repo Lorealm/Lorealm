@@ -43,7 +43,7 @@ impl Stage for PrivacyStage {
 pub fn replace_word(haystack: &str, from: &str, to: &str) -> String {
     let mut r = Replace::new(from, to);
     let mut out = r.push(haystack);
-    out.push_str(&r.finish());
+    out.push_str(&r.drain());
     out
 }
 
@@ -54,7 +54,7 @@ mod tests {
     fn run(from: &str, to: &str, deltas: &[&str]) -> String {
         let mut r = Replace::new(from, to);
         let mut out: String = deltas.iter().map(|d| r.push(d)).collect();
-        out.push_str(&r.finish());
+        out.push_str(&r.drain());
         out
     }
 

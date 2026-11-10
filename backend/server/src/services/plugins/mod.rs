@@ -858,7 +858,7 @@ impl PluginService {
     }
 
     /// Runs the user's `turn-start` hooks. A plugin that fails is logged and
-    /// skipped. Callers shouldn't wait for it.
+    /// skipped.
     pub async fn turn_start(&self, user_id: Snowflake, conversation: Snowflake, agent: String) {
         let _: Result<_, Infallible> = self
             .pipe(user_id, (), async move |_, p, ()| {
@@ -873,7 +873,7 @@ impl PluginService {
     }
 
     /// Runs the user's `turn-end` hooks. A plugin that fails is logged and
-    /// skipped. Callers shouldn't wait for it.
+    /// skipped.
     pub async fn turn_end(
         &self,
         user_id: Snowflake,
