@@ -4,20 +4,14 @@ use axum::{
     Json,
     extract::{Path, State},
 };
-use lorealm_storage::models::{
-    AgentGrant, Realm, RealmAgent, RealmConfig, RealmResourceRef, RealmSummary, RealmVersionInfo,
-    Scenario, Snowflake,
-};
+use lorealm_storage::models::{Realm, RealmResourceRef, RealmSummary, RealmVersionInfo, Snowflake};
 
 use crate::{
     core::AppState,
     errors::{AppError, RealmError},
     extract::{AuthenticatedSession, ResolvedPermissions},
-    routes::realm::dto::{
-        CreateAgentRequest, CreateRealmRequest, CreateScenarioRequest, ImportRealmRequest,
-        UpdateRealmRequest,
-    },
-    services::{permission::Permissions, realm::ActionSpec},
+    routes::realm::dto::ImportRealmRequest,
+    services::permission::Permissions,
     util::weaver::json_to_weaver,
 };
 
@@ -48,20 +42,6 @@ pub async fn get_realm(
     Ok(Json(realm))
 }
 
-pub async fn create_realm(
-    State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession,
-    Json(payload): Json<CreateRealmRequest>,
-) -> Result<Json<Realm>, AppError> {
-    let created = state
-        .services()
-        .realm()
-        .create_realm(payload.name, session.user_id)
-        .await?;
-
-    Ok(Json(created))
-}
-
 pub async fn list_versions(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
@@ -90,35 +70,6 @@ pub async fn get_version(
     Ok(Json(realm))
 }
 
-pub async fn restore_version(
-    State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession,
-    Path((realm_id, version_id)): Path<(Snowflake, Snowflake)>,
-) -> Result<Json<Realm>, AppError> {
-    let realm = state
-        .services()
-        .realm()
-        .restore_version(realm_id, version_id, session.user_id)
-        .await?;
-
-    Ok(Json(realm))
-}
-
-pub async fn update_realm(
-    State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession,
-    Path(realm_id): Path<Snowflake>,
-    Json(payload): Json<UpdateRealmRequest>,
-) -> Result<Json<Realm>, AppError> {
-    let updated = state
-        .services()
-        .realm()
-        .update_realm(realm_id, session.user_id, payload)
-        .await?;
-
-    Ok(Json(updated))
-}
-
 pub async fn delete_realm(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
@@ -129,154 +80,6 @@ pub async fn delete_realm(
         .realm()
         .delete_realm(realm_id, session.user_id)
         .await?;
-    Ok(())
-}
-
-pub async fn list_agents(
-    State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession,
-    Path(realm_id): Path<Snowflake>,
-) -> Result<Json<Vec<RealmAgent>>, AppError> {
-    let agents = state
-        .services()
-        .realm()
-        .list_agents(realm_id, session.user_id)
-        .await?;
-
-    Ok(Json(agents))
-}
-
-pub async fn create_agent(
-    State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession,
-    Path(realm_id): Path<Snowflake>,
-    Json(payload): Json<CreateAgentRequest>,
-) -> Result<Json<RealmAgent>, AppError> {
-    let created = state
-        .services()
-        .realm()
-        .create_agent(realm_id, session.user_id, payload)
-        .await?;
-
-    Ok(Json(created))
-}
-
-pub async fn update_agent(
-    State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession,
-    Path((realm_id, handle)): Path<(Snowflake, String)>,
-    Json(payload): Json<CreateAgentRequest>,
-) -> Result<Json<RealmAgent>, AppError> {
-    let updated = state
-        .services()
-        .realm()
-        .update_agent(realm_id, &handle, session.user_id, payload)
-        .await?;
-
-    Ok(Json(updated))
-}
-
-/// Rewrite the cast's turn order; the body must be a permutation of the
-/// current handles.
-pub async fn reorder_agents(
-    State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession,
-    Path(realm_id): Path<Snowflake>,
-    Json(payload): Json<Vec<String>>,
-) -> Result<Json<Vec<RealmAgent>>, AppError> {
-    let agents = state
-        .services()
-        .realm()
-        .reorder_agents(realm_id, session.user_id, payload)
-        .await?;
-
-    Ok(Json(agents))
-}
-
-pub async fn delete_agent(
-    State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession,
-    Path((realm_id, handle)): Path<(Snowflake, String)>,
-) -> Result<(), AppError> {
-    state
-        .services()
-        .realm()
-        .delete_agent(realm_id, &handle, session.user_id)
-        .await?;
-
-    Ok(())
-}
-
-pub async fn create_scenario(
-    State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession,
-    Path(realm_id): Path<Snowflake>,
-    Json(payload): Json<CreateScenarioRequest>,
-) -> Result<Json<Scenario>, AppError> {
-    let created = state
-        .services()
-        .realm()
-        .create_scenario(realm_id, session.user_id, payload)
-        .await?;
-
-    Ok(Json(created))
-}
-
-pub async fn update_scenario(
-    State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession,
-    Path((realm_id, scenario_slug)): Path<(Snowflake, String)>,
-    Json(payload): Json<CreateScenarioRequest>,
-) -> Result<Json<Scenario>, AppError> {
-    let updated = state
-        .services()
-        .realm()
-        .update_scenario(realm_id, &scenario_slug, session.user_id, payload)
-        .await?;
-
-    Ok(Json(updated))
-}
-
-pub async fn delete_scenario(
-    State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession,
-    Path((realm_id, scenario_slug)): Path<(Snowflake, String)>,
-) -> Result<(), AppError> {
-    state
-        .services()
-        .realm()
-        .delete_scenario(realm_id, &scenario_slug, session.user_id)
-        .await?;
-
-    Ok(())
-}
-
-pub async fn get_grants(
-    State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession,
-    Path((realm_id, handle)): Path<(Snowflake, String)>,
-) -> Result<Json<Vec<AgentGrant>>, AppError> {
-    let grants = state
-        .services()
-        .realm()
-        .list_agent_grants(realm_id, &handle, session.user_id)
-        .await?;
-
-    Ok(Json(grants))
-}
-
-pub async fn set_grants(
-    State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession,
-    Path((realm_id, handle)): Path<(Snowflake, String)>,
-    Json(payload): Json<Vec<AgentGrant>>,
-) -> Result<(), AppError> {
-    state
-        .services()
-        .realm()
-        .set_grants(realm_id, &handle, session.user_id, payload)
-        .await?;
-
     Ok(())
 }
 
@@ -332,48 +135,4 @@ pub async fn list_resources(
         .await?;
 
     Ok(Json(resources))
-}
-
-pub async fn get_config(
-    State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession,
-    Path(realm_id): Path<Snowflake>,
-) -> Result<Json<RealmConfig>, AppError> {
-    let config = state
-        .services()
-        .realm()
-        .get_config(realm_id, session.user_id)
-        .await?;
-
-    Ok(Json(config))
-}
-
-pub async fn set_config(
-    State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession,
-    Path(realm_id): Path<Snowflake>,
-    Json(payload): Json<RealmConfig>,
-) -> Result<Json<RealmConfig>, AppError> {
-    let config = state
-        .services()
-        .realm()
-        .set_config(realm_id, session.user_id, payload)
-        .await?;
-
-    Ok(Json(config))
-}
-
-/// The agent's action space as currently authored in the preset.
-pub async fn list_actions(
-    State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession,
-    Path((realm_id, handle)): Path<(Snowflake, String)>,
-) -> Result<Json<Vec<ActionSpec>>, AppError> {
-    let actions = state
-        .services()
-        .realm()
-        .list_actions(realm_id, &handle, session.user_id)
-        .await?;
-
-    Ok(Json(actions))
 }

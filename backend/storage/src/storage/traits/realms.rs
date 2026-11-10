@@ -2,10 +2,7 @@ use async_trait::async_trait;
 
 use crate::{
     StorageError,
-    models::{
-        AgentObservation, Realm, RealmCast, RealmEvent, RealmSummary, RealmVersionInfo, Snowflake,
-        TurnCommit, VersionedSaveMode,
-    },
+    models::{Realm, RealmCast, RealmSummary, RealmVersionInfo, Snowflake, VersionedSaveMode},
 };
 
 #[async_trait]
@@ -51,9 +48,7 @@ pub trait RealmStorage {
         new_version_id: Snowflake,
     ) -> Result<Snowflake, StorageError>;
 
-    // ----- playthroughs (conversation-owned) -----
-
-    /// The cast snapshot pinned when the conversation instantiated its realm.
+    /// The cast a conversation plays with, pinned when it starts.
     async fn get_cast(&self, conversation_id: Snowflake)
     -> Result<Option<RealmCast>, StorageError>;
     async fn put_cast(
@@ -61,34 +56,4 @@ pub trait RealmStorage {
         conversation_id: Snowflake,
         cast: &RealmCast,
     ) -> Result<(), StorageError>;
-
-    /// The playthrough's timeline, oldest-first. `before` pages backward by
-    /// event id.
-    async fn list_realm_events(
-        &self,
-        conversation_id: Snowflake,
-        before: Option<Snowflake>,
-        limit: i64,
-    ) -> Result<Vec<RealmEvent>, StorageError>;
-
-    /// The agent's feed within one playthrough, oldest-first. `before`
-    /// pages backward by observation id.
-    async fn list_observations(
-        &self,
-        conversation_id: Snowflake,
-        agent_handle: &str,
-        before: Option<Snowflake>,
-        limit: i64,
-    ) -> Result<Vec<AgentObservation>, StorageError>;
-
-    /// The agent's feed restricted to the given messages (an active path),
-    /// oldest-first by observation id.
-    async fn list_observations_for_messages(
-        &self,
-        agent_handle: &str,
-        message_ids: &[Snowflake],
-    ) -> Result<Vec<AgentObservation>, StorageError>;
-
-    /// Atomic insert of one committed turn's events + observations.
-    async fn commit_turn(&self, commit: TurnCommit) -> Result<(), StorageError>;
 }

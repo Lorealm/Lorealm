@@ -1,13 +1,11 @@
 use std::sync::Arc;
 
-use lorealm_storage::models::{
-    AgentObservation, Character, ConversationMessage, Snowflake, UserPersona,
-};
+use lorealm_storage::models::{Character, ConversationMessage, Snowflake, UserPersona};
 use serde::Serialize;
 use tokio::sync::Mutex;
 
 use crate::services::{
-    chat::{WidgetInstance, WidgetRenderer, sanitize_widget_markers},
+    chat::{WidgetInstance, WidgetRenderer},
     context_template::PromptRole,
     plugins::PluginVocabulary,
     state::{CapturedState, ReconstructedState},
@@ -115,6 +113,15 @@ pub struct TracedBlock {
     pub origin: BlockOrigin,
 }
 
+impl TracedBlock {
+    /// Drop blocks that can be recovered by reference or reconstruction.
+    pub fn strip_recoverable(&mut self) {
+        if self.block.content_ref.is_recoverable() {
+            self.block.content.clear();
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct BlockOrigin {
     /// The ContextNode that emitted this block.
@@ -181,14 +188,6 @@ impl PromptTurn {
             content_ref: ContentRef::Message(m.id),
         }
     }
-
-    pub fn from_observation(o: &AgentObservation) -> Self {
-        Self {
-            role: chat_role_to_prompt_role(&o.role),
-            content: sanitize_widget_markers(&o.content, &[]),
-            content_ref: ContentRef::Verbatim,
-        }
-    }
 }
 
 fn chat_role_to_prompt_role(role: &lorealm_storage::prelude::ChatRole) -> PromptRole {
@@ -222,23 +221,6 @@ mod tests {
         assert_eq!(
             PromptTurn::from_message(&m, &mut WidgetRenderer::default()).content,
             "here you go: [widget: note]"
-        );
-    }
-
-    #[test]
-    fn observation_markers_are_sanitized_for_prompts() {
-        let o = AgentObservation {
-            id: Snowflake(1),
-            conversation_id: Snowflake(2),
-            message_id: Snowflake(3),
-            agent_handle: "narrator".into(),
-            event_id: None,
-            role: ChatRole::User,
-            content: "Alice: look \u{E000}widget:0\u{E001}".into(),
-        };
-        assert_eq!(
-            PromptTurn::from_observation(&o).content,
-            "Alice: look [widget]"
         );
     }
 }

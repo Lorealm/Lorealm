@@ -60,8 +60,9 @@ impl BlobStore for MemoryBlobs {
     }
 }
 
-/// A [`RealmService`] over in-memory storage
+/// The chat and realm services over in-memory storage
 pub(crate) struct Harness {
+    pub chat: Arc<ChatService>,
     pub realms: Arc<RealmService>,
     pub blueprints: Arc<BlueprintService>,
     pub store: Arc<MemoryStorage>,
@@ -165,13 +166,10 @@ impl Harness {
         let realms = Arc::new(RealmService::new(
             Arc::clone(&storage),
             Arc::clone(&snow),
-            chat,
             characters,
             context,
             Arc::clone(&connection),
             persona,
-            state,
-            conversation,
             Arc::clone(&plugins),
         ));
 
@@ -187,6 +185,7 @@ impl Harness {
         ));
 
         Self {
+            chat,
             realms,
             blueprints,
             store,

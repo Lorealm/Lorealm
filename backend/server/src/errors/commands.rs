@@ -20,9 +20,6 @@ pub enum CommandError {
     NotFound(Snowflake),
     #[error("conversation {0} not owned by caller")]
     NotOwned(Snowflake),
-    /// Realm playthroughs advance through the grant-checked turn pipeline.
-    #[error("conversation {0} is a realm playthrough")]
-    RealmConversation(Snowflake),
     #[error("'{0}' is not callable as a command")]
     NotACommand(String),
     #[error("argument '{name}': {reason}")]
@@ -43,7 +40,6 @@ impl DomainError for CommandError {
             Self::Conversation(e) => e.code(),
             Self::State(e) => e.code(),
             Self::NotFound(_) | Self::NotOwned(_) => "command.not_found",
-            Self::RealmConversation(_) => "command.realm_conversation",
             Self::NotACommand(_) => "command.not_a_command",
             Self::BadArgument { .. } => "command.bad_argument",
             Self::Failed { .. } => "command.failed",
@@ -58,11 +54,9 @@ impl DomainError for CommandError {
             Self::Conversation(e) => e.status(),
             Self::State(e) => e.status(),
             Self::NotFound(_) | Self::NotOwned(_) => StatusCode::NOT_FOUND,
-            Self::RealmConversation(_) | Self::NotACommand(_) => StatusCode::CONFLICT,
+            Self::NotACommand(_) => StatusCode::CONFLICT,
             Self::BadArgument { .. } => StatusCode::BAD_REQUEST,
-            // The body itself is at fault, not the request that ran it.
             Self::Failed { .. } => StatusCode::UNPROCESSABLE_ENTITY,
-            // The client asked for this, so it is not an error condition.
             Self::Cancelled(_) => StatusCode::from_u16(499).expect("valid status"),
             Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -74,7 +68,6 @@ impl DomainError for CommandError {
             Self::Conversation(e) => e.message(),
             Self::State(e) => e.message(),
             Self::NotFound(_) | Self::NotOwned(_) => "That conversation no longer exists.".into(),
-            Self::RealmConversation(_) => "Commands cannot run in a realm playthrough yet.".into(),
             Self::NotACommand(name) => sentence(format!("'{name}' is a tool, not a command")),
             Self::BadArgument { name, reason } => sentence(format!("Argument '{name}': {reason}")),
             Self::Failed { name, reason } => sentence(format!("Command /{name} failed: {reason}")),
@@ -88,7 +81,7 @@ impl DomainError for CommandError {
             Self::Tool(e) => e.details(),
             Self::Conversation(e) => e.details(),
             Self::State(e) => e.details(),
-            Self::NotFound(id) | Self::NotOwned(id) | Self::RealmConversation(id) => {
+            Self::NotFound(id) | Self::NotOwned(id) => {
                 Some(ErrorDetails::target(TargetType::Conversation, *id))
             }
             Self::NotACommand(_)

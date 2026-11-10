@@ -17,7 +17,8 @@ use crate::services::{
     plugins::PluginVocabulary,
     state::{StatePool, diff},
     tools::{
-        Actor, DelVarCommand, EmitEventCommand, EmittedEvent, EventSink, RealmView, ToolContext,
+        Actor, DelVarCommand, EmitEventCommand, EmittedEvent, EventSink, RealmVariables,
+        ToolContext,
     },
     weaver::{
         Caps, WeaverProfile,
@@ -70,7 +71,7 @@ pub struct WeaverHost {
     pool: Arc<Mutex<StatePool>>,
     cmd: HashMap<String, WeaverValue>,
     actor: Option<Actor>,
-    realm: Option<RealmView>,
+    realm: Option<RealmVariables>,
     read_only: bool,
     limits: Limits,
     cancel: Option<CancellationToken>,
@@ -186,7 +187,7 @@ pub struct WeaverBuilder {
     pool: Option<Arc<Mutex<StatePool>>>,
     cmd: HashMap<String, WeaverValue>,
     actor: Option<Actor>,
-    realm: Option<RealmView>,
+    realm: Option<RealmVariables>,
     read_only: bool,
     limits: Limits,
     cancel: Option<CancellationToken>,
@@ -257,7 +258,7 @@ impl WeaverBuilder {
     }
 
     /// The realm the body runs inside, mounting `cast:` and `turn:`.
-    pub fn realm(mut self, realm: RealmView) -> Self {
+    pub fn realm(mut self, realm: RealmVariables) -> Self {
         self.realm = Some(realm);
         self
     }

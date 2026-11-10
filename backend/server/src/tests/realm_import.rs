@@ -7,8 +7,6 @@ use weaver_lang::Value as WeaverValue;
 
 use crate::{errors::RealmError, tests::Harness};
 
-/// The strategy-game shape from the design doc: a cast built from whatever
-/// characters the importer picked.
 const REGENTS: &str = r#"
 #inputs
 regents: [Ref<Character>]
@@ -347,7 +345,7 @@ regents: [Ref<Character>]
 }
 
 #[tokio::test]
-async fn an_llm_agent_without_a_template_is_caught_at_import() {
+async fn an_llm_agent_may_leave_its_template_and_profile_to_the_owner() {
     let h = Harness::new().await;
     let source = r#"
 {
@@ -370,15 +368,13 @@ async fn an_llm_agent_without_a_template_is_caught_at_import() {
   ]
 }"#;
 
-    let err = h
+    let realm = h
         .realms
         .import(h.user, source, BTreeMap::new(), None)
         .await
-        .unwrap_err();
-    assert!(
-        matches!(&err, RealmError::InvalidAgent(hint) if hint.contains("needs a template")),
-        "{err:?}"
-    );
+        .expect("nothing pinned is a valid agent");
+    let narrator = &realm.definition.agents[0];
+    assert!(narrator.template_id.is_none() && narrator.profile_id.is_none());
 }
 
 #[tokio::test]

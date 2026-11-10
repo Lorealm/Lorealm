@@ -36,7 +36,7 @@
 		if (busy) return;
 		busy = true;
 		try {
-			const conversation = await api.chat.realm.start({
+			const conversation = await api.chat.startRealm({
 				realm_id: realm.id,
 				scenario: slug
 			});

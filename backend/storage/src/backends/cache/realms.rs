@@ -3,10 +3,7 @@ use async_trait::async_trait;
 use crate::{
     RealmStorage, StorageError,
     backends::CachedStorage,
-    models::{
-        AgentObservation, Realm, RealmCast, RealmEvent, RealmSummary, RealmVersionInfo, Snowflake,
-        TurnCommit, VersionedSaveMode,
-    },
+    models::{Realm, RealmCast, RealmSummary, RealmVersionInfo, Snowflake, VersionedSaveMode},
 };
 
 #[async_trait]
@@ -63,42 +60,5 @@ impl RealmStorage for CachedStorage {
         cast: &RealmCast,
     ) -> Result<(), StorageError> {
         self.backend.put_cast(conversation_id, cast).await
-    }
-
-    async fn list_realm_events(
-        &self,
-        conversation_id: Snowflake,
-        before: Option<Snowflake>,
-        limit: i64,
-    ) -> Result<Vec<RealmEvent>, StorageError> {
-        self.backend
-            .list_realm_events(conversation_id, before, limit)
-            .await
-    }
-
-    async fn list_observations(
-        &self,
-        conversation_id: Snowflake,
-        agent_handle: &str,
-        before: Option<Snowflake>,
-        limit: i64,
-    ) -> Result<Vec<AgentObservation>, StorageError> {
-        self.backend
-            .list_observations(conversation_id, agent_handle, before, limit)
-            .await
-    }
-
-    async fn list_observations_for_messages(
-        &self,
-        agent_handle: &str,
-        message_ids: &[Snowflake],
-    ) -> Result<Vec<AgentObservation>, StorageError> {
-        self.backend
-            .list_observations_for_messages(agent_handle, message_ids)
-            .await
-    }
-
-    async fn commit_turn(&self, commit: TurnCommit) -> Result<(), StorageError> {
-        self.backend.commit_turn(commit).await
     }
 }

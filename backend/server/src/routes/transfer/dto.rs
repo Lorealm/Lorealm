@@ -44,7 +44,9 @@ pub enum Item {
         pseudonym: Option<String>,
         description: Option<String>,
     },
-    Tool { tools: Vec<ToolData> },
+    Tool {
+        tools: Vec<ToolData>,
+    },
     Widget {
         tools: Vec<ToolData>,
         widgets: Vec<WidgetData>,

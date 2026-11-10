@@ -4,10 +4,7 @@ use chrono::{DateTime, Utc};
 use crate::{
     RealmStorage, StorageError,
     backends::MemoryStorage,
-    models::{
-        AgentObservation, Realm, RealmCast, RealmEvent, RealmSummary, RealmVersionInfo, Snowflake,
-        TurnCommit, VersionedSaveMode,
-    },
+    models::{Realm, RealmCast, RealmSummary, RealmVersionInfo, Snowflake, VersionedSaveMode},
 };
 
 /// Head row + the metadata postgres keeps on the realms table.
@@ -194,76 +191,6 @@ impl RealmStorage for MemoryStorage {
             .write()
             .await
             .insert(conversation_id, cast.clone());
-        Ok(())
-    }
-
-    async fn list_realm_events(
-        &self,
-        conversation_id: Snowflake,
-        before: Option<Snowflake>,
-        limit: i64,
-    ) -> Result<Vec<RealmEvent>, StorageError> {
-        let events = self.realm_events.read().await;
-        let mut rows: Vec<RealmEvent> = events
-            .values()
-            .filter(|e| e.conversation_id == conversation_id && before.is_none_or(|b| e.id < b))
-            .cloned()
-            .collect();
-        rows.sort_by_key(|e| e.id);
-        if rows.len() > limit as usize {
-            rows.drain(..rows.len() - limit as usize); // keep the most recent `limit`, oldest-first
-        }
-        Ok(rows)
-    }
-
-    async fn list_observations(
-        &self,
-        conversation_id: Snowflake,
-        agent_handle: &str,
-        before: Option<Snowflake>,
-        limit: i64,
-    ) -> Result<Vec<AgentObservation>, StorageError> {
-        let obs = self.agent_observations.read().await;
-        let mut rows: Vec<AgentObservation> = obs
-            .values()
-            .filter(|o| {
-                o.conversation_id == conversation_id
-                    && o.agent_handle == agent_handle
-                    && before.is_none_or(|b| o.id < b)
-            })
-            .cloned()
-            .collect();
-        rows.sort_by_key(|o| o.id);
-        if rows.len() > limit as usize {
-            rows.drain(..rows.len() - limit as usize); // keep the most recent `limit`, oldest-first
-        }
-        Ok(rows)
-    }
-
-    async fn list_observations_for_messages(
-        &self,
-        agent_handle: &str,
-        message_ids: &[Snowflake],
-    ) -> Result<Vec<AgentObservation>, StorageError> {
-        let obs = self.agent_observations.read().await;
-        let mut rows: Vec<AgentObservation> = obs
-            .values()
-            .filter(|o| o.agent_handle == agent_handle && message_ids.contains(&o.message_id))
-            .cloned()
-            .collect();
-        rows.sort_by_key(|o| o.id);
-        Ok(rows)
-    }
-
-    async fn commit_turn(&self, commit: TurnCommit) -> Result<(), StorageError> {
-        let mut events = self.realm_events.write().await;
-        for e in commit.events {
-            events.insert(e.id, e);
-        }
-        let mut obs = self.agent_observations.write().await;
-        for o in commit.observations {
-            obs.insert(o.id, o);
-        }
         Ok(())
     }
 }

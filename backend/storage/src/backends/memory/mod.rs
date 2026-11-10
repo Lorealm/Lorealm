@@ -59,8 +59,6 @@ pub struct MemoryStorage {
     pub(crate) realms: RwLock<HashMap<Snowflake, StoredRealm>>,
     pub(crate) realm_versions: RwLock<HashMap<Snowflake, StoredRealmVersion>>,
     pub(crate) conversation_casts: RwLock<HashMap<Snowflake, RealmCast>>,
-    pub(crate) realm_events: RwLock<HashMap<Snowflake, RealmEvent>>,
-    pub(crate) agent_observations: RwLock<HashMap<Snowflake, AgentObservation>>,
     pub(crate) _realm_config: RwLock<HashMap<Snowflake, RealmConfig>>,
 }
 

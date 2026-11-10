@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use lorealm_storage::models::{Character, Realm, UserPersona};
+use lorealm_storage::models::{Character, RealmCast, UserPersona};
 use weaver_lang::Value;
 
 pub mod builtin;
@@ -9,7 +9,7 @@ pub mod builtin;
 pub struct VariableContext<'a> {
     pub character: Option<&'a Character>,
     pub persona: Option<&'a UserPersona>,
-    pub realm: Option<&'a Realm>,
+    pub cast: Option<&'a RealmCast>,
 }
 
 pub trait VariableProvider: Send + Sync {
@@ -170,7 +170,7 @@ mod tests {
         let snapshot = reg.snapshot(&VariableContext {
             character: None,
             persona: None,
-            realm: None,
+            cast: None,
         });
 
         assert!(snapshot.iter().next().is_none());

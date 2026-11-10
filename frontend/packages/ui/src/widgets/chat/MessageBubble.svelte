@@ -19,17 +19,15 @@
 	let { message, last = false }: { message: ConversationMessage; last?: boolean } = $props();
 
 	let info = $derived(chatStore.siblingInfo(message.id));
-	/** Realm turns stamp the speaking agent into the message metadata. */
-	let agentName = $derived(
-		(message.metadata as { agent_name?: string } | null)?.agent_name ?? null
-	);
+	/** Every turn is stamped with who took it. */
+	let turn = $derived(message.metadata as { agent_name?: string; handle?: string } | null);
 	let name = $derived(
-		agentName ??
-			(message.role === 'user'
-				? 'You'
-				: message.role === 'system'
-					? 'System'
-					: (characterStore.activeCharacter?.definition.name ?? 'Assistant'))
+		message.role === 'user' && (!turn?.handle || turn.handle === chatStore.viewerAgent?.handle)
+			? 'You'
+			: (turn?.agent_name ??
+					(message.role === 'system'
+						? 'System'
+						: (characterStore.activeCharacter?.definition.name ?? 'Assistant')))
 	);
 
 	let avatarUrl = $derived(blobUrl(characterStore.activeCharacter?.metadata.avatar_uri));
@@ -47,7 +45,7 @@
 
 	// Picking up a reply the provider cut short only makes sense on the newest
 	// one; earlier replies have turns built on top of them already.
-	let canContinue = $derived(last && message.role === 'assistant' && !chatStore.isRealm);
+	let canContinue = $derived(last && message.role === 'assistant');
 
 	let hasContext = $derived(parseContextBlocks(message.metadata) !== null);
 	let reasoning = $derived(parseReasoning(message.metadata));
