@@ -11,7 +11,7 @@ use tokio_util::sync::CancellationToken;
 use weaver_lang::{CompiledTemplate, Registry, Value as WeaverValue};
 
 use crate::services::chat::AttachmentSpec;
-use crate::services::tools::{Actor, EventSink, RealmView, ToolContext, ToolStatePool};
+use crate::services::tools::{Actor, EventSink, RealmVariables, ToolContext, ToolStatePool};
 use crate::util::weaver::{json_to_weaver, weaver_to_json};
 
 /// Which tools a turn exposes and on whose behalf they run.
@@ -20,7 +20,7 @@ pub struct ToolPolicy {
     pub tool_ids: Option<Vec<Snowflake>>,
     pub extra_tool_ids: Vec<Snowflake>,
     pub actor: Option<Actor>,
-    pub realm: Option<RealmView>,
+    pub realm: Option<RealmVariables>,
     pub event_sink: Option<EventSink>,
     pub attachments: Vec<AttachmentSpec>,
     pub conversation: Option<Snowflake>,
@@ -63,7 +63,7 @@ pub struct CompiledUserTool {
     registry: Arc<Registry>,
     state: Arc<Mutex<ToolStatePool>>,
     actor: Option<Actor>,
-    realm: Option<RealmView>,
+    realm: Option<RealmVariables>,
 }
 
 impl From<lorealm_storage::models::UserTool> for ToolSignature {
@@ -83,7 +83,7 @@ impl CompiledUserTool {
         registry: Arc<Registry>,
         state: Arc<Mutex<ToolStatePool>>,
         actor: Option<Actor>,
-        realm: Option<RealmView>,
+        realm: Option<RealmVariables>,
     ) -> Result<Self, ProviderError> {
         let body = CompiledTemplate::compile(&sig.body).map_err(|e| {
             ProviderError::Tool(format!("'{}' body failed to compile: {e:?}", sig.name))

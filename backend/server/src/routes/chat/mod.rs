@@ -14,8 +14,6 @@ use crate::{
 mod dto;
 mod handlers;
 
-use dto::*;
-
 pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewareState) -> Router {
     let session_only_routes = Router::new()
         .route("/", get(handlers::list_conversations))
@@ -31,14 +29,6 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         )
         .route("/{conversation_id}/cast", get(handlers::get_cast))
         .route("/{conversation_id}/turn/next", get(handlers::next_turn))
-        .route(
-            "/{conversation_id}/events",
-            get(handlers::list_realm_events),
-        )
-        .route(
-            "/{conversation_id}/agents/{handle}/observations",
-            get(handlers::list_agent_observations),
-        )
         .route(
             "/{conversation_id}/agents/{handle}/state",
             get(handlers::agent_state),
@@ -66,12 +56,9 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
             delete(handlers::delete_message),
         )
         .route(
-            "/{conversation_id}/completions",
-            post(handlers::completions).delete(handlers::cancel_completion),
+            "/{conversation_id}/turn",
+            post(handlers::turn).delete(handlers::cancel_turn),
         )
-        // realm turn pipeline; cancellation shares /completions DELETE
-        .route("/{conversation_id}/turn", post(handlers::player_turn))
-        .route("/{conversation_id}/turn/stream", post(handlers::run_turn))
         .layer(axum::middleware::from_fn_with_state(
             middleware_state.clone(),
             session_csrf_middleware,

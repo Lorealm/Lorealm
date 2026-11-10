@@ -3,20 +3,14 @@ import { useApi } from '$lib/api/client.js';
 import type { Snowflake } from '$lib/types/core.js';
 import type {
 	ChatEdit,
-	ChatStreamEvent,
 	Conversation,
 	ConversationMessage,
 	ConversationMetadata,
-	FullConversation
+	FullConversation,
+	TurnRequest
 } from '$lib/types/conversation.js';
 import type { Greeting } from '$lib/types/character.js';
-import type {
-	AgentObservation,
-	PlayerAction,
-	RealmAgent,
-	RealmCast,
-	TurnResult
-} from '$lib/types/realm.js';
+import type { PlayerAction, RealmAgent, RealmCast, TurnEvent } from '$lib/types/realm.js';
 import { parseReasoning, parseWidgets, type WidgetInstance } from '$lib/types/widgets.js';
 import { SvelteMap } from 'svelte/reactivity';
 import { messageStateStore } from './messageState.svelte.ts';
@@ -26,8 +20,11 @@ import { applyEffect } from '$lib/commands/server.svelte.js';
 
 export interface FeedEntry {
 	message: ConversationMessage;
+	/** Whether the viewer hears the message itself. */
 	audible: boolean;
-	observations: AgentObservation[];
+	/** What else the viewer learns from the turn: events on channels they
+	 *  hear, and what their own actions returned. */
+	notices: string[];
 }
 
 export type StreamStatus = 'idle' | 'streaming' | 'error';
@@ -52,9 +49,26 @@ interface PendingState extends NewConversationOptions {
 const TEMP_PREFIX = 'tmp_';
 const isTemp = (id: Snowflake) => (id as unknown as string).startsWith(TEMP_PREFIX);
 
-function grantScope(grant: string): string {
-	const separator = grant.indexOf(':');
-	return separator === -1 ? grant : grant.slice(0, separator);
+/** What a turn's message says about who took it. */
+interface TurnMetadata {
+	handle?: string;
+	channel?: string;
+	command?: string;
+	events?: TurnEvent[];
+	tool_results?: string[];
+}
+
+const turnMeta = (m: ConversationMessage) => (m.metadata ?? {}) as TurnMetadata;
+
+/** The channel everybody hears. Any other takes a grant. */
+const MAIN_CHANNEL = 'main';
+
+function hears(viewer: RealmAgent, channel: string): boolean {
+	if (channel === MAIN_CHANNEL) return true;
+	return viewer.grants.some((g) => {
+		const scope = g.channel.split(':', 1)[0];
+		return scope === '*' || scope === channel;
+	});
 }
 
 class ChatStore {
@@ -82,13 +96,14 @@ class ChatStore {
 	private _streamingConvId: Snowflake | null = null;
 	private _cancelling = $state(false);
 
-	private _realmCast = $state<RealmCast | null>(null);
-	private _observations = $state<AgentObservation[]>([]);
+	private _cast = $state<RealmCast | null>(null);
 	private _nextHandle = $state<string | null>(null);
 	private _streamAgentName = $state<string | null>(null);
 	private _streamHandle = $state<string | null>(null);
-	realmAutoRun = $state(true);
-	realmDirectorView = $state(false);
+	/** Keep running turns until it is a player's. */
+	autoRun = $state(true);
+	/** Show every turn, not only what the player's agent perceives. */
+	directorView = $state(false);
 
 	streamState = $state<StreamState>({ status: 'idle' });
 
@@ -121,99 +136,68 @@ class ChatStore {
 		return this._cancelling;
 	}
 
-	get isRealm(): boolean {
-		return this._conversation?.realm_id != null;
+	get cast(): RealmCast | null {
+		return this._cast;
 	}
-	get realmCast(): RealmCast | null {
-		return this._realmCast;
+	get isEnsemble(): boolean {
+		const agents = this._cast?.agents;
+		if (!agents) return false;
+		const players = agents.filter((a) => a.kind === 'player').length;
+		return players !== 1 || agents.length !== 2;
 	}
 	/** Whose turn is next, as resolved by the server. */
-	get nextRealmAgent(): RealmAgent | null {
+	get nextAgent(): RealmAgent | null {
 		const handle = this._nextHandle;
-		if (!this.isRealm || handle === null) return null;
-		return this._realmCast?.agents.find((a) => a.handle === handle) ?? null;
+		if (handle === null) return null;
+		return this._cast?.agents.find((a) => a.handle === handle) ?? null;
 	}
 	/** Set when the next turn belongs to a player */
-	get awaitingRealmPlayer(): RealmAgent | null {
+	get awaitingPlayer(): RealmAgent | null {
 		if (this.isStreaming) return null;
-		const next = this.nextRealmAgent;
+		const next = this.nextAgent;
 		return next?.kind === 'player' ? next : null;
 	}
 
-	/** The player agent this viewer drives.
-	 *  Null while spectating an all-LLM cast. */
+	/** The player agent this viewer drives. Null while spectating a cast
+	 *  with no player in it. */
 	get viewerAgent(): RealmAgent | null {
-		if (!this.isRealm) return null;
-		return this._realmCast?.agents.find((a) => a.kind === 'player') ?? null;
+		return this._cast?.agents.find((a) => a.kind === 'player') ?? null;
 	}
 
-	/** The handle a realm message was committed under, via its metadata. */
-	#messageHandle(m: ConversationMessage): string | null {
-		return (m.metadata as { handle?: string } | null)?.handle ?? null;
+	/** Does the viewer hear what this message says? */
+	#audible(m: ConversationMessage, viewer: RealmAgent): boolean {
+		const meta = turnMeta(m);
+		if (meta.handle === viewer.handle) return true;
+		if (meta.handle === undefined) return m.content.trim().length > 0 || meta.command != null;
+		if (m.id !== this._streamingId && m.content.trim().length === 0) return false;
+		return hears(viewer, meta.channel ?? MAIN_CHANNEL);
 	}
 
-	/** Can `viewer` hear speech carried on `scope`? */
-	#canHear(viewer: RealmAgent, scope: string): boolean {
-		return viewer.grants.some((g) => grantScope(g.channel) === scope);
-	}
-
-	get visiblePath(): ConversationMessage[] {
-		const path = this.activePath;
-		const viewer = this.viewerAgent;
-		if (this.realmDirectorView || !viewer) return path;
-
-		const agents = this._realmCast?.agents ?? [];
-		return path.filter((m) => {
-			if (this.#messageHandle(m) === viewer.handle) return true; // own turn
-			if (m.id !== this._streamingId && m.content.trim().length === 0) return false;
-			const src = agents.find((a) => a.handle === this.#messageHandle(m));
-			return this.#canHear(viewer, src?.speech_channel ?? 'main');
-		});
-	}
-
-	/**
-	 * The path actually on screen. In a realm the player only sees the turns
-	 * their agent can perceive.
-	 */
 	get renderedPath(): ConversationMessage[] {
-		return this.isRealm ? this.visiblePath : this.activePath;
+		const viewer = this.viewerAgent;
+		if (this.directorView || !viewer) return this.activePath;
+		return this.activePath.filter((m) => this.#audible(m, viewer));
 	}
 
-	/**
-	 * The viewer's own observations, grouped by the turn they landed on.
-	 */
-	get viewerFeed(): Record<Snowflake, AgentObservation[]> {
-		const byMessage: Record<Snowflake, AgentObservation[]> = {};
-		for (const ob of this._observations) {
-			if (ob.role !== 'user') continue;
-			(byMessage[ob.message_id] ??= []).push(ob);
-		}
-		return byMessage;
-	}
-
-	/**
-	 * What the transcript renders. Outside a realm this is just the path.
-	 */
+	/** What the transcript renders. */
 	get renderedFeed(): FeedEntry[] {
-		if (!this.isRealm) {
-			return this.activePath.map((message) => ({
-				message,
-				audible: true,
-				observations: []
-			}));
-		}
-		const byMessage = this.viewerFeed;
-		const audible = this.visiblePath.map((m) => m.id);
+		const viewer = this.directorView ? null : this.viewerAgent;
 		return this.activePath
 			.map((message) => {
-				const heard = audible.includes(message.id);
+				const meta = turnMeta(message);
+				const own = !viewer || meta.handle === viewer.handle;
 				return {
 					message,
-					audible: heard,
-					observations: (byMessage[message.id] ?? []).filter((ob) => !heard || ob.event_id === null)
+					audible: !viewer || this.#audible(message, viewer),
+					notices: [
+						...(meta.events ?? [])
+							.filter((e) => own || hears(viewer, e.channel))
+							.map((e) => e.content),
+						...(own ? (meta.tool_results ?? []) : [])
+					]
 				};
 			})
-			.filter((entry) => entry.audible || entry.observations.length > 0);
+			.filter((entry) => entry.audible || entry.notices.length > 0);
 	}
 
 	/** The newest message on screen */
@@ -223,9 +207,9 @@ class ChatStore {
 
 	/** True while a turn the player cannot hear is streaming */
 	get hiddenTurnActive(): boolean {
-		if (!this.isStreaming || this.realmDirectorView || !this.viewerAgent) return false;
+		if (!this.isStreaming) return false;
 		const last = this.activePath.at(-1);
-		return last != null && !this.visiblePath.some((m) => m.id === last.id);
+		return last != null && !this.renderedPath.some((m) => m.id === last.id);
 	}
 
 	get activePath(): ConversationMessage[] {
@@ -241,7 +225,9 @@ class ChatStore {
 								widgets: this._streamWidgets,
 								reasoning: this._streamReasoning,
 								agent_name: this._streamAgentName,
-								handle: this._streamHandle
+								handle: this._streamHandle,
+								channel: this._cast?.agents.find((a) => a.handle === this._streamHandle)
+									?.speech_channel
 							} as unknown as ConversationMessage['metadata']
 						}
 					: cur;
@@ -318,42 +304,23 @@ class ChatStore {
 	/** Open a persisted conversation */
 	async loadConversation(id: Snowflake) {
 		this.#resetSession();
-		const full = await this.#api.chat.get(id, true);
-		this.#ingestFull(full);
-		if (full.metadata.realm_id != null) {
-			try {
-				this._realmCast = await this.#api.chat.realm.cast(id);
-			} catch (e) {
-				this.#handleError(e, { title: 'Failed to load the realm cast' }, 5000);
-			}
-			await this.#refreshNextRealmAgent();
-			await this.#refreshViewerFeed();
-		}
+		this.#ingestFull(await this.#api.chat.get(id, true));
+		await this.#loadCast();
 	}
 
-	/** Reload the viewer agent's private feed. */
-	async #refreshViewerFeed() {
-		const convId = this.conversationId;
-		const viewer = this.viewerAgent;
-		if (!convId || !viewer) {
-			this._observations = [];
-			return;
-		}
+	/** Who is in the conversation, and whose turn it is. */
+	async #loadCast() {
+		const id = this.conversationId;
+		if (!id) return;
 		try {
-			this._observations = await this.#api.chat.realm.agents.observations(convId, viewer.handle);
-		} catch {
-			this._observations = [];
-		}
-	}
-
-	/** Re-resolve whose turn it is */
-	async #refreshNextRealmAgent() {
-		const convId = this.conversationId;
-		if (!convId || !this.isRealm) return;
-		try {
-			this._nextHandle = (await this.#api.chat.realm.nextTurn(convId)).handle;
-		} catch {
-			this._nextHandle = null;
+			const [cast, next] = await Promise.all([
+				this.#api.chat.cast(id),
+				this.#api.chat.nextTurn(id)
+			]);
+			this._cast = cast;
+			this._nextHandle = next.handle;
+		} catch (e) {
+			this.#handleError(e, { title: 'Failed to load the cast' }, 5000);
 		}
 	}
 
@@ -429,81 +396,84 @@ class ChatStore {
 		this._streamBuffer = '';
 		this._streamReasoning = '';
 		this._streamWidgets = [];
-		this._realmCast = null;
-		this._observations = [];
+		this._cast = null;
 		this._nextHandle = null;
 		this._streamAgentName = null;
 		this._streamHandle = null;
-		this.realmAutoRun = true;
-		this.realmDirectorView = false;
+		this.autoRun = true;
+		this.directorView = false;
 		this.streamState = { status: 'idle' };
 	}
 
-	/** Send a user message */
+	/** Say something as the player, then let the cast answer. */
 	async sendMessage(content: string) {
 		if (this.isStreaming) return;
 
-		if (this.isRealm) {
-			await this.submitRealmPlayerTurn(content || null, null);
-			return;
-		}
-
-		if (this._pending) {
-			const p = this._pending;
+		const p = this._pending;
+		if (p) {
+			// The greeting on screen becomes the conversation's first turn.
 			const greeting = p.greetings[p.selected];
 			if (!greeting) return;
-			const full = await this.#api.chat.start({
-				character_id: p.characterId,
-				version_id: p.versionId,
-				greeting_id: greeting.id,
-				content,
-				author_note: p.authorNote
-			});
-			this.#ingestFull(full);
-			await this.loadList();
-			await this.#runCompletion(null, null); // generate the first assistant reply
-			return;
+			try {
+				const full = await this.#api.chat.start({
+					character_id: p.characterId,
+					version_id: p.versionId,
+					greeting_id: greeting.id,
+					author_note: p.authorNote
+				});
+				this.#ingestFull(full);
+			} catch (e) {
+				this.#handleError(e, { title: 'Failed to start the chat' }, 5000);
+				return;
+			}
+			await Promise.all([this.loadList(), this.#loadCast()]);
 		}
 
-		await this.#runCompletion(content, null);
+		await this.#play({ content });
 	}
 
-	/** Regenerate from the current leaf as a new sibling. */
-	async regenerate() {
+	/** Trigger one of the player's bound tools as their turn. */
+	async act(action: PlayerAction) {
 		if (this.isStreaming) return;
-		if (this.isRealm) {
-			// Regenerating an assistant leaf re-runs that agent's turn as a
-			// sibling; otherwise just advance the world.
-			const leaf = this._activeLeafId ? this._messages.get(this._activeLeafId) : undefined;
-			if (leaf?.role === 'assistant') await this.runRealmTurn(leaf.id);
-			else await this.runRealmTurns();
-			return;
-		}
-		await this.#runCompletion(null, null);
+		await this.#play({ action });
 	}
 
-	/**
-	 * Write on from an existing assistant reply rather than starting a new
-	 * one — the fix for a provider that cut the reply short. Defaults to the
-	 * message at the current leaf.
-	 */
+	/** Replace one of the player's own turns with a new take on it. */
+	async commitUserSwipe(target: Snowflake, content: string) {
+		if (this.isStreaming) return;
+		await this.#play({ content, swipe_from: target });
+	}
+
 	async continueMessage(id: Snowflake | null = null) {
-		if (this.isStreaming || this.isRealm) return;
+		if (this.isStreaming) return;
 		const target = id ?? this._activeLeafId;
 		if (!target || isTemp(target)) return;
 		if (this._messages.get(target)?.role !== 'assistant') return;
-		await this.#runCompletion(null, target, true);
+		await this.#runTurn({ swipe_from: target, continue: true });
 	}
 
-	/** Stop the in-flight generation. */
+	/** Run a single turn: whoever is next, unless that is a player. */
+	async step() {
+		if (this.isStreaming || this.awaitingPlayer) return;
+		await this.#runTurn({});
+	}
+
+	async play() {
+		if (this.isStreaming) return;
+		await this.#play({});
+	}
+
+	pause() {
+		this.autoRun = false;
+	}
+
 	async cancelStream() {
 		if (!this.isStreaming || this._cancelling) return;
 		const convId = this._streamingConvId;
 		if (!convId) return;
 
-		// A cancelled realm turn still commits its partial message, so the
-		// auto-run loop must not roll on past it.
-		this.realmAutoRun = false;
+		// A cancelled turn still commits what it had
+		this.autoRun = false;
 		this._cancelling = true;
 		try {
 			await this.#api.chat.cancel(convId);
@@ -511,21 +481,6 @@ class ChatStore {
 			this._cancelling = false;
 			console.warn('Failed to cancel generation', e);
 		}
-	}
-
-	async commitUserSwipe(target: Snowflake, content: string) {
-		if (this.isStreaming) return;
-		if (this.isRealm) {
-			// Player turns always append at the leaf; there is no
-			// alternate-player-turn endpoint (yet).
-			this.#handleError(
-				new Error('Branching a player turn is not supported yet — regenerate the reply instead.'),
-				{ title: 'Not supported in realms' },
-				5000
-			);
-			return;
-		}
-		await this.#runCompletion(content, target);
 	}
 
 	async swipeNext(id: Snowflake) {
@@ -543,11 +498,8 @@ class ChatStore {
 			return;
 		}
 		if (this.isStreaming || isTemp(id)) return;
-		if (msg.role === 'assistant') {
-			// new assistant sibling of this one (realms: same agent, new world-line)
-			if (this.isRealm) await this.runRealmTurn(id);
-			else await this.#runCompletion(null, id);
-		}
+		// Past the last take: whoever took this turn takes it again.
+		if (msg.role === 'assistant') await this.#runTurn({ swipe_from: id });
 	}
 
 	/** switch to the previous sibling */
@@ -563,210 +515,83 @@ class ChatStore {
 		if (idx > 0) await this.activate(sibs[idx - 1].id);
 	}
 
-	#provisionalParent(content: string | null, target: Snowflake | null): Snowflake | null {
-		if (target) {
-			const t = this._messages.get(target);
-			// Some/Some inserts a user sibling first
-			return t?.parent ?? null;
-		}
-		if (content !== null) return this._activeLeafId; // Some/None: under current leaf
-		// None/None: regenerate.
-		const leaf = this._activeLeafId ? this._messages.get(this._activeLeafId) : undefined;
-		if (!leaf) return null;
-		return leaf.role === 'user' ? leaf.id : leaf.parent;
-	}
-
-	async #runCompletion(content: string | null, target: Snowflake | null, continued = false) {
-		const convId = this.conversationId;
-		if (!convId) return; // can't stream without a persisted conversation
-
-		const prevLeaf = this._activeLeafId;
-		let provisionalUserId: Snowflake | null = null;
-		let assistantId: Snowflake;
-
-		if (continued) {
-			// The bubble already exists and keeps its id; the stream picks up
-			// where its stored content, reasoning and widgets left off.
-			const prior = target ? this._messages.get(target) : undefined;
-			if (!prior) return;
-			assistantId = prior.id;
-			this._streamBuffer = prior.content;
-			this._streamReasoning = parseReasoning(prior.metadata);
-			this._streamWidgets = parseWidgets(prior.metadata);
-		} else {
-			let assistantParent = this.#provisionalParent(content, target);
-			if (content !== null) {
-				provisionalUserId = this.#tempId();
-				this._messages.set(provisionalUserId, {
-					id: provisionalUserId,
-					conversation_id: convId,
-					parent: assistantParent,
-					role: 'user',
-					content,
-					order: Number.MAX_SAFE_INTEGER,
-					metadata: null,
-					created_at: new Date().toISOString(),
-					updated_at: new Date().toISOString()
-				});
-				assistantParent = provisionalUserId;
-			}
-
-			assistantId = this.#tempId();
-			this._messages.set(assistantId, {
-				id: assistantId,
-				conversation_id: convId,
-				parent: assistantParent,
-				role: 'assistant',
-				content: '',
-				order: Number.MAX_SAFE_INTEGER,
-				metadata: null,
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString()
-			});
-
-			this._activeLeafId = assistantId;
-			this._streamBuffer = '';
-			this._streamReasoning = '';
-			this._streamWidgets = [];
-		}
-
-		this._streamingId = assistantId;
-		this._streamingConvId = convId;
-		this._cancelling = false;
-		this.streamState = { status: 'streaming' };
-
-		try {
-			const stream = this.#api.chat.completions(convId, {
-				content: content ?? undefined,
-				target: target ?? undefined,
-				continue: continued || undefined
-			});
-
-			let committedUser: ConversationMessage | null = null;
-			let committedAssistant: ConversationMessage | null = null;
-			// `$[sys]` notes from tools; they arrive after `done` because the
-			// server persists them as children of the reply.
-			const systemNotes: ConversationMessage[] = [];
-			for await (const event of stream as AsyncIterable<ChatStreamEvent>) {
-				switch (event.type) {
-					case 'delta':
-						this._streamBuffer += event.content;
-						break;
-					case 'reasoning':
-						this._streamReasoning += event.content;
-						break;
-					case 'widget':
-						this._streamWidgets = [...this._streamWidgets, event.widget];
-						break;
-					case 'user_message':
-						committedUser = event.message;
-						break;
-					case 'effect':
-						applyEffect(event.effect);
-						break;
-					case 'done':
-						committedAssistant = event.message;
-						break;
-					case 'system_message':
-						systemNotes.push(event.message);
-						break;
-				}
-			}
-
-			// Reconcile locally from the messages the stream carried
-			if (provisionalUserId) this._messages.delete(provisionalUserId);
-			if (!continued) this._messages.delete(assistantId);
-			if (committedUser) this._messages.set(committedUser.id, committedUser);
-			if (committedAssistant) this._messages.set(committedAssistant.id, committedAssistant);
-
-			// A continuation never moved the leaf; it rewrote a message in place.
-			this._activeLeafId = continued ? prevLeaf : (committedAssistant?.id ?? this.#deriveLeaf());
-
-			// Chained under the reply, so each one advances the leaf past it.
-			for (const note of systemNotes) {
-				this._messages.set(note.id, note);
-				this._activeLeafId = note.id;
-			}
-			this._streamingId = null;
-			this._streamingConvId = null;
-			this._cancelling = false;
-			this._streamBuffer = '';
-			this._streamReasoning = '';
-			this._streamWidgets = [];
-			this.streamState = { status: 'idle' };
-
-			// TODO: think of alternative approachs
-			if (committedAssistant) {
-				messageStateStore.inspect(committedAssistant?.id, committedAssistant?.conversation_id);
-			}
-		} catch (e) {
-			// Roll the provisional bubbles back so a failed stream leaves no
-			// ghosts. A continued message is already persisted — clearing the
-			// buffer below is enough to restore what it held.
-			if (provisionalUserId) this._messages.delete(provisionalUserId);
-			if (!continued) this._messages.delete(assistantId);
-			this._activeLeafId = prevLeaf;
-			this._streamingId = null;
-			this._streamingConvId = null;
-			this._cancelling = false;
-			this._streamBuffer = '';
-			this._streamReasoning = '';
-			this._streamWidgets = [];
-			this.#handleError(e, {}, 5000);
+	/** Make a request, then keep the cast going until it is a player's turn. */
+	async #play(request: TurnRequest) {
+		this.autoRun = true;
+		let next = request;
+		while (await this.#runTurn(next)) {
+			const up = this.nextAgent;
+			if (!this.autoRun || !up || up.kind === 'player') break;
+			next = {};
 		}
 	}
 
-	async runRealmTurn(
-		target: Snowflake | null = null
-	): Promise<'committed' | 'awaiting_player' | 'stopped'> {
-		const convId = this.conversationId;
-		if (!convId || !this.isRealm || this.isStreaming) return 'stopped';
-		// A player is up: nothing to stream, prompt them instead.
-		if (target === null && this.awaitingRealmPlayer) return 'awaiting_player';
-
-		const prevLeaf = this._activeLeafId;
-		const assistantParent = target
-			? (this._messages.get(target)?.parent ?? null)
-			: this._activeLeafId;
-
-		const assistantId = this.#tempId();
-		this._messages.set(assistantId, {
-			id: assistantId,
-			conversation_id: convId,
-			parent: assistantParent,
-			role: 'assistant',
-			content: '',
+	#provisional(parent: Snowflake | null, role: 'user' | 'assistant', content: string): Snowflake {
+		const id = this.#tempId();
+		this._messages.set(id, {
+			id,
+			conversation_id: this.conversationId!,
+			parent,
+			role,
+			content,
 			order: Number.MAX_SAFE_INTEGER,
 			metadata: null,
 			created_at: new Date().toISOString(),
 			updated_at: new Date().toISOString()
 		});
+		return id;
+	}
 
-		this._activeLeafId = assistantId;
-		this._streamingId = assistantId;
+	async #runTurn(request: TurnRequest): Promise<boolean> {
+		const convId = this.conversationId;
+		if (!convId) return false; // can't stream without a persisted conversation
+
+		// The last leaf the server is known to hold: where a failure lands.
+		let settled = this._activeLeafId;
+		const target = request.swipe_from ? this._messages.get(request.swipe_from) : undefined;
+		const continued = request.continue ? target : undefined;
+		const speaks = request.content != null || request.action != null;
+
+		// The player's words show at once; the server's copy replaces them.
+		let pendingUser: Snowflake | null = null;
+		if (request.content) {
+			pendingUser = this.#provisional(
+				target ? target.parent : this._activeLeafId,
+				'user',
+				request.content
+			);
+			this._activeLeafId = pendingUser;
+		}
+		// The bubble a streaming turn fills, made when the turn starts.
+		let bubble: Snowflake | null = null;
+		let acted = false;
+
+		this._streamBuffer = continued?.content ?? '';
+		this._streamReasoning = continued ? parseReasoning(continued.metadata) : '';
+		this._streamWidgets = continued ? parseWidgets(continued.metadata) : [];
+		this._streamingId = continued?.id ?? null;
 		this._streamingConvId = convId;
-		this._streamBuffer = '';
-		this._streamReasoning = '';
-		this._streamWidgets = [];
-		this._streamAgentName = null;
-		this._streamHandle = null;
 		this._cancelling = false;
 		this.streamState = { status: 'streaming' };
 
-		try {
-			const stream = this.#api.chat.realm.turnStream(convId, target ? { target } : {});
+		const dropProvisional = () => {
+			if (pendingUser) this._messages.delete(pendingUser);
+			if (bubble) this._messages.delete(bubble);
+			pendingUser = bubble = null;
+		};
 
-			let committed: ConversationMessage | null = null;
-			let awaiting = false;
-			for await (const event of stream) {
+		try {
+			for await (const event of this.#api.chat.turn(convId, request)) {
 				switch (event.type) {
-					case 'awaiting_player':
-						awaiting = true;
-						this._nextHandle = event.handle;
-						break;
 					case 'turn_started':
 						this._streamAgentName = event.name;
 						this._streamHandle = event.handle;
+						if (!continued) {
+							// Another take sits beside its target; a new turn under the leaf.
+							const beside = target && !speaks ? target.parent : this._activeLeafId;
+							bubble = this.#provisional(beside, 'assistant', '');
+							this._activeLeafId = this._streamingId = bubble;
+						}
 						break;
 					case 'delta':
 						this._streamBuffer += event.content;
@@ -780,72 +605,38 @@ class ChatStore {
 					case 'effect':
 						applyEffect(event.effect);
 						break;
-					case 'action':
+					case 'message': {
+						const message = event.message;
+						if (turnMeta(message).handle === this._streamHandle) {
+							acted = true;
+							this._streamingId = null;
+							messageStateStore.inspect(message.id, message.conversation_id);
+						}
+						dropProvisional();
+						this._messages.set(message.id, message);
+						// A continuation rewrote a message in place; the leaf stays put.
+						if (message.id !== continued?.id) settled = message.id;
+						this._activeLeafId = settled;
 						break;
-					case 'committed':
-						committed = event.message;
+					}
+					case 'done':
+						this._nextHandle = event.next;
 						break;
 				}
 			}
-
-			this._messages.delete(assistantId);
-			if (committed) this._messages.set(committed.id, committed);
-			this._activeLeafId = committed?.id ?? prevLeaf;
+			dropProvisional();
+			this._activeLeafId = settled;
 			this.#clearStream();
-
-			if (committed) {
-				await this.#refreshNextRealmAgent();
-				await this.#refreshViewerFeed();
-				messageStateStore.inspect(committed.id, committed.conversation_id);
-				return 'committed';
-			}
-			return awaiting ? 'awaiting_player' : 'stopped';
+			return acted;
 		} catch (e) {
-			this._messages.delete(assistantId);
-			this._activeLeafId = prevLeaf;
+			// Roll the provisional bubbles back so a failed stream leaves no
+			// ghosts. Whatever the server did persist stays.
+			dropProvisional();
+			this._activeLeafId = settled;
 			this.#clearStream(true);
-			this.#handleError(e, { title: 'Turn failed' }, 5000);
-			return 'stopped';
-		}
-	}
-
-	/** Keep running LLM turns until a player's turn, a pause, or an error. */
-	async runRealmTurns() {
-		this.realmAutoRun = true;
-		while (this.realmAutoRun && this.isRealm) {
-			const result = await this.runRealmTurn();
-			if (result !== 'committed') break;
-		}
-	}
-
-	/** Finish the in-flight turn, then stop advancing. */
-	pauseRealm() {
-		this.realmAutoRun = false;
-	}
-
-	/** The current player's turn: say something, act, or both. */
-	async submitRealmPlayerTurn(
-		content: string | null,
-		action: PlayerAction | null
-	): Promise<boolean> {
-		const convId = this.conversationId;
-		if (!convId || !this.isRealm || this.isStreaming) return false;
-		if (!content?.trim() && !action) return false;
-
-		let result: TurnResult;
-		try {
-			result = await this.#api.chat.realm.playerTurn(convId, { content, action });
-		} catch (e) {
-			this.#handleError(e, { title: 'Failed to submit turn' }, 5000);
+			this.#handleError(e, {}, 5000);
 			return false;
 		}
-
-		this._messages.set(result.message.id, result.message);
-		this._activeLeafId = result.message.id;
-		await this.#refreshNextRealmAgent();
-		await this.#refreshViewerFeed();
-		if (this.realmAutoRun) await this.runRealmTurns();
-		return true;
 	}
 
 	#clearStream(failed = false) {

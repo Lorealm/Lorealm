@@ -106,7 +106,6 @@ fn contract_surface() -> Vec<(&'static str, Vec<Box<dyn DomainError>>)> {
             vec![
                 Box::new(CommandError::NotFound(id())),
                 Box::new(CommandError::NotOwned(id())),
-                Box::new(CommandError::RealmConversation(id())),
                 Box::new(CommandError::NotACommand("summarize".into())),
                 Box::new(CommandError::BadArgument {
                     name: "sides".into(),
@@ -219,20 +218,13 @@ fn contract_surface() -> Vec<(&'static str, Vec<Box<dyn DomainError>>)> {
                 Box::new(ChatError::NotFound(TargetType::Conversation, id())),
                 Box::new(ChatError::NotOwned(TargetType::Conversation, id())),
                 Box::new(ChatError::Connection("timed out".into())),
-                Box::new(ChatError::RealmConversation(id())),
             ],
         ),
         (
             "realm",
             vec![
-                Box::new(RealmError::NotRealmConversation(id())),
                 Box::new(RealmError::NoAgents(id())),
-                Box::new(RealmError::NoRunnableAgent),
                 Box::new(RealmError::NotYourTurn("regent_ito".into())),
-                Box::new(RealmError::MalformedAgent(
-                    "regent_ito".into(),
-                    "no model".into(),
-                )),
                 Box::new(RealmError::NoSuchAgent("regent_ito".into())),
                 Box::new(RealmError::NotFound(TargetType::Realm, id())),
                 Box::new(RealmError::NotOwned(TargetType::Realm, id())),

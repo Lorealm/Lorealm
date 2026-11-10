@@ -16,8 +16,9 @@ use lorealm_providers::{
 use lorealm_storage::{
     Storage,
     models::{
-        AgentSpec, ChatRole, Conversation, ConversationMessage, ConversationMetadata, Realm,
-        Snowflake, WidgetPlacement,
+        AGENTS_SCOPE, AgentAccess, AgentGrant, AgentKind, AgentSpec, ChatRole, Conversation,
+        ConversationMessage, ConversationMetadata, RealmAgent, RealmCast, RealmConfig, Snowflake,
+        StateDelta, WidgetPlacement,
     },
 };
 use serde_json::json;
@@ -26,12 +27,13 @@ use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    errors::{ChatError, TargetType},
+    errors::{ChatError, RealmError, TargetType},
     services::{
         character::CharacterService,
         chat::{
-            CancelGuard, ChatStreamEvent, FullConversation, OpenAgentTurn, Persist, Prepared,
-            PromptMessage, TurnAccumulator, TurnPlan,
+            ActionSpec, ActiveWidgets, CancelGuard, FullConversation, Prepared, PromptMessage,
+            perceive::perceive,
+            weaver,
             widgets::{
                 AttachmentSpec, InferEvent, ToolCallRecord, WidgetInstance, WidgetRenderer,
                 WidgetSink, render_widgets,
@@ -40,15 +42,14 @@ use crate::{
         commands::{CommandEffect, EffectSink, GenerateBridge, Generation},
         connection::ConnectionService,
         context_template::{
-            ContextTemplate, PromptRole, PromptTurn, ResolveContext, SourceRegistry, TracedBlock,
-            assemble,
+            ContextTemplate, PromptRole, PromptTurn, ResolveContext, SourceRegistry, assemble,
         },
         conversation::{ConversationService, EditMode},
         persona::PersonaService,
         plugins::PluginService,
-        schedule::{Schedule, StageCx, stages::PrivacyStage},
+        schedule::{Schedule, stages::PrivacyStage},
         snowflake::SnowflakeService,
-        state::{CapturedState, ReconstructedState, StatePool, StateService, apply_delta},
+        state::{CapturedState, ReconstructedState, StatePool, StateService, write_var},
         tokenizer::TokenizerService,
         tools::{
             ATTACHMENT_TOOL_IDS, CompiledUserTool, ToolPolicy, ToolSignature, UserToolService,
@@ -62,19 +63,19 @@ use crate::{
 };
 
 pub struct ChatService {
-    storage: Arc<dyn Storage>,
+    pub(super) storage: Arc<dyn Storage>,
     snowflake: Arc<SnowflakeService>,
-    conversations: Arc<ConversationService>,
-    characters: Arc<CharacterService>,
-    personas: Arc<PersonaService>,
-    state: Arc<StateService>,
+    pub(super) conversations: Arc<ConversationService>,
+    pub(super) characters: Arc<CharacterService>,
+    pub(super) personas: Arc<PersonaService>,
+    pub(super) state: Arc<StateService>,
     connection: Arc<ConnectionService>,
     tools: Arc<UserToolService>,
     tokenizers: Arc<TokenizerService>,
     sources: Arc<SourceRegistry>,
     variables: Arc<VariableRegistry>,
-    plugins: Arc<PluginService>,
-    schedule: Arc<Schedule>,
+    pub(super) plugins: Arc<PluginService>,
+    pub(super) schedule: Arc<Schedule>,
     cancellations: Arc<DashMap<Snowflake, CancellationToken>>,
     /// A handle back to itself, for the `$[generate]` a tool body may call.
     ///
@@ -180,7 +181,7 @@ impl ChatService {
         Ok(messages)
     }
 
-    async fn get_conversation(
+    pub(super) async fn get_conversation(
         &self,
         convo_id: Snowflake,
         user_id: Snowflake,
@@ -216,69 +217,326 @@ impl ChatService {
         })
     }
 
-    // TODO: There exists a bug where the lorebook state is not produced for the first turn
-    // it should reside here, but I haven't looked into it
-    pub async fn start_new(
+    /// Start a chat with a character
+    ///
+    /// An 1-on-1 conversation is a realm with two actors: the user and the character
+    /// they're speaking with.
+    pub async fn start_with_character(
         &self,
+        user_id: Snowflake,
         character_id: Snowflake,
         version_id: Option<Snowflake>,
-        user_id: Snowflake,
         greeting_id: Snowflake,
-        content: String,
         author_note: String,
     ) -> Result<FullConversation, ChatError> {
-        let v_id = version_id.unwrap_or(self.characters.get_latest_version_id(character_id).await?);
-        let char = self
-            .characters
-            .load_version(character_id, v_id, user_id)
-            .await?;
-
-        let mut convo = Conversation {
-            id: self.snowflake.generate(),
-            user_id,
-            character_id: Some(character_id),
-            char_version_id: Some(v_id),
-            realm_id: None,
-            active_leaf_id: None,
-            title: None,
-            author_note,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
+        let version_id = match version_id {
+            Some(id) => id,
+            None => self.characters.get_latest_version_id(character_id).await?,
         };
-
-        self.storage.create_conversation(&convo).await?;
-
-        let greeting = char
+        let character = self
+            .characters
+            .load_version(character_id, version_id, user_id)
+            .await?;
+        let greeting = character
             .definition
             .greetings
             .iter()
             .find(|g| g.id == greeting_id)
             .ok_or(ChatError::NotFound(TargetType::Greeting, greeting_id))?;
+        let active_persona = self.state.get_active_persona(user_id).await?;
+        let you = self
+            .personas
+            .get_persona_for_character(user_id, character_id, active_persona.id)
+            .await?;
 
-        self.conversations
+        let member = |handle: &str, name: String, kind| RealmAgent {
+            handle: handle.into(),
+            name,
+            kind,
+            character_id: None,
+            char_version_id: None,
+            template_id: None,
+            profile_id: None,
+            persona_id: None,
+            user_id: None,
+            properties: HashMap::new(),
+            grants: vec![AgentGrant {
+                channel: "*".into(),
+                access: AgentAccess::ReadWrite,
+            }],
+            tools: Vec::new(),
+            speech_channel: None,
+            lorebooks: Vec::new(),
+            widgets: Vec::new(),
+            script: None,
+            run_condition: None,
+        };
+        let cast = RealmCast {
+            version_id: None,
+            agents: vec![
+                RealmAgent {
+                    user_id: Some(user_id),
+                    ..member(
+                        "user",
+                        you.display_name.unwrap_or(you.name),
+                        AgentKind::Player,
+                    )
+                },
+                RealmAgent {
+                    character_id: Some(character_id),
+                    char_version_id: Some(version_id),
+                    ..member("char", character.definition.name.clone(), AgentKind::Llm)
+                },
+            ],
+            director: None,
+            scenario: None,
+            config: RealmConfig {
+                speech_format: Some("{content}".into()),
+                ..Default::default()
+            },
+        };
+
+        let convo = self
+            .create_conversation(
+                user_id,
+                Some((character_id, version_id)),
+                None,
+                None,
+                author_note,
+                &cast,
+            )
+            .await?;
+        let opening = self
+            .conversations
             .append_message(
                 convo.id,
                 ChatRole::Assistant,
                 greeting.text.clone(),
-                json!({}),
+                json!({ "handle": "char", "agent_name": character.definition.name }),
             )
             .await?;
 
-        let latest_id = self
-            .conversations
-            .append_message(convo.id, ChatRole::User, content, json!({}))
+        Ok(FullConversation {
+            metadata: Conversation {
+                active_leaf_id: Some(opening.id),
+                ..convo
+            },
+            messages: vec![opening],
+        })
+    }
+
+    /// Start a playthrough of a realm, with the cast of its current version.
+    pub async fn start_with_realm(
+        &self,
+        user_id: Snowflake,
+        realm_id: Snowflake,
+        scenario_slug: Option<String>,
+    ) -> Result<FullConversation, ChatError> {
+        let realm = self
+            .storage
+            .get_realm(realm_id)
             .await?
-            .id;
+            .filter(|r| r.owner_id == user_id)
+            .ok_or(ChatError::NotFound(TargetType::Realm, realm_id))?;
+        let definition = realm.definition;
 
-        // Lazy update to avoid a seprate database sync
-        convo.active_leaf_id = Some(latest_id);
+        if definition.agents.is_empty() {
+            return Err(RealmError::NoAgents(realm_id).into());
+        }
+        let scenario = match scenario_slug {
+            Some(slug) => Some(
+                definition
+                    .scenarios
+                    .iter()
+                    .find(|s| s.slug == slug)
+                    .ok_or(RealmError::NoSuchScenario(slug))?
+                    .clone(),
+            ),
+            None => match definition.scenarios.as_slice() {
+                [] => None,
+                [only] => Some(only.clone()),
+                _ => {
+                    return Err(RealmError::InvalidScenario(
+                        "this realm has multiple scenarios; pick one to start".into(),
+                    )
+                    .into());
+                }
+            },
+        };
 
-        let messages = self.storage.list_messages(convo.id).await?;
+        let mut seeded: HashMap<String, serde_json::Value> = HashMap::new();
+        for agent in &definition.agents {
+            for (key, value) in &agent.properties {
+                write_var(&mut seeded, &format!("{}.{key}", agent.handle), value);
+            }
+        }
+        let opening = scenario
+            .as_ref()
+            .and_then(|s| s.opening.as_deref())
+            .map(str::trim)
+            .unwrap_or_default()
+            .to_string();
+
+        let cast = RealmCast {
+            version_id: Some(realm.current_version_id),
+            agents: definition.agents,
+            director: definition.director,
+            scenario,
+            config: definition.config,
+        };
+        let mut convo = self
+            .create_conversation(
+                user_id,
+                None,
+                Some(realm_id),
+                Some(definition.name),
+                String::new(),
+                &cast,
+            )
+            .await?;
+
+        let mut messages = Vec::new();
+        if !seeded.is_empty() || !opening.is_empty() {
+            let message = self
+                .conversations
+                .append_message(convo.id, ChatRole::System, opening, json!({}))
+                .await?;
+            if !seeded.is_empty() {
+                self.state
+                    .persist(
+                        message.id,
+                        CapturedState {
+                            activation: HashMap::new(),
+                            persistent: StateDelta {
+                                writes: HashMap::from([(AGENTS_SCOPE.to_string(), seeded)]),
+                                deletes: HashMap::new(),
+                            },
+                        },
+                    )
+                    .await?;
+            }
+            convo.active_leaf_id = Some(message.id);
+            messages.push(message);
+        }
 
         Ok(FullConversation {
             metadata: convo,
             messages,
         })
+    }
+
+    async fn create_conversation(
+        &self,
+        user_id: Snowflake,
+        character: Option<(Snowflake, Snowflake)>,
+        realm_id: Option<Snowflake>,
+        title: Option<String>,
+        author_note: String,
+        cast: &RealmCast,
+    ) -> Result<Conversation, ChatError> {
+        let convo = Conversation {
+            id: self.snowflake.generate(),
+            user_id,
+            character_id: character.map(|(id, _)| id),
+            char_version_id: character.map(|(_, version)| version),
+            realm_id,
+            active_leaf_id: None,
+            title,
+            author_note,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        self.storage.create_conversation(&convo).await?;
+        self.storage.put_cast(convo.id, cast).await?;
+        Ok(convo)
+    }
+
+    /// The cast a conversation plays with.
+    pub(super) async fn cast_of(&self, convo_id: Snowflake) -> Result<RealmCast, ChatError> {
+        self.storage
+            .get_cast(convo_id)
+            .await?
+            .ok_or(ChatError::NotFound(TargetType::Conversation, convo_id))
+    }
+
+    pub async fn cast(
+        &self,
+        convo_id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<RealmCast, ChatError> {
+        self.get_conversation(convo_id, user_id).await?;
+        self.cast_of(convo_id).await
+    }
+
+    /// Whose turn it is at the active leaf.
+    pub async fn next_agent(
+        &self,
+        convo_id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<Option<String>, ChatError> {
+        let cast = self.cast(convo_id, user_id).await?;
+        self.whose_turn(convo_id, &cast).await
+    }
+
+    async fn cast_member(
+        &self,
+        convo_id: Snowflake,
+        handle: &str,
+        user_id: Snowflake,
+    ) -> Result<RealmAgent, ChatError> {
+        let cast = self.cast(convo_id, user_id).await?;
+        Ok(cast
+            .agents
+            .into_iter()
+            .find(|a| a.handle == handle)
+            .ok_or_else(|| RealmError::NoSuchAgent(handle.to_string()))?)
+    }
+
+    pub async fn agent_state(
+        &self,
+        convo_id: Snowflake,
+        handle: &str,
+        user_id: Snowflake,
+        at: Option<Snowflake>,
+    ) -> Result<StatePool, ChatError> {
+        let agent = self.cast_member(convo_id, handle, user_id).await?;
+        let path = match at {
+            Some(message_id) => self.get_path_to(convo_id, message_id, user_id).await?,
+            None => self.storage.get_active_path(convo_id).await?,
+        };
+        let ids: Vec<Snowflake> = path.iter().map(|m| m.id).collect();
+        let world = self.state.reconstruct(&ids).await?.persistent;
+
+        // Same projection the agent's own prompt sees
+        let mut slice = weaver::slice(&world, &weaver::read_scopes_of(&agent));
+        weaver::inject_self_alias(&agent, &mut slice);
+        Ok(slice)
+    }
+
+    /// The tools an agent is bound to.
+    pub async fn agent_actions(
+        &self,
+        convo_id: Snowflake,
+        handle: &str,
+        user_id: Snowflake,
+    ) -> Result<Vec<ActionSpec>, ChatError> {
+        let agent = self.cast_member(convo_id, handle, user_id).await?;
+
+        let mut actions = Vec::new();
+        for binding in self.tool_bindings(&agent).await? {
+            let Some(tool) = self.bound_tool(binding.tool_id).await? else {
+                continue;
+            };
+            actions.push(ActionSpec {
+                tool_id: tool.id,
+                name: tool.name,
+                display_name: tool.display_name,
+                description: tool.description,
+                params: tool.params,
+                event_channel: binding.event_channel,
+            });
+        }
+        Ok(actions)
     }
 
     /// Edit a message in place. No new branch; the continuation below it stays.
@@ -294,41 +552,6 @@ impl ChatService {
         Ok(self
             .conversations
             .edit_message(convo_id, msg_id, content, EditMode::InPlace)
-            .await?)
-    }
-
-    /// Swipe/branch a *user* message: create a sibling with new content that
-    /// becomes the active leaf. Does NOT trigger inference.
-    pub async fn branch_user_message(
-        &self,
-        convo_id: Snowflake,
-        msg_id: Snowflake,
-        user_id: Snowflake,
-        content: String,
-    ) -> Result<ConversationMessage, ChatError> {
-        self.branch(convo_id, msg_id, user_id, content, json!({}))
-            .await
-    }
-
-    async fn branch(
-        &self,
-        convo_id: Snowflake,
-        msg_id: Snowflake,
-        user_id: Snowflake,
-        content: String,
-        metadata: serde_json::Value,
-    ) -> Result<ConversationMessage, ChatError> {
-        let convo = self.get_conversation(convo_id, user_id).await?;
-
-        let msg = self
-            .storage
-            .get_message(msg_id)
-            .await?
-            .ok_or(ChatError::NotFound(TargetType::Message, msg_id))?;
-
-        Ok(self
-            .conversations
-            .create_alternate(convo.id, msg_id, msg.role, content, metadata)
             .await?)
     }
 
@@ -382,7 +605,7 @@ impl ChatService {
     }
 
     /// Message exists AND belongs to this conversation.
-    async fn owned_message(
+    pub(super) async fn owned_message(
         &self,
         msg_id: Snowflake,
         convo_id: Snowflake,
@@ -398,97 +621,12 @@ impl ChatService {
         Ok(msg)
     }
 
-    async fn resolve_turn(
-        &self,
-        convo: &Conversation,
-        content: Option<String>,
-        target: Option<Snowflake>,
-        continued: bool,
-    ) -> Result<TurnPlan, ChatError> {
-        // Continuing extends an existing reply rather than starting a new one
-        if continued {
-            let id = target
-                .or(convo.active_leaf_id)
-                .ok_or(ChatError::NotFound(TargetType::Message, convo.id))?;
-            let msg = self.owned_message(id, convo.id).await?;
-            if msg.role != ChatRole::Assistant {
-                return Err(ChatError::NotContinuable(id));
-            }
-            return Ok(TurnPlan {
-                assembly_leaf: Some(msg.id),
-                persist: Persist::Append(msg),
-                created_user: None,
-            });
-        }
-
-        let content = match content {
-            Some(text) => Some(
-                self.plugins
-                    .user_message(convo.user_id, convo.id, text)
-                    .await?,
-            ),
-            None => None,
-        };
-
-        Ok(match (content, target) {
-            (Some(text), None) => {
-                let user = self
-                    .conversations
-                    .append_message(convo.id, ChatRole::User, text, json!({}))
-                    .await?;
-                TurnPlan {
-                    assembly_leaf: Some(user.id),
-                    persist: Persist::Child(user.id),
-                    created_user: Some(user),
-                }
-            }
-            (Some(text), Some(t)) => {
-                self.owned_message(t, convo.id).await?;
-                let user = self
-                    .conversations
-                    .create_alternate(convo.id, t, ChatRole::User, text, json!({}))
-                    .await?;
-                TurnPlan {
-                    assembly_leaf: Some(user.id),
-                    persist: Persist::Child(user.id),
-                    created_user: Some(user),
-                }
-            }
-            (None, Some(t)) => {
-                let msg = self.owned_message(t, convo.id).await?;
-                TurnPlan {
-                    assembly_leaf: msg.parent,
-                    persist: Persist::Sibling(t),
-                    created_user: None,
-                }
-            }
-            (None, None) => {
-                let leaf = convo
-                    .active_leaf_id
-                    .ok_or(ChatError::NotFound(TargetType::Message, convo.id))?;
-                TurnPlan {
-                    assembly_leaf: Some(leaf),
-                    persist: Persist::Child(leaf),
-                    created_user: None,
-                }
-            }
-        })
-    }
-
     /// The widgets in play for a turn
-    async fn active_widgets(
+    pub(super) async fn active_widgets(
         &self,
         user_id: Snowflake,
         attached: &[Snowflake],
-    ) -> Result<
-        (
-            Vec<String>,
-            Vec<String>,
-            Vec<Snowflake>,
-            Vec<AttachmentSpec>,
-        ),
-        ChatError,
-    > {
+    ) -> Result<ActiveWidgets, ChatError> {
         let mut widgets = self.storage.list_enabled_widgets(user_id).await?;
         let builtins: Vec<_> = builtin_widgets()
             .iter()
@@ -534,13 +672,18 @@ impl ChatService {
                 }
             }
         }
-        Ok((prompts, renders, tools, catalog))
+        Ok(ActiveWidgets {
+            prompts,
+            renders,
+            tools,
+            attachments: catalog,
+        })
     }
 
-    async fn assemble_context(
+    pub(super) async fn assemble_context(
         &self,
         spec: &AgentSpec,
-        realm: Option<&Realm>,
+        cast: &RealmCast,
         conversation: Option<Snowflake>,
         thread: &[PromptTurn],
         baseline: &ReconstructedState,
@@ -598,7 +741,7 @@ impl ChatService {
                 variables: self.variables.snapshot(&VariableContext {
                     character: character.as_ref(),
                     persona: persona.as_ref(),
-                    realm,
+                    cast: Some(cast),
                 }),
                 widget_prompts,
                 widget_renders: &widget_renders,
@@ -639,50 +782,6 @@ impl ChatService {
         })
     }
 
-    async fn stage_cx(
-        &self,
-        user_id: Snowflake,
-        character_id: Snowflake,
-    ) -> Result<StageCx, ChatError> {
-        let active_persona = self.state.get_active_persona(user_id).await?;
-        let actual_persona = self
-            .personas
-            .get_persona_for_character(user_id, character_id, active_persona.id)
-            .await?;
-
-        Ok(StageCx {
-            persona: actual_persona,
-        })
-    }
-
-    /// The character bound to a plain (non-realm) conversation.
-    fn convo_character(convo: &Conversation) -> Result<(Snowflake, Snowflake), ChatError> {
-        match (convo.character_id, convo.char_version_id) {
-            (Some(c), Some(v)) => Ok((c, v)),
-            _ => Err(ChatError::NotFound(TargetType::Character, convo.id)),
-        }
-    }
-
-    async fn active_spec(
-        &self,
-        user_id: Snowflake,
-        convo: &Conversation,
-    ) -> Result<AgentSpec, ChatError> {
-        Ok(AgentSpec {
-            owner: user_id,
-            character: Some(Self::convo_character(convo)?),
-            template_id: self.state.get_active_template_id(user_id).await?.ok_or(
-                ChatError::State(crate::errors::StateError::NoActiveTemplate),
-            )?,
-            persona_id: Some(self.state.get_active_persona(user_id).await?.id),
-            tokenizer_id: self.state.get_active_tokenizer_id(user_id).await?.ok_or(
-                ChatError::State(crate::errors::StateError::NoActiveTokenizer),
-            )?,
-            profile_id: self.state.get_active_profile(user_id).await?.id,
-            lorebook_ids: None,
-        })
-    }
-
     /// Like [`Self::begin_cancel`], but refuses when the conversation is
     /// already generating rather than displacing its token.
     pub(crate) fn try_begin_cancel(
@@ -715,250 +814,6 @@ impl ChatService {
         (cancel, guard)
     }
 
-    pub async fn generate(
-        &self,
-        convo_id: Snowflake,
-        user_id: Snowflake,
-        content: Option<String>,
-        target: Option<Snowflake>,
-        continued: bool,
-    ) -> Result<Pin<Box<dyn Stream<Item = Result<ChatStreamEvent, ChatError>> + Send>>, ChatError>
-    {
-        let convo = self.get_conversation(convo_id, user_id).await?;
-        if convo.realm_id.is_some() {
-            // Realm playthroughs advance through the grant-checked turn
-            // pipeline, never through free-form completion.
-            return Err(ChatError::RealmConversation(convo_id));
-        }
-        let (cancel, cancel_guard) = self.begin_cancel(convo_id);
-
-        let TurnPlan {
-            assembly_leaf,
-            created_user,
-            persist,
-        } = self
-            .resolve_turn(&convo, content, target, continued)
-            .await?;
-
-        let thread = self.build_prompt(convo_id, assembly_leaf).await?;
-        let ids: Vec<Snowflake> = thread.iter().map(|m| m.id).collect();
-        let baseline = self.state.reconstruct(&ids).await?;
-
-        // "Use this user's active selections." A Realm agent supplies its own spec.
-        let spec = self.active_spec(user_id, &convo).await?;
-
-        let (attached_widgets, attached_tools) = match spec.character {
-            Some((cid, cvid)) => {
-                let character = self.characters.load_version(cid, cvid, user_id).await?;
-                (character.widget_ids, character.tool_ids)
-            }
-            None => (Vec::new(), Vec::new()),
-        };
-        let (widget_prompts, widget_renders, mut extra_tool_ids, attachments) =
-            self.active_widgets(user_id, &attached_widgets).await?;
-        // The character's own tools join whatever is enabled, like its widgets.
-        for id in attached_tools {
-            if !extra_tool_ids.contains(&id) {
-                extra_tool_ids.push(id);
-            }
-        }
-
-        // Newest first
-        let mut renderer = WidgetRenderer::new(&attachments, baseline.persistent.clone())
-            .with_plugins(self.plugins.vocabulary(user_id).await);
-        let mut turns: Vec<PromptTurn> = thread
-            .iter()
-            .rev()
-            .map(|m| PromptTurn::from_message(m, &mut renderer))
-            .collect();
-        turns.reverse();
-
-        let Prepared {
-            mut prompt,
-            trace,
-            captured,
-            usage,
-        } = self
-            .assemble_context(
-                &spec,
-                None,
-                Some(convo_id),
-                &turns,
-                &baseline,
-                &widget_prompts,
-                &widget_renders,
-                &convo.author_note,
-            )
-            .await?;
-
-        // A continuation rewrites the state row of the message it extends
-        let diff_chain = match persist {
-            Persist::Append(_) => &ids[..ids.len().saturating_sub(1)],
-            _ => &ids[..],
-        };
-        let baseline = self.state.reconstruct(diff_chain).await?.persistent;
-        let mut working = baseline.clone();
-        let (activation, had_assembly) = match captured {
-            Some(c) => {
-                apply_delta(&mut working, &c.persistent);
-                (c.activation, true)
-            }
-            None => (HashMap::new(), false),
-        };
-        let state_pool = Arc::new(StdMutex::new(working));
-
-        let cx = self
-            .stage_cx(user_id, Self::convo_character(&convo)?.0)
-            .await?;
-        let mut chain_tf = self.schedule.outbound(&mut prompt, &cx);
-
-        if continued {
-            prompt.push(PromptMessage {
-                role: PromptRole::Assistant,
-                // TODO: Should be folded into a config
-                content: "[Continue your latest message without repeating its content]".into(),
-            });
-        }
-
-        let (available_tools, token_stream) = self
-            .infer(
-                spec.owner,
-                spec.profile_id,
-                prompt,
-                Arc::clone(&state_pool),
-                &ToolPolicy {
-                    extra_tool_ids,
-                    attachments,
-                    conversation: Some(convo_id),
-                    cancel: Some(cancel.clone()),
-                    ..Default::default()
-                },
-            )
-            .await?;
-
-        let conversations = self.conversations.clone();
-        let state_service = self.state.clone();
-        let plugins = Arc::clone(&self.plugins);
-
-        let tokenizer_id = state_service.get_active_tokenizer_id(user_id).await?;
-        let template_id = state_service.get_active_template_id(user_id).await?;
-        let profile_id = state_service.get_active_profile(user_id).await?.id;
-
-        let stream = async_stream::try_stream! {
-            let _cancel_guard = cancel_guard;   // give the stream ownership
-            let mut acc = match &persist {
-                Persist::Append(prior) => TurnAccumulator::resuming(prior),
-                _ => TurnAccumulator::default(),
-            };
-            let mut system_notes: Vec<String> = Vec::new();
-            futures_util::pin_mut!(token_stream);
-
-            if let Some(user) = created_user {
-                yield ChatStreamEvent::UserMessage { message: user };
-            }
-
-            loop {
-                let next = tokio::select! {
-                    biased;
-                    _ = cancel.cancelled() => None,
-                    next = token_stream.next() => next,
-                };
-                let Some(event) = next else { break };
-                // `?` aborts the stream
-                match event? {
-                    InferEvent::Text(delta) => {
-                        let emitted = chain_tf.push(&delta);
-                        if !emitted.is_empty() {
-                            acc.text(&emitted);
-                            yield ChatStreamEvent::Delta { content: emitted };
-                        }
-                    }
-                    InferEvent::Reasoning(delta) => {
-                        let filtered = chain_tf.apply(&delta);
-                        if !filtered.is_empty() {
-                            acc.reasoning(&filtered);
-                            yield ChatStreamEvent::Reasoning { content: filtered };
-                        }
-                    }
-                    InferEvent::Widget(widget) => {
-                        let widget = widget.filtered(|s| chain_tf.apply(s));
-                        yield ChatStreamEvent::Widget { widget: widget.clone() };
-                        let marker = acc.widget(widget);
-                        yield ChatStreamEvent::Delta { content: marker };
-                    }
-                    InferEvent::ToolCall(rec) => acc.tool_call(rec),
-                    // `$[sys]` writes to the conversation, so it waits for the
-                    // reply to be persisted and lands after it. The rest are
-                    // the client's to carry out and go straight through.
-                    InferEvent::Effect(CommandEffect::Sys { content }) => system_notes.push(content),
-                    InferEvent::Effect(effect) => yield ChatStreamEvent::Effect { effect },
-                }
-            }
-            let tail = chain_tf.finish();
-            if !tail.is_empty() {
-                acc.text(&tail);
-                yield ChatStreamEvent::Delta { content: tail };
-            }
-
-            let stored: Vec<TracedBlock> = trace
-                .into_iter()
-                .map(|mut t| {
-                    if t.block.content_ref.is_recoverable() {
-                        t.block.content.clear();
-                    }
-                    t
-                })
-                .collect();
-
-            let mut outcome = acc.finish();
-            outcome.spoken = plugins.message_finalize(spec.owner, convo_id, outcome.spoken).await;
-            // meta/persist now read from `outcome`:
-            let meta = json!({
-                "context": stored,
-                "context_usage": usage,
-                "reasoning": outcome.reasoning,
-                "tool_calls": outcome.tool_calls,
-                "widgets": outcome.widgets,
-                "conn_profile": profile_id,
-                "tok_id": tokenizer_id,
-                "template_id": template_id,
-                "available_tools": available_tools,
-            });
-
-            let message = match persist {
-                Persist::Child(parent)    => conversations.branch_from(convo_id, parent, ChatRole::Assistant, outcome.spoken, meta).await?,
-                Persist::Sibling(sibling) => conversations.create_alternate(convo_id, sibling, ChatRole::Assistant, outcome.spoken, meta).await?,
-                Persist::Append(prior)    => conversations.rewrite_message(prior.id, outcome.spoken, meta).await?,
-            };
-
-            let delta = {
-                let pool = state_pool.lock().unwrap();
-                state_service.diff(&baseline, &pool)
-            };
-
-            if had_assembly || !delta.writes.is_empty() || !delta.deletes.is_empty() {
-                let captured = CapturedState { activation, persistent: delta };
-                state_service.persist(message.id, captured).await?;
-            }
-
-            let (message_id, content) = (message.id, message.content.clone());
-            tokio::spawn(async move {
-                plugins.after_generate(spec.owner, convo_id, message_id, content).await;
-            });
-
-            yield ChatStreamEvent::Done { message };
-
-            for content in system_notes {
-                let note = conversations
-                    .append_message(convo_id, ChatRole::System, content, json!({ "tool_note": true }))
-                    .await?;
-                yield ChatStreamEvent::SystemMessage { message: note };
-            }
-        };
-
-        Ok(Box::pin(stream))
-    }
-
     pub async fn cancel(&self, convo_id: Snowflake, user_id: Snowflake) -> Result<bool, ChatError> {
         self.get_conversation(convo_id, user_id).await?;
         Ok(match self.cancellations.get(&convo_id) {
@@ -970,41 +825,8 @@ impl ChatService {
         })
     }
 
-    async fn build_prompt(
-        &self,
-        convo_id: Snowflake,
-        leaf: Option<Snowflake>,
-    ) -> Result<Vec<ConversationMessage>, ChatError> {
-        let Some(leaf) = leaf else {
-            return Ok(Vec::new());
-        };
-
-        let by_id: std::collections::HashMap<Snowflake, ConversationMessage> = self
-            .storage
-            .list_messages(convo_id)
-            .await?
-            .into_iter()
-            .map(|m| (m.id, m))
-            .collect();
-
-        let mut path = Vec::new();
-        let mut cursor = Some(leaf);
-        while let Some(id) = cursor {
-            let Some(msg) = by_id.get(&id) else { break };
-            path.push(msg.clone());
-            cursor = msg.parent;
-            if path.len() > by_id.len() {
-                break;
-            }
-        }
-        path.reverse();
-        Ok(path)
-    }
-
-    /// Token + widget stream from the model. Runs the streaming tool loop:
-    /// text deltas are yielded as they arrive; when a round ends in tool
-    /// calls, they are executed, fed back, and another round is streamed.
-    async fn infer(
+    /// Token + widget stream from the model.
+    pub(super) async fn infer(
         &self,
         owner: Snowflake,
         profile_id: Snowflake,
@@ -1307,7 +1129,6 @@ impl ChatService {
         Ok(out)
     }
 
-    /// Assemble the conversation's context, append `ask`, and answer it.
     pub async fn complete_with_context(
         &self,
         owner: Snowflake,
@@ -1317,30 +1138,26 @@ impl ChatService {
         cancel: CancellationToken,
     ) -> Result<String, ChatError> {
         let convo = self.get_conversation(conversation_id, owner).await?;
-        if convo.realm_id.is_some() {
-            return Err(ChatError::RealmConversation(conversation_id));
-        }
-
-        let spec = self.active_spec(owner, &convo).await?;
-        let thread = self
-            .build_prompt(conversation_id, convo.active_leaf_id)
-            .await?;
-        let mut renderer = WidgetRenderer::default();
-        let turns: Vec<PromptTurn> = thread
+        let cast = self.cast_of(conversation_id).await?;
+        let agent = cast
+            .agents
             .iter()
-            .map(|m| PromptTurn::from_message(m, &mut renderer))
-            .collect();
-        let ids: Vec<Snowflake> = thread.iter().map(|m| m.id).collect();
+            .find(|a| a.kind == AgentKind::Llm)
+            .ok_or(ChatError::NotFound(TargetType::Character, conversation_id))?;
+
+        let (spec, _) = self.spec_for(owner, &cast, agent).await?;
+        let path = self.storage.get_active_path(conversation_id).await?;
+        let turns = perceive(&cast, agent, &path, &mut WidgetRenderer::default());
+        let ids: Vec<Snowflake> = path.iter().map(|m| m.id).collect();
         let baseline = self.state.reconstruct(&ids).await?;
 
-        // `captured` dropped on purpose — see the note above.
         let Prepared {
             prompt: mut messages,
             ..
         } = self
             .assemble_context(
                 &spec,
-                None,
+                &cast,
                 Some(conversation_id),
                 &turns,
                 &baseline,
@@ -1356,70 +1173,6 @@ impl ChatService {
         });
 
         self.complete(owner, profile_id, messages, cancel).await
-    }
-
-    /// Assemble context and start inference
-    pub async fn open_agent_turn(
-        &self,
-        spec: &AgentSpec,
-        realm: &Realm,
-        conversation: Snowflake,
-        turns: &[PromptTurn],
-        baseline: &ReconstructedState,
-        policy: &ToolPolicy,
-        widget_prompts: &[String],
-        widget_renders: &[String],
-        author_note: &str,
-    ) -> Result<OpenAgentTurn, ChatError> {
-        let Prepared {
-            prompt,
-            trace,
-            captured,
-            usage,
-        } = self
-            .assemble_context(
-                spec,
-                Some(realm),
-                Some(conversation),
-                turns,
-                baseline,
-                widget_prompts,
-                widget_renders,
-                author_note,
-            )
-            .await?;
-
-        let diff_base = baseline.persistent.clone();
-        let mut working = baseline.persistent.clone();
-        let (activation, had_assembly) = match &captured {
-            Some(c) => {
-                apply_delta(&mut working, &c.persistent);
-                (c.activation.clone(), true)
-            }
-            None => (HashMap::new(), false),
-        };
-        let state_pool = Arc::new(StdMutex::new(working));
-
-        let (available_tools, stream) = self
-            .infer(
-                spec.owner,
-                spec.profile_id,
-                prompt,
-                Arc::clone(&state_pool),
-                policy,
-            )
-            .await?;
-
-        Ok(OpenAgentTurn {
-            stream,
-            trace,
-            usage,
-            available_tools,
-            state_pool,
-            diff_base,
-            activation,
-            had_assembly,
-        })
     }
 }
 

@@ -9,29 +9,19 @@ use axum::{
     },
 };
 use futures_util::StreamExt;
-use lorealm_storage::models::{ConversationMessage, ConversationMetadata, Snowflake};
+use lorealm_storage::models::{ConversationMessage, ConversationMetadata, RealmCast, Snowflake};
 use reqwest::StatusCode;
-
-use lorealm_storage::models::{AgentObservation, RealmCast, RealmEvent};
 
 use crate::{
     core::AppState,
     errors::AppError,
     extract::AuthenticatedSession,
-    routes::{
-        PlayerTurnRequest, RunTurnRequest,
-        chat::{
-            StartChatRequest,
-            dto::{
-                ChatEdit, CompletionsRequest, GetConversationQuery, SetAuthorNoteRequest,
-                StartRealmChatRequest,
-            },
-        },
-        realm::dto::{AgentStateQuery, EventsQuery, ObservationsQuery},
+    routes::chat::dto::{
+        AgentStateQuery, ChatEdit, GetConversationQuery, SetAuthorNoteRequest, StartChatRequest,
+        StartRealmChatRequest,
     },
     services::{
-        chat::FullConversation,
-        realm::{ActionSpec, NextTurn, TurnResult},
+        chat::{ActionSpec, FullConversation, NextTurn, TurnRequest},
         state::{ReconstructedState, StatePool},
     },
 };
@@ -86,12 +76,11 @@ pub async fn start_chat(
     let chat = state
         .services()
         .chat()
-        .start_new(
+        .start_with_character(
+            session.user_id,
             request.character_id,
             request.version_id,
-            session.user_id,
             request.greeting_id,
-            request.content,
             request.author_note,
         )
         .await?;
@@ -125,11 +114,6 @@ pub async fn edit_message(
         ChatEdit::Edit { id, content } => {
             chat_service
                 .edit_message(conversation_id, id, session.user_id, content)
-                .await?;
-        }
-        ChatEdit::BranchUser { id, content } => {
-            chat_service
-                .branch_user_message(conversation_id, id, session.user_id, content)
                 .await?;
         }
         ChatEdit::Activate { id } => {
@@ -207,28 +191,22 @@ where
     }
 }
 
-pub async fn completions(
+pub async fn turn(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
     Path(conversation_id): Path<Snowflake>,
-    Json(request): Json<CompletionsRequest>,
+    Json(request): Json<TurnRequest>,
 ) -> Result<Sse<impl futures_util::Stream<Item = Result<Event, axum::Error>>>, AppError> {
     let events = state
         .services()
         .chat()
-        .generate(
-            conversation_id,
-            session.user_id,
-            request.content,
-            request.target,
-            request.continued,
-        )
+        .turn(conversation_id, session.user_id, request)
         .await?;
 
     Ok(Sse::new(events.map(sse_event)).keep_alive(KeepAlive::default()))
 }
 
-pub async fn cancel_completion(
+pub async fn cancel_turn(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
     Path(conversation_id): Path<Snowflake>,
@@ -252,41 +230,11 @@ pub async fn start_realm_chat(
 ) -> Result<Json<FullConversation>, AppError> {
     let chat = state
         .services()
-        .realm()
-        .start_conversation(request.realm_id, session.user_id, request.scenario)
+        .chat()
+        .start_with_realm(session.user_id, request.realm_id, request.scenario)
         .await?;
 
     Ok(Json(chat))
-}
-
-pub async fn run_turn(
-    State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession,
-    Path(conversation_id): Path<Snowflake>,
-    Json(request): Json<RunTurnRequest>,
-) -> Result<Sse<impl futures_util::Stream<Item = Result<Event, axum::Error>>>, AppError> {
-    let events = state
-        .services()
-        .realm()
-        .run_turn_stream(conversation_id, session.user_id, request.target)
-        .await?;
-
-    Ok(Sse::new(events.map(sse_event)).keep_alive(KeepAlive::default()))
-}
-
-pub async fn player_turn(
-    State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession,
-    Path(conversation_id): Path<Snowflake>,
-    Json(request): Json<PlayerTurnRequest>,
-) -> Result<Json<TurnResult>, AppError> {
-    let result = state
-        .services()
-        .realm()
-        .submit_player_turn(conversation_id, session.user_id, request)
-        .await?;
-
-    Ok(Json(result))
 }
 
 pub async fn next_turn(
@@ -296,7 +244,7 @@ pub async fn next_turn(
 ) -> Result<Json<NextTurn>, AppError> {
     let handle = state
         .services()
-        .realm()
+        .chat()
         .next_agent(conversation_id, session.user_id)
         .await?;
 
@@ -310,41 +258,11 @@ pub async fn get_cast(
 ) -> Result<Json<RealmCast>, AppError> {
     let cast = state
         .services()
-        .realm()
+        .chat()
         .cast(conversation_id, session.user_id)
         .await?;
 
     Ok(Json(cast))
-}
-
-pub async fn list_realm_events(
-    State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession,
-    Path(conversation_id): Path<Snowflake>,
-    Query(query): Query<EventsQuery>,
-) -> Result<Json<Vec<RealmEvent>>, AppError> {
-    let events = state
-        .services()
-        .realm()
-        .list_events(conversation_id, session.user_id, query.before)
-        .await?;
-
-    Ok(Json(events))
-}
-
-pub async fn list_agent_observations(
-    State(state): State<Arc<AppState>>,
-    session: AuthenticatedSession,
-    Path((conversation_id, handle)): Path<(Snowflake, String)>,
-    Query(query): Query<ObservationsQuery>,
-) -> Result<Json<Vec<AgentObservation>>, AppError> {
-    let observations = state
-        .services()
-        .realm()
-        .list_observations(conversation_id, &handle, session.user_id, query.before)
-        .await?;
-
-    Ok(Json(observations))
 }
 
 pub async fn agent_state(
@@ -355,8 +273,8 @@ pub async fn agent_state(
 ) -> Result<Json<StatePool>, AppError> {
     let slice = state
         .services()
-        .realm()
-        .agent_state_slice(conversation_id, &handle, session.user_id, query.at)
+        .chat()
+        .agent_state(conversation_id, &handle, session.user_id, query.at)
         .await?;
 
     Ok(Json(slice))
@@ -369,8 +287,8 @@ pub async fn list_agent_actions(
 ) -> Result<Json<Vec<ActionSpec>>, AppError> {
     let actions = state
         .services()
-        .realm()
-        .conversation_actions(conversation_id, &handle, session.user_id)
+        .chat()
+        .agent_actions(conversation_id, &handle, session.user_id)
         .await?;
 
     Ok(Json(actions))

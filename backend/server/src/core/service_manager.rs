@@ -211,13 +211,10 @@ impl ServiceManager {
         let realms = Arc::new(RealmService::new(
             Arc::clone(&storage),
             Arc::clone(&snowflake),
-            Arc::clone(&chat),
             Arc::clone(&characters),
             Arc::clone(&context),
             Arc::clone(&connection),
             Arc::clone(&persona),
-            Arc::clone(&state),
-            Arc::clone(&conversation),
             Arc::clone(&plugins),
         ));
 
@@ -234,7 +231,6 @@ impl ServiceManager {
             Arc::clone(&characters) as Arc<dyn CleanableService>,
             Arc::clone(&lorebook) as Arc<dyn CleanableService>,
             Arc::clone(&tokenizers) as Arc<dyn CleanableService>,
-            Arc::clone(&realms) as Arc<dyn CleanableService>,
             Arc::clone(&plugins) as Arc<dyn CleanableService>,
         ];
 

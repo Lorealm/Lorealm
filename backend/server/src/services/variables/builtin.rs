@@ -54,12 +54,11 @@ impl VariableProvider for RealmProvider {
     }
 
     fn provide(&self, ctx: &VariableContext) -> HashMap<String, Value> {
-        let Some(r) = ctx.realm else {
+        let Some(cast) = ctx.cast else {
             return HashMap::new();
         };
 
-        let agents = r
-            .definition
+        let agents = cast
             .agents
             .iter()
             .map(|a| Value::String(a.name.clone()))

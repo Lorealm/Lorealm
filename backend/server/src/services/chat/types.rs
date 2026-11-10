@@ -1,24 +1,19 @@
-use std::{
-    collections::HashMap,
-    pin::Pin,
-    sync::{Arc, Mutex as StdMutex},
-};
+use std::sync::Arc;
 
 use dashmap::DashMap;
-use futures_util::Stream;
-use lorealm_storage::models::{
-    ActivationState, Conversation, ConversationMessage, Snowflake, StateDelta,
-};
-use serde::Serialize;
+use lorealm_storage::models::{Conversation, ConversationMessage, Param, Snowflake};
+use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    errors::ChatError,
     services::{
-        chat::widgets::{InferEvent, ToolCallRecord, WidgetInstance, widget_marker},
+        chat::{
+            AttachmentSpec,
+            widgets::{ToolCallRecord, WidgetInstance, widget_marker},
+        },
         commands::CommandEffect,
         context_template::{PromptRole, TracedBlock},
-        state::{CapturedState, StatePool, StateService},
+        state::CapturedState,
     },
     util::context_eval::UsageReport,
 };
@@ -27,19 +22,6 @@ use crate::{
 pub struct PromptMessage {
     pub role: PromptRole,
     pub content: String,
-}
-
-pub(super) enum Persist {
-    Child(Snowflake),
-    Sibling(Snowflake),
-    /// Extend an existing assistant message in place
-    Append(ConversationMessage),
-}
-
-pub(super) struct TurnPlan {
-    pub assembly_leaf: Option<Snowflake>,
-    pub created_user: Option<ConversationMessage>,
-    pub persist: Persist,
 }
 
 pub(super) struct Prepared {
@@ -55,11 +37,36 @@ pub struct FullConversation {
     pub messages: Vec<ConversationMessage>,
 }
 
+/// One request to advance a conversation.
+#[derive(Debug, Default, Deserialize)]
+pub struct TurnRequest {
+    /// What the player says.
+    #[serde(default)]
+    pub content: Option<String>,
+    /// A bound tool the player triggers.
+    #[serde(default)]
+    pub action: Option<PlayerAction>,
+    #[serde(default)]
+    pub swipe_from: Option<Snowflake>,
+    #[serde(default, rename = "continue")]
+    pub continued: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PlayerAction {
+    pub tool_id: Snowflake,
+    #[serde(default)]
+    pub args: serde_json::Value,
+}
+
+/// What a client watching a turn receives over SSE.
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ChatStreamEvent {
-    UserMessage {
-        message: ConversationMessage,
+    /// A cast member began acting.
+    TurnStarted {
+        handle: String,
+        name: String,
     },
     /// A chunk of generated text. Client appends to a provisional bubble.
     Delta {
@@ -75,15 +82,37 @@ pub enum ChatStreamEvent {
     Effect {
         effect: CommandEffect,
     },
-    /// A system message a tool wrote with `$[sys]`, persisted after the reply
-    /// it accompanied and therefore arriving after [`ChatStreamEvent::Done`].
-    SystemMessage {
+    /// A message was persisted through any means (agent turn, contiuation, $[sys], etc.)
+    Message {
         message: ConversationMessage,
     },
-    /// The persisted assistant message.
+    /// The request is finished. `next` is whose turn it is now, if anyone's.
     Done {
-        message: ConversationMessage,
+        next: Option<String>,
     },
+}
+
+#[derive(Serialize)]
+pub struct ActionSpec {
+    pub tool_id: Snowflake,
+    pub name: String,
+    pub display_name: Option<String>,
+    pub description: String,
+    pub params: Vec<Param>,
+    pub event_channel: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct NextTurn {
+    /// `None` when nobody in the cast can act at the active leaf.
+    pub handle: Option<String>,
+}
+
+pub struct ActiveWidgets {
+    pub prompts: Vec<String>,
+    pub renders: Vec<String>,
+    pub tools: Vec<Snowflake>,
+    pub attachments: Vec<AttachmentSpec>,
 }
 
 pub struct CancelGuard {
@@ -157,26 +186,4 @@ pub struct AgentOutcome {
     pub reasoning: String,
     pub widgets: Vec<WidgetInstance>,
     pub tool_calls: Vec<ToolCallRecord>,
-}
-
-pub struct OpenAgentTurn {
-    pub stream: Pin<Box<dyn Stream<Item = Result<InferEvent, ChatError>> + Send>>,
-    /// The assembled context trace, for stamping into the turn's metadata.
-    pub trace: Vec<TracedBlock>,
-    pub usage: UsageReport,
-    pub available_tools: Vec<String>,
-    pub(super) state_pool: Arc<StdMutex<StatePool>>,
-    pub(super) diff_base: StatePool,
-    /// Full activation snapshot captured by assembly, keyed by lorebook id.
-    pub activation: HashMap<Snowflake, ActivationState>,
-    /// Whether assembly captured weaver state. When true the turn persists a
-    /// MessageState row even if the pool delta is empty.
-    pub had_assembly: bool,
-}
-
-impl OpenAgentTurn {
-    pub fn delta(&self, state: &StateService) -> StateDelta {
-        let pool = self.state_pool.lock().unwrap();
-        state.diff(&self.diff_base, &pool)
-    }
 }

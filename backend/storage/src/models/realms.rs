@@ -2,9 +2,8 @@ use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::prelude::FromRow;
 
-use crate::models::{ChatRole, RealmOrigin, Snowflake};
+use crate::models::{RealmOrigin, Snowflake};
 
 /// The state namespace holding per-agent variables: an agent with handle `h`
 /// owns `agents:h.*`.
@@ -230,13 +229,13 @@ impl Default for ResolvedRealmConfig {
 
 impl ResolvedRealmConfig {
     /// Layer a realm's overrides over the built-in defaults.
-    pub fn resolve(config: &RealmConfig) -> Self {
+    pub fn from_config(config: &RealmConfig) -> Self {
         let mut cfg = Self::default();
-        cfg.apply(config);
+        cfg._apply_config(config);
         cfg
     }
 
-    fn apply(&mut self, o: &RealmConfig) {
+    fn _apply_config(&mut self, o: &RealmConfig) {
         if let Some(v) = &o.speech_format {
             self.speech_format = v.clone();
         }
@@ -262,7 +261,8 @@ impl ResolvedRealmConfig {
             .replace("{tool}", tool)
     }
 
-    /// An actor's private note after a tool runs. `{tool}`, `{output}`.
+    /// An actor's private note (string-formatted tool result) after a tool runs.
+    /// `{tool}`, `{output}`.
     pub fn tool_result(&self, tool: &str, output: &str) -> String {
         self.tool_result_format
             .replace("{tool}", tool)
@@ -281,9 +281,6 @@ pub enum AgentKind {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RealmAgent {
-    /// The agent's identity, everywhere: the `agents:<handle>` state subtree,
-    /// the `cast:agents.<handle>` view, the source of its events and the key
-    /// of its observation feed.
     pub handle: String,
     pub name: String,
     pub kind: AgentKind,
@@ -292,10 +289,9 @@ pub struct RealmAgent {
     pub char_version_id: Option<Snowflake>,
     pub template_id: Option<Snowflake>,
     pub profile_id: Option<Snowflake>,
+    pub persona_id: Option<Snowflake>,
 
     pub user_id: Option<Snowflake>,
-
-    pub persona_id: Option<Snowflake>,
 
     #[serde(default)]
     pub properties: HashMap<String, serde_json::Value>,
@@ -309,8 +305,8 @@ pub struct RealmAgent {
     /// `main` channel
     #[serde(default)]
     pub speech_channel: Option<String>,
-    /// Imported lorebooks feeding this agent's context assembly. Empty = no
-    /// lorebook context.
+    /// Lorebooks feeding this agent's context assembly. Empty = whichever
+    /// lorebooks the owner has active when the turn runs.
     #[serde(default)]
     pub lorebooks: Vec<Snowflake>,
     /// Imported static display widgets shown when this agent is the viewer.
@@ -319,9 +315,7 @@ pub struct RealmAgent {
     /// Inline weaver source run on this agent's turn.
     #[serde(default)]
     pub script: Option<String>,
-    /// Weaver expression gating whether the agent runs on its turn, evaluated
-    /// against its granted read slice. `None` or truthy = runs; falsy = skip.
-    /// An erroring expression does not run.
+    /// Weaver expression gating whether the agent runs on its turn.
     #[serde(default)]
     pub run_condition: Option<String>,
 }
@@ -363,10 +357,9 @@ pub struct AgentToolBinding {
     pub event_channel: Option<String>,
 }
 
-/// The cast pinned onto a conversation when it instantiates a realm.
+/// The cast a conversation plays with.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RealmCast {
-    pub realm_id: Snowflake,
     /// The realm version this playthrough was instantiated from.
     #[serde(default)]
     pub version_id: Option<Snowflake>,
@@ -375,6 +368,8 @@ pub struct RealmCast {
     pub director: Option<Director>,
     #[serde(default)]
     pub scenario: Option<Scenario>,
+    #[serde(default)]
+    pub config: RealmConfig,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
@@ -383,42 +378,15 @@ pub struct RealmCast {
 pub enum EventKind {
     Spoke,
     Acted,
-    StateChanged,
     System,
 }
 
-/// What happened on a turn
-#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
-pub struct RealmEvent {
-    pub id: Snowflake,
-    pub conversation_id: Snowflake,
-    pub message_id: Snowflake,
-    pub seq: i32,
-    /// The handle of the cast member that produced this event. `None` for
-    /// engine-authored events, such as a scenario's opening narration.
-    pub source: Option<String>,
+/// Something that happened on a turn besides the turn's own text.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TurnEvent {
     pub channel: String,
     pub kind: EventKind,
     pub content: String,
-    pub payload: serde_json::Value,
-}
-
-/// One entry of an agent's private feed
-#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
-pub struct AgentObservation {
-    pub id: Snowflake,
-    pub conversation_id: Snowflake,
-    pub message_id: Snowflake,
-    pub agent_handle: String,
-    pub event_id: Option<Snowflake>,
-    pub role: ChatRole,
-    pub content: String,
-}
-
-/// The realm-side rows of one committed turn
-pub struct TurnCommit {
-    pub events: Vec<RealmEvent>,
-    pub observations: Vec<AgentObservation>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
@@ -449,19 +417,21 @@ pub enum NamePattern {
 }
 
 impl ScopePattern {
-    /// Whether this grant covers the variable `scope:name`.
+    /// Whether this grant covers the variable `scope:name`. A bare `*`
+    /// covers everything.
     pub fn matches_var(&self, scope: &str, name: &str) -> bool {
-        self.scope == scope
-            && match &self.name {
-                NamePattern::Any => true,
-                NamePattern::Exact(n) => name == n,
-                NamePattern::Under(prefix) => name.starts_with(prefix.as_str()),
-            }
+        self.scope == "*"
+            || self.scope == scope
+                && match &self.name {
+                    NamePattern::Any => true,
+                    NamePattern::Exact(n) => name == n,
+                    NamePattern::Under(prefix) => name.starts_with(prefix.as_str()),
+                }
     }
 
     /// Whether this grant observes events on `channel`
     pub fn matches_channel(&self, channel: &str) -> bool {
-        self.scope == channel
+        self.scope == "*" || self.scope == channel
     }
 
     pub fn parse(s: &str) -> Self {
@@ -492,9 +462,12 @@ impl ScopePattern {
             None => (s, None),
             Some((scope, name)) => (scope, Some(name)),
         };
+        if s == "*" {
+            return Ok(());
+        }
         if !is_identifier(scope) {
             return Err(format!(
-                "grant scope '{scope}' must be a bare identifier ([A-Za-z_][A-Za-z0-9_]*)"
+                "grant scope '{scope}' must be `*` or a bare identifier ([A-Za-z_][A-Za-z0-9_]*)"
             ));
         }
         match name {
@@ -618,7 +591,7 @@ mod tests {
             ..Default::default()
         };
 
-        let cfg = ResolvedRealmConfig::resolve(&config);
+        let cfg = ResolvedRealmConfig::from_config(&config);
 
         assert_eq!(cfg.speech("A", "hi"), "<A> hi"); // override
         assert_eq!(cfg.action("A", "cast"), "[A used cast]"); // default

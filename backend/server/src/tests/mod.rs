@@ -9,5 +9,6 @@ mod harness;
 mod plugins;
 mod realm_import;
 mod roles;
+mod turns;
 
 pub(crate) use harness::Harness;
