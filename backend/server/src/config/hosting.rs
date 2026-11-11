@@ -10,7 +10,7 @@ pub struct HostingConfig {
     pub ip: String,
     #[serde(default = "default_port")]
     pub port: u16,
-    #[serde(default)]
+    #[serde(default = "default_serve_frontend")]
     pub serve_frontend: bool,
     #[serde(default = "default_frontend_dir")]
     pub frontend_dir: PathBuf,
@@ -36,8 +36,11 @@ fn default_port() -> u16 {
 fn last_setup_version() -> Option<String> {
     None
 }
+fn default_serve_frontend() -> bool {
+    true
+}
 fn default_frontend_dir() -> PathBuf {
-    PathBuf::from("../frontend/apps/web/dist")
+    PathBuf::from("web")
 }
 fn default_trusted_proxies() -> Vec<String> {
     vec!["127.0.0.1".to_owned(), "::1".to_owned()]
@@ -51,7 +54,7 @@ impl Default for HostingConfig {
         Self {
             ip: default_ip(),
             port: default_port(),
-            serve_frontend: false,
+            serve_frontend: default_serve_frontend(),
             frontend_dir: default_frontend_dir(),
             worker_id: default_worker_id(),
             cookie_secure: false,
