@@ -63,6 +63,7 @@ import type {
 	OutlineResult,
 	UpdateBlueprintRequest
 } from '$lib/types/blueprint.js';
+import type { CodeModule, CreateModuleRequest, UpdateModuleRequest } from '$lib/types/modules.js';
 import type {
 	WeaverCheckResponse,
 	WeaverDialect,
@@ -528,6 +529,14 @@ export function createApiClient(platform: PlatformAPI) {
 				set: (active: SetActiveRequest) => http.put('/api/v1/tokenizers/active', active),
 				unset: () => http.delete('/api/v1/tokenizers/active')
 			}
+		},
+		modules: {
+			list: () => http.get<Array<CodeModule>>('/api/v1/modules'),
+			get: (id: Snowflake) => http.get<CodeModule>(`/api/v1/modules/${id}`),
+			create: (create: CreateModuleRequest) => http.post<CodeModule>('/api/v1/modules', create),
+			update: (id: Snowflake, update: UpdateModuleRequest) =>
+				http.patch<CodeModule>(`/api/v1/modules/${id}`, update),
+			delete: (id: Snowflake) => http.delete(`/api/v1/modules/${id}`)
 		},
 		blueprints: {
 			list: () => http.get<Array<BlueprintSummary>>('/api/v1/blueprints'),

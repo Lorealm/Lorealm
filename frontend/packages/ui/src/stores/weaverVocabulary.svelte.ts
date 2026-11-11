@@ -56,6 +56,13 @@ class WeaverVocabularyStore {
 		return this.processors.find((p) => processorKey(p) === key);
 	}
 
+	/** Fetch again, after something that adds to the vocabulary changed. */
+	async refresh(): Promise<void> {
+		await this.pending;
+		this.loaded = false;
+		return this.load();
+	}
+
 	/** Fetch the vocabulary once. Repeat calls reuse the first result. */
 	async load(): Promise<void> {
 		if (this.loaded) return;

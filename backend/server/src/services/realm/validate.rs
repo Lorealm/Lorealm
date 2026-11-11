@@ -60,6 +60,16 @@ impl RealmService {
             RealmResourceKind::ConnectionProfile => {
                 self.connection.get_profile(user_id, id).await?;
             }
+            RealmResourceKind::Module => {
+                let module = self
+                    .storage
+                    .get_module(id)
+                    .await?
+                    .ok_or(RealmError::NotFound(TargetType::Module, id))?;
+                if module.owner_id != user_id {
+                    return Err(RealmError::NotOwned(TargetType::Module, id));
+                }
+            }
             RealmResourceKind::Widget => {
                 let widget = self
                     .storage
@@ -311,13 +321,20 @@ pub(super) fn agent_resources(agent: &RealmAgent) -> Vec<RealmResourceRef> {
     refs
 }
 
-/// Everything the realm's cast references, deduplicated, in cast order.
 pub(super) fn realm_resources(definition: &RealmDefinition) -> Vec<RealmResourceRef> {
     let mut seen = HashSet::new();
+    let modules = definition
+        .modules
+        .iter()
+        .map(|&resource_id| RealmResourceRef {
+            kind: RealmResourceKind::Module,
+            resource_id,
+        });
     definition
         .agents
         .iter()
         .flat_map(agent_resources)
+        .chain(modules)
         .filter(|r| seen.insert(*r))
         .collect()
 }

@@ -57,7 +57,7 @@ export interface WeaverVocabulary {
  * Which compiler weaver source belongs to. Whole editors hold a
  * `template`; condition fields hold a bare `expression`.
  */
-export type WeaverDialect = 'template' | 'expression' | 'document';
+export type WeaverDialect = 'template' | 'expression' | 'document' | 'module';
 
 export type WeaverProfile =
 	| 'chat_turn'

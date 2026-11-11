@@ -22,6 +22,8 @@ export interface RealmDefinition {
 	director?: Director | null;
 	/** How events read in an agent's feed. */
 	config?: RealmConfig | null;
+	/** Modules the realm imports: active in its turns even while disabled elsewhere. */
+	modules?: Snowflake[];
 }
 
 /**
@@ -55,7 +57,8 @@ export type RealmResourceKind =
 	| 'tool'
 	| 'persona'
 	| 'connection_profile'
-	| 'widget';
+	| 'widget'
+	| 'module';
 
 /** One resource the realm references. Derived server-side from the cast. */
 export interface RealmResourceRef {

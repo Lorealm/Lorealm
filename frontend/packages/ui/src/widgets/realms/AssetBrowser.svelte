@@ -18,7 +18,8 @@
 		template: 'template',
 		tool: 'tool',
 		persona: 'persona',
-		widget: 'widget'
+		widget: 'widget',
+		module: 'module'
 	};
 
 	let query = $state('');

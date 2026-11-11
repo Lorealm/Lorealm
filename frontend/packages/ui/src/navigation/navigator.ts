@@ -13,7 +13,14 @@ class Chain {
 }
 
 /** The Studio sections that edit one resource, named by the kind they hold. */
-export type StudioResource = 'character' | 'lorebook' | 'template' | 'tool' | 'persona' | 'widget';
+export type StudioResource =
+	| 'character'
+	| 'lorebook'
+	| 'template'
+	| 'tool'
+	| 'persona'
+	| 'widget'
+	| 'module';
 
 const SECTION_FOR: Record<StudioResource, StudioSection> = {
 	character: 'characters',
@@ -21,7 +28,8 @@ const SECTION_FOR: Record<StudioResource, StudioSection> = {
 	template: 'templates',
 	tool: 'tools',
 	persona: 'personas',
-	widget: 'widgets'
+	widget: 'widgets',
+	module: 'modules'
 };
 
 class StudioStage {
@@ -39,6 +47,7 @@ class StudioStage {
 	lorebooks = (id?: Snowflake) => this.#section('lorebooks', id);
 	templates = (id?: Snowflake) => this.#section('templates', id);
 	tools = (id?: Snowflake) => this.#section('tools', id);
+	modules = (id?: Snowflake) => this.#section('modules', id);
 	personas = (id?: Snowflake) => this.#section('personas', id);
 	widgets = (id?: Snowflake) => this.#section('widgets', id);
 }

@@ -5,6 +5,7 @@
 	const realmSection = () => import('../studio/sections/realm/RealmSection.svelte');
 	const personaSection = () => import('../studio/sections/personas/PersonaSection.svelte');
 	const toolsSection = () => import('../studio/sections/tools/ToolsSection.svelte');
+	const modulesSection = () => import('../studio/sections/modules/ModulesSection.svelte');
 	const widgetsSection = () => import('../studio/sections/widgets/WidgetsSection.svelte');
 </script>
 
@@ -35,6 +36,10 @@
 	{:else if section === 'tools'}
 		{#await lazy(toolsSection) then ToolsSection}
 			<ToolsSection {id} />
+		{/await}
+	{:else if section === 'modules'}
+		{#await lazy(modulesSection) then ModulesSection}
+			<ModulesSection {id} />
 		{/await}
 	{:else if section === 'personas'}
 		{#await lazy(personaSection) then PersonaSection}

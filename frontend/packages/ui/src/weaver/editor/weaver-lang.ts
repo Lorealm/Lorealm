@@ -22,7 +22,8 @@ const TRIM_COLOR = '#d782a8';
 
 const IDENT = /^[A-Za-z_]\w*/;
 const DOTTED = /^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*/; // e.g. core.weaver.rng
-const KEYWORD = /^(?:if|elif|else|endif|foreach|endforeach|in|break|continue|return|stop)\b/;
+const KEYWORD =
+	/^(?:if|elif|else|endif|foreach|endforeach|endproc|in|break|continue|return|stop)\b/;
 /** A name before a colon: the scope of a reference, or a call's argument key. */
 const NAMED = /^[A-Za-z_]\w*(?=\s*:)/;
 /** `Name(` — an enum variant. The paren has to be glued to the name. */

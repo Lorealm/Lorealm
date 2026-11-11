@@ -29,6 +29,7 @@
 		{ id: 'lorebooks', go: () => navigator.start().studio().lorebooks() },
 		{ id: 'templates', go: () => navigator.start().studio().templates() },
 		{ id: 'tools', go: () => navigator.start().studio().tools() },
+		{ id: 'modules', go: () => navigator.start().studio().modules() },
 		{ id: 'personas', go: () => navigator.start().studio().personas() },
 		{ id: 'widgets', go: () => navigator.start().studio().widgets() }
 	];

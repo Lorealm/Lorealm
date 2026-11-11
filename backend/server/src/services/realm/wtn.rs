@@ -7,7 +7,7 @@ use weaver_lang::Value as WeaverValue;
 use crate::{
     errors::RealmError,
     services::{
-        plugins::PluginVocabulary,
+        plugins::UserVocabulary,
         weaver::{CompiledDoc, WeaverHost, WeaverProfile, compile_doc},
     },
 };
@@ -32,7 +32,7 @@ pub fn compile(source: &str) -> Result<CompiledDoc, RealmError> {
 pub fn expand(
     doc: CompiledDoc,
     inputs: BTreeMap<String, WeaverValue>,
-    plugins: Option<&PluginVocabulary>,
+    plugins: Option<&UserVocabulary>,
 ) -> Result<RealmDefinition, RealmError> {
     let host = WeaverHost::builder()
         .profile(WeaverProfile::RealmTemplate)
@@ -213,6 +213,7 @@ $[inc_var("self:gold", -150)]
                 ..Default::default()
             },
             agents: vec![agent("regent_ito"), agent("regent_mori")],
+            modules: vec![Snowflake(70)],
             scenarios: vec![Scenario {
                 slug: "spring".into(),
                 name: "Spring".into(),

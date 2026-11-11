@@ -1,4 +1,5 @@
 pub mod blueprints;
+pub mod modules;
 pub mod characters;
 pub mod connection;
 pub mod conversation;

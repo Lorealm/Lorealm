@@ -290,6 +290,14 @@ impl RealmService {
                     .ok_or(RealmError::NotFound(TargetType::UserWidget, id))?;
                 projection(id, &widget.name, &widget.description)
             }
+            RealmResourceKind::Module => {
+                let module = self
+                    .storage
+                    .get_module(id)
+                    .await?
+                    .ok_or(RealmError::NotFound(TargetType::Module, id))?;
+                projection(id, &module.name, &module.description)
+            }
         })
     }
 }

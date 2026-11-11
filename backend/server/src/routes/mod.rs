@@ -11,6 +11,7 @@ mod chat;
 mod config;
 mod connection;
 mod lorebooks;
+mod modules;
 mod persona;
 mod plugins;
 mod realm;
@@ -91,5 +92,9 @@ pub async fn api_routes(app_state: Arc<AppState>, session_state: SessionMiddlewa
         .nest(
             "/blueprints",
             blueprints::router(Arc::clone(&app_state), session_state.clone()),
+        )
+        .nest(
+            "/modules",
+            modules::router(Arc::clone(&app_state), session_state.clone()),
         )
 }

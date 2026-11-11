@@ -54,6 +54,7 @@ pub async fn keys(
             ConnectionProfile,
             ids(storage.list_profiles_by_owner(user_id).await?, |p| p.id),
         ),
+        (Module, ids(storage.list_modules(user_id).await?, |m| m.id)),
     ];
     for (kind, ids) in built_in {
         keys.insert(kind.ref_name().into(), ids);

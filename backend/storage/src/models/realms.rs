@@ -52,6 +52,8 @@ pub struct RealmDefinition {
     pub director: Option<Director>,
     #[serde(default)]
     pub config: RealmConfig,
+    #[serde(default)]
+    pub modules: Vec<Snowflake>,
 }
 
 /// How a realm decides who acts next.
@@ -128,10 +130,11 @@ pub enum RealmResourceKind {
     Persona,
     ConnectionProfile,
     Widget,
+    Module,
 }
 
 impl RealmResourceKind {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::Character,
         Self::Lorebook,
         Self::Template,
@@ -139,6 +142,7 @@ impl RealmResourceKind {
         Self::Persona,
         Self::ConnectionProfile,
         Self::Widget,
+        Self::Module,
     ];
 
     /// The name a WTN `Ref<...>` declaration writes.
@@ -151,6 +155,7 @@ impl RealmResourceKind {
             Self::Persona => "Persona",
             Self::ConnectionProfile => "ConnectionProfile",
             Self::Widget => "Widget",
+            Self::Module => "Module",
         }
     }
 
@@ -167,6 +172,7 @@ impl RealmResourceKind {
             RealmResourceKind::Persona => "persona",
             RealmResourceKind::ConnectionProfile => "connection profile",
             RealmResourceKind::Widget => "widget",
+            RealmResourceKind::Module => "module",
         }
     }
 }
@@ -370,6 +376,9 @@ pub struct RealmCast {
     pub scenario: Option<Scenario>,
     #[serde(default)]
     pub config: RealmConfig,
+    /// The realm's imported modules, pinned with the rest of the cast.
+    #[serde(default)]
+    pub modules: Vec<Snowflake>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]

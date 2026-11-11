@@ -174,6 +174,8 @@ export interface DocumentHead {
 	scenarios: ScenarioBlock[];
 	/** Only the overrides an author set; the rest keep the built-in wording. */
 	config: Record<string, string>;
+	/** Imported modules. Omitted from the document while empty. */
+	modules?: Binding[];
 }
 
 export function toWtn(head: DocumentHead, inputs: InputDecl[], cast: CastEntry[]): Document {
@@ -188,6 +190,7 @@ export function toWtn(head: DocumentHead, inputs: InputDecl[], cast: CastEntry[]
 		`${INDENT}director: ` + director(head.director),
 		`${INDENT}scenarios: ${scenarios(head.scenarios)}`,
 		`${INDENT}config: ${formats(head.config)}`,
+		...(head.modules?.length ? [`${INDENT}modules: ${list(head.modules.map(idField), 1)}`] : []),
 		`${INDENT}agents: ${agents}`,
 		'}'
 	].join('\n');

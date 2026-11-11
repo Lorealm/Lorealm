@@ -68,6 +68,7 @@ class RealmDraft {
 	scenarios = $state<ScenarioBlock[]>([]);
 	inputs = $state<InputDecl[]>([]);
 	cast = $state<CastEntry[]>([]);
+	modules = $state<Binding[]>([]);
 	selection = $state<Selection>(null);
 	fieldPing = $state<{ name: string; path: string[] } | null>(null);
 
@@ -141,6 +142,7 @@ class RealmDraft {
 						body: entry.body.map(agent)
 					}
 		);
+		this.modules = outline.modules.map(bind).filter((b): b is Binding => b !== null);
 		this.selection = null;
 	}
 
@@ -153,6 +155,7 @@ class RealmDraft {
 		this.scenarios = [];
 		this.inputs = [];
 		this.cast = [];
+		this.modules = [];
 		this.selection = null;
 	}
 

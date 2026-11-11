@@ -152,6 +152,36 @@ expansion, because `validate_input` is synchronous and every lookup behind it
 is not. `slug` is the name reduced to an identifier, so a loop can mint
 handles from it.
 
+### Modules
+
+A user's enabled modules are registered in every host, after their plugins,
+through the same `PluginVocabulary`. A module named `combat` is reached two ways:
+
+| | |
+| --- | --- |
+| `@[combat.damage(3)]` | An `export proc`. Its body runs inside the caller's evaluation, so it has exactly the caller's capabilities: `$[toast]` works from a `Command` and fails from a `RealmCondition`. |
+| `{{combat:hit_table}}` | An `export name = value`. Values are constants, evaluated against the stdlib when the vocabulary is built; a value that reads state is refused on save. |
+
+Each module's scope is read-only, in every host and in the lorebook engine. A
+module may not be named after a reserved scope (`RESERVED_SCOPES`: `cmd`,
+`local`, `self`, `cast`, `user`, `state` and the rest), a stdlib or plugin
+namespace, or another of the user's modules; a module that collides with a
+plugin installed later is skipped at registration, because a module proc
+shadows a registered processor of the same name.
+
+State namespaces are created at runtime by whatever writes to them, so no save
+can rule out a collision with one. If a scope is both a module and a namespace
+holding state, reading it is an error rather than a silent answer from the
+module.
+
+A realm's `modules` are loaded for its turns on top of the globally enabled
+ones, whether or not they are enabled themselves.
+
+`weaver_lang` does not list module procs in `processor_signatures`. Each one is
+therefore also registered as a declaration carrying its signature, which the
+editor's check and completion read. The module's own proc shadows it, so the
+declaration never runs.
+
 ### Inside a realm
 
 The realm hosts also mount three read-only namespaces describing the realm

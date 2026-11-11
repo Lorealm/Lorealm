@@ -5,6 +5,7 @@ import { personaStore } from '$lib/stores/persona.svelte.js';
 import { pluginsStore } from '$lib/stores/plugins.svelte.js';
 import { realmStore } from '$lib/stores/realm.svelte.js';
 import { templateStore } from '$lib/stores/template.svelte.js';
+import { moduleStore } from '$lib/stores/modules.svelte.js';
 import { toolStore } from '$lib/stores/tools.svelte.js';
 import { userWidgetStore } from '$lib/stores/userWidgets.svelte.js';
 import type { Snowflake } from '$lib/types/core.js';
@@ -41,6 +42,7 @@ export const STUDIO_LABEL: Record<StudioSection, string> = {
 	lorebooks: 'Lorebooks',
 	templates: 'Templates',
 	tools: 'Tools',
+	modules: 'Modules',
 	personas: 'Personas',
 	widgets: 'Widgets'
 };
@@ -94,6 +96,8 @@ function studioName(section: StudioSection, id: Snowflake): string | null {
 			return nameIn(templateStore.metadataList, id);
 		case 'tools':
 			return nameIn([...(toolStore.loadedTools ?? []), ...(toolStore.builtinTools ?? [])], id);
+		case 'modules':
+			return nameIn(moduleStore.loadedModules, id);
 		case 'personas':
 			return nameIn(personaStore.loadedPersonas, id);
 		case 'widgets':

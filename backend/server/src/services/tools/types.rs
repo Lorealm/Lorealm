@@ -11,6 +11,7 @@ use tokio_util::sync::CancellationToken;
 use weaver_lang::{CompiledTemplate, Registry, Value as WeaverValue};
 
 use crate::services::chat::AttachmentSpec;
+use crate::services::module::ModuleExports;
 use crate::services::tools::{Actor, EventSink, RealmVariables, ToolContext, ToolStatePool};
 use crate::util::weaver::{json_to_weaver, weaver_to_json};
 
@@ -25,6 +26,8 @@ pub struct ToolPolicy {
     pub attachments: Vec<AttachmentSpec>,
     pub conversation: Option<Snowflake>,
     pub cancel: Option<CancellationToken>,
+    /// Modules the realm imports, loaded alongside the enabled ones.
+    pub modules: Vec<Snowflake>,
 }
 
 #[derive(Deserialize)]
@@ -64,6 +67,7 @@ pub struct CompiledUserTool {
     state: Arc<Mutex<ToolStatePool>>,
     actor: Option<Actor>,
     realm: Option<RealmVariables>,
+    modules: ModuleExports,
 }
 
 impl From<lorealm_storage::models::UserTool> for ToolSignature {
@@ -95,7 +99,14 @@ impl CompiledUserTool {
             state,
             actor,
             realm,
+            modules: ModuleExports::default(),
         })
+    }
+
+    /// Mount the modules' value scopes for the body.
+    pub fn with_modules(mut self, modules: ModuleExports) -> Self {
+        self.modules = modules;
+        self
     }
 }
 
@@ -134,7 +145,8 @@ impl Tool for CompiledUserTool {
 
         let ctx = ToolContext::new(cmd, Arc::clone(&self.state))
             .with_actor(self.actor.clone())
-            .with_realm(self.realm.clone());
+            .with_realm(self.realm.clone())
+            .with_modules(Arc::clone(&self.modules));
 
         let body = Arc::clone(&self.body);
         let registry = Arc::clone(&self.registry);

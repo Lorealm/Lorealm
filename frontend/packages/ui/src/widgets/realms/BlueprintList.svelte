@@ -59,7 +59,8 @@
 					tags: realmDraft.tags,
 					director: realmDraft.director,
 					scenarios: realmDraft.scenarios,
-					config: realmDraft.config
+					config: realmDraft.config,
+					modules: realmDraft.modules
 				},
 				realmDraft.inputs,
 				realmDraft.cast

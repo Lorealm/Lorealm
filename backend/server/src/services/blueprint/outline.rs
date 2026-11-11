@@ -52,6 +52,7 @@ pub struct Outline {
     pub config: HashMap<String, String>,
     pub inputs: Vec<InputSpec>,
     pub cast: Vec<CastEntry>,
+    pub modules: Vec<Binding>,
 }
 
 #[derive(Debug, Default, Serialize)]
@@ -189,6 +190,7 @@ pub fn outline(doc: &ValueDoc, source: &str) -> Refused<Outline> {
     let mut scenarios = Vec::new();
     let mut config = HashMap::new();
     let mut cast = Vec::new();
+    let mut modules = Vec::new();
 
     for item in items {
         let ObjectItem::Entry(entry) = item else {
@@ -207,6 +209,13 @@ pub fn outline(doc: &ValueDoc, source: &str) -> Refused<Outline> {
             "director" => director = director_of(&entry.value.node, entry.value.span)?,
             "scenarios" => scenarios = scenarios_of(&entry.value.node, entry.value.span)?,
             "config" => config = formats(&entry.value.node, entry.value.span)?,
+            "modules" => {
+                modules = bindings(
+                    &entry.value.node,
+                    RealmResourceKind::Module,
+                    entry.value.span,
+                )?
+            }
             _ => {}
         }
     }
@@ -220,6 +229,7 @@ pub fn outline(doc: &ValueDoc, source: &str) -> Refused<Outline> {
         config,
         inputs,
         cast,
+        modules,
     })
 }
 
@@ -838,6 +848,29 @@ lead: Ref<Character>
         assert!(matches!(
             body[0].character,
             Some(Binding::Loop { ref var_name, .. }) if var_name == "c"
+        ));
+    }
+
+    #[test]
+    fn imported_modules_come_back_as_bindings() {
+        let got = outlined(
+            r#"#inputs
+extra: Ref<Module>
+
+{
+  name: "Arena"
+  modules: ["70", {{input:extra.id}}]
+  agents: []
+}"#,
+        )
+        .expect("outlines");
+
+        assert!(matches!(
+            got.modules.as_slice(),
+            [
+                Binding::Resource { kind: RealmResourceKind::Module, id: Snowflake(70) },
+                Binding::Input { name, .. },
+            ] if name == "extra"
         ));
     }
 

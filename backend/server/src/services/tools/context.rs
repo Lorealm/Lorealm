@@ -10,7 +10,10 @@ use weaver_lang::{
 };
 
 use crate::{
-    services::state::{delete_var, write_var},
+    services::{
+        module::ModuleExports,
+        state::{delete_var, write_var},
+    },
     util::weaver::{json_to_weaver, weaver_to_json},
 };
 
@@ -71,6 +74,7 @@ pub struct ToolContext {
     read_only: bool,
     actor: Option<Actor>,
     realm: Option<RealmVariables>,
+    modules: ModuleExports,
 }
 
 impl ToolContext {
@@ -82,6 +86,7 @@ impl ToolContext {
             read_only: false,
             actor: None,
             realm: None,
+            modules: ModuleExports::default(),
         }
     }
 
@@ -100,6 +105,12 @@ impl ToolContext {
     /// Mount `cast:` and `turn:` for a body running inside a realm.
     pub fn with_realm(mut self, realm: Option<RealmVariables>) -> Self {
         self.realm = realm;
+        self
+    }
+
+    /// Mount each module's exported values as a scope named after it.
+    pub fn with_modules(mut self, modules: ModuleExports) -> Self {
+        self.modules = modules;
         self
     }
 
@@ -137,6 +148,7 @@ impl ToolContext {
             _ if REALM_SCOPES.contains(&scope) => Err(EvalError::host_error(format!(
                 "namespace '{scope}' is the realm's own, and is read-only"
             ))),
+            _ if self.modules.contains_key(scope) => Err(module_is_read_only(scope)),
             other => {
                 if self.read_only {
                     return Err(EvalError::host_error(format!(
@@ -172,12 +184,36 @@ impl ToolContext {
             .transpose()
     }
 
+    fn module_var(&self, scope: &str, name: &str) -> Result<Option<WeaverValue>, EvalError> {
+        let holds_state = self
+            .state
+            .lock()
+            .unwrap()
+            .get(scope)
+            .is_some_and(|ns| !ns.is_empty());
+        if holds_state {
+            return Err(EvalError::host_error(format!(
+                "'{scope}:' is both a module and a state namespace; rename one of them"
+            )));
+        }
+        Ok(match self.modules.get(scope) {
+            Some(WeaverValue::Object(values)) => values.get(name).cloned(),
+            _ => None,
+        })
+    }
+
     fn own_state_var(&self, name: &str) -> Result<Option<WeaverValue>, EvalError> {
         match self.own_var(name) {
             Some(var) => self.state_var(AGENTS_SCOPE, &var),
             None => Ok(None),
         }
     }
+}
+
+fn module_is_read_only(scope: &str) -> EvalError {
+    EvalError::host_error(format!(
+        "namespace '{scope}' is a module's, and is read-only"
+    ))
 }
 
 impl EvalContext for ToolContext {
@@ -197,6 +233,7 @@ impl EvalContext for ToolContext {
                 None => Ok(None),
             },
             _ if REALM_SCOPES.contains(&scope) => self.realm_var(scope, name),
+            _ if self.modules.contains_key(scope) => self.module_var(scope, name),
             other => self.state_var(other, name),
         }
     }
@@ -230,6 +267,7 @@ impl EvalContext for ToolContext {
             _ if REALM_SCOPES.contains(&scope) => Err(EvalError::host_error(format!(
                 "namespace '{scope}' is the realm's own, and is read-only"
             ))),
+            _ if self.modules.contains_key(scope) => Err(module_is_read_only(scope)),
             other => {
                 if self.read_only {
                     return Err(EvalError::host_error(format!(

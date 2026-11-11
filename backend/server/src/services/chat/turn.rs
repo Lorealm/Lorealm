@@ -27,7 +27,7 @@ use crate::{
         },
         commands::CommandEffect,
         context_template::{PromptRole, TracedBlock},
-        plugins::PluginVocabulary,
+        plugins::UserVocabulary,
         schedule::{FilterChain, StageCx},
         state::{CapturedState, ReconstructedState, StatePool, apply_delta},
         tools::{EmittedEvent, EventSink, RealmVariables, ToolPolicy, builtin_tool},
@@ -149,7 +149,7 @@ impl ChatService {
                 _ => &stem[..],
             };
             let world = service.state.reconstruct(&message_ids(before)).await?;
-            let plugins = service.plugins.vocabulary(convo.user_id).await;
+            let plugins = service.plugins.vocabulary_with(convo.user_id, &cast.modules).await;
 
             let (acting_agent, view) = {
                 let stage = Stage::new(&cast, before, &world.persistent).with_plugins(plugins.clone());
@@ -273,7 +273,10 @@ impl ChatService {
             .path_to(convo_id, &Relationship::Child(convo.active_leaf_id))
             .await?;
         let world = self.state.reconstruct(&message_ids(&path)).await?;
-        let plugins = self.plugins.vocabulary(convo.user_id).await;
+        let plugins = self
+            .plugins
+            .vocabulary_with(convo.user_id, &cast.modules)
+            .await;
 
         Ok(Stage::new(cast, &path, &world.persistent)
             .with_plugins(plugins)
@@ -321,7 +324,10 @@ impl ChatService {
     ) -> Result<ConversationMessage, ChatError> {
         let path = self.path_to(convo.id, &place).await?;
         let world = self.state.reconstruct(&message_ids(&path)).await?;
-        let plugins = self.plugins.vocabulary(convo.user_id).await;
+        let plugins = self
+            .plugins
+            .vocabulary_with(convo.user_id, &cast.modules)
+            .await;
         let stage = Stage::new(cast, &path, &world.persistent).with_plugins(plugins.clone());
         let agent = stage.player()?.clone();
 
@@ -402,7 +408,7 @@ impl ChatService {
         place: Relationship,
         view: &RealmVariables,
         world: ReconstructedState,
-        plugins: Option<&PluginVocabulary>,
+        plugins: Option<&UserVocabulary>,
     ) -> Result<TurnMessage, ChatError> {
         let (output, delta, emitted) = weaver::run_scoped(
             agent.script.as_deref().unwrap_or_default(),
@@ -482,7 +488,7 @@ impl ChatService {
 
         let mut renderer =
             WidgetRenderer::new(&active_widgets.attachments, baseline.persistent.clone())
-                .with_plugins(self.plugins.vocabulary(owner).await);
+                .with_plugins(self.plugins.vocabulary_with(owner, &cast.modules).await);
         let turns = perceive(cast, agent, path, &mut renderer);
 
         let Prepared {
@@ -539,6 +545,7 @@ impl ChatService {
                     attachments: active_widgets.attachments,
                     conversation: Some(convo.id),
                     cancel: Some(cancel),
+                    modules: cast.modules.clone(),
                 },
             )
             .await?;

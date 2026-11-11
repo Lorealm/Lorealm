@@ -294,6 +294,7 @@ impl ChatService {
                 speech_format: Some("{content}".into()),
                 ..Default::default()
             },
+            modules: Vec::new(),
         };
 
         let convo = self
@@ -383,6 +384,7 @@ impl ChatService {
             director: definition.director,
             scenario,
             config: definition.config,
+            modules: definition.modules,
         };
         let mut convo = self
             .create_conversation(
@@ -715,7 +717,10 @@ impl ChatService {
             .load_kitoken_tokenizer(spec.tokenizer_id, spec.owner)
             .await?;
 
-        let plugins = self.plugins.vocabulary(spec.owner).await;
+        let plugins = self
+            .plugins
+            .vocabulary_with(spec.owner, &cast.modules)
+            .await;
         let widget_renders = render_widgets(widget_renders, &baseline.persistent, plugins.as_ref());
         let sources = match &plugins {
             Some(plugins) => {
@@ -872,7 +877,7 @@ impl ChatService {
             || !policy.attachments.is_empty()
             || !policy.extra_tool_ids.is_empty();
         let plugins = match offers_tools {
-            true => self.plugins.vocabulary(owner).await,
+            true => self.plugins.vocabulary_with(owner, &policy.modules).await,
             false => None,
         };
 
@@ -901,7 +906,9 @@ impl ChatService {
             });
         }
 
-        let (weaver_registry, sinks, state) = host.build().into_shared();
+        let host = host.build();
+        let module_values = host.module_variables();
+        let (weaver_registry, sinks, state) = host.into_shared();
         let widget_sink = sinks.widgets;
         let effect_sink = sinks.effects;
 
@@ -958,7 +965,9 @@ impl ChatService {
                 Arc::clone(&state),
                 policy.actor.clone(),
                 policy.realm.clone(),
-            ) {
+            )
+            .map(|tool| tool.with_modules(Arc::clone(&module_values)))
+            {
                 Ok(tool) => {
                     tracing::info!("Registering tool: {}", sig.name);
                     registry.register(tool)

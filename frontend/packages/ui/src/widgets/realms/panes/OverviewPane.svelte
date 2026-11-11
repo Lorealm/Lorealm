@@ -3,6 +3,7 @@
 	import type { AgentFilter, AgentKind } from '$lib/types/realm.js';
 	import { realmDraft } from '../draft.svelte.js';
 	import { panes } from '../panes.svelte.js';
+	import RadioField from '../RadioField.svelte';
 
 	const AGENT_KINDS: AgentKind[] = ['llm', 'player', 'script'];
 
@@ -103,6 +104,30 @@
 					onblur={addTag}
 				/>
 			</div>
+		</div>
+
+		<div class="field">
+			<span>Modules</span>
+			{#each realmDraft.modules as module, i (i)}
+				<RadioField
+					value={module}
+					kinds={['module']}
+					inputs={realmDraft.inputs}
+					ariaLabel="Module {i + 1}"
+					onchange={(next) => {
+						if (next) realmDraft.modules[i] = next;
+						else realmDraft.modules.splice(i, 1);
+					}}
+				/>
+			{/each}
+			<RadioField
+				value={null}
+				kinds={['module']}
+				inputs={realmDraft.inputs}
+				placeholder="Import a module…"
+				ariaLabel="Import another module"
+				onchange={(next) => next && realmDraft.modules.push(next)}
+			/>
 		</div>
 
 		<div class="field">

@@ -35,7 +35,7 @@ mod settings;
 mod vocabulary;
 
 pub use install::{InstallReport, MAX_PACKAGE};
-pub use vocabulary::{PLUGIN_SOURCE_PREFIX, PluginVocabulary};
+pub use vocabulary::{PLUGIN_SOURCE_PREFIX, UserVocabulary};
 
 use crate::{
     config::PluginConfig,
@@ -474,9 +474,19 @@ impl PluginService {
         Ok(())
     }
 
-    /// What the user's loaded plugins add to Weaver and context templates.
-    /// `None` if they have none loaded.
-    pub async fn vocabulary(&self, user_id: Snowflake) -> Option<PluginVocabulary> {
+    /// What the user's loaded plugins and enabled modules add to Weaver and
+    /// context templates. `None` if they have neither.
+    pub async fn vocabulary(&self, user_id: Snowflake) -> Option<UserVocabulary> {
+        self.vocabulary_with(user_id, &[]).await
+    }
+
+    pub async fn vocabulary_with(
+        &self,
+        user_id: Snowflake,
+        modules: &[Snowflake],
+    ) -> Option<UserVocabulary> {
+        let modules =
+            crate::services::module::load_active(self.storage.as_ref(), user_id, modules).await;
         let slot = self.mount(user_id).await;
         // Before locking: nothing may be awaited while `plugins` is borrowed.
         let versions = self
@@ -485,8 +495,8 @@ impl PluginService {
             .await
             .unwrap_or_default();
         let guard = slot.lock().await;
-        let plugins = &guard.as_ref()?.plugins;
-        if plugins.is_empty() {
+        let plugins = guard.as_ref().map_or(&[][..], |m| m.plugins.as_slice());
+        if plugins.is_empty() && modules.is_empty() {
             return None;
         }
         let infos = plugins
@@ -501,7 +511,7 @@ impl PluginService {
                 ))
             })
             .collect();
-        Some(PluginVocabulary::new(Arc::clone(&slot), plugins, &infos))
+        Some(UserVocabulary::new(Arc::clone(&slot), plugins, &infos).with_modules(modules))
     }
 
     /// A frontend entry the plugin declared, if the user has it enabled.

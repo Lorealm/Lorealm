@@ -148,6 +148,7 @@ mod tests {
                 speech_format: speech_format.map(Into::into),
                 ..Default::default()
             },
+            modules: Vec::new(),
         }
     }
 

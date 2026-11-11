@@ -213,7 +213,8 @@ export const REF_NAME: Record<RealmResourceKind, string> = {
 	tool: 'Tool',
 	persona: 'Persona',
 	connection_profile: 'ConnectionProfile',
-	widget: 'Widget'
+	widget: 'Widget',
+	module: 'Module'
 };
 
 /** `REF_NAME` is the notation's spelling; this is what a person calls it. */
@@ -224,7 +225,8 @@ export const TYPE_NAME: Record<RealmResourceKind, string> = {
 	persona: 'Persona',
 	tool: 'Tool',
 	connection_profile: 'Connection',
-	widget: 'Widget'
+	widget: 'Widget',
+	module: 'Module'
 };
 
 export const KIND_LABEL: Record<RealmResourceKind, string> = {
@@ -234,7 +236,8 @@ export const KIND_LABEL: Record<RealmResourceKind, string> = {
 	tool: 'Tools',
 	persona: 'Personas',
 	connection_profile: 'Connections',
-	widget: 'Widgets'
+	widget: 'Widgets',
+	module: 'Modules'
 };
 
 export function isList(ty: InputType): boolean {

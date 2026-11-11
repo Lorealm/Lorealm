@@ -7,6 +7,7 @@ pub mod connection;
 pub mod context_template;
 pub mod conversation;
 pub mod lorebook;
+pub mod module;
 pub mod permission;
 pub mod persona;
 pub mod plugins;

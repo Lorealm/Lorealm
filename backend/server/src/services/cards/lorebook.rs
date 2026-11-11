@@ -120,10 +120,10 @@ pub(crate) fn convert_character_book(
     if let Some(depth) = book.scan_depth {
         config.default_scan_depth = depth;
     }
-    
+
     config.token_budget = book.token_budget;
     config.case_sensitive_keywords = majority_case_sensitive(&book.entries);
-    
+
     if let Some(recursive) = book.recursive_scanning {
         config.extensions.insert(
             "st_recursive_scanning".to_string(),

@@ -11,7 +11,7 @@ use serde_json::json;
 use crate::{
     errors::RealmError,
     services::{
-        plugins::PluginVocabulary,
+        plugins::UserVocabulary,
         state::StatePool,
         tools::{Actor, EmittedEvent, RealmVariables},
         weaver::{
@@ -208,7 +208,7 @@ pub(super) async fn run_scoped(
     agent: &RealmAgent,
     world: &StatePool,
     view: &RealmVariables,
-    plugins: Option<&PluginVocabulary>,
+    plugins: Option<&UserVocabulary>,
 ) -> Result<(String, StateDelta, Vec<EmittedEvent>), RealmError> {
     let host = WeaverHost::builder()
         .profile(WeaverProfile::RealmScript)
@@ -237,7 +237,7 @@ pub(super) fn run_condition_passes(
     agent: &RealmAgent,
     world: &StatePool,
     view: &RealmVariables,
-    plugins: Option<&PluginVocabulary>,
+    plugins: Option<&UserVocabulary>,
 ) -> bool {
     let Some(src) = agent
         .run_condition
@@ -272,7 +272,7 @@ pub(super) fn run_director(
     source: &str,
     world: &StatePool,
     view: &RealmVariables,
-    plugins: Option<&PluginVocabulary>,
+    plugins: Option<&UserVocabulary>,
 ) -> Result<Vec<String>, RealmError> {
     let body = compile_template(source).map_err(director_failed)?;
     let host = WeaverHost::builder()

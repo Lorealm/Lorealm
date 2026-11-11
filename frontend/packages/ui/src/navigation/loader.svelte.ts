@@ -2,6 +2,7 @@ import { characterStore } from '$lib/stores/character.svelte.js';
 import { connectionStore } from '$lib/stores/connection.svelte.js';
 import { currentUser } from '$lib/stores/currentUser.svelte.js';
 import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
+import { moduleStore } from '$lib/stores/modules.svelte.js';
 import { personaStore } from '$lib/stores/persona.svelte.js';
 import { realmStore } from '$lib/stores/realm.svelte.js';
 import { configStore } from '$lib/stores/serverConfig.svelte.js';
@@ -38,6 +39,7 @@ const resources = {
 	templateSources: new Resource(() => templateStore.loadSources()),
 	toolList: new Resource(() => toolStore.loadTools()),
 	builtinTools: new Resource(() => toolStore.loadBuiltins()),
+	moduleList: new Resource(() => moduleStore.loadModules()),
 	widgetList: new Resource(() => userWidgetStore.loadWidgets()),
 	builtinWidgets: new Resource(() => userWidgetStore.loadBuiltins()),
 	personaList: new Resource(() => personaStore.loadPersonas()),
@@ -135,6 +137,12 @@ const SPECS: Record<string, RouteSpec> = {
 				? toolStore.viewBuiltin(id)
 				: toolStore.startEditing(id),
 		blur: () => toolStore.stopEditing()
+	}),
+
+	'studio:modules': studio({
+		needs: ['moduleList'],
+		focus: (id) => moduleStore.startEditing(id),
+		blur: () => moduleStore.stopEditing()
 	}),
 
 	'studio:personas': studio({

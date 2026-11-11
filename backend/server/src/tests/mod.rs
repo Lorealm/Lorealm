@@ -6,6 +6,7 @@ mod blueprints;
 mod cards;
 mod connections;
 mod harness;
+mod modules;
 mod plugins;
 mod realm_import;
 mod roles;

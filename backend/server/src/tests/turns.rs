@@ -351,3 +351,167 @@ async fn the_first_reply_of_a_chat_keeps_its_lorebook_state() {
     assert!(activation.last_activated.contains_key("dragon"));
     assert!(activation.sticky_remaining.contains_key("dragon"));
 }
+
+/// A lorebook entry reaches the user's modules the way a tool body does.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_lorebook_entry_calls_a_module() {
+    let h = Harness::new().await;
+    ready_for_models(&h, &stub_model("It sleeps.").await).await;
+
+    crate::services::module::ModuleService::new(
+        std::sync::Arc::clone(&h.store) as std::sync::Arc<dyn lorealm_storage::Storage>,
+        std::sync::Arc::clone(&h.snow),
+    )
+    .create(
+        h.user,
+        "lore".into(),
+        String::new(),
+        "export beast = \"wyrm\"\nexport proc loud(text: string)\n  {# return @[text.upper(text: {{input:text}})] #}\n{# endproc #}".into(),
+    )
+    .await
+    .unwrap();
+
+    let book = h.lorebook(h.user, "Bestiary").await;
+    let mut stored = h.store.get_lorebook(book).await.unwrap().unwrap();
+    stored.entries.push(LorebookEntry {
+        id: h.snow.generate(),
+        lorebook_id: book,
+        entry_id: "dragon".into(),
+        source:
+            "---\nid: dragon\nkeywords: [\"dragon\"]\n---\nA @[lore.loud({{lore:beast}})] sleeps.\n"
+                .into(),
+    });
+    h.store.save_lorebook(&stored).await.unwrap();
+    h.store
+        .set_enabled_lorebooks(h.user, &[book])
+        .await
+        .unwrap();
+
+    let sayuri = h.character(h.user, "Sayuri").await;
+    let mut character = h.store.get_character(sayuri).await.unwrap().unwrap();
+    let greeting = h.snow.generate();
+    character.definition.greetings.push(Greeting {
+        id: greeting,
+        order: 0,
+        text: "Welcome back.".into(),
+    });
+    h.store
+        .save_character(&character, VersionedSaveMode::UpdateCurrent)
+        .await
+        .unwrap();
+    let convo = h
+        .chat
+        .start_with_character(h.user, sayuri, None, greeting, String::new())
+        .await
+        .expect("starts")
+        .metadata
+        .id;
+
+    let events = turn(&h, convo, json!({ "content": "Is there a dragon here?" }))
+        .await
+        .unwrap();
+    let [_, reply] = messages(&events).try_into().unwrap();
+    assert!(
+        reply.metadata["context"]
+            .to_string()
+            .contains("A WYRM sleeps"),
+        "module output missing from the prompt: {}",
+        reply.metadata["context"]
+    );
+}
+
+/// A counting house whose clerk counts through a module's proc.
+fn tallied_house(modules: &str) -> String {
+    format!(
+        r##"
+{{
+  name: "Tallied house"
+  modules: {modules}
+  agents: [
+    {{ handle: "you", name: "You", kind: "player", grants: [{{ channel: "world", access: "read" }}] }}
+    {{ handle: "clerk", name: "Clerk", kind: "script", script: r#"@[tally.bump(by: 5)]"# }}
+  ]
+}}"##
+    )
+}
+
+async fn disabled_tally(h: &Harness) -> Snowflake {
+    let modules = crate::services::module::ModuleService::new(
+        std::sync::Arc::clone(&h.store) as std::sync::Arc<dyn lorealm_storage::Storage>,
+        std::sync::Arc::clone(&h.snow),
+    );
+    let tally = modules
+        .create(
+            h.user,
+            "tally".into(),
+            String::new(),
+            "export proc bump(by: number)\n  $[inc_var(\"world:coins\", {{input:by}})]\n{# endproc #}"
+                .into(),
+        )
+        .await
+        .unwrap();
+    modules
+        .update(tally.id, h.user, None, None, None, Some(false))
+        .await
+        .unwrap();
+    tally.id
+}
+
+/// Imported modules run in the realm's turns even while disabled everywhere else.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_realm_runs_the_modules_it_imports() {
+    let h = Harness::new().await;
+    let tally = disabled_tally(&h).await;
+    let convo = counting_house(&h, &tallied_house(&format!("[\"{tally}\"]"))).await;
+
+    turn(&h, convo, json!({ "content": "Count it." }))
+        .await
+        .unwrap();
+
+    let world = h
+        .chat
+        .agent_state(convo, "you", h.user, None)
+        .await
+        .unwrap();
+    assert_eq!(world["world"]["coins"], json!(5));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_disabled_module_a_realm_does_not_import_is_absent() {
+    let h = Harness::new().await;
+    disabled_tally(&h).await;
+    let convo = counting_house(&h, &tallied_house("[]")).await;
+
+    assert!(
+        turn(&h, convo, json!({ "content": "Count it." }))
+            .await
+            .is_err()
+    );
+}
+
+#[tokio::test]
+async fn a_realm_may_not_import_someone_elses_module() {
+    let h = Harness::new().await;
+    let theirs = crate::services::module::ModuleService::new(
+        std::sync::Arc::clone(&h.store) as std::sync::Arc<dyn lorealm_storage::Storage>,
+        std::sync::Arc::clone(&h.snow),
+    )
+    .create(h.stranger, "tally".into(), String::new(), String::new())
+    .await
+    .unwrap();
+
+    let refused = h
+        .realms
+        .import(
+            h.user,
+            &tallied_house(&format!("[\"{}\"]", theirs.id)),
+            Default::default(),
+            None,
+        )
+        .await;
+
+    assert!(
+        matches!(refused, Err(RealmError::NotOwned(..))),
+        "{refused:?}"
+    );
+}

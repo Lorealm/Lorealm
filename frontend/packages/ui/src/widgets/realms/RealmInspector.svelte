@@ -40,7 +40,8 @@
 		template: 'template',
 		tool: 'tool',
 		persona: 'persona',
-		widget: 'widget'
+		widget: 'widget',
+		module: 'module'
 	};
 
 	const AGENT_KINDS: AgentKind[] = ['llm', 'player', 'script'];

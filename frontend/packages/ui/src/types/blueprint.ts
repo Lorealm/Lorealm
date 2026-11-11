@@ -69,6 +69,7 @@ export interface Outline {
 	config: Record<string, string>;
 	inputs: InputSpec[];
 	cast: OutlineEntry[];
+	modules: OutlineBinding[];
 }
 
 /** Why a document cannot be shown as a block model. */

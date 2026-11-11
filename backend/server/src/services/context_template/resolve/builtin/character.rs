@@ -14,7 +14,7 @@ use crate::{
             CharacterPart, ContentRef, SelectOption, SettingDefinition, SettingType,
             SourceDefinition, SourceNodeDefinition, SourceType, builtin::text_block,
         },
-        plugins::PluginVocabulary,
+        plugins::UserVocabulary,
         state::{StatePool, write_var},
         variables::Variables,
         weaver::{WeaverHost, WeaverProfile},
@@ -224,7 +224,7 @@ fn inject(
     mode: &str,
     pool: &StatePool,
     vars: &Variables,
-    plugins: Option<&PluginVocabulary>,
+    plugins: Option<&UserVocabulary>,
 ) -> String {
     if injection.trim().is_empty() {
         return base.to_string();

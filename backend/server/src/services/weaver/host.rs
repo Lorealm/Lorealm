@@ -14,7 +14,8 @@ use crate::services::{
         register_effect_commands,
     },
     context_template::weaver::stdlib,
-    plugins::PluginVocabulary,
+    module::ModuleExports,
+    plugins::UserVocabulary,
     state::{StatePool, diff},
     tools::{
         Actor, DelVarCommand, EmitEventCommand, EmittedEvent, EventSink, RealmVariables,
@@ -75,6 +76,7 @@ pub struct WeaverHost {
     read_only: bool,
     limits: Limits,
     cancel: Option<CancellationToken>,
+    modules: ModuleExports,
 }
 
 impl WeaverHost {
@@ -100,6 +102,10 @@ impl WeaverHost {
         // The only other handles are the short-lived clones `evaluate` hands
         // to its blocking thread, and this consumes the host.
         Arc::try_unwrap(self.registry).unwrap_or_else(|_| unreachable!("host owns its registry"))
+    }
+
+    pub fn module_exports(&self) -> ModuleExports {
+        Arc::clone(&self.modules)
     }
 
     /// The registry and sinks, for a caller that owns the evaluation itself.
@@ -149,7 +155,8 @@ impl WeaverHost {
     fn context(&self) -> ToolContext {
         let ctx = ToolContext::new(self.cmd.clone(), Arc::clone(&self.pool))
             .with_actor(self.actor.clone())
-            .with_realm(self.realm.clone());
+            .with_realm(self.realm.clone())
+            .with_modules(self.module_exports());
         if self.read_only { ctx.read_only() } else { ctx }
     }
 
@@ -191,7 +198,7 @@ pub struct WeaverBuilder {
     read_only: bool,
     limits: Limits,
     cancel: Option<CancellationToken>,
-    plugins: Option<PluginVocabulary>,
+    plugins: Option<UserVocabulary>,
 }
 
 impl WeaverBuilder {
@@ -276,7 +283,7 @@ impl WeaverBuilder {
     }
 
     /// The commands and processors the user's plugins registered.
-    pub fn plugins(mut self, plugins: Option<PluginVocabulary>) -> Self {
+    pub fn plugins(mut self, plugins: Option<UserVocabulary>) -> Self {
         self.plugins = plugins;
         self
     }
@@ -340,6 +347,11 @@ impl WeaverBuilder {
             read_only: self.read_only,
             limits: self.limits,
             cancel: self.cancel,
+            modules: self
+                .plugins
+                .as_ref()
+                .map(|p| p.module_values())
+                .unwrap_or_default(),
         }
     }
 }

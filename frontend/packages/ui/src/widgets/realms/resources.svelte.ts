@@ -3,6 +3,7 @@ import type { RealmResourceKind } from '$lib/types/realm.js';
 import { characterStore } from '$lib/stores/character.svelte.js';
 import { connectionStore } from '$lib/stores/connection.svelte.js';
 import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
+import { moduleStore } from '$lib/stores/modules.svelte.js';
 import { personaStore } from '$lib/stores/persona.svelte.js';
 import { templateStore } from '$lib/stores/template.svelte.js';
 import { toolStore } from '$lib/stores/tools.svelte.js';
@@ -24,7 +25,8 @@ export const RESOURCE_KINDS: RealmResourceKind[] = [
 	'persona',
 	'tool',
 	'connection_profile',
-	'widget'
+	'widget',
+	'module'
 ];
 
 /**
@@ -102,6 +104,16 @@ const SOURCES: Record<
 				id: w.id,
 				name: w.name,
 				hint: w.description || undefined
+			}))
+	},
+	module: {
+		load: () => moduleStore.loadModules(),
+		read: () =>
+			(moduleStore.loadedModules ?? []).map((m) => ({
+				kind: 'module' as const,
+				id: m.id,
+				name: m.name,
+				hint: m.description || undefined
 			}))
 	}
 };

@@ -56,7 +56,7 @@ if (errorDomain(err.code) === 'realm') return showRealmToast(err.message);
 `details.resource` is one of: `character`, `character_version`, `greeting`,
 `conversation`, `message`, `example_message`, `context_template`, `persona`,
 `connection_profile`, `secret`, `user_tool`, `user_widget`, `lorebook`, `realm`,
-`realm_agent`, `realm_version`, `scenario`, `tokenizer`, `lorebook_entry`,
+`realm_agent`, `realm_version`, `module`, `scenario`, `tokenizer`, `lorebook_entry`,
 `template_node`, `role`, `user`.
 
 `details.id` is a snowflake string, present when the error concerns one specific
@@ -102,6 +102,9 @@ Messages containing quoted values are examples; the interpolated part varies.
 | `conversation.message_not_found` | 404 | That message is no longer in this conversation. |
 | `conversation.not_found` | 404 | That conversation no longer exists. |
 | `lorebook.not_found` | 404 | That lorebook no longer exists. |
+| `module.invalid` | 400 | Invalid module: expected an export. |
+| `module.name_taken` | 409 | The name 'math' is already in use. |
+| `module.not_found` | 404 | That module no longer exists. |
 | `permission.built_in_role` | 400 | Built-in roles can't be changed this way. |
 | `permission.denied` | 403 | You are not allowed to perform this action. |
 | `permission.invalid_role_name` | 400 | Role names can't be empty. |

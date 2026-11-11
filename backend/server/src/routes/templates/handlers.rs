@@ -14,7 +14,7 @@ use crate::{
     routes::templates::{SetActiveRequest, WeaverVocabulary},
     services::{
         context_template::{ContextTemplate, SourceDefinition, weaver::check::check_with},
-        plugins::PluginVocabulary,
+        plugins::UserVocabulary,
         weaver::{WeaverHost, namespaces as weaver_namespaces},
     },
 };
@@ -121,7 +121,7 @@ pub async fn list_weaver_vocabulary(
     Json(weaver_vocabulary(plugins))
 }
 
-fn weaver_vocabulary(plugins: Option<PluginVocabulary>) -> WeaverVocabulary {
+fn weaver_vocabulary(plugins: Option<UserVocabulary>) -> WeaverVocabulary {
     let host = WeaverHost::builder()
         .declarations_only()
         .plugins(plugins)
@@ -156,7 +156,7 @@ pub async fn check_weaver(
 
 fn check_response(
     request: super::WeaverCheckRequest,
-    plugins: Option<&PluginVocabulary>,
+    plugins: Option<&UserVocabulary>,
 ) -> super::WeaverCheckResponse {
     super::WeaverCheckResponse {
         diagnostics: check_with(&request.source, request.dialect, request.profile, plugins),

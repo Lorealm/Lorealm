@@ -22,6 +22,7 @@ use crate::{
         context_template::{SourceRegistry, TemplateService, builtin::register_builtin_sources},
         conversation::ConversationService,
         lorebook::LorebookService,
+        module::ModuleService,
         permission::service::PermissionService,
         persona::PersonaService,
         plugins::PluginService,
@@ -59,6 +60,7 @@ pub struct ServiceManager {
     tokenizers: Arc<TokenizerService>,
     realms: Arc<RealmService>,
     blueprints: Arc<BlueprintService>,
+    modules: Arc<ModuleService>,
     plugins: Arc<PluginService>,
     rate_limits: Arc<AuthRateLimits>,
     snowflake: Arc<SnowflakeService>,
@@ -224,6 +226,11 @@ impl ServiceManager {
             Arc::clone(&realms),
         ));
 
+        let modules = Arc::new(ModuleService::new(
+            Arc::clone(&storage),
+            Arc::clone(&snowflake),
+        ));
+
         let rate_limits = Arc::new(AuthRateLimits::new(Arc::clone(&config)));
 
         let cleanable: Vec<Arc<dyn CleanableService>> = vec![
@@ -254,6 +261,7 @@ impl ServiceManager {
             tokenizers,
             realms,
             blueprints,
+            modules,
             plugins,
             rate_limits,
             snowflake,
@@ -385,6 +393,10 @@ impl ServiceManager {
 
     pub fn blueprints(&self) -> &Arc<BlueprintService> {
         &self.blueprints
+    }
+
+    pub fn modules(&self) -> &Arc<ModuleService> {
+        &self.modules
     }
 
     pub fn plugins(&self) -> &Arc<PluginService> {

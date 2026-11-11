@@ -255,6 +255,18 @@ impl WorldInfoResolver {
             }
         }
 
+        // Each module's values are a read-only scope named after it.
+        if let Some(plugins) = &ctx.plugins {
+            for (module, values) in plugins.module_values().iter() {
+                weaver.reserve_namespace(module, NamespaceAccess::ReadOnly);
+                if let WeaverValue::Object(exports) = values {
+                    for (name, value) in exports {
+                        weaver.set_variable(module, name, value.clone());
+                    }
+                }
+            }
+        }
+
         let cw_messages = convert_messages(ctx.messages);
         let blocks = weaver.assemble(&cw_messages)?;
 

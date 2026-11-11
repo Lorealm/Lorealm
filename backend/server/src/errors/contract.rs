@@ -127,6 +127,14 @@ fn contract_surface() -> Vec<(&'static str, Vec<Box<dyn DomainError>>)> {
             ],
         ),
         (
+            "module",
+            vec![
+                Box::new(ModuleError::NotFound(id())),
+                Box::new(ModuleError::NameTaken("math".into())),
+                Box::new(ModuleError::Invalid("expected an export".into())),
+            ],
+        ),
+        (
             "plugin",
             vec![
                 Box::new(PluginError::NotFound("hello".into())),

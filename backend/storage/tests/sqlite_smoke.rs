@@ -6,7 +6,8 @@ use chrono::{Duration, Utc};
 use lorealm_storage::backends::{MemoryStorage, SqliteStorage};
 use lorealm_storage::models::*;
 use lorealm_storage::{
-    ConversationStorage, PermissionStorage, PersonaStorage, PluginStorage, SessionStorage,
+    ConversationStorage, ModuleStorage, PermissionStorage, PersonaStorage, PluginStorage,
+    SessionStorage,
     StorageCore, UserStorage, UserToolStorage, WeaverStateStorage,
 };
 
@@ -923,4 +924,38 @@ async fn persona_rename_persists() {
     let user = a_user(&s, 50).await;
     assert_persona_rename_persists(&s, user).await;
     assert_persona_rename_persists(&MemoryStorage::new(), user).await;
+}
+
+#[tokio::test]
+async fn modules_round_trip_and_names_are_unique_per_owner() {
+    let s = db().await;
+    let owner = a_user(&s, 90).await;
+    let now = Utc::now();
+    let mut module = CodeModule {
+        id: Snowflake(7_300_000_000_000_009_001),
+        owner_id: owner,
+        name: "combat".into(),
+        description: String::new(),
+        source: "export hit_table = [1, 2]".into(),
+        enabled: true,
+        created_at: now,
+        updated_at: now,
+    };
+    s.save_module(&module).await.unwrap();
+
+    module.enabled = false;
+    s.save_module(&module).await.unwrap();
+    let loaded = s.get_module(module.id).await.unwrap().unwrap();
+    assert!(!loaded.enabled);
+    assert_eq!(loaded.source, module.source);
+
+    let twin = CodeModule {
+        id: Snowflake(7_300_000_000_000_009_002),
+        ..module.clone()
+    };
+    assert!(s.save_module(&twin).await.is_err());
+
+    assert_eq!(s.list_modules(owner).await.unwrap().len(), 1);
+    assert!(s.delete_module(module.id).await.unwrap());
+    assert!(s.list_modules(owner).await.unwrap().is_empty());
 }

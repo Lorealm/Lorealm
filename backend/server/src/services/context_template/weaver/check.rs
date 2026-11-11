@@ -2,15 +2,15 @@ use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
 use weaver_lang::{
-    CompiledExpr, CompiledTemplate, InputDecl, InputType, Registry, Span,
+    CompiledExpr, CompiledTemplate, Export, InputDecl, InputType, Registry, Span,
     ast::{
         ArrayItem, CallArg, Expr, ExprKind, Node, NodeKind, ObjectItem, Template, ValueForEach,
         ValueIf,
     },
-    parse_value_doc,
+    parse_module, parse_value_doc,
 };
 
-use crate::services::plugins::PluginVocabulary;
+use crate::services::plugins::UserVocabulary;
 use crate::services::weaver::{WeaverHost, WeaverProfile};
 use crate::util::weaver::summarize_parser_text;
 
@@ -25,6 +25,8 @@ pub enum Dialect {
     Expression,
     /// A WTN document: one value with holes, plus its `#inputs`.
     Document,
+    /// A module: exported values and processors.
+    Module,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
@@ -48,7 +50,7 @@ pub struct Diagnostic {
 }
 
 /// What the source is checked against.
-fn known_host(profile: Option<WeaverProfile>, plugins: Option<&PluginVocabulary>) -> WeaverHost {
+fn known_host(profile: Option<WeaverProfile>, plugins: Option<&UserVocabulary>) -> WeaverHost {
     let builder = WeaverHost::builder();
     let builder = match profile {
         Some(profile) => builder.declarations_for(profile),
@@ -73,7 +75,7 @@ pub fn check_with(
     source: &str,
     dialect: Dialect,
     profile: Option<WeaverProfile>,
-    plugins: Option<&PluginVocabulary>,
+    plugins: Option<&UserVocabulary>,
 ) -> Vec<Diagnostic> {
     if source.trim().is_empty() {
         return Vec::new();
@@ -104,6 +106,22 @@ pub fn check_with(
             Ok(doc) => {
                 checker.declarations(&doc.inputs);
                 checker.expr(&doc.value);
+            }
+            Err(errors) => return checker.parse_errors(errors),
+        },
+        Dialect::Module => match parse_module(source) {
+            Ok(module) => {
+                for export in &module.exports {
+                    match export {
+                        Export::Value { value, .. } => checker.expr(value),
+                        Export::Processor(proc) => {
+                            for default in proc.params.iter().filter_map(|p| p.default.as_ref()) {
+                                checker.expr(default);
+                            }
+                            checker.template(&proc.body);
+                        }
+                    }
+                }
             }
             Err(errors) => return checker.parse_errors(errors),
         },

@@ -11,7 +11,7 @@ use weaver_lang::{
 use lorealm_storage::models::{UserWidget, WidgetMode};
 
 use crate::services::commands::CommandEffect;
-use crate::services::plugins::PluginVocabulary;
+use crate::services::plugins::UserVocabulary;
 use crate::services::state::StatePool;
 use crate::services::weaver::{WeaverHost, WeaverProfile};
 use crate::util::weaver::{ConversionError, json_to_weaver, weaver_to_json};
@@ -303,7 +303,7 @@ pub struct WidgetRenderer {
     specs: HashMap<String, AttachmentSpec>,
     pool: Arc<Mutex<StatePool>>,
     rendered: HashSet<String>,
-    plugins: Option<PluginVocabulary>,
+    plugins: Option<UserVocabulary>,
 }
 
 impl WidgetRenderer {
@@ -317,7 +317,7 @@ impl WidgetRenderer {
     }
 
     /// Lets `render` templates call the user's plugin commands and processors.
-    pub fn with_plugins(mut self, plugins: Option<PluginVocabulary>) -> Self {
+    pub fn with_plugins(mut self, plugins: Option<UserVocabulary>) -> Self {
         self.plugins = plugins;
         self
     }
@@ -362,7 +362,7 @@ fn eval_render(
     template: &str,
     pool: Arc<Mutex<StatePool>>,
     props: HashMap<String, Value>,
-    plugins: Option<&PluginVocabulary>,
+    plugins: Option<&UserVocabulary>,
 ) -> Option<String> {
     if template.trim().is_empty() {
         return None;
@@ -386,7 +386,7 @@ fn eval_render(
 pub fn render_widgets(
     templates: &[String],
     pool: &StatePool,
-    plugins: Option<&PluginVocabulary>,
+    plugins: Option<&UserVocabulary>,
 ) -> Vec<String> {
     if templates.is_empty() {
         return Vec::new();

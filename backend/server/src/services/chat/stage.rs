@@ -5,7 +5,7 @@ use rand::seq::SliceRandom;
 
 use crate::{
     errors::RealmError,
-    services::{plugins::PluginVocabulary, state::StatePool, tools::RealmVariables},
+    services::{plugins::UserVocabulary, state::StatePool, tools::RealmVariables},
 };
 
 use super::weaver;
@@ -20,7 +20,7 @@ pub(super) struct Stage<'a> {
     last: Option<&'a RealmAgent>,
     world: &'a StatePool,
     pub view: RealmVariables,
-    plugins: Option<PluginVocabulary>,
+    plugins: Option<UserVocabulary>,
 }
 
 impl<'a> Stage<'a> {
@@ -51,7 +51,7 @@ impl<'a> Stage<'a> {
     }
 
     /// Lets directors and run conditions call the owner's plugins.
-    pub fn with_plugins(mut self, plugins: Option<PluginVocabulary>) -> Self {
+    pub fn with_plugins(mut self, plugins: Option<UserVocabulary>) -> Self {
         self.plugins = plugins;
         self
     }
@@ -207,6 +207,7 @@ mod tests {
             director,
             scenario: None,
             config: Default::default(),
+            modules: Vec::new(),
         }
     }
 

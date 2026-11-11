@@ -19,7 +19,7 @@ use crate::{
         chat::{CancelGuard, PromptMessage},
         commands::Generation,
         context_template::PromptRole,
-        plugins::{PluginService, PluginVocabulary},
+        plugins::{PluginService, UserVocabulary},
         state::StateService,
         weaver::{WeaverHost, WeaverProfile, compile_template},
     },
@@ -405,7 +405,7 @@ async fn load_order_must_list_exactly_the_enabled_plugins() {
     assert_eq!(stored, order);
 }
 
-async fn with_hello() -> (Harness, PluginVocabulary) {
+async fn with_hello() -> (Harness, UserVocabulary) {
     let h = harness().await;
     h.plugins.enable(h.user, "hello").await.unwrap();
     let plugins = h.plugins.vocabulary(h.user).await.unwrap();

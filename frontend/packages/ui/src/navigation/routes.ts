@@ -7,6 +7,7 @@ export type StudioSection =
 	| 'lorebooks'
 	| 'templates'
 	| 'tools'
+	| 'modules'
 	| 'personas'
 	| 'widgets';
 

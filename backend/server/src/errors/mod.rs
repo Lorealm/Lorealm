@@ -11,6 +11,7 @@ mod contract;
 mod conversation;
 mod domain;
 mod lorebook;
+mod module;
 mod permission;
 mod persona;
 mod plugin;
@@ -31,6 +32,7 @@ pub use context::*;
 pub use conversation::*;
 pub use domain::*;
 pub use lorebook::*;
+pub use module::*;
 pub use permission::*;
 pub use persona::*;
 pub use plugin::*;
@@ -63,6 +65,7 @@ pub enum TargetType {
     Realm,
     RealmAgent,
     Blueprint,
+    Module,
     RealmVersion,
     Scenario,
     Tokenizer,
@@ -92,6 +95,7 @@ impl TargetType {
             TargetType::Lorebook => "lorebook",
             TargetType::Realm => "realm",
             TargetType::Blueprint => "blueprint",
+            TargetType::Module => "module",
             TargetType::RealmAgent => "agent",
             TargetType::RealmVersion => "realm version",
             TargetType::Scenario => "scenario",
@@ -129,6 +133,7 @@ impl Display for TargetType {
             TargetType::Lorebook => write!(f, "lorebook"),
             TargetType::Realm => write!(f, "realm"),
             TargetType::Blueprint => write!(f, "blueprint"),
+            TargetType::Module => write!(f, "module"),
             TargetType::RealmAgent => write!(f, "realm_agent"),
             TargetType::RealmVersion => write!(f, "realm_version"),
             TargetType::Scenario => write!(f, "scenario"),

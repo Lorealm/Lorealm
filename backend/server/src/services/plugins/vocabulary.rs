@@ -26,9 +26,12 @@ use weaver_lang::{
 use super::Slot;
 use crate::{
     errors::ContextError,
-    services::context_template::{
-        ContentRef, ContextSource, PromptRole, ResolveContext, ResolvedBlock, SourceDefinition,
-        SourceNodeDefinition, SourceType,
+    services::{
+        context_template::{
+            ContentRef, ContextSource, PromptRole, ResolveContext, ResolvedBlock, SourceDefinition,
+            SourceNodeDefinition, SourceType,
+        },
+        module::{self, LoadedModule, ModuleExports},
     },
     util::weaver::{json_to_weaver, weaver_to_json},
 };
@@ -39,12 +42,13 @@ pub const PLUGIN_SOURCE_PREFIX: &str = "plugin:";
 /// A snapshot of what one user's loaded plugins registered, and the means to
 /// call them.
 #[derive(Clone)]
-pub struct PluginVocabulary {
+pub struct UserVocabulary {
     slot: Slot,
     runtime: Handle,
     commands: Vec<(String, CommandSignature)>,
     processors: Vec<(String, ProcessorSignature)>,
     sources: Vec<PluginSourceDef>,
+    modules: Vec<LoadedModule>,
 }
 
 #[derive(Clone)]
@@ -55,7 +59,7 @@ struct PluginSourceDef {
     nodes: Vec<SourceNode>,
 }
 
-impl PluginVocabulary {
+impl UserVocabulary {
     pub(super) fn new(
         slot: Slot,
         plugins: &[(String, lorealm_plugins::LoadedPlugin)],
@@ -67,6 +71,7 @@ impl PluginVocabulary {
             commands: Vec::new(),
             processors: Vec::new(),
             sources: Vec::new(),
+            modules: Vec::new(),
         };
         for (handle, plugin) in plugins {
             let registered = plugin.registrations();
@@ -89,6 +94,16 @@ impl PluginVocabulary {
             }
         }
         vocabulary
+    }
+
+    pub(super) fn with_modules(mut self, modules: Vec<LoadedModule>) -> Self {
+        self.modules = modules;
+        self
+    }
+
+    /// Exported module values, each read as the module's own scope.
+    pub fn module_values(&self) -> ModuleExports {
+        module::values(&self.modules)
     }
 
     pub fn register(&self, registry: &mut Registry) {
@@ -114,6 +129,12 @@ impl PluginVocabulary {
                 signature: processor_signature(handle, sig),
             });
         }
+
+        // Last, so a module can't shadow a plugin either.
+        let handles: Vec<&str> = (self.commands.iter().map(|(h, _)| h.as_str()))
+            .chain(self.processors.iter().map(|(h, _)| h.as_str()))
+            .collect();
+        module::register(&self.modules, &handles, registry);
     }
 
     /// One context source per plugin that registered nodes.
@@ -165,13 +186,13 @@ impl PluginVocabulary {
 
 /// Lorebooks run Weaver through `context_weaver`, which takes its vocabulary
 /// as plugins.
-impl context_weaver::Plugin for PluginVocabulary {
+impl context_weaver::Plugin for UserVocabulary {
     fn name(&self) -> &str {
         "lorealm_plugins"
     }
 
     fn register(&self, registry: &mut Registry) {
-        PluginVocabulary::register(self, registry);
+        UserVocabulary::register(self, registry);
     }
 }
 
