@@ -12,6 +12,17 @@ jobs:
         with:
           fetch-depth: 0
       - run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo "::error::$GITHUB_REF_NAME is not on main"; exit 1; }
+      # The server downloads the web UI for its own version, so it must match the tag.
+      # This also checks the frontend's package.json files, which aren't strictly required
+      # to match, but it's a semantic I think is worth keeping.
+      - run: |
+          fail=0
+          check() { [ "$2" = "${GITHUB_REF_NAME#v}" ] || { echo "::error file=$1::version is $2, but the tag is $GITHUB_REF_NAME"; fail=1; }; }
+          check backend/server/Cargo.toml "$(sed -n 's/^version = "\(.*\)"/\1/p' backend/server/Cargo.toml)"
+          for f in frontend/apps/desktop/src-tauri/tauri.conf.json frontend/apps/*/package.json frontend/packages/*/package.json; do
+            check "$f" "$(jq -r .version "$f")"
+          done
+          exit $fail
 
   server:
     needs: on-main
