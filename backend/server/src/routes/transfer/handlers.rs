@@ -13,8 +13,9 @@ use crate::{
     extract::AuthenticatedSession,
     services::{
         cards::{
-            extension::{LorealmCardExtension, ToolData, WidgetData},
-            import::{ImportOptions, import_attachments},
+            extension::{LorealmCardExtension, LorebookData, ToolData, WidgetData},
+            import::{AttachmentReport, ImportOptions, import_attachments},
+            lorebook::lorebook_from_data,
         },
         context_template::{ContextNode, ContextTemplate, NodeContent},
         persona::UpdatePersona,
@@ -72,6 +73,12 @@ pub async fn export(
             Item::Widget {
                 widgets: vec![WidgetData::from_widget(&widget, hashes)],
                 tools,
+            }
+        }
+        Kind::Lorebook => {
+            let lorebook = services.lorebooks().get_lorebook(id, user_id).await?;
+            Item::Lorebook {
+                lorebook: LorebookData::from_lorebook(&lorebook),
             }
         }
     };
@@ -132,6 +139,29 @@ pub async fn import(
                 kind: Kind::Persona,
                 id: Some(id),
                 report: None,
+            }));
+        }
+        Item::Lorebook { lorebook } => {
+            let mut report = AttachmentReport::default();
+            let id = match lorebook_from_data(&lorebook, user_id, services.snowflake()) {
+                Some(book) => {
+                    services
+                        .storage()
+                        .save_lorebook(&book)
+                        .await
+                        .map_err(ContextError::from)?;
+                    report.created += 1;
+                    Some(book.id)
+                }
+                None => {
+                    report.skipped.push(lorebook.name);
+                    None
+                }
+            };
+            return Ok(Json(ImportResponse {
+                kind: Kind::Lorebook,
+                id,
+                report: Some(report),
             }));
         }
         Item::Tool { tools } => (Kind::Tool, tools, Vec::new()),

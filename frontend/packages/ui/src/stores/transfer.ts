@@ -3,6 +3,7 @@ import type { Snowflake } from '$lib/types/core.js';
 import { extractError } from '$lib/types/error.js';
 import type { TransferFile, TransferKind } from '$lib/types/transfer.js';
 import { characterStore } from './character.svelte.js';
+import { lorebookStore } from './lorebook.svelte.js';
 import { showApiError } from './errorActions.js';
 import { showToast } from './errorToast.svelte.js';
 import { personaStore } from './persona.svelte.js';
@@ -12,26 +13,62 @@ import { templateStore } from './template.svelte.js';
 import { toolStore } from './tools.svelte.js';
 import { userWidgetStore } from './userWidgets.svelte.js';
 
-const KINDS: string[] = ['template', 'persona', 'tool', 'widget'] satisfies TransferKind[];
+const KINDS: string[] = [
+	'template',
+	'persona',
+	'tool',
+	'widget',
+	'lorebook'
+] satisfies TransferKind[];
 
-/** Saves a template, persona, tool or widget as a JSON file. */
+function fileStem(name: string, fallback: string): string {
+	return name.replace(/[^A-Za-z0-9 _-]/g, '_').trim() || fallback;
+}
+
+/** Saves a template, persona, tool, widget or lorebook as a JSON file. */
 export async function exportItem(kind: TransferKind, id: Snowflake, name: string) {
 	try {
 		const file = await useApi().transfer.export(kind, id);
-		const stem = name.replace(/[^A-Za-z0-9 _-]/g, '_').trim() || kind;
 		await usePlatform().files.save(JSON.stringify(file, null, '\t'), {
 			label: `Lorealm ${kind}`,
 			extensions: ['json'],
-			suggestedName: `${stem}.${kind}.json`
+			suggestedName: `${fileStem(name, kind)}.${kind}.json`
 		});
 	} catch (e) {
 		showApiError(e, { title: `Could not export ${kind}` });
 	}
 }
 
+export async function exportSillyTavernLorebook(id: Snowflake, name: string) {
+	try {
+		const { file, warnings } = await useApi().lorebooks.exportSillyTavern(id);
+		if (warnings.length > 0) {
+			const choice = await showPopup({
+				title: `Export ${name} for SillyTavern`,
+				message: [
+					'Lorealm-only features come back when the file is imported into Lorealm again, unless a site removed them.',
+					"**What won't carry over:**",
+					warnings.map((w) => `- ${w.message}`).join('\n')
+				].join('\n\n'),
+				variant: 'warning',
+				actions: [{ label: 'Cancel' }, { label: 'Download', tone: 'primary' }]
+			});
+			if (choice !== 'Download') return;
+		}
+		await usePlatform().files.save(JSON.stringify(file, null, '\t'), {
+			label: 'SillyTavern lorebook',
+			extensions: ['json'],
+			suggestedName: `${fileStem(name, 'lorebook')}.json`
+		});
+	} catch (e) {
+		showApiError(e, { title: 'Could not export lorebook' });
+	}
+}
+
 type Detected =
 	| { kind: 'character' }
 	| { kind: 'style'; text: string }
+	| { kind: 'SillyTavern lorebook'; data: unknown }
 	| { kind: TransferKind; data: TransferFile };
 
 async function detect(file: File): Promise<Detected | null> {
@@ -56,7 +93,9 @@ async function detect(file: File): Promise<Detected | null> {
 	if (typeof json?.spec === 'string' && json.spec.startsWith('chara_card')) {
 		return { kind: 'character' };
 	}
-	// Style files carry no marker, only their fields.
+	if (typeof json?.entries === 'object' && json.entries !== null) {
+		return { kind: 'SillyTavern lorebook', data: json };
+	}
 	if (
 		typeof json?.name === 'string' &&
 		(typeof json.css === 'string' || typeof json.tokens === 'object')
@@ -77,7 +116,7 @@ export async function importFiles(files: File[]) {
 	for (const file of files) {
 		const detected = await detect(file);
 		if (detected) items.push({ file, detected });
-		else failed.push(`**${file.name}**: not a character card, style or Lorealm export.`);
+		else failed.push(`**${file.name}**: not a character card, lorebook, style or Lorealm export.`);
 	}
 
 	if (items.length > 0) {
@@ -120,6 +159,12 @@ export async function importFiles(files: File[]) {
 		try {
 			if (detected.kind === 'style') {
 				await styles.add(parseStyle(detected.text));
+			} else if (detected.kind === 'SillyTavern lorebook') {
+				const name = file.name.replace(/\.json$/i, '');
+				const book = await useApi().lorebooks.importSillyTavern(detected.data, name);
+				touched.add('lorebook');
+				if (book.skipped > 0)
+					notes.push(`${book.skipped} entries in ${book.name} couldn't be read and were left out.`);
 			} else {
 				const { id, report } = await useApi().transfer.import(detected.data);
 				touched.add(detected.kind);
@@ -150,6 +195,7 @@ export async function importFiles(files: File[]) {
 		if (touched.has('persona')) await personaStore.loadPersonas();
 		if (touched.has('tool') || touched.has('widget')) await toolStore.loadTools();
 		if (touched.has('widget')) await userWidgetStore.loadWidgets();
+		if (touched.has('lorebook')) await lorebookStore.loadList();
 	} catch (e) {
 		showApiError(e, { title: 'Could not refresh after importing' });
 	}

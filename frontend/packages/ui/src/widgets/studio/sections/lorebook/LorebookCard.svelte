@@ -1,13 +1,28 @@
 <script lang="ts">
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { navigator } from '$lib/navigation/navigator.js';
+	import PopupMenu from '$lib/components/PopupMenu.svelte';
 	import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
+	import { exportItem, exportSillyTavernLorebook } from '$lib/stores/transfer.js';
 	import type { LorebookMetadata } from '$lib/types/lorebook.js';
-	import { BookOpen, Check, Pencil, Trash2 } from '@lucide/svelte';
+	import { BookOpen, Check, FileBraces, Pencil, Trash2, Upload } from '@lucide/svelte';
 
 	let { meta }: { meta: LorebookMetadata } = $props();
 
 	const active = $derived(lorebookStore.isActive(meta.id));
+
+	const exportItems = $derived([
+		{
+			label: 'SillyTavern',
+			icon: FileBraces,
+			onSelect: () => void exportSillyTavernLorebook(meta.id, meta.name)
+		},
+		{
+			label: 'Lorealm',
+			icon: FileBraces,
+			onSelect: () => void exportItem('lorebook', meta.id, meta.name)
+		}
+	]);
 
 	let confirmingDelete = $state(false);
 	let busy = $state(false);
@@ -71,6 +86,9 @@
 				<Pencil size={14} />
 				Edit
 			</button>
+			<PopupMenu title="Export" placement="down" items={exportItems}>
+				{#snippet icon()}<Upload size={14} />{/snippet}
+			</PopupMenu>
 			<button
 				type="button"
 				class="del"

@@ -7,6 +7,7 @@ import type {
 	ExportProfileId,
 	ExportProfileInfo,
 	ExportWarning,
+	ImportedLorebook,
 	ImportOptions,
 	AvatarUpdateResponse,
 	Character,
@@ -255,6 +256,15 @@ export function createApiClient(platform: PlatformAPI) {
 			update: (id: Snowflake, update: UpdateLorebookRequest) =>
 				http.put<Lorebook>(`/api/v1/lorebooks/${id}`, update),
 			delete: (id: Snowflake) => http.delete(`/api/v1/lorebooks/${id}`),
+			exportSillyTavern: (id: Snowflake) =>
+				http.get<{ file: unknown; warnings: ExportWarning[] }>(
+					`/api/v1/lorebooks/${id}/export/sillytavern`
+				),
+			importSillyTavern: (file: unknown, name: string) =>
+				http.post<ImportedLorebook>(
+					`/api/v1/lorebooks/import/sillytavern?name=${encodeURIComponent(name)}`,
+					file
+				),
 			active: {
 				get: () => http.get<Array<Snowflake> | null>('/api/v1/lorebooks/active'),
 				set: (request: SetActiveLorebooksRequest) => http.put('/api/v1/lorebooks/active', request)

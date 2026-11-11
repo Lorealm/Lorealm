@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::services::{
     cards::{
-        extension::{ToolData, WidgetData},
+        extension::{LorebookData, ToolData, WidgetData},
         import::AttachmentReport,
     },
     context_template::ContextNode,
@@ -19,9 +19,10 @@ pub enum Kind {
     Persona,
     Tool,
     Widget,
+    Lorebook,
 }
 
-/// An exported template, persona, tool or widget.
+/// An exported template, persona, tool, widget or lorebook.
 #[derive(Serialize, Deserialize)]
 pub struct TransferFile {
     pub lorealm: u32,
@@ -51,14 +52,15 @@ pub enum Item {
         tools: Vec<ToolData>,
         widgets: Vec<WidgetData>,
     },
+    Lorebook {
+        lorebook: LorebookData,
+    },
 }
 
 #[derive(Serialize)]
 pub struct ImportResponse {
     pub kind: Kind,
-    /// None when a tool or widget was left out; the report says why.
     pub id: Option<Snowflake>,
-    /// Present for tools and widgets.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub report: Option<AttachmentReport>,
 }

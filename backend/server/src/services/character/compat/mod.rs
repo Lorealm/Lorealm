@@ -1,5 +1,3 @@
-mod lorebook;
-
 use std::collections::HashMap;
 
 use chrono::Utc;
@@ -18,8 +16,8 @@ use crate::services::{
     snowflake::SnowflakeService,
 };
 
-pub use lorebook::ImportedLorebook;
-use lorebook::{CharacterBook, convert_character_book};
+pub use crate::services::cards::lorebook::ImportedLorebook;
+use crate::services::cards::lorebook::{CharacterBook, convert_character_book};
 
 #[derive(Deserialize)]
 pub(super) struct CharaV2 {
@@ -31,7 +29,7 @@ pub(super) struct CharaV2 {
 }
 
 /// Deserialize a field that may be present but `null`.
-pub(super) fn null_as_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+pub(crate) fn null_as_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
 where
     D: serde::Deserializer<'de>,
     T: Deserialize<'de> + Default,
