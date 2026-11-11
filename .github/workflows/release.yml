@@ -63,6 +63,7 @@ jobs:
 
   desktop:
     needs: on-main
+    timeout-minutes: 60
     strategy:
       matrix:
         os: [ubuntu-22.04, windows-latest, macos-latest]
