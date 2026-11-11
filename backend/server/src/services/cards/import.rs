@@ -1,14 +1,16 @@
 use std::collections::{HashMap, HashSet};
 
 use chrono::Utc;
-use context_weaver::{Entry, LorebookConfig};
 use lorealm_storage::{
     Storage,
-    models::{Lorebook, LorebookEntry, Snowflake, UserTool, UserWidget},
+    models::{Snowflake, UserTool, UserWidget},
 };
 use serde::{Deserialize, Serialize};
 
-use super::extension::{LorealmCardExtension, LorebookData, ToolData, WidgetData};
+use super::{
+    extension::{LorealmCardExtension, LorebookData, ToolData, WidgetData},
+    lorebook::lorebook_from_data,
+};
 use crate::{
     errors::CharacterError,
     services::{
@@ -260,37 +262,4 @@ async fn create_tool(
     storage.save_tool(tool.clone()).await?;
     report.created += 1;
     Ok(Some(tool.id))
-}
-
-fn lorebook_from_data(
-    data: &LorebookData,
-    owner_id: Snowflake,
-    snowflake: &SnowflakeService,
-) -> Option<Lorebook> {
-    serde_yaml::from_str::<LorebookConfig>(&data.config_yaml).ok()?;
-    let id = snowflake.generate();
-    let entries = data
-        .entries
-        .iter()
-        .filter(|e| Entry::parse(&e.source, None).is_ok())
-        .map(|e| LorebookEntry {
-            id: snowflake.generate(),
-            lorebook_id: id,
-            entry_id: e.entry_id.clone(),
-            source: e.source.clone(),
-        })
-        .collect();
-    let now = Utc::now();
-    Some(Lorebook {
-        id,
-        owner_id,
-        current_version_id: id, // placeholder while versioning is dormant
-        name: data.name.clone(),
-        description: data.description.clone(),
-        config_yaml: data.config_yaml.clone(),
-        schema_version: 1,
-        created_at: now,
-        updated_at: now,
-        entries,
-    })
 }

@@ -16,7 +16,7 @@ use super::{
         EXTENSION_KEY, EXTENSION_VERSION, LorealmCardExtension, LorebookData, NativeFields,
         TextDialect, ToolData, WidgetData,
     },
-    sillytavern::to_character_book,
+    lorebook::{ConvertedBook, to_character_book},
     tokens::{sillytavern_to_weaver, weaver_to_sillytavern},
 };
 use crate::{
@@ -220,6 +220,30 @@ fn portrait(bundle: &CharacterBundle) -> (Vec<u8>, bool) {
         Some(png) => (png, false),
         None => (PLACEHOLDER_PORTRAIT.to_vec(), true),
     }
+}
+
+/// What a lorebook lost on its way into a SillyTavern format.
+pub fn lorebook_warnings(lorebook: &Lorebook, converted: &ConvertedBook) -> Vec<ExportWarning> {
+    let mut warnings = Vec::new();
+    if converted.non_portable_entries > 0 {
+        warnings.push(ExportWarning {
+            code: "weaver_lorebook_entries",
+            message: format!(
+                "{} entries in \"{}\" use Weaver features other platforms can't run.",
+                converted.non_portable_entries, lorebook.name
+            ),
+        });
+    }
+    if converted.skipped > 0 {
+        warnings.push(ExportWarning {
+            code: "lorebook_entries_skipped",
+            message: format!(
+                "{} entries in \"{}\" couldn't be read and were left out of the SillyTavern lorebook.",
+                converted.skipped, lorebook.name
+            ),
+        });
+    }
+    warnings
 }
 
 fn placeholder_warning() -> ExportWarning {
@@ -465,25 +489,8 @@ fn compose(bundle: &CharacterBundle, profile: ExportProfile) -> Composed {
         }
         if let Some(main) = bundle.lorebooks.first() {
             let converted = to_character_book(main);
+            warnings.extend(lorebook_warnings(main, &converted));
             data["character_book"] = converted.book;
-            if converted.non_portable_entries > 0 {
-                warnings.push(ExportWarning {
-                    code: "weaver_lorebook_entries",
-                    message: format!(
-                        "{} entries in \"{}\" use Weaver features other platforms can't run.",
-                        converted.non_portable_entries, main.name
-                    ),
-                });
-            }
-            if converted.skipped > 0 {
-                warnings.push(ExportWarning {
-                    code: "lorebook_entries_skipped",
-                    message: format!(
-                        "{} entries in \"{}\" couldn't be read and were left out of the SillyTavern lorebook.",
-                        converted.skipped, main.name
-                    ),
-                });
-            }
         }
         let extra = bundle.lorebooks.len().saturating_sub(1);
         if extra > 0 {

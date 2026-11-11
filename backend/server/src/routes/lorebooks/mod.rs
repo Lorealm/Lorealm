@@ -22,6 +22,10 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         .route("/active", get(handlers::get_active))
         .route("/{lorebook_id}", get(handlers::get_lorebook))
         .route(
+            "/{lorebook_id}/export/sillytavern",
+            get(handlers::export_sillytavern),
+        )
+        .route(
             "/{lorebook_id}/entries/{entry_id}",
             get(handlers::get_entry),
         )
@@ -33,6 +37,7 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
     let csrf_routes = Router::new()
         .route("/", post(handlers::create_lorebook))
         .route("/active", put(handlers::set_active))
+        .route("/import/sillytavern", post(handlers::import_sillytavern))
         .route("/{lorebook_id}", put(handlers::update_lorebook))
         .route("/{lorebook_id}", delete(handlers::delete_lorebook))
         .route("/{lorebook_id}/entries", post(handlers::create_entry))

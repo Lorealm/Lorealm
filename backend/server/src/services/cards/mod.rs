@@ -1,5 +1,5 @@
 pub mod export;
 pub mod extension;
 pub mod import;
-pub mod sillytavern;
+pub mod lorebook;
 pub mod tokens;

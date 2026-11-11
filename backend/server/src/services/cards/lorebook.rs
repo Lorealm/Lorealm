@@ -1,30 +1,16 @@
-//! `character_book` → Lorealm lorebook conversion.
-//!
-//! Character cards (CCv2 and V3 alike) may embed a SillyTavern-style
-//! `character_book`. This module turns one into a storage `Lorebook` whose
-//! entries are real `.weaver` sources.
-//!
-//! This conversion process is currently lossy while we work on expanding the
-//! general infrastructure of the app. Unsupported ST macros such as {{getvar::name}},
-//! {{random::a::b::c}}, etc. will be replaced by equivalent macros/reserved variables
-//! down the road.
-//!
-//! Refer to https://docs.sillytavern.app/usage/core-concepts/macros/#common-macros-by-category for more.
-//!
-//! NOTE: Nothing here is allowed to fail the character import: a book that cannot
-//! be converted is reported and skipped, and the character still lands.
-
 use std::collections::{HashMap, HashSet};
 
 use chrono::Utc;
-use context_weaver::{EntryMeta, LorebookConfig, Slot};
+use context_weaver::{Entry, EntryMeta, LorebookConfig, Slot};
 use lorealm_storage::models::{Lorebook, LorebookEntry, Snowflake};
 use serde::Deserialize;
+use serde_json::{Map, Value, json};
 
-use crate::services::snowflake::SnowflakeService;
+use super::{extension::LorebookData, tokens::weaver_to_sillytavern};
+use crate::services::{character::compat::null_as_default, snowflake::SnowflakeService};
 
 #[derive(Debug, Deserialize)]
-pub(super) struct CharacterBook {
+pub(crate) struct CharacterBook {
     #[serde(default)]
     pub name: Option<String>,
     #[serde(default)]
@@ -33,23 +19,23 @@ pub(super) struct CharacterBook {
     pub scan_depth: Option<usize>,
     #[serde(default)]
     pub token_budget: Option<usize>,
-    // ContextWeaver does not have an option to outright disable recursion yet
+    // ContextWeaver does not have an option to outright disable recursion
     // so this field is never used
     #[serde(default)]
     pub recursive_scanning: Option<bool>,
-    #[serde(default, deserialize_with = "super::null_as_default")]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub entries: Vec<BookEntry>,
 }
 
 #[derive(Debug, Deserialize)]
-pub(super) struct BookEntry {
+pub(crate) struct BookEntry {
     #[serde(default)]
     pub name: Option<String>,
-    #[serde(default, deserialize_with = "super::null_as_default")]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub keys: Vec<String>,
-    #[serde(default, deserialize_with = "super::null_as_default")]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub secondary_keys: Vec<serde_json::Value>,
-    #[serde(default, deserialize_with = "super::null_as_default")]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub content: String,
     #[serde(default = "default_true", deserialize_with = "null_as_true")]
     pub enabled: bool,
@@ -61,23 +47,19 @@ pub(super) struct BookEntry {
     pub priority: Option<i32>,
     #[serde(default)]
     pub comment: Option<String>,
-    #[serde(default, deserialize_with = "super::null_as_default")]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub constant: bool,
-    #[serde(default, deserialize_with = "super::null_as_default")]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub selective: bool,
-    /// `"before_char"`, `"after_char"`, `"at_depth"`, … Absent on many cards,
-    /// in which case `extensions.position` carries the numeric form.
     #[serde(default)]
     pub position: Option<String>,
-    #[serde(default, deserialize_with = "super::null_as_default")]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub extensions: EntryExtensions,
 }
 
-/// The ST `extensions` blob on an entry. Only the fields weaver can act on
-/// are named. Unsupported fields are collceted in `extra` and end up in the entry's
-/// frontmatter extensions.
+/// The ST `extensions` blob on an entry.
 #[derive(Debug, Default, Deserialize)]
-pub(super) struct EntryExtensions {
+pub(crate) struct EntryExtensions {
     #[serde(default)]
     pub depth: Option<usize>,
     #[serde(default)]
@@ -98,14 +80,10 @@ fn default_true() -> bool {
     true
 }
 
-/// `enabled`'s null-tolerant reader. Unlike the other flags it defaults to
-/// `true`, so it cannot share `super::null_as_default`.
 fn null_as_true<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<bool, D::Error> {
     Ok(Option::<bool>::deserialize(deserializer)?.unwrap_or(true))
 }
 
-/// What a book conversion produced. Surfaced to the client so the import
-/// toast can say something truthful about entry counts.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ImportedLorebook {
     pub id: Snowflake,
@@ -118,10 +96,7 @@ pub struct ImportedLorebook {
 }
 
 /// Build a storage `Lorebook` from an embedded `character_book`.
-///
-/// `character_name` only supplies a fallback title for books that ship
-/// without a name of their own.
-pub(super) fn convert_character_book(
+pub(crate) fn convert_character_book(
     book: CharacterBook,
     character_name: &str,
     owner_id: Snowflake,
@@ -145,10 +120,10 @@ pub(super) fn convert_character_book(
     if let Some(depth) = book.scan_depth {
         config.default_scan_depth = depth;
     }
+    
     config.token_budget = book.token_budget;
-    // Per-entry in ST, book-level in ContextWeaver. Take the majority vote so the
-    // common "every entry agrees" case is preserved exactly.
     config.case_sensitive_keywords = majority_case_sensitive(&book.entries);
+    
     if let Some(recursive) = book.recursive_scanning {
         config.extensions.insert(
             "st_recursive_scanning".to_string(),
@@ -181,7 +156,6 @@ pub(super) fn convert_character_book(
         }
     }
 
-    // A book whose every entry was unusable is not worth creating.
     if entries.is_empty() {
         return None;
     }
@@ -211,8 +185,6 @@ pub(super) fn convert_character_book(
     ))
 }
 
-/// Convert one ST entry into its `(entry_id, .weaver source)` pair, or `None`
-/// if the result would not parse.
 fn convert_entry(
     entry: BookEntry,
     index: usize,
@@ -237,8 +209,6 @@ fn convert_entry(
 
     let mut extensions: HashMap<String, serde_yaml::Value> = HashMap::new();
 
-    // ST knobs weaver has no field for. Preserved so nothing is lost on the
-    // way in, and so a future feature can pick them up.
     if entry.selective && !entry.secondary_keys.is_empty() {
         let secondary: Vec<serde_yaml::Value> = entry
             .secondary_keys
@@ -259,11 +229,12 @@ fn convert_entry(
         }
     }
 
+    let (keywords, regex) = split_regex_keys(entry.keys);
     let meta = EntryMeta {
         id,
         name: display_name,
-        keywords: entry.keys,
-        regex: Vec::new(),
+        keywords,
+        regex,
         condition: None,
         scan_depth: entry.extensions.scan_depth,
         constant: entry.constant,
@@ -283,8 +254,6 @@ fn convert_entry(
     let frontmatter = serde_yaml::to_string(&meta).ok()?;
     let source = format!("---\n{frontmatter}---\n{body}");
 
-    // The editor and `LorebookService::update_entry` both refuse sources that
-    // don't parse; refuse them here too rather than persisting a landmine.
     match context_weaver::Entry::parse(&source, None) {
         Ok(_) => Some((meta.id, source)),
         Err(e) => {
@@ -294,7 +263,45 @@ fn convert_entry(
     }
 }
 
-/// Converts ST position semantics to ContextWeaver slots
+fn split_regex_keys(keys: Vec<String>) -> (Vec<String>, Vec<String>) {
+    let mut keywords = Vec::new();
+    let mut regex = Vec::new();
+    for key in keys {
+        match regex_from_key(&key) {
+            Some(pattern) => regex.push(pattern),
+            None => keywords.push(key),
+        }
+    }
+    (keywords, regex)
+}
+
+fn regex_from_key(key: &str) -> Option<String> {
+    let (pattern, flags) = key.strip_prefix('/')?.rsplit_once('/')?;
+    if pattern.is_empty() || !flags.chars().all(|c| "gimsuy".contains(c)) {
+        return None;
+    }
+    let inline: String = flags.chars().filter(|c| "ims".contains(*c)).collect();
+    let pattern = if inline.is_empty() {
+        pattern.to_owned()
+    } else {
+        format!("(?{inline}){pattern}")
+    };
+    regex::Regex::new(&pattern).ok()?;
+    Some(pattern)
+}
+
+fn regex_to_key(pattern: &str) -> String {
+    if let Some((flags, body)) = pattern
+        .strip_prefix("(?")
+        .and_then(|rest| rest.split_once(')'))
+        && !flags.is_empty()
+        && flags.chars().all(|c| "ims".contains(c))
+    {
+        return format!("/{body}/{flags}");
+    }
+    format!("/{pattern}/")
+}
+
 fn slot_for(position: &Option<String>, ext: &EntryExtensions) -> Slot {
     let depth = ext.depth.unwrap_or(0);
 
@@ -319,17 +326,6 @@ fn slot_for(position: &Option<String>, ext: &EntryExtensions) -> Slot {
 }
 
 /// Rewrite an ST entry body into something weaver will compile.
-///
-/// weaver-lang has no escape for a literal `{{`, so every `{{…}}` span in the
-/// source is either translated or removed:
-///
-///   * `{{user}}` / `{{char}}` -> their weaver spellings
-///   * spans that are already weaver host variables → left alone
-///   * everything else (`{{random:a,b}}`, `{{getvar::x}}`, …) -> (currently) dropped
-///
-/// Other construct openers (`@[`, `$[`, `[[`, `{#`, `<trigger`) are broken
-/// with a space. They are vanishingly rare in prose, and a stray space beats
-/// losing the entry.
 fn sanitize_body(content: &str) -> String {
     let mut out = String::with_capacity(content.len());
     let mut rest = content;
@@ -339,7 +335,6 @@ fn sanitize_body(content: &str) -> String {
         let after = &rest[start + 2..];
 
         let Some(end) = after.find("}}") else {
-            // Unbalanced `{{` — nothing after it can be a construct.
             rest = after;
             continue;
         };
@@ -348,7 +343,6 @@ fn sanitize_body(content: &str) -> String {
         match inner.to_ascii_lowercase().as_str() {
             "user" => out.push_str("{{user:name}}"),
             "char" | "bot" => out.push_str("{{char:name}}"),
-            // Already-weaver spellings, e.g. re-importing a card Lorealm wrote.
             "user:name" | "char:name" | "realm:agents" => {
                 out.push_str("{{");
                 out.push_str(inner);
@@ -369,8 +363,6 @@ fn sanitize_body(content: &str) -> String {
     out
 }
 
-/// Slugify a display name into a weaver entry id, keeping it unique within
-/// the book (the storage layer enforces `UNIQUE (lorebook_id, entry_id)`).
 fn unique_id(display_name: &str, index: usize, used: &mut HashSet<String>) -> String {
     let mut slug = String::with_capacity(display_name.len());
     let mut last_underscore = false;
@@ -399,13 +391,309 @@ fn unique_id(display_name: &str, index: usize, used: &mut HashSet<String>) -> St
     id
 }
 
-/// ST stores case sensitivity per entry; weaver stores it per book.
 fn majority_case_sensitive(entries: &[BookEntry]) -> bool {
     let sensitive = entries
         .iter()
         .filter(|e| e.case_sensitive.unwrap_or(false))
         .count();
     sensitive * 2 > entries.len()
+}
+
+pub struct ConvertedBook {
+    pub book: Value,
+    pub non_portable_entries: usize,
+    pub skipped: usize,
+}
+
+pub fn to_character_book(lorebook: &Lorebook) -> ConvertedBook {
+    let config: LorebookConfig = serde_yaml::from_str(&lorebook.config_yaml).unwrap_or_default();
+
+    let mut entries = Vec::with_capacity(lorebook.entries.len());
+    let mut non_portable_entries = 0;
+    let mut skipped = 0;
+
+    for stored in &lorebook.entries {
+        let Ok(entry) = Entry::parse(&stored.source, None) else {
+            skipped += 1;
+            continue;
+        };
+        let meta = &entry.meta;
+        let body = weaver_to_sillytavern(&entry.source_body);
+        if !body.portable || meta.condition.is_some() {
+            non_portable_entries += 1;
+        }
+
+        let (position_name, position, depth) = match meta.slot {
+            Slot::Prelude | Slot::Preamble => ("before_char", 0, 0),
+            Slot::Backdrop | Slot::Setting => ("after_char", 1, 0),
+            Slot::Foreground => ("after_char", 2, 0),
+            Slot::Coda => ("after_char", 4, 0),
+            Slot::AtDepth(depth) => ("after_char", 4, depth),
+        };
+
+        let mut extensions = Map::new();
+        let mut secondary_keys = Vec::new();
+        for (key, value) in &meta.extensions {
+            let Some(name) = key.strip_prefix("st_") else {
+                continue;
+            };
+            let Ok(value) = serde_json::to_value(value) else {
+                continue;
+            };
+            if name == "secondary_keys" {
+                secondary_keys = value.as_array().cloned().unwrap_or_default();
+            } else if name != "recursive_scanning" {
+                extensions.insert(name.to_owned(), value);
+            }
+        }
+        extensions.insert("position".into(), json!(position));
+        extensions.insert("depth".into(), json!(depth));
+        if meta.sticky_turns > 0 {
+            extensions.insert("sticky".into(), json!(meta.sticky_turns));
+        }
+        if meta.cooldown > 0 {
+            extensions.insert("cooldown".into(), json!(meta.cooldown));
+        }
+        if let Some(group) = &meta.group {
+            extensions.insert("group".into(), json!(group));
+        }
+        if let Some(scan_depth) = meta.scan_depth {
+            extensions.insert("scan_depth".into(), json!(scan_depth));
+        }
+
+        entries.push(json!({
+            "id": entries.len(),
+            "keys": meta
+                .keywords
+                .iter()
+                .cloned()
+                .chain(meta.regex.iter().map(|r| regex_to_key(r)))
+                .collect::<Vec<_>>(),
+            "secondary_keys": secondary_keys,
+            "selective": !secondary_keys.is_empty(),
+            "content": body.text,
+            "enabled": meta.enabled,
+            "insertion_order": meta.insertion_order,
+            "case_sensitive": config.case_sensitive_keywords,
+            "priority": meta.priority,
+            "name": meta.name,
+            "comment": meta.name,
+            "constant": meta.constant,
+            "use_regex": false,
+            "position": position_name,
+            "extensions": extensions,
+        }));
+    }
+
+    let mut book = json!({
+        "name": lorebook.name,
+        "description": lorebook.description,
+        "scan_depth": config.default_scan_depth,
+        "extensions": {},
+        "entries": entries,
+    });
+    if let Some(budget) = config.token_budget {
+        book["token_budget"] = json!(budget);
+    }
+    if let Some(serde_yaml::Value::Bool(recursive)) = config.extensions.get("st_recursive_scanning")
+    {
+        book["recursive_scanning"] = json!(recursive);
+    }
+
+    ConvertedBook {
+        book,
+        non_portable_entries,
+        skipped,
+    }
+}
+
+pub fn to_world_info(lorebook: &Lorebook) -> ConvertedBook {
+    let mut converted = to_character_book(lorebook);
+    let mut entries = Map::new();
+    let book_entries = converted.book["entries"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    for (uid, entry) in book_entries.iter().enumerate() {
+        let mut fields: Map<String, Value> = entry["extensions"]
+            .as_object()
+            .into_iter()
+            .flatten()
+            .map(|(k, v)| (snake_to_camel(k), v.clone()))
+            .collect();
+        for (key, default) in [
+            ("probability", json!(100)),
+            ("useProbability", json!(true)),
+            ("selectiveLogic", json!(0)),
+        ] {
+            fields.entry(key).or_insert(default);
+        }
+        for (key, value) in [
+            ("uid", json!(uid)),
+            ("key", entry["keys"].clone()),
+            ("keysecondary", entry["secondary_keys"].clone()),
+            ("comment", entry["comment"].clone()),
+            ("content", entry["content"].clone()),
+            ("constant", entry["constant"].clone()),
+            ("selective", entry["selective"].clone()),
+            ("order", entry["insertion_order"].clone()),
+            (
+                "disable",
+                json!(!entry["enabled"].as_bool().unwrap_or(true)),
+            ),
+            ("caseSensitive", entry["case_sensitive"].clone()),
+        ] {
+            fields.insert(key.to_owned(), value);
+        }
+        entries.insert(uid.to_string(), Value::Object(fields));
+    }
+    converted.book = json!({
+        "name": lorebook.name,
+        "description": lorebook.description,
+        "entries": entries,
+        "extensions": { super::extension::EXTENSION_KEY: LorebookData::from_lorebook(lorebook) },
+    });
+    converted
+}
+
+const WORLD_FIELDS: [&str; 10] = [
+    "uid",
+    "key",
+    "keysecondary",
+    "comment",
+    "content",
+    "constant",
+    "selective",
+    "order",
+    "disable",
+    "caseSensitive",
+];
+
+fn world_info_to_character_book(world: &Value, name: &str) -> Value {
+    let mut entries: Vec<&Map<String, Value>> = world["entries"]
+        .as_object()
+        .into_iter()
+        .flat_map(|m| m.values())
+        .filter_map(Value::as_object)
+        .collect();
+    entries.sort_by_key(|e| e.get("uid").and_then(Value::as_i64).unwrap_or(i64::MAX));
+
+    let entries: Vec<Value> = entries
+        .into_iter()
+        .map(|e| {
+            let extensions: Map<String, Value> = e
+                .iter()
+                .filter(|(k, v)| !WORLD_FIELDS.contains(&k.as_str()) && !v.is_null())
+                .map(|(k, v)| (camel_to_snake(k), v.clone()))
+                .collect();
+            json!({
+                "keys": e.get("key"),
+                "secondary_keys": e.get("keysecondary"),
+                "comment": e.get("comment"),
+                "content": e.get("content"),
+                "constant": e.get("constant"),
+                "selective": e.get("selective"),
+                "insertion_order": e.get("order"),
+                "enabled": !e.get("disable").and_then(Value::as_bool).unwrap_or(false),
+                "case_sensitive": e.get("caseSensitive"),
+                "extensions": extensions,
+            })
+        })
+        .collect();
+
+    json!({
+        "name": world.get("name").and_then(Value::as_str).unwrap_or(name),
+        "description": world.get("description"),
+        "entries": entries,
+    })
+}
+
+pub fn import_file(
+    json: &Value,
+    name: &str,
+    owner_id: Snowflake,
+    snowflake: &SnowflakeService,
+) -> Option<(Lorebook, ImportedLorebook)> {
+    let native = json
+        .pointer(&format!("/extensions/{}", super::extension::EXTENSION_KEY))
+        .and_then(|v| serde_json::from_value::<LorebookData>(v.clone()).ok());
+    if let Some(data) = native {
+        let book = lorebook_from_data(&data, owner_id, snowflake)?;
+        let stats = ImportedLorebook {
+            id: book.id,
+            name: book.name.clone(),
+            entry_count: book.entries.len(),
+            skipped: data.entries.len() - book.entries.len(),
+        };
+        return Some((book, stats));
+    }
+
+    let book = if json["entries"].is_object() {
+        world_info_to_character_book(json, name)
+    } else {
+        json.clone()
+    };
+    let book: CharacterBook = serde_json::from_value(book).ok()?;
+    convert_character_book(book, name, owner_id, snowflake)
+}
+
+fn snake_to_camel(key: &str) -> String {
+    let mut parts = key.split('_');
+    let mut out = parts.next().unwrap_or_default().to_owned();
+    for part in parts {
+        let mut chars = part.chars();
+        if let Some(first) = chars.next() {
+            out.extend(first.to_uppercase());
+            out.push_str(chars.as_str());
+        }
+    }
+    out
+}
+
+fn camel_to_snake(key: &str) -> String {
+    let mut out = String::with_capacity(key.len() + 4);
+    for c in key.chars() {
+        if c.is_ascii_uppercase() {
+            out.push('_');
+            out.push(c.to_ascii_lowercase());
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
+pub fn lorebook_from_data(
+    data: &LorebookData,
+    owner_id: Snowflake,
+    snowflake: &SnowflakeService,
+) -> Option<Lorebook> {
+    serde_yaml::from_str::<LorebookConfig>(&data.config_yaml).ok()?;
+    let id = snowflake.generate();
+    let entries = data
+        .entries
+        .iter()
+        .filter(|e| Entry::parse(&e.source, None).is_ok())
+        .map(|e| LorebookEntry {
+            id: snowflake.generate(),
+            lorebook_id: id,
+            entry_id: e.entry_id.clone(),
+            source: e.source.clone(),
+        })
+        .collect();
+    let now = Utc::now();
+    Some(Lorebook {
+        id,
+        owner_id,
+        current_version_id: id, // placeholder while versioning is dormant
+        name: data.name.clone(),
+        description: data.description.clone(),
+        config_yaml: data.config_yaml.clone(),
+        schema_version: 1,
+        created_at: now,
+        updated_at: now,
+        entries,
+    })
 }
 
 #[cfg(test)]
@@ -453,7 +741,6 @@ mod tests {
 
     #[test]
     fn survives_unbalanced_braces() {
-        // No `}}` to close it — must not panic or loop forever.
         assert_eq!(sanitize_body("a {{ unclosed b"), "a  unclosed b");
     }
 
@@ -464,7 +751,6 @@ mod tests {
 
     #[test]
     fn sanitized_bodies_compile() {
-        // The bodies weaver rejected in isolation must all survive the pass.
         for raw in [
             "{{random:a,b}}",
             "{{getvar::foo}}",
@@ -528,8 +814,6 @@ mod tests {
         assert_eq!(stats.skipped, 0);
         assert_eq!(lorebook.entries.len(), 2);
 
-        // Ids are deduped, and every stored source round-trips through the
-        // same parser the editor uses.
         assert_eq!(lorebook.entries[0].entry_id, "test");
         assert_eq!(lorebook.entries[1].entry_id, "test_2");
         for e in &lorebook.entries {
@@ -619,5 +903,98 @@ mod tests {
             entries: Vec::new(),
         };
         assert!(convert_character_book(book, "Nyx", Snowflake(9), &sf).is_none());
+    }
+
+    #[test]
+    fn reads_a_sillytavern_world_file() {
+        let sf = SnowflakeService::new(1);
+        let world = serde_json::json!({
+            "entries": {
+                "1": {
+                    "uid": 1, "key": ["tower"], "keysecondary": [], "comment": "Tower",
+                    "content": "{{user}} sees a tower.", "constant": false, "selective": true,
+                    "order": 20, "position": 4, "depth": 2, "disable": true,
+                    "probability": 100, "scanDepth": null, "group": ""
+                },
+                "0": {
+                    "uid": 0, "key": ["Nyx"], "comment": "Nyx", "content": "Nyx is here.",
+                    "order": 10, "position": 0, "disable": false
+                }
+            }
+        });
+
+        let (lorebook, stats) =
+            import_file(&world, "Ruins", Snowflake(9), &sf).expect("world should import");
+        assert_eq!(lorebook.name, "Ruins");
+        assert_eq!(stats.entry_count, 2);
+
+        let nyx = Entry::parse(&lorebook.entries[0].source, None).unwrap();
+        assert_eq!(nyx.meta.keywords, vec!["Nyx"]);
+        assert_eq!(nyx.meta.slot, Slot::Preamble);
+        assert!(nyx.meta.enabled);
+
+        let tower = Entry::parse(&lorebook.entries[1].source, None).unwrap();
+        assert_eq!(tower.meta.name, "Tower");
+        assert_eq!(tower.meta.insertion_order, 20);
+        assert_eq!(tower.meta.slot, Slot::AtDepth(2));
+        assert!(!tower.meta.enabled);
+        assert!(tower.meta.extensions.contains_key("st_probability"));
+    }
+
+    #[test]
+    fn world_file_round_trips() {
+        let sf = SnowflakeService::new(1);
+        let book = CharacterBook {
+            name: Some("Nyx's Lore".to_string()),
+            description: None,
+            scan_depth: None,
+            token_budget: None,
+            recursive_scanning: None,
+            entries: vec![entry("{{char}} waits."), entry("more")],
+        };
+        let (original, _) = convert_character_book(book, "Nyx", Snowflake(9), &sf).unwrap();
+
+        let mut world = to_world_info(&original).book;
+        assert_eq!(world["entries"]["0"]["key"], serde_json::json!(["test"]));
+        assert_eq!(world["entries"]["0"]["disable"], serde_json::json!(false));
+
+        // With Lorealm's copy, every source comes back exactly.
+        let (exact, _) = import_file(&world, "x", Snowflake(9), &sf).unwrap();
+        let sources = |b: &Lorebook| {
+            b.entries
+                .iter()
+                .map(|e| e.source.clone())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(sources(&exact), sources(&original));
+
+        // Without it (a site stripped it), the SillyTavern fields carry it.
+        world.as_object_mut().unwrap().remove("extensions");
+        let (read, _) = import_file(&world, "x", Snowflake(9), &sf).unwrap();
+        assert_eq!(read.name, "Nyx's Lore");
+        for (a, b) in read.entries.iter().zip(&original.entries) {
+            let (a, b) = (
+                Entry::parse(&a.source, None).unwrap(),
+                Entry::parse(&b.source, None).unwrap(),
+            );
+            assert_eq!(a.meta.keywords, b.meta.keywords);
+            assert_eq!(a.meta.slot, b.meta.slot);
+            assert_eq!(a.source_body, b.source_body);
+        }
+    }
+
+    #[test]
+    fn regex_keys_cross_both_ways() {
+        let (keywords, regex) = split_regex_keys(
+            ["tower", "/^/", "/drag(on|ons)/i", "/(?<=a)b/", "/a/b/"]
+                .map(String::from)
+                .to_vec(),
+        );
+        // Lookbehind doesn't compile in Rust, so it stays as written.
+        assert_eq!(keywords, vec!["tower", "/(?<=a)b/"]);
+        assert_eq!(regex, vec!["^", "(?i)drag(on|ons)", "a/b"]);
+
+        let back: Vec<String> = regex.iter().map(|r| regex_to_key(r)).collect();
+        assert_eq!(back, vec!["/^/", "/drag(on|ons)/i", "/a/b/"]);
     }
 }

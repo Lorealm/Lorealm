@@ -2250,6 +2250,7 @@ dependencies = [
  "lorealm_storage",
  "rand 0.10.2",
  "rand_core 0.10.0",
+ "regex",
  "reqwest",
  "schemars",
  "secrecy",

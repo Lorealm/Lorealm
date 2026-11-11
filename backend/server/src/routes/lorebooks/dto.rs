@@ -1,8 +1,11 @@
 use context_weaver::LorebookConfig;
 use lorealm_storage::models::Snowflake;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-use crate::services::lorebook::{CreateLorebook, UpdateLorebook};
+use crate::services::{
+    cards::export::ExportWarning,
+    lorebook::{CreateLorebook, UpdateLorebook},
+};
 
 #[derive(Deserialize, Clone)]
 pub struct CreateLorebookRequest {
@@ -20,6 +23,17 @@ pub struct UpdateLorebookRequest {
 #[derive(Deserialize)]
 pub struct UpdateEntryRequest {
     pub source: String,
+}
+
+#[derive(Serialize)]
+pub struct SillyTavernExport {
+    pub file: serde_json::Value,
+    pub warnings: Vec<ExportWarning>,
+}
+
+#[derive(Deserialize)]
+pub struct ImportQuery {
+    pub name: String,
 }
 
 #[derive(Deserialize)]
