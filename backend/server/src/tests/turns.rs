@@ -1,13 +1,17 @@
 use futures_util::StreamExt;
 use lorealm_storage::{
-    CharacterStorage, PersonaStorage,
-    models::{AgentKind, ConversationMessage, Greeting, Snowflake, VersionedSaveMode},
+    CharacterStorage, ConnectionStorage, LorebookStorage, PersonaStorage, TemplateStorage,
+    TokenizerStorage, WeaverStateStorage,
+    models::{
+        AgentKind, ConversationMessage, Greeting, LorebookEntry, Snowflake, Tokenizer,
+        VersionedSaveMode,
+    },
 };
 use serde_json::{Value, json};
 
 use crate::{
     errors::{ChatError, RealmError},
-    services::chat::TurnRequest,
+    services::{chat::TurnRequest, context_template::ContextNode},
     tests::Harness,
 };
 
@@ -153,7 +157,7 @@ async fn a_players_turn_can_be_rewritten_as_an_alternative() {
     let events = turn(
         &h,
         convo,
-        json!({ "content": "Count it twice.", "target": first[0].id }),
+        json!({ "content": "Count it twice.", "swipe_from": first[0].id }),
     )
     .await
     .unwrap();
@@ -203,4 +207,147 @@ async fn a_scripted_director_can_keep_a_player_waiting() {
         matches!(&err, ChatError::Realm(RealmError::NotYourTurn(next)) if next == "clerk"),
         "{err:?}"
     );
+}
+
+async fn stub_model(reply: &'static str) -> String {
+    let sse = format!(
+        "data: {{\"choices\":[{{\"delta\":{{\"content\":\"{reply}\"}},\"finish_reason\":\"stop\"}}]}}\n\ndata: [DONE]\n\n"
+    );
+    let endpoint = axum::Router::new().route(
+        "/v1/chat/completions",
+        axum::routing::post(move || async move {
+            (
+                [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
+                sse,
+            )
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base_url = format!("http://{}/v1", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, endpoint).await.unwrap() });
+    base_url
+}
+
+async fn byte_tokenizer(h: &Harness) -> Snowflake {
+    use base64::Engine;
+    let ranks: String = (0..=255u8)
+        .map(|b| {
+            let token = base64::engine::general_purpose::STANDARD.encode([b]);
+            format!("{token} {b}\n")
+        })
+        .collect();
+    let blob = h.blobs.put(ranks.as_bytes()).await.unwrap();
+    let id = h.snow.generate();
+    h.store
+        .save_tokenizer(&Tokenizer {
+            id,
+            name: "bytes".into(),
+            blob_uri: blob.to_uri(),
+            owner_id: h.user,
+            is_public: false,
+        })
+        .await
+        .unwrap();
+    id
+}
+
+async fn ready_for_models(h: &Harness, base_url: &str) {
+    let me = h.persona(h.user, "Me").await;
+    h.store.set_active_persona(h.user, me).await.unwrap();
+
+    let template = h.template(h.user, "Lore only").await;
+    let mut stored = h.store.get_template(template).await.unwrap().unwrap();
+    stored.nodes_json = json!([ContextNode::source(
+        &h.snow,
+        "Lore",
+        "",
+        "world_info",
+        "backdrop"
+    )]);
+    h.store.save_template(&stored).await.unwrap();
+    h.store
+        .set_active_template(h.user, Some(template))
+        .await
+        .unwrap();
+
+    let tokenizer = byte_tokenizer(h).await;
+    h.store
+        .set_active_tokenizer(h.user, Some(tokenizer))
+        .await
+        .unwrap();
+
+    let profile = h.profile(h.user, "local").await;
+    let mut stored = h.store.get_profile(profile).await.unwrap().unwrap();
+    stored.provider_params = json!({ "base_url": base_url });
+    h.store.save_profile(&stored).await.unwrap();
+    h.store
+        .set_active_profile(h.user, Some(profile))
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn the_first_reply_of_a_chat_keeps_its_lorebook_state() {
+    let h = Harness::new().await;
+    ready_for_models(&h, &stub_model("It sleeps.").await).await;
+
+    let book = h.lorebook(h.user, "Bestiary").await;
+    let mut stored = h.store.get_lorebook(book).await.unwrap().unwrap();
+    stored.entries.push(LorebookEntry {
+        id: h.snow.generate(),
+        lorebook_id: book,
+        entry_id: "dragon".into(),
+        source: "---\nid: dragon\nkeywords: [\"dragon\"]\nsticky_turns: 3\n---\nA dragon sleeps under the hill.\n".into(),
+    });
+    h.store.save_lorebook(&stored).await.unwrap();
+    h.store
+        .set_enabled_lorebooks(h.user, &[book])
+        .await
+        .unwrap();
+
+    let sayuri = h.character(h.user, "Sayuri").await;
+    let mut character = h.store.get_character(sayuri).await.unwrap().unwrap();
+    let greeting = h.snow.generate();
+    character.definition.greetings.push(Greeting {
+        id: greeting,
+        order: 0,
+        text: "Welcome back.".into(),
+    });
+    h.store
+        .save_character(&character, VersionedSaveMode::UpdateCurrent)
+        .await
+        .unwrap();
+    let convo = h
+        .chat
+        .start_with_character(h.user, sayuri, None, greeting, String::new())
+        .await
+        .expect("starts")
+        .metadata
+        .id;
+
+    let events = turn(&h, convo, json!({ "content": "Is there a dragon here?" }))
+        .await
+        .unwrap();
+    let [_, reply] = messages(&events).try_into().unwrap();
+    assert_eq!(reply.content, "It sleeps.");
+    assert!(
+        reply.metadata["context"]
+            .to_string()
+            .contains("A dragon sleeps"),
+        "lorebook entry missing from the prompt: {}",
+        reply.metadata["context"]
+    );
+
+    let state = h
+        .store
+        .get_message_state(reply.id)
+        .await
+        .unwrap()
+        .expect("the first reply has a state row");
+    let activation = state
+        .activation
+        .get(&book)
+        .expect("the reply holds the book's activation");
+    assert!(activation.last_activated.contains_key("dragon"));
+    assert!(activation.sticky_remaining.contains_key("dragon"));
 }
