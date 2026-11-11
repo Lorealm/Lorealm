@@ -2,12 +2,28 @@
 	import { connectionStore } from '$lib/stores/connection.svelte.js';
 	import { tokenizerStore } from '$lib/stores/tokenizer.svelte.js';
 	import { getProviderSchema } from '$lib/types/schema.js';
+	import { templateStore } from '$lib/stores/template.svelte.js';
+	import { personaStore } from '$lib/stores/persona.svelte.js';
 
 	export function loadSetupState() {
 		if (connectionStore.activeProfile === undefined)
 			connectionStore.getActiveProfile().catch(console.error);
 		if (connectionStore.profiles === undefined) connectionStore.loadProfiles().catch(console.error);
 		tokenizerStore.ensureLoaded().catch(console.error);
+	}
+
+	function templateReady(): boolean {
+		const template = templateStore.activeTemplate;
+		return template != null;
+	}
+
+	function activePersona() {
+		const id = personaStore.activePersonaId;
+		return id == null ? undefined : personaStore.loadedPersonas?.find((p) => p.id === id);
+	}
+
+	function personaReady(): boolean {
+		return activePersona() != undefined;
 	}
 
 	function activeProfile() {
@@ -51,6 +67,18 @@
 	});
 
 	const steps = $derived([
+		{
+			done: templateReady(),
+			title: 'Create and enable a Context Template',
+			hint: 'This is how the text sent to the model is laid out. Without it there is nothing to send.',
+			go: () => navigator.start().studio().templates()
+		},
+		{
+			done: personaReady(),
+			title: 'Create and enable a Persona',
+			hint: 'A persona is the details about your character. Create and enable one in the studio.',
+			go: () => navigator.start().studio().personas()
+		},
 		{
 			done: connectionReady(),
 			title: 'Configure your connection profile',
