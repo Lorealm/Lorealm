@@ -1,10 +1,15 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{io::IsTerminal, path::PathBuf, sync::Arc};
 
+use anyhow::bail;
 use dialoguer::{Confirm, Input, Password, Select, theme::ColorfulTheme};
 use lorealm_storage::{BackendConfig, CacheConfig, StorageConfig};
 use serde_json::json;
 
-use crate::{config::HostingConfig, core::AppState, util::scaffold_user};
+use crate::{
+    config::{HostingConfig, UserConfig},
+    core::AppState,
+    util::scaffold_user,
+};
 
 struct AdvancedStorageSetup;
 
@@ -96,8 +101,71 @@ pub async fn run_storage_setup(state: &Arc<AppState>) -> anyhow::Result<()> {
         }
     };
 
+    apply_storage(state, config).await
+}
+
+async fn apply_storage(state: &Arc<AppState>, config: StorageConfig) -> anyhow::Result<()> {
     state.config().patch_by_key("storage", json!(config))?;
     state.init_storage(config).await?;
+
+    Ok(())
+}
+
+/// Postgres when `LOREALM_POSTGRES_URL` is set, SQLite otherwise.
+fn env_storage_config() -> StorageConfig {
+    if env("LOREALM_POSTGRES_URL").is_none() {
+        return StorageConfig::local_default();
+    }
+
+    StorageConfig {
+        backends: vec![BackendConfig::Postgres {
+            connection_string: None,
+            max_connections: 10,
+            create_automatically: true,
+        }],
+        data_directory: PathBuf::from("data"),
+        require_postgres_fallback: true,
+        cache: env("LOREALM_REDIS_URL").map(|redis_url| CacheConfig {
+            redis_url,
+            ..CacheConfig::default()
+        }),
+    }
+}
+
+/// Admin credentials for unattended setup, if they are set.
+fn env_admin() -> anyhow::Result<Option<(String, String)>> {
+    match (env("LOREALM_ADMIN_USERNAME"), env("LOREALM_ADMIN_PASSWORD")) {
+        (Some(username), Some(password)) => Ok(Some((username, password))),
+        (None, None) => Ok(None),
+        _ => bail!("set both LOREALM_ADMIN_USERNAME and LOREALM_ADMIN_PASSWORD, or neither"),
+    }
+}
+
+fn env(name: &str) -> Option<String> {
+    std::env::var(name).ok().filter(|v| !v.trim().is_empty())
+}
+
+async fn create_admin(
+    state: &Arc<AppState>,
+    username: String,
+    password: String,
+    scaffold: bool,
+) -> anyhow::Result<()> {
+    let user = state
+        .services()
+        .users()
+        .register(username, None, password)
+        .await?;
+
+    state
+        .services()
+        .permissions()
+        .claim_administrator_if_unclaimed(user.id)
+        .await?;
+
+    if scaffold {
+        scaffold_user(state, &user).await?;
+    }
 
     Ok(())
 }
@@ -121,27 +189,12 @@ pub async fn run_admin_setup(state: &Arc<AppState>) -> anyhow::Result<()> {
         .with_confirmation("Confirm password", "Passwords don't match")
         .interact()?;
 
-    let user = state
-        .services()
-        .users()
-        .register(admin_user, None, admin_password)
-        .await?;
-
-    state
-        .services()
-        .permissions()
-        .claim_administrator_if_unclaimed(user.id)
-        .await?;
-
-    if Confirm::with_theme(&theme)
-        .with_prompt("Registration complete. Would you like to scaffold default resources?")
+    let scaffold = Confirm::with_theme(&theme)
+        .with_prompt("Would you like to scaffold default resources?")
         .default(true)
-        .interact()?
-    {
-        scaffold_user(&state, &user).await?;
-    }
+        .interact()?;
 
-    Ok(())
+    create_admin(state, admin_user, admin_password, scaffold).await
 }
 
 pub async fn run_setup(state: Arc<AppState>) -> anyhow::Result<()> {
@@ -150,8 +203,20 @@ pub async fn run_setup(state: Arc<AppState>) -> anyhow::Result<()> {
     let curr_version = env!("CARGO_PKG_VERSION");
 
     if cfg_host.last_setup_version.is_none() {
-        run_storage_setup(&state).await?;
-        run_admin_setup(&state).await?;
+        if let Some((username, password)) = env_admin()? {
+            tracing::info!("running first-time setup from environment variables");
+            apply_storage(&state, env_storage_config()).await?;
+            let scaffold = state.config().get::<UserConfig>().create_default_resources;
+            create_admin(&state, username, password, scaffold).await?;
+        } else if std::io::stderr().is_terminal() {
+            run_storage_setup(&state).await?;
+            run_admin_setup(&state).await?;
+        } else {
+            bail!(
+                "first-time setup needs a terminal; run interactively once, or set \
+                 LOREALM_ADMIN_USERNAME and LOREALM_ADMIN_PASSWORD"
+            );
+        }
 
         cfg_host.last_setup_version = Some(curr_version.to_string());
         state.config().patch_by_key("hosting", json!(cfg_host))?;

@@ -15,10 +15,13 @@ docs/
 # Backend
 backend/target/
 backend/**/*.rs.bk
+backend/data/
+backend/config.yaml
 
 # Frontend
-frontend/node_modules/
-frontend/dist/
+**/node_modules/
+**/dist/
+**/target/
 frontend/.vite/
 
 # IDE

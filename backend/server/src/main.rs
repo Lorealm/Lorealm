@@ -26,6 +26,7 @@ mod config;
 mod core;
 mod errors;
 mod extract;
+mod frontend;
 mod middleware;
 mod routes;
 mod services;
@@ -72,7 +73,16 @@ async fn main() -> anyhow::Result<()> {
         .services()
         .start_cleanup_task(Duration::from_secs(cfg_task.cleanup_interval));
 
-    let app = if cfg_host.serve_frontend {
+    let serve_frontend = cfg_host.serve_frontend
+        && match frontend::ensure_frontend(&cfg_host.frontend_dir).await {
+            Ok(()) => true,
+            Err(e) => {
+                tracing::warn!("serving the API only, the web UI is unavailable: {e:#}");
+                false
+            }
+        };
+
+    let app = if serve_frontend {
         let dir = cfg_host.frontend_dir.canonicalize().with_context(|| {
             format!(
                 "serve_frontend is on but {:?} does not exist (cwd {:?})",
