@@ -66,14 +66,12 @@ pub(crate) struct Harness {
     pub realms: Arc<RealmService>,
     pub blueprints: Arc<BlueprintService>,
     pub store: Arc<MemoryStorage>,
+    pub blobs: Arc<dyn BlobStore>,
     pub snow: Arc<SnowflakeService>,
-    /// No plugins installed; plugin tests swap in their own.
     pub plugins: Arc<PluginService>,
     pub connection: Arc<ConnectionService>,
     pub permissions: Arc<PermissionService>,
-    /// The caller in every test unless one says otherwise.
     pub user: Snowflake,
-    /// Someone else, for proving a template cannot reach across owners.
     pub stranger: Snowflake,
 }
 
@@ -189,6 +187,7 @@ impl Harness {
             realms,
             blueprints,
             store,
+            blobs: blob,
             user: snow.generate(),
             stranger: snow.generate(),
             snow,
