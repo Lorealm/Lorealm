@@ -32,6 +32,7 @@ use crate::{
             SourceNodeDefinition, SourceType,
         },
         module::{self, LoadedModule, ModuleExports},
+        weaver::NamespaceDef,
     },
     util::weaver::{json_to_weaver, weaver_to_json},
 };
@@ -104,6 +105,11 @@ impl UserVocabulary {
     /// Exported module values, each read as the module's own scope.
     pub fn module_values(&self) -> ModuleExports {
         module::values(&self.modules)
+    }
+
+    /// What the editor completes under each module's scope.
+    pub fn module_namespaces(&self) -> Vec<NamespaceDef> {
+        module::namespaces(&self.modules)
     }
 
     pub fn register(&self, registry: &mut Registry) {

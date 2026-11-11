@@ -4,14 +4,14 @@ use std::{collections::HashMap, sync::Arc};
 
 use lorealm_storage::{Storage, models::Snowflake};
 
-use weaver_lang::{
-    CompiledModule, EvalError, Export, Registry, SimpleContext, Value, WeaverProcessor,
-    registry::{ProcessorSignature, PropertyDef, ValueType},
-};
+use weaver_lang::{CompiledModule, Export, Registry, SimpleContext, Value, registry::ValueType};
 
 pub use service::ModuleService;
 
-use crate::{services::weaver::WeaverHost, util::weaver::summarize_parser_text};
+use crate::{
+    services::weaver::{Limits, MemberDef, NamespaceDef, WeaverHost},
+    util::weaver::summarize_parser_text,
+};
 
 pub const RESERVED_SCOPES: &[&str] = &[
     "cmd", "props", "local", "input", "self", "actor", "agents", "cast", "turn", "scenario",
@@ -25,13 +25,11 @@ pub type ModuleExports = Arc<HashMap<String, Value>>;
 #[derive(Clone)]
 pub struct LoadedModule {
     name: String,
-    source: Arc<str>,
-    procs: Vec<ProcessorSignature>,
+    compiled: CompiledModule,
     values: Value,
 }
 
 impl LoadedModule {
-    /// Parse `source` and evaluate its exported values.
     pub fn load(name: &str, source: &str) -> Result<Self, String> {
         let compiled = CompiledModule::compile(source).map_err(|errors| {
             errors
@@ -42,40 +40,45 @@ impl LoadedModule {
 
         let host = WeaverHost::builder().build();
         let values = compiled
-            .values(&mut SimpleContext::new(), host.registry())
+            .values_with_options(
+                &mut SimpleContext::new(),
+                host.registry(),
+                Limits::default().options(None),
+            )
             .map_err(|e| e.to_string())?;
 
-        let procs = compiled
+        Ok(Self {
+            name: name.to_string(),
+            compiled,
+            values: Value::Object(values),
+        })
+    }
+
+    /// What the editor completes under this module's scope.
+    fn namespace(&self) -> NamespaceDef {
+        let Value::Object(values) = &self.values else {
+            unreachable!("values are always an object");
+        };
+        let members = self
+            .compiled
             .ast()
             .exports
             .iter()
             .filter_map(|export| match export {
-                Export::Processor(p) => Some(ProcessorSignature {
-                    namespace: name.to_string(),
-                    name: p.name.clone(),
-                    description: String::new(),
-                    returns: ValueType::Any,
-                    properties: p
-                        .params
-                        .iter()
-                        .map(|param| PropertyDef {
-                            key: param.name.clone(),
-                            description: param.doc.clone().unwrap_or_default(),
-                            expected_type: None,
-                            required: param.is_required(),
-                        })
-                        .collect(),
+                Export::Value { name, doc, .. } => Some(MemberDef {
+                    name: name.clone(),
+                    returns: values.get(name).map_or(ValueType::Any, value_type),
+                    description: doc.clone().unwrap_or_default(),
                 }),
-                Export::Value { .. } => None,
+                Export::Processor(_) => None,
             })
             .collect();
-
-        Ok(Self {
-            name: name.to_string(),
-            source: source.into(),
-            procs,
-            values: Value::Object(values),
-        })
+        NamespaceDef {
+            scope: self.name.clone(),
+            description: format!("Values exported by the `{}` module.", self.name),
+            members,
+            profiles: Vec::new(),
+        }
     }
 }
 
@@ -121,14 +124,7 @@ pub(crate) fn register(modules: &[LoadedModule], reserved: &[&str], registry: &m
             );
             continue;
         }
-        // Compiled once already in `load`; this cannot fail on the same source.
-        let Ok(compiled) = CompiledModule::compile(&module.source) else {
-            continue;
-        };
-        registry.add_module(name, compiled);
-        for signature in &module.procs {
-            registry.register_processor(Declaration(signature.clone()));
-        }
+        registry.add_module(name, module.compiled.clone());
     }
 }
 
@@ -142,18 +138,20 @@ pub(crate) fn values(modules: &[LoadedModule]) -> ModuleExports {
     )
 }
 
-/// A module processor's signature, registered for name resolution only.
-struct Declaration(ProcessorSignature);
+/// One completion namespace per module, in name order.
+pub(crate) fn namespaces(modules: &[LoadedModule]) -> Vec<NamespaceDef> {
+    let mut out: Vec<NamespaceDef> = modules.iter().map(LoadedModule::namespace).collect();
+    out.sort_by(|a, b| a.scope.cmp(&b.scope));
+    out
+}
 
-impl WeaverProcessor for Declaration {
-    fn call(&self, _: HashMap<String, Value>) -> Result<Value, EvalError> {
-        Err(EvalError::host_error(format!(
-            "module processor `{}.{}` is not loaded",
-            self.0.namespace, self.0.name
-        )))
-    }
-
-    fn signature(&self) -> ProcessorSignature {
-        self.0.clone()
+fn value_type(value: &Value) -> ValueType {
+    match value {
+        Value::String(_) => ValueType::String,
+        Value::Number(_) => ValueType::Number,
+        Value::Bool(_) => ValueType::Bool,
+        Value::Array(_) => ValueType::Array,
+        Value::Object(_) => ValueType::Object,
+        Value::None => ValueType::None,
     }
 }

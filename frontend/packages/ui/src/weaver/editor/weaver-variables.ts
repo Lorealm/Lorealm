@@ -94,6 +94,59 @@ function scanDeclared(text: string): VariableRef[] {
 	return found;
 }
 
+const PROC_OPEN = /\bexport\s+proc\s+([A-Za-z_]\w*)\s*\(/g;
+const PROC_CLOSE = /\{#-?\s*endproc\s*-?#\}/;
+const PARAM = /^([A-Za-z_]\w*)\s*:\s*([^=]*?)\s*(?:=\s*([\s\S]*?))?\s*$/;
+
+function splitParams(list: string): string[] {
+	const out: string[] = [];
+	let depth = 0;
+	let quoted = false;
+	let start = 0;
+	for (let i = 0; i < list.length; i++) {
+		const c = list[i];
+		if (quoted) {
+			if (c === '\\') i++;
+			else if (c === '"') quoted = false;
+		} else if (c === '"') quoted = true;
+		else if ('([{<'.includes(c)) depth++;
+		else if (')]}>'.includes(c)) depth--;
+		else if (c === ',' && depth === 0) {
+			out.push(list.slice(start, i));
+			start = i + 1;
+		}
+	}
+	out.push(list.slice(start));
+	return out;
+}
+
+function procParams(text: string, pos: number): VariableRef[] {
+	const upto = text.slice(0, pos);
+	const open = [...upto.matchAll(PROC_OPEN)].at(-1);
+	if (!open) return [];
+
+	let i = open.index + open[0].length;
+	let depth = 1;
+	while (i < text.length && depth > 0) {
+		if (text[i] === '(') depth++;
+		else if (text[i] === ')') depth--;
+		i++;
+	}
+	if (depth > 0 || i > pos || PROC_CLOSE.test(upto.slice(i))) return [];
+
+	const proc = open[1];
+	const list = text.slice(open.index + open[0].length, i - 1).replace(/\/\/.*$/gm, '');
+	return splitParams(list).flatMap((param) => {
+		const m = PARAM.exec(param.trim());
+		if (!m) return [];
+		const [, name, type, fallback] = m;
+		const doc = fallback
+			? `A parameter of \`${proc}\`. Defaults to \`${fallback}\`.`
+			: `A parameter of \`${proc}\`.`;
+		return [variable('input', name, 'parameter', doc, type)];
+	});
+}
+
 function loopRefs(state: EditorState, pos: number): VariableRef[] {
 	const source = state.facet(variableSource);
 	return bindingsAt(state.doc.toString(), pos).flatMap((loop) => [
@@ -117,6 +170,7 @@ export function knownVariables(state: EditorState, pos: number): VariableRef[] {
 		...builtin,
 		...supplied,
 		...loopRefs(state, pos),
+		...procParams(state.doc.toString(), pos),
 		...scanDeclared(state.doc.toString())
 	].filter((ref) => {
 		const key = `${ref.scope}:${ref.name}`;

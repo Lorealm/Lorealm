@@ -13,12 +13,18 @@ use crate::{
 };
 
 const COMBAT: &str = r#"
+// Where the fight happens.
 export title = "Arena"
 export hit_table = [1, 2, 4, 8]
 
 // How hard a blow lands.
-export proc damage(base: number, mult: number = 1)
+export proc damage(base: number, mult: number = 1) -> number
   {# return {{input:base}} * {{input:mult}} #}
+{# endproc #}
+
+// Promises a number, renders text.
+export proc liar() -> number
+  twelve
 {# endproc #}
 
 export proc toast_hit(who: string)
@@ -242,4 +248,96 @@ fn the_module_dialect_reports_unknown_processors_in_bodies() {
 
     assert_eq!(found.len(), 1);
     assert_eq!(found[0].severity, Severity::Warning);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_editor_can_complete_module_values() {
+    let (h, _) = with_combat().await;
+    let vocabulary = h.plugins.vocabulary(h.user).await.unwrap();
+
+    let namespaces = vocabulary.module_namespaces();
+
+    let [combat] = namespaces.as_slice() else {
+        panic!("expected one module namespace, got {namespaces:?}");
+    };
+    assert_eq!(combat.scope, "combat");
+    let members: Vec<(&str, String, &str)> = combat
+        .members
+        .iter()
+        .map(|m| {
+            (
+                m.name.as_str(),
+                format!("{:?}", m.returns),
+                m.description.as_str(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        members,
+        [
+            ("title", "String".to_string(), "Where the fight happens."),
+            ("hit_table", "Array".to_string(), ""),
+        ]
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_proc_signature_carries_its_docs_and_return_type() {
+    let (h, _) = with_combat().await;
+    let host = WeaverHost::builder()
+        .declarations_only()
+        .plugins(h.plugins.vocabulary(h.user).await)
+        .build();
+
+    let damage = host
+        .registry()
+        .processor_signature("combat", "damage")
+        .unwrap();
+
+    assert_eq!(damage.description, "How hard a blow lands.");
+    assert_eq!(format!("{:?}", damage.returns), "Number");
+    assert_eq!(
+        format!("{:?}", damage.properties[0].expected_type),
+        "Some(Number)"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_proc_returning_the_wrong_type_fails_at_the_call() {
+    let (h, _) = with_combat().await;
+    let host = WeaverHost::builder()
+        .profile(WeaverProfile::RealmScript)
+        .plugins(h.plugins.vocabulary(h.user).await)
+        .build();
+
+    let err = host
+        .evaluate(compile_template("@[combat.liar()]").unwrap())
+        .await
+        .unwrap_err();
+    assert!(err.to_string().contains("expected number"), "{err}");
+    let ok = host
+        .evaluate(compile_template("@[combat.damage(2)]").unwrap())
+        .await
+        .unwrap();
+    assert_eq!(ok.to_output_string(), "2");
+}
+
+/// Values evaluate under the same ceilings as every host.
+#[tokio::test]
+async fn an_unbounded_value_is_refused_on_save() {
+    let h = Harness::new().await;
+    let refused = modules(&h)
+        .create(
+            h.user,
+            "big".into(),
+            String::new(),
+            "export big = [{# foreach i in @[array.range(start: 0, end: 20000)] #} i {# endforeach #}]"
+                .into(),
+        )
+        .await;
+
+    assert!(
+        matches!(&refused, Err(ModuleError::Invalid(m)) if m.contains("iteration")),
+        "{refused:?}"
+    );
 }

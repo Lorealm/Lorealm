@@ -42,7 +42,7 @@ impl Default for Limits {
 }
 
 impl Limits {
-    fn options(&self, stop: Option<Arc<AtomicBool>>) -> EvalOptions {
+    pub(crate) fn options(&self, stop: Option<Arc<AtomicBool>>) -> EvalOptions {
         let mut options = EvalOptions::new();
         if let Some(max) = self.max_node_evaluations {
             options = options.max_node_evaluations(max);

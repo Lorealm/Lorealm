@@ -159,8 +159,8 @@ through the same `PluginVocabulary`. A module named `combat` is reached two ways
 
 | | |
 | --- | --- |
-| `@[combat.damage(3)]` | An `export proc`. Its body runs inside the caller's evaluation, so it has exactly the caller's capabilities: `$[toast]` works from a `Command` and fails from a `RealmCondition`. |
-| `{{combat:hit_table}}` | An `export name = value`. Values are constants, evaluated against the stdlib when the vocabulary is built; a value that reads state is refused on save. |
+| `@[combat.damage(3)]` | An `export proc`. Its body runs inside the caller's evaluation, so it has exactly the caller's capabilities: `$[toast]` works from a `Command` and fails from a `RealmCondition`. A declared return type (`-> number`) is checked each time it returns. |
+| `{{combat:hit_table}}` | An `export name = value`. Values are constants, evaluated against the stdlib under the default `Limits` when the vocabulary is built; a value that reads state, or runs past the limits, is refused on save. |
 
 Each module's scope is read-only, in every host and in the lorebook engine. A
 module may not be named after a reserved scope (`RESERVED_SCOPES`: `cmd`,
@@ -177,10 +177,10 @@ module.
 A realm's `modules` are loaded for its turns on top of the globally enabled
 ones, whether or not they are enabled themselves.
 
-`weaver_lang` does not list module procs in `processor_signatures`. Each one is
-therefore also registered as a declaration carrying its signature, which the
-editor's check and completion read. The module's own proc shadows it, so the
-declaration never runs.
+The editor reads modules like everything else. `processor_signatures` lists
+module procs with their doc comment, parameter types and return type, and the
+vocabulary carries one namespace per module whose members are its values,
+described by their doc comments.
 
 ### Inside a realm
 

@@ -10,11 +10,18 @@ type Frame =
 	| { k: 'array' }
 	| { k: 'object'; key: boolean }
 	| { k: 'paren' }
+	| { k: 'params' }
 	| { k: 'proc'; named: boolean; args?: boolean; opened?: boolean }
 	| { k: 'cmd'; named: boolean; args?: boolean; opened?: boolean };
 
+/**
+ * Where a module's top level is. Absent outside the module dialect.
+ */
+type Phase = 'top' | 'export' | 'procName' | 'sig' | 'returns' | 'body';
+
 interface State {
 	stack: Frame[];
+	phase?: Phase;
 }
 
 export const DELIMITER_COLOR = '#7c8a9e';
@@ -24,6 +31,8 @@ const IDENT = /^[A-Za-z_]\w*/;
 const DOTTED = /^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*/; // e.g. core.weaver.rng
 const KEYWORD =
 	/^(?:if|elif|else|endif|foreach|endforeach|endproc|in|break|continue|return|stop)\b/;
+/** A parameter's declared type: the same vocabulary as `#inputs`. */
+const PARAM_TYPE = /^(?:Ref\s*<\s*[A-Za-z_]\w*\s*>|(?:string|number|bool|enum|range|span)\b)/;
 /** A name before a colon: the scope of a reference, or a call's argument key. */
 const NAMED = /^[A-Za-z_]\w*(?=\s*:)/;
 /** `Name(` — an enum variant. The paren has to be glued to the name. */
@@ -117,10 +126,51 @@ function exprAtom(stream: any, state: State): string | null {
 	return null;
 }
 
+/** A module's top level: `export name = value` and `export proc name(params)`. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function moduleTop(stream: any, state: State): string | null {
+	if (stream.eatSpace()) return null;
+	if (stream.match(COMMENT)) return 'comment';
+
+	switch (state.phase) {
+		case 'export':
+			if (stream.match(/^proc\b/)) {
+				state.phase = 'procName';
+				return 'declKeyword';
+			}
+			state.phase = 'top';
+			if (stream.match(IDENT)) return 'def';
+			break;
+		case 'procName':
+			state.phase = 'sig';
+			if (stream.match(IDENT)) return 'defFunc';
+			break;
+		case 'returns':
+			if (stream.match('->')) return 'operator';
+			if (stream.match(/^none\b/) || stream.match(PARAM_TYPE)) return 'type';
+			// Anything else on the signature line is already the body.
+			state.phase = 'body';
+			return parser.token(stream, state);
+		case 'sig':
+			if (stream.match('(')) {
+				state.stack.push({ k: 'params' });
+				return 'punctuation';
+			}
+			break;
+	}
+
+	if (stream.match(/^export\b/)) {
+		state.phase = 'export';
+		return 'declKeyword';
+	}
+	if (stream.match(/^=(?!=)/)) return 'operator';
+	return exprAtom(stream, state) ?? (stream.next(), null);
+}
+
 const parser: StreamParser<State> = {
 	startState: () => ({ stack: [] }),
 
-	copyState: (s) => ({ stack: s.stack.map((f) => ({ ...f })) }),
+	copyState: (s) => ({ stack: s.stack.map((f) => ({ ...f })), phase: s.phase }),
 
 	token(stream, state) {
 		const top = state.stack[state.stack.length - 1];
@@ -184,7 +234,23 @@ const parser: StreamParser<State> = {
 					state.stack.pop();
 					return 'delimiter';
 				}
-				if (stream.match(KEYWORD)) return 'keyword';
+				if (stream.match(KEYWORD)) {
+					if (state.phase === 'body' && stream.current() === 'endproc') state.phase = 'top';
+					return 'keyword';
+				}
+				return exprAtom(stream, state) ?? (stream.next(), null);
+			}
+
+			// export proc name(base: number, mult: number = 1)
+			case 'params': {
+				if (stream.match(')')) {
+					state.stack.pop();
+					state.phase = 'returns';
+					return 'punctuation';
+				}
+				if (stream.match(NAMED)) return 'param';
+				if (stream.match(PARAM_TYPE)) return 'type';
+				if (stream.match(/^=(?!=)/)) return 'operator';
 				return exprAtom(stream, state) ?? (stream.next(), null);
 			}
 
@@ -324,11 +390,30 @@ const parser: StreamParser<State> = {
 		comment: t.lineComment,
 		tagName: t.tagName,
 		attrName: t.attributeName,
-		docId: t.labelName
+		docId: t.labelName,
+		declKeyword: t.definitionKeyword,
+		def: t.definition(t.variableName),
+		defFunc: t.definition(t.function(t.variableName)),
+		param: t.definition(t.propertyName),
+		type: t.typeName
+	}
+};
+
+/** The template parser, with a module's exports around its proc bodies. */
+const moduleParser: StreamParser<State> = {
+	...parser,
+	startState: () => ({ stack: [], phase: 'top' }),
+	token(stream, state) {
+		// A return type ends with its line; the body starts on the next.
+		if (state.phase === 'returns' && stream.sol()) state.phase = 'body';
+		const outside = state.stack.length === 0 && state.phase !== 'body';
+		return outside ? moduleTop(stream, state) : parser.token(stream, state);
 	}
 };
 
 export const weaverLanguage = StreamLanguage.define(parser);
+/** A module: exports at the top level, template bodies inside each proc. */
+export const weaverModuleLanguage = StreamLanguage.define(moduleParser);
 
 const weaverHighlight = HighlightStyle.define([
 	{ tag: t.brace, color: DELIMITER_COLOR, fontWeight: '600' }, // {{ }} {# #}
@@ -349,7 +434,17 @@ const weaverHighlight = HighlightStyle.define([
 	{ tag: t.lineComment, color: '#6b7a8d', fontStyle: 'italic' },
 	{ tag: t.tagName, color: '#e06c75', fontWeight: '600' }, // <trigger>
 	{ tag: t.attributeName, color: '#d19a66' }, // id=
-	{ tag: t.labelName, color: '#e5c07b', textDecoration: 'underline' } // [[doc]]
+	{ tag: t.labelName, color: '#e5c07b', textDecoration: 'underline' }, // [[doc]]
+	{ tag: t.definitionKeyword, color: '#c678dd', fontWeight: '600' }, // export, proc
+	{ tag: t.definition(t.variableName), color: '#e5c07b', fontWeight: '600' }, // exported value
+	{ tag: t.definition(t.function(t.variableName)), color: '#61afef', fontWeight: '600' }, // proc
+	{ tag: t.definition(t.propertyName), color: '#e06c75' } // a proc's parameter
 ]);
 
 export const weaverSyntax = [weaverLanguage, syntaxHighlighting(weaverHighlight)];
+const weaverModuleSyntax = [weaverModuleLanguage, syntaxHighlighting(weaverHighlight)];
+
+/** The highlighting for one dialect. Only modules read differently. */
+export function weaverSyntaxFor(dialect: string) {
+	return dialect === 'module' ? weaverModuleSyntax : weaverSyntax;
+}

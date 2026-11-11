@@ -13,7 +13,7 @@
 	import { indentUnit, indentOnInput } from '@codemirror/language';
 	import { indentWithTab } from '@codemirror/commands';
 	import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
-	import { weaverSyntax } from './weaver-lang.js';
+	import { weaverSyntaxFor } from './weaver-lang.js';
 	import { weaverHover } from './weaver-hover.js';
 	import { weaverCompletion } from './weaver-complete.js';
 	import { weaverClose } from './weaver-close.js';
@@ -82,7 +82,7 @@
 					indentUnit.of('  '),
 					indentOnInput(),
 					EditorView.lineWrapping,
-					weaverSyntax,
+					weaverSyntaxFor(dialect),
 					weaverHover,
 					weaverCompletion,
 					weaverClose,

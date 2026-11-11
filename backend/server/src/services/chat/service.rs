@@ -907,7 +907,7 @@ impl ChatService {
         }
 
         let host = host.build();
-        let module_values = host.module_variables();
+        let module_values = host.module_exports();
         let (weaver_registry, sinks, state) = host.into_shared();
         let widget_sink = sinks.widgets;
         let effect_sink = sinks.effects;

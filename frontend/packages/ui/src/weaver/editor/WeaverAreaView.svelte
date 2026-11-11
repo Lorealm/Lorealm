@@ -3,7 +3,7 @@
 	import { EditorState } from '@codemirror/state';
 	import { EditorView, drawSelection, keymap, tooltips, placeholder } from '@codemirror/view';
 	import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
-	import { weaverSyntax } from './weaver-lang.js';
+	import { weaverSyntaxFor } from './weaver-lang.js';
 	import { weaverHover } from './weaver-hover.js';
 	import { weaverCompletion } from './weaver-complete.js';
 	import { weaverClose } from './weaver-close.js';
@@ -98,7 +98,7 @@
 					// No `indentWithTab`: Tab should leave the field like it does a textarea.
 					keymap.of([...defaultKeymap, ...historyKeymap]),
 					EditorView.lineWrapping,
-					weaverSyntax,
+					weaverSyntaxFor(dialect),
 					weaverHover,
 					weaverCompletion,
 					weaverClose,

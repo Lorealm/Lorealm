@@ -122,6 +122,11 @@ pub async fn list_weaver_vocabulary(
 }
 
 fn weaver_vocabulary(plugins: Option<UserVocabulary>) -> WeaverVocabulary {
+    let mut namespaces = weaver_namespaces();
+    if let Some(plugins) = &plugins {
+        namespaces.extend(plugins.module_namespaces());
+    }
+
     let host = WeaverHost::builder()
         .declarations_only()
         .plugins(plugins)
@@ -140,7 +145,7 @@ fn weaver_vocabulary(plugins: Option<UserVocabulary>) -> WeaverVocabulary {
     WeaverVocabulary {
         commands,
         processors,
-        namespaces: weaver_namespaces(),
+        namespaces,
     }
 }
 
