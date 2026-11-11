@@ -84,7 +84,7 @@ const studio = (spec: RouteSpec): RouteSpec => ({
 /** What each destination needs */
 const SPECS: Record<string, RouteSpec> = {
 	write: {
-		needs: ['widgetList', 'characterList', 'personaList', 'personaActive', 'personaOverrides']
+		needs: ['widgetList', 'characterList', 'templateActive', 'personaList', 'personaActive', 'personaOverrides']
 	},
 
 	characters: { needs: ['characterList'] },
