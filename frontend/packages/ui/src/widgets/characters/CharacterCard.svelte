@@ -168,4 +168,15 @@
 		background: var(--color-hover);
 		border-color: var(--color-border-active);
 	}
+
+	@media (hover: none) {
+		.card::before {
+			opacity: 1;
+		}
+		.actions {
+			opacity: 1;
+			transform: none;
+			pointer-events: auto;
+		}
+	}
 </style>

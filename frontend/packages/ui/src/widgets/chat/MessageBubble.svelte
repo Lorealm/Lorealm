@@ -506,4 +506,16 @@
 		font-family: var(--font-family-nunito);
 		font-size: var(--font-size-md);
 	}
+	@media (max-width: 768px) {
+		.message {
+			gap: var(--spacing-sm);
+		}
+		.avatar {
+			width: 28px;
+			height: 28px;
+		}
+		.box-header {
+			flex-wrap: wrap;
+		}
+	}
 </style>

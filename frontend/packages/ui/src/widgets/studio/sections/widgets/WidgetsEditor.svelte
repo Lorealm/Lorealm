@@ -227,6 +227,7 @@ ${'</'}script>
 <div class="widgets-editor">
 	<ListSidebar
 		title="Widgets"
+		detailOpen={selectedId !== null}
 		oncreate={newWidget}
 		{creating}
 		bind:query

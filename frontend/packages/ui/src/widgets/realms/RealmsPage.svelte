@@ -5,6 +5,7 @@
 	import { ArrowLeft, Play, Save } from '@lucide/svelte';
 	import RealmCards from './RealmCards.svelte';
 	import RealmEditor from './RealmEditor.svelte';
+	import WideScreenNote from '$lib/components/WideScreenNote.svelte';
 	import BlueprintList from './BlueprintList.svelte';
 	import InstantiateDialog from './InstantiateDialog.svelte';
 	import { blueprintStore } from '$lib/stores/blueprint.svelte.js';
@@ -146,6 +147,7 @@
 	<div class="body">
 		<div class="main">
 			{#if blueprint}
+				<WideScreenNote subject="The realm editor" />
 				<RealmEditor />
 			{:else}
 				<div class="tabs" role="tablist" aria-label="Realms and blueprints">

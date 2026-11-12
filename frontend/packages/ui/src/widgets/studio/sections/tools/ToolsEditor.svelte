@@ -173,6 +173,7 @@
 <div class="tool-editor">
 	<ListSidebar
 		title="Tools"
+		detailOpen={selectedId !== null}
 		oncreate={newTool}
 		bind:query
 		bind:sort
@@ -785,5 +786,11 @@
 	.empty {
 		color: var(--color-text-muted);
 		font-size: var(--font-size-sm);
+	}
+
+	@media (max-width: 768px) {
+		.pane {
+			padding: var(--spacing-md);
+		}
 	}
 </style>

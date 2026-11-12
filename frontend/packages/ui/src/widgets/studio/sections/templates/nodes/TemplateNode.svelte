@@ -423,4 +423,10 @@
 		height: var(--font-size-sm);
 		width: var(--font-size-sm);
 	}
+
+	@media (hover: none) {
+		.kebab {
+			opacity: 1;
+		}
+	}
 </style>

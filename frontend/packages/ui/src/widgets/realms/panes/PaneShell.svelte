@@ -166,4 +166,10 @@
 		min-width: 0;
 		min-height: 0;
 	}
+
+	@media (hover: none) {
+		.close {
+			opacity: 1;
+		}
+	}
 </style>

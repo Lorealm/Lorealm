@@ -89,4 +89,20 @@
 	.tab.active {
 		border-color: currentColor;
 	}
+
+	@media (max-width: 768px) {
+		.studioNav {
+			padding: var(--spacing-sm);
+			overflow-x: auto;
+			scrollbar-width: none;
+		}
+		.studioNav > * {
+			flex-shrink: 0;
+			white-space: nowrap;
+		}
+		.studioNav select {
+			width: auto;
+			max-width: 9em;
+		}
+	}
 </style>

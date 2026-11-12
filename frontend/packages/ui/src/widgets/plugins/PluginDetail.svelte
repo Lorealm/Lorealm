@@ -310,4 +310,12 @@
 		border-radius: var(--radius-sm);
 		background-color: var(--color-bg-input);
 	}
+
+	@media (max-width: 768px) {
+		.page {
+			display: flex;
+			flex-direction: column;
+			overflow-y: auto;
+		}
+	}
 </style>

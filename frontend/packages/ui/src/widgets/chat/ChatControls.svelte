@@ -18,6 +18,7 @@
 	import { FilePlus, MessagesSquare, Paperclip, Send, Sparkles, Square } from '@lucide/svelte';
 	import { CHAT_COMPOSER_LAYER, type ChatComposerLayer } from '$lib/keys/commands.js';
 	import { keyLayer } from '$lib/keys/layers.svelte.js';
+	import { inputEnvironment } from '$lib/keys/environment.svelte.js';
 
 	let runningCommand = $derived(serverCommands.running);
 	/** The plugin the user is waiting for, if any. */
@@ -107,7 +108,7 @@
 					return;
 			}
 		}
-		if (event.key === 'Enter' && !event.shiftKey) {
+		if (event.key === 'Enter' && !event.shiftKey && !inputEnvironment.touchOnly) {
 			event.preventDefault();
 			send();
 		}
@@ -197,7 +198,7 @@
 			oninput={resize}
 		></textarea>
 		{#if !busy}
-			<button class="send-button" onclick={send}><Send /></button>
+			<button class="send-button" aria-label="Send" onclick={send}><Send /></button>
 		{:else}
 			<button
 				class="send-button"
@@ -248,5 +249,10 @@
 		max-height: 8em;
 		margin: 0;
 		padding: calc(var(--spacing-sm) + 4px) var(--spacing-sm);
+	}
+	@media (max-width: 768px) {
+		.container {
+			padding: 0 var(--spacing-sm);
+		}
 	}
 </style>

@@ -281,4 +281,10 @@
 		max-width: 26em;
 		text-align: center;
 	}
+
+	@media (hover: none) {
+		.remove {
+			opacity: 1;
+		}
+	}
 </style>

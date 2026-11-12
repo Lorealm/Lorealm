@@ -166,4 +166,37 @@
 		flex-direction: column;
 		gap: var(--spacing-sm);
 	}
+
+	@media (max-width: 768px) {
+		.topbar {
+			flex-wrap: wrap;
+			gap: var(--spacing-sm);
+			padding: var(--spacing-md);
+		}
+		h2 {
+			flex: 1 1 auto;
+		}
+		.search,
+		.sort {
+			order: 1;
+		}
+		.search {
+			flex: 1 1 8em;
+			max-width: none;
+		}
+		.sort {
+			flex: 1 1 8em;
+			min-width: 0;
+		}
+		.sort select {
+			flex: 1 1 auto;
+			min-width: 0;
+		}
+		.body {
+			padding: var(--spacing-md);
+		}
+		.items {
+			grid-template-columns: 1fr;
+		}
+	}
 </style>

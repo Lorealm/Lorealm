@@ -79,6 +79,7 @@
 <div class="module-editor">
 	<ListSidebar
 		title="Modules"
+		detailOpen={selectedId !== null}
 		oncreate={newModule}
 		bind:query
 		bind:sort
@@ -345,5 +346,11 @@
 	.empty {
 		color: var(--color-text-muted);
 		font-size: var(--font-size-sm);
+	}
+
+	@media (max-width: 768px) {
+		.pane {
+			padding: var(--spacing-md);
+		}
 	}
 </style>

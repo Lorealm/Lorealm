@@ -1,14 +1,20 @@
 <script lang="ts">
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
-	import { ChevronLeft, ChevronRight } from '@lucide/svelte';
+	import { ChevronLeft, ChevronRight, MenuIcon, PanelRight } from '@lucide/svelte';
 	import { crumbsFor } from '$lib/navigation/breadcrumbs.svelte.js';
 	import { navigator } from '$lib/navigation/navigator.js';
 	import { router } from '$lib/navigation/router.svelte.js';
+	import { shell } from '$lib/stores/shell.svelte.js';
 
 	const crumbs = $derived(crumbsFor(router.current));
 </script>
 
 <div class="topBar">
+	{#if shell.narrow}
+		<button class="step" aria-label="Open menu" onclick={() => shell.openNav()}>
+			<MenuIcon size={20} />
+		</button>
+	{/if}
 	<div class="history">
 		<button
 			class="step"
@@ -20,7 +26,7 @@
 			<ChevronLeft size={18} />
 		</button>
 		<button
-			class="step"
+			class="step forward"
 			{@attach tooltip('Forward')}
 			aria-label="Forward"
 			disabled={!router.canGoForward}
@@ -48,6 +54,12 @@
 			{/if}
 		{/each}
 	</nav>
+
+	{#if shell.narrow}
+		<button class="step panel" aria-label="Open inspector" onclick={() => shell.openInspector()}>
+			<PanelRight size={20} />
+		</button>
+	{/if}
 </div>
 
 <style>
@@ -96,6 +108,28 @@
 		gap: var(--spacing-xs);
 		min-width: 0;
 		overflow: hidden;
+	}
+	.panel {
+		margin-left: auto;
+	}
+	@media (max-width: 768px) {
+		.topBar {
+			gap: var(--spacing-xs);
+			padding: 0 var(--spacing-xs);
+		}
+		.step {
+			flex-shrink: 0;
+			min-width: 40px;
+			min-height: 40px;
+		}
+		/* The browser's own back and forward cover this, and the row is short. */
+		.forward {
+			display: none;
+		}
+		.trail {
+			overflow-x: auto;
+			scrollbar-width: none;
+		}
 	}
 	.crumb {
 		flex-shrink: 0;

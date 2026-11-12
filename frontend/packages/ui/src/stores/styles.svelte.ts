@@ -167,6 +167,21 @@ export function applyStyle(tokens: Record<string, string>, css: string): void {
 	element.textContent = `:root {\n${declarations}\n}\n\n${css}`;
 
 	document.head.appendChild(element);
+	tintBrowser();
+}
+
+function tintBrowser(): void {
+	const ground = getComputedStyle(document.documentElement)
+		.getPropertyValue('--backdrop-ground')
+		.trim();
+	if (!ground) return;
+	let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+	if (!meta) {
+		meta = document.createElement('meta');
+		meta.name = 'theme-color';
+		document.head.appendChild(meta);
+	}
+	meta.content = ground;
 }
 
 export function styleFile(style: Style): string {

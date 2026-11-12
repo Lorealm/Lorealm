@@ -93,4 +93,10 @@
 		font-size: 0.9rem;
 		padding: var(--spacing-sm);
 	}
+	@media (max-width: 768px) {
+		.container {
+			gap: var(--spacing-md);
+			padding: var(--spacing-sm);
+		}
+	}
 </style>

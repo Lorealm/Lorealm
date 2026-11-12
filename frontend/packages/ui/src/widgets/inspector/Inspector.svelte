@@ -9,6 +9,8 @@
 	import PluginWidget from './widgets/PluginWidget.svelte';
 	import { pluginsStore } from '$lib/stores/plugins.svelte.js';
 	import { inspectorWidth } from '$lib/stores/inspectorWidth.svelte.js';
+	import { shell } from '$lib/stores/shell.svelte.js';
+	import { X } from '@lucide/svelte';
 
 	const view = $derived(router.current.view);
 
@@ -41,7 +43,12 @@
 	const widgets = $derived(inspectorMatrix.widgetsFor(view));
 </script>
 
-<div class="container" style="width: {inspectorWidth.value}px">
+<div
+	class="container"
+	class:open={shell.inspectorOpen}
+	inert={shell.narrow && !shell.inspectorOpen}
+	style="width: {inspectorWidth.value}px"
+>
 	<button
 		type="button"
 		class="grip"
@@ -68,6 +75,11 @@
 					{#if active}<span class="name">{profile.name}</span>{/if}
 				</button>
 			{/each}
+		{/if}
+		{#if shell.narrow}
+			<button class="close" aria-label="Close inspector" onclick={() => shell.closeDrawer()}>
+				<X size={20} />
+			</button>
 		{/if}
 	</div>
 	<div class="content">
@@ -172,6 +184,48 @@
 		flex: 1;
 		min-height: 0;
 		overflow-y: auto;
+	}
+	.close {
+		position: sticky;
+		right: 0;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		min-width: 40px;
+		min-height: 40px;
+		margin-left: auto;
+		padding: 0;
+		background-color: var(--color-bg-elevated);
+		color: var(--color-text-secondary);
+	}
+	@media (max-width: 768px) {
+		.container {
+			position: fixed;
+			inset: 0 0 0 auto;
+			z-index: var(--z-index-always-top);
+			width: min(100%, 420px) !important;
+			background-color: var(--color-bg-panel-solid);
+			transform: translateX(100%);
+			visibility: hidden;
+			transition:
+				transform var(--transition-fast) var(--easing-default),
+				visibility 0s var(--transition-fast);
+		}
+		.container.open {
+			transform: none;
+			visibility: visible;
+			transition: transform var(--transition-fast) var(--easing-default);
+			box-shadow: var(--shadow-xl);
+		}
+		.grip {
+			display: none;
+		}
+	}
+	@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+		.container,
+		.container.open {
+			transition: none;
+		}
 	}
 	.empty {
 		padding: var(--spacing-lg);

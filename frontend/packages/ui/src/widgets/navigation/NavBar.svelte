@@ -8,32 +8,44 @@
 		Plug2,
 		Blocks,
 		Settings,
-		User
+		User,
+		X
 	} from '@lucide/svelte';
 	import NavButton from './NavButton.svelte';
 	import { navigator } from '$lib/navigation/navigator.js';
-	var collapsed = $state(false);
-	var sidebarElement: HTMLDivElement;
+	import { shell } from '$lib/stores/shell.svelte.js';
 
-	function toggleCollapse() {
-		collapsed = !collapsed;
-		var width = collapsed ? 'var(--width-sidebar-collapsed)' : 'var(--width-sidebar-full)';
-		sidebarElement.style.width = width;
-	}
+	let userCollapsed = $state(false);
+	const collapsed = $derived(userCollapsed && !shell.narrow);
 </script>
 
-<div class="container" bind:this={sidebarElement}>
+<div
+	class="container"
+	class:collapsed
+	class:open={shell.navOpen}
+	inert={shell.narrow && !shell.navOpen}
+>
 	<div class="top-container">
 		{#if !collapsed}
 			<div class="branding">Lorealm</div>
 		{/if}
-		<button class="collapse-button" onclick={toggleCollapse}>
-			{#if collapsed}
-				<MenuIcon />
-			{:else}
-				<ChevronLeft />
-			{/if}
-		</button>
+		{#if shell.narrow}
+			<button class="collapse-button" aria-label="Close menu" onclick={() => shell.closeDrawer()}>
+				<X />
+			</button>
+		{:else}
+			<button
+				class="collapse-button"
+				aria-label={collapsed ? 'Expand menu' : 'Collapse menu'}
+				onclick={() => (userCollapsed = !userCollapsed)}
+			>
+				{#if collapsed}
+					<MenuIcon />
+				{:else}
+					<ChevronLeft />
+				{/if}
+			</button>
+		{/if}
 	</div>
 	<NavButton
 		label="Write"
@@ -99,6 +111,35 @@
 		-webkit-backdrop-filter: var(--surface-blur);
 		backdrop-filter: var(--surface-blur);
 		border-right: 1px solid var(--color-border-subtle);
+	}
+	.container.collapsed {
+		width: var(--width-sidebar-collapsed);
+	}
+	@media (max-width: 768px) {
+		.container {
+			position: fixed;
+			inset: 0 auto 0 0;
+			z-index: var(--z-index-always-top);
+			width: min(var(--width-sidebar-full), 85vw);
+			background-color: var(--color-bg-panel-solid);
+			transform: translateX(-100%);
+			visibility: hidden;
+			transition:
+				transform var(--transition-fast) var(--easing-default),
+				visibility 0s var(--transition-fast);
+		}
+		.container.open {
+			transform: none;
+			visibility: visible;
+			transition: transform var(--transition-fast) var(--easing-default);
+			box-shadow: var(--shadow-xl);
+		}
+	}
+	@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+		.container,
+		.container.open {
+			transition: none;
+		}
 	}
 	.top-container {
 		display: flex;

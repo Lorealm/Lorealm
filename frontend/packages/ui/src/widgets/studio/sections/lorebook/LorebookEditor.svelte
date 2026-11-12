@@ -15,6 +15,8 @@
 	const draft = $derived(lorebookStore.editingLorebook);
 
 	let selected = $state<Snowflake | 'config'>('config');
+	/** A narrow window shows the entry list or what it opened, never both. */
+	let paneOpen = $state(false);
 	const selectedEntry = $derived(
 		selected !== 'config' && draft
 			? (draft.entries.find((e) => e.snowflake === selected) ?? null)
@@ -50,7 +52,10 @@
 
 	async function addEntry() {
 		const eid = await lorebookStore.addEntry();
-		if (eid) selected = eid;
+		if (eid) {
+			selected = eid;
+			paneOpen = true;
+		}
 	}
 	function toggleEntry(eid: Snowflake) {
 		const entry = draft?.entries.find((e) => e.snowflake === eid);
@@ -68,7 +73,7 @@
 	}
 </script>
 
-<div class="lorebook-editor">
+<div class="lorebook-editor" class:pane-open={paneOpen}>
 	<section class="col-list">
 		<header class="list-header">
 			<div class="header-row">
@@ -84,7 +89,10 @@
 					class="settings"
 					class:active={selected === 'config'}
 					type="button"
-					onclick={() => (selected = 'config')}>Settings</button
+					onclick={() => {
+						selected = 'config';
+						paneOpen = true;
+					}}>Settings</button
 				>
 				<button class="add" type="button" onclick={addEntry}>＋ Entry</button>
 			</div>
@@ -96,7 +104,10 @@
 				entries={draft.entries}
 				selectedId={selected === 'config' ? null : selected}
 				defaultPriority={draft.config.default_priority}
-				onSelect={(eid) => (selected = eid)}
+				onSelect={(eid) => {
+					selected = eid;
+					paneOpen = true;
+				}}
 				onToggle={toggleEntry}
 				onDelete={deleteEntry}
 				entryState={(eid) => lorebookStore.entrySaveState(eid)}
@@ -105,6 +116,7 @@
 	</section>
 
 	<section class="col-content">
+		<button type="button" class="to-list" onclick={() => (paneOpen = false)}>← Entries</button>
 		{#if selectedEntry && draft}
 			{#key selectedEntry.snowflake}
 				<EntryEditor
@@ -177,5 +189,29 @@
 	.settings.active {
 		font-weight: bold;
 		color: var(--color-text-primary);
+	}
+	.to-list {
+		display: none;
+	}
+	@media (max-width: 768px) {
+		.col-list {
+			flex: 1 1 auto;
+			border-right: none;
+		}
+		.col-content {
+			flex-direction: column;
+		}
+		.lorebook-editor.pane-open .col-list,
+		.lorebook-editor:not(.pane-open) .col-content {
+			display: none;
+		}
+		.to-list {
+			display: flex;
+			flex-shrink: 0;
+			align-self: flex-start;
+			margin: var(--spacing-sm) var(--spacing-md) 0;
+			font-size: var(--font-size-sm);
+			padding: var(--spacing-xs) var(--spacing-sm);
+		}
 	}
 </style>

@@ -12,6 +12,7 @@
 		sortOptions = [],
 		searchPlaceholder = 'Search…',
 		showBuiltins = $bindable(),
+		detailOpen = false,
 		status,
 		children
 	}: {
@@ -25,6 +26,7 @@
 		searchPlaceholder?: string;
 		/** Bind to offer a switch that hides shipped rows. */
 		showBuiltins?: boolean;
+		detailOpen?: boolean;
 		/** Save indicator and the like */
 		status?: Snippet;
 		/** The list rows. Styled by the caller. */
@@ -32,7 +34,7 @@
 	} = $props();
 </script>
 
-<section class="col-list">
+<section class="col-list" class:detail-open={detailOpen}>
 	<header class="list-header">
 		<div class="title-row">
 			<span class="title">{title}</span>
@@ -167,5 +169,19 @@
 		padding: var(--spacing-sm);
 		gap: var(--spacing-xs);
 		overflow-y: auto;
+	}
+
+	@media (max-width: 768px) {
+		.col-list {
+			flex: 1 1 auto;
+			border-right: none;
+		}
+		.col-list.detail-open,
+		.col-list:not(.detail-open) + :global(*) {
+			display: none;
+		}
+		.list {
+			gap: var(--spacing-sm);
+		}
 	}
 </style>

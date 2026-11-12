@@ -107,6 +107,7 @@
 		createLabel="New profile"
 		oncreate={createProfile}
 		{creating}
+		detailOpen={selected !== null}
 		bind:query
 		searchPlaceholder="Search profiles…"
 	>

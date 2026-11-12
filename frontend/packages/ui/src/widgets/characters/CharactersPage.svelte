@@ -279,4 +279,27 @@
 		padding: var(--spacing-4xl) var(--spacing-lg);
 		text-align: center;
 	}
+
+	@media (max-width: 768px) {
+		.topbar {
+			flex-wrap: wrap;
+			padding: var(--spacing-md);
+		}
+		.sort,
+		.actions {
+			flex: 1 1 100%;
+			margin-left: 0;
+		}
+		.topbar select {
+			flex: 1 1 auto;
+			min-width: 0;
+		}
+		.reuse {
+			flex: 1 1 auto;
+		}
+		.list {
+			gap: var(--spacing-md);
+			padding: var(--spacing-md);
+		}
+	}
 </style>

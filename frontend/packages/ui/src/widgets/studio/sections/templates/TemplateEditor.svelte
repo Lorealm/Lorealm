@@ -390,4 +390,15 @@
 		gap: var(--spacing-xs);
 		padding: var(--spacing-sm);
 	}
+
+	@media (max-width: 768px) {
+		.template-editor {
+			flex-direction: column;
+		}
+		.col-hierarchy {
+			flex: 0 0 45%;
+			border-right: none;
+			border-bottom: 1px solid var(--color-border-subtle);
+		}
+	}
 </style>

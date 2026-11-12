@@ -198,6 +198,7 @@
 <div class="persona-editor">
 	<ListSidebar
 		title="Personas"
+		detailOpen={selectedId !== null}
 		oncreate={createPersona}
 		{creating}
 		bind:query
@@ -764,5 +765,11 @@
 	.delete-persona:disabled {
 		opacity: 0.5;
 		cursor: default;
+	}
+
+	@media (max-width: 768px) {
+		.pane {
+			padding: var(--spacing-md);
+		}
 	}
 </style>

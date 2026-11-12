@@ -10,6 +10,8 @@
 	import { builtInCommands } from '$lib/keys/commands.js';
 	import { keybinds } from '$lib/keys/manager.svelte.js';
 	import { commandRegistry } from '$lib/keys/registry.svelte.js';
+	import { router } from '$lib/navigation/router.svelte.js';
+	import { shell } from '$lib/stores/shell.svelte.js';
 
 	$effect(() => {
 		const unregister = commandRegistry.register(builtInCommands);
@@ -24,9 +26,24 @@
 			unregister();
 		};
 	});
+
+	$effect(() => {
+		void router.current;
+		shell.closeDrawer();
+	});
+
+	function closeOnEscape(event: KeyboardEvent) {
+		if (event.key === 'Escape' && shell.drawerOpen) shell.closeDrawer();
+	}
 </script>
 
+<svelte:window onkeydown={closeOnEscape} />
+
 <div class="container">
+	{#if shell.drawerOpen}
+		<button type="button" class="scrim" aria-label="Close panel" onclick={() => shell.closeDrawer()}
+		></button>
+	{/if}
 	<NavBar />
 	<div id="mainView" class="centre">
 		<TopBar />
@@ -57,5 +74,17 @@
 		flex: 1;
 		flex-direction: column;
 		height: 100%;
+	}
+	.scrim {
+		position: fixed;
+		inset: 0;
+		z-index: var(--z-index-sticky);
+		padding: 0;
+		border: none;
+		border-radius: 0;
+		background-color: var(--color-overlay-bg);
+	}
+	.scrim:hover {
+		background-color: var(--color-overlay-bg);
 	}
 </style>

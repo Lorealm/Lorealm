@@ -11,6 +11,17 @@ import {
 
 export type RouteStatus = 'ready' | 'loading' | 'error';
 
+interface HistoryMark {
+	lorealmRoute: number;
+}
+
+const browserHistory = typeof window === 'undefined' ? null : window.history;
+
+function markOf(state: unknown): number | null {
+	const mark = (state as Partial<HistoryMark> | null)?.lorealmRoute;
+	return typeof mark === 'number' ? mark : null;
+}
+
 class Router {
 	#stack = $state<Route[]>([HOME]);
 	#index = $state(0);
@@ -31,6 +42,48 @@ class Router {
 	status = $state<RouteStatus>('ready');
 	error = $state<string | null>(null);
 
+	/**
+	 * The stack index the browser's own history sits at, so that its back and
+	 * forward (a phone's back gesture, a mouse's side buttons) walk this stack
+	 * instead of leaving the app. Null when the two have drifted apart.
+	 */
+	#browserAt: number | null = null;
+	/** Traversals this router asked the browser for, whose `popstate` is an echo. */
+	#echoes = 0;
+
+	constructor() {
+		if (typeof window === 'undefined') return;
+		window.addEventListener('popstate', (event) => {
+			if (this.#echoes > 0) {
+				this.#echoes -= 1;
+				return;
+			}
+			const mark = markOf(event.state);
+			this.#browserAt = mark;
+			// An entry from before a reload or a sign-out points past this stack.
+			if (mark === null || mark === this.#index || mark >= this.#stack.length) return;
+			const previous = this.current;
+			this.#index = mark;
+			this.#schedule(previous, this.current);
+		});
+	}
+
+	#mark(replace: boolean) {
+		if (!browserHistory) return;
+		const mark: HistoryMark = { lorealmRoute: this.#index };
+		if (replace) browserHistory.replaceState(mark, '');
+		else browserHistory.pushState(mark, '');
+		this.#browserAt = this.#index;
+	}
+
+	/** Move the browser along with a step taken here, if it was standing at `from`. */
+	#follow(from: number, step: -1 | 1) {
+		if (!browserHistory || this.#browserAt !== from) return;
+		this.#browserAt = from + step;
+		this.#echoes += 1;
+		browserHistory.go(step);
+	}
+
 	get current(): Route {
 		return this.#stack[this.#index];
 	}
@@ -49,6 +102,7 @@ class Router {
 		else {
 			this.#stack = [...this.#stack.slice(0, this.#index + 1), route];
 			this.#index = this.#stack.length - 1;
+			this.#mark(false);
 		}
 
 		this.#remember(route);
@@ -59,6 +113,7 @@ class Router {
 		if (!this.canGoBack) return;
 		const previous = this.current;
 		this.#index -= 1;
+		this.#follow(this.#index + 1, -1);
 		this.#schedule(previous, this.current);
 	}
 
@@ -66,6 +121,7 @@ class Router {
 		if (!this.canGoForward) return;
 		const previous = this.current;
 		this.#index += 1;
+		this.#follow(this.#index - 1, 1);
 		this.#schedule(previous, this.current);
 	}
 
@@ -84,12 +140,14 @@ class Router {
 			this.#remember(saved);
 			if ('id' in saved && saved.id !== undefined) this.#fallback = { ...saved, id: undefined };
 		}
+		this.#mark(true);
 		this.enter();
 	}
 
 	reset() {
 		this.#stack = [HOME];
 		this.#index = 0;
+		this.#mark(true);
 		this.status = 'ready';
 		this.error = null;
 	}

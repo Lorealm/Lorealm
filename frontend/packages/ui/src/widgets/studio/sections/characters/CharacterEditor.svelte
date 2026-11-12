@@ -688,4 +688,39 @@
 	label {
 		margin-top: var(--spacing-xs);
 	}
+
+	@media (max-width: 768px) {
+		.character-editor {
+			flex-direction: column;
+		}
+		.col-list {
+			flex: 0 0 auto;
+			border-right: none;
+			border-bottom: 1px solid var(--color-border-subtle);
+		}
+		.list-header {
+			padding: var(--spacing-sm) var(--spacing-md);
+		}
+		.section-nav {
+			flex-direction: row;
+			overflow-x: auto;
+			overflow-y: hidden;
+			scrollbar-width: none;
+		}
+		.nav-item {
+			flex-shrink: 0;
+			gap: var(--spacing-xs);
+			white-space: nowrap;
+		}
+		.pane {
+			padding: var(--spacing-md);
+		}
+		.identity-top {
+			flex-direction: column;
+			align-items: stretch;
+		}
+		.avatar {
+			align-self: center;
+		}
+	}
 </style>

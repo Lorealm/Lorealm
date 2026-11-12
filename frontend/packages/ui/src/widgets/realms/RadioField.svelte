@@ -508,4 +508,10 @@
 		color: var(--color-text-muted);
 		font-size: var(--font-size-sm);
 	}
+
+	@media (hover: none) {
+		.clear {
+			opacity: 1;
+		}
+	}
 </style>
