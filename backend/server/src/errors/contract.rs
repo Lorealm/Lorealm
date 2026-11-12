@@ -138,6 +138,7 @@ fn contract_surface() -> Vec<(&'static str, Vec<Box<dyn DomainError>>)> {
             "plugin",
             vec![
                 Box::new(PluginError::NotFound("hello".into())),
+                Box::new(PluginError::NotListed("hello".into())),
                 Box::new(PluginError::Invalid(
                     "hello".into(),
                     lorealm_plugins::PluginError::Init("boom".into()),

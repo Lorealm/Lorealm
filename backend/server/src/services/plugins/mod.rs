@@ -31,10 +31,12 @@ use weaver_lang::InputType;
 
 mod fetch;
 mod install;
+mod marketplace;
 mod settings;
 mod vocabulary;
 
 pub use install::{InstallReport, MAX_PACKAGE};
+pub use marketplace::Marketplace;
 pub use vocabulary::{PLUGIN_SOURCE_PREFIX, UserVocabulary};
 
 use crate::{
@@ -264,6 +266,8 @@ pub struct PluginService {
     http: reqwest::Client,
     /// What every user's plugins send their frontends.
     frontend: broadcast::Sender<FrontendEvent>,
+    /// The plugin indexes installs are offered from.
+    marketplace: marketplace::Indexes,
 }
 
 impl PluginService {
@@ -292,6 +296,7 @@ impl PluginService {
             generate_timeout: Duration::from_secs(config.generate_timeout),
             http: fetch::client(),
             frontend: broadcast::channel(256).0,
+            marketplace: marketplace::Indexes::new(config.indexes),
         }
     }
 

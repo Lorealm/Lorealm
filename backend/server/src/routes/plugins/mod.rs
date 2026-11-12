@@ -18,6 +18,11 @@ use crate::{
 pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewareState) -> Router {
     let session_only_routes = Router::new()
         .route("/", get(handlers::list_plugins))
+        .route("/marketplace", get(handlers::marketplace))
+        .route(
+            "/marketplace/{handle}/readme",
+            get(handlers::marketplace_readme),
+        )
         .route("/{handle}/logs", get(handlers::list_plugin_logs))
         .route("/{handle}/readme", get(handlers::plugin_readme))
         .route("/{handle}/settings", get(handlers::plugin_settings))
@@ -35,6 +40,10 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         .route("/{handle}/settings", put(handlers::save_plugin_settings))
         .route("/{handle}/update", post(handlers::update_plugin))
         .route("/{handle}/reload", post(handlers::reload_plugin))
+        .route(
+            "/marketplace/{handle}/install",
+            post(handlers::install_listed_plugin),
+        )
         .route("/install", post(handlers::install_plugin))
         .route(
             "/install/upload",

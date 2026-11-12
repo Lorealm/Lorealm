@@ -10,6 +10,8 @@ use crate::errors::{DomainError, ErrorDetails, TargetType, impl_app_error, sente
 pub enum PluginError {
     #[error("plugin {0} is not installed")]
     NotFound(String),
+    #[error("plugin {0} is not in the marketplace")]
+    NotListed(String),
     #[error("plugin {0} failed to load: {1}")]
     Invalid(String, lorealm_plugins::PluginError),
     #[error("plugin {0} cannot be enabled: it {1}")]
@@ -42,6 +44,7 @@ impl DomainError for PluginError {
     fn code(&self) -> &'static str {
         match self {
             Self::NotFound(_) => "plugin.not_found",
+            Self::NotListed(_) => "plugin.not_listed",
             Self::Invalid(_, _) => "plugin.invalid",
             Self::CannotEnable(_, _) => "plugin.cannot_enable",
             Self::Required(_, _) => "plugin.required",
@@ -60,7 +63,7 @@ impl DomainError for PluginError {
 
     fn status(&self) -> StatusCode {
         match self {
-            Self::NotFound(_) => StatusCode::NOT_FOUND,
+            Self::NotFound(_) | Self::NotListed(_) => StatusCode::NOT_FOUND,
             Self::Invalid(_, _) | Self::InvalidOrder => StatusCode::BAD_REQUEST,
             Self::CannotEnable(_, _) | Self::Required(_, _) => StatusCode::CONFLICT,
             Self::CallFailed(_, _) | Self::BuildFailed(_) => StatusCode::UNPROCESSABLE_ENTITY,
@@ -75,6 +78,7 @@ impl DomainError for PluginError {
     fn message(&self) -> Cow<'static, str> {
         match self {
             Self::NotFound(_) => "That plugin is not installed.".into(),
+            Self::NotListed(_) => "That isn't in the plugin marketplace.".into(),
             Self::Invalid(_, _) => "That plugin could not be loaded.".into(),
             Self::CannotEnable(_, reason) => {
                 sentence(format!("This plugin can't be enabled: it {reason}"))
@@ -118,6 +122,7 @@ impl DomainError for PluginError {
     fn details(&self) -> Option<ErrorDetails> {
         match self {
             Self::NotFound(_)
+            | Self::NotListed(_)
             | Self::Invalid(_, _)
             | Self::CannotEnable(_, _)
             | Self::Required(_, _)

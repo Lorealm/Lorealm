@@ -10,6 +10,14 @@ pub struct PluginConfig {
     /// How long a plugin's `generate` may wait for the model in seconds.
     #[serde(default = "generate_timeout")]
     pub generate_timeout: u64,
+    /// The plugin indexes the marketplace reads.
+    #[serde(default = "indexes")]
+    pub indexes: Vec<String>,
+}
+
+/// The official marketplace.
+fn indexes() -> Vec<String> {
+    vec!["https://lorealm.github.io/lorealm-plugin-marketplace/index.json".into()]
 }
 
 fn log_cap() -> u32 {
@@ -25,6 +33,7 @@ impl Default for PluginConfig {
         Self {
             log_cap: log_cap(),
             generate_timeout: generate_timeout(),
+            indexes: indexes(),
         }
     }
 }

@@ -243,6 +243,18 @@ impl PluginService {
         zip: Vec<u8>,
         may_build: bool,
     ) -> Result<InstallReport, PluginError> {
+        self.install_zip_as(user_id, zip, may_build, None).await
+    }
+
+    /// [`Self::install_zip`], refusing a zip that isn't the plugin and
+    /// version `expected`, if given.
+    pub(crate) async fn install_zip_as(
+        &self,
+        user_id: Snowflake,
+        zip: Vec<u8>,
+        may_build: bool,
+        expected: Option<(String, Version)>,
+    ) -> Result<InstallReport, PluginError> {
         let temp = self.temp_dir()?;
         let into = temp.path().to_owned();
         let root = tokio::task::spawn_blocking(move || unzip(&zip, &into))
@@ -251,6 +263,15 @@ impl PluginService {
             .map_err(PluginError::InvalidSource)?;
         let manifest =
             Manifest::from_dir(&root).map_err(|e| PluginError::InvalidSource(e.to_string()))?;
+        if let Some((handle, version)) = expected {
+            let plugin = &manifest.plugin;
+            if plugin.handle != handle || plugin.version != version {
+                return Err(PluginError::InvalidSource(format!(
+                    "the zip holds {}@{}, not {handle}@{version}",
+                    plugin.handle, plugin.version
+                )));
+            }
+        }
         let has_build = !manifest.build.backend.is_empty() || !manifest.build.frontend.is_empty();
         if root.join(&manifest.structure.backend).is_file() || !has_build {
             tracing::info!("installing a pre-built zip");
@@ -684,7 +705,7 @@ impl Location {
 }
 
 /// Follows redirects, which GitHub's downloads go through.
-fn download_client() -> reqwest::Client {
+pub(super) fn download_client() -> reqwest::Client {
     reqwest::Client::builder()
         .user_agent(concat!("Lorealm/", env!("CARGO_PKG_VERSION")))
         .connect_timeout(Duration::from_secs(10))
@@ -694,7 +715,7 @@ fn download_client() -> reqwest::Client {
 }
 
 /// Downloads `url`, up to [`MAX_PACKAGE`].
-async fn download(client: &reqwest::Client, url: &str) -> Result<Vec<u8>, PluginError> {
+pub(super) async fn download(client: &reqwest::Client, url: &str) -> Result<Vec<u8>, PluginError> {
     let failed =
         |e: reqwest::Error| PluginError::InvalidSource(format!("couldn't download {url}: {e}"));
     let mut response = client

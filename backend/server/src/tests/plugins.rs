@@ -6,6 +6,7 @@ use std::{
     },
 };
 
+use lorealm_plugins::Version;
 use lorealm_storage::{
     ConnectionStorage, ConversationStorage, PersonaStorage, PluginStorage,
     models::{PluginLog, PluginLogLevel, PluginLogSource, Snowflake},
@@ -2342,4 +2343,162 @@ async fn generate_gives_up_after_the_configured_wait() {
         matches!(&result, Err(PluginError::CallFailed(_, reason)) if reason.contains("within 1s")),
         "{result:?}"
     );
+}
+
+async fn hello_release() -> Vec<u8> {
+    let built = installed_dir().await.join("hello@0.1.0");
+    let mut files = vec![
+        ("manifest.toml".to_owned(), built.join("manifest.toml")),
+        ("backend.wasm".to_owned(), built.join("backend.wasm")),
+    ];
+    for entry in std::fs::read_dir(built.join("frontend")).unwrap() {
+        let entry = entry.unwrap();
+        let name = entry.file_name().to_string_lossy().into_owned();
+        files.push((format!("frontend/{name}"), entry.path()));
+    }
+    let files: Vec<(&str, Vec<u8>)> = files
+        .iter()
+        .map(|(name, path)| (name.as_str(), std::fs::read(path).unwrap()))
+        .collect();
+    zipped(&files)
+}
+
+async fn serve_index(zip: Vec<u8>, sha256: String, api: &str) -> String {
+    use axum::routing::get;
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let index = serde_json::json!({
+        "schema": 1,
+        "plugins": [{
+            "handle": "hello",
+            "repository": "https://github.com/lorealm/hello",
+            "readme": "readme/hello.md",
+            "versions": [{
+                "version": "0.1.0",
+                "api": api,
+                "url": format!("{base}/hello.zip"),
+                "sha256": sha256,
+                "name": "Hello",
+                "description": "Says hello.",
+                "author": "Lorealm",
+                "permissions": ["prompt:write"],
+                "hosts": [],
+                "slots": [],
+            }],
+        }],
+    });
+    let app = axum::Router::new()
+        .route("/index.json", get(move || async move { index.to_string() }))
+        .route("/readme/hello.md", get(|| async { "# Hello" }))
+        .route("/hello.zip", get(move || async move { zip }));
+    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    format!("{base}/index.json")
+}
+
+fn sha256(bytes: &[u8]) -> String {
+    use sha2::Digest;
+
+    hex::encode(sha2::Sha256::digest(bytes))
+}
+
+fn with_indexes(indexes: Vec<String>) -> PluginConfig {
+    PluginConfig {
+        indexes,
+        ..PluginConfig::default()
+    }
+}
+
+#[tokio::test]
+async fn a_listed_plugin_installs_from_its_pinned_release() {
+    let h = harness().await;
+    let dir = fresh_dir();
+    let zip = hello_release().await;
+    let index = serve_index(zip.clone(), sha256(&zip), "0.1.0").await;
+    // An index that can't be read doesn't hide the ones that can.
+    let dead = "http://127.0.0.1:1/index.json".to_owned();
+    let plugins = service(&h, dir.clone(), with_indexes(vec![dead.clone(), index]));
+
+    let before = plugins.marketplace().await;
+    let readme = plugins.marketplace_readme("hello").await.unwrap();
+    let report = plugins.install_listed(h.user, "hello", None).await.unwrap();
+    let after = plugins.marketplace().await;
+
+    assert_eq!(before.unavailable, vec![dead]);
+    let listed = &before.plugins[0];
+    assert_eq!(listed.handle, "hello");
+    assert!(listed.has_readme && listed.versions[0].compatible);
+    assert_eq!(listed.offered, Some(Version::new(0, 1, 0)));
+    assert_eq!(listed.installed, None);
+    assert_eq!(readme, "# Hello");
+    assert_eq!(
+        (report.handle.as_str(), report.version.as_str()),
+        ("hello", "0.1.0")
+    );
+    assert!(dir.join("hello@0.1.0/backend.wasm").is_file());
+    assert_eq!(after.plugins[0].installed, Some(Version::new(0, 1, 0)));
+}
+
+#[tokio::test]
+async fn a_release_swapped_after_review_is_refused() {
+    let h = harness().await;
+    let dir = fresh_dir();
+    let zip = hello_release().await;
+    let index = serve_index(zip, "0".repeat(64), "0.1.0").await;
+    let plugins = service(&h, dir.clone(), with_indexes(vec![index]));
+
+    let result = plugins.install_listed(h.user, "hello", None).await.err();
+
+    assert!(
+        matches!(&result, Some(PluginError::InvalidSource(r)) if r.contains("sha256")),
+        "{result:?}"
+    );
+    assert!(!dir.join("hello@0.1.0").exists());
+}
+
+#[tokio::test]
+async fn a_version_for_another_plugin_api_is_listed_but_not_offered() {
+    let h = harness().await;
+    let zip = hello_release().await;
+    let index = serve_index(zip.clone(), sha256(&zip), "0.0.9").await;
+    let plugins = service(&h, fresh_dir(), with_indexes(vec![index]));
+    let version = Version::new(0, 1, 0);
+
+    let listed = plugins.marketplace().await;
+    let newest = plugins.install_listed(h.user, "hello", None).await.err();
+    let named = plugins
+        .install_listed(h.user, "hello", Some(&version))
+        .await;
+    let unknown = plugins.install_listed(h.user, "nope", None).await.err();
+
+    assert!(!listed.plugins[0].versions[0].compatible);
+    assert_eq!(listed.plugins[0].offered, None);
+    assert!(
+        matches!(newest, Some(PluginError::InvalidSource(_))),
+        "{newest:?}"
+    );
+    assert!(matches!(&named, Err(PluginError::InvalidSource(r)) if r.contains("plugin API 0.0.9")),);
+    assert!(
+        matches!(unknown, Some(PluginError::NotListed(_))),
+        "{unknown:?}"
+    );
+}
+
+#[tokio::test]
+async fn a_zip_that_isnt_the_listed_plugin_is_refused() {
+    let h = harness().await;
+    let dir = fresh_dir();
+    let plugins = service(&h, dir.clone(), PluginConfig::default());
+    let expected = Some(("other".to_owned(), Version::new(0, 1, 0)));
+
+    let result = plugins
+        .install_zip_as(h.user, hello_release().await, false, expected)
+        .await
+        .err();
+
+    assert!(
+        matches!(&result, Some(PluginError::InvalidSource(r)) if r.contains("hello@0.1.0, not other@0.1.0")),
+        "{result:?}"
+    );
+    assert!(!dir.join("hello@0.1.0").exists());
 }

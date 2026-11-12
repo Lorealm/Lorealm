@@ -129,6 +129,7 @@ Messages containing quoted values are examples; the interpolated part varies.
 | `plugin.invalid_settings` | 400 | Those settings aren't valid: input autoplay: expected bool, got string. |
 | `plugin.invalid_order` | 400 | The order must list each enabled plugin exactly once. |
 | `plugin.not_found` | 404 | That plugin is not installed. |
+| `plugin.not_listed` | 404 | That isn't in the plugin marketplace. |
 | `plugin.required` | 409 | Disable the plugins that require this one first: `hello`, `other`. |
 | `realm.action_failed` | 400 | Action failed: roll failed. |
 | `realm.director_failed` | 400 | The realm could not decide who acts next: unknown handle. |

@@ -16,7 +16,7 @@ use crate::{
     extract::{AuthenticatedSession, ResolvedPermissions},
     services::{
         permission::Permissions,
-        plugins::{InstallReport, InstalledPlugin, PluginSettings},
+        plugins::{InstallReport, InstalledPlugin, Marketplace, PluginSettings},
     },
 };
 
@@ -266,6 +266,54 @@ pub async fn install_plugin(
     let may_build = perms.require(Permissions::BUILD_PLUGINS).is_ok();
     let report = plugins
         .install(session.user_id, location, may_build)
+        .await?;
+
+    Ok(Json(report))
+}
+
+/// The plugins the server's indexes list.
+pub async fn marketplace(
+    State(app_state): State<Arc<AppState>>,
+    _session: AuthenticatedSession,
+) -> Json<Marketplace> {
+    Json(app_state.services().plugins().marketplace().await)
+}
+
+/// A listed plugin's README, as Markdown.
+pub async fn marketplace_readme(
+    State(app_state): State<Arc<AppState>>,
+    _session: AuthenticatedSession,
+    Path(handle): Path<String>,
+) -> Result<String, AppError> {
+    let readme = app_state
+        .services()
+        .plugins()
+        .marketplace_readme(&handle)
+        .await?;
+
+    Ok(readme)
+}
+
+#[derive(Default, Deserialize)]
+pub struct InstallListed {
+    /// Defaults to the newest version the server can run.
+    pub version: Option<Version>,
+}
+
+/// Installs a listed plugin for everyone, from the release its index pins.
+pub async fn install_listed_plugin(
+    State(app_state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    perms: ResolvedPermissions,
+    Path(handle): Path<String>,
+    payload: Option<Json<InstallListed>>,
+) -> Result<Json<InstallReport>, AppError> {
+    require_install(&perms)?;
+    let Json(payload) = payload.unwrap_or_default();
+    let report = app_state
+        .services()
+        .plugins()
+        .install_listed(session.user_id, &handle, payload.version.as_ref())
         .await?;
 
     Ok(Json(report))
