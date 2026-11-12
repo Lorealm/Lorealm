@@ -1,0 +1,17 @@
+[package]
+name = "lorealm-plugin"
+# The plugin API version: the version of the `lorealm:plugin` WIT package.
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Write Lorealm plugins in Rust"
+repository = "https://github.com/Lorealm/Lorealm"
+readme = "README.md"
+
+# Built for wasm32-wasip2; not part of the backend workspace.
+[workspace]
+
+[dependencies]
+wit-bindgen = "0.62.0"
+serde = "1"
+serde_json = "1"

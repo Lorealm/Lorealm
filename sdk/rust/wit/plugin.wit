@@ -1,0 +1,420 @@
+package lorealm:plugin@0.1.0;
+
+interface types {
+    enum role {
+        system,
+        user,
+        assistant,
+    }
+
+    record message {
+        role: role,
+        content: string,
+    }
+
+    /// A message saved in a conversation.
+    record chat-message {
+        id: s64,
+        role: role,
+        content: string,
+    }
+
+    /// Which of a conversation's messages to read.
+    variant message-range {
+        /// Every message on the branch.
+        all,
+        /// The newest `n`.
+        latest(u32),
+    }
+
+    record persona {
+        name: string,
+        description: string,
+    }
+
+    enum level {
+        trace,
+        debug,
+        info,
+        warn,
+        error,
+    }
+
+    /// Hooks a plugin can subscribe to with `register-hook`.
+    enum hook {
+        /// Requires the `prompt:write` permission.
+        prompt-build,
+        /// Requires the `chat:read` permission.
+        after-generate,
+        /// Requires the `chat:write` permission.
+        message-finalize,
+        /// Requires the `chat:write` permission.
+        user-message,
+        /// Requires the `prompt:write` permission.
+        lorebook-activate,
+        /// Requires the `tools:write` permission.
+        tool-call,
+        /// Requires the `tools:write` permission.
+        tool-result,
+        /// Requires the `chat:read` permission.
+        turn-start,
+        /// Requires the `chat:read` permission.
+        turn-end,
+        upgrade,
+        settings-changed,
+        shutdown,
+    }
+
+    /// A Weaver value as JSON text. WIT has no recursive types.
+    type json = string;
+
+    enum value-type {
+        %string,
+        number,
+        %bool,
+        array,
+        object,
+        none,
+        any,
+    }
+
+    record param {
+        name: string,
+        description: string,
+        /// `none` accepts any type.
+        value-type: option<value-type>,
+        required: bool,
+    }
+
+    /// A Weaver command, called as `$[handle.name(args)]`.
+    record command-signature {
+        name: string,
+        /// One line, imperative, no trailing period.
+        description: string,
+        returns: value-type,
+        params: list<param>,
+        /// Whether the command may write variables through its context.
+        mutates-context: bool,
+    }
+
+    /// A Weaver processor, called as `@[handle.name(properties)]`.
+    record processor-signature {
+        name: string,
+        /// One line, imperative, no trailing period.
+        description: string,
+        returns: value-type,
+        properties: list<param>,
+    }
+
+    /// A context template node, listed under the plugin's source.
+    record source-node {
+        id: string,
+        title: string,
+        description: string,
+        icon: option<string>,
+    }
+
+    record block {
+        role: role,
+        content: string,
+    }
+
+    /// The variables of the evaluation a command runs in. Only valid for
+    /// the duration of that call.
+    resource eval-context {
+        /// A variable's value, if set. Requires `state:read`.
+        get: func(scope: string, name: string) -> result<option<json>, string>;
+        /// Sets a variable. Requires `state:write`, and a command that
+        /// declared `mutates-context`.
+        set: func(scope: string, name: string, value: json) -> result<_, string>;
+    }
+
+    record command-call {
+        name: string,
+        /// Positional; a slot no argument reached is `null`.
+        args: list<json>,
+        context: borrow<eval-context>,
+    }
+
+    record processor-call {
+        name: string,
+        properties: list<tuple<string, json>>,
+    }
+
+    /// A call from the plugin's own frontend.
+    record frontend-call {
+        name: string,
+        args: json,
+        /// The conversation the slot is showing, if any.
+        conversation: option<s64>,
+        /// The message it is attached to, for a slot that sits under one.
+        message: option<s64>,
+        /// Whether the user is waiting for this call: the client blocks its
+        /// chat until it answers, and a `generate` inside it takes the
+        /// conversation's generation slot, so the user can stop it.
+        blocking: bool,
+    }
+
+    record source-call {
+        node: string,
+        /// The conversation being assembled for, if any.
+        conversation: option<s64>,
+        /// The node's settings in the template, as a JSON object.
+        settings: json,
+    }
+
+    /// An event another plugin emitted, delivered to its subscribers.
+    record custom-event {
+        /// `handle.name`, under the emitting plugin's handle.
+        topic: string,
+        payload: json,
+    }
+
+    /// The assembled prompt, before it is sent to the model.
+    record prompt-assembly {
+        /// The conversation it is for, if any: a slash command or a preview
+        /// assembles a prompt outside one.
+        conversation: option<s64>,
+        messages: list<message>,
+    }
+
+    /// A reply the model finished, once it is saved.
+    record generated {
+        conversation: s64,
+        message: s64,
+        content: string,
+    }
+
+    /// A reply the model finished, before it is saved.
+    record finalizing {
+        conversation: s64,
+        content: string,
+    }
+
+    /// What the user sent for a reply, before it is saved.
+    record user-input {
+        conversation: s64,
+        content: string,
+    }
+
+    /// A gate hook's answer.
+    variant verdict {
+        /// Lets the input through unchanged.
+        allow,
+        /// Lets the input through as this instead.
+        change(string),
+        /// Refuses it, with a reason the user sees.
+        deny(string),
+    }
+
+    /// A lorebook entry that activated.
+    record lorebook-entry {
+        /// The entry's id. Anything, for an entry the plugin adds.
+        id: string,
+        content: string,
+        /// Higher survives longer when the prompt is over budget.
+        priority: s32,
+    }
+
+    /// The entries that activated for one world info node, before they are
+    /// inserted.
+    record lorebook-activation {
+        /// The conversation being assembled for, if any.
+        conversation: option<s64>,
+        /// `prelude`, `preamble`, `backdrop`, `setting`, `foreground` or `coda`.
+        slot: string,
+        /// In the order they are inserted.
+        entries: list<lorebook-entry>,
+    }
+
+    /// A tool call the model made, before it runs.
+    record tool-invocation {
+        name: string,
+        /// A `change` verdict replaces them, as JSON.
+        arguments: json,
+    }
+
+    /// A tool call's result, before the model sees it.
+    record tool-output {
+        name: string,
+        arguments: json,
+        /// What the tool returned, or its error message as a JSON string.
+        %result: json,
+        is-error: bool,
+    }
+
+    /// A realm agent's turn, as it starts.
+    record turn-started {
+        conversation: s64,
+        /// The acting agent's handle.
+        agent: string,
+    }
+
+    /// A realm agent's turn, once it is saved.
+    record turn-ended {
+        conversation: s64,
+        /// The acting agent's handle.
+        agent: string,
+        message: s64,
+        content: string,
+    }
+
+    /// A request for `http-fetch`.
+    record http-request {
+        /// Such as `GET` or `POST`.
+        method: string,
+        /// Its host must be listed in the manifest's `[network] hosts`.
+        url: string,
+        /// A value may contain `{secret:name}`, where `name` is an API key
+        /// setting: the host puts the user's key there.
+        headers: list<tuple<string, string>>,
+        body: option<list<u8>>,
+    }
+
+    record http-response {
+        status: u16,
+        headers: list<tuple<string, string>>,
+        body: list<u8>,
+    }
+
+    /// Delivered to `handle`.
+    variant event {
+        /// The assembled prompt, just before it is sent to the model.
+        prompt-build(prompt-assembly),
+        command(command-call),
+        processor(processor-call),
+        source(source-call),
+        frontend(frontend-call),
+        custom(custom-event),
+        /// Observes a finished reply. Generation doesn't wait for it.
+        after-generate(generated),
+        /// The reply's content, to be saved as returned.
+        message-finalize(finalizing),
+        /// The user's message, which the plugin may change or refuse.
+        user-message(user-input),
+        /// The entries to insert, in order.
+        lorebook-activate(lorebook-activation),
+        /// A tool call, which the plugin may change or refuse. A refusal is
+        /// the result the model sees.
+        tool-call(tool-invocation),
+        /// A tool call's result, which the plugin may change.
+        tool-result(tool-output),
+        /// Observes a realm turn starting. The turn doesn't wait for it.
+        turn-start(turn-started),
+        /// Observes a realm turn once it's saved. Nothing waits for it.
+        turn-end(turn-ended),
+        /// After `init`, when another version of the plugin last ran against
+        /// the user's data: that version, or `none` on the user's first load.
+        /// Migrate the data here. If it fails, the plugin isn't loaded, and it
+        /// runs again the next time the user's plugins load.
+        upgrade(option<string>),
+        /// The user saved new settings. Read them with `settings`.
+        settings-changed,
+        /// The plugin is about to be unloaded. Flush anything unsaved.
+        shutdown,
+    }
+
+    /// Answers `handle`, in the same case as the event.
+    variant response {
+        prompt-build(list<message>),
+        /// `none` produces no output in the template.
+        command(option<json>),
+        processor(json),
+        source(list<block>),
+        frontend(json),
+        custom,
+        after-generate,
+        message-finalize(string),
+        user-message(verdict),
+        lorebook-activate(list<lorebook-entry>),
+        tool-call(verdict),
+        /// The result the model sees, as JSON.
+        tool-result(json),
+        turn-start,
+        turn-end,
+        upgrade,
+        settings-changed,
+        shutdown,
+    }
+}
+
+interface host {
+    use types.{
+        chat-message, command-signature, hook, http-request, http-response, json, level,
+        message, message-range, persona, processor-signature, source-node,
+    };
+
+    /// Writes to the plugin's log, which the user can read. Stdout and stderr
+    /// are also captured, as `info` and `warn` lines.
+    log: func(level: level, message: string);
+
+    /// Subscribes to `hook`. Fails if the manifest lacks the hook's permission.
+    register-hook: func(hook: hook) -> result<_, string>;
+
+    /// Makes `$[handle.name(...)]` call this plugin. Only during `init`.
+    register-command: func(command: command-signature) -> result<_, string>;
+
+    /// Makes `@[handle.name(...)]` call this plugin. Only during `init`.
+    register-processor: func(processor: processor-signature) -> result<_, string>;
+
+    /// Adds a node to the plugin's context template source. Only during `init`.
+    register-source-node: func(node: source-node) -> result<_, string>;
+
+    /// Emits `payload` into the `topic` channel. Any other plugin may subscribe
+    /// to `topic` using the `subscribe` function.
+    emit: func(topic: string, payload: json) -> result<_, string>;
+
+    /// Receives the events emitted under `topic` as `custom` events, until
+    /// the plugin is unloaded. Subscribe in `init` to keep it across reloads.
+    subscribe: func(topic: string) -> result<_, string>;
+
+    /// Stops receiving the events emitted under `topic`.
+    unsubscribe: func(topic: string) -> result<_, string>;
+
+    /// Sends `payload` to the plugin's own frontend.
+    send-frontend: func(name: string, payload: json) -> result<_, string>;
+
+    /// The user's active persona. Requires the `persona:read` permission.
+    active-persona: func() -> result<persona, string>;
+
+    /// The user's settings. Presented as a single JSON object.
+    settings: func() -> result<json, string>;
+
+    /// Sends `request` and waits for the whole response. Redirects are not
+    /// followed. Time spent waiting doesn't count toward the call's limit.
+    /// Requires the `net:fetch` permission.
+    http-fetch: func(request: http-request) -> result<http-response, string>;
+
+    /// The conversation's active branch, oldest first. Requires `chat:read`.
+    messages: func(conversation: s64, range: message-range) -> result<list<chat-message>, string>;
+
+    /// Asks the model through one of the user's connection profiles, or the
+    /// active one when `profile` is `none`.
+    /// 
+    /// Potentially costs the user money, so use sparingly.
+    /// 
+    /// Requires `model:generate`
+    generate: func(messages: list<message>, profile: option<s64>) -> result<string, string>;
+
+    /// Stores `value` under `key` for the current user. Requires `data:persist`.
+    persist-data: func(key: string, value: list<u8>) -> result<_, string>;
+
+    /// Reads what `persist-data` stored under `key`. Requires `data:persist`.
+    load-data: func(key: string) -> result<option<list<u8>>, string>;
+
+    /// Removes `key`. Requires `data:persist`.
+    delete-data: func(key: string) -> result<_, string>;
+}
+
+world plugin {
+    use types.{event, response};
+    import host;
+
+    /// Called once after the plugin is mounted.
+    export init: func() -> result<_, string>;
+
+    /// Called for every hook the plugin registered, every event it subscribed
+    /// to, and whenever something it registered (a command, processor or
+    /// source node) is used.
+    export handle: func(event: event) -> result<response, string>;
+}

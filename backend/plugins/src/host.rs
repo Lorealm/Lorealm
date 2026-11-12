@@ -21,8 +21,7 @@ wasmtime::component::bindgen!({
     with: { "lorealm:plugin/types.eval-context": EvalContextHandle },
 });
 
-/// What the plugin's `eval-context` resource stands for. The context itself
-/// is [`PluginState::context`]; the resource only lets the guest name it.
+/// What the plugin's `eval-context` resource stands for.
 pub struct EvalContextHandle;
 
 use lorealm::plugin::types::{
@@ -916,6 +915,19 @@ mod tests {
         assert!(
             wit.starts_with(&format!("package lorealm:plugin@{API_VERSION};")),
             "API_VERSION and the package version in wit/plugin.wit have to change together"
+        );
+    }
+
+    #[test]
+    fn the_rust_sdk_bundles_the_same_wit() {
+        assert!(
+            include_str!("../wit/plugin.wit") == include_str!("../../../sdk/rust/wit/plugin.wit"),
+            "copy wit/plugin.wit to sdk/rust/wit/plugin.wit"
+        );
+        let sdk = include_str!("../../../sdk/rust/Cargo.toml");
+        assert!(
+            sdk.contains(&format!("\nversion = \"{API_VERSION}\"\n")),
+            "the SDK's version is the plugin API version"
         );
     }
 

@@ -1,57 +1,43 @@
-wit_bindgen::generate!({
-    path: "../../backend/plugins/wit",
-    world: "plugin",
-});
-
-use std::sync::Mutex;
-
 use base64::{Engine, engine::general_purpose::STANDARD};
-use lorealm::plugin::host::{http_fetch, settings};
-use lorealm::plugin::types::{FrontendCall, HttpRequest};
-use serde_json::{Value, json};
+use lorealm_plugin::host::{http_fetch, settings};
+use lorealm_plugin::{FrontendCall, HttpRequest, Plugin, Result, Value, json, serde_json};
 
-/// The last reply read aloud on its own, so it isn't read twice.
-static AUTOPLAYED: Mutex<Option<String>> = Mutex::new(None);
+#[derive(Default)]
+struct Tts {
+    /// The last reply read aloud on its own, so it isn't read twice.
+    autoplayed: Option<String>,
+}
 
-struct Tts;
-
-impl Guest for Tts {
-    fn init() -> Result<(), String> {
-        Ok(())
+impl Plugin for Tts {
+    fn init() -> Result<Self> {
+        Ok(Self::default())
     }
 
-    fn handle(event: Event) -> Result<Response, String> {
-        let Event::Frontend(FrontendCall { name, args, .. }) = event else {
-            return Err("unexpected event".into());
-        };
-        let args: Value = serde_json::from_str(&args).map_err(|e| e.to_string())?;
-        let value = match name.as_str() {
-            "autoplay" => json!(autoplay(args["id"].as_str().unwrap_or_default())?),
+    fn frontend(&mut self, call: FrontendCall) -> Result<Value> {
+        let args: Value = serde_json::from_str(&call.args)?;
+        Ok(match call.name.as_str() {
+            "autoplay" => json!(self.autoplay(args["id"].as_str().unwrap_or_default())?),
             "speak" => speak(args["text"].as_str().unwrap_or_default())?,
-            other => return Err(format!("unknown call `{other}`")),
-        };
-        Ok(Response::Frontend(value.to_string()))
+            other => return Err(format!("unknown call `{other}`").into()),
+        })
     }
 }
 
-/// Whether to read the reply `id` aloud on its own: when the user turned
-/// that on, and only once.
-fn autoplay(id: &str) -> Result<bool, String> {
-    let settings: Value = serde_json::from_str(&settings()?).map_err(|e| e.to_string())?;
-    if settings["autoplay"] != true {
-        return Ok(false);
+impl Tts {
+    /// Whether to read the reply `id` aloud on its own
+    fn autoplay(&mut self, id: &str) -> Result<bool> {
+        let settings: Value = settings()?;
+        if settings["autoplay"] != true || self.autoplayed.as_deref() == Some(id) {
+            return Ok(false);
+        }
+        self.autoplayed = Some(id.to_owned());
+        Ok(true)
     }
-    let mut last = AUTOPLAYED.lock().unwrap();
-    if last.as_deref() == Some(id) {
-        return Ok(false);
-    }
-    *last = Some(id.to_owned());
-    Ok(true)
 }
 
 /// `{ "audio": <data URL> }`, or `{ "error": <what the user can do> }`.
-fn speak(text: &str) -> Result<Value, String> {
-    let settings: Value = serde_json::from_str(&settings()?).map_err(|e| e.to_string())?;
+fn speak(text: &str) -> Result<Value> {
+    let settings: Value = settings()?;
     let text = plain(text);
     if text.is_empty() {
         return Ok(json!({ "error": "There's nothing to read." }));
@@ -150,7 +136,7 @@ fn plain(text: &str) -> String {
         .to_owned()
 }
 
-export!(Tts);
+lorealm_plugin::export!(Tts);
 
 #[cfg(test)]
 mod tests {

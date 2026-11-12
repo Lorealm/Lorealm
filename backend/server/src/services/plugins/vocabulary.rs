@@ -143,6 +143,22 @@ impl UserVocabulary {
         module::register(&self.modules, &handles, registry);
     }
 
+    /// What the plugin `handle` puts in its node `node_id`.
+    #[cfg(test)]
+    pub async fn source_blocks(
+        &self,
+        handle: &str,
+        node_id: &str,
+        settings: &str,
+    ) -> Vec<lorealm_plugins::Block> {
+        let def = self.sources.iter().find(|d| d.handle == handle);
+        let source = PluginSource {
+            call: self.call_handle(handle),
+            def: def.expect("the plugin has a source").clone(),
+        };
+        source.blocks(node_id, settings.into(), None).await
+    }
+
     /// One context source per plugin that registered nodes.
     pub fn sources(&self) -> impl Iterator<Item = Arc<dyn ContextSource>> + '_ {
         self.sources.iter().map(|def| {
@@ -221,6 +237,21 @@ impl Caller {
         match guard.as_mut() {
             Some(mounted) => mounted.call(&self.handle, op).await,
             None => Err(format!("plugin `{}` is not loaded", self.handle)),
+        }
+    }
+
+    /// Writes a warning to the plugin's log, as the host.
+    async fn warn(&self, message: String) {
+        if let Some(mounted) = self.slot.lock().await.as_ref() {
+            mounted
+                .logs
+                .host(
+                    mounted.user_id,
+                    &self.handle,
+                    lorealm_plugins::Level::Warn,
+                    message,
+                )
+                .await;
         }
     }
 
@@ -318,6 +349,31 @@ struct PluginSource {
     def: PluginSourceDef,
 }
 
+impl PluginSource {
+    /// What the plugin puts in the node `node_id`. Only a node it registered
+    /// reaches it: a template can still name one that a newer version of the
+    /// plugin dropped, which is left out and logged.
+    async fn blocks(
+        &self,
+        node_id: &str,
+        settings: String,
+        conversation: Option<i64>,
+    ) -> Vec<lorealm_plugins::Block> {
+        if !self.def.nodes.iter().any(|n| n.id == node_id) {
+            let message = format!(
+                "A template uses the node `{node_id}`, which this plugin doesn't have. It was left out."
+            );
+            self.call.warn(message).await;
+            return Vec::new();
+        }
+        let node = node_id.to_owned();
+        self.call
+            .call(async move |p| p.resolve_source(node, settings, conversation).await)
+            .await
+            .unwrap_or_default()
+    }
+}
+
 #[async_trait]
 impl ContextSource for PluginSource {
     fn definition(&self) -> SourceDefinition {
@@ -351,13 +407,8 @@ impl ContextSource for PluginSource {
         ctx: &ResolveContext<'_>,
     ) -> Result<Vec<ResolvedBlock>, ContextError> {
         let settings = serde_json::to_string(settings).unwrap_or_else(|_| "{}".into());
-        let node = node_id.to_owned();
         let conversation = ctx.conversation.map(|id| id.0);
-        let blocks = self
-            .call
-            .call(async move |p| p.resolve_source(node, settings, conversation).await)
-            .await
-            .unwrap_or_default();
+        let blocks = self.blocks(node_id, settings, conversation).await;
         Ok(blocks
             .into_iter()
             .map(|b| ResolvedBlock::atomic(role(b.role), b.content, ContentRef::Verbatim))

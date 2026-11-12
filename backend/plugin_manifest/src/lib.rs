@@ -59,7 +59,7 @@ pub struct Manifest {
 /// What the plugin offers other plugins.
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Provides {
-    /// The events it may emit, as names under its handle.
+    /// The events it may emit.
     #[serde(default)]
     pub events: Vec<String>,
 }
@@ -67,8 +67,6 @@ pub struct Provides {
 /// Where the plugin may send requests.
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Network {
-    /// A host alone matches it on the scheme's default port; `host:port`
-    /// matches that port.
     #[serde(default)]
     pub hosts: Vec<String>,
 }
@@ -81,8 +79,9 @@ pub struct Definitions {
     pub api_keys: Vec<String>,
 }
 
-/// How to build the plugin from source. Each command runs in the plugin's
-/// directory; an empty one is skipped.
+/// How to build the plugin from source.
+/// 
+/// Each command runs in the plugin's directory.
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Build {
     #[serde(default)]
@@ -117,7 +116,6 @@ fn default_frontend() -> PathBuf {
 /// One place in the client the plugin fills, such as `inspector`.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct FrontendSlot {
-    /// Which slot; the client decides what exists.
     pub slot: String,
     /// A self-contained HTML file in the frontend directory, or for an unsafe
     /// slot, an ES module exporting `mount(element, api)`.
@@ -149,9 +147,7 @@ pub struct PluginInfo {
     pub tags: Vec<String>,
     pub author: String,
     pub version: Version,
-    /// The plugin API the backend was built against: the version of the
-    /// `lorealm:plugin` WIT package. A server only runs plugins built for
-    /// its own.
+    /// The plugin API the backend was built against
     pub api: Version,
     #[serde(default)]
     pub permissions: Vec<String>,

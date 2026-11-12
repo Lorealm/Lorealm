@@ -483,6 +483,26 @@ async fn plugin_sources_are_listed_under_their_handle() {
 }
 
 #[tokio::test]
+async fn only_a_registered_source_node_reaches_the_plugin() {
+    let (h, plugins) = with_hello().await;
+
+    let known = plugins
+        .source_blocks("hello", "greeting", r#"{"name":"Ada"}"#)
+        .await;
+    let dropped = plugins.source_blocks("hello", "farewell", "{}").await;
+
+    assert_eq!(known[0].content, "Greetings, Ada.");
+    assert!(dropped.is_empty());
+    let logs = h.plugins.logs(h.user, "hello").await.unwrap();
+    assert!(logged(
+        &logs,
+        PluginLogSource::Host,
+        PluginLogLevel::Warn,
+        "the node `farewell`"
+    ));
+}
+
+#[tokio::test]
 async fn a_user_without_plugins_has_no_vocabulary() {
     let h = harness().await;
 
