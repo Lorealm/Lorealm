@@ -34,13 +34,16 @@ export type RealmsTab = 'blueprints';
 /** Stands in for a profile id when the Connections view shows the key manager. */
 export const SECRETS = 'secrets';
 
+/** The plugins view shows what's installed unless it's on this tab. */
+export type PluginsTab = 'marketplace';
+
 export type Route =
 	| { view: 'write' }
 	| { view: 'characters' }
 	| { view: 'realms'; tab?: RealmsTab; id?: Snowflake }
 	| { view: 'connections'; id?: Snowflake | typeof SECRETS }
 	| { view: 'studio'; section: StudioSection; id?: Snowflake }
-	| { view: 'plugins'; id?: string }
+	| { view: 'plugins'; tab?: PluginsTab; id?: string }
 	| { view: 'settings'; scope: 'user'; section: UserSection; id?: string }
 	| { view: 'settings'; scope: 'server'; section: ServerSection };
 
@@ -65,7 +68,7 @@ export function routeId(route: Route): string | undefined {
 }
 
 function routeTab(route: Route): string | undefined {
-	return route.view === 'realms' ? route.tab : undefined;
+	return route.view === 'realms' || route.view === 'plugins' ? route.tab : undefined;
 }
 
 export function sameRoute(a: Route, b: Route): boolean {

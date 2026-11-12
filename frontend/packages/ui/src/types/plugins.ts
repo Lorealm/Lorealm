@@ -65,3 +65,38 @@ export interface InstalledPlugin {
 	/** Installed for development. */
 	dev: boolean;
 }
+
+/** One release of a plugin the marketplace lists. */
+export interface ListedVersion {
+	version: string;
+	/** The plugin API it was built for. */
+	api: string;
+	/** Whether this server can run it. */
+	compatible: boolean;
+	name: string;
+	description: string;
+	author: string;
+	tags: string[];
+	permissions: string[];
+	/** Where it may send requests. */
+	hosts: string[];
+}
+
+/** A plugin the marketplace lists. */
+export interface ListedPlugin {
+	handle: string;
+	repository: string;
+	has_readme: boolean;
+	/** Newest first. */
+	versions: ListedVersion[];
+	/** The newest version this server can run, if any. */
+	offered: string | null;
+	/** The newest version on this server, if any. */
+	installed: string | null;
+}
+
+export interface Marketplace {
+	plugins: ListedPlugin[];
+	/** The indexes that couldn't be read. */
+	unavailable: string[];
+}

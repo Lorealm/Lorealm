@@ -2,6 +2,7 @@ import { characterStore } from '$lib/stores/character.svelte.js';
 import { connectionStore } from '$lib/stores/connection.svelte.js';
 import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
 import { personaStore } from '$lib/stores/persona.svelte.js';
+import { marketplaceStore, shownVersion } from '$lib/stores/marketplace.svelte.js';
 import { pluginsStore } from '$lib/stores/plugins.svelte.js';
 import { realmStore } from '$lib/stores/realm.svelte.js';
 import { templateStore } from '$lib/stores/template.svelte.js';
@@ -131,12 +132,19 @@ export function crumbsFor(route: Route): Crumb[] {
 		}
 
 		case 'plugins': {
+			const plugins = { label: VIEW_LABEL.plugins, go: () => navigator.start().plugins() };
+			if (route.tab === 'marketplace') {
+				if (route.id === undefined) return [plugins, { label: 'Marketplace' }];
+				const listed = marketplaceStore.find(route.id);
+				return [
+					plugins,
+					{ label: 'Marketplace', go: () => navigator.start().marketplace() },
+					{ label: listed ? shownVersion(listed).name : PENDING }
+				];
+			}
 			if (route.id === undefined) return [{ label: VIEW_LABEL.plugins }];
 			const plugin = pluginsStore.plugins.find((p) => p.handle === route.id);
-			return [
-				{ label: VIEW_LABEL.plugins, go: () => navigator.start().plugins() },
-				{ label: plugin?.name ?? PENDING }
-			];
+			return [plugins, { label: plugin?.name ?? PENDING }];
 		}
 
 		case 'connections': {

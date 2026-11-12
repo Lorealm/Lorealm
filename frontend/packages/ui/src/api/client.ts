@@ -51,6 +51,7 @@ import type { SourceDefinition } from '$lib/types/node.js';
 import type {
 	InstallReport,
 	InstalledPlugin,
+	Marketplace,
 	PluginCallSlot,
 	PluginEvent,
 	PluginSettings
@@ -447,6 +448,14 @@ export function createApiClient(platform: PlatformAPI) {
 		},
 		plugins: {
 			list: () => http.get<Array<InstalledPlugin>>('/api/v1/plugins'),
+			/** What the server's plugin indexes list. */
+			marketplace: () => http.get<Marketplace>('/api/v1/plugins/marketplace'),
+			/** A listed plugin's README, as Markdown. */
+			listedReadme: async (handle: string) =>
+				(await http.getBlob(`/api/v1/plugins/marketplace/${handle}/readme`)).text(),
+			/** Installs a listed plugin for everyone, at the newest version the server can run. */
+			installListed: (handle: string) =>
+				http.post<InstallReport>(`/api/v1/plugins/marketplace/${handle}/install`, {}),
 			toggle: (handle: string, enabled: boolean) =>
 				http.patch(`/api/v1/plugins/${handle}`, { enabled }),
 			/** To the latest installed version when `version` is left out. */

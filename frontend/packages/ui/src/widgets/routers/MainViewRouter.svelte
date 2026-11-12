@@ -5,6 +5,7 @@
 	const settingsPage = () => import('../settings/SettingsPage.svelte');
 	const pluginsPage = () => import('../plugins/PluginsPage.svelte');
 	const pluginPage = () => import('../plugins/PluginPage.svelte');
+	const listedPluginPage = () => import('../plugins/ListedPluginPage.svelte');
 	const studioRouter = () => import('./StudioRouter.svelte');
 </script>
 
@@ -50,13 +51,17 @@
 	{#await lazy(studioRouter) then StudioRouter}
 		<StudioRouter section={route.section} id={route.id} />
 	{/await}
+{:else if route.view === 'plugins' && route.tab === 'marketplace' && route.id !== undefined}
+	{#await lazy(listedPluginPage) then ListedPluginPage}
+		<ListedPluginPage handle={route.id} />
+	{/await}
 {:else if route.view === 'plugins' && route.id !== undefined}
 	{#await lazy(pluginPage) then PluginPage}
 		<PluginPage handle={route.id} />
 	{/await}
 {:else if route.view === 'plugins'}
 	{#await lazy(pluginsPage) then PluginsPage}
-		<PluginsPage />
+		<PluginsPage tab={route.tab ?? 'installed'} />
 	{/await}
 {:else if route.view === 'settings'}
 	{#await lazy(settingsPage) then SettingsPage}

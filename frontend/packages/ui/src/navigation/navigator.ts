@@ -112,6 +112,8 @@ class Start {
 	blueprints = () => this.#chain.go({ view: 'realms', tab: 'blueprints' });
 	connections = (id?: Snowflake | typeof SECRETS) => this.#chain.go({ view: 'connections', id });
 	plugins = (handle?: string) => this.#chain.go({ view: 'plugins', id: handle });
+	marketplace = (handle?: string) =>
+		this.#chain.go({ view: 'plugins', tab: 'marketplace', id: handle });
 
 	studio(): StudioStage {
 		this.#chain.go(router.recallStudio());
