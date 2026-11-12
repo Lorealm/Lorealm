@@ -101,7 +101,7 @@ impl ModuleService {
 
     /// A name is how callers reach the module, so it must be an identifier
     /// and must not collide with the stdlib, a plugin, or another module.
-    async fn check_name(
+    pub async fn check_name(
         &self,
         user_id: Snowflake,
         id: Option<Snowflake>,

@@ -164,10 +164,10 @@ impl Harness {
         let realms = Arc::new(RealmService::new(
             Arc::clone(&storage),
             Arc::clone(&snow),
-            characters,
-            context,
+            Arc::clone(&characters),
+            Arc::clone(&context),
             Arc::clone(&connection),
-            persona,
+            Arc::clone(&persona),
             Arc::clone(&plugins),
         ));
 
@@ -175,6 +175,13 @@ impl Harness {
             Arc::clone(&storage),
             Arc::clone(&snow),
             Arc::clone(&realms),
+            characters,
+            context,
+            persona,
+            Arc::new(crate::services::module::ModuleService::new(
+                Arc::clone(&storage),
+                Arc::clone(&snow),
+            )),
         ));
 
         let permissions = Arc::new(PermissionService::new(

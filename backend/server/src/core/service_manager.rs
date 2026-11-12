@@ -220,15 +220,19 @@ impl ServiceManager {
             Arc::clone(&plugins),
         ));
 
+        let modules = Arc::new(ModuleService::new(
+            Arc::clone(&storage),
+            Arc::clone(&snowflake),
+        ));
+
         let blueprints = Arc::new(BlueprintService::new(
             Arc::clone(&storage),
             Arc::clone(&snowflake),
             Arc::clone(&realms),
-        ));
-
-        let modules = Arc::new(ModuleService::new(
-            Arc::clone(&storage),
-            Arc::clone(&snowflake),
+            Arc::clone(&characters),
+            Arc::clone(&context),
+            Arc::clone(&persona),
+            Arc::clone(&modules),
         ));
 
         let rate_limits = Arc::new(AuthRateLimits::new(Arc::clone(&config)));

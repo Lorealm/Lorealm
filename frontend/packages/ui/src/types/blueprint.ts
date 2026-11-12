@@ -36,7 +36,16 @@ export type InputSpec = {
 	/** The declaration as written, e.g. `[Ref<Character>]`. */
 	declared: string;
 	required: boolean;
+	/** The `//` lines above the declaration: what the author says it is for. */
+	doc: string | null;
 } & InputSpecType;
+
+/** What someone building a realm from a blueprint is shown. */
+export interface BuildForm {
+	/** The author's markdown, shown before the fields. */
+	introduction: string | null;
+	inputs: InputSpec[];
+}
 
 export type InputSpecType =
 	| { type: 'string' }
@@ -63,6 +72,7 @@ export type OutlineResult =
 export interface Outline {
 	name: string;
 	description: string;
+	introduction: string;
 	tags: string[];
 	director: Director | null;
 	scenarios: OutlineScenario[];
@@ -129,3 +139,26 @@ export type OutlineBinding =
 	| { source: 'resource'; kind: RealmResourceKind; id: Snowflake }
 	| { source: 'loop'; varName: string; path: string[] }
 	| { source: 'input'; name: string; path: string[] };
+
+export interface BundlePreview {
+	name: string;
+	description: string;
+	resources: BundleResource[];
+}
+
+export interface BundleResource {
+	kind: RealmResourceKind;
+	name: string;
+	status: 'new' | 'existing' | 'blocked';
+	problem?: string;
+	includes: { kind: RealmResourceKind; name: string }[];
+	has_image: boolean;
+}
+
+export interface ImportedBundle {
+	blueprint: Blueprint;
+	resources: { kind: RealmResourceKind; name: string; id: Snowflake; reused: boolean }[];
+	/** Tools saved under a new name: `[original, new]`. */
+	renamed: [string, string][];
+	skipped: string[];
+}

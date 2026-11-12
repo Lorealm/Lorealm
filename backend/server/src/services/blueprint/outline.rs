@@ -45,6 +45,8 @@ type Refused<T> = Result<T, OutlineRefusal>;
 pub struct Outline {
     pub name: String,
     pub description: String,
+    /// Markdown shown before the inputs when a realm is built.
+    pub introduction: String,
     pub tags: Vec<String>,
     pub director: Option<DirectorBlock>,
     pub scenarios: Vec<ScenarioBlock>,
@@ -172,6 +174,24 @@ impl From<Refused<Outline>> for OutlineResult {
     }
 }
 
+/// The document's `introduction`, when it is written out as plain text.
+///
+/// Read off the parse tree, so it is there before any input has a value. One
+/// that interpolates has nothing to show at that point and reads as absent.
+pub fn introduction(doc: &ValueDoc) -> Option<String> {
+    let ExprKind::ObjectLiteral(items) = &doc.value.node else {
+        return None;
+    };
+    items
+        .iter()
+        .filter_map(ObjectItem::as_entry)
+        .find(|entry| entry.static_key() == Some("introduction"))
+        .and_then(|entry| match &entry.value.node {
+            ExprKind::Literal(Value::String(text)) if !text.trim().is_empty() => Some(text.clone()),
+            _ => None,
+        })
+}
+
 /// Project a parsed document, or say why it cannot be.
 pub fn outline(doc: &ValueDoc, source: &str) -> Refused<Outline> {
     let inputs = doc.inputs.iter().map(InputSpec::of).collect();
@@ -185,6 +205,7 @@ pub fn outline(doc: &ValueDoc, source: &str) -> Refused<Outline> {
 
     let mut name = String::new();
     let mut description = String::new();
+    let mut introduction = String::new();
     let mut tags = Vec::new();
     let mut director = None;
     let mut scenarios = Vec::new();
@@ -204,6 +225,7 @@ pub fn outline(doc: &ValueDoc, source: &str) -> Refused<Outline> {
         match key {
             "name" => name = text(&entry.value.node, entry.value.span)?,
             "description" => description = text(&entry.value.node, entry.value.span)?,
+            "introduction" => introduction = text(&entry.value.node, entry.value.span)?,
             "agents" => cast = agents(&entry.value.node, entry.value.span, source)?,
             "tags" => tags = strings(&entry.value.node, entry.value.span)?,
             "director" => director = director_of(&entry.value.node, entry.value.span)?,
@@ -223,6 +245,7 @@ pub fn outline(doc: &ValueDoc, source: &str) -> Refused<Outline> {
     Ok(Outline {
         name,
         description,
+        introduction,
         tags,
         director,
         scenarios,

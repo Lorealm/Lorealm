@@ -4,7 +4,7 @@ import {
 	type VariableSource
 } from '$lib/weaver/editor/weaver-variables.js';
 import { realmDraft } from './draft.svelte.js';
-import type { AgentBlock } from './model.js';
+import { declaredText, isRequired, type AgentBlock } from './model.js';
 
 export function realmVariables(agentKey?: string): VariableSource {
 	return { variables: () => collect(agentKey), elements: castElements };
@@ -56,6 +56,22 @@ function everyAgent(): AgentBlock[] {
 function grantName(scope: string): string | null {
 	const name = scope.trim().replace(/\.?\*$/, '');
 	return name === '' ? null : name;
+}
+
+/** The declared inputs, for a view of the document itself. */
+export function inputVariables(): VariableSource {
+	return {
+		variables: () =>
+			realmDraft.inputs.map((decl) =>
+				variable(
+					'input',
+					decl.name,
+					isRequired(decl) ? 'input' : 'optional input',
+					decl.doc.trim() || 'Chosen by whoever builds a realm from this.',
+					declaredText(decl.ty)
+				)
+			)
+	};
 }
 
 function collect(agentKey?: string): VariableRef[] {

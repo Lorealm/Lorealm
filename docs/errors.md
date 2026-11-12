@@ -134,11 +134,13 @@ Messages containing quoted values are examples; the interpolated part varies.
 | `realm.director_failed` | 400 | The realm could not decide who acts next: unknown handle. |
 | `realm.import_in_use` | 409 | This lorebook is still used by agent "Narrator" — unbind it there first. |
 | `realm.invalid_agent` | 400 | Invalid agent: no name. |
+| `realm.invalid_bundle` | 400 | This file isn't a blueprint bundle. |
 | `realm.invalid_scenario` | 400 | Invalid scenario: no opening. |
 | `realm.invalid_turn` | 400 | Invalid turn: already ended. |
 | `realm.malformed_agent` | 400 | This agent is misconfigured: no model. |
 | `realm.no_agents` | 400 | This realm has no agents yet. |
 | `realm.no_runnable_agent` | 409 | No agent could run this turn — every run condition was false. |
+| `realm.not_exportable` | 400 | Line 4 uses a connection profile. |
 | `realm.not_found` | 404 | That realm no longer exists. |
 | `realm.not_imported` | 409 | This lorebook isn't imported into the realm — import it first. |
 | `realm.not_realm_conversation` | 400 | This conversation was not started from a realm. |

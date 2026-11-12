@@ -133,3 +133,11 @@ export function ensureLoaded(kinds: RealmResourceKind[]) {
 export function itemsOf(kind: RealmResourceKind): ResourceItem[] {
 	return SOURCES[kind].read();
 }
+
+/** Fetch each kind's list again, after something outside the stores added to it. */
+export function reload(kinds: RealmResourceKind[]) {
+	for (const kind of kinds) {
+		requested[kind] = true;
+		SOURCES[kind].load().catch(() => delete requested[kind]);
+	}
+}

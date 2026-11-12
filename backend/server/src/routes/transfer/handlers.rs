@@ -17,10 +17,10 @@ use crate::{
             import::{AttachmentReport, ImportOptions, import_attachments},
             lorebook::lorebook_from_data,
         },
-        context_template::{ContextNode, ContextTemplate, NodeContent},
+        context_template::ContextTemplate,
         persona::UpdatePersona,
-        snowflake::SnowflakeService,
         tools::builtin_tool,
+        transfer::fresh_ids,
     },
 };
 
@@ -79,6 +79,14 @@ pub async fn export(
             let lorebook = services.lorebooks().get_lorebook(id, user_id).await?;
             Item::Lorebook {
                 lorebook: LorebookData::from_lorebook(&lorebook),
+            }
+        }
+        Kind::Module => {
+            let module = services.modules().get(id, user_id).await?;
+            Item::Module {
+                name: module.name,
+                description: module.description,
+                source: module.source,
             }
         }
     };
@@ -164,6 +172,21 @@ pub async fn import(
                 report: Some(report),
             }));
         }
+        Item::Module {
+            name,
+            description,
+            source,
+        } => {
+            let module = services
+                .modules()
+                .create(user_id, name, description, source)
+                .await?;
+            return Ok(Json(ImportResponse {
+                kind: Kind::Module,
+                id: Some(module.id),
+                report: None,
+            }));
+        }
         Item::Tool { tools } => (Kind::Tool, tools, Vec::new()),
         Item::Widget { tools, widgets } => (Kind::Widget, tools, widgets),
     };
@@ -192,14 +215,4 @@ pub async fn import(
         id: id.copied(),
         report: Some(imported.report),
     }))
-}
-
-/// Node ids are unique per template, so an import gets its own.
-fn fresh_ids(nodes: &mut [ContextNode], snowflake: &SnowflakeService) {
-    for node in nodes {
-        node.id = snowflake.generate();
-        if let NodeContent::Group { children, .. } = &mut node.content {
-            fresh_ids(children, snowflake);
-        }
-    }
 }

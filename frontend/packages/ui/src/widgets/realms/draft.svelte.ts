@@ -49,7 +49,12 @@ function fromSpec(spec: InputSpec): InputDecl {
 				return { type: from.type };
 		}
 	};
-	return { name: spec.name, ty: ty(spec), defaultValue: spec.required ? null : '' };
+	return {
+		name: spec.name,
+		ty: ty(spec),
+		defaultValue: spec.required ? null : '',
+		doc: spec.doc ?? ''
+	};
 }
 
 /** Every agent slot that holds a single binding. Lorebooks are a list apart. */
@@ -61,6 +66,8 @@ const BINDING_SLOTS = ['character', 'template', 'persona', 'profile'] as const;
 class RealmDraft {
 	name = $state('');
 	description = $state('');
+	/** Markdown shown before the inputs when a realm is built. */
+	introduction = $state('');
 	tags = $state<string[]>([]);
 	/** Null = RoundRobin. */
 	director = $state<Director | null>(null);
@@ -126,6 +133,7 @@ class RealmDraft {
 
 		this.name = outline.name;
 		this.description = outline.description;
+		this.introduction = outline.introduction;
 		this.tags = outline.tags;
 		this.director = outline.director;
 		this.config = { ...outline.config };
@@ -149,6 +157,7 @@ class RealmDraft {
 	reset() {
 		this.name = '';
 		this.description = '';
+		this.introduction = '';
 		this.tags = [];
 		this.director = null;
 		this.config = {};
@@ -317,7 +326,8 @@ class RealmDraft {
 		const decl: InputDecl = {
 			name: this.#uniqueInputName('input'),
 			ty: { type: 'list', of: { type: 'reference', kind: 'character' } },
-			defaultValue: null
+			defaultValue: null,
+			doc: ''
 		};
 		this.inputs.push(decl);
 		this.select({ kind: 'input', name: decl.name });

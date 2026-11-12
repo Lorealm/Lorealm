@@ -28,13 +28,16 @@ export type ServerSection =
 	| 'tokenizers'
 	| 'tasks';
 
+/** The list the Realms view shows. Left out, it is the realms themselves. */
+export type RealmsTab = 'blueprints';
+
 /** Stands in for a profile id when the Connections view shows the key manager. */
 export const SECRETS = 'secrets';
 
 export type Route =
 	| { view: 'write' }
 	| { view: 'characters' }
-	| { view: 'realms'; id?: Snowflake }
+	| { view: 'realms'; tab?: RealmsTab; id?: Snowflake }
 	| { view: 'connections'; id?: Snowflake | typeof SECRETS }
 	| { view: 'studio'; section: StudioSection; id?: Snowflake }
 	| { view: 'plugins'; id?: string }
@@ -61,6 +64,10 @@ export function routeId(route: Route): string | undefined {
 	return 'id' in route ? route.id : undefined;
 }
 
+function routeTab(route: Route): string | undefined {
+	return route.view === 'realms' ? route.tab : undefined;
+}
+
 export function sameRoute(a: Route, b: Route): boolean {
-	return routeKey(a) === routeKey(b) && routeId(a) === routeId(b);
+	return routeKey(a) === routeKey(b) && routeId(a) === routeId(b) && routeTab(a) === routeTab(b);
 }

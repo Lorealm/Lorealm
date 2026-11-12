@@ -2,6 +2,7 @@
 
 mod accounts;
 mod attachments;
+mod blueprint_bundle;
 mod blueprints;
 mod cards;
 mod connections;

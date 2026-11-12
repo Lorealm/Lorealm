@@ -1,61 +1,8 @@
 use lorealm_storage::models::Snowflake;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
-use crate::services::{
-    cards::{
-        extension::{LorebookData, ToolData, WidgetData},
-        import::AttachmentReport,
-    },
-    context_template::ContextNode,
-};
-
-/// Bumped when a file written by an older version would read differently.
-pub const TRANSFER_VERSION: u32 = 1;
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Kind {
-    Template,
-    Persona,
-    Tool,
-    Widget,
-    Lorebook,
-}
-
-/// An exported template, persona, tool, widget or lorebook.
-#[derive(Serialize, Deserialize)]
-pub struct TransferFile {
-    pub lorealm: u32,
-    #[serde(flatten)]
-    pub item: Item,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum Item {
-    Template {
-        name: String,
-        #[serde(default)]
-        description: String,
-        nodes: Vec<ContextNode>,
-    },
-    Persona {
-        name: String,
-        display_name: Option<String>,
-        pseudonym: Option<String>,
-        description: Option<String>,
-    },
-    Tool {
-        tools: Vec<ToolData>,
-    },
-    Widget {
-        tools: Vec<ToolData>,
-        widgets: Vec<WidgetData>,
-    },
-    Lorebook {
-        lorebook: LorebookData,
-    },
-}
+use crate::services::cards::import::AttachmentReport;
+pub use crate::services::transfer::{Item, Kind, TRANSFER_VERSION, TransferFile};
 
 #[derive(Serialize)]
 pub struct ImportResponse {

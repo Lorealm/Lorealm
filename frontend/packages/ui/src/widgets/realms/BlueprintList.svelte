@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
-	import { FileCode2, Plus, Trash2 } from '@lucide/svelte';
+	import { Download, FileCode2, Plus, Trash2, Upload } from '@lucide/svelte';
+	import { useApi, usePlatform } from '$lib/api/client.js';
+	import { showApiError } from '$lib/stores/errorActions.js';
 	import { blueprintStore } from '$lib/stores/blueprint.svelte.js';
 	import type { Snowflake } from '$lib/types/core.js';
 	import { realmDraft } from './draft.svelte.js';
@@ -8,8 +10,12 @@
 	import { toWtn } from './serialize.js';
 	import { ensureLoaded, itemsOf, RESOURCE_KINDS } from './resources.svelte.js';
 	import type { RealmResourceKind } from '$lib/types/realm.js';
+	import ImportBlueprintDialog from './ImportBlueprintDialog.svelte';
 
 	let busy = $state(false);
+	let fileEl = $state<HTMLInputElement>();
+	/** The file whose contents are being shown before importing. */
+	let importing = $state<File | null>(null);
 
 	$effect(() => {
 		void blueprintStore.loadList();
@@ -56,6 +62,7 @@
 				{
 					name: realmDraft.name,
 					description: realmDraft.description,
+					introduction: realmDraft.introduction,
 					tags: realmDraft.tags,
 					director: realmDraft.director,
 					scenarios: realmDraft.scenarios,
@@ -80,6 +87,25 @@
 		realmDraft.description = description;
 	}
 
+	function pick(event: Event & { currentTarget: HTMLInputElement }) {
+		importing = event.currentTarget.files?.[0] ?? null;
+		event.currentTarget.value = '';
+	}
+
+	async function exportFile(event: MouseEvent, id: Snowflake, name: string) {
+		event.stopPropagation();
+		try {
+			const file = await useApi().blueprints.export(id);
+			await usePlatform().files.save(file, {
+				label: 'Lorealm blueprint',
+				extensions: ['lrlm'],
+				suggestedName: `${name.replace(/[^A-Za-z0-9 _-]/g, '_').trim() || 'blueprint'}.lrlm`
+			});
+		} catch (e) {
+			showApiError(e, { title: 'Could not export blueprint', durationMs: 15000 });
+		}
+	}
+
 	async function remove(event: MouseEvent, id: Snowflake) {
 		event.stopPropagation();
 		await blueprintStore.delete(id);
@@ -92,6 +118,17 @@
 		<button type="button" class="new" onclick={create} disabled={busy}>
 			<Plus size={13} /> New blueprint
 		</button>
+		<button type="button" class="new" onclick={() => fileEl?.click()}>
+			<Upload size={13} /> Import
+		</button>
+		<input
+			bind:this={fileEl}
+			type="file"
+			accept=".lrlm"
+			hidden
+			style="display:none"
+			onchange={pick}
+		/>
 	</div>
 
 	<div class="grid">
@@ -108,7 +145,16 @@
 					<span class="name">{blueprint.name}</span>
 					<button
 						type="button"
-						class="del"
+						class="act"
+						{@attach tooltip('Export with the resources it uses')}
+						aria-label="Export {blueprint.name}"
+						onclick={(e) => exportFile(e, blueprint.id, blueprint.name)}
+					>
+						<Download size={14} />
+					</button>
+					<button
+						type="button"
+						class="act del"
 						{@attach tooltip('Delete blueprint')}
 						aria-label="Delete {blueprint.name}"
 						onclick={(e) => remove(e, blueprint.id)}
@@ -125,6 +171,10 @@
 		{/each}
 	</div>
 </div>
+
+{#if importing}
+	<ImportBlueprintDialog file={importing} onclose={() => (importing = null)} />
+{/if}
 
 <style>
 	.section {
@@ -192,13 +242,16 @@
 		text-overflow: ellipsis;
 		font-size: var(--font-size-md);
 	}
-	.del {
+	.act {
 		flex: 0 0 auto;
 		display: flex;
 		padding: 2px;
 		background: transparent;
 		border: none;
 		color: var(--color-text-disabled);
+	}
+	.act:hover {
+		color: var(--color-text-accent);
 	}
 	.del:hover {
 		color: var(--color-error-text);

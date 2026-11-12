@@ -10,8 +10,14 @@ use weaver_lang::Value as WeaverValue;
 use crate::{
     errors::{RealmError, TargetType},
     services::{
-        blueprint::{InputSpec, OutlineResult, outline},
-        context_template::weaver::check::{Dialect, Severity, check},
+        blueprint::{BuildForm, InputSpec, OutlineResult, outline},
+        character::CharacterService,
+        context_template::{
+            TemplateService,
+            weaver::check::{Dialect, Severity, check},
+        },
+        module::ModuleService,
+        persona::PersonaService,
         realm::{RealmService, wtn},
         snowflake::SnowflakeService,
         weaver::WeaverProfile,
@@ -21,9 +27,13 @@ use crate::{
 
 /// Blueprints: the constructor half of a realm.
 pub struct BlueprintService {
-    storage: Arc<dyn Storage>,
-    snowflake: Arc<SnowflakeService>,
+    pub(super) storage: Arc<dyn Storage>,
+    pub(super) snowflake: Arc<SnowflakeService>,
     realms: Arc<RealmService>,
+    pub(super) characters: Arc<CharacterService>,
+    pub(super) templates: Arc<TemplateService>,
+    pub(super) personas: Arc<PersonaService>,
+    pub(super) modules: Arc<ModuleService>,
 }
 
 impl BlueprintService {
@@ -31,11 +41,19 @@ impl BlueprintService {
         storage: Arc<dyn Storage>,
         snowflake: Arc<SnowflakeService>,
         realms: Arc<RealmService>,
+        characters: Arc<CharacterService>,
+        templates: Arc<TemplateService>,
+        personas: Arc<PersonaService>,
+        modules: Arc<ModuleService>,
     ) -> Self {
         Self {
             storage,
             snowflake,
             realms,
+            characters,
+            templates,
+            personas,
+            modules,
         }
     }
 
@@ -120,11 +138,16 @@ impl BlueprintService {
         Ok(doc.declarations().iter().map(InputSpec::of).collect())
     }
 
+    pub async fn form(&self, id: Snowflake, user_id: Snowflake) -> Result<BuildForm, RealmError> {
+        let blueprint = self.get(id, user_id).await?;
+        let doc = wtn::compile(&blueprint.source)?;
+        Ok(BuildForm {
+            introduction: outline::introduction(doc.document()),
+            inputs: doc.declarations().iter().map(InputSpec::of).collect(),
+        })
+    }
+
     /// The blueprint's structure, as the editor's block model.
-    ///
-    /// Reads the parse tree rather than expanding, so a blueprint whose inputs
-    /// cannot currently be satisfied still opens — the same reason `inputs`
-    /// works on one.
     pub async fn outline(
         &self,
         id: Snowflake,
@@ -164,7 +187,7 @@ impl BlueprintService {
 
     /// A blueprint's source must parse, and must declare inputs this server
     /// can actually satisfy.
-    fn check(source: &str) -> Result<(), RealmError> {
+    pub(super) fn check(source: &str) -> Result<(), RealmError> {
         let refused = check(
             source,
             Dialect::Document,

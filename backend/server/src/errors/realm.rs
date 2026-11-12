@@ -36,6 +36,10 @@ pub enum RealmError {
     InvalidScenario(String),
     #[error("director failed: {0}")]
     DirectorFailed(String),
+    #[error("not exportable: {0}")]
+    NotExportable(String),
+    #[error("invalid bundle: {0}")]
+    InvalidBundle(String),
     #[error(transparent)]
     Conversation(#[from] ConversationError),
     #[error(transparent)]
@@ -75,6 +79,8 @@ impl DomainError for RealmError {
             Self::InvalidScenario(_) => "realm.invalid_scenario",
             Self::InvalidTemplate(_) => "realm.invalid_template",
             Self::DirectorFailed(_) => "realm.director_failed",
+            Self::NotExportable(_) => "realm.not_exportable",
+            Self::InvalidBundle(_) => "realm.invalid_bundle",
             Self::Storage(_) | Self::Serialization(_) => "internal",
         }
     }
@@ -98,6 +104,8 @@ impl DomainError for RealmError {
             | Self::ActionFailed(_)
             | Self::InvalidScenario(_)
             | Self::InvalidTemplate(_)
+            | Self::NotExportable(_)
+            | Self::InvalidBundle(_)
             | Self::DirectorFailed(_) => StatusCode::BAD_REQUEST,
             Self::Storage(_) | Self::Serialization(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -131,6 +139,7 @@ impl DomainError for RealmError {
             Self::DirectorFailed(hint) => {
                 sentence(format!("The realm could not decide who acts next: {hint}"))
             }
+            Self::NotExportable(why) | Self::InvalidBundle(why) => sentence(why.clone()),
             Self::Storage(_) | Self::Serialization(_) => "An internal error occurred".into(),
         }
     }
@@ -158,6 +167,9 @@ impl DomainError for RealmError {
             | Self::ActionFailed(_)
             | Self::InvalidTemplate(_)
             | Self::DirectorFailed(_) => Some(ErrorDetails::resource(TargetType::Realm)),
+            Self::NotExportable(_) | Self::InvalidBundle(_) => {
+                Some(ErrorDetails::resource(TargetType::Blueprint))
+            }
             Self::Storage(_) | Self::Serialization(_) => None,
         }
     }

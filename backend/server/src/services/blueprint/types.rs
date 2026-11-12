@@ -10,8 +10,18 @@ pub struct InputSpec {
     /// The declaration as written, e.g. `[Ref<Character>]`.
     pub declared: String,
     pub required: bool,
+    /// The `//` lines above the declaration: what the author says it is for.
+    pub doc: Option<String>,
     #[serde(flatten)]
     pub ty: InputSpecType,
+}
+
+/// What someone building a realm from a blueprint is shown.
+#[derive(Debug, Serialize)]
+pub struct BuildForm {
+    /// The author's markdown, shown before the fields.
+    pub introduction: Option<String>,
+    pub inputs: Vec<InputSpec>,
 }
 
 #[derive(Debug, Serialize)]
@@ -62,6 +72,7 @@ impl InputSpec {
             name: declaration.name.clone(),
             declared: declaration.ty.to_string(),
             required: declaration.is_required(),
+            doc: declaration.doc.clone(),
             ty: InputSpecType::of(&declaration.ty),
         }
     }

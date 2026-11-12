@@ -20,6 +20,8 @@ export interface InputDecl {
 	name: string;
 	ty: InputType;
 	defaultValue: string | null;
+	/** What the author says it is for. Written as `//` lines above the declaration. */
+	doc: string;
 }
 
 export function isRequired(decl: InputDecl): boolean {

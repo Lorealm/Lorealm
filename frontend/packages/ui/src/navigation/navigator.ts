@@ -109,6 +109,7 @@ class Start {
 	write = () => this.#chain.go({ view: 'write' });
 	characters = () => this.#chain.go({ view: 'characters' });
 	realms = (id?: Snowflake) => this.#chain.go({ view: 'realms', id });
+	blueprints = () => this.#chain.go({ view: 'realms', tab: 'blueprints' });
 	connections = (id?: Snowflake | typeof SECRETS) => this.#chain.go({ view: 'connections', id });
 	plugins = (handle?: string) => this.#chain.go({ view: 'plugins', id: handle });
 

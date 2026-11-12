@@ -192,7 +192,7 @@ export function findVariable(
 		const cut = name.indexOf('.');
 		return findVariable(refs, name.slice(0, cut), name.slice(cut + 1));
 	}
-	return refs.find((r) => {
+	const pattern = refs.find((r) => {
 		if (r.scope !== scope || !r.name.includes('<')) return false;
 		const pattern = r.name
 			.split(/<\w+>/)
@@ -200,4 +200,10 @@ export function findVariable(
 			.join('\\w+');
 		return new RegExp(`^${pattern}$`).test(name);
 	});
+	if (pattern) return pattern;
+	// `{{input:lead.id}}` reads a field of the input `lead`.
+	if (scope === 'input' && name.includes('.')) {
+		return findVariable(refs, scope, name.slice(0, name.indexOf('.')));
+	}
+	return undefined;
 }

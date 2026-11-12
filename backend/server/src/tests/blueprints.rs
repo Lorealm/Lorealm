@@ -439,3 +439,51 @@ async fn ids_stay_strings_through_the_input_bridge() {
         .unwrap();
     assert_eq!(realm.definition.agents[0].character_id, Some(big));
 }
+
+#[tokio::test]
+async fn the_build_form_carries_the_authors_words() {
+    let h = Harness::new().await;
+    let source = r####"
+#inputs
+// Who sits on the council.
+// Pick at least two.
+regents: [Ref<Character>]
+rounds: number = 3
+
+{
+  name: "Sengoku"
+  introduction: r"# Welcome
+
+Read `{{this}}` first."
+  agents: []
+}"####;
+    let blueprint = h
+        .blueprints
+        .create(h.user, "Sengoku".into(), source.into())
+        .await
+        .expect("saves");
+
+    let form = h
+        .blueprints
+        .form(blueprint.id, h.user)
+        .await
+        .expect("reads");
+
+    assert_eq!(
+        form.introduction.as_deref(),
+        Some("# Welcome\n\nRead `{{this}}` first.")
+    );
+    assert_eq!(
+        spec(&form.inputs, "regents").doc.as_deref(),
+        Some("Who sits on the council.\nPick at least two.")
+    );
+    assert_eq!(spec(&form.inputs, "rounds").doc, None);
+
+    // The introduction is the blueprint's, and a realm built from it is fine without.
+    let mut inputs = Map::new();
+    inputs.insert("regents".into(), json!([]));
+    h.blueprints
+        .expand(blueprint.id, h.user, inputs)
+        .await
+        .expect("expands");
+}

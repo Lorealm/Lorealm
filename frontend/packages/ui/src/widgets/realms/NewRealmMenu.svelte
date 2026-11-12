@@ -15,6 +15,7 @@
 	let searchEl = $state<HTMLInputElement>();
 	let picked = $state<BlueprintSummary | null>(null);
 	let specs = $state<InputSpec[]>([]);
+	let introduction = $state<string | null>(null);
 	let building = $state(false);
 
 	const needle = $derived(query.trim().toLowerCase());
@@ -51,8 +52,13 @@
 
 	async function pick(blueprint: BlueprintSummary) {
 		open = false;
+		// The dialog opens on whichever page it has, so it waits for both.
+		const form = await api.blueprints
+			.form(blueprint.id)
+			.catch(() => ({ introduction: null, inputs: [] }));
+		specs = form.inputs;
+		introduction = form.introduction;
 		picked = blueprint;
-		specs = await api.blueprints.inputs(blueprint.id).catch(() => []);
 	}
 
 	async function build(inputs: Record<string, unknown>) {
@@ -124,7 +130,13 @@
 </div>
 
 {#if picked}
-	<InstantiateDialog {specs} busy={building} onbuild={build} oncancel={() => (picked = null)} />
+	<InstantiateDialog
+		{specs}
+		{introduction}
+		busy={building}
+		onbuild={build}
+		oncancel={() => (picked = null)}
+	/>
 {/if}
 
 <style>

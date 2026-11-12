@@ -1,6 +1,3 @@
-//! Character export: gather a character and everything attached to it into a
-//! [`CharacterBundle`], then render the bundle with an [`ExportProfile`].
-
 use std::io::Cursor;
 
 use bytes::Bytes;
@@ -183,7 +180,7 @@ pub fn render(
     format: ExportFormat,
 ) -> Result<ExportedCard, CharacterError> {
     let composed = compose(bundle, profile);
-    let stem = file_stem(&bundle.character.definition.name);
+    let stem = file_stem(&bundle.character.definition.name, "character");
 
     match format {
         ExportFormat::Json => Ok(ExportedCard {
@@ -254,7 +251,7 @@ fn placeholder_warning() -> ExportWarning {
     }
 }
 
-fn file_stem(name: &str) -> String {
+pub fn file_stem(name: &str, fallback: &str) -> String {
     let stem: String = name
         .chars()
         .map(|c| {
@@ -267,7 +264,7 @@ fn file_stem(name: &str) -> String {
         .collect();
     let stem = stem.trim();
     if stem.is_empty() {
-        "character".into()
+        fallback.into()
     } else {
         stem.into()
     }

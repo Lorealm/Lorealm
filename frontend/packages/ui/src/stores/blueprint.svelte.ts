@@ -2,6 +2,8 @@ import { useApi } from '$lib/api/client.js';
 import type {
 	Blueprint,
 	BlueprintSummary,
+	BundlePreview,
+	ImportedBundle,
 	InputSpec,
 	OutlineResult
 } from '$lib/types/blueprint.js';
@@ -24,6 +26,8 @@ class BlueprintStore {
 	summaries = $state<BlueprintSummary[]>([]);
 	current = $state<Blueprint | null>(null);
 	inputs = $state<InputSpec[]>([]);
+	/** The open blueprint's introduction, as last saved. */
+	introduction = $state<string | null>(null);
 
 	saveStatus = $state<SaveStatus>('idle');
 	/** What the server refused, when it refused. */
@@ -57,6 +61,7 @@ class BlueprintStore {
 	close() {
 		this.current = null;
 		this.inputs = [];
+		this.introduction = null;
 		this.refusal = null;
 		this.#clearTimer();
 		this.#saved = null;
@@ -143,10 +148,13 @@ class BlueprintStore {
 	async loadInputs() {
 		if (!this.current) return;
 		try {
-			this.inputs = await this.#api.blueprints.inputs(this.current.id);
+			const form = await this.#api.blueprints.form(this.current.id);
+			this.inputs = form.inputs;
+			this.introduction = form.introduction;
 		} catch {
 			// A document that will not parse has no declarations to report;
 			this.inputs = [];
+			this.introduction = null;
 		}
 	}
 
@@ -157,6 +165,21 @@ class BlueprintStore {
 			await this.loadList();
 		} catch (e) {
 			showApiError(e, { title: 'Failed to delete blueprint' });
+		}
+	}
+
+	previewImport(file: Blob): Promise<BundlePreview> {
+		return this.#api.blueprints.previewImport(file);
+	}
+
+	async import(file: Blob): Promise<ImportedBundle | null> {
+		try {
+			const imported = await this.#api.blueprints.import(file);
+			await this.loadList();
+			return imported;
+		} catch (e) {
+			showApiError(e, { title: 'Could not import blueprint' });
+			return null;
 		}
 	}
 

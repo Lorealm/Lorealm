@@ -243,6 +243,12 @@ fn contract_surface() -> Vec<(&'static str, Vec<Box<dyn DomainError>>)> {
                 Box::new(RealmError::InvalidScenario("no opening".into())),
                 Box::new(RealmError::InvalidTemplate("no inputs block".into())),
                 Box::new(RealmError::DirectorFailed("unknown handle".into())),
+                Box::new(RealmError::NotExportable(
+                    "Line 4 uses a connection profile".into(),
+                )),
+                Box::new(RealmError::InvalidBundle(
+                    "This file isn't a blueprint bundle".into(),
+                )),
             ],
         ),
     ]

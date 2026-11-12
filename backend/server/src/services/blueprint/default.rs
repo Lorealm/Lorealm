@@ -11,14 +11,16 @@ scenario: {title: string, content: string}
 {
   name: r"Group Chat"
   description: r"Create a group chat with you and a list of selected characters."
+  introduction: r"# Lorealm Group Chat
+  This is the default template shipped with Lorealm and shows how to use Realms to create a simple system.
+
+  It features a custom director script and a range of input values. Play around with it!"
   tags: [
     r"Utility"
   ]
   director: {
     kind: r"script"
-    source: r#"
-// We alternate between player and character turns
-{# foreach p in {{cast:player.members}} #}
+    source: r#"{# foreach p in {{cast:player.members}} #}
   {# if {{turn:index}} == 0 #}
     {# return p.handle #}
   {# endif #}
@@ -44,7 +46,7 @@ $[set_var("local:total_weight", 0)]
 {# endif #}
 
 $[set_var(
-  "local:r", 
+  "local:r",
   @[random.gen(0, {{local:total_weight}} * {{local:precision_cheat}})]
 )]
 

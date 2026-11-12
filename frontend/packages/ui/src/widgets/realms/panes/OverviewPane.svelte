@@ -75,6 +75,16 @@
 			></textarea>
 		</label>
 
+		<label>
+			<span>Introduction</span>
+			<textarea
+				rows="8"
+				value={realmDraft.introduction}
+				placeholder="Shown first to anyone building a realm from this. Say what it is and how to set it up. Markdown works."
+				oninput={(e) => (realmDraft.introduction = e.currentTarget.value)}
+			></textarea>
+		</label>
+
 		<div class="field">
 			<span>Tags</span>
 			<div class="tags">

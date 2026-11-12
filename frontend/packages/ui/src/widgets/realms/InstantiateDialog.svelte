@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { Play, X } from '@lucide/svelte';
+	import { ArrowLeft, ArrowRight, Play, X } from '@lucide/svelte';
+	import DOMPurify from 'dompurify';
+	import { marked } from 'marked';
 	import type { InputSpec, InputSpecType } from '$lib/types/blueprint.js';
 	import InputControl, { blankFor } from './InputControl.svelte';
 	import type { RealmResourceKind } from '$lib/types/realm.js';
@@ -7,17 +9,33 @@
 
 	let {
 		specs,
+		introduction = null,
 		busy = false,
 		onbuild,
 		oncancel
 	}: {
 		specs: InputSpec[];
+		/** The author's markdown. Covers the first page when there is any. */
+		introduction?: string | null;
 		busy?: boolean;
 		onbuild: (inputs: Record<string, unknown>) => void;
 		oncancel: () => void;
 	} = $props();
 
 	let values = $state<Record<string, unknown>>({});
+
+	let read = $state(false);
+	const intro = $derived(
+		introduction?.trim() ? DOMPurify.sanitize(marked.parse(introduction, { async: false })) : null
+	);
+	const onIntro = $derived(intro !== null && !read);
+
+	function openLinksOutside(event: MouseEvent) {
+		const link = (event.target as Element).closest('a');
+		if (!link?.href) return;
+		event.preventDefault();
+		window.open(link.href, '_blank', 'noopener');
+	}
 
 	const referenced = $derived(specs.flatMap(kindsIn));
 
@@ -71,7 +89,13 @@
 	role="presentation"
 	onclick={(e) => e.currentTarget === e.target && oncancel()}
 >
-	<div class="dialog" role="dialog" aria-modal="true" aria-label="Build a realm">
+	<div
+		class="dialog"
+		class:wide={onIntro}
+		role="dialog"
+		aria-modal="true"
+		aria-label="Build a realm"
+	>
 		<header>
 			<h2>Build a realm</h2>
 			<button type="button" class="close" aria-label="Cancel" onclick={oncancel}>
@@ -79,40 +103,63 @@
 			</button>
 		</header>
 
-		<div class="body">
-			{#each specs as spec (spec.name)}
-				<div class="field">
-					<span class="label">
-						{spec.name}
-						{#if !spec.required}<span class="optional">optional</span>{/if}
-					</span>
+		{#if onIntro}
+			<!-- Sanitized with DOMPurify. -->
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+			<div class="body intro" onclickcapture={openLinksOutside}>{@html intro}</div>
+		{:else}
+			<div class="body">
+				{#each specs as spec (spec.name)}
+					<div class="field">
+						<span class="label">
+							{spec.name}
+							{#if !spec.required}<span class="optional">optional</span>{/if}
+						</span>
+						{#if spec.doc}<span class="doc">{spec.doc}</span>{/if}
 
-					<InputControl
-						ty={spec}
-						value={values[spec.name]}
-						ariaLabel={spec.name}
-						onchange={(next) => (values[spec.name] = next)}
-					/>
+						<InputControl
+							ty={spec}
+							value={values[spec.name]}
+							ariaLabel={spec.name}
+							onchange={(next) => (values[spec.name] = next)}
+						/>
 
-					<span class="declared">{spec.declared}</span>
-				</div>
-			{:else}
-				<p class="nothing">This document declares no inputs.</p>
-			{/each}
-		</div>
+						<span class="declared">{spec.declared}</span>
+					</div>
+				{:else}
+					<p class="nothing">This document declares no inputs.</p>
+				{/each}
+			</div>
+		{/if}
 
 		<footer>
-			{#if missing.length > 0}
+			{#if intro !== null && !onIntro}
+				<button type="button" class="back" onclick={() => (read = false)}>
+					<ArrowLeft size={12} /> Introduction
+				</button>
+			{/if}
+			{#if !onIntro && missing.length > 0}
 				<span class="missing">
 					Still needed: {missing.map((s) => s.name).join(', ')}
 				</span>
 			{/if}
 			<span class="spacer"></span>
 			<button type="button" onclick={oncancel}>Cancel</button>
-			<button type="button" class="primary" disabled={busy || missing.length > 0} onclick={submit}>
-				<Play size={12} />
-				{busy ? 'Building…' : 'Build realm'}
-			</button>
+			{#if onIntro && specs.length > 0}
+				<button type="button" class="primary" onclick={() => (read = true)}>
+					Continue <ArrowRight size={12} />
+				</button>
+			{:else}
+				<button
+					type="button"
+					class="primary"
+					disabled={busy || missing.length > 0}
+					onclick={submit}
+				>
+					<Play size={12} />
+					{busy ? 'Building…' : 'Build realm'}
+				</button>
+			{/if}
 		</footer>
 	</div>
 </div>
@@ -191,6 +238,55 @@
 		font-family: var(--font-family-body);
 		font-size: var(--font-size-xs);
 	}
+	.dialog.wide {
+		width: min(680px, 92vw);
+	}
+	.intro {
+		display: block;
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-base);
+		line-height: var(--line-height-relaxed, 1.6);
+		overflow-wrap: anywhere;
+	}
+	.intro :global(:is(h1, h2, h3, h4)) {
+		margin: var(--spacing-md) 0 var(--spacing-xs);
+		color: var(--color-text-primary);
+		font-family: var(--font-family-heading);
+		font-size: var(--font-size-h5);
+	}
+	.intro :global(h1) {
+		font-size: var(--font-size-h4);
+	}
+	.intro :global(:is(p, ul, ol, pre, blockquote)) {
+		margin: 0 0 var(--spacing-sm);
+	}
+	.intro :global(> :first-child) {
+		margin-top: 0;
+	}
+	.intro :global(> :last-child) {
+		margin-bottom: 0;
+	}
+	.intro :global(code) {
+		font-family: var(--font-family-mono);
+		font-size: 0.9em;
+	}
+	.intro :global(pre) {
+		overflow-x: auto;
+		padding: var(--spacing-sm);
+		border-radius: var(--radius-sm);
+		background-color: var(--color-bg-input);
+	}
+	.intro :global(img) {
+		max-width: 100%;
+	}
+	.intro :global(a) {
+		color: var(--color-text-accent);
+	}
+	.doc {
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-sm);
+		white-space: pre-line;
+	}
 	.declared {
 		font-family: var(--font-family-mono);
 		font-size: var(--font-size-xs);
@@ -223,6 +319,11 @@
 		border-radius: var(--radius-sm);
 		color: var(--color-text-secondary);
 		font-size: var(--font-size-sm);
+	}
+	footer .back {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
 	}
 	footer .primary {
 		display: flex;

@@ -117,6 +117,12 @@ export function crumbsFor(route: Route): Crumb[] {
 			return [{ label: VIEW_LABEL[route.view] }];
 
 		case 'realms': {
+			if (route.tab === 'blueprints') {
+				return [
+					{ label: VIEW_LABEL.realms, go: () => navigator.start().realms() },
+					{ label: 'Blueprints' }
+				];
+			}
 			if (route.id === undefined) return [{ label: VIEW_LABEL.realms }];
 			return [
 				{ label: VIEW_LABEL.realms, go: () => navigator.start().realms() },

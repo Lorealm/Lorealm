@@ -660,6 +660,16 @@
 		</label>
 
 		<label>
+			<span>Description</span>
+			<textarea
+				rows="3"
+				value={decl.doc}
+				placeholder="Shown with this field when someone builds a realm."
+				oninput={(e) => (decl.doc = e.currentTarget.value)}
+			></textarea>
+		</label>
+
+		<label>
 			<span>Holds</span>
 			<select
 				value={holdsValue(decl.ty)}

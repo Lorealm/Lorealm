@@ -11,9 +11,14 @@
 	import { realmDraft } from './draft.svelte.js';
 	import { panes } from './panes.svelte.js';
 	import { toWtn } from './serialize.js';
+	import { navigator } from '$lib/navigation/navigator.js';
+	import { router } from '$lib/navigation/router.svelte.js';
 
-	type Tab = 'realms' | 'blueprints';
-	let tab = $state<Tab>('realms');
+	const tab = $derived(
+		router.current.view === 'realms' && router.current.tab === 'blueprints'
+			? 'blueprints'
+			: 'realms'
+	);
 
 	const blueprint = $derived(blueprintStore.current);
 	const wtn = $derived(
@@ -21,6 +26,7 @@
 			{
 				name: realmDraft.name,
 				description: realmDraft.description,
+				introduction: realmDraft.introduction,
 				tags: realmDraft.tags,
 				director: realmDraft.director,
 				scenarios: realmDraft.scenarios,
@@ -48,7 +54,7 @@
 	async function build() {
 		if (!blueprint) return;
 		if (!(await blueprintStore.save(realmDraft.name, wtn.source, realmDraft.isEmpty))) return;
-		if (blueprintStore.inputs.length > 0) {
+		if (blueprintStore.inputs.length > 0 || blueprintStore.introduction) {
 			asking = true;
 			return;
 		}
@@ -148,7 +154,7 @@
 						role="tab"
 						aria-selected={tab === 'realms'}
 						class:active={tab === 'realms'}
-						onclick={() => (tab = 'realms')}
+						onclick={() => navigator.start().realms()}
 					>
 						Realms
 					</button>
@@ -157,7 +163,7 @@
 						role="tab"
 						aria-selected={tab === 'blueprints'}
 						class:active={tab === 'blueprints'}
-						onclick={() => (tab = 'blueprints')}
+						onclick={() => navigator.start().blueprints()}
 					>
 						Blueprints
 					</button>
@@ -177,6 +183,7 @@
 {#if asking}
 	<InstantiateDialog
 		specs={blueprintStore.inputs}
+		introduction={blueprintStore.introduction}
 		busy={building}
 		onbuild={run}
 		oncancel={() => (asking = false)}

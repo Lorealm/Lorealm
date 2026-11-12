@@ -58,7 +58,10 @@ import type {
 import type {
 	Blueprint,
 	BlueprintSummary,
+	BuildForm,
+	BundlePreview,
 	CreateBlueprintRequest,
+	ImportedBundle,
 	InputSpec,
 	OutlineResult,
 	UpdateBlueprintRequest
@@ -547,11 +550,17 @@ export function createApiClient(platform: PlatformAPI) {
 				http.patch<Blueprint>(`/api/v1/blueprints/${id}`, update),
 			delete: (id: Snowflake) => http.delete(`/api/v1/blueprints/${id}`),
 			inputs: (id: Snowflake) => http.get<Array<InputSpec>>(`/api/v1/blueprints/${id}/inputs`),
+			/** The author's introduction and the fields, for building a realm. */
+			form: (id: Snowflake) => http.get<BuildForm>(`/api/v1/blueprints/${id}/form`),
 			/** Its structure, for opening it in the editor. */
 			outline: (id: Snowflake) => http.get<OutlineResult>(`/api/v1/blueprints/${id}/outline`),
 			/** Expand a blueprint into a playable realm. */
 			expand: (id: Snowflake, inputs: Record<string, unknown>) =>
-				http.post<Realm>(`/api/v1/blueprints/${id}/realms`, { inputs })
+				http.post<Realm>(`/api/v1/blueprints/${id}/realms`, { inputs }),
+			export: (id: Snowflake) => http.getBlob(`/api/v1/blueprints/${id}/export`),
+			previewImport: (file: Blob) =>
+				http.putBlob<BundlePreview>('/api/v1/blueprints/import/preview', file),
+			import: (file: Blob) => http.putBlob<ImportedBundle>('/api/v1/blueprints/import', file)
 		},
 		realms: {
 			list: () => http.get<Array<RealmSummary>>('/api/v1/realms'),

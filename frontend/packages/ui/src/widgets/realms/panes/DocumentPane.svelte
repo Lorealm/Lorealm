@@ -4,12 +4,14 @@
 	import { showToast } from '$lib/stores/errorToast.svelte.js';
 	import { realmDraft } from '../draft.svelte.js';
 	import { toWtn } from '../serialize.js';
+	import { inputVariables } from '../variables.js';
 
 	const wtn = $derived(
 		toWtn(
 			{
 				name: realmDraft.name,
 				description: realmDraft.description,
+				introduction: realmDraft.introduction,
 				tags: realmDraft.tags,
 				director: realmDraft.director,
 				scenarios: realmDraft.scenarios,
@@ -38,7 +40,13 @@
 	</header>
 
 	<div class="editor">
-		<WeaverEditor doc={wtn.source} dialect="document" profile="realm_template" readOnly />
+		<WeaverEditor
+			doc={wtn.source}
+			dialect="document"
+			profile="realm_template"
+			variables={inputVariables()}
+			readOnly
+		/>
 	</div>
 </div>
 

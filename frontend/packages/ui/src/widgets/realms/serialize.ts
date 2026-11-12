@@ -144,7 +144,14 @@ function castEntry(entry: CastEntry, depth: number): string {
 function inputsBlock(inputs: InputDecl[]): string {
 	if (inputs.length === 0) return '';
 	const lines = inputs.map((decl) => {
-		const head = `${decl.name}: ${declaredText(decl.ty)}`;
+		const doc = decl.doc.trim()
+			? decl.doc
+					.trim()
+					.split('\n')
+					.map((line) => `// ${line}`.trimEnd() + '\n')
+					.join('')
+			: '';
+		const head = `${doc}${decl.name}: ${declaredText(decl.ty)}`;
 		if (decl.defaultValue === null) return head;
 		return `${head} = ${defaultLiteral(decl.ty, decl.defaultValue)}`;
 	});
@@ -169,6 +176,8 @@ export interface Document {
 export interface DocumentHead {
 	name: string;
 	description: string;
+	/** Markdown shown before the inputs. Omitted from the document while empty. */
+	introduction?: string;
 	tags: string[];
 	director: Director | null;
 	scenarios: ScenarioBlock[];
@@ -186,6 +195,8 @@ export function toWtn(head: DocumentHead, inputs: InputDecl[], cast: CastEntry[]
 		'{',
 		`${INDENT}name: ` + text(head.name),
 		`${INDENT}description: ` + text(head.description),
+		// Raw: markdown is the author's text, never something to expand.
+		...(head.introduction?.trim() ? [`${INDENT}introduction: ${raw(head.introduction)}`] : []),
 		`${INDENT}tags: ${list(head.tags.map(raw), 1)}`,
 		`${INDENT}director: ` + director(head.director),
 		`${INDENT}scenarios: ${scenarios(head.scenarios)}`,

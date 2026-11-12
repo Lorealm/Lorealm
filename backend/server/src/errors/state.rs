@@ -14,8 +14,6 @@ pub enum StateError {
     NoActiveTemplate,
     #[error("{0} not found: {1}")]
     NotFound(TargetType, Snowflake),
-    #[error("template conversion: {0}")]
-    TemplateConversion(String),
     #[error("no active persona")]
     NoActivePersona,
     #[error("no active connection profile")]
@@ -32,7 +30,7 @@ impl DomainError for StateError {
             Self::NoActivePersona => "state.no_active_persona",
             Self::NoActiveConnectionProfile => "state.no_active_connection_profile",
             Self::NoActiveTokenizer => "state.no_active_tokenizer",
-            Self::Storage(_) | Self::TemplateConversion(_) => "internal",
+            Self::Storage(_) => "internal",
         }
     }
 
@@ -45,7 +43,7 @@ impl DomainError for StateError {
             | Self::NoActivePersona
             | Self::NoActiveConnectionProfile
             | Self::NoActiveTokenizer => StatusCode::CONFLICT,
-            Self::Storage(_) | Self::TemplateConversion(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 
@@ -58,7 +56,7 @@ impl DomainError for StateError {
             Self::NoActivePersona => "No persona is selected.".into(),
             Self::NoActiveConnectionProfile => "No connection profile is selected.".into(),
             Self::NoActiveTokenizer => "No tokenizer is selected.".into(),
-            Self::Storage(_) | Self::TemplateConversion(_) => "An internal error occurred".into(),
+            Self::Storage(_) => "An internal error occurred".into(),
         }
     }
 
@@ -71,7 +69,7 @@ impl DomainError for StateError {
                 Some(ErrorDetails::resource(TargetType::ConnectionProfile))
             }
             Self::NoActiveTokenizer => Some(ErrorDetails::resource(TargetType::Tokenizer)),
-            Self::Storage(_) | Self::TemplateConversion(_) => None,
+            Self::Storage(_) => None,
         }
     }
 }
