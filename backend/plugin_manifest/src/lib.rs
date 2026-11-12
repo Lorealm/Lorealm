@@ -149,6 +149,10 @@ pub struct PluginInfo {
     pub tags: Vec<String>,
     pub author: String,
     pub version: Version,
+    /// The plugin API the backend was built against: the version of the
+    /// `lorealm:plugin` WIT package. A server only runs plugins built for
+    /// its own.
+    pub api: Version,
     #[serde(default)]
     pub permissions: Vec<String>,
 }
@@ -245,6 +249,7 @@ mod tests {
             tags = ["markdown", "preview", "editor"]
             author = "Jane Doe <jane@example.com>"
             version = "1.2.0"
+            api = "0.1.0"
             permissions = ["prompt:write", "persona:read"]
 
             [compatibility]
@@ -266,6 +271,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(manifest.plugin.version, Version::new(1, 2, 0));
+        assert_eq!(manifest.plugin.api, Version::new(0, 1, 0));
         assert!(
             manifest.compatibility.requires["markdown_extensions"].matches(&Version::new(1, 5, 0))
         );
@@ -287,6 +293,7 @@ mod tests {
             description = ""
             author = "Jane Doe"
             version = "0.1.0"
+            api = "0.1.0"
             "#,
         )
         .unwrap();
@@ -306,10 +313,27 @@ mod tests {
             description = ""
             author = "Jane Doe"
             version = "one"
+            api = "0.1.0"
             "#,
         );
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn requires_an_api_version() {
+        let result = toml::from_str::<Manifest>(
+            r#"
+            [plugin]
+            name = "Old"
+            handle = "old"
+            description = ""
+            author = "Jane Doe"
+            version = "0.1.0"
+            "#,
+        );
+
+        assert!(result.unwrap_err().to_string().contains("api"));
     }
 
     #[test]
@@ -325,6 +349,7 @@ mod tests {
             description = ""
             author = "Jane Doe"
             version = "0.1.0"
+            api = "0.1.0"
             permissions = ["prompt:writ"]
             "#,
         )

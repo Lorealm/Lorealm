@@ -5,6 +5,7 @@ handle = "unpermitted"
 description = "Test fixture whose init fails on a permission check."
 author = "Lorealm"
 version = "0.1.0"
+api = "0.1.0"
 
 [structure]
 backend = "../hello/target/wasm32-wasip2/release/hello.wasm"

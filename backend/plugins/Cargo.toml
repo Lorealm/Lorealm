@@ -5,6 +5,7 @@ edition = "2024"
 license = "MIT"
 
 [dependencies]
+lorealm_plugin_manifest = { path = "../plugin_manifest" }
 thiserror = { workspace = true }
 async-trait = "0.1.89"
 bytes = "1.11.1"

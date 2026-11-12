@@ -4,12 +4,14 @@ use std::ptr::NonNull;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use semver::Version;
+
 use wasmtime::component::{Component, HasSelf, Linker, Resource, ResourceTable};
 use wasmtime::{Config, Engine, Store, Trap, UpdateDeadline};
 use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
 
 use crate::log::{LogBuffer, LogEntry, LogSource};
-use crate::manifest::{Manifest, ManifestError};
+use lorealm_plugin_manifest::{Manifest, ManifestError};
 
 wasmtime::component::bindgen!({
     path: "wit",
@@ -34,6 +36,10 @@ use lorealm::plugin::types::{
 pub enum PluginError {
     #[error(transparent)]
     Manifest(#[from] ManifestError),
+    #[error(
+        "built for plugin API {plugin}, and this server runs {API_VERSION}; it needs a release built for {API_VERSION}"
+    )]
+    Api { plugin: Version },
     #[error("wasm error: {0:#}")]
     Wasm(wasmtime::Error),
     #[error("plugin call timed out")]
@@ -52,6 +58,22 @@ impl From<wasmtime::Error> for PluginError {
         } else {
             Self::Wasm(err)
         }
+    }
+}
+
+/// The plugin API this server runs: the version of the `lorealm:plugin` WIT
+/// package. Changes whenever `wit/plugin.wit` does.
+pub const API_VERSION: Version = Version::new(0, 1, 0);
+
+/// Refuses a plugin built for another plugin API. The match is exact, since
+/// any change to the WIT can stop a built component from loading.
+pub fn check_api(manifest: &Manifest) -> Result<(), PluginError> {
+    if manifest.plugin.api == API_VERSION {
+        Ok(())
+    } else {
+        Err(PluginError::Api {
+            plugin: manifest.plugin.api.clone(),
+        })
     }
 }
 
@@ -438,6 +460,7 @@ impl PluginHost {
     /// Reads `manifest.toml` from `dir` and compiles the backend component.
     pub fn compile(&self, dir: &Path) -> Result<PluginPackage, PluginError> {
         let manifest = Manifest::from_dir(dir)?;
+        check_api(&manifest)?;
         let component = Component::from_file(&self.engine, dir.join(&manifest.structure.backend))?;
         Ok(PluginPackage {
             manifest,
@@ -880,5 +903,42 @@ async fn flush_logs(store: &mut Store<PluginState>, error: Option<&PluginError>)
     let entries = state.logs.drain(error.map(ToString::to_string));
     if !entries.is_empty() {
         state.services.log(entries).await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn api_version_is_the_wit_package_version() {
+        let wit = include_str!("../wit/plugin.wit");
+        assert!(
+            wit.starts_with(&format!("package lorealm:plugin@{API_VERSION};")),
+            "API_VERSION and the package version in wit/plugin.wit have to change together"
+        );
+    }
+
+    #[test]
+    fn refuses_another_api_version() {
+        let manifest = |api: &str| -> Manifest {
+            toml::from_str(&format!(
+                r#"
+                [plugin]
+                name = "Hello"
+                handle = "hello"
+                description = ""
+                author = "Test"
+                version = "1.0.0"
+                api = "{api}"
+                "#
+            ))
+            .unwrap()
+        };
+
+        assert!(check_api(&manifest(&API_VERSION.to_string())).is_ok());
+        let error = check_api(&manifest("0.0.9")).unwrap_err();
+        assert!(matches!(&error, PluginError::Api { plugin } if *plugin == Version::new(0, 0, 9)));
+        assert!(error.to_string().contains("0.0.9"));
     }
 }

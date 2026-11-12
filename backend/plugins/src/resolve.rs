@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::manifest::Manifest;
+use lorealm_plugin_manifest::Manifest;
 
 /// The plugins that can load, in load order, and those that can't.
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -117,6 +117,7 @@ mod tests {
             description = ""
             author = "Test"
             version = "{version}"
+            api = "0.1.0"
 
             [compatibility]
             {compat}

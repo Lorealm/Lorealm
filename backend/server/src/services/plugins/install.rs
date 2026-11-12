@@ -378,6 +378,7 @@ impl PluginService {
     fn check(&self, source: &Path, replacing: bool) -> Result<Manifest, PluginError> {
         let invalid = |reason: String| PluginError::InvalidSource(reason);
         let manifest = Manifest::from_dir(source).map_err(|e| invalid(e.to_string()))?;
+        lorealm_plugins::check_api(&manifest).map_err(|e| invalid(e.to_string()))?;
         let handle = &manifest.plugin.handle;
         let version = &manifest.plugin.version;
         if !is_identifier(handle) {

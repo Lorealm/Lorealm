@@ -5,6 +5,7 @@ description = "A little robot above the chat bar that cheers on your story."
 tags = ["fun", "companion", "novelai"]
 author = "Lorealm"
 version = "0.1.0"
+api = "0.1.0"
 permissions = ["chat:read", "model:generate"]
 
 [structure]

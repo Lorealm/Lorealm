@@ -1,0 +1,12 @@
+[package]
+name = "lorealm_plugin_manifest"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "The manifest.toml format of Lorealm plugins"
+
+[dependencies]
+thiserror = { workspace = true }
+serde = { version = "1.0.228", features = ["derive"] }
+toml = "1.1.6"
+semver = { version = "1.0.28", features = ["serde"] }

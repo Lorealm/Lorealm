@@ -708,6 +708,7 @@ fn hello_source(version: &str) -> PathBuf {
         description = ""
         author = "Lorealm"
         version = "{version}"
+        api = "0.1.0"
         permissions = ["prompt:write", "chat:read", "chat:write", "tools:write", "persona:read", "data:persist"]
 
         [structure]
@@ -744,6 +745,28 @@ async fn installing_builds_and_stages_the_plugin() {
 }
 
 #[tokio::test]
+async fn a_plugin_built_for_another_api_is_refused() {
+    let h = harness().await;
+    let dir = fresh_dir();
+    let plugins = service(&h, dir.clone(), PluginConfig::default());
+    let source = hello_source("0.1.0");
+    let manifest = std::fs::read_to_string(source.join("manifest.toml")).unwrap();
+    std::fs::write(
+        source.join("manifest.toml"),
+        manifest.replace(r#"api = "0.1.0""#, r#"api = "0.0.9""#),
+    )
+    .unwrap();
+
+    let result = plugins.install_prebuilt(h.user, source).await.err();
+
+    assert!(
+        matches!(&result, Some(PluginError::InvalidSource(r)) if r.contains("plugin API 0.0.9")),
+        "{result:?}"
+    );
+    assert!(!dir.join("hello@0.1.0").exists());
+}
+
+#[tokio::test]
 async fn a_failed_build_is_reported_and_logged() {
     let h = harness().await;
     let plugins = service(&h, fresh_dir(), PluginConfig::default());
@@ -757,6 +780,7 @@ async fn a_failed_build_is_reported_and_logged() {
         description = ""
         author = "Lorealm"
         version = "0.1.0"
+        api = "0.1.0"
 
         [build]
         backend = ["sh", "-c", "echo compiling; exit 3"]
@@ -866,6 +890,7 @@ async fn an_unbuilt_zip_is_built() {
         description = ""
         author = "Lorealm"
         version = "0.4.0"
+        api = "0.1.0"
         permissions = ["prompt:write", "chat:read", "chat:write", "tools:write", "persona:read", "data:persist"]
 
         [build]
@@ -959,6 +984,7 @@ async fn a_git_repository_is_cloned_and_built() {
             description = ""
             author = "Lorealm"
             version = "0.3.0"
+            api = "0.1.0"
             permissions = ["prompt:write", "chat:read", "chat:write", "tools:write", "persona:read", "data:persist"]
 
             [build]
@@ -1005,6 +1031,7 @@ fn hello_dev(readme: &str) -> PathBuf {
         description = ""
         author = "Lorealm"
         version = "0.1.0"
+        api = "0.1.0"
         permissions = ["prompt:write", "chat:read", "chat:write", "tools:write", "persona:read", "data:persist"]
 
         [build]

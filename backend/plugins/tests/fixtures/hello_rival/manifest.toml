@@ -5,6 +5,7 @@ handle = "hello_rival"
 description = "Test fixture that conflicts with the hello plugin."
 author = "Lorealm"
 version = "0.1.0"
+api = "0.1.0"
 permissions = ["prompt:write", "chat:read", "chat:write", "tools:write", "persona:read", "data:persist"]
 
 [compatibility]

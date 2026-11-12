@@ -5,6 +5,7 @@ description = "Reads replies aloud with OpenRouter or ElevenLabs."
 tags = ["tts", "audio", "voice"]
 author = "Lorealm"
 version = "0.1.0"
+api = "0.1.0"
 permissions = ["net:fetch", "ui:autoplay"]
 
 [network]

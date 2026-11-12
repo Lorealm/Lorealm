@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::manifest::{MANIFEST_FILE, Manifest, ManifestError};
+use lorealm_plugin_manifest::{MANIFEST_FILE, Manifest, ManifestError};
 
 /// Where an installed plugin keeps its backend and frontend.
 const BACKEND: &str = "backend.wasm";
