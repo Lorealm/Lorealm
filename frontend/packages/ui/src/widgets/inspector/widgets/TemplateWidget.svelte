@@ -107,9 +107,7 @@
 			aria-pressed={node.enabled}
 			aria-expanded={group ? !isFolded : undefined}
 			{@attach tooltip(
-				group
-					? 'Click to toggle, shift-click to collapse'
-					: node.description || node.title
+				group ? 'Click to toggle, shift-click to collapse' : node.description || node.title
 			)}
 			onclick={(e) => onRow(e, node)}
 		>

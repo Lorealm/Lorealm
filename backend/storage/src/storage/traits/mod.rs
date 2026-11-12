@@ -1,11 +1,11 @@
 mod blob;
 mod blueprints;
-mod modules;
 mod characters;
 mod connection;
 mod conversations;
 mod core;
 mod lorebook;
+mod modules;
 mod permissions;
 mod persona;
 mod plugins;
@@ -20,12 +20,12 @@ mod widgets;
 
 pub use blob::BlobStore;
 pub use blueprints::BlueprintStorage;
-pub use modules::ModuleStorage;
 pub use characters::CharacterStorage;
 pub use connection::{ConnectionStorage, SecretStorage};
 pub use conversations::ConversationStorage;
 pub use core::StorageCore;
 pub use lorebook::LorebookStorage;
+pub use modules::ModuleStorage;
 pub use permissions::PermissionStorage;
 pub use persona::PersonaStorage;
 pub use plugins::PluginStorage;

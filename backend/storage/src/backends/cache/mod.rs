@@ -1,9 +1,9 @@
 pub mod blueprints;
-pub mod modules;
 pub mod characters;
 pub mod connection;
 pub mod conversation;
 pub mod lorebook;
+pub mod modules;
 pub mod permissions;
 pub mod persona;
 pub mod plugins;

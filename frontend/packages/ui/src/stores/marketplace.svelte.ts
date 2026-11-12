@@ -32,7 +32,7 @@ class MarketplaceStore {
 
 	/**
 	 * Check whether there is an update available for the specified
-		* plugin.
+	 * plugin.
 	 */
 	updateFor(handle: string): string | null {
 		const listed = this.find(handle);

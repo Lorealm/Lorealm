@@ -1,5 +1,5 @@
 /** The code below is an AI-generated replacement for Luxon.
- * 
+ *
  * Generated to save some chunk/bundle size.
  */
 

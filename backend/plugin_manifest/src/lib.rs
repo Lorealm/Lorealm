@@ -80,7 +80,7 @@ pub struct Definitions {
 }
 
 /// How to build the plugin from source.
-/// 
+///
 /// Each command runs in the plugin's directory.
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Build {

@@ -68,7 +68,6 @@ export type WeaverProfile =
 	| 'widget_render'
 	| 'realm_template';
 
-
 export interface WeaverDiagnostic {
 	from: number;
 	to: number;

@@ -135,9 +135,7 @@
 </script>
 
 <h1>Attachments</h1>
-<p class="hint">
-	Lorebooks, tools and widgets that get exported along with the character.
-</p>
+<p class="hint">Lorebooks, tools and widgets that get exported along with the character.</p>
 
 {#each groups as group (group.kind)}
 	{@const attached = characterStore.attached(group.kind)}

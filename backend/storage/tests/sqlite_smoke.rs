@@ -7,8 +7,7 @@ use lorealm_storage::backends::{MemoryStorage, SqliteStorage};
 use lorealm_storage::models::*;
 use lorealm_storage::{
     ConversationStorage, ModuleStorage, PermissionStorage, PersonaStorage, PluginStorage,
-    SessionStorage,
-    StorageCore, UserStorage, UserToolStorage, WeaverStateStorage,
+    SessionStorage, StorageCore, UserStorage, UserToolStorage, WeaverStateStorage,
 };
 
 async fn db() -> SqliteStorage {

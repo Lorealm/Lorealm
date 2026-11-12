@@ -1,10 +1,10 @@
 mod blueprints;
-mod modules;
 mod characters;
 mod common;
 mod connection;
 mod conversation;
 mod lorebook;
+mod modules;
 mod permissions;
 mod persona;
 mod plugins;
@@ -18,12 +18,12 @@ mod users;
 mod widgets;
 
 pub use blueprints::*;
-pub use modules::*;
 pub use characters::*;
 pub use common::*;
 pub use connection::*;
 pub use conversation::*;
 pub use lorebook::*;
+pub use modules::*;
 pub use permissions::*;
 pub use persona::*;
 pub use plugins::*;
