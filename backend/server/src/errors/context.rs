@@ -62,16 +62,12 @@ pub enum ContextError {
     NotFound(ContextType, Snowflake),
     #[error("Resolver not found: {0}")]
     ResolverNotFound(String),
-    #[error("Resolver found no active character")]
-    NoActiveCharacter,
     #[error("Unknown source node: {source_id}:{node_id}")]
     UnknownSourceNode { source_id: String, node_id: String },
     #[error("State conversion: {0}")]
     StateConversion(#[from] crate::util::weaver::ConversionError),
     #[error("Tokenizer: {0}")]
     Tokenizer(#[from] TokenizerError),
-    #[error("No active context template")]
-    NoActiveTemplate,
     #[error("context budget exceeded: {required} tokens required, {budget} available")]
     BudgetExceeded {
         budget: u32,
@@ -90,8 +86,6 @@ impl DomainError for ContextError {
             Self::Tokenizer(err) => err.code(),
             Self::NotFound(_, _) => "context.not_found",
             Self::ResolverNotFound(_) => "context.resolver_not_found",
-            Self::NoActiveCharacter => "context.no_active_character",
-            Self::NoActiveTemplate => "context.no_active_template",
             Self::BudgetExceeded { .. } => "context.budget_exceeded",
             Self::UnknownSourceNode { .. } => "context.unknown_source_node",
             Self::ContextWeaver(_) => "context.evaluation_failed",
@@ -110,8 +104,6 @@ impl DomainError for ContextError {
             Self::State(err) => err.status(),
             Self::Tokenizer(err) => err.status(),
             Self::NotFound(_, _) => StatusCode::NOT_FOUND,
-            Self::NoActiveCharacter => StatusCode::CONFLICT,
-            Self::NoActiveTemplate => StatusCode::CONFLICT,
             Self::BudgetExceeded { .. } => StatusCode::UNPROCESSABLE_ENTITY,
             Self::ResolverNotFound(_)
             | Self::UnknownSourceNode { .. }
@@ -136,8 +128,6 @@ impl DomainError for ContextError {
             Self::ResolverNotFound(name) => {
                 Cow::Owned(format!("Unknown resolver '{name}' in this template."))
             }
-            Self::NoActiveCharacter => "No character is selected.".into(),
-            Self::NoActiveTemplate => "No template selected".into(),
             Self::BudgetExceeded {
                 budget,
                 required,
@@ -174,8 +164,6 @@ impl DomainError for ContextError {
             Self::State(err) => err.details(),
             Self::Tokenizer(err) => err.details(),
             Self::NotFound(kind, id) => Some(ErrorDetails::target(kind.target(), *id)),
-            Self::NoActiveCharacter => Some(ErrorDetails::resource(TargetType::Character)),
-            Self::NoActiveTemplate => Some(ErrorDetails::resource(TargetType::ContextTemplate)),
             Self::BudgetExceeded { .. } => {
                 Some(ErrorDetails::resource(TargetType::ContextTemplate))
             }
@@ -204,9 +192,6 @@ pub enum TemplateError {
     #[error("Invalid parent: {0} is not a group node")]
     InvalidParent(Snowflake),
 
-    #[error("Circular reference detected")]
-    CircularReference,
-
     #[error("Cannot move node: would create circular reference")]
     WouldCreateCircle,
 
@@ -222,7 +207,7 @@ impl DomainError for TemplateError {
             Self::NodeNotFound(_) => "template.node_not_found",
             Self::DuplicateSourceNode { .. } => "template.duplicate_source_node",
             Self::InvalidParent(_) => "template.invalid_parent",
-            Self::CircularReference | Self::WouldCreateCircle => "template.circular_reference",
+            Self::WouldCreateCircle => "template.circular_reference",
             Self::IndexOutOfBounds { .. } => "template.index_out_of_bounds",
             Self::InvalidPath(_) => "template.invalid_path",
         }
@@ -233,7 +218,6 @@ impl DomainError for TemplateError {
             Self::NodeNotFound(_) => StatusCode::NOT_FOUND,
             Self::DuplicateSourceNode { .. } => StatusCode::CONFLICT,
             Self::InvalidParent(_)
-            | Self::CircularReference
             | Self::WouldCreateCircle
             | Self::IndexOutOfBounds { .. }
             | Self::InvalidPath(_) => StatusCode::BAD_REQUEST,
@@ -247,7 +231,7 @@ impl DomainError for TemplateError {
                 "Node '{source_id}:{node_id}' is already used in this template."
             )),
             Self::InvalidParent(_) => "Nodes can only be nested inside a group.".into(),
-            Self::CircularReference | Self::WouldCreateCircle => {
+            Self::WouldCreateCircle => {
                 "That move would create a circular reference.".into()
             }
             Self::IndexOutOfBounds { index, len } => {

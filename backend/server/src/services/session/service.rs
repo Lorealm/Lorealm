@@ -132,7 +132,6 @@ impl SessionService {
         Ok(ValidatedSession {
             session,
             new_token, // Awlays `None` for Fixed policy
-            new_csrf_token: None,
         })
     }
 

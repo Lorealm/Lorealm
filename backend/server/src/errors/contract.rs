@@ -199,7 +199,6 @@ fn contract_surface() -> Vec<(&'static str, Vec<Box<dyn DomainError>>)> {
             vec![
                 Box::new(ContextError::NotFound(ContextType::Lorebook, id())),
                 Box::new(ContextError::ResolverNotFound("char".into())),
-                Box::new(ContextError::NoActiveCharacter),
                 Box::new(ContextError::UnknownSourceNode {
                     source_id: "core".into(),
                     node_id: "persona".into(),
@@ -215,7 +214,6 @@ fn contract_surface() -> Vec<(&'static str, Vec<Box<dyn DomainError>>)> {
                     node_id: "persona".into(),
                 }),
                 Box::new(TemplateError::InvalidParent(id())),
-                Box::new(TemplateError::CircularReference),
                 Box::new(TemplateError::WouldCreateCircle),
                 Box::new(TemplateError::IndexOutOfBounds { index: 9, len: 3 }),
                 Box::new(TemplateError::InvalidPath(vec![0, 1])),

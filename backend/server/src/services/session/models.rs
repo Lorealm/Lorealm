@@ -9,5 +9,4 @@ pub struct SessionCreated {
 pub struct ValidatedSession {
     pub session: Session,
     pub new_token: Option<String>,
-    pub new_csrf_token: Option<String>,
 }

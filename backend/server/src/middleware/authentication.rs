@@ -143,16 +143,7 @@ pub async fn session_auth_middleware(
         .validate_session(&session_token, &state.server_secret)
         .await?;
 
-    let bearer_rotation = match source {
-        TokenSource::Cookie => {
-            if let Some(ref new_token) = validated.new_token {
-                let max_age = remaining_seconds(&validated);
-                cookies.add(state.build_session_cookie(new_token, max_age));
-            }
-            None
-        }
-        TokenSource::Bearer => validated.new_token.clone(),
-    };
+    let bearer_rotation = deliver_rotated_session_token(&state, &cookies, &validated, &source);
 
     request.extensions_mut().insert(AuthenticatedSession {
         session_id: validated.session.id,
@@ -160,14 +151,7 @@ pub async fn session_auth_middleware(
     });
 
     let mut response = next.run(request).await;
-
-    // Attach the token as a header for clients that need Bearer tokens
-    if let Some(token) = bearer_rotation
-        && let Ok(value) = token.parse()
-    {
-        response.headers_mut().insert("X-New-Session-Token", value);
-    }
-
+    attach_bearer_rotation(&mut response, bearer_rotation);
     Ok(response)
 }
 
@@ -209,21 +193,120 @@ pub async fn session_csrf_middleware(
         }
     }
 
-    let max_age = remaining_seconds(&validated);
-    if let Some(ref new_token) = validated.new_token {
-        cookies.add(state.build_session_cookie(new_token, max_age));
-    }
+    let bearer_rotation = deliver_rotated_session_token(&state, &cookies, &validated, &source);
 
     request.extensions_mut().insert(AuthenticatedSession {
         session_id: validated.session.id,
         user_id: validated.session.user_id,
     });
 
-    Ok(next.run(request).await)
+    let mut response = next.run(request).await;
+    attach_bearer_rotation(&mut response, bearer_rotation);
+    Ok(response)
+}
+
+/// Hands a rotated session token back the way the client sent it: a cookie
+/// is reissued directly, a Bearer token is returned so it can go in a header.
+fn deliver_rotated_session_token(
+    state: &SessionMiddlewareState,
+    cookies: &Cookies,
+    validated: &ValidatedSession,
+    source: &TokenSource,
+) -> Option<String> {
+    let new_token = validated.new_token.as_ref()?;
+    match source {
+        TokenSource::Cookie => {
+            let max_age = remaining_seconds(validated);
+            cookies.add(state.build_session_cookie(new_token, max_age));
+            None
+        }
+        TokenSource::Bearer => Some(new_token.clone()),
+    }
+}
+
+/// Bearer clients can't receive cookies, so they get the new token as a header.
+fn attach_bearer_rotation(response: &mut Response, token: Option<String>) {
+    if let Some(token) = token
+        && let Ok(value) = token.parse()
+    {
+        response.headers_mut().insert("X-New-Session-Token", value);
+    }
 }
 
 fn remaining_seconds(validated: &ValidatedSession) -> i64 {
     (validated.session.expires_at - chrono::Utc::now())
         .num_seconds()
         .max(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::{Router, routing::post};
+    use lorealm_storage::{backends::MemoryStorage, models::Snowflake};
+    use tower_cookies::CookieManagerLayer;
+
+    use super::*;
+    use crate::{
+        config::{SessionConfig, SlidingPolicy},
+        extract::{DeviceType, UserDevice},
+        services::snowflake::SnowflakeService,
+    };
+
+    /// A Bearer client on a CSRF-protected route must get its rotated token
+    /// back as a header, not as a cookie it will never read.
+    #[tokio::test]
+    async fn csrf_routes_return_rotated_bearer_token_as_header() {
+        let config = SessionConfig {
+            sliding_policy: SlidingPolicy::Always,
+            ..Default::default()
+        };
+        let sessions = Arc::new(SessionService::new(
+            Arc::new(MemoryStorage::new()),
+            Arc::new(SnowflakeService::new(0)),
+            config,
+        ));
+        let secret = SecretString::from("test-secret");
+        let created = sessions
+            .create_session(
+                Snowflake(1),
+                &secret,
+                UserDevice {
+                    raw_user_agent: "test".into(),
+                    _device_type: DeviceType::Desktop,
+                    _os: None,
+                    _browser: None,
+                    ip: None,
+                },
+            )
+            .await
+            .unwrap();
+
+        let state = SessionMiddlewareState::new(sessions, secret, false);
+        let app = Router::new()
+            .route("/", post(|| async { "ok" }))
+            .layer(axum::middleware::from_fn_with_state(
+                state,
+                session_csrf_middleware,
+            ))
+            .layer(CookieManagerLayer::new());
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+
+        let response = reqwest::Client::new()
+            .post(format!("http://{addr}/"))
+            .bearer_auth(&created.raw_token)
+            .send()
+            .await
+            .unwrap();
+
+        assert!(response.status().is_success());
+        let new_token = response
+            .headers()
+            .get("X-New-Session-Token")
+            .expect("rotated token should be returned to a Bearer client");
+        assert_ne!(new_token.to_str().unwrap(), created.raw_token);
+        assert!(response.headers().get(header::SET_COOKIE).is_none());
+    }
 }

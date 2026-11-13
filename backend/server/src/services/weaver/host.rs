@@ -409,7 +409,10 @@ $[del_var("nation:oda.gold")]
             .await
             .unwrap();
 
-        assert_eq!(outcome._pool["nation"]["oda"], serde_json::json!({"men": 5}));
+        assert_eq!(
+            outcome._pool["nation"]["oda"],
+            serde_json::json!({"men": 5})
+        );
         assert_eq!(outcome.to_output_string(), "men");
     }
 
@@ -462,7 +465,10 @@ $[del_var("nation:oda.gold")]
             .unwrap();
 
         assert!(outcome.wrote_state());
-        assert_eq!(outcome._pool["world"]["season"], serde_json::json!("winter"));
+        assert_eq!(
+            outcome._pool["world"]["season"],
+            serde_json::json!("winter")
+        );
         assert_eq!(
             outcome.delta.writes["world"]["season"],
             serde_json::json!("winter")

@@ -12,9 +12,9 @@ use crate::{config::HostingConfig, core::AppState, extract::client_ip};
 #[derive(Debug, Clone)]
 pub struct UserDevice {
     pub raw_user_agent: String,
-    pub device_type: DeviceType,
-    pub os: Option<String>,
-    pub browser: Option<String>,
+    pub _device_type: DeviceType,
+    pub _os: Option<String>,
+    pub _browser: Option<String>,
     pub ip: Option<IpAddr>,
 }
 
@@ -55,9 +55,9 @@ impl FromRequestParts<Arc<AppState>> for UserDevice {
 
         Ok(UserDevice {
             raw_user_agent: ua,
-            device_type,
-            os,
-            browser,
+            _device_type: device_type,
+            _os: os,
+            _browser: browser,
             ip,
         })
     }

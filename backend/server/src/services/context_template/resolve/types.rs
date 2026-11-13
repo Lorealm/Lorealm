@@ -20,12 +20,6 @@ pub enum ContentRef {
     Message(Snowflake),
     Character(CharacterPart),
     Persona(UserPersona),
-    /// Recoverable reference defined by a plugin source.
-    /// The frontend dispatches on source_id to interpret `data`.
-    Plugin {
-        source_id: String,
-        data: serde_json::Value,
-    },
 }
 
 impl ContentRef {

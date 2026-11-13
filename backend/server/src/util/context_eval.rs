@@ -92,6 +92,7 @@ pub enum Floor {
     #[default]
     Nothing,
     /// At least this many tokens survive.
+    #[allow(dead_code)]
     Tokens(u32),
     /// The last N blocks the source emitted survive.
     Blocks(usize),
@@ -104,6 +105,7 @@ pub enum Floor {
 pub enum Cap {
     #[default]
     Unlimited,
+    #[allow(dead_code)]
     Tokens(u32),
     /// A fraction of the total budget.
     Share(f32),
@@ -115,6 +117,7 @@ pub enum TrimOrder {
     #[default]
     Oldest,
     Newest,
+    #[allow(dead_code)]
     MiddleOut,
 }
 
@@ -189,8 +192,9 @@ pub struct UsageReport {
     pub trimmed: CountResult,
 }
 
+#[cfg(test)]
 impl UsageReport {
-    pub fn was_trimmed(&self) -> bool {
+    fn was_trimmed(&self) -> bool {
         self.trimmed.total() > 0
     }
 }
@@ -198,13 +202,16 @@ impl UsageReport {
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct CountResult(HashMap<ContextSource, u32>);
 
+#[cfg(test)]
+impl CountResult {
+    fn total(&self) -> u32 {
+        self.0.values().sum()
+    }
+}
+
 impl CountResult {
     pub fn get(&self, source: ContextSource) -> u32 {
         self.0.get(&source).copied().unwrap_or(0)
-    }
-
-    pub fn total(&self) -> u32 {
-        self.0.values().sum()
     }
 
     /// Per-source difference, floored at zero.
@@ -283,7 +290,7 @@ impl ContextEvaluator {
     }
 
     /// Token counts per source before trimming.
-    pub fn grouped_count(&self, trace: &[TracedBlock]) -> Result<CountResult, ContextError> {
+    pub fn _grouped_count(&self, trace: &[TracedBlock]) -> Result<CountResult, ContextError> {
         let cost = self.costs(trace)?;
         Ok(self.tally(trace, &cost, &vec![true; trace.len()]))
     }
@@ -571,7 +578,7 @@ impl ContextEvalBuilder {
         }
     }
 
-    pub fn squash_system_messages(mut self, squash: bool) -> Self {
+    pub fn _squash_system_messages(mut self, squash: bool) -> Self {
         self.config.squash_system_messages = squash;
         self
     }
@@ -582,7 +589,7 @@ impl ContextEvalBuilder {
         self
     }
 
-    pub fn policy(mut self, source: ContextSource, budget: SourceBudget) -> Self {
+    pub fn _policy(mut self, source: ContextSource, budget: SourceBudget) -> Self {
         self.config.policies.insert(source, budget);
         self
     }
@@ -882,7 +889,7 @@ mod tests {
         ];
         let out = ContextEvaluator::builder(Arc::new(Words))
             .budget(100)
-            .policy(
+            ._policy(
                 ContextSource::Lorebook,
                 SourceBudget {
                     floor: Floor::Nothing,
@@ -902,7 +909,7 @@ mod tests {
     fn adjacent_system_blocks_squash_when_asked() {
         let trace = vec![text("a"), text("b")];
         let out = ContextEvaluator::builder(Arc::new(Words))
-            .squash_system_messages(true)
+            ._squash_system_messages(true)
             .build()
             .evaluate(trace)
             .unwrap();
