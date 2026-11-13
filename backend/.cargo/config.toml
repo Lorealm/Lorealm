@@ -1,0 +1,4 @@
+include = [
+    { path = "config_aliases.toml" },
+    { path = "config_local.toml", optional = true },
+]

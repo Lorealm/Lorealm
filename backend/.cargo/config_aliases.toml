@@ -1,0 +1,4 @@
+[alias]
+ci = "run --package ci --"
+ci-clippy = "run --package ci -- clippy"
+ci-test = "run --package ci -- test"

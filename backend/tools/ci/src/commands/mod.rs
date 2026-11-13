@@ -1,0 +1,21 @@
+pub use clippy::*;
+pub use compile::*;
+pub use compile_check::*;
+pub use doc::*;
+pub use doc_check::*;
+pub use doc_test::*;
+pub use format::*;
+pub use lints::*;
+pub use test::*;
+pub use test_check::*;
+
+mod clippy;
+mod compile;
+mod compile_check;
+mod doc;
+mod doc_check;
+mod doc_test;
+mod format;
+mod lints;
+mod test;
+mod test_check;

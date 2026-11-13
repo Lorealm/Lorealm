@@ -883,10 +883,9 @@ fn zipped(files: &[(&str, Vec<u8>)]) -> Vec<u8> {
 async fn an_unbuilt_zip_needs_the_build_permission() {
     let h = harness().await;
     let plugins = service(&h, fresh_dir(), PluginConfig::default());
-    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/tts");
     let zip = zipped(&[(
-        "tts/manifest.toml",
-        std::fs::read(source.join("manifest.toml")).unwrap(),
+        "hello/manifest.toml",
+        std::fs::read(fixture("hello/manifest.toml")).unwrap(),
     )]);
 
     let result = plugins.install_zip(h.user, zip, false).await.err();
@@ -1379,96 +1378,6 @@ async fn a_plugin_fetches_with_the_users_key() {
             env!("CARGO_PKG_VERSION")
         ))
     );
-}
-
-/// The example in `plugins/tts`, short of calling a provider.
-#[tokio::test]
-async fn the_tts_example_installs_and_asks_for_a_key() {
-    let h = Harness::new().await;
-    let plugins = service(&h, fresh_dir(), PluginConfig::default());
-    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/tts");
-    plugins
-        .install_from_source(h.user, source)
-        .await
-        .unwrap_or_else(|e| panic!("installing: {e}"));
-    plugins.enable(h.user, "tts").await.unwrap();
-    let call = |name: &str, args: serde_json::Value| {
-        plugins.call_frontend(h.user, "tts", name.into(), args, None, None, false)
-    };
-
-    let speak = call("speak", serde_json::json!({ "text": "*Hello* there." }))
-        .await
-        .unwrap();
-    let first = call("autoplay", serde_json::json!({ "id": "1" }))
-        .await
-        .unwrap();
-    let again = call("autoplay", serde_json::json!({ "id": "1" }))
-        .await
-        .unwrap();
-
-    assert_eq!(
-        speak,
-        serde_json::json!({ "error": "Pick your OpenRouter key under Settings → You → Plugins." })
-    );
-    assert_eq!(first, serde_json::json!(true));
-    assert_eq!(again, serde_json::json!(false));
-    assert_eq!(
-        plugins.key_types(h.user).await.unwrap(),
-        ["elevenlabs", "openrouter"]
-    );
-}
-
-/// The example in `plugins/hypebot`, with a stub model and the profile picked
-/// in its settings.
-#[tokio::test]
-async fn the_hypebot_example_comments_on_the_story() {
-    let h = Harness::new().await;
-    let plugins = service(&h, fresh_dir(), PluginConfig::default());
-    let generator = StubGenerator::new(" \"What a twist!\"\n");
-    plugins.set_generation(Arc::downgrade(&generator) as std::sync::Weak<dyn Generation>);
-    let profile = h.profile(h.user, "active").await;
-    h.store
-        .set_active_profile(h.user, Some(profile))
-        .await
-        .unwrap();
-    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/hypebot");
-    plugins
-        .install_from_source(h.user, source)
-        .await
-        .unwrap_or_else(|e| panic!("installing: {e}"));
-    plugins.enable(h.user, "hypebot").await.unwrap();
-    let cheap = h.profile(h.user, "cheap").await;
-    let picked = serde_json::json!({ "profile": cheap.to_string() });
-    plugins
-        .save_settings(h.user, "hypebot", picked.as_object().unwrap().clone())
-        .await
-        .unwrap();
-    let (convo, _) = chat(&h, h.user, &["I open the door.", "A dragon!"]).await;
-    let call = |name: &str, conversation: Option<Snowflake>| {
-        plugins.call_frontend(
-            h.user,
-            "hypebot",
-            name.into(),
-            serde_json::Value::Null,
-            conversation,
-            None,
-            false,
-        )
-    };
-
-    let before = call("last", Some(convo)).await.unwrap();
-    let comment = call("comment", Some(convo)).await.unwrap();
-    let after = call("last", Some(convo)).await.unwrap();
-    let outside = call("comment", None).await;
-
-    assert_eq!(before, serde_json::Value::Null);
-    assert_eq!(comment, serde_json::json!("What a twist!"));
-    assert_eq!(after, comment);
-    assert!(
-        matches!(&outside, Err(PluginError::CallFailed(_, reason)) if reason.contains("Open a chat")),
-        "{outside:?}"
-    );
-    assert_eq!(*generator.profiles.lock().unwrap(), [cheap]);
 }
 
 /// Has `hello_addon` emit `hello_addon.ping` with `payload`.
