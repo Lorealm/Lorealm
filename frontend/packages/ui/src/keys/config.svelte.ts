@@ -1,4 +1,4 @@
-import { PersistedRecord } from '$lib/stores/persisted.svelte.js';
+import { PersistedRecord } from '#lib/stores/persisted.svelte.js';
 
 /**
  * Whether shortcuts run at all. `auto` turns them off on touch-only devices;

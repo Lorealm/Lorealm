@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import type { InputSpecType } from '$lib/types/blueprint.js';
+	import type { InputSpecType } from '#lib/types/blueprint.js';
 
 	export function blankFor(ty: InputSpecType): unknown {
 		switch (ty.type) {
@@ -22,8 +22,8 @@
 <script lang="ts">
 	import { Plus, X } from '@lucide/svelte';
 	import type { Attachment } from 'svelte/attachments';
-	import NumberInput from '$lib/components/NumberInput.svelte';
-	import { connectionStore } from '$lib/stores/connection.svelte.js';
+	import NumberInput from '#lib/components/NumberInput.svelte';
+	import { connectionStore } from '#lib/stores/connection.svelte.js';
 	import { itemsOf } from './resources.svelte.js';
 	import Self from './InputControl.svelte';
 

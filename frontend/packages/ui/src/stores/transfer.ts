@@ -1,7 +1,7 @@
-import { useApi, usePlatform } from '$lib/api/client.js';
-import type { Snowflake } from '$lib/types/core.js';
-import { extractError } from '$lib/types/error.js';
-import type { TransferFile, TransferKind } from '$lib/types/transfer.js';
+import { useApi, usePlatform } from '#lib/api/client.js';
+import type { Snowflake } from '#lib/types/core.js';
+import { extractError } from '#lib/types/error.js';
+import type { TransferFile, TransferKind } from '#lib/types/transfer.js';
 import { characterStore } from './character.svelte.js';
 import { lorebookStore } from './lorebook.svelte.js';
 import { showApiError } from './errorActions.js';

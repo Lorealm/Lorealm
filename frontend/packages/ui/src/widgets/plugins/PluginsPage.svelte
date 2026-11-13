@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { navigator } from '$lib/navigation/navigator.js';
+	import { navigator } from '#lib/navigation/navigator.js';
 	import InstalledPlugins from './InstalledPlugins.svelte';
 	import MarketplacePlugins from './MarketplacePlugins.svelte';
 

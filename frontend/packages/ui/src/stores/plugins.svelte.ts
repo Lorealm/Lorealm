@@ -1,6 +1,6 @@
-import { useApi } from '$lib/api/client.js';
-import type { FrontendSlot, InstalledPlugin } from '$lib/types/plugins.js';
-import { pluginWidgetKey, type PluginWidgetKey } from '$lib/widgets/inspector/registry.js';
+import { useApi } from '#lib/api/client.js';
+import type { FrontendSlot, InstalledPlugin } from '#lib/types/plugins.js';
+import { pluginWidgetKey, type PluginWidgetKey } from '#lib/widgets/inspector/registry.js';
 
 /** A slot one of the user's enabled plugins fills. */
 export interface PluginSlot extends FrontendSlot {

@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import { templateStore } from '$lib/stores/template.svelte.js';
-	import type { TemplateMetadata } from '$lib/types/template.js';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import { templateStore } from '#lib/stores/template.svelte.js';
+	import type { TemplateMetadata } from '#lib/types/template.js';
 	import { Check, Download, Layers, Pencil, Trash2 } from '@lucide/svelte';
-	import { exportItem } from '$lib/stores/transfer.js';
-	import { relativeTime } from '$lib/assets/scripts/datetime.js';
+	import { exportItem } from '#lib/stores/transfer.js';
+	import { relativeTime } from '#lib/assets/scripts/datetime.js';
 
 	let { meta }: { meta: TemplateMetadata } = $props();
 

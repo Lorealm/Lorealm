@@ -51,7 +51,7 @@ function linkDecorations(view: EditorView): DecorationSet {
 	if (navigable.size === 0) return builder.finish();
 
 	for (const { from, to } of view.visibleRanges) {
-		for (let pos = from; pos <= to; ) {
+		for (let pos = from; pos <= to;) {
 			const line = view.state.doc.lineAt(pos);
 			for (const ref of scanIdRefs(line.text)) {
 				if (navigable.has(ref.id)) {

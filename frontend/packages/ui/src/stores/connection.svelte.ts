@@ -1,15 +1,15 @@
-import { extractError } from '$lib/types/error.js';
-import { useApi } from '$lib/api/client.js';
-import type { JsonValue, Snowflake } from '$lib/types/core.js';
+import { extractError } from '#lib/types/error.js';
+import { useApi } from '#lib/api/client.js';
+import type { JsonValue, Snowflake } from '#lib/types/core.js';
 import type {
 	ConnectionProfile,
 	CreateSecretRequest,
 	DeleteSecretResponse,
 	ProfileRequest,
 	SecretMetadata
-} from '$lib/types/connection.js';
+} from '#lib/types/connection.js';
 import type { SaveState } from './lorebook.svelte.js';
-import { TOKEN_BUDGET, type ProviderModel } from '$lib/types/schema.js';
+import { TOKEN_BUDGET, type ProviderModel } from '#lib/types/schema.js';
 import { SvelteMap } from 'svelte/reactivity';
 
 export interface ProfileDraft {

@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import { toolStore } from '$lib/stores/tools.svelte.js';
-	import { userWidgetStore } from '$lib/stores/userWidgets.svelte.js';
-	import { exportItem } from '$lib/stores/transfer.js';
-	import type { Snowflake } from '$lib/types/core.js';
-	import type { WidgetMode, WidgetPlacement } from '$lib/types/widgets.js';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import { toolStore } from '#lib/stores/tools.svelte.js';
+	import { userWidgetStore } from '#lib/stores/userWidgets.svelte.js';
+	import { exportItem } from '#lib/stores/transfer.js';
+	import type { Snowflake } from '#lib/types/core.js';
+	import type { WidgetMode, WidgetPlacement } from '#lib/types/widgets.js';
 	import { onDestroy } from 'svelte';
-	import ContextField from '$lib/components/ContextField.svelte';
-	import ListSidebar from '$lib/components/ListSidebar.svelte';
-	import Badge from '$lib/widgets/realms/Badge.svelte';
+	import ContextField from '#lib/components/ContextField.svelte';
+	import ListSidebar from '#lib/components/ListSidebar.svelte';
+	import Badge from '#lib/widgets/realms/Badge.svelte';
 	import { LayoutDashboard, Paperclip } from '@lucide/svelte';
 
 	const SAVE_MS = 500;

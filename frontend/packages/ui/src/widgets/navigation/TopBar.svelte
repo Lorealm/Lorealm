@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { ChevronLeft, ChevronRight, MenuIcon, PanelRight } from '@lucide/svelte';
-	import { crumbsFor } from '$lib/navigation/breadcrumbs.svelte.js';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import { router } from '$lib/navigation/router.svelte.js';
-	import { shell } from '$lib/stores/shell.svelte.js';
+	import { crumbsFor } from '#lib/navigation/breadcrumbs.svelte.js';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import { router } from '#lib/navigation/router.svelte.js';
+	import { shell } from '#lib/stores/shell.svelte.js';
 
 	const crumbs = $derived(crumbsFor(router.current));
 </script>

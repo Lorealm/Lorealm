@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SaveState } from '$lib/stores/lorebook.svelte.js';
+	import type { SaveState } from '#lib/stores/lorebook.svelte.js';
 
 	let { state }: { state: SaveState } = $props();
 </script>

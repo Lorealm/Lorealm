@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Upload, Check, Trash2, Globe } from '@lucide/svelte';
-	import { tokenizerStore } from '$lib/stores/tokenizer.svelte';
-	import type { Snowflake } from '$lib/types/core.js';
+	import { tokenizerStore } from '#lib/stores/tokenizer.svelte.js';
+	import type { Snowflake } from '#lib/types/core.js';
 
 	type ImportMode = 'file' | 'network';
 

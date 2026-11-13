@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import PopupMenu from '$lib/components/PopupMenu.svelte';
-	import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
-	import { exportItem, exportSillyTavernLorebook } from '$lib/stores/transfer.js';
-	import type { LorebookMetadata } from '$lib/types/lorebook.js';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import PopupMenu from '#lib/components/PopupMenu.svelte';
+	import { lorebookStore } from '#lib/stores/lorebook.svelte.js';
+	import { exportItem, exportSillyTavernLorebook } from '#lib/stores/transfer.js';
+	import type { LorebookMetadata } from '#lib/types/lorebook.js';
 	import { BookOpen, Check, FileBraces, Pencil, Trash2, Upload } from '@lucide/svelte';
 
 	let { meta }: { meta: LorebookMetadata } = $props();

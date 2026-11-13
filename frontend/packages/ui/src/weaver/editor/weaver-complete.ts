@@ -14,8 +14,8 @@ import {
 	paramDocs,
 	processorKey,
 	weaverVocabularyStore
-} from '$lib/stores/weaverVocabulary.svelte.js';
-import type { NamespaceDef } from '$lib/types/weaver.js';
+} from '#lib/stores/weaverVocabulary.svelte.js';
+import type { NamespaceDef } from '#lib/types/weaver.js';
 import { keywords } from './weaver-meta.js';
 import { activeConstruct } from './weaver-context.js';
 import { infoDom, type ParamDoc } from './weaver-render.js';

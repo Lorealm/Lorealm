@@ -1,24 +1,24 @@
 <script lang="ts">
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { onDestroy } from 'svelte';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import { toolStore } from '$lib/stores/tools.svelte.js';
-	import { exportItem } from '$lib/stores/transfer.js';
-	import type { Snowflake } from '$lib/types/core.js';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import { toolStore } from '#lib/stores/tools.svelte.js';
+	import { exportItem } from '#lib/stores/transfer.js';
+	import type { Snowflake } from '#lib/types/core.js';
 	import type {
 		Param,
 		ParamType,
 		PickableResource,
 		ToolSurface,
 		UserTool
-	} from '$lib/types/tools.js';
-	import { RESOURCE_KINDS, resourceLabel } from '$lib/commands/index.js';
-	import { builtInSlashCommands } from '$lib/commands/index.js';
-	import WeaverEditor from '$lib/weaver/editor/WeaverEditor.svelte';
-	import FieldShell from '$lib/components/FieldShell.svelte';
-	import ContextField from '$lib/components/ContextField.svelte';
-	import ListSidebar from '$lib/components/ListSidebar.svelte';
-	import Badge from '$lib/widgets/realms/Badge.svelte';
+	} from '#lib/types/tools.js';
+	import { RESOURCE_KINDS, resourceLabel } from '#lib/commands/index.js';
+	import { builtInSlashCommands } from '#lib/commands/index.js';
+	import WeaverEditor from '#lib/weaver/editor/WeaverEditor.svelte';
+	import FieldShell from '#lib/components/FieldShell.svelte';
+	import ContextField from '#lib/components/ContextField.svelte';
+	import ListSidebar from '#lib/components/ListSidebar.svelte';
+	import Badge from '#lib/widgets/realms/Badge.svelte';
 
 	const SAVE_MS = 500;
 	const MAX_DEPTH = 3; // UI cap on array nesting

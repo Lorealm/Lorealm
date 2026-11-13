@@ -1,5 +1,5 @@
-import { useApi } from '$lib/api/client.js';
-import type { ListedPlugin, ListedVersion } from '$lib/types/plugins.js';
+import { useApi } from '#lib/api/client.js';
+import type { ListedPlugin, ListedVersion } from '#lib/types/plugins.js';
 
 /** Whether version `a` is newer than `b`, going by their numbers. */
 export function newer(a: string, b: string): boolean {

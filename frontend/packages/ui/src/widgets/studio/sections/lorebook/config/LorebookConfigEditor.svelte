@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { tooltip } from '../../../../../stores/tooltip.svelte.ts';
-	import type { LorebookDraft, SaveState } from '$lib/stores/lorebook.svelte.js';
-	import type { NamespaceAccess, NamespaceConfig, Slot } from '$lib/types/lorebook.js';
+	import type { LorebookDraft, SaveState } from '#lib/stores/lorebook.svelte.js';
+	import type { NamespaceAccess, NamespaceConfig, Slot } from '#lib/types/lorebook.js';
 	import SlotPicker from '../SlotPicker.svelte';
-	import SaveIndicator from '$lib/components/SaveIndicator.svelte';
-	import NumberInput from '$lib/components/NumberInput.svelte';
+	import SaveIndicator from '#lib/components/SaveIndicator.svelte';
+	import NumberInput from '#lib/components/NumberInput.svelte';
 
 	let {
 		draft,

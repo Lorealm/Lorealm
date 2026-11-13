@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { chatStore } from '$lib/stores/chat.svelte.js';
-	import { parseContextBlocks, groupAdjacentBlocks } from '$lib/types/context.js';
-	import { resolveBlockContent } from '$lib/types/content.js';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
+	import { parseContextBlocks, groupAdjacentBlocks } from '#lib/types/context.js';
+	import { resolveBlockContent } from '#lib/types/content.js';
 	import { ChevronDown } from '@lucide/svelte';
 
 	let latest = $derived.by(() => {

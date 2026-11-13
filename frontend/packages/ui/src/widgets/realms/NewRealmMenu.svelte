@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { ChevronDown, Plus, Search } from '@lucide/svelte';
-	import { useApi } from '$lib/api/client.js';
-	import { blueprintStore } from '$lib/stores/blueprint.svelte.js';
-	import { realmStore } from '$lib/stores/realm.svelte.js';
-	import { showToast } from '$lib/stores/errorToast.svelte.js';
-	import type { BlueprintSummary, InputSpec } from '$lib/types/blueprint.js';
+	import { useApi } from '#lib/api/client.js';
+	import { blueprintStore } from '#lib/stores/blueprint.svelte.js';
+	import { realmStore } from '#lib/stores/realm.svelte.js';
+	import { showToast } from '#lib/stores/errorToast.svelte.js';
+	import type { BlueprintSummary, InputSpec } from '#lib/types/blueprint.js';
 	import InstantiateDialog from './InstantiateDialog.svelte';
 
 	const api = useApi();

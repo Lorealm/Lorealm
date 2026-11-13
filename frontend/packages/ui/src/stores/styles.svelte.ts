@@ -1,5 +1,5 @@
-import { usePlatform } from '$lib/api/client.js';
-import { BUILT_IN_STYLES, isBuiltIn } from '$lib/assets/styles/builtin.js';
+import { usePlatform } from '#lib/api/client.js';
+import { BUILT_IN_STYLES, isBuiltIn } from '#lib/assets/styles/builtin.js';
 import { PersistedRecord } from './persisted.svelte.js';
 
 /**

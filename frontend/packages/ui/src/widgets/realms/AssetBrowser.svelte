@@ -3,10 +3,10 @@
 	import { ChevronRight, Plus, Search } from '@lucide/svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { tick } from 'svelte';
-	import type { Snowflake } from '$lib/types/core.js';
-	import type { RealmResourceKind } from '$lib/types/realm.js';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import type { StudioResource } from '$lib/navigation/navigator.js';
+	import type { Snowflake } from '#lib/types/core.js';
+	import type { RealmResourceKind } from '#lib/types/realm.js';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import type { StudioResource } from '#lib/navigation/navigator.js';
 	import { clearDrag, setDrag } from './drag.svelte.js';
 	import { realmDraft } from './draft.svelte.js';
 	import { browseText, KIND_LABEL, leafPaths } from './model.js';

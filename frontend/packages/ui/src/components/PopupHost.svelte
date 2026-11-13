@@ -2,7 +2,7 @@
 	import { TriangleAlert, Info, X } from '@lucide/svelte';
 	import DOMPurify from 'dompurify';
 	import { Marked } from 'marked';
-	import { closePopup, popups, type PopupAction } from '$lib/stores/popup.svelte';
+	import { closePopup, popups, type PopupAction } from '#lib/stores/popup.svelte.js';
 
 	// Single newlines break lines
 	const markdown = new Marked({ breaks: true });

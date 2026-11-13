@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { templateStore } from '$lib/stores/template.svelte.js';
-	import { navigator } from '$lib/navigation/navigator.js';
+	import { templateStore } from '#lib/stores/template.svelte.js';
+	import { navigator } from '#lib/navigation/navigator.js';
 	import TemplateCard from './TemplateCard.svelte';
 	import StudioList from '../StudioList.svelte';
 

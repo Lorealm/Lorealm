@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { chatStore } from '$lib/stores/chat.svelte.js';
-	import { userWidgetStore } from '$lib/stores/userWidgets.svelte.js';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
+	import { userWidgetStore } from '#lib/stores/userWidgets.svelte.js';
 	import MessageBubble from './MessageBubble.svelte';
 	import ContextInspector from './ContextInspector.svelte';
 	import SetupGuide, { loadSetupState, setupComplete, setupKnown } from './SetupGuide.svelte';

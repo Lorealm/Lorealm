@@ -1,4 +1,4 @@
-import { showToast } from '$lib/stores/errorToast.svelte.js';
+import { showToast } from '#lib/stores/errorToast.svelte.js';
 import { chordsFromEvent } from './chord.js';
 import { keybindConfig } from './config.svelte.js';
 import { inputEnvironment } from './environment.svelte.js';

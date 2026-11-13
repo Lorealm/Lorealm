@@ -1,5 +1,5 @@
-import { showToast } from '$lib/stores/errorToast.svelte.js';
-import { extractError } from '$lib/types/error.js';
+import { showToast } from '#lib/stores/errorToast.svelte.js';
+import { extractError } from '#lib/types/error.js';
 import { parseArgs, parseInput } from './parse.js';
 import { slashCommands } from './registry.svelte.js';
 

@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { ExternalLink, Maximize2, Plus, Trash2 } from '@lucide/svelte';
-	import ContextField from '$lib/components/ContextField.svelte';
-	import NumberInput from '$lib/components/NumberInput.svelte';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import type { StudioResource } from '$lib/navigation/navigator.js';
-	import type { Snowflake } from '$lib/types/core.js';
-	import type { AgentKind, RealmResourceKind } from '$lib/types/realm.js';
+	import ContextField from '#lib/components/ContextField.svelte';
+	import NumberInput from '#lib/components/NumberInput.svelte';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import type { StudioResource } from '#lib/navigation/navigator.js';
+	import type { Snowflake } from '#lib/types/core.js';
+	import type { AgentKind, RealmResourceKind } from '#lib/types/realm.js';
 	import ObjectFields from './ObjectFields.svelte';
 	import RadioField from './RadioField.svelte';
 	import { realmDraft } from './draft.svelte.js';

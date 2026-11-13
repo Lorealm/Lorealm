@@ -1,4 +1,4 @@
-import type { Snowflake } from '$lib/types/core.js';
+import type { Snowflake } from '#lib/types/core.js';
 
 class ConversationManagerStore {
 	characterId = $state<Snowflake | null>(null);

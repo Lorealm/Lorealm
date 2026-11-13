@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { useApi } from '$lib/api/client.js';
-	import { pluginCalls } from '$lib/stores/pluginCalls.svelte.js';
-	import { pluginEvents } from '$lib/stores/pluginEvents.svelte.js';
-	import type { JsonValue, Snowflake } from '$lib/types/core.js';
+	import { useApi } from '#lib/api/client.js';
+	import { pluginCalls } from '#lib/stores/pluginCalls.svelte.js';
+	import { pluginEvents } from '#lib/stores/pluginEvents.svelte.js';
+	import type { JsonValue, Snowflake } from '#lib/types/core.js';
 
 	/** What an unsafe slot's module is handed; the same as a frame's `lorealm`. */
 	interface PluginApi {

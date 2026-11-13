@@ -1,8 +1,8 @@
-import { navigator } from '$lib/navigation/navigator.js';
-import { router } from '$lib/navigation/router.svelte.js';
-import { chatStore } from '$lib/stores/chat.svelte.js';
-import { conversationManager } from '$lib/stores/conversationManager.svelte.js';
-import { inspectorMatrix } from '$lib/stores/inspectorMatrix.svelte.js';
+import { navigator } from '#lib/navigation/navigator.js';
+import { router } from '#lib/navigation/router.svelte.js';
+import { chatStore } from '#lib/stores/chat.svelte.js';
+import { conversationManager } from '#lib/stores/conversationManager.svelte.js';
+import { inspectorMatrix } from '#lib/stores/inspectorMatrix.svelte.js';
 import { GLOBAL_LAYER, layers } from './layers.svelte.js';
 import type { Command } from './types.js';
 

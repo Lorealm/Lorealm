@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SourceDefinition, SourceNodeDefinition } from '$lib/types/node.js';
+	import type { SourceDefinition, SourceNodeDefinition } from '#lib/types/node.js';
 
 	let {
 		sources,

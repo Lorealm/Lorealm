@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ContextNode } from '$lib/types/node.js';
+	import type { ContextNode } from '#lib/types/node.js';
 
 	type ChildKind = 'text' | 'source' | 'group';
 

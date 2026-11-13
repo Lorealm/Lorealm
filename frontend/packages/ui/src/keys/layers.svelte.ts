@@ -1,5 +1,5 @@
 import type { Action } from 'svelte/action';
-import { router } from '$lib/navigation/router.svelte.js';
+import { router } from '#lib/navigation/router.svelte.js';
 import { orderLayers } from './chain.js';
 import type { Layer, LayerOptions } from './types.js';
 

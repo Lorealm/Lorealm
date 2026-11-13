@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { pluginsStore } from '$lib/stores/plugins.svelte.js';
-	import { chatStore } from '$lib/stores/chat.svelte.js';
+	import { pluginsStore } from '#lib/stores/plugins.svelte.js';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
 	import PluginSlotView from './PluginSlotView.svelte';
 
 	$effect(() => {

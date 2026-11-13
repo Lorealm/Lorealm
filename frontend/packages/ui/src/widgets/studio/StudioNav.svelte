@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { STUDIO_LABEL } from '$lib/navigation/breadcrumbs.svelte.js';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import type { StudioSection } from '$lib/navigation/routes.js';
-	import { realmStore } from '$lib/stores/realm.svelte.js';
-	import { importFiles } from '$lib/stores/transfer.js';
+	import { STUDIO_LABEL } from '#lib/navigation/breadcrumbs.svelte.js';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import type { StudioSection } from '#lib/navigation/routes.js';
+	import { realmStore } from '#lib/stores/realm.svelte.js';
+	import { importFiles } from '#lib/stores/transfer.js';
 	import { Upload } from '@lucide/svelte';
 
 	let { section }: { section: StudioSection } = $props();

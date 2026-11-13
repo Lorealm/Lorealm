@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { Snowflake } from '$lib/types/core.js';
+	import type { Snowflake } from '#lib/types/core.js';
 	import WidgetsEditor from './WidgetsEditor.svelte';
-	import WideScreenNote from '$lib/components/WideScreenNote.svelte';
+	import WideScreenNote from '#lib/components/WideScreenNote.svelte';
 
 	let { id }: { id?: Snowflake } = $props();
 </script>

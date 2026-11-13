@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ContextNode } from '$lib/types/node.js';
+	import type { ContextNode } from '#lib/types/node.js';
 	import Modal from './Modal.svelte';
 	import NodeSettings from '../nodes/NodeSettings.svelte';
 

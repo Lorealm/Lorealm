@@ -1,10 +1,10 @@
-import { extractError } from '$lib/types/error.js';
-import { useApi } from '$lib/api/client.js';
-import type { Snowflake } from '$lib/types/core.js';
-import type { CodeModule, UpdateModuleRequest } from '$lib/types/modules.js';
-import { showError } from '$lib/stores/errorToast.svelte.js';
-import { weaverVocabularyStore } from '$lib/stores/weaverVocabulary.svelte.js';
-import type { SaveState } from '$lib/stores/tools.svelte.js';
+import { extractError } from '#lib/types/error.js';
+import { useApi } from '#lib/api/client.js';
+import type { Snowflake } from '#lib/types/core.js';
+import type { CodeModule, UpdateModuleRequest } from '#lib/types/modules.js';
+import { showError } from '#lib/stores/errorToast.svelte.js';
+import { weaverVocabularyStore } from '#lib/stores/weaverVocabulary.svelte.js';
+import type { SaveState } from '#lib/stores/tools.svelte.js';
 
 export interface ModuleDraft {
 	id: Snowflake;

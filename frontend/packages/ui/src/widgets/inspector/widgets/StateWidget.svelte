@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
-	import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
-	import { messageStateStore } from '$lib/stores/messageState.svelte.js';
-	import { flattenPaths } from '$lib/types/state.js';
+	import { lorebookStore } from '#lib/stores/lorebook.svelte.js';
+	import { messageStateStore } from '#lib/stores/messageState.svelte.js';
+	import { flattenPaths } from '#lib/types/state.js';
 	import { ChevronDown } from '@lucide/svelte';
 
 	let messageState = $derived(messageStateStore.current);

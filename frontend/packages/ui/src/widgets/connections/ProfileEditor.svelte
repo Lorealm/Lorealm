@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { connectionStore, type ProfileDraft } from '$lib/stores/connection.svelte.js';
+	import { connectionStore, type ProfileDraft } from '#lib/stores/connection.svelte.js';
 	import {
 		ANTHROPIC_THINKING_BUDGET,
 		PROVIDER_SCHEMAS,
@@ -7,10 +7,10 @@
 		getProviderSchema,
 		OPENROUTER_REASONING_BUDGET,
 		TOKEN_BUDGET
-	} from '$lib/types/schema.js';
-	import type { JsonValue, Snowflake } from '$lib/types/core.js';
+	} from '#lib/types/schema.js';
+	import type { JsonValue, Snowflake } from '#lib/types/core.js';
 	import NumberParam from './NumberParam.svelte';
-	import SearchSelect from '$lib/components/SearchSelect.svelte';
+	import SearchSelect from '#lib/components/SearchSelect.svelte';
 
 	let {
 		draft,

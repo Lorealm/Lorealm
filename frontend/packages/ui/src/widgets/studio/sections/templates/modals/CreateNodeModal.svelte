@@ -1,14 +1,14 @@
 <script lang="ts">
-	import type { CreateNodeRequest } from '$lib/types/template.js';
+	import type { CreateNodeRequest } from '#lib/types/template.js';
 	import {
 		type GroupWrapMode,
 		type GroupMode,
 		type SourceDefinition,
 		type SourceNodeDefinition
-	} from '$lib/types/node.js';
+	} from '#lib/types/node.js';
 	import SourcePicker from './SourcePicker.svelte';
-	import ContextField from '$lib/components/ContextField.svelte';
-	import type { JsonValue, PromptRole } from '$lib/types/core.js';
+	import ContextField from '#lib/components/ContextField.svelte';
+	import type { JsonValue, PromptRole } from '#lib/types/core.js';
 
 	type Kind = 'text' | 'group' | 'source';
 

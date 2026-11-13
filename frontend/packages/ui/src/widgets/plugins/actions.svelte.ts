@@ -1,8 +1,8 @@
-import { useApi } from '$lib/api/client.js';
-import { configStore } from '$lib/stores/serverConfig.svelte.js';
-import { marketplaceStore } from '$lib/stores/marketplace.svelte.js';
-import { pluginsStore } from '$lib/stores/plugins.svelte.js';
-import { Permission } from '$lib/types/permissions.js';
+import { useApi } from '#lib/api/client.js';
+import { configStore } from '#lib/stores/serverConfig.svelte.js';
+import { marketplaceStore } from '#lib/stores/marketplace.svelte.js';
+import { pluginsStore } from '#lib/stores/plugins.svelte.js';
+import { Permission } from '#lib/types/permissions.js';
 
 export function canInstall(): boolean {
 	return configStore.can(Permission.INSTALL_PLUGINS) || configStore.can(Permission.BUILD_PLUGINS);

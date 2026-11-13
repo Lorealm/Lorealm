@@ -5,7 +5,7 @@
 <script lang="ts">
 	import { Plus, Trash2, TriangleAlert } from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
-	import NumberInput from '$lib/components/NumberInput.svelte';
+	import NumberInput from '#lib/components/NumberInput.svelte';
 	import {
 		baseOf,
 		blankField,

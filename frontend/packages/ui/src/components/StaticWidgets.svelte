@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { useApi } from '$lib/api/client.js';
-	import { chatStore } from '$lib/stores/chat.svelte.js';
-	import { userWidgetStore } from '$lib/stores/userWidgets.svelte.js';
-	import type { JsonValue, Snowflake } from '$lib/types/core.js';
-	import type { UserWidget } from '$lib/types/widgets.js';
+	import { useApi } from '#lib/api/client.js';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
+	import { userWidgetStore } from '#lib/stores/userWidgets.svelte.js';
+	import type { JsonValue, Snowflake } from '#lib/types/core.js';
+	import type { UserWidget } from '#lib/types/widgets.js';
 	import StateFrame from './StateFrame.svelte';
 
 	let { messageId, last = false }: { messageId: Snowflake; last?: boolean } = $props();

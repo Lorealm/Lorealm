@@ -1,6 +1,6 @@
-import { useApi } from '$lib/api/client.js';
-import type { Snowflake } from '$lib/types/core.js';
-import type { ContextNode, NodeContent, NodePath, SourceDefinition } from '$lib/types/node.js';
+import { useApi } from '#lib/api/client.js';
+import type { Snowflake } from '#lib/types/core.js';
+import type { ContextNode, NodeContent, NodePath, SourceDefinition } from '#lib/types/node.js';
 import type {
 	ContextTemplate,
 	CreateNodeRequest,
@@ -12,7 +12,7 @@ import type {
 	ToggleNodeResponse,
 	UpdateNodeRequest,
 	UpdateTemplateRequest
-} from '$lib/types/template.js';
+} from '#lib/types/template.js';
 import { SvelteMap } from 'svelte/reactivity';
 
 function isGroup(content: NodeContent): content is Extract<NodeContent, { type: 'group' }> {

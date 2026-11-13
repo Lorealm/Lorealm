@@ -1,6 +1,6 @@
-import { useApi } from '$lib/api/client.js';
-import type { Snowflake } from '$lib/types/core.js';
-import { readPath, type ReconstructedState } from '$lib/types/state.js';
+import { useApi } from '#lib/api/client.js';
+import type { Snowflake } from '#lib/types/core.js';
+import { readPath, type ReconstructedState } from '#lib/types/state.js';
 import { SvelteMap } from 'svelte/reactivity';
 
 class MessageStateStore {

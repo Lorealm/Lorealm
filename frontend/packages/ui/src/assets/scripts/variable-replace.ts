@@ -1,6 +1,6 @@
-import { characterStore } from '$lib/stores/character.svelte.js';
-import { personaStore } from '$lib/stores/persona.svelte.js';
-import type { Snowflake } from '$lib/types/core.js';
+import { characterStore } from '#lib/stores/character.svelte.js';
+import { personaStore } from '#lib/stores/persona.svelte.js';
+import type { Snowflake } from '#lib/types/core.js';
 
 /**
  * Resolve the display-time `{{…}}` tokens in a message.

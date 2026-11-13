@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Plus, Trash2, X } from '@lucide/svelte';
-	import { useApi } from '$lib/api/client.js';
-	import { configStore } from '$lib/stores/serverConfig.svelte';
-	import NumberField from '$lib/components/NumberInput.svelte';
-	import { showPopup } from '$lib/stores/popup.svelte';
-	import type { Snowflake } from '$lib/types/core.js';
-	import type { User } from '$lib/types/user.js';
+	import { useApi } from '#lib/api/client.js';
+	import { configStore } from '#lib/stores/serverConfig.svelte.js';
+	import NumberField from '#lib/components/NumberInput.svelte';
+	import { showPopup } from '#lib/stores/popup.svelte.js';
+	import type { Snowflake } from '#lib/types/core.js';
+	import type { User } from '#lib/types/user.js';
 	import {
 		ADMINISTRATOR_ROLE_ID,
 		CODE_EXECUTION,
@@ -14,7 +14,7 @@
 		PERMISSION_GROUPS,
 		Permission,
 		type Role
-	} from '$lib/types/permissions.js';
+	} from '#lib/types/permissions.js';
 
 	const api = useApi();
 

@@ -1,17 +1,17 @@
 <script lang="ts">
-	import Inspector from '$lib/widgets/inspector/Inspector.svelte';
-	import NavBar from '$lib/widgets/navigation/NavBar.svelte';
-	import TopBar from '$lib/widgets/navigation/TopBar.svelte';
-	import MainViewRouter from '$lib/widgets/routers/MainViewRouter.svelte';
+	import Inspector from '#lib/widgets/inspector/Inspector.svelte';
+	import NavBar from '#lib/widgets/navigation/NavBar.svelte';
+	import TopBar from '#lib/widgets/navigation/TopBar.svelte';
+	import MainViewRouter from '#lib/widgets/routers/MainViewRouter.svelte';
 
-	import ErrorToast from '$lib/components/ErrorToast.svelte';
-	import ConversationManager from '$lib/widgets/chat/ConversationManager.svelte';
-	import { builtInSlashCommands, serverCommands, slashCommands } from '$lib/commands/index.js';
-	import { builtInCommands } from '$lib/keys/commands.js';
-	import { keybinds } from '$lib/keys/manager.svelte.js';
-	import { commandRegistry } from '$lib/keys/registry.svelte.js';
-	import { router } from '$lib/navigation/router.svelte.js';
-	import { shell } from '$lib/stores/shell.svelte.js';
+	import ErrorToast from '#lib/components/ErrorToast.svelte';
+	import ConversationManager from '#lib/widgets/chat/ConversationManager.svelte';
+	import { builtInSlashCommands, serverCommands, slashCommands } from '#lib/commands/index.js';
+	import { builtInCommands } from '#lib/keys/commands.js';
+	import { keybinds } from '#lib/keys/manager.svelte.js';
+	import { commandRegistry } from '#lib/keys/registry.svelte.js';
+	import { router } from '#lib/navigation/router.svelte.js';
+	import { shell } from '#lib/stores/shell.svelte.js';
 
 	$effect(() => {
 		const unregister = commandRegistry.register(builtInCommands);

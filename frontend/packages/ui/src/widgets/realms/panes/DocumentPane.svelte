@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Copy, FileCode2 } from '@lucide/svelte';
-	import WeaverEditor from '$lib/weaver/editor/WeaverEditor.svelte';
-	import { showToast } from '$lib/stores/errorToast.svelte.js';
+	import WeaverEditor from '#lib/weaver/editor/WeaverEditor.svelte';
+	import { showToast } from '#lib/stores/errorToast.svelte.js';
 	import { realmDraft } from '../draft.svelte.js';
 	import { toWtn } from '../serialize.js';
 	import { inputVariables } from '../variables.js';

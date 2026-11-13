@@ -1,7 +1,7 @@
-import { extractError } from '$lib/types/error.js';
-import { useApi } from '$lib/api/client.js';
-import type { Snowflake } from '$lib/types/core.js';
-import type { PersonaOverride, UpdatePersona, UserPersona } from '$lib/types/persona.js';
+import { extractError } from '#lib/types/error.js';
+import { useApi } from '#lib/api/client.js';
+import type { Snowflake } from '#lib/types/core.js';
+import type { PersonaOverride, UpdatePersona, UserPersona } from '#lib/types/persona.js';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 

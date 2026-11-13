@@ -1,8 +1,7 @@
 import type { CommandArgs } from './types.js';
 
 export type ParsedInput =
-	| { kind: 'text'; text: string }
-	| { kind: 'command'; name: string; rest: string };
+	{ kind: 'text'; text: string } | { kind: 'command'; name: string; rest: string };
 
 const NAMED_ARG = /^([A-Za-z_][\w-]*)=/;
 

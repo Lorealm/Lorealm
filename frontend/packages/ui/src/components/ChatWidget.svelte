@@ -1,8 +1,8 @@
 <script lang="ts">
-	import type { WidgetInstance } from '$lib/types/widgets.js';
-	import type { JsonValue } from '$lib/types/core.js';
-	import { userWidgetStore } from '$lib/stores/userWidgets.svelte.js';
-	import Unknown from '$lib/assets/widgets/Unknown.svelte';
+	import type { WidgetInstance } from '#lib/types/widgets.js';
+	import type { JsonValue } from '#lib/types/core.js';
+	import { userWidgetStore } from '#lib/stores/userWidgets.svelte.js';
+	import Unknown from '#lib/assets/widgets/Unknown.svelte';
 	import StateFrame from './StateFrame.svelte';
 
 	let { widget }: { widget: WidgetInstance } = $props();

@@ -1,4 +1,4 @@
-import type { Style } from '$lib/stores/styles.svelte.js';
+import type { Style } from '#lib/stores/styles.svelte.js';
 
 export const BUILT_IN_PREFIX = 'builtin:';
 

@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
-	import IconPicker from '$lib/components/IconPicker.svelte';
-	import type { ViewName } from '$lib/navigation/routes.js';
-	import { inspectorMatrix } from '$lib/stores/inspectorMatrix.svelte.js';
-	import { pluginsStore } from '$lib/stores/plugins.svelte.js';
+	import IconPicker from '#lib/components/IconPicker.svelte';
+	import type { ViewName } from '#lib/navigation/routes.js';
+	import { inspectorMatrix } from '#lib/stores/inspectorMatrix.svelte.js';
+	import { pluginsStore } from '#lib/stores/plugins.svelte.js';
 	import {
 		inspectorRegistry,
 		inspectorWidgetKeys,
 		isPluginWidgetKey,
 		type InspectorWidgetKey
-	} from '$lib/widgets/inspector/registry.js';
+	} from '#lib/widgets/inspector/registry.js';
 	import { ChevronDown, ChevronUp, Plus, Search, Trash2, X } from '@lucide/svelte';
 
 	const VIEWS: Array<{ id: ViewName; label: string }> = [

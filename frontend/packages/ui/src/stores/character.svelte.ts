@@ -1,6 +1,6 @@
-import { extractError } from '$lib/types/error.js';
-import { useApi } from '$lib/api/client.js';
-import type { Snowflake } from '$lib/types/core.js';
+import { extractError } from '#lib/types/error.js';
+import { useApi } from '#lib/api/client.js';
+import type { Snowflake } from '#lib/types/core.js';
 import type {
 	AttachmentKind,
 	Character,
@@ -12,7 +12,7 @@ import type {
 	EditDefinition,
 	EditMetadata,
 	ImportResult
-} from '$lib/types/character.js';
+} from '#lib/types/character.js';
 
 const MAX_IMPORT_BATCH_BYTES = 24 * 1024 * 1024;
 

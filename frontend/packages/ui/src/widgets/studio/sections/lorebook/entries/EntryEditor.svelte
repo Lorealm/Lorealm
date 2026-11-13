@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { lorebookStore, type DraftEntry, type SaveState } from '$lib/stores/lorebook.svelte.js';
-	import type { EntryMeta, LorebookConfig, Slot } from '$lib/types/lorebook.js';
-	import type { ReferenceSource } from '$lib/weaver/editor/weaver-references.js';
-	import WeaverField from '$lib/weaver/editor/WeaverField.svelte';
+	import { lorebookStore, type DraftEntry, type SaveState } from '#lib/stores/lorebook.svelte.js';
+	import type { EntryMeta, LorebookConfig, Slot } from '#lib/types/lorebook.js';
+	import type { ReferenceSource } from '#lib/weaver/editor/weaver-references.js';
+	import WeaverField from '#lib/weaver/editor/WeaverField.svelte';
 	import StringListField from './StringListField.svelte';
 	import SlotPicker from '../SlotPicker.svelte';
-	import SaveIndicator from '$lib/components/SaveIndicator.svelte';
-	import NumberInput from '$lib/components/NumberInput.svelte';
-	import WeaverEditor from '$lib/weaver/editor/WeaverEditor.svelte';
-	import FieldShell from '$lib/components/FieldShell.svelte';
-	import { settings } from '$lib/stores/settings.svelte.js';
+	import SaveIndicator from '#lib/components/SaveIndicator.svelte';
+	import NumberInput from '#lib/components/NumberInput.svelte';
+	import WeaverEditor from '#lib/weaver/editor/WeaverEditor.svelte';
+	import FieldShell from '#lib/components/FieldShell.svelte';
+	import { settings } from '#lib/stores/settings.svelte.js';
 
 	let {
 		entry,

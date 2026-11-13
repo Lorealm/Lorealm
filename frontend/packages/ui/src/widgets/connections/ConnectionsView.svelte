@@ -1,16 +1,16 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import { router } from '$lib/navigation/router.svelte.js';
-	import { SECRETS } from '$lib/navigation/routes.js';
-	import { connectionStore } from '$lib/stores/connection.svelte.js';
-	import { PROVIDER_SCHEMAS } from '$lib/types/schema.js';
-	import type { Snowflake } from '$lib/types/core.js';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import { router } from '#lib/navigation/router.svelte.js';
+	import { SECRETS } from '#lib/navigation/routes.js';
+	import { connectionStore } from '#lib/stores/connection.svelte.js';
+	import { PROVIDER_SCHEMAS } from '#lib/types/schema.js';
+	import type { Snowflake } from '#lib/types/core.js';
 	import ProfileList from './ProfileList.svelte';
 	import ProfileEditor from './ProfileEditor.svelte';
 	import SecretsManager from './SecretsManager.svelte';
-	import ListSidebar from '$lib/components/ListSidebar.svelte';
-	import SaveIndicator from '$lib/components/SaveIndicator.svelte';
+	import ListSidebar from '#lib/components/ListSidebar.svelte';
+	import SaveIndicator from '#lib/components/SaveIndicator.svelte';
 	import { KeyRound } from '@lucide/svelte';
 
 	const SAVE_MS = 500;

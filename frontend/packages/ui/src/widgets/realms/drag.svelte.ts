@@ -1,5 +1,5 @@
-import type { Snowflake } from '$lib/types/core.js';
-import type { RealmResourceKind } from '$lib/types/realm.js';
+import type { Snowflake } from '#lib/types/core.js';
+import type { RealmResourceKind } from '#lib/types/realm.js';
 
 /**
  * What the asset browser hands to a drop target.

@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { MessageSquare, Play, X } from '@lucide/svelte';
-	import { useApi } from '$lib/api/client.js';
-	import { chatStore } from '$lib/stores/chat.svelte.js';
-	import { showToast } from '$lib/stores/errorToast.svelte.js';
-	import { showApiError } from '$lib/stores/errorActions.js';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import type { ConversationMetadata } from '$lib/types/conversation.js';
-	import type { Realm, RealmSummary, Scenario } from '$lib/types/realm.js';
+	import { useApi } from '#lib/api/client.js';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
+	import { showToast } from '#lib/stores/errorToast.svelte.js';
+	import { showApiError } from '#lib/stores/errorActions.js';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import type { ConversationMetadata } from '#lib/types/conversation.js';
+	import type { Realm, RealmSummary, Scenario } from '#lib/types/realm.js';
 
 	let {
 		realm,

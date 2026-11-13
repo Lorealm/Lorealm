@@ -1,6 +1,6 @@
 import { Facet, type EditorState } from '@codemirror/state';
-import { weaverVocabularyStore } from '$lib/stores/weaverVocabulary.svelte.js';
-import type { NamespaceDef, WeaverProfile } from '$lib/types/weaver.js';
+import { weaverVocabularyStore } from '#lib/stores/weaverVocabulary.svelte.js';
+import type { NamespaceDef, WeaverProfile } from '#lib/types/weaver.js';
 
 /**
  * One variable an editor can offer.

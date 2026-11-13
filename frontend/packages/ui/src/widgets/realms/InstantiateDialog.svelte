@@ -2,9 +2,9 @@
 	import { ArrowLeft, ArrowRight, Play, X } from '@lucide/svelte';
 	import DOMPurify from 'dompurify';
 	import { marked } from 'marked';
-	import type { InputSpec, InputSpecType } from '$lib/types/blueprint.js';
+	import type { InputSpec, InputSpecType } from '#lib/types/blueprint.js';
 	import InputControl, { blankFor } from './InputControl.svelte';
-	import type { RealmResourceKind } from '$lib/types/realm.js';
+	import type { RealmResourceKind } from '#lib/types/realm.js';
 	import { ensureLoaded } from './resources.svelte.js';
 
 	let {

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import { router } from '$lib/navigation/router.svelte.js';
-	import { configStore } from '$lib/stores/serverConfig.svelte';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import { router } from '#lib/navigation/router.svelte.js';
+	import { configStore } from '#lib/stores/serverConfig.svelte.js';
 	import UserSettings from './UserSettings.svelte';
 	import ServerSettings from './ServerSettings.svelte';
 

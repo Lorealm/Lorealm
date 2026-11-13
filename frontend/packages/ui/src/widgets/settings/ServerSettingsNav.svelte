@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { navigator } from '$lib/navigation/navigator.js';
-	import type { ServerSection } from '$lib/navigation/routes.js';
-	import { configStore } from '$lib/stores/serverConfig.svelte';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import type { ServerSection } from '#lib/navigation/routes.js';
+	import { configStore } from '#lib/stores/serverConfig.svelte.js';
 
 	let { section }: { section: ServerSection } = $props();
 

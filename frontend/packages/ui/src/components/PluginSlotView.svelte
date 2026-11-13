@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { PluginSlot } from '$lib/stores/plugins.svelte.js';
-	import type { Snowflake } from '$lib/types/core.js';
-	import type { ConversationMessage } from '$lib/types/conversation.js';
+	import type { PluginSlot } from '#lib/stores/plugins.svelte.js';
+	import type { Snowflake } from '#lib/types/core.js';
+	import type { ConversationMessage } from '#lib/types/conversation.js';
 	import PluginFrame from './PluginFrame.svelte';
 	import PluginMount from './PluginMount.svelte';
 

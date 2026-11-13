@@ -1,5 +1,5 @@
-import type { Snowflake } from '$lib/types/core.js';
-import type { AgentAccess, AgentKind, RealmResourceKind } from '$lib/types/realm.js';
+import type { Snowflake } from '#lib/types/core.js';
+import type { AgentAccess, AgentKind, RealmResourceKind } from '#lib/types/realm.js';
 
 /** The fields a `Ref<..>` projects.
  *

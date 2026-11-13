@@ -1,7 +1,7 @@
-import { useApi } from '$lib/api/client.js';
-import type { ServerConfig, ConfigKey } from '$lib/types/config.js';
-import type { ErrorCode, ErrorDetails } from '$lib/types/error.js';
-import { Permission } from '$lib/types/permissions.js';
+import { useApi } from '#lib/api/client.js';
+import type { ServerConfig, ConfigKey } from '#lib/types/config.js';
+import type { ErrorCode, ErrorDetails } from '#lib/types/error.js';
+import { Permission } from '#lib/types/permissions.js';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export interface SaveState {

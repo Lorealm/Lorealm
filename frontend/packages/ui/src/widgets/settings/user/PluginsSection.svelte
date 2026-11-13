@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { useApi } from '$lib/api/client.js';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import { connectionStore } from '$lib/stores/connection.svelte.js';
-	import { pluginsStore } from '$lib/stores/plugins.svelte.js';
-	import type { InputSpec } from '$lib/types/blueprint.js';
+	import { useApi } from '#lib/api/client.js';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import { connectionStore } from '#lib/stores/connection.svelte.js';
+	import { pluginsStore } from '#lib/stores/plugins.svelte.js';
+	import type { InputSpec } from '#lib/types/blueprint.js';
 	import InputControl, { blankFor } from '../../realms/InputControl.svelte';
 	import { ensureLoaded } from '../../realms/resources.svelte.js';
 

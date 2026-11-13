@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import { BookOpen, Plus, Trash2 } from '@lucide/svelte';
-	import ContextField from '$lib/components/ContextField.svelte';
+	import ContextField from '#lib/components/ContextField.svelte';
 	import { realmDraft } from '../draft.svelte.js';
 	import { slug } from '../model.js';
 	import { activeDrag, carriesAsset, dropTextInto } from '../drag.svelte.js';

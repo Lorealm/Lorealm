@@ -1,4 +1,4 @@
-import { useApi } from '$lib/api/client.js';
+import { useApi } from '#lib/api/client.js';
 import type {
 	Blueprint,
 	BlueprintSummary,
@@ -6,9 +6,9 @@ import type {
 	ImportedBundle,
 	InputSpec,
 	OutlineResult
-} from '$lib/types/blueprint.js';
-import type { Snowflake } from '$lib/types/core.js';
-import type { Realm } from '$lib/types/realm.js';
+} from '#lib/types/blueprint.js';
+import type { Snowflake } from '#lib/types/core.js';
+import type { Realm } from '#lib/types/realm.js';
 import { showApiError } from './errorActions.js';
 
 export type SaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'blocked';

@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import { marketplaceStore, shownVersion } from '$lib/stores/marketplace.svelte.js';
-	import { pluginsStore } from '$lib/stores/plugins.svelte.js';
-	import { configStore } from '$lib/stores/serverConfig.svelte.js';
-	import type { ListedPlugin } from '$lib/types/plugins.js';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import { marketplaceStore, shownVersion } from '#lib/stores/marketplace.svelte.js';
+	import { pluginsStore } from '#lib/stores/plugins.svelte.js';
+	import { configStore } from '#lib/stores/serverConfig.svelte.js';
+	import type { ListedPlugin } from '#lib/types/plugins.js';
 	import { canInstall } from './actions.svelte.js';
 
 	let query = $state('');

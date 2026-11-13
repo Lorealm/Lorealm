@@ -1,14 +1,14 @@
-import { extractError } from '$lib/types/error.js';
-import { useApi } from '$lib/api/client.js';
-import type { Snowflake } from '$lib/types/core.js';
+import { extractError } from '#lib/types/error.js';
+import { useApi } from '#lib/api/client.js';
+import type { Snowflake } from '#lib/types/core.js';
 import type {
 	CreateUserTool,
 	Param,
 	ToolSurface,
 	UpdateUserTool,
 	UserTool
-} from '$lib/types/tools.js';
-import { showError } from '$lib/stores/errorToast.svelte.js';
+} from '#lib/types/tools.js';
+import { showError } from '#lib/stores/errorToast.svelte.js';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 

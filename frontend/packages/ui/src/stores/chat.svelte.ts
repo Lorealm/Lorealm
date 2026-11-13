@@ -1,6 +1,6 @@
-import { extractError } from '$lib/types/error.js';
-import { useApi } from '$lib/api/client.js';
-import type { Snowflake } from '$lib/types/core.js';
+import { extractError } from '#lib/types/error.js';
+import { useApi } from '#lib/api/client.js';
+import type { Snowflake } from '#lib/types/core.js';
 import type {
 	ChatEdit,
 	Conversation,
@@ -8,15 +8,15 @@ import type {
 	ConversationMetadata,
 	FullConversation,
 	TurnRequest
-} from '$lib/types/conversation.js';
-import type { Greeting } from '$lib/types/character.js';
-import type { PlayerAction, RealmAgent, RealmCast, TurnEvent } from '$lib/types/realm.js';
-import { parseReasoning, parseWidgets, type WidgetInstance } from '$lib/types/widgets.js';
+} from '#lib/types/conversation.js';
+import type { Greeting } from '#lib/types/character.js';
+import type { PlayerAction, RealmAgent, RealmCast, TurnEvent } from '#lib/types/realm.js';
+import { parseReasoning, parseWidgets, type WidgetInstance } from '#lib/types/widgets.js';
 import { SvelteMap } from 'svelte/reactivity';
 import { messageStateStore } from './messageState.svelte.ts';
 import { type ToastAction } from './errorToast.svelte.ts';
 import { showApiError } from './errorActions.js';
-import { applyEffect } from '$lib/commands/server.svelte.js';
+import { applyEffect } from '#lib/commands/server.svelte.js';
 
 export interface FeedEntry {
 	message: ConversationMessage;

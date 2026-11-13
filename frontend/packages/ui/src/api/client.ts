@@ -1,5 +1,5 @@
-import type { PlatformAPI } from '$lib/core/api.js';
-import type { LoginRequest, Session } from '$lib/types/auth.js';
+import type { PlatformAPI } from '#lib/core/api.js';
+import type { LoginRequest, Session } from '#lib/types/auth.js';
 import type {
 	AttachmentKind,
 	DuplicateAttachmentResponse,
@@ -16,8 +16,8 @@ import type {
 	CharacterVersionInfo,
 	CreateCharacterRequest,
 	ImportCharResponse
-} from '$lib/types/character.js';
-import type { ConfigKey, ServerConfig } from '$lib/types/config.js';
+} from '#lib/types/character.js';
+import type { ConfigKey, ServerConfig } from '#lib/types/config.js';
 import type {
 	ConnectionProfile,
 	CreateSecretRequest,
@@ -26,7 +26,7 @@ import type {
 	RenameSecretRequest,
 	SecretMetadata,
 	SetActiveProfileRequest
-} from '$lib/types/connection.js';
+} from '#lib/types/connection.js';
 import type {
 	ConversationMetadata,
 	ChatEdit,
@@ -35,9 +35,9 @@ import type {
 	FullConversation,
 	StartChatRequest,
 	TurnRequest
-} from '$lib/types/conversation.js';
-import type { JsonValue, Snowflake } from '$lib/types/core.js';
-import type { ProviderModel } from '$lib/types/schema.js';
+} from '#lib/types/conversation.js';
+import type { JsonValue, Snowflake } from '#lib/types/core.js';
+import type { ProviderModel } from '#lib/types/schema.js';
 import type {
 	Lorebook,
 	LorebookMetadata,
@@ -46,8 +46,8 @@ import type {
 	UpdateEntryRequest,
 	UpdateLorebookRequest,
 	SetActiveLorebooksRequest
-} from '$lib/types/lorebook.js';
-import type { SourceDefinition } from '$lib/types/node.js';
+} from '#lib/types/lorebook.js';
+import type { SourceDefinition } from '#lib/types/node.js';
 import type {
 	InstallReport,
 	InstalledPlugin,
@@ -55,7 +55,7 @@ import type {
 	PluginCallSlot,
 	PluginEvent,
 	PluginSettings
-} from '$lib/types/plugins.js';
+} from '#lib/types/plugins.js';
 import type {
 	Blueprint,
 	BlueprintSummary,
@@ -66,20 +66,20 @@ import type {
 	InputSpec,
 	OutlineResult,
 	UpdateBlueprintRequest
-} from '$lib/types/blueprint.js';
-import type { CodeModule, CreateModuleRequest, UpdateModuleRequest } from '$lib/types/modules.js';
+} from '#lib/types/blueprint.js';
+import type { CodeModule, CreateModuleRequest, UpdateModuleRequest } from '#lib/types/modules.js';
 import type {
 	WeaverCheckResponse,
 	WeaverDialect,
 	WeaverProfile,
 	WeaverVocabulary
-} from '$lib/types/weaver.js';
+} from '#lib/types/weaver.js';
 import type {
 	UserPersona,
 	UpdatePersona,
 	PersonaOverride,
 	SetPersonaOverride
-} from '$lib/types/persona.js';
+} from '#lib/types/persona.js';
 import type {
 	ActionSpec,
 	RealmResourceRef,
@@ -90,8 +90,8 @@ import type {
 	RealmVersionInfo,
 	StartRealmChatRequest,
 	StateSlice
-} from '$lib/types/realm.js';
-import type { ReconstructedState } from '$lib/types/state.js';
+} from '#lib/types/realm.js';
+import type { ReconstructedState } from '#lib/types/state.js';
 import type {
 	ContextTemplate,
 	CreateNodeRequest,
@@ -105,7 +105,7 @@ import type {
 	ToggleNodeResponse,
 	UpdateNodeRequest,
 	UpdateTemplateRequest
-} from '$lib/types/template.js';
+} from '#lib/types/template.js';
 import type {
 	BatchTokenizeRequest,
 	BatchTokenizeResponse,
@@ -114,7 +114,7 @@ import type {
 	Tokenizer,
 	TokenizeRequest,
 	TokenizerShare
-} from '$lib/types/tokenizer.js';
+} from '#lib/types/tokenizer.js';
 import type {
 	CommandRun,
 	CreateUserTool,
@@ -122,12 +122,12 @@ import type {
 	ToolEnabledRequest,
 	UpdateUserTool,
 	UserTool
-} from '$lib/types/tools.js';
+} from '#lib/types/tools.js';
 import type {
 	CreateUserWidgetRequest,
 	UpdateUserWidgetRequest,
 	UserWidget
-} from '$lib/types/widgets.js';
+} from '#lib/types/widgets.js';
 import type {
 	AdminUpdateUserRequest,
 	AdminUser,
@@ -140,14 +140,14 @@ import type {
 	UpdateProfileRequest,
 	User,
 	UserSession
-} from '$lib/types/user.js';
+} from '#lib/types/user.js';
 import type {
 	CreateRoleRequest,
 	MyPermissions,
 	Role,
 	UpdateRoleRequest
-} from '$lib/types/permissions.js';
-import type { TransferFile, TransferImportResponse, TransferKind } from '$lib/types/transfer.js';
+} from '#lib/types/permissions.js';
+import type { TransferFile, TransferImportResponse, TransferKind } from '#lib/types/transfer.js';
 import type { StatusCodes } from 'http-status-codes';
 
 /**

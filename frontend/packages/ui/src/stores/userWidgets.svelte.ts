@@ -1,11 +1,11 @@
-import { useApi } from '$lib/api/client.js';
-import { showError } from '$lib/stores/errorToast.svelte.js';
-import type { Snowflake } from '$lib/types/core.js';
+import { useApi } from '#lib/api/client.js';
+import { showError } from '#lib/stores/errorToast.svelte.js';
+import type { Snowflake } from '#lib/types/core.js';
 import type {
 	CreateUserWidgetRequest,
 	UpdateUserWidgetRequest,
 	UserWidget
-} from '$lib/types/widgets.js';
+} from '#lib/types/widgets.js';
 
 /** The user's static display widgets (see [`UserWidget`]). */
 class UserWidgetStore {

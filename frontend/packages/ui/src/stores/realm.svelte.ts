@@ -1,6 +1,6 @@
-import { useApi } from '$lib/api/client.js';
-import type { Snowflake } from '$lib/types/core.js';
-import type { Realm, RealmSummary } from '$lib/types/realm.js';
+import { useApi } from '#lib/api/client.js';
+import type { Snowflake } from '#lib/types/core.js';
+import type { Realm, RealmSummary } from '#lib/types/realm.js';
 import { showApiError } from './errorActions.js';
 
 /**

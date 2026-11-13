@@ -1,4 +1,4 @@
-import type { Route } from '$lib/navigation/routes.js';
+import type { Route } from '#lib/navigation/routes.js';
 
 /**
  * What the app remembers for as long as this tab stays open.

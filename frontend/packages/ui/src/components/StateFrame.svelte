@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { JsonValue } from '$lib/types/core.js';
-	import { frameTheme } from '$lib/stores/frameTheme.svelte.js';
+	import type { JsonValue } from '#lib/types/core.js';
+	import { frameTheme } from '#lib/stores/frameTheme.svelte.js';
 
 	let {
 		source,

@@ -1,15 +1,15 @@
-import { characterStore } from '$lib/stores/character.svelte.js';
-import { connectionStore } from '$lib/stores/connection.svelte.js';
-import { currentUser } from '$lib/stores/currentUser.svelte.js';
-import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
-import { moduleStore } from '$lib/stores/modules.svelte.js';
-import { personaStore } from '$lib/stores/persona.svelte.js';
-import { realmStore } from '$lib/stores/realm.svelte.js';
-import { configStore } from '$lib/stores/serverConfig.svelte.js';
-import { templateStore } from '$lib/stores/template.svelte.js';
-import { tokenizerStore } from '$lib/stores/tokenizer.svelte.js';
-import { toolStore } from '$lib/stores/tools.svelte.js';
-import { userWidgetStore } from '$lib/stores/userWidgets.svelte.js';
+import { characterStore } from '#lib/stores/character.svelte.js';
+import { connectionStore } from '#lib/stores/connection.svelte.js';
+import { currentUser } from '#lib/stores/currentUser.svelte.js';
+import { lorebookStore } from '#lib/stores/lorebook.svelte.js';
+import { moduleStore } from '#lib/stores/modules.svelte.js';
+import { personaStore } from '#lib/stores/persona.svelte.js';
+import { realmStore } from '#lib/stores/realm.svelte.js';
+import { configStore } from '#lib/stores/serverConfig.svelte.js';
+import { templateStore } from '#lib/stores/template.svelte.js';
+import { tokenizerStore } from '#lib/stores/tokenizer.svelte.js';
+import { toolStore } from '#lib/stores/tools.svelte.js';
+import { userWidgetStore } from '#lib/stores/userWidgets.svelte.js';
 import { routeId, routeKey, SECRETS, type Route } from './routes.js';
 
 /**

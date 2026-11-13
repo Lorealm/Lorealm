@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
-	import { chatStore } from '$lib/stores/chat.svelte.js';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
 	import { Eye, Pause, Play, Square, StepForward, User } from '@lucide/svelte';
 
 	const streaming = $derived(chatStore.isStreaming);

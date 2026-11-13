@@ -1,7 +1,7 @@
 <script lang="ts">
-	import PluginSlotView from '$lib/components/PluginSlotView.svelte';
-	import { chatStore } from '$lib/stores/chat.svelte.js';
-	import type { PluginSlot } from '$lib/stores/plugins.svelte.js';
+	import PluginSlotView from '#lib/components/PluginSlotView.svelte';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
+	import type { PluginSlot } from '#lib/stores/plugins.svelte.js';
 	import { ChevronDown } from '@lucide/svelte';
 
 	let { slot }: { slot: PluginSlot } = $props();

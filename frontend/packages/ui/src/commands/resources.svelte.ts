@@ -1,7 +1,7 @@
 import { SvelteMap } from 'svelte/reactivity';
-import { useApi } from '$lib/api/client.js';
-import type { Snowflake } from '$lib/types/core.js';
-import type { PickableResource } from '$lib/types/tools.js';
+import { useApi } from '#lib/api/client.js';
+import type { Snowflake } from '#lib/types/core.js';
+import type { PickableResource } from '#lib/types/tools.js';
 
 /** One thing a resource-typed argument could name. */
 export interface ResourceOption {

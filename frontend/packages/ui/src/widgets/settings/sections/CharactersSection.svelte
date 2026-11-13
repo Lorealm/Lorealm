@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { configStore, type SaveState } from '$lib/stores/serverConfig.svelte';
+	import { configStore, type SaveState } from '#lib/stores/serverConfig.svelte.js';
 	import SettingsSection from '../SettingsSection.svelte';
 	import Field from '../Field.svelte';
-	import NumberField from '$lib/components/NumberInput.svelte';
+	import NumberField from '#lib/components/NumberInput.svelte';
 
 	let draft = $state($state.snapshot(configStore.config!.characters));
 	let saveState = $state<SaveState>({ status: 'idle' });

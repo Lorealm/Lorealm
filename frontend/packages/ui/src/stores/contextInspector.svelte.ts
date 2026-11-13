@@ -1,4 +1,4 @@
-import type { ConversationMessage } from '$lib/types/conversation.js';
+import type { ConversationMessage } from '#lib/types/conversation.js';
 
 class ContextInspectorStore {
 	message = $state<ConversationMessage | null>(null);

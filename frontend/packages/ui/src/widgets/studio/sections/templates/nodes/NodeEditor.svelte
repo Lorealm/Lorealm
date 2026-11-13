@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { templateStore } from '$lib/stores/template.svelte.js';
-	import type { ContextNode, NodeContent } from '$lib/types/node.js';
-	import type { Snowflake } from '$lib/types/core.js';
+	import { templateStore } from '#lib/stores/template.svelte.js';
+	import type { ContextNode, NodeContent } from '#lib/types/node.js';
+	import type { Snowflake } from '#lib/types/core.js';
 	import NodeSettings from './NodeSettings.svelte';
-	import FieldShell from '$lib/components/FieldShell.svelte';
-	import WeaverArea from '$lib/weaver/editor/WeaverArea.svelte';
+	import FieldShell from '#lib/components/FieldShell.svelte';
+	import WeaverArea from '#lib/weaver/editor/WeaverArea.svelte';
 
 	type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 

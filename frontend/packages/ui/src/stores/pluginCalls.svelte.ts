@@ -1,5 +1,5 @@
-import { useApi } from '$lib/api/client.js';
-import type { Snowflake } from '$lib/types/core.js';
+import { useApi } from '#lib/api/client.js';
+import type { Snowflake } from '#lib/types/core.js';
 
 /** A blocking plugin call in flight. */
 interface Waiting {

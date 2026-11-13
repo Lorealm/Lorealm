@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { formatChord, type Chord } from '$lib/keys/chord.js';
+	import { formatChord, type Chord } from '#lib/keys/chord.js';
 
 	let { chord }: { chord: Chord } = $props();
 </script>

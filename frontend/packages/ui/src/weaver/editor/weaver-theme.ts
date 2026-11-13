@@ -1,5 +1,5 @@
 import { EditorView } from '@codemirror/view';
-import { settings } from '$lib/stores/settings.svelte.js';
+import { settings } from '#lib/stores/settings.svelte.js';
 import { DELIMITER_COLOR } from './weaver-lang.js';
 
 export function trimMarkerStyle(): string | undefined {

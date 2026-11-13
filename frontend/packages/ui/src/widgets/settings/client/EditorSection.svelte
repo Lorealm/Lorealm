@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { settings } from '$lib/stores/settings.svelte.js';
+	import { settings } from '#lib/stores/settings.svelte.js';
 </script>
 
 <section class="section">

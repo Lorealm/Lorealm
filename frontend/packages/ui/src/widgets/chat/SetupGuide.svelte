@@ -1,9 +1,9 @@
 <script module lang="ts">
-	import { connectionStore } from '$lib/stores/connection.svelte.js';
-	import { tokenizerStore } from '$lib/stores/tokenizer.svelte.js';
-	import { getProviderSchema } from '$lib/types/schema.js';
-	import { templateStore } from '$lib/stores/template.svelte.js';
-	import { personaStore } from '$lib/stores/persona.svelte.js';
+	import { connectionStore } from '#lib/stores/connection.svelte.js';
+	import { tokenizerStore } from '#lib/stores/tokenizer.svelte.js';
+	import { getProviderSchema } from '#lib/types/schema.js';
+	import { templateStore } from '#lib/stores/template.svelte.js';
+	import { personaStore } from '#lib/stores/persona.svelte.js';
 
 	export function loadSetupState() {
 		if (connectionStore.activeProfile === undefined)
@@ -54,7 +54,7 @@
 
 <script lang="ts">
 	import { Check, ChevronRight } from '@lucide/svelte';
-	import { navigator } from '$lib/navigation/navigator.js';
+	import { navigator } from '#lib/navigation/navigator.js';
 
 	const openTokenizers = () => navigator.start().settings().user().tokenizers();
 

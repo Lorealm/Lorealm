@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { configStore, type SaveState } from '$lib/stores/serverConfig.svelte';
-	import type { SlidingPolicy, CsrfRotationPolicy } from '$lib/types/config.js';
+	import { configStore, type SaveState } from '#lib/stores/serverConfig.svelte.js';
+	import type { SlidingPolicy, CsrfRotationPolicy } from '#lib/types/config.js';
 	import SettingsSection from '../SettingsSection.svelte';
 	import Field from '../Field.svelte';
-	import NumberField from '$lib/components/NumberInput.svelte';
+	import NumberField from '#lib/components/NumberInput.svelte';
 
 	let draft = $state($state.snapshot(configStore.config!.sessions));
 	let saveState = $state<SaveState>({ status: 'idle' });

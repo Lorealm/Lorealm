@@ -1,9 +1,9 @@
 <script lang="ts">
-	import WeaverArea from '$lib/weaver/editor/WeaverArea.svelte';
-	import WeaverField from '$lib/weaver/editor/WeaverField.svelte';
-	import type { WeaverDialect, WeaverProfile } from '$lib/types/weaver.js';
-	import type { ReferenceSource } from '$lib/weaver/editor/weaver-references.js';
-	import type { VariableSource } from '$lib/weaver/editor/weaver-variables.js';
+	import WeaverArea from '#lib/weaver/editor/WeaverArea.svelte';
+	import WeaverField from '#lib/weaver/editor/WeaverField.svelte';
+	import type { WeaverDialect, WeaverProfile } from '#lib/types/weaver.js';
+	import type { ReferenceSource } from '#lib/weaver/editor/weaver-references.js';
+	import type { VariableSource } from '#lib/weaver/editor/weaver-variables.js';
 	import FieldShell from './FieldShell.svelte';
 
 	let {

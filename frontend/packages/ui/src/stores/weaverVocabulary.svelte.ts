@@ -1,12 +1,12 @@
-import { useApi } from '$lib/api/client.js';
+import { useApi } from '#lib/api/client.js';
 import type {
 	CommandSignature,
 	NamespaceDef,
 	ParamDef,
 	ProcessorSignature,
 	PropertyDef
-} from '$lib/types/weaver.js';
-import type { ParamDoc } from '$lib/weaver/editor/weaver-render.js';
+} from '#lib/types/weaver.js';
+import type { ParamDoc } from '#lib/weaver/editor/weaver-render.js';
 
 export function processorKey(proc: ProcessorSignature): string {
 	return `${proc.namespace}.${proc.name}`;

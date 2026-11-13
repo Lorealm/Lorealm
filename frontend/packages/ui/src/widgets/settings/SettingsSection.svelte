@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { configStore, type SaveState } from '$lib/stores/serverConfig.svelte';
-	import SaveIndicator from '$lib/components/SaveIndicator.svelte';
+	import { configStore, type SaveState } from '#lib/stores/serverConfig.svelte.js';
+	import SaveIndicator from '#lib/components/SaveIndicator.svelte';
 
 	let {
 		title,

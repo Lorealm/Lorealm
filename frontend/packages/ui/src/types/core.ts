@@ -14,9 +14,4 @@ export type PromptRole = 'system' | 'user' | 'assistant';
  * Arbitrary JSON value
  */
 export type JsonValue =
-	| null
-	| boolean
-	| number
-	| string
-	| JsonValue[]
-	| { [key: string]: JsonValue };
+	null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };

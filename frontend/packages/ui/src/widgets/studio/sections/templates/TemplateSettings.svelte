@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { templateStore } from '$lib/stores/template.svelte.js';
-	import { extractError } from '$lib/types/error.js';
-	import type { SaveState } from '$lib/stores/lorebook.svelte.js';
-	import type { ContextTemplate } from '$lib/types/template.js';
-	import SaveIndicator from '$lib/components/SaveIndicator.svelte';
+	import { templateStore } from '#lib/stores/template.svelte.js';
+	import { extractError } from '#lib/types/error.js';
+	import type { SaveState } from '#lib/stores/lorebook.svelte.js';
+	import type { ContextTemplate } from '#lib/types/template.js';
+	import SaveIndicator from '#lib/components/SaveIndicator.svelte';
 
 	const SAVE_MS = 500;
 

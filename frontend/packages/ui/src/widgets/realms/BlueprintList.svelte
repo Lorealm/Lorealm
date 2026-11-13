@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { Download, FileCode2, Plus, Trash2, Upload } from '@lucide/svelte';
-	import { useApi, usePlatform } from '$lib/api/client.js';
-	import { showApiError } from '$lib/stores/errorActions.js';
-	import { blueprintStore } from '$lib/stores/blueprint.svelte.js';
-	import type { Snowflake } from '$lib/types/core.js';
+	import { useApi, usePlatform } from '#lib/api/client.js';
+	import { showApiError } from '#lib/stores/errorActions.js';
+	import { blueprintStore } from '#lib/stores/blueprint.svelte.js';
+	import type { Snowflake } from '#lib/types/core.js';
 	import { realmDraft } from './draft.svelte.js';
 	import { panes } from './panes.svelte.js';
 	import { toWtn } from './serialize.js';
 	import { ensureLoaded, itemsOf, RESOURCE_KINDS } from './resources.svelte.js';
-	import type { RealmResourceKind } from '$lib/types/realm.js';
+	import type { RealmResourceKind } from '#lib/types/realm.js';
 	import ImportBlueprintDialog from './ImportBlueprintDialog.svelte';
 
 	let busy = $state(false);

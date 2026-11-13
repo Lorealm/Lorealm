@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
-	import TransportImage from '$lib/components/TransportImage.svelte';
-	import { blobUrl } from '$lib/api/blobs.js';
-	import { chatStore } from '$lib/stores/chat.svelte.js';
-	import { characterStore } from '$lib/stores/character.svelte.js';
+	import TransportImage from '#lib/components/TransportImage.svelte';
+	import { blobUrl } from '#lib/api/blobs.js';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
+	import { characterStore } from '#lib/stores/character.svelte.js';
 	import { ChevronDown, Crop, Scan, UnfoldVertical } from '@lucide/svelte';
 
 	const MODES = [

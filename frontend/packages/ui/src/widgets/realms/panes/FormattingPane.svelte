@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { REALM_CONFIG_DEFAULTS } from '$lib/types/realm.js';
+	import { REALM_CONFIG_DEFAULTS } from '#lib/types/realm.js';
 	import { realmDraft } from '../draft.svelte.js';
 
 	/** Each override, with what it governs and the holes it can use. */

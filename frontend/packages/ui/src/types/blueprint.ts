@@ -66,8 +66,7 @@ export interface ExpandBlueprintRequest {
 
 /** A document read back into the editor's block model. */
 export type OutlineResult =
-	| { status: 'ok'; outline: Outline }
-	| { status: 'refused'; reason: OutlineRefusal };
+	{ status: 'ok'; outline: Outline } | { status: 'refused'; reason: OutlineRefusal };
 
 export interface Outline {
 	name: string;

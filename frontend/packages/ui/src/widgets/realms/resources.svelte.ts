@@ -1,13 +1,13 @@
-import type { Snowflake } from '$lib/types/core.js';
-import type { RealmResourceKind } from '$lib/types/realm.js';
-import { characterStore } from '$lib/stores/character.svelte.js';
-import { connectionStore } from '$lib/stores/connection.svelte.js';
-import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
-import { moduleStore } from '$lib/stores/modules.svelte.js';
-import { personaStore } from '$lib/stores/persona.svelte.js';
-import { templateStore } from '$lib/stores/template.svelte.js';
-import { toolStore } from '$lib/stores/tools.svelte.js';
-import { userWidgetStore } from '$lib/stores/userWidgets.svelte.js';
+import type { Snowflake } from '#lib/types/core.js';
+import type { RealmResourceKind } from '#lib/types/realm.js';
+import { characterStore } from '#lib/stores/character.svelte.js';
+import { connectionStore } from '#lib/stores/connection.svelte.js';
+import { lorebookStore } from '#lib/stores/lorebook.svelte.js';
+import { moduleStore } from '#lib/stores/modules.svelte.js';
+import { personaStore } from '#lib/stores/persona.svelte.js';
+import { templateStore } from '#lib/stores/template.svelte.js';
+import { toolStore } from '#lib/stores/tools.svelte.js';
+import { userWidgetStore } from '#lib/stores/userWidgets.svelte.js';
 
 /** One bindable thing, flattened out of whichever store owns it. */
 export interface ResourceItem {

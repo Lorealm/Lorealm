@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Suggestion } from '$lib/commands/index.js';
+	import type { Suggestion } from '#lib/commands/index.js';
 
 	let {
 		items,

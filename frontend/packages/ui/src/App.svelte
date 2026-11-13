@@ -1,6 +1,6 @@
 <script lang="ts">
-	import '$lib/assets/css/variables.css';
-	import '$lib/assets/css/standardControls.css';
+	import '#lib/assets/css/variables.css';
+	import '#lib/assets/css/standardControls.css';
 
 	import type { PlatformAPI } from './index.ts';
 	import { setAPI } from './core/context.ts';

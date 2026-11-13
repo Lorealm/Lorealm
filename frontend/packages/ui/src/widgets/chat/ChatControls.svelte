@@ -2,7 +2,7 @@
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { tick } from 'svelte';
 	import CommandAutocomplete from './CommandAutocomplete.svelte';
-	import PopupMenu from '$lib/components/PopupMenu.svelte';
+	import PopupMenu from '#lib/components/PopupMenu.svelte';
 	import {
 		completionAt,
 		dispatch,
@@ -10,15 +10,15 @@
 		resourceLabel,
 		serverCommands,
 		type Suggestion
-	} from '$lib/commands/index.js';
-	import { characterStore } from '$lib/stores/character.svelte.js';
-	import { chatStore } from '$lib/stores/chat.svelte.js';
-	import { conversationManager } from '$lib/stores/conversationManager.svelte.js';
-	import { pluginCalls } from '$lib/stores/pluginCalls.svelte.js';
+	} from '#lib/commands/index.js';
+	import { characterStore } from '#lib/stores/character.svelte.js';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
+	import { conversationManager } from '#lib/stores/conversationManager.svelte.js';
+	import { pluginCalls } from '#lib/stores/pluginCalls.svelte.js';
 	import { FilePlus, MessagesSquare, Paperclip, Send, Sparkles, Square } from '@lucide/svelte';
-	import { CHAT_COMPOSER_LAYER, type ChatComposerLayer } from '$lib/keys/commands.js';
-	import { keyLayer } from '$lib/keys/layers.svelte.js';
-	import { inputEnvironment } from '$lib/keys/environment.svelte.js';
+	import { CHAT_COMPOSER_LAYER, type ChatComposerLayer } from '#lib/keys/commands.js';
+	import { keyLayer } from '#lib/keys/layers.svelte.js';
+	import { inputEnvironment } from '#lib/keys/environment.svelte.js';
 
 	let runningCommand = $derived(serverCommands.running);
 	/** The plugin the user is waiting for, if any. */

@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { onDestroy } from 'svelte';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import { moduleStore } from '$lib/stores/modules.svelte.js';
-	import type { Snowflake } from '$lib/types/core.js';
-	import type { CodeModule } from '$lib/types/modules.js';
-	import WeaverEditor from '$lib/weaver/editor/WeaverEditor.svelte';
-	import FieldShell from '$lib/components/FieldShell.svelte';
-	import ListSidebar from '$lib/components/ListSidebar.svelte';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import { moduleStore } from '#lib/stores/modules.svelte.js';
+	import type { Snowflake } from '#lib/types/core.js';
+	import type { CodeModule } from '#lib/types/modules.js';
+	import WeaverEditor from '#lib/weaver/editor/WeaverEditor.svelte';
+	import FieldShell from '#lib/components/FieldShell.svelte';
+	import ListSidebar from '#lib/components/ListSidebar.svelte';
 
 	const SAVE_MS = 500;
 

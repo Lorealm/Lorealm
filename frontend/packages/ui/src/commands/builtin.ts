@@ -1,8 +1,8 @@
-import { navigator } from '$lib/navigation/navigator.js';
-import { router } from '$lib/navigation/router.svelte.js';
-import { characterStore } from '$lib/stores/character.svelte.js';
-import { chatStore } from '$lib/stores/chat.svelte.js';
-import { conversationManager } from '$lib/stores/conversationManager.svelte.js';
+import { navigator } from '#lib/navigation/navigator.js';
+import { router } from '#lib/navigation/router.svelte.js';
+import { characterStore } from '#lib/stores/character.svelte.js';
+import { chatStore } from '#lib/stores/chat.svelte.js';
+import { conversationManager } from '#lib/stores/conversationManager.svelte.js';
 import type { SlashCommand } from './types.js';
 
 const VIEWS: Record<string, () => void> = {

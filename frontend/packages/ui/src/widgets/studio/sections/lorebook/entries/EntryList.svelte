@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { tooltip } from '../../../../../stores/tooltip.svelte.ts';
-	import type { DraftEntry, SaveState } from '$lib/stores/lorebook.svelte.js';
-	import type { Snowflake } from '$lib/types/core.js';
-	import { sortEntries, SORT_KEYS, type SortKey } from '$lib/weaver/entryOrdering.js';
+	import type { DraftEntry, SaveState } from '#lib/stores/lorebook.svelte.js';
+	import type { Snowflake } from '#lib/types/core.js';
+	import { sortEntries, SORT_KEYS, type SortKey } from '#lib/weaver/entryOrdering.js';
 
 	let {
 		entries,

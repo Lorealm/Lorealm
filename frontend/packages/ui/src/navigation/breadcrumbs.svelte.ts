@@ -1,15 +1,15 @@
-import { characterStore } from '$lib/stores/character.svelte.js';
-import { connectionStore } from '$lib/stores/connection.svelte.js';
-import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
-import { personaStore } from '$lib/stores/persona.svelte.js';
-import { marketplaceStore, shownVersion } from '$lib/stores/marketplace.svelte.js';
-import { pluginsStore } from '$lib/stores/plugins.svelte.js';
-import { realmStore } from '$lib/stores/realm.svelte.js';
-import { templateStore } from '$lib/stores/template.svelte.js';
-import { moduleStore } from '$lib/stores/modules.svelte.js';
-import { toolStore } from '$lib/stores/tools.svelte.js';
-import { userWidgetStore } from '$lib/stores/userWidgets.svelte.js';
-import type { Snowflake } from '$lib/types/core.js';
+import { characterStore } from '#lib/stores/character.svelte.js';
+import { connectionStore } from '#lib/stores/connection.svelte.js';
+import { lorebookStore } from '#lib/stores/lorebook.svelte.js';
+import { personaStore } from '#lib/stores/persona.svelte.js';
+import { marketplaceStore, shownVersion } from '#lib/stores/marketplace.svelte.js';
+import { pluginsStore } from '#lib/stores/plugins.svelte.js';
+import { realmStore } from '#lib/stores/realm.svelte.js';
+import { templateStore } from '#lib/stores/template.svelte.js';
+import { moduleStore } from '#lib/stores/modules.svelte.js';
+import { toolStore } from '#lib/stores/tools.svelte.js';
+import { userWidgetStore } from '#lib/stores/userWidgets.svelte.js';
+import type { Snowflake } from '#lib/types/core.js';
 import { navigator } from './navigator.js';
 import {
 	SECRETS,

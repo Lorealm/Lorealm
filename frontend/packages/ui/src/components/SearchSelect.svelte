@@ -8,7 +8,6 @@
 </script>
 
 <script lang="ts">
-	import { untrack } from 'svelte';
 	import { ChevronDown } from '@lucide/svelte';
 
 	let {
@@ -32,16 +31,13 @@
 
 	const listId = $props.id();
 
-	let text = $state(untrack(() => value));
+	// Follows `value`, but the user can overwrite it while typing.
+	let text = $derived(value);
 	let open = $state(false);
 	let typing = $state(false);
 	let activeIndex = $state(-1);
 	let inputEl = $state<HTMLInputElement>();
 	let listEl = $state<HTMLElement>();
-
-	$effect(() => {
-		text = value;
-	});
 
 	const matches = $derived.by(() => {
 		const needle = typing ? text.trim().toLowerCase() : '';

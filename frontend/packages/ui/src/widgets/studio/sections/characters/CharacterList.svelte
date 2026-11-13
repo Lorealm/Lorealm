@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { characterStore } from '$lib/stores/character.svelte.js';
+	import { characterStore } from '#lib/stores/character.svelte.js';
 	import CharacterListItem from './CharacterListItem.svelte';
 	import StudioList from '../StudioList.svelte';
 

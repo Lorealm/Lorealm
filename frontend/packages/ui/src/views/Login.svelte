@@ -1,11 +1,11 @@
 <script lang="ts">
-	import ErrorToast from '$lib/components/ErrorToast.svelte';
-	import { getPlatformApi } from '$lib/core/context.js';
-	import { setAuthState } from '$lib/stores/auth.svelte';
-	import type { LoginRequest } from '$lib/types/auth.js';
-	import type { AppError, ServerError } from '$lib/types/error.js';
-	import { memory } from '$lib/stores/memory.svelte.js';
-	import { useApi } from '$lib/api/client.js';
+	import ErrorToast from '#lib/components/ErrorToast.svelte';
+	import { getPlatformApi } from '#lib/core/context.js';
+	import { setAuthState } from '#lib/stores/auth.svelte.js';
+	import type { LoginRequest } from '#lib/types/auth.js';
+	import type { AppError, ServerError } from '#lib/types/error.js';
+	import { memory } from '#lib/stores/memory.svelte.js';
+	import { useApi } from '#lib/api/client.js';
 	import { onMount } from 'svelte';
 
 	const platform = getPlatformApi();

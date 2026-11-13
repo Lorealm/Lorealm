@@ -1,7 +1,7 @@
-import { chatStore } from '$lib/stores/chat.svelte.js';
-import { characterStore } from '$lib/stores/character.svelte.js';
-import type { Snowflake } from '$lib/types/core.js';
-import type { CharacterPart, TracedBlock } from '$lib/types/context.js';
+import { chatStore } from '#lib/stores/chat.svelte.js';
+import { characterStore } from '#lib/stores/character.svelte.js';
+import type { Snowflake } from '#lib/types/core.js';
+import type { CharacterPart, TracedBlock } from '#lib/types/context.js';
 
 export interface ResolvedContent {
 	text: string;

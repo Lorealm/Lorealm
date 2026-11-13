@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { onDestroy } from 'svelte';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import { characterStore } from '$lib/stores/character.svelte.js';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import { characterStore } from '#lib/stores/character.svelte.js';
 	import AttachmentsSection from './AttachmentsSection.svelte';
 	import TagField from './TagField.svelte';
-	import ContextField from '$lib/components/ContextField.svelte';
-	import { dateTimeMedium } from '$lib/assets/scripts/datetime.js';
+	import ContextField from '#lib/components/ContextField.svelte';
+	import { dateTimeMedium } from '#lib/assets/scripts/datetime.js';
 
 	const SAVE_MS = 500;
 

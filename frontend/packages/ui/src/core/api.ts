@@ -1,4 +1,4 @@
-import type { LoginRequest, Session } from '$lib/types/auth.js';
+import type { LoginRequest, Session } from '#lib/types/auth.js';
 
 export type KnownCapability = 'placeholder' | 'placeholder2';
 

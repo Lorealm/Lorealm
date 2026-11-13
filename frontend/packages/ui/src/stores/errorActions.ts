@@ -12,15 +12,15 @@ import {
 } from '@lucide/svelte';
 import type { Component } from 'svelte';
 
-import { navigator } from '$lib/navigation/navigator.js';
-import { SECRETS } from '$lib/navigation/routes.js';
-import type { Snowflake } from '$lib/types/core.js';
+import { navigator } from '#lib/navigation/navigator.js';
+import { SECRETS } from '#lib/navigation/routes.js';
+import type { Snowflake } from '#lib/types/core.js';
 import {
 	extractError,
 	type ErrorCode,
 	type ErrorDetails,
 	type ResourceKind
-} from '$lib/types/error.js';
+} from '#lib/types/error.js';
 import { showToast, type ToastAction } from './errorToast.svelte.js';
 
 /**

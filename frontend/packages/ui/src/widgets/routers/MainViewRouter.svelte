@@ -10,13 +10,13 @@
 </script>
 
 <script lang="ts">
-	import { lazy } from '$lib/core/lazy.js';
-	import { router } from '$lib/navigation/router.svelte.js';
-	import ChatBox from '$lib/widgets/chat/ChatBox.svelte';
+	import { lazy } from '#lib/core/lazy.js';
+	import { router } from '#lib/navigation/router.svelte.js';
+	import ChatBox from '#lib/widgets/chat/ChatBox.svelte';
 	import ChatControls from '../chat/ChatControls.svelte';
-	import PluginComposerSlots from '$lib/components/PluginComposerSlots.svelte';
+	import PluginComposerSlots from '#lib/components/PluginComposerSlots.svelte';
 	import TurnControls from '../chat/TurnControls.svelte';
-	import { chatStore } from '$lib/stores/chat.svelte.js';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
 
 	const route = $derived(router.current);
 </script>

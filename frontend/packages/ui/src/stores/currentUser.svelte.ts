@@ -1,6 +1,6 @@
-import { useApi } from '$lib/api/client.js';
-import type { Snowflake } from '$lib/types/core.js';
-import type { User, UserSession } from '$lib/types/user.js';
+import { useApi } from '#lib/api/client.js';
+import type { Snowflake } from '#lib/types/core.js';
+import type { User, UserSession } from '#lib/types/user.js';
 
 /**
  * The signed-in user's own profile and devices.

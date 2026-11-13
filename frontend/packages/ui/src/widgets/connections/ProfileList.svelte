@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
-	import { connectionStore } from '$lib/stores/connection.svelte.js';
-	import type { ConnectionProfile } from '$lib/types/connection.js';
-	import type { Snowflake } from '$lib/types/core.js';
+	import { connectionStore } from '#lib/stores/connection.svelte.js';
+	import type { ConnectionProfile } from '#lib/types/connection.js';
+	import type { Snowflake } from '#lib/types/core.js';
 	import { Star, Trash2 } from '@lucide/svelte';
 
 	let activeProfileId = $derived(connectionStore.activeProfile);

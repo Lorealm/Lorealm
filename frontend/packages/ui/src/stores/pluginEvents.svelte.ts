@@ -1,5 +1,5 @@
-import { useApi } from '$lib/api/client.js';
-import type { JsonValue } from '$lib/types/core.js';
+import { useApi } from '#lib/api/client.js';
+import type { JsonValue } from '#lib/types/core.js';
 
 type Listener = (name: string, payload: JsonValue) => void;
 

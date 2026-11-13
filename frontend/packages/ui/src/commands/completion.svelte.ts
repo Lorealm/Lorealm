@@ -1,4 +1,4 @@
-import type { PickableResource } from '$lib/types/tools.js';
+import type { PickableResource } from '#lib/types/tools.js';
 import { caretContext } from './caret.js';
 import { resourceCatalog, resourceLabel } from './resources.svelte.js';
 import { slashCommands } from './registry.svelte.js';

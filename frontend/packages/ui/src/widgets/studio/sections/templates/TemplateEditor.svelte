@@ -8,11 +8,11 @@
 		SHADOW_ITEM_MARKER_PROPERTY_NAME,
 		type DndEvent
 	} from 'svelte-dnd-action';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import { templateStore } from '$lib/stores/template.svelte.js';
-	import type { ContextNode, NodePath } from '$lib/types/node.js';
-	import type { Snowflake } from '$lib/types/core.js';
-	import type { CreateNodeRequest } from '$lib/types/template.js';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import { templateStore } from '#lib/stores/template.svelte.js';
+	import type { ContextNode, NodePath } from '#lib/types/node.js';
+	import type { Snowflake } from '#lib/types/core.js';
+	import type { CreateNodeRequest } from '#lib/types/template.js';
 	import TemplateNode from './nodes/TemplateNode.svelte';
 	import NodeEditor from './nodes/NodeEditor.svelte';
 	import AddNodeButton from './nodes/AddNodeButton.svelte';

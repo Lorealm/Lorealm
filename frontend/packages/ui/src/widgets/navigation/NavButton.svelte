@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Component } from 'svelte';
-	import { router } from '$lib/navigation/router.svelte.js';
-	import type { ViewName } from '$lib/navigation/routes.js';
+	import { router } from '#lib/navigation/router.svelte.js';
+	import type { ViewName } from '#lib/navigation/routes.js';
 
 	let {
 		label,

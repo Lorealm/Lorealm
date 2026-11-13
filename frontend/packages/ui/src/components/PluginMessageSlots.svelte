@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { pluginsStore } from '$lib/stores/plugins.svelte.js';
-	import type { ConversationMessage } from '$lib/types/conversation.js';
+	import { pluginsStore } from '#lib/stores/plugins.svelte.js';
+	import type { ConversationMessage } from '#lib/types/conversation.js';
 	import PluginSlotView from './PluginSlotView.svelte';
 
 	let { message, last = false }: { message: ConversationMessage; last?: boolean } = $props();

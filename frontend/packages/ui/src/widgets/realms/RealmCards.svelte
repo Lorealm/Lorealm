@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { FileCode2, Play, Trash2 } from '@lucide/svelte';
-	import { useApi } from '$lib/api/client.js';
-	import { blueprintStore } from '$lib/stores/blueprint.svelte.js';
-	import { realmStore } from '$lib/stores/realm.svelte.js';
-	import type { ConversationMetadata } from '$lib/types/conversation.js';
-	import type { Snowflake } from '$lib/types/core.js';
-	import type { RealmSummary } from '$lib/types/realm.js';
+	import { useApi } from '#lib/api/client.js';
+	import { blueprintStore } from '#lib/stores/blueprint.svelte.js';
+	import { realmStore } from '#lib/stores/realm.svelte.js';
+	import type { ConversationMetadata } from '#lib/types/conversation.js';
+	import type { Snowflake } from '#lib/types/core.js';
+	import type { RealmSummary } from '#lib/types/realm.js';
 	import NewRealmMenu from './NewRealmMenu.svelte';
 	import PlayMenu from './PlayMenu.svelte';
 

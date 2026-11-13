@@ -1,24 +1,23 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { templateStore } from '$lib/stores/template.svelte.js';
+	import { templateStore } from '#lib/stores/template.svelte.js';
 	import type {
 		ContextNode,
 		GroupMode,
 		GroupWrapMode,
 		NodeContent,
 		SourceNodeDefinition
-	} from '$lib/types/node.js';
-	import type { JsonValue, PromptRole, Snowflake } from '$lib/types/core.js';
-	import type { UpdateNodeRequest } from '$lib/types/template.js';
+	} from '#lib/types/node.js';
+	import type { JsonValue, PromptRole, Snowflake } from '#lib/types/core.js';
+	import type { UpdateNodeRequest } from '#lib/types/template.js';
 	import { SvelteSet } from 'svelte/reactivity';
-	import NumberInput from '$lib/components/NumberInput.svelte';
-	import ContextField from '$lib/components/ContextField.svelte';
+	import NumberInput from '#lib/components/NumberInput.svelte';
+	import ContextField from '#lib/components/ContextField.svelte';
 
 	type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
 	let {
 		node,
-		// eslint-disable-next-line no-useless-assignment
 		saveState = $bindable<SaveState>('idle')
 	}: {
 		node: ContextNode;

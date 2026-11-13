@@ -2,7 +2,7 @@ import {
 	variable,
 	type VariableRef,
 	type VariableSource
-} from '$lib/weaver/editor/weaver-variables.js';
+} from '#lib/weaver/editor/weaver-variables.js';
 import { realmDraft } from './draft.svelte.js';
 import { declaredText, isRequired, type AgentBlock } from './model.js';
 

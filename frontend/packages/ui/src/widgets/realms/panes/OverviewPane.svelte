@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Maximize2, Shuffle, X } from '@lucide/svelte';
-	import type { AgentFilter, AgentKind } from '$lib/types/realm.js';
+	import type { AgentFilter, AgentKind } from '#lib/types/realm.js';
 	import { realmDraft } from '../draft.svelte.js';
 	import { panes } from '../panes.svelte.js';
 	import RadioField from '../RadioField.svelte';

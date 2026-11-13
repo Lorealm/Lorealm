@@ -1,11 +1,11 @@
-import { useApi } from '$lib/api/client.js';
-import type { Snowflake } from '$lib/types/core.js';
+import { useApi } from '#lib/api/client.js';
+import type { Snowflake } from '#lib/types/core.js';
 import type {
 	Tokenizer,
 	NetworkCreate,
 	ImportQuery,
 	BatchTokenizeResponse
-} from '$lib/types/tokenizer.js';
+} from '#lib/types/tokenizer.js';
 
 class TokenizerStore {
 	get #api() {

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { navigator } from '$lib/navigation/navigator.js';
-	import type { UserSection } from '$lib/navigation/routes.js';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import type { UserSection } from '#lib/navigation/routes.js';
 	import ProfileSection from './user/ProfileSection.svelte';
 	import TokenizersSection from './user/TokenizersSection.svelte';
 	import PluginsSection from './user/PluginsSection.svelte';

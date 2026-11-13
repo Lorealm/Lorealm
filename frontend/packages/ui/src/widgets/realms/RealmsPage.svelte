@@ -1,19 +1,19 @@
 <script lang="ts">
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
-	import { showToast } from '$lib/stores/errorToast.svelte.js';
-	import { realmStore } from '$lib/stores/realm.svelte.js';
+	import { showToast } from '#lib/stores/errorToast.svelte.js';
+	import { realmStore } from '#lib/stores/realm.svelte.js';
 	import { ArrowLeft, Play, Save } from '@lucide/svelte';
 	import RealmCards from './RealmCards.svelte';
 	import RealmEditor from './RealmEditor.svelte';
-	import WideScreenNote from '$lib/components/WideScreenNote.svelte';
+	import WideScreenNote from '#lib/components/WideScreenNote.svelte';
 	import BlueprintList from './BlueprintList.svelte';
 	import InstantiateDialog from './InstantiateDialog.svelte';
-	import { blueprintStore } from '$lib/stores/blueprint.svelte.js';
+	import { blueprintStore } from '#lib/stores/blueprint.svelte.js';
 	import { realmDraft } from './draft.svelte.js';
 	import { panes } from './panes.svelte.js';
 	import { toWtn } from './serialize.js';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import { router } from '$lib/navigation/router.svelte.js';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import { router } from '#lib/navigation/router.svelte.js';
 
 	const tab = $derived(
 		router.current.view === 'realms' && router.current.tab === 'blueprints'

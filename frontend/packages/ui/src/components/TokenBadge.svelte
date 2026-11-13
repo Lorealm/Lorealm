@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tooltip } from '../stores/tooltip.svelte.ts';
-	import { countTokens, type TokenCount } from '$lib/stores/tokenCount.js';
-	import { tokenizerStore } from '$lib/stores/tokenizer.svelte.js';
+	import { countTokens, type TokenCount } from '#lib/stores/tokenCount.js';
+	import { tokenizerStore } from '#lib/stores/tokenizer.svelte.js';
 
 	let {
 		text = '',

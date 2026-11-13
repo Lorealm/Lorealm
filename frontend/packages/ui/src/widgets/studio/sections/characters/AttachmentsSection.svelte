@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { onMount } from 'svelte';
-	import { characterStore } from '$lib/stores/character.svelte.js';
-	import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
-	import { toolStore } from '$lib/stores/tools.svelte.js';
-	import { userWidgetStore } from '$lib/stores/userWidgets.svelte.js';
-	import { showApiError } from '$lib/stores/errorActions.js';
-	import type { AttachmentKind } from '$lib/types/character.js';
-	import type { Snowflake } from '$lib/types/core.js';
+	import { characterStore } from '#lib/stores/character.svelte.js';
+	import { lorebookStore } from '#lib/stores/lorebook.svelte.js';
+	import { toolStore } from '#lib/stores/tools.svelte.js';
+	import { userWidgetStore } from '#lib/stores/userWidgets.svelte.js';
+	import { showApiError } from '#lib/stores/errorActions.js';
+	import type { AttachmentKind } from '#lib/types/character.js';
+	import type { Snowflake } from '#lib/types/core.js';
 	import { Copy } from '@lucide/svelte';
 
 	/** Called after any change the editor should save. */

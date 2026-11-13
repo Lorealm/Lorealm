@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { connectionStore } from '$lib/stores/connection.svelte.js';
-	import { pluginsStore } from '$lib/stores/plugins.svelte.js';
-	import { PROVIDER_SCHEMAS } from '$lib/types/schema.js';
-	import type { Snowflake } from '$lib/types/core.js';
-	import type { SecretMetadata } from '$lib/types/connection.js';
+	import { connectionStore } from '#lib/stores/connection.svelte.js';
+	import { pluginsStore } from '#lib/stores/plugins.svelte.js';
+	import { PROVIDER_SCHEMAS } from '#lib/types/schema.js';
+	import type { Snowflake } from '#lib/types/core.js';
+	import type { SecretMetadata } from '#lib/types/connection.js';
 
 	const secrets = $derived(connectionStore.secrets ?? []);
 

@@ -7,12 +7,7 @@ import StateWidget from './widgets/StateWidget.svelte';
 import TemplateWidget from './widgets/TemplateWidget.svelte';
 
 export type BuiltinWidgetKey =
-	| 'character-image'
-	| 'template'
-	| 'context'
-	| 'state'
-	| 'realm-agent'
-	| 'author-note';
+	'character-image' | 'template' | 'context' | 'state' | 'realm-agent' | 'author-note';
 
 /** A plugin's inspector slot. */
 export type PluginWidgetKey = `plugin:${string}:${string}`;

@@ -1,16 +1,16 @@
 <script lang="ts">
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
-	import { daysSince, monthYear, relativeTime } from '$lib/assets/scripts/datetime.js';
-	import { blobUrl } from '$lib/api/blobs.js';
-	import { currentUser } from '$lib/stores/currentUser.svelte.js';
-	import { characterStore } from '$lib/stores/character.svelte.js';
-	import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
-	import { realmStore } from '$lib/stores/realm.svelte.js';
-	import { showToast } from '$lib/stores/errorToast.svelte.js';
-	import { extractError } from '$lib/types/error.js';
-	import type { Snowflake } from '$lib/types/core.js';
-	import type { UserSession } from '$lib/types/user.js';
-	import { getPlatformApi } from '$lib/core/context.js';
+	import { daysSince, monthYear, relativeTime } from '#lib/assets/scripts/datetime.js';
+	import { blobUrl } from '#lib/api/blobs.js';
+	import { currentUser } from '#lib/stores/currentUser.svelte.js';
+	import { characterStore } from '#lib/stores/character.svelte.js';
+	import { lorebookStore } from '#lib/stores/lorebook.svelte.js';
+	import { realmStore } from '#lib/stores/realm.svelte.js';
+	import { showToast } from '#lib/stores/errorToast.svelte.js';
+	import { extractError } from '#lib/types/error.js';
+	import type { Snowflake } from '#lib/types/core.js';
+	import type { UserSession } from '#lib/types/user.js';
+	import { getPlatformApi } from '#lib/core/context.js';
 
 	const user = $derived(currentUser.user);
 	const avatar = $derived(blobUrl(user?.avatar_uri));

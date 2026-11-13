@@ -1,20 +1,20 @@
 <script lang="ts">
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
-	import { chatStore } from '$lib/stores/chat.svelte.js';
-	import { characterStore } from '$lib/stores/character.svelte.js';
-	import type { ConversationMessage } from '$lib/types/conversation.js';
-	import TransportImage from '$lib/components/TransportImage.svelte';
-	import { blobUrl } from '$lib/api/blobs.js';
-	import ChatWidget from '$lib/components/ChatWidget.svelte';
-	import StaticWidgets from '$lib/components/StaticWidgets.svelte';
-	import PluginMessageSlots from '$lib/components/PluginMessageSlots.svelte';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
+	import { characterStore } from '#lib/stores/character.svelte.js';
+	import type { ConversationMessage } from '#lib/types/conversation.js';
+	import TransportImage from '#lib/components/TransportImage.svelte';
+	import { blobUrl } from '#lib/api/blobs.js';
+	import ChatWidget from '#lib/components/ChatWidget.svelte';
+	import StaticWidgets from '#lib/components/StaticWidgets.svelte';
+	import PluginMessageSlots from '#lib/components/PluginMessageSlots.svelte';
 	import { ChevronLeft, ChevronRight, Layers, Pencil, StepForward, Trash2 } from '@lucide/svelte';
-	import { contextInspector } from '$lib/stores/contextInspector.svelte.js';
-	import { parseContextBlocks } from '$lib/types/context.js';
-	import { parseReasoning, parseWidgets, splitWidgetMarkers } from '$lib/types/widgets.js';
-	import { marked } from '$lib/assets/scripts/marked-rp.js';
+	import { contextInspector } from '#lib/stores/contextInspector.svelte.js';
+	import { parseContextBlocks } from '#lib/types/context.js';
+	import { parseReasoning, parseWidgets, splitWidgetMarkers } from '#lib/types/widgets.js';
+	import { marked } from '#lib/assets/scripts/marked-rp.js';
 	import DOMPurify from 'dompurify';
-	import { createPresentable } from '$lib/assets/scripts/variable-replace.js';
+	import { createPresentable } from '#lib/assets/scripts/variable-replace.js';
 
 	let { message, last = false }: { message: ConversationMessage; last?: boolean } = $props();
 

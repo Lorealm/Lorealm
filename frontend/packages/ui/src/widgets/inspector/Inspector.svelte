@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
-	import { iconFor } from '$lib/assets/icons/catalogue.js';
-	import { router } from '$lib/navigation/router.svelte.js';
-	import { inspectorMatrix } from '$lib/stores/inspectorMatrix.svelte.js';
-	import { lazy } from '$lib/core/lazy.js';
-	import { realmInspector } from '$lib/widgets/realms/lazyInspector.js';
+	import { iconFor } from '#lib/assets/icons/catalogue.js';
+	import { router } from '#lib/navigation/router.svelte.js';
+	import { inspectorMatrix } from '#lib/stores/inspectorMatrix.svelte.js';
+	import { lazy } from '#lib/core/lazy.js';
+	import { realmInspector } from '#lib/widgets/realms/lazyInspector.js';
 	import { inspectorRegistry, isPluginWidgetKey } from './registry.js';
 	import PluginWidget from './widgets/PluginWidget.svelte';
-	import { pluginsStore } from '$lib/stores/plugins.svelte.js';
-	import { inspectorWidth } from '$lib/stores/inspectorWidth.svelte.js';
-	import { shell } from '$lib/stores/shell.svelte.js';
+	import { pluginsStore } from '#lib/stores/plugins.svelte.js';
+	import { inspectorWidth } from '#lib/stores/inspectorWidth.svelte.js';
+	import { shell } from '#lib/stores/shell.svelte.js';
 	import { X } from '@lucide/svelte';
 
 	const view = $derived(router.current.view);

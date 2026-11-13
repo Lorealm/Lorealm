@@ -1,4 +1,4 @@
-import type { AgentFilter, Director } from '$lib/types/realm.js';
+import type { AgentFilter, Director } from '#lib/types/realm.js';
 import type {
 	AgentBlock,
 	Binding,

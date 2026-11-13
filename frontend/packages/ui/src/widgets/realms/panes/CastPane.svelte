@@ -11,9 +11,9 @@
 		TriangleAlert,
 		User
 	} from '@lucide/svelte';
-	import type { AgentKind } from '$lib/types/realm.js';
+	import type { AgentKind } from '#lib/types/realm.js';
 	import { activeDrag, carriesAsset, clearDrag, readDrag } from '../drag.svelte.js';
-	import { blueprintStore } from '$lib/stores/blueprint.svelte.js';
+	import { blueprintStore } from '#lib/stores/blueprint.svelte.js';
 	import { realmDraft } from '../draft.svelte.js';
 	import { panes } from '../panes.svelte.js';
 	import { loopReaches, type AgentBlock, type CastEntry } from '../model.js';

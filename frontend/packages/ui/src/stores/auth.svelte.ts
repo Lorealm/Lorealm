@@ -1,5 +1,5 @@
-import type { Session } from '$lib/types/auth.js';
-import { router } from '$lib/navigation/router.svelte.js';
+import type { Session } from '#lib/types/auth.js';
+import { router } from '#lib/navigation/router.svelte.js';
 
 export type AuthState =
 	| { status: 'loading' }

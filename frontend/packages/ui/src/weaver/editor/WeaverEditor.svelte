@@ -5,7 +5,7 @@
 
 <script lang="ts">
 	import type { ComponentProps } from 'svelte';
-	import { lazy } from '$lib/core/lazy.js';
+	import { lazy } from '#lib/core/lazy.js';
 
 	const props: ComponentProps<typeof import('./WeaverEditorView.svelte').default> = $props();
 </script>

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ScrollText } from '@lucide/svelte';
-	import WeaverEditor from '$lib/weaver/editor/WeaverEditor.svelte';
+	import WeaverEditor from '#lib/weaver/editor/WeaverEditor.svelte';
 	import { realmDraft } from '../draft.svelte.js';
 	import { realmVariables } from '../variables.js';
 

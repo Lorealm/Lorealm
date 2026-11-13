@@ -1,15 +1,8 @@
-import type { Snowflake } from '$lib/types/core.js';
+import type { Snowflake } from '#lib/types/core.js';
 
 /** A workspace within the Studio. */
 export type StudioSection =
-	| 'realm'
-	| 'characters'
-	| 'lorebooks'
-	| 'templates'
-	| 'tools'
-	| 'modules'
-	| 'personas'
-	| 'widgets';
+	'realm' | 'characters' | 'lorebooks' | 'templates' | 'tools' | 'modules' | 'personas' | 'widgets';
 
 /** The sections under "You" that live on this device only, never on the account. */
 export type ClientSection = 'appearance' | 'editor' | 'inspector' | 'keybinds';

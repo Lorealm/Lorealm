@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { CircleDot, X } from '@lucide/svelte';
-	import type { RealmResourceKind } from '$lib/types/realm.js';
+	import type { RealmResourceKind } from '#lib/types/realm.js';
 	import { activeDrag, carriesAsset, clearDrag, readDrag, type AssetDrag } from './drag.svelte.js';
 	import {
 		REF_NAME,
@@ -111,16 +111,14 @@
 
 	const resourceRows = $derived.by(() =>
 		kinds.flatMap((kind) =>
-			itemsOf(kind).map(
-				(item: ResourceItem): Row => ({
-					row: 'resource',
-					key: `${kind}:${item.id}`,
-					group: REF_NAME[kind],
-					label: item.name,
-					hint: item.hint ?? '',
-					binding: { source: 'resource', kind, id: item.id, name: item.name }
-				})
-			)
+			itemsOf(kind).map((item: ResourceItem): Row => ({
+				row: 'resource',
+				key: `${kind}:${item.id}`,
+				group: REF_NAME[kind],
+				label: item.name,
+				hint: item.hint ?? '',
+				binding: { source: 'resource', kind, id: item.id, name: item.name }
+			}))
 		)
 	);
 

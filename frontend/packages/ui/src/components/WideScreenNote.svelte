@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { shell } from '$lib/stores/shell.svelte.js';
+	import { shell } from '#lib/stores/shell.svelte.js';
 	import { MonitorSmartphone, X } from '@lucide/svelte';
 
 	let { subject }: { subject: string } = $props();

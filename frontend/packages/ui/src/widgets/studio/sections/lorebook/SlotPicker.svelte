@@ -5,9 +5,9 @@
 		formToSlot,
 		slotLabel,
 		type SlotChoice
-	} from '$lib/weaver/slotForm.js';
-	import type { Slot } from '$lib/types/lorebook.js';
-	import NumberInput from '$lib/components/NumberInput.svelte';
+	} from '#lib/weaver/slotForm.js';
+	import type { Slot } from '#lib/types/lorebook.js';
+	import NumberInput from '#lib/components/NumberInput.svelte';
 
 	let {
 		value,

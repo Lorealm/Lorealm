@@ -55,13 +55,7 @@ export interface UpdateEntryRequest {
 }
 
 export type Slot =
-	| 'prelude'
-	| 'preamble'
-	| 'backdrop'
-	| 'setting'
-	| 'foreground'
-	| 'coda'
-	| { at_depth: number };
+	'prelude' | 'preamble' | 'backdrop' | 'setting' | 'foreground' | 'coda' | { at_depth: number };
 
 /** Flattened enum as array for easier iterator access */
 export const SLOT_KINDS = [

@@ -1,5 +1,5 @@
 import { router } from './router.svelte.js';
-import type { Snowflake } from '$lib/types/core.js';
+import type { Snowflake } from '#lib/types/core.js';
 import { SECRETS } from './routes.js';
 import type { Route, ServerSection, StudioSection, UserSection } from './routes.js';
 
@@ -14,13 +14,7 @@ class Chain {
 
 /** The Studio sections that edit one resource, named by the kind they hold. */
 export type StudioResource =
-	| 'character'
-	| 'lorebook'
-	| 'template'
-	| 'tool'
-	| 'persona'
-	| 'widget'
-	| 'module';
+	'character' | 'lorebook' | 'template' | 'tool' | 'persona' | 'widget' | 'module';
 
 const SECTION_FOR: Record<StudioResource, StudioSection> = {
 	character: 'characters',

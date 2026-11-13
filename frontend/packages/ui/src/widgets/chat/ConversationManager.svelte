@@ -1,16 +1,16 @@
 <script lang="ts">
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
-	import { useApi } from '$lib/api/client.js';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import { CONVERSATION_MANAGER_LAYER } from '$lib/keys/commands.js';
-	import { keyLayer } from '$lib/keys/layers.svelte.js';
-	import { chatStore } from '$lib/stores/chat.svelte.js';
-	import { conversationManager } from '$lib/stores/conversationManager.svelte.js';
-	import { showApiError } from '$lib/stores/errorActions.js';
-	import type { Snowflake } from '$lib/types/core.js';
-	import type { ConversationMetadata } from '$lib/types/conversation.js';
+	import { useApi } from '#lib/api/client.js';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import { CONVERSATION_MANAGER_LAYER } from '#lib/keys/commands.js';
+	import { keyLayer } from '#lib/keys/layers.svelte.js';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
+	import { conversationManager } from '#lib/stores/conversationManager.svelte.js';
+	import { showApiError } from '#lib/stores/errorActions.js';
+	import type { Snowflake } from '#lib/types/core.js';
+	import type { ConversationMetadata } from '#lib/types/conversation.js';
 	import { Trash2, X } from '@lucide/svelte';
-	import { dateTimeMedium, relativeTime } from '$lib/assets/scripts/datetime.js';
+	import { dateTimeMedium, relativeTime } from '#lib/assets/scripts/datetime.js';
 
 	const api = useApi();
 

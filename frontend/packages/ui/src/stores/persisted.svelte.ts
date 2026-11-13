@@ -1,8 +1,8 @@
-import { usePlatform } from '$lib/api/client.js';
+import { usePlatform } from '#lib/api/client.js';
 import { showError } from './errorToast.svelte.js';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { LocalStore } from '$lib/core/api.js'; // Imported for doc links
+import type { LocalStore } from '#lib/core/api.js'; // Imported for doc links
 
 /**
  * One JSON record in the platform's {@link LocalStore}, mirrored into reactive

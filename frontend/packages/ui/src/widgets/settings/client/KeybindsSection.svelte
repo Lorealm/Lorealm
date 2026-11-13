@@ -2,15 +2,15 @@
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import { Plus, RotateCcw, X } from '@lucide/svelte';
 
-	import KeyChord from '$lib/components/KeyChord.svelte';
-	import { chordsFromEvent, type Chord } from '$lib/keys/chord.js';
-	import { keybindConfig, type KeybindMode } from '$lib/keys/config.svelte.js';
-	import { inputEnvironment } from '$lib/keys/environment.svelte.js';
-	import { keybinds } from '$lib/keys/manager.svelte.js';
-	import { commandRegistry } from '$lib/keys/registry.svelte.js';
-	import type { RegisteredCommand } from '$lib/keys/types.js';
-	import { VIEW_LABEL } from '$lib/navigation/breadcrumbs.svelte.js';
-	import type { ViewName } from '$lib/navigation/routes.js';
+	import KeyChord from '#lib/components/KeyChord.svelte';
+	import { chordsFromEvent, type Chord } from '#lib/keys/chord.js';
+	import { keybindConfig, type KeybindMode } from '#lib/keys/config.svelte.js';
+	import { inputEnvironment } from '#lib/keys/environment.svelte.js';
+	import { keybinds } from '#lib/keys/manager.svelte.js';
+	import { commandRegistry } from '#lib/keys/registry.svelte.js';
+	import type { RegisteredCommand } from '#lib/keys/types.js';
+	import { VIEW_LABEL } from '#lib/navigation/breadcrumbs.svelte.js';
+	import type { ViewName } from '#lib/navigation/routes.js';
 
 	const MODES: Array<{ value: KeybindMode; label: string }> = [
 		{ value: 'auto', label: 'Automatic' },

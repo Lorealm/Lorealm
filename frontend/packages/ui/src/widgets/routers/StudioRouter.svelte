@@ -10,9 +10,9 @@
 </script>
 
 <script lang="ts">
-	import { lazy } from '$lib/core/lazy.js';
-	import type { StudioSection } from '$lib/navigation/routes.js';
-	import type { Snowflake } from '$lib/types/core.js';
+	import { lazy } from '#lib/core/lazy.js';
+	import type { StudioSection } from '#lib/navigation/routes.js';
+	import type { Snowflake } from '#lib/types/core.js';
 	import StudioNav from '../studio/StudioNav.svelte';
 
 	let { section, id }: { section: StudioSection; id?: Snowflake } = $props();

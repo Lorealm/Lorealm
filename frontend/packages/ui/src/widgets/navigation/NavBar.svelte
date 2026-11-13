@@ -12,8 +12,8 @@
 		X
 	} from '@lucide/svelte';
 	import NavButton from './NavButton.svelte';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import { shell } from '$lib/stores/shell.svelte.js';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import { shell } from '#lib/stores/shell.svelte.js';
 
 	let userCollapsed = $state(false);
 	const collapsed = $derived(userCollapsed && !shell.narrow);

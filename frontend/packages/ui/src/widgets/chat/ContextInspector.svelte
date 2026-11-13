@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { tick } from 'svelte';
-	import { useApi } from '$lib/api/client.js';
-	import { contextInspector } from '$lib/stores/contextInspector.svelte.js';
-	import { keyLayer } from '$lib/keys/layers.svelte.js';
-	import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
-	import { showApiError } from '$lib/stores/errorActions.js';
+	import { useApi } from '#lib/api/client.js';
+	import { contextInspector } from '#lib/stores/contextInspector.svelte.js';
+	import { keyLayer } from '#lib/keys/layers.svelte.js';
+	import { lorebookStore } from '#lib/stores/lorebook.svelte.js';
+	import { showApiError } from '#lib/stores/errorActions.js';
 	import {
 		parseContextBlocks,
 		groupAdjacentBlocks,
@@ -16,9 +16,9 @@
 		SOURCE_LABELS,
 		type SourceCounts,
 		type TracedBlock
-	} from '$lib/types/context.js';
-	import { resolveBlockContent } from '$lib/types/content.js';
-	import type { JsonValue } from '$lib/types/core.js';
+	} from '#lib/types/context.js';
+	import { resolveBlockContent } from '#lib/types/content.js';
+	import type { JsonValue } from '#lib/types/core.js';
 	import { ChevronDown, Info, X } from '@lucide/svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 

@@ -5,7 +5,7 @@ import type { Chord } from './chord.js';
  *
  * - `global` — always reachable.
  * - `view` — only while the router is on that view; its layer id is the
- *   {@link import('$lib/navigation/routes.js').ViewName}.
+ *   {@link import('#lib/navigation/routes.js').ViewName}.
  * - `module` — only while a matching layer is focused. Beats both of the above.
  */
 export type LayerScope = 'global' | 'view' | 'module';

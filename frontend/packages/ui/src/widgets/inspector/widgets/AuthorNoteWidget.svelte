@@ -1,7 +1,7 @@
 <script lang="ts">
-	import ContextField from '$lib/components/ContextField.svelte';
-	import { chatStore } from '$lib/stores/chat.svelte.js';
-	import type { Snowflake } from '$lib/types/core.js';
+	import ContextField from '#lib/components/ContextField.svelte';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
+	import type { Snowflake } from '#lib/types/core.js';
 	import { ChevronDown } from '@lucide/svelte';
 	import { onDestroy, untrack } from 'svelte';
 

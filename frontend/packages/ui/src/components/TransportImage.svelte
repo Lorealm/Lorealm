@@ -69,7 +69,7 @@
 </script>
 
 <script lang="ts">
-	import { getPlatformApi } from '$lib/core/context.js';
+	import { getPlatformApi } from '#lib/core/context.js';
 
 	let transport = getPlatformApi();
 

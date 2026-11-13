@@ -1,17 +1,17 @@
 <script lang="ts">
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { onDestroy } from 'svelte';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import { personaStore } from '$lib/stores/persona.svelte.js';
-	import { exportItem } from '$lib/stores/transfer.js';
-	import { characterStore } from '$lib/stores/character.svelte.js';
-	import type { Snowflake } from '$lib/types/core.js';
-	import TransportImage from '$lib/components/TransportImage.svelte';
-	import { blobUrl } from '$lib/api/blobs.js';
-	import ContextField from '$lib/components/ContextField.svelte';
-	import ListSidebar from '$lib/components/ListSidebar.svelte';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import { personaStore } from '#lib/stores/persona.svelte.js';
+	import { exportItem } from '#lib/stores/transfer.js';
+	import { characterStore } from '#lib/stores/character.svelte.js';
+	import type { Snowflake } from '#lib/types/core.js';
+	import TransportImage from '#lib/components/TransportImage.svelte';
+	import { blobUrl } from '#lib/api/blobs.js';
+	import ContextField from '#lib/components/ContextField.svelte';
+	import ListSidebar from '#lib/components/ListSidebar.svelte';
 	import { Star, Trash2, X } from '@lucide/svelte';
-	import { showApiError } from '$lib/stores/errorActions.js';
+	import { showApiError } from '#lib/stores/errorActions.js';
 
 	const SAVE_MS = 500;
 

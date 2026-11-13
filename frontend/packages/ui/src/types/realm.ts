@@ -36,9 +36,7 @@ export type Director =
 	| { kind: 'script'; source: string };
 
 export type AgentFilter =
-	| { match: 'all' }
-	| { match: 'kind'; kind: AgentKind }
-	| { match: 'handles'; handles: string[] };
+	{ match: 'all' } | { match: 'kind'; kind: AgentKind } | { match: 'handles'; handles: string[] };
 
 /**
  * A named opening, like a character greeting.

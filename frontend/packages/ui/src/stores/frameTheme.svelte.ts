@@ -1,4 +1,4 @@
-import { loadedFonts, rootVariables, type FrameFont } from '$lib/core/frameStyle.js';
+import { loadedFonts, rootVariables, type FrameFont } from '#lib/core/frameStyle.js';
 
 class FrameTheme {
 	css = $state('');

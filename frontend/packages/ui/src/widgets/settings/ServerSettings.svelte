@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { configStore } from '$lib/stores/serverConfig.svelte';
-	import type { ServerSection } from '$lib/navigation/routes.js';
+	import { configStore } from '#lib/stores/serverConfig.svelte.js';
+	import type { ServerSection } from '#lib/navigation/routes.js';
 	import ServerSettingsNav from './ServerSettingsNav.svelte';
 	import HostingSection from './sections/HostingSection.svelte';
 	import StorageSection from './sections/StorageSection.svelte';

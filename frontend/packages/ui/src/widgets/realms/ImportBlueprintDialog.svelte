@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { Download, X } from '@lucide/svelte';
-	import { blueprintStore } from '$lib/stores/blueprint.svelte.js';
-	import { showToast } from '$lib/stores/errorToast.svelte.js';
-	import type { BundlePreview } from '$lib/types/blueprint.js';
-	import { extractError } from '$lib/types/error.js';
-	import type { RealmResourceKind } from '$lib/types/realm.js';
+	import { blueprintStore } from '#lib/stores/blueprint.svelte.js';
+	import { showToast } from '#lib/stores/errorToast.svelte.js';
+	import type { BundlePreview } from '#lib/types/blueprint.js';
+	import { extractError } from '#lib/types/error.js';
+	import type { RealmResourceKind } from '#lib/types/realm.js';
 	import Badge from './Badge.svelte';
 	import { reload, RESOURCE_KINDS } from './resources.svelte.js';
-	import { navigator } from '$lib/navigation/navigator.js';
+	import { navigator } from '#lib/navigation/navigator.js';
 
 	let { file, onclose }: { file: File; onclose: () => void } = $props();
 

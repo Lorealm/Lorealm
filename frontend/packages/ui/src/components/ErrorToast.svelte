@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { dismissToast, toasts } from '$lib/stores/errorToast.svelte';
+	import { dismissToast, toasts } from '#lib/stores/errorToast.svelte.js';
 </script>
 
 <div class="toast-container" aria-live="polite" aria-atomic="true">

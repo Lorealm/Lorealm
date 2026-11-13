@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { useApi } from '$lib/api/client.js';
-	import { frameTheme } from '$lib/stores/frameTheme.svelte.js';
-	import { pluginCalls } from '$lib/stores/pluginCalls.svelte.js';
-	import { pluginEvents } from '$lib/stores/pluginEvents.svelte.js';
-	import type { JsonValue, Snowflake } from '$lib/types/core.js';
+	import { useApi } from '#lib/api/client.js';
+	import { frameTheme } from '#lib/stores/frameTheme.svelte.js';
+	import { pluginCalls } from '#lib/stores/pluginCalls.svelte.js';
+	import { pluginEvents } from '#lib/stores/pluginEvents.svelte.js';
+	import type { JsonValue, Snowflake } from '#lib/types/core.js';
 
 	let {
 		handle,

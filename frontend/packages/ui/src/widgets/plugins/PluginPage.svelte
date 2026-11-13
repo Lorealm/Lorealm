@@ -2,11 +2,11 @@
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { onMount } from 'svelte';
 	import { Check, RotateCw, Settings, Trash2 } from '@lucide/svelte';
-	import { useApi } from '$lib/api/client.js';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import { marketplaceStore } from '$lib/stores/marketplace.svelte.js';
-	import { pluginsStore } from '$lib/stores/plugins.svelte.js';
-	import { configStore } from '$lib/stores/serverConfig.svelte.js';
+	import { useApi } from '#lib/api/client.js';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import { marketplaceStore } from '#lib/stores/marketplace.svelte.js';
+	import { pluginsStore } from '#lib/stores/plugins.svelte.js';
+	import { configStore } from '#lib/stores/serverConfig.svelte.js';
 	import { canInstall, change, installListed } from './actions.svelte.js';
 	import PluginDetail from './PluginDetail.svelte';
 

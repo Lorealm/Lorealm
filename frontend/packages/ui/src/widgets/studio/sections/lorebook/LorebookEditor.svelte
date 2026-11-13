@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { onDestroy } from 'svelte';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
-	import type { Snowflake } from '$lib/types/core.js';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import { lorebookStore } from '#lib/stores/lorebook.svelte.js';
+	import type { Snowflake } from '#lib/types/core.js';
 	import EntryList from './entries/EntryList.svelte';
 	import EntryEditor from './entries/EntryEditor.svelte';
 	import LorebookConfigEditor from './config/LorebookConfigEditor.svelte';
-	import SaveIndicator from '$lib/components/SaveIndicator.svelte';
+	import SaveIndicator from '#lib/components/SaveIndicator.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 
 	const SAVE_MS = 500;

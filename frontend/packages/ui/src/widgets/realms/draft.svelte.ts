@@ -1,12 +1,12 @@
-import type { Snowflake } from '$lib/types/core.js';
-import type { AgentKind, Director, RealmResourceKind } from '$lib/types/realm.js';
+import type { Snowflake } from '#lib/types/core.js';
+import type { AgentKind, Director, RealmResourceKind } from '#lib/types/realm.js';
 import type {
 	InputSpec,
 	InputSpecType,
 	Outline,
 	OutlineAgent,
 	OutlineBinding
-} from '$lib/types/blueprint.js';
+} from '#lib/types/blueprint.js';
 import {
 	loopReaches,
 	parseGrant,

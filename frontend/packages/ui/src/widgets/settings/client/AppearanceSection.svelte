@@ -1,19 +1,19 @@
 <script lang="ts">
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
-	import { usePlatform } from '$lib/api/client.js';
-	import { BUILT_IN_STYLES, CLASSIC_NAME } from '$lib/assets/styles/builtin.js';
-	import NumberInput from '$lib/components/NumberInput.svelte';
-	import { fitImageForStorage } from '$lib/assets/scripts/image.js';
-	import { backdrop } from '$lib/stores/backdrop.svelte.js';
-	import TransportImage from '$lib/components/TransportImage.svelte';
-	import { showError, showToast } from '$lib/stores/errorToast.svelte.js';
+	import { usePlatform } from '#lib/api/client.js';
+	import { BUILT_IN_STYLES, CLASSIC_NAME } from '#lib/assets/styles/builtin.js';
+	import NumberInput from '#lib/components/NumberInput.svelte';
+	import { fitImageForStorage } from '#lib/assets/scripts/image.js';
+	import { backdrop } from '#lib/stores/backdrop.svelte.js';
+	import TransportImage from '#lib/components/TransportImage.svelte';
+	import { showError, showToast } from '#lib/stores/errorToast.svelte.js';
 	import {
 		parseStyle,
 		styleFile,
 		styleFilename,
 		styles,
 		tokenCatalogue
-	} from '$lib/stores/styles.svelte.js';
+	} from '#lib/stores/styles.svelte.js';
 	import { APPEARANCE_GROUPS, FONT_CHOICES, type TokenField } from './appearanceTokens.js';
 	import {
 		Download,

@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
-	import PopupMenu from '$lib/components/PopupMenu.svelte';
-	import TransportImage from '$lib/components/TransportImage.svelte';
-	import { blobUrl } from '$lib/api/blobs.js';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import type { CharacterSummary, ExportFormat, ExportProfileInfo } from '$lib/types/character.js';
+	import PopupMenu from '#lib/components/PopupMenu.svelte';
+	import TransportImage from '#lib/components/TransportImage.svelte';
+	import { blobUrl } from '#lib/api/blobs.js';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import type { CharacterSummary, ExportFormat, ExportProfileInfo } from '#lib/types/character.js';
 	import {
 		Copy,
 		Ellipsis,
@@ -15,12 +15,12 @@
 		Trash2,
 		Upload
 	} from '@lucide/svelte';
-	import { useApi, usePlatform } from '$lib/api/client.js';
-	import { showPopup } from '$lib/stores/popup.svelte.js';
-	import { relativeTime } from '$lib/assets/scripts/datetime.js';
-	import { characterStore } from '$lib/stores/character.svelte.js';
-	import { chatStore } from '$lib/stores/chat.svelte.js';
-	import { showApiError } from '$lib/stores/errorActions.js';
+	import { useApi, usePlatform } from '#lib/api/client.js';
+	import { showPopup } from '#lib/stores/popup.svelte.js';
+	import { relativeTime } from '#lib/assets/scripts/datetime.js';
+	import { characterStore } from '#lib/stores/character.svelte.js';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
+	import { showApiError } from '#lib/stores/errorActions.js';
 
 	let { summary }: { summary: CharacterSummary } = $props();
 	const relative = $derived(relativeTime(summary.updated_at) ?? '');

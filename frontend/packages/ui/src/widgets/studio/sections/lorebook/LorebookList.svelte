@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { lorebookStore } from '$lib/stores/lorebook.svelte.js';
-	import { navigator } from '$lib/navigation/navigator.js';
+	import { lorebookStore } from '#lib/stores/lorebook.svelte.js';
+	import { navigator } from '#lib/navigation/navigator.js';
 	import LorebookCard from './LorebookCard.svelte';
 	import StudioList from '../StudioList.svelte';
 

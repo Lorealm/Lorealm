@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { characterStore } from '$lib/stores/character.svelte.js';
+	import { characterStore } from '#lib/stores/character.svelte.js';
 	import { ArrowUpDown, Plus, Upload } from '@lucide/svelte';
 	import CharacterCard from './CharacterCard.svelte';
-	import { showToast } from '$lib/stores/errorToast.svelte.js';
-	import { memory, type CharacterSort } from '$lib/stores/memory.svelte.js';
-	import type { AttachmentReport, ImportedLorebook, ImportResult } from '$lib/types/character.js';
-	import { tooltip } from '$lib/stores/tooltip.svelte.js';
-	import { extractError } from '$lib/types/error.js';
-	import { navigator } from '$lib/navigation/navigator.js';
+	import { showToast } from '#lib/stores/errorToast.svelte.js';
+	import { memory, type CharacterSort } from '#lib/stores/memory.svelte.js';
+	import type { AttachmentReport, ImportedLorebook, ImportResult } from '#lib/types/character.js';
+	import { tooltip } from '#lib/stores/tooltip.svelte.js';
+	import { extractError } from '#lib/types/error.js';
+	import { navigator } from '#lib/navigation/navigator.js';
 
 	type SortableMeta = {
 		id: string;

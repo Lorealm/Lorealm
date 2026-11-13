@@ -1,6 +1,6 @@
 import { untrack } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
-import type { CommandSource } from '$lib/keys/types.js';
+import type { CommandSource } from '#lib/keys/types.js';
 import type { RegisteredSlashCommand, SlashCommand } from './types.js';
 
 class SlashCommandRegistry {

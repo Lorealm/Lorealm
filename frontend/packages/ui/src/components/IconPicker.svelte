@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '../stores/tooltip.svelte.ts';
-	import { iconFor, iconNames } from '$lib/assets/icons/catalogue.js';
+	import { iconFor, iconNames } from '#lib/assets/icons/catalogue.js';
 
 	let { icon, onpick }: { icon: string; onpick: (name: string) => void } = $props();
 

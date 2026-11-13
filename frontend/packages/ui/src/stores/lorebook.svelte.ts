@@ -1,6 +1,6 @@
-import { extractError, type ErrorCode, type ErrorDetails } from '$lib/types/error.js';
-import { useApi } from '$lib/api/client.js';
-import type { Snowflake } from '$lib/types/core.js';
+import { extractError, type ErrorCode, type ErrorDetails } from '#lib/types/error.js';
+import { useApi } from '#lib/api/client.js';
+import type { Snowflake } from '#lib/types/core.js';
 import type {
 	CreateLorebookRequest,
 	EntryMeta,
@@ -9,16 +9,16 @@ import type {
 	LorebookEntry,
 	LorebookMetadata,
 	UpdateLorebookRequest
-} from '$lib/types/lorebook.js';
+} from '#lib/types/lorebook.js';
 import {
 	parseConfig,
 	parseEntry,
 	serializeEntry,
 	type ParsedEntry
-} from '$lib/weaver/weaverFile.js';
-import type { EntryRef } from '$lib/weaver/editor/weaver-references.js';
+} from '#lib/weaver/weaverFile.js';
+import type { EntryRef } from '#lib/weaver/editor/weaver-references.js';
 import { settings } from './settings.svelte.js';
-import { navigator } from '$lib/navigation/navigator.js';
+import { navigator } from '#lib/navigation/navigator.js';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';

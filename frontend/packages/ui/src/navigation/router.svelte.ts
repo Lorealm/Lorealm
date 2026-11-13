@@ -1,4 +1,4 @@
-import { session } from '$lib/stores/session.svelte.js';
+import { session } from '#lib/stores/session.svelte.js';
 import { applyRoute } from './loader.svelte.js';
 import {
 	HOME,

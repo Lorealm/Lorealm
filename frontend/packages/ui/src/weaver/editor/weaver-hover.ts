@@ -4,12 +4,12 @@ import {
 	formatProcessorSignature,
 	paramDocs,
 	weaverVocabularyStore
-} from '$lib/stores/weaverVocabulary.svelte.js';
+} from '#lib/stores/weaverVocabulary.svelte.js';
 import { keywords } from './weaver-meta.js';
 import { activeConstruct, type Construct } from './weaver-context.js';
 import { infoDom, type ParamDoc } from './weaver-render.js';
 import { findVariable, knownVariables, type VariableRef } from './weaver-variables.js';
-import { messageStateStore } from '$lib/stores/messageState.svelte.js';
+import { messageStateStore } from '#lib/stores/messageState.svelte.js';
 
 /** The scope of a reference, when the hovered word is its name. */
 const SCOPE_BEFORE = /([A-Za-z_]\w*)\s*:\s*$/;

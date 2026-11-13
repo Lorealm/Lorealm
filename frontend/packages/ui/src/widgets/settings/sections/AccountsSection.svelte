@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Clock, Copy, LogOut, Pencil, Plus, Shield, Trash2, Users, X } from '@lucide/svelte';
-	import Badge from '$lib/widgets/realms/Badge.svelte';
-	import { tooltip } from '$lib/stores/tooltip.svelte';
-	import { useApi } from '$lib/api/client.js';
-	import { configStore } from '$lib/stores/serverConfig.svelte';
-	import NumberField from '$lib/components/NumberInput.svelte';
-	import type { Snowflake } from '$lib/types/core.js';
-	import type { AdminUser, Invite } from '$lib/types/user.js';
-	import { EVERYONE_ROLE_ID, Permission, type Role } from '$lib/types/permissions.js';
-	import { showToast } from '$lib/stores/errorToast.svelte.js';
+	import Badge from '#lib/widgets/realms/Badge.svelte';
+	import { tooltip } from '#lib/stores/tooltip.svelte.js';
+	import { useApi } from '#lib/api/client.js';
+	import { configStore } from '#lib/stores/serverConfig.svelte.js';
+	import NumberField from '#lib/components/NumberInput.svelte';
+	import type { Snowflake } from '#lib/types/core.js';
+	import type { AdminUser, Invite } from '#lib/types/user.js';
+	import { EVERYONE_ROLE_ID, Permission, type Role } from '#lib/types/permissions.js';
+	import { showToast } from '#lib/stores/errorToast.svelte.js';
 
 	const api = useApi();
 

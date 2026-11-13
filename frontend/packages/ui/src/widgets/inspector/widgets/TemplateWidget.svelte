@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
-	import { showError } from '$lib/stores/errorToast.svelte.js';
-	import { templateStore } from '$lib/stores/template.svelte.js';
-	import { templateWidgetView } from '$lib/stores/templateWidget.svelte.js';
-	import type { Snowflake } from '$lib/types/core.js';
-	import type { ContextNode, NodeContentGroup } from '$lib/types/node.js';
+	import { showError } from '#lib/stores/errorToast.svelte.js';
+	import { templateStore } from '#lib/stores/template.svelte.js';
+	import { templateWidgetView } from '#lib/stores/templateWidget.svelte.js';
+	import type { Snowflake } from '#lib/types/core.js';
+	import type { ContextNode, NodeContentGroup } from '#lib/types/node.js';
 	import { ChevronDown, CircleDot, Folder, LayoutGrid, ListTree, Plug } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';

@@ -1,5 +1,5 @@
-import type { ViewName } from '$lib/navigation/routes.js';
-import type { InspectorWidgetKey } from '$lib/widgets/inspector/registry.js';
+import type { ViewName } from '#lib/navigation/routes.js';
+import type { InspectorWidgetKey } from '#lib/widgets/inspector/registry.js';
 import { PersistedRecord } from './persisted.svelte.js';
 
 /**

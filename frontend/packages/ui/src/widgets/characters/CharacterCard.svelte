@@ -1,10 +1,10 @@
 <script lang="ts">
-	import TransportImage from '$lib/components/TransportImage.svelte';
-	import { blobUrl } from '$lib/api/blobs.js';
-	import { characterStore } from '$lib/stores/character.svelte.js';
-	import { chatStore } from '$lib/stores/chat.svelte.js';
-	import { navigator } from '$lib/navigation/navigator.js';
-	import type { CharacterSummary } from '$lib/types/character.js';
+	import TransportImage from '#lib/components/TransportImage.svelte';
+	import { blobUrl } from '#lib/api/blobs.js';
+	import { characterStore } from '#lib/stores/character.svelte.js';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
+	import { navigator } from '#lib/navigation/navigator.js';
+	import type { CharacterSummary } from '#lib/types/character.js';
 	import { MessageCircle, Pencil } from '@lucide/svelte';
 
 	let { summary }: { summary: CharacterSummary } = $props();
