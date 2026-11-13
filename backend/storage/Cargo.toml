@@ -6,23 +6,23 @@ license = "MIT"
 
 [dependencies]
 # Async runtime
-tokio = { version = "1", features = ["full"] }
-async-trait = "0.1"
+tokio = { workspace = true, features = ["full"] }
+async-trait = { workspace = true }
 
 # Serialization
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 # Error handling
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 
 # Logging
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 # Time
-chrono = { version = "0.4", features = ["serde"] }
+chrono = { workspace = true, features = ["serde"] }
 
 # Cryptography and validation
 sha2 = "0.11"
@@ -32,9 +32,9 @@ sqlx = { version = "0.8.6", features = ["postgres", "sqlite", "runtime-tokio-rus
 
 # Redis caching
 redis = { version = "1", features = ["tokio-comp", "connection-manager"], optional = true }
-serde_yaml = "0.9.34"
-bytes = "1.11.1"
-hex = "0.4.3"
+serde_yaml = { workspace = true }
+bytes = { workspace = true }
+hex = { workspace = true }
 
 [dev-dependencies]
 # Testing framework
@@ -46,10 +46,10 @@ mockall = "0.12"
 serial_test = "3"
 
 # Temporary directories for file testing
-tempfile = "3"
+tempfile = { workspace = true }
 
 # For async testing
-futures = "0.3"
+futures = { workspace = true }
 
 [features]
 default = ["postgres", "sqlite", "redis", "test-utils"]

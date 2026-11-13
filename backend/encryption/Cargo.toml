@@ -7,23 +7,23 @@ license = "MIT"
 [dependencies]
 aes-gcm = "0.10.3"
 argon2 = { version = "0.5.3", features = ["std"] }
-async-trait = "0.1.89"
+async-trait = { workspace = true }
 hkdf = "0.12.4"
 rand = "0.9"
-serde = { version = "1.0.228", features = ["derive"] }
+serde = { workspace = true }
 sha2 = "0.10.9"
 thiserror = { workspace = true }
 
 # Optional dependencies for additional features
-hex = { version = "0.4", optional = true }
+hex = { workspace = true, optional = true }
 zeroize = { version = "1.8.2", features = ["zeroize_derive"] }
 bincode = { version = "2.0.1", features = ["serde"] }
-base64 = "0.22.1"
+base64 = { workspace = true }
 hmac = "0.12.1"
 subtle = "2.6.1"
 
 [dev-dependencies]
-tokio = { version = "1.48", features = ["full"] }
+tokio = { workspace = true, features = ["full"] }
 
 [features]
 default = ["local"]

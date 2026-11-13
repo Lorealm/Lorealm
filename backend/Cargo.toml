@@ -9,6 +9,30 @@ thiserror = "1"
 anyhow = "1"
 reqwest = { version = "0.13.4", features = ["json", "native-tls", "stream"] }
 
+# Async
+tokio = "1.51.0"
+async-trait = "0.1.89"
+futures = "0.3"
+bytes = "1.11.1"
+
+# Serialization
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+serde_yaml = "0.9.34"
+toml = "1.1.6"
+schemars = "1.2.1"
+semver = { version = "1.0.28", features = ["serde"] }
+
+# Logging
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+
+# Misc
+chrono = "0.4.44"
+base64 = "0.22.1"
+hex = "0.4.3"
+tempfile = "3.27.0"
+
 # Optimized build speeds for Python plugins by ~6x. From ~12s to ~2s on a mid-high processor.
 [profile.dev.package.cranelift-codegen]
 opt-level = 3
