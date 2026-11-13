@@ -551,6 +551,7 @@ impl PluginService {
     }
 
     /// Calls the plugin's backend on behalf of its frontend.
+    #[allow(clippy::too_many_arguments)]
     pub async fn call_frontend(
         &self,
         user_id: Snowflake,

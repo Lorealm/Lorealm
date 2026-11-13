@@ -2,8 +2,8 @@ use crate::{
     EncryptedData, constants, decrypt_bytes, encrypt_bytes,
     traits::{EncryptionError, KeyManager},
 };
-use aes_gcm::aead::{OsRng, rand_core::RngCore};
 use async_trait::async_trait;
+use rand::{TryRng, rngs::SysRng};
 use std::collections::HashMap;
 use std::sync::Arc;
 use zeroize::Zeroizing;
@@ -52,10 +52,12 @@ impl LocalKeyManager {
     /// Useful for testing or initial setup.
     ///
     /// # Security
-    /// Uses OsRng for cryptographically secure random key generation.
+    /// Uses the OS random number generator. Panics if it is unavailable.
     pub fn new_random() -> Self {
         let mut master_key = vec![0u8; constants::MASTER_KEY_SIZE];
-        OsRng.fill_bytes(&mut master_key);
+        SysRng
+            .try_fill_bytes(&mut master_key)
+            .expect("OS random number generator is unavailable");
         Self::new(master_key).expect("generated key has the correct length")
     }
 

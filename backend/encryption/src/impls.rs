@@ -1,17 +1,15 @@
 use crate::constants;
 use crate::models::{EncryptedData, EncryptionContext};
 use crate::traits::{Encryptable, EncryptionError, Hashable, KeyManager};
-use aes_gcm::aead::rand_core::RngCore;
-use aes_gcm::aead::{OsRng, Payload};
-use aes_gcm::{Aes256Gcm, Key, KeyInit, Nonce, aead::Aead};
-use argon2::{
-    Argon2,
-    password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
-};
+use aes_gcm::aead::Payload;
+use aes_gcm::{Aes256Gcm, KeyInit, Nonce, aead::Aead};
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use async_trait::async_trait;
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
+use rand::{TryRng, rngs::SysRng};
 use sha2::Sha256;
+use std::fmt::Write;
 use subtle::ConstantTimeEq;
 use zeroize::Zeroizing;
 
@@ -20,11 +18,9 @@ use zeroize::Zeroizing;
 #[async_trait]
 impl Hashable for String {
     async fn hash(&self) -> Result<String, EncryptionError> {
-        let salt = SaltString::generate(OsRng);
-        let argon2 = Argon2::default();
-
-        let password_hash = argon2
-            .hash_password(self.as_bytes(), &salt)
+        // Generates a random salt from the OS RNG.
+        let password_hash = Argon2::default()
+            .hash_password(self.as_bytes())
             .map_err(|_| EncryptionError::HashingFailed)?;
 
         Ok(password_hash.to_string())
@@ -49,10 +45,17 @@ pub fn verify_password(password: &str, hash: &str) -> Result<bool, EncryptionErr
 }
 
 pub fn hash_session_token(token: &str, secret: &[u8]) -> Result<String, EncryptionError> {
-    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(secret)
+    let mut mac = <Hmac<Sha256> as KeyInit>::new_from_slice(secret)
         .map_err(|_| EncryptionError::HashingFailed)?;
     mac.update(token.as_bytes());
-    Ok(format!("{:x}", mac.finalize().into_bytes()))
+    Ok(mac
+        .finalize()
+        .into_bytes()
+        .iter()
+        .fold(String::with_capacity(64), |mut out, b| {
+            let _ = write!(out, "{b:02x}");
+            out
+        }))
 }
 
 pub fn verify_session_token(user_token: &str, server_token: &str) -> Result<bool, EncryptionError> {
@@ -79,18 +82,22 @@ pub async fn encrypt_bytes(
     // Random salt -> fresh DEK per encryption (HKDF), sidestepping GCM's
     // nonce-collision bound under a single long-lived key.
     let mut salt = vec![0u8; constants::SALT_SIZE];
-    OsRng.fill_bytes(&mut salt);
+    SysRng
+        .try_fill_bytes(&mut salt)
+        .map_err(|_| EncryptionError::EncryptionFailed)?;
 
     let hk = Hkdf::<Sha256>::new(Some(&salt), &master_key);
     let mut dek = Zeroizing::new([0u8; constants::DEK_SIZE]);
     hk.expand(&context.hkdf_info(version), &mut *dek)
         .map_err(|_| EncryptionError::KeyDerivationFailed)?;
 
-    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&*dek));
+    let cipher = Aes256Gcm::new_from_slice(&*dek).map_err(|_| EncryptionError::EncryptionFailed)?;
 
     let mut nonce_bytes = [0u8; constants::NONCE_SIZE];
-    OsRng.fill_bytes(&mut nonce_bytes);
-    let nonce = Nonce::from_slice(&nonce_bytes);
+    SysRng
+        .try_fill_bytes(&mut nonce_bytes)
+        .map_err(|_| EncryptionError::EncryptionFailed)?;
+    let nonce = &Nonce::from(nonce_bytes);
 
     // The binding rides as AAD: authenticated, not stored in the row,
     // must be re-supplied verbatim on decrypt.
@@ -151,8 +158,8 @@ pub async fn decrypt_bytes(
     hk.expand(&encrypted.context.hkdf_info(encrypted.version), &mut *dek)
         .map_err(|_| EncryptionError::KeyDerivationFailed)?;
 
-    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&*dek));
-    let nonce = Nonce::from_slice(&encrypted.nonce);
+    let cipher = Aes256Gcm::new_from_slice(&*dek).map_err(|_| EncryptionError::DecryptionFailed)?;
+    let nonce = &Nonce::from(encrypted.nonce);
 
     // Reassemble ciphertext || tag for the AEAD API.
     let mut combined = Vec::with_capacity(encrypted.ciphertext.len() + constants::TAG_SIZE);
@@ -217,7 +224,7 @@ impl Encryptable for String {
     }
 }
 
-/// Implementation for Vec<u8> to encrypt arbitrary binary data.
+/// Implementation for `Vec<u8>` to encrypt arbitrary binary data.
 #[async_trait]
 impl Encryptable for Vec<u8> {
     async fn encrypt(
@@ -409,5 +416,39 @@ mod tests {
             result.unwrap_err(),
             EncryptionError::InvalidHashFormat
         ));
+    }
+
+    #[tokio::test]
+    async fn stored_ciphertext_still_decrypts() {
+        let km = LocalKeyManager::new(vec![7u8; 32]).unwrap();
+        let hex = |s: &str| hex::decode(s).unwrap();
+        let encrypted = EncryptedData {
+            version: 1,
+            context: EncryptionContext::ApiKey,
+            salt: hex("f945fa1b14af8125033ea2b616caaf42957dd55916ca6736d992be8e3dc1f879"),
+            nonce: hex("da29fa6313827c884e0b0791").try_into().unwrap(),
+            ciphertext: hex("90fe5b88ba756dae5ee8fbda442ff7a4c7"),
+            tag: hex("214bd8480b2ffa528a4a79d915b42de7").try_into().unwrap(),
+        };
+
+        let plaintext = decrypt_bytes(&encrypted, &km, &42i64.to_be_bytes())
+            .await
+            .unwrap();
+        assert_eq!(plaintext.as_slice(), b"sk-legacy-api-key");
+    }
+
+    #[test]
+    fn stored_password_hash_still_verifies() {
+        let hash = "$argon2id$v=19$m=19456,t=2,p=1$2xrdCRh93QkvG+J6azce9A$Ar6lmnUngugCrFbJiArmwfQ4EUW8EoriUiPiiFBmKec";
+        assert!(verify_password("legacy-password", hash).unwrap());
+        assert!(!verify_password("wrong-password", hash).unwrap());
+    }
+
+    #[test]
+    fn session_token_hash_is_stable() {
+        assert_eq!(
+            hash_session_token("legacy-token", b"server-secret").unwrap(),
+            "246c239c5953e11525f2315e294038a58d1cf2ba5e9dec300be999bbdf6b1c40"
+        );
     }
 }

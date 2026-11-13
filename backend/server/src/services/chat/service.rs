@@ -85,6 +85,7 @@ pub struct ChatService {
 }
 
 impl ChatService {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         storage: Arc<dyn Storage>,
         snowflake: Arc<SnowflakeService>,
@@ -682,6 +683,7 @@ impl ChatService {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(super) async fn assemble_context(
         &self,
         spec: &AgentSpec,

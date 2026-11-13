@@ -231,9 +231,7 @@ impl DomainError for TemplateError {
                 "Node '{source_id}:{node_id}' is already used in this template."
             )),
             Self::InvalidParent(_) => "Nodes can only be nested inside a group.".into(),
-            Self::WouldCreateCircle => {
-                "That move would create a circular reference.".into()
-            }
+            Self::WouldCreateCircle => "That move would create a circular reference.".into(),
             Self::IndexOutOfBounds { index, len } => {
                 Cow::Owned(format!("Position {index} is out of range (max {len})."))
             }

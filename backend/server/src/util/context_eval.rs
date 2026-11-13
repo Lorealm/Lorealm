@@ -47,7 +47,7 @@ pub enum ContextSource {
     /// Example dialogue, which the character reads as style guidance rather
     /// than fact, and can therefore lose without becoming a different character
     CharacterExamples,
-    /// System prompts, Weaver [`effect`] injections and other things
+    /// System prompts, Weaver effect injections and other things
     /// that aren't otherwise listed
     ///
     /// weaver-effect: crate::services::commands::CommandEffect
@@ -243,7 +243,7 @@ impl CountResult {
 /// Note: This is applied *after* equivalent nodes in a [`ContextTemplate`],
 /// on the flattened trace they produced.
 ///
-/// [`ContextTemplate`]: crate::services::context::ContextTemplate
+/// [`ContextTemplate`]: crate::services::context_template::ContextTemplate
 pub struct ContextEvaluator {
     counter: Arc<dyn TokenCounter>,
     config: ContextEvalConfig,

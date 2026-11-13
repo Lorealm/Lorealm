@@ -36,7 +36,7 @@ pub struct Actor {
 #[derive(Clone, Default)]
 pub struct RealmVariables(Arc<ToolStatePool>);
 
-/// The namespaces [`RealmView`] owns. Reserved in every [`ToolContext`], with
+/// The namespaces a RealmView owns. Reserved in every [`ToolContext`], with
 /// or without a view behind them, the way `actor:` is.
 pub const REALM_SCOPES: [&str; 3] = ["cast", "turn", "scenario"];
 

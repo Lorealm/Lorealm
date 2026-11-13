@@ -82,7 +82,7 @@ pub enum ChatStreamEvent {
     Effect {
         effect: CommandEffect,
     },
-    /// A message was persisted through any means (agent turn, contiuation, $[sys], etc.)
+    /// A message was persisted through any means (agent turn, contiuation, `$[sys]`, etc.)
     Message {
         message: ConversationMessage,
     },

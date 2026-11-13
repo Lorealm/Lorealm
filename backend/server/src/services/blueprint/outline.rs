@@ -90,7 +90,7 @@ pub enum FilterBlock {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum CastEntry {
     Agent {
-        agent: AgentBlock,
+        agent: Box<AgentBlock>,
     },
     Foreach {
         var_name: String,
@@ -161,14 +161,16 @@ pub enum Binding {
 #[derive(Debug, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum OutlineResult {
-    Ok { outline: Outline },
+    Ok { outline: Box<Outline> },
     Refused { reason: OutlineRefusal },
 }
 
 impl From<Refused<Outline>> for OutlineResult {
     fn from(result: Refused<Outline>) -> Self {
         match result {
-            Ok(outline) => Self::Ok { outline },
+            Ok(outline) => Self::Ok {
+                outline: Box::new(outline),
+            },
             Err(reason) => Self::Refused { reason },
         }
     }
@@ -417,7 +419,7 @@ fn agents(expr: &ExprKind, span: Span, source: &str) -> Refused<Vec<CastEntry>> 
         .iter()
         .map(|item| match item {
             ArrayItem::Element(expr) => Ok(CastEntry::Agent {
-                agent: agent(&expr.node, expr.span, source)?,
+                agent: Box::new(agent(&expr.node, expr.span, source)?),
             }),
             ArrayItem::ForEach(loop_) => {
                 let body = loop_
