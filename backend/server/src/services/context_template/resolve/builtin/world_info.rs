@@ -150,10 +150,10 @@ impl ContextSource for WorldInfoResolver {
             })
             .collect();
 
-        if let Some(n) = max_entries {
-            if n > 0 {
-                entries.truncate(n); // 0 = unlimited
-            }
+        if let Some(n) = max_entries
+            && n > 0
+        {
+            entries.truncate(n); // 0 = unlimited
         }
 
         if entries.is_empty() {

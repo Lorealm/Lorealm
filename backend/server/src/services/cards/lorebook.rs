@@ -358,9 +358,8 @@ fn sanitize_body(content: &str) -> String {
 
     // Legacy angle-bracket macros predating {{user}}/{{char}}.
     let out = out.replace("<USER>", "{{user:name}}");
-    let out = out.replace("<BOT>", "{{char:name}}");
 
-    out
+    out.replace("<BOT>", "{{char:name}}")
 }
 
 fn unique_id(display_name: &str, index: usize, used: &mut HashSet<String>) -> String {

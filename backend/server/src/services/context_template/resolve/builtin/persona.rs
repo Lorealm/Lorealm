@@ -45,7 +45,7 @@ impl ContextSource for PersonaResolver {
                 if let Some(desc) = &persona.description {
                     text_block(
                         PromptRole::System,
-                        &desc,
+                        desc,
                         ContentRef::Persona(persona.clone()),
                     )
                 } else {
@@ -56,8 +56,7 @@ impl ContextSource for PersonaResolver {
                 return Err(ContextError::UnknownSourceNode {
                     source_id: "persona".into(),
                     node_id: other.into(),
-                }
-                .into());
+                });
             }
         };
 

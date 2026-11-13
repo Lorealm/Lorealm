@@ -81,7 +81,7 @@ pub async fn encrypt_bytes(
     let mut salt = vec![0u8; constants::SALT_SIZE];
     OsRng.fill_bytes(&mut salt);
 
-    let hk = Hkdf::<Sha256>::new(Some(&salt), &*master_key);
+    let hk = Hkdf::<Sha256>::new(Some(&salt), &master_key);
     let mut dek = Zeroizing::new([0u8; constants::DEK_SIZE]);
     hk.expand(&context.hkdf_info(version), &mut *dek)
         .map_err(|_| EncryptionError::KeyDerivationFailed)?;
@@ -146,7 +146,7 @@ pub async fn decrypt_bytes(
         .get_master_key_version(encrypted.version)
         .await?;
 
-    let hk = Hkdf::<Sha256>::new(Some(&encrypted.salt), &*master_key);
+    let hk = Hkdf::<Sha256>::new(Some(&encrypted.salt), &master_key);
     let mut dek = Zeroizing::new([0u8; constants::DEK_SIZE]);
     hk.expand(&encrypted.context.hkdf_info(encrypted.version), &mut *dek)
         .map_err(|_| EncryptionError::KeyDerivationFailed)?;

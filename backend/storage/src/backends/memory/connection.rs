@@ -92,18 +92,18 @@ impl ConnectionStorage for MemoryStorage {
             .filter(|p| p.user_id == user_id)
             .cloned()
             .collect();
-        profiles.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+        profiles.sort_by_key(|x| std::cmp::Reverse(x.updated_at));
         Ok(profiles)
     }
 
     async fn save_profile(&self, profile: &ConnectionProfile) -> Result<(), StorageError> {
         // Mirror the foreign key: a referenced secret must exist.
-        if let Some(secret_id) = profile.secret_id {
-            if !self.secrets.read().await.contains_key(&secret_id) {
-                return Err(StorageError::InvalidInput(format!(
-                    "secret {secret_id} does not exist"
-                )));
-            }
+        if let Some(secret_id) = profile.secret_id
+            && !self.secrets.read().await.contains_key(&secret_id)
+        {
+            return Err(StorageError::InvalidInput(format!(
+                "secret {secret_id} does not exist"
+            )));
         }
 
         let mut profiles = self.connection_profiles.write().await;
@@ -141,7 +141,7 @@ impl ConnectionStorage for MemoryStorage {
             .filter(|p| p.secret_id == Some(secret_id))
             .map(|p| (p.id, p.updated_at))
             .collect();
-        refs.sort_by(|a, b| b.1.cmp(&a.1));
+        refs.sort_by_key(|x| std::cmp::Reverse(x.1));
         Ok(refs.into_iter().map(|(id, _)| id).collect())
     }
 

@@ -33,10 +33,10 @@ pub async fn get_full_config(
     perms: ResolvedPermissions,
 ) -> impl IntoResponse {
     let mut all = state.config().get_all();
-    if perms.require(Permissions::MANAGE_SERVER).is_err() {
-        if let Some(storage) = all.get_mut("storage") {
-            redact_storage(storage);
-        }
+    if perms.require(Permissions::MANAGE_SERVER).is_err()
+        && let Some(storage) = all.get_mut("storage")
+    {
+        redact_storage(storage);
     }
     Json(all)
 }

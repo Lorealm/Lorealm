@@ -457,59 +457,59 @@ fn validate_common_params(value: &serde_json::Value) -> Result<serde_json::Value
     let typed: CommonParamsInput = serde_json::from_value(value.clone())
         .map_err(|e| ConnectionError::Validation(format!("invalid common params: {e}")))?;
 
-    if let Some(t) = typed.temperature {
-        if !(0.0..=2.0).contains(&t) {
-            return Err(ConnectionError::Validation(
-                "temperature must be between 0 and 2".into(),
-            ));
-        }
+    if let Some(t) = typed.temperature
+        && !(0.0..=2.0).contains(&t)
+    {
+        return Err(ConnectionError::Validation(
+            "temperature must be between 0 and 2".into(),
+        ));
     }
-    if let Some(p) = typed.top_p {
-        if !(0.0..=1.0).contains(&p) {
-            return Err(ConnectionError::Validation(
-                "top_p must be between 0 and 1".into(),
-            ));
-        }
+    if let Some(p) = typed.top_p
+        && !(0.0..=1.0).contains(&p)
+    {
+        return Err(ConnectionError::Validation(
+            "top_p must be between 0 and 1".into(),
+        ));
     }
-    if let Some(p) = typed.min_p {
-        if !(0.0..=1.0).contains(&p) {
-            return Err(ConnectionError::Validation(
-                "min_p must be between 0 and 1".into(),
-            ));
-        }
+    if let Some(p) = typed.min_p
+        && !(0.0..=1.0).contains(&p)
+    {
+        return Err(ConnectionError::Validation(
+            "min_p must be between 0 and 1".into(),
+        ));
     }
-    if let Some(p) = typed.frequency_penalty {
-        if !(-2.0..=2.0).contains(&p) {
-            return Err(ConnectionError::Validation(
-                "frequency_penalty must be between -2 and 2".into(),
-            ));
-        }
+    if let Some(p) = typed.frequency_penalty
+        && !(-2.0..=2.0).contains(&p)
+    {
+        return Err(ConnectionError::Validation(
+            "frequency_penalty must be between -2 and 2".into(),
+        ));
     }
-    if let Some(p) = typed.presence_penalty {
-        if !(-2.0..=2.0).contains(&p) {
-            return Err(ConnectionError::Validation(
-                "presence_penalty must be between -2 and 2".into(),
-            ));
-        }
+    if let Some(p) = typed.presence_penalty
+        && !(-2.0..=2.0).contains(&p)
+    {
+        return Err(ConnectionError::Validation(
+            "presence_penalty must be between -2 and 2".into(),
+        ));
     }
-    if let Some(p) = typed.repetition_penalty {
-        if p <= 0.0 || p > 2.0 {
-            return Err(ConnectionError::Validation(
-                "repetition_penalty must be greater than 0 and at most 2".into(),
-            ));
-        }
+    if let Some(p) = typed.repetition_penalty
+        && (p <= 0.0 || p > 2.0)
+    {
+        return Err(ConnectionError::Validation(
+            "repetition_penalty must be greater than 0 and at most 2".into(),
+        ));
     }
     if typed.max_tokens == Some(0) {
         return Err(ConnectionError::Validation(
             "max_tokens must be greater than 0".into(),
         ));
     }
-    if let Some(stop) = &typed.stop {
-        if stop.iter().any(|s| s.is_empty()) {
-            return Err(ConnectionError::Validation(
-                "stop sequences must not be empty strings".into(),
-            ));
-        }
+    if let Some(stop) = &typed.stop
+        && stop.iter().any(|s| s.is_empty())
+    {
+        return Err(ConnectionError::Validation(
+            "stop sequences must not be empty strings".into(),
+        ));
     }
 
     Ok(serde_json::to_value(&typed).expect("DTO serialization cannot fail"))

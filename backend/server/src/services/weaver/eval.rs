@@ -138,12 +138,12 @@ pub struct Outcome {
     /// What the body evaluated to.
     pub value: WeaverValue,
     /// The pool as the body left it.
-    pub pool: StatePool,
+    pub _pool: StatePool,
     /// What the body changed, against the pool it started from.
     pub delta: StateDelta,
     pub effects: Vec<CommandEffect>,
     pub events: Vec<EmittedEvent>,
-    pub widgets: Vec<WidgetInstance>,
+    pub _widgets: Vec<WidgetInstance>,
 }
 
 impl Outcome {

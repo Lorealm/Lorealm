@@ -106,7 +106,7 @@ async fn lorebook(e: &Env, owner: Snowflake, name: &str, body: &str) -> Snowflak
             CreateLorebook {
                 name: name.into(),
                 description: Some(format!("About {name}")),
-                preset: None,
+                _preset: None,
             },
         )
         .await

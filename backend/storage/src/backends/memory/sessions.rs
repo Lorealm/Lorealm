@@ -60,7 +60,7 @@ impl SessionStorage for MemoryStorage {
             .filter(|s| s.user_id == user_id && s.revoked_at.is_none() && s.expires_at > now)
             .cloned()
             .collect();
-        live.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        live.sort_by_key(|x| std::cmp::Reverse(x.created_at));
 
         Ok(live)
     }

@@ -99,14 +99,14 @@ pub(super) struct ToggleNodeResponse {
     pub delta: HashMap<Snowflake, bool>,
 }
 
-impl Into<CreateNode> for CreateNodeRequest {
-    fn into(self) -> CreateNode {
+impl From<CreateNodeRequest> for CreateNode {
+    fn from(val: CreateNodeRequest) -> Self {
         CreateNode {
-            title: self.title,
-            description: self.description,
-            content: self.content,
-            parent_path: self.parent_path,
-            index: self.index,
+            title: val.title,
+            description: val.description,
+            content: val.content,
+            parent_path: val.parent_path,
+            index: val.index,
         }
     }
 }

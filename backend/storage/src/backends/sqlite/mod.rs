@@ -47,12 +47,11 @@ impl SqliteStorage {
     ) -> Result<Self, StorageError> {
         let path = path.as_ref();
 
-        if auto_create {
-            if let Some(parent) = path.parent() {
-                if !parent.as_os_str().is_empty() {
-                    tokio::fs::create_dir_all(parent).await?;
-                }
-            }
+        if auto_create
+            && let Some(parent) = path.parent()
+            && !parent.as_os_str().is_empty()
+        {
+            tokio::fs::create_dir_all(parent).await?;
         }
 
         let options = SqliteConnectOptions::new()

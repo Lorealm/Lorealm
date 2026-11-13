@@ -534,7 +534,7 @@ async fn a_plugin_command_reads_and_writes_state() {
     let signature = host.registry().command_signature("hello.tally").unwrap();
     assert!(signature.mutates_context);
     assert_eq!(outcome.to_output_string(), "42");
-    assert_eq!(outcome.pool["tally"]["n"], serde_json::json!(42));
+    assert_eq!(outcome._pool["tally"]["n"], serde_json::json!(42));
 }
 
 #[tokio::test(flavor = "multi_thread")]

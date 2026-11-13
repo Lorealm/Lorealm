@@ -220,7 +220,7 @@ pub async fn put_avatar(
         kind.mime_type(),
         "image/png" | "image/jpeg" | "image/webp" | "image/gif"
     ) {
-        return Err(AuthError::UnsupportedAvatarType)?;
+        Err(AuthError::UnsupportedAvatarType)?;
     }
 
     let avatar_uri = state

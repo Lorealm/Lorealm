@@ -111,7 +111,7 @@ pub async fn put_avatar(
         kind.mime_type(),
         "image/png" | "image/jpeg" | "image/webp" | "image/gif"
     ) {
-        return Err(PersonaError::UnsupportedMediaType)?;
+        Err(PersonaError::UnsupportedMediaType)?;
     }
 
     let avatar_uri = state

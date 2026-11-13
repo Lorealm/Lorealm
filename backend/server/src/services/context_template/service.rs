@@ -53,7 +53,7 @@ impl TemplateService {
             .await?
             .ok_or(ContextError::NotFound(ContextType::Template, template_id))?;
 
-        Ok(ContextTemplate::from_db(template)?)
+        ContextTemplate::from_db(template)
     }
 
     pub async fn create_template(
@@ -240,13 +240,13 @@ impl TemplateService {
                     parent_path,
                 )))?;
 
-            if let super::NodeContent::Group { children, mode, .. } = &mut parent_node.content {
-                if *mode == GroupMode::Invariant {
-                    for child in children.iter_mut() {
-                        if child.id != node_id {
-                            child.enabled = false;
-                            changes.insert(child.id, false);
-                        }
+            if let super::NodeContent::Group { children, mode, .. } = &mut parent_node.content
+                && *mode == GroupMode::Invariant
+            {
+                for child in children.iter_mut() {
+                    if child.id != node_id {
+                        child.enabled = false;
+                        changes.insert(child.id, false);
                     }
                 }
             }

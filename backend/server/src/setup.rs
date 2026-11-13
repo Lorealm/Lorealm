@@ -29,7 +29,7 @@ pub async fn run_storage_setup(state: &Arc<AppState>) -> anyhow::Result<()> {
     ];
     let backend = match Select::with_theme(&theme)
         .with_prompt("How would you like to configure this server?")
-        .items(&backends)
+        .items(backends)
         .default(0)
         .interact()?
     {
@@ -226,7 +226,7 @@ pub async fn run_setup(state: Arc<AppState>) -> anyhow::Result<()> {
     let cfg_storage = state.config().get::<StorageConfig>();
     state.init_storage(cfg_storage).await?;
 
-    if curr_version == &cfg_host.last_setup_version.unwrap() {
+    if curr_version == cfg_host.last_setup_version.unwrap() {
         return Ok(());
     }
 

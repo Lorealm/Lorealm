@@ -226,10 +226,9 @@ impl AppError {
             details: Some(details),
             ..
         } = self
+            && let Ok(value) = serde_json::to_value(details)
         {
-            if let Ok(value) = serde_json::to_value(details) {
-                body["details"] = value;
-            }
+            body["details"] = value;
         }
 
         body

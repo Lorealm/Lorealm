@@ -70,7 +70,6 @@ pub(super) fn to_wire_messages(messages: &[Message]) -> Vec<WireMessage> {
         }
         // A single text block serializes as a plain string for maximum
         // compatibility; anything else uses the multi-part array form.
-        let mut parts = parts;
         let content = if parts.is_empty() {
             None
         } else if parts.len() == 1 {
@@ -219,18 +218,17 @@ pub(super) fn to_response(response: ChatResponse) -> Result<Response> {
         .message
         .reasoning
         .or(choice.message.reasoning_content)
+        && !text.is_empty()
     {
-        if !text.is_empty() {
-            content.push(ContentBlock::Thinking {
-                text,
-                signature: None,
-            });
-        }
+        content.push(ContentBlock::Thinking {
+            text,
+            signature: None,
+        });
     }
-    if let Some(text) = choice.message.content {
-        if !text.is_empty() {
-            content.push(ContentBlock::Text { text });
-        }
+    if let Some(text) = choice.message.content
+        && !text.is_empty()
+    {
+        content.push(ContentBlock::Text { text });
     }
     for call in choice.message.tool_calls.unwrap_or_default() {
         let input = if call.function.arguments.is_empty() {

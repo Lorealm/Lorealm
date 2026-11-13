@@ -115,7 +115,7 @@ impl LorebookStorage for MemoryStorage {
                 created_at: v.created_at,
             })
             .collect();
-        out.sort_by(|a, b| b.version_num.cmp(&a.version_num));
+        out.sort_by_key(|x| std::cmp::Reverse(x.version_num));
         Ok(out)
     }
 

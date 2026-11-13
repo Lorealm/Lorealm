@@ -202,7 +202,7 @@ pub async fn batch_count(
     Ok(Json(BatchTokenizeResponse {
         tokenizer_id,
         counts,
-        total_tokens: total_tokens,
+        total_tokens,
     }))
 }
 

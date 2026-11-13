@@ -9,7 +9,7 @@ use crate::services::{
 pub struct PrivacyStage;
 
 impl Stage for PrivacyStage {
-    fn id(&self) -> &str {
+    fn _id(&self) -> &str {
         "privacy"
     }
 

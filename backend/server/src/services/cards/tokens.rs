@@ -67,19 +67,19 @@ pub enum Token<'a> {
     /// Any other `{{…}}` expression: variables, processors, documents.
     Expression {
         source: &'a str,
-        expr: ExprKind,
+        _expr: ExprKind,
     },
     Command {
         source: &'a str,
-        call: CommandCall,
+        _call: CommandCall,
     },
     If {
         source: &'a str,
-        block: IfBlock,
+        _block: IfBlock,
     },
     ForEach {
         source: &'a str,
-        block: ForEachBlock,
+        _block: ForEachBlock,
     },
     Break {
         source: &'a str,
@@ -89,7 +89,7 @@ pub enum Token<'a> {
     },
     Return {
         source: &'a str,
-        value: Option<Expr>,
+        _value: Option<Expr>,
     },
     Stop {
         source: &'a str,
@@ -157,31 +157,31 @@ pub fn weaver_tokens(source: &str) -> Vec<Token<'_>> {
                     },
                     None => Token::Expression {
                         source: slice,
-                        expr: ExprKind::Variable(var),
+                        _expr: ExprKind::Variable(var),
                     },
                 }
             }
             NodeKind::Expression(expr) => Token::Expression {
                 source: slice,
-                expr,
+                _expr: expr,
             },
             NodeKind::Command(call) => Token::Command {
                 source: slice,
-                call,
+                _call: call,
             },
             NodeKind::IfBlock(block) => Token::If {
                 source: slice,
-                block,
+                _block: block,
             },
             NodeKind::ForEach(block) => Token::ForEach {
                 source: slice,
-                block,
+                _block: block,
             },
             NodeKind::Break => Token::Break { source: slice },
             NodeKind::Continue => Token::Continue { source: slice },
             NodeKind::Return(value) => Token::Return {
                 source: slice,
-                value,
+                _value: value,
             },
             NodeKind::Stop => Token::Stop { source: slice },
         });

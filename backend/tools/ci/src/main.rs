@@ -1,5 +1,5 @@
 //! Run CI locally on your computer.
-//! 
+//!
 //! Adapted from [Bevy](https://github.com/bevyengine/bevy) (MIT).
 
 mod args;

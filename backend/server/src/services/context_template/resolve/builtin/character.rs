@@ -176,7 +176,7 @@ impl ContextSource for CharacterResolver {
                     .get("max_examples")
                     .and_then(|v| v.as_u64())
                     .map(|n| n as usize);
-                resolve_examples(&character, max)
+                resolve_examples(character, max)
             }
 
             "injection" => {
@@ -204,8 +204,7 @@ impl ContextSource for CharacterResolver {
                 return Err(ContextError::UnknownSourceNode {
                     source_id: "character".into(),
                     node_id: other.into(),
-                }
-                .into());
+                });
             }
         };
 

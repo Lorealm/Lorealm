@@ -162,10 +162,10 @@ pub async fn session_auth_middleware(
     let mut response = next.run(request).await;
 
     // Attach the token as a header for clients that need Bearer tokens
-    if let Some(token) = bearer_rotation {
-        if let Ok(value) = token.parse() {
-            response.headers_mut().insert("X-New-Session-Token", value);
-        }
+    if let Some(token) = bearer_rotation
+        && let Ok(value) = token.parse()
+    {
+        response.headers_mut().insert("X-New-Session-Token", value);
     }
 
     Ok(response)

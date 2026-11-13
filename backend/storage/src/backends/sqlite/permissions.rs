@@ -16,7 +16,7 @@ impl PermissionStorage for SqliteStorage {
         .bind(input.id)
         .bind(&input.name)
         .bind(input.permissions)
-        .bind(&input.position)
+        .bind(input.position)
         .fetch_one(&self.pool)
         .await?;
 

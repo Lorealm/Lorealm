@@ -673,28 +673,28 @@ impl Location {
             .path_segments()
             .map(|s| s.filter(|s| !s.is_empty()).collect())
             .unwrap_or_default();
-        if url.host_str() == Some("github.com") {
-            if let [owner, name, rest @ ..] = segments.as_slice() {
-                let name = name.strip_suffix(".git").unwrap_or(name);
-                let repo = format!("{owner}/{name}");
-                match rest {
-                    [] | ["releases"] | ["releases", "latest"] => {
-                        return Location::GitHub { repo, tag: None };
-                    }
-                    ["releases", "tag", tag] => {
-                        return Location::GitHub {
-                            repo,
-                            tag: Some((*tag).to_owned()),
-                        };
-                    }
-                    ["tree", rev @ ..] if !rev.is_empty() => {
-                        return Location::Git {
-                            url: format!("https://github.com/{repo}"),
-                            rev: Some(rev.join("/")),
-                        };
-                    }
-                    _ => {}
+        if url.host_str() == Some("github.com")
+            && let [owner, name, rest @ ..] = segments.as_slice()
+        {
+            let name = name.strip_suffix(".git").unwrap_or(name);
+            let repo = format!("{owner}/{name}");
+            match rest {
+                [] | ["releases"] | ["releases", "latest"] => {
+                    return Location::GitHub { repo, tag: None };
                 }
+                ["releases", "tag", tag] => {
+                    return Location::GitHub {
+                        repo,
+                        tag: Some((*tag).to_owned()),
+                    };
+                }
+                ["tree", rev @ ..] if !rev.is_empty() => {
+                    return Location::Git {
+                        url: format!("https://github.com/{repo}"),
+                        rev: Some(rev.join("/")),
+                    };
+                }
+                _ => {}
             }
         }
         Location::Git {

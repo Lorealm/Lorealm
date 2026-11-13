@@ -54,7 +54,7 @@ impl TemplateStorage for MemoryStorage {
             .filter(|t| t.owner_id == owner_id)
             .map(template_to_metadata)
             .collect();
-        out.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+        out.sort_by_key(|x| std::cmp::Reverse(x.updated_at));
         Ok(out)
     }
 

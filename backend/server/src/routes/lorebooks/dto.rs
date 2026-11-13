@@ -41,22 +41,22 @@ pub struct SetActiveLorebooksRequest {
     pub ids: Vec<Snowflake>,
 }
 
-impl Into<CreateLorebook> for CreateLorebookRequest {
-    fn into(self) -> CreateLorebook {
+impl From<CreateLorebookRequest> for CreateLorebook {
+    fn from(val: CreateLorebookRequest) -> Self {
         CreateLorebook {
-            name: self.name.clone(),
-            description: self.description.clone(),
-            preset: None,
+            name: val.name.clone(),
+            description: val.description.clone(),
+            _preset: None,
         }
     }
 }
 
-impl Into<UpdateLorebook> for UpdateLorebookRequest {
-    fn into(self) -> UpdateLorebook {
+impl From<UpdateLorebookRequest> for UpdateLorebook {
+    fn from(val: UpdateLorebookRequest) -> Self {
         UpdateLorebook {
-            name: self.name,
-            description: self.description,
-            config: self.config,
+            name: val.name,
+            description: val.description,
+            config: val.config,
         }
     }
 }

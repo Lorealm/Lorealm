@@ -393,10 +393,10 @@ impl ContextTemplate {
                 if node.id == target {
                     return true;
                 }
-                if let NodeContent::Group { children, .. } = &node.content {
-                    if search(children, target, path) {
-                        return true;
-                    }
+                if let NodeContent::Group { children, .. } = &node.content
+                    && search(children, target, path)
+                {
+                    return true;
                 }
                 path.pop();
             }
@@ -428,17 +428,15 @@ impl ContextTemplate {
 
         for (i, &index) in path.iter().enumerate() {
             node = current_list.get(index);
-            match node {
-                Some(n) => {
-                    if i < path.len() - 1 {
-                        if let NodeContent::Group { children, .. } = &n.content {
-                            current_list = children;
-                        } else {
-                            return None;
-                        }
+            {
+                let n = node?;
+                if i < path.len() - 1 {
+                    if let NodeContent::Group { children, .. } = &n.content {
+                        current_list = children;
+                    } else {
+                        return None;
                     }
                 }
-                None => return None,
             }
         }
 
@@ -480,13 +478,12 @@ impl ContextTemplate {
         if let NodeContent::Source {
             source_id, node_id, ..
         } = &node.content
+            && self.is_source_node_used(source_id, node_id)
         {
-            if self.is_source_node_used(source_id, node_id) {
-                return Err(TemplateError::DuplicateSourceNode {
-                    source_id: source_id.clone(),
-                    node_id: node_id.clone(),
-                });
-            }
+            return Err(TemplateError::DuplicateSourceNode {
+                source_id: source_id.clone(),
+                node_id: node_id.clone(),
+            });
         }
 
         let target_list = match parent_path {
@@ -494,7 +491,7 @@ impl ContextTemplate {
             Some(path) => {
                 let parent = self
                     .get_node_mut(path)
-                    .ok_or_else(|| TemplateError::NodeNotFound(Snowflake(-1)))?;
+                    .ok_or(TemplateError::NodeNotFound(Snowflake(-1)))?;
 
                 if let NodeContent::Group { children, mode, .. } = &mut parent.content {
                     // An invariant group allows only one active child.
@@ -568,7 +565,7 @@ impl ContextTemplate {
             Some(path) => {
                 let parent_node = self
                     .get_node(path)
-                    .ok_or_else(|| TemplateError::NodeNotFound(Snowflake(-1)))?;
+                    .ok_or(TemplateError::NodeNotFound(Snowflake(-1)))?;
 
                 // Check for circular reference
                 if self.is_ancestor_of(node_id, parent_node.id) {
@@ -614,10 +611,10 @@ impl ContextTemplate {
                     // Found the potential ancestor, now check if target is a descendant
                     return contains_node(node, target_id);
                 }
-                if let NodeContent::Group { children, .. } = &node.content {
-                    if check_children(children, ancestor_id, target_id) {
-                        return true;
-                    }
+                if let NodeContent::Group { children, .. } = &node.content
+                    && check_children(children, ancestor_id, target_id)
+                {
+                    return true;
                 }
             }
             false
@@ -650,20 +647,19 @@ impl ContextTemplate {
         content: Option<NodeContent>,
     ) -> Result<(), TemplateError> {
         // If updating to a source node, validate it's not already used
-        if let Some(ref c) = content {
-            if let NodeContent::Source {
+        if let Some(ref c) = content
+            && let NodeContent::Source {
                 source_id,
                 node_id: nid,
                 ..
             } = c
-            {
-                // Check if this source node is used by a *different* node
-                if self.is_source_node_used_by_other(source_id, nid, node_id) {
-                    return Err(TemplateError::DuplicateSourceNode {
-                        source_id: source_id.clone(),
-                        node_id: nid.clone(),
-                    });
-                }
+        {
+            // Check if this source node is used by a *different* node
+            if self.is_source_node_used_by_other(source_id, nid, node_id) {
+                return Err(TemplateError::DuplicateSourceNode {
+                    source_id: source_id.clone(),
+                    node_id: nid.clone(),
+                });
             }
         }
 
@@ -691,14 +687,12 @@ impl ContextTemplate {
             };
 
             // Find the first non-disabled child node then disable the intersection
-            if perform_disable {
-                if let NodeContent::Group { children, .. } = &mut c {
-                    let first_active_idx = children.iter().position(|child| child.enabled);
+            if perform_disable && let NodeContent::Group { children, .. } = &mut c {
+                let first_active_idx = children.iter().position(|child| child.enabled);
 
-                    for (i, child) in children.iter_mut().enumerate() {
-                        if Some(i) != first_active_idx {
-                            child.enabled = false;
-                        }
+                for (i, child) in children.iter_mut().enumerate() {
+                    if Some(i) != first_active_idx {
+                        child.enabled = false;
                     }
                 }
             }
@@ -736,10 +730,8 @@ impl ContextTemplate {
                             return true;
                         }
                     }
-                    NodeContent::Group { children, .. } => {
-                        if search(children, source_id, node_id) {
-                            return true;
-                        }
+                    NodeContent::Group { children, .. } if search(children, source_id, node_id) => {
+                        return true;
                     }
                     _ => {}
                 }
@@ -777,10 +769,10 @@ impl ContextTemplate {
                             return true;
                         }
                     }
-                    NodeContent::Group { children, .. } => {
-                        if search(children, source_id, node_id, exclude_id) {
-                            return true;
-                        }
+                    NodeContent::Group { children, .. }
+                        if search(children, source_id, node_id, exclude_id) =>
+                    {
+                        return true;
                     }
                     _ => {}
                 }
@@ -789,38 +781,6 @@ impl ContextTemplate {
         }
 
         search(&self.nodes, source_id, node_id, exclude_node_id)
-    }
-
-    /// Check if a source node exists in the *active* tree, i.e. the node itself
-    /// is enabled and every group above it is enabled too.
-    pub fn is_source_node_active(&self, source_id: &str, node_id: &str) -> bool {
-        fn search(nodes: &[ContextNode], source_id: &str, node_id: &str) -> bool {
-            for node in nodes {
-                if !node.enabled {
-                    continue;
-                }
-                match &node.content {
-                    NodeContent::Source {
-                        source_id: sid,
-                        node_id: nid,
-                        ..
-                    } => {
-                        if sid == source_id && nid == node_id {
-                            return true;
-                        }
-                    }
-                    NodeContent::Group { children, .. } => {
-                        if search(children, source_id, node_id) {
-                            return true;
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            false
-        }
-
-        search(&self.nodes, source_id, node_id)
     }
 
     /// Mark the template as updated

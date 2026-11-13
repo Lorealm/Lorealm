@@ -33,7 +33,7 @@ impl ConversationStorage for MemoryStorage {
             })
             .collect();
 
-        result.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+        result.sort_by_key(|x| std::cmp::Reverse(x.updated_at));
         Ok(result)
     }
 
@@ -290,13 +290,12 @@ impl ConversationStorage for MemoryStorage {
         }
 
         let mut conversations = self.conversations.write().await;
-        if let Some(conv) = conversations.get_mut(&conversation_id) {
-            if conv
+        if let Some(conv) = conversations.get_mut(&conversation_id)
+            && conv
                 .active_leaf_id
                 .is_some_and(|leaf| deleted.contains(&leaf))
-            {
-                conv.active_leaf_id = None;
-            }
+        {
+            conv.active_leaf_id = None;
         }
 
         Ok(true)

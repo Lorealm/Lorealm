@@ -40,7 +40,7 @@ impl RealmStorage for MemoryStorage {
                 updated_at: s.updated_at,
             })
             .collect();
-        summaries.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+        summaries.sort_by_key(|x| std::cmp::Reverse(x.updated_at));
 
         Ok(summaries)
     }
@@ -149,7 +149,7 @@ impl RealmStorage for MemoryStorage {
                 created_at: v.created_at,
             })
             .collect();
-        out.sort_by(|a, b| b.version_num.cmp(&a.version_num));
+        out.sort_by_key(|x| std::cmp::Reverse(x.version_num));
         Ok(out)
     }
 

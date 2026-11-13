@@ -57,7 +57,7 @@ async fn get_character(
         .load_version(character_id, version_id, session.user_id)
         .await?;
 
-    return Ok(Json(char));
+    Ok(Json(char))
 }
 
 pub async fn create_character(
@@ -289,7 +289,7 @@ pub async fn put_image(
         kind.mime_type(),
         "image/png" | "image/jpeg" | "image/webp" | "image/gif"
     ) {
-        return Err(CharacterError::UnsupportedMediaType)?;
+        Err(CharacterError::UnsupportedMediaType)?;
     }
 
     let avatar_uri = state
@@ -319,7 +319,7 @@ pub async fn import_card_blob(
             kind.mime_type(),
             "image/png" | "image/jpeg" | "image/webp" | "image/gif"
         ) {
-            return Err(CharacterError::UnsupportedMediaType)?;
+            Err(CharacterError::UnsupportedMediaType)?;
         }
     }
 
@@ -391,7 +391,7 @@ pub async fn import_card_multipart(
             .await
         {
             Ok(card) => results.push(ImportResult::ok(card)),
-            Err(e) => results.push(ImportResult::failed(&e.to_string())),
+            Err(e) => results.push(ImportResult::failed(e.to_string())),
         }
     }
 

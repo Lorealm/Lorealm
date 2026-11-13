@@ -21,7 +21,7 @@ fn tokenizer_ttl() -> i64 {
 }
 
 fn default_tokenizers() -> Vec<String> {
-    vec![
+    [
         "hf:google/gemma-4-12B",
         "hf:deepseek-ai/DeepSeek-V4-Pro",
         "hf:zai-org/GLM-5.2",

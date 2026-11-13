@@ -38,7 +38,7 @@ impl Replace {
                 self.prev
             };
             let right = self.pending[j..].chars().next(); // F
-            if left.map_or(true, |c| !is_word(c)) && right.map_or(true, |c| !is_word(c)) {
+            if left.is_none_or(|c| !is_word(c)) && right.is_none_or(|c| !is_word(c)) {
                 out.push_str(&self.to);
             } else {
                 out.push_str(&self.pending[i..j]);

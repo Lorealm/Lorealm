@@ -736,7 +736,7 @@ impl ChatService {
             let ctx = ResolveContext {
                 character: character.as_ref(),
                 conversation,
-                messages: &thread,
+                messages: thread,
                 persona: persona.as_ref(),
                 user_id: spec.owner,
                 state: baseline,

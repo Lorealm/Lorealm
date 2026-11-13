@@ -8,6 +8,7 @@ pub enum EditMode {
     InPlace,
     /// Leave the original untouched; create a new sibling with the new content
     /// and make it the active leaf..
+    #[allow(dead_code)]
     Branch,
 }
 

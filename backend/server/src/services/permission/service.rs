@@ -93,7 +93,7 @@ impl PermissionService {
             .get_user_roles(user_id)
             .await?
             .iter()
-            .map(|r| Role::from(r))
+            .map(Role::from)
             .collect())
     }
 
@@ -117,10 +117,10 @@ impl PermissionService {
         let roles = self.get_user_roles(user_id).await?;
         let held = self.resolve(user_id).await?.effective();
         let mut top = roles.iter().map(|r| r.position).max().unwrap_or(0).max(0);
-        if held.contains(Permissions::ADMINISTRATOR) {
-            if let Some(admin) = self.storage.get_role(ADMINISTRATOR_ROLE_ID).await? {
-                top = top.max(admin.position);
-            }
+        if held.contains(Permissions::ADMINISTRATOR)
+            && let Some(admin) = self.storage.get_role(ADMINISTRATOR_ROLE_ID).await?
+        {
+            top = top.max(admin.position);
         }
         Ok(Actor { held, top })
     }

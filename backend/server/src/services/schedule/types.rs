@@ -9,7 +9,7 @@ pub struct StageCx {
 /// One bidirectional stage. The outbound half runs once, may mutate the
 /// outgoing prompt, and returns the inbound half carrying any captured state.
 pub trait Stage: Send + Sync {
-    fn id(&self) -> &str;
+    fn _id(&self) -> &str;
     fn outbound(&self, prompt: &mut Vec<PromptMessage>, cx: &StageCx) -> Box<dyn ResponseFilter>;
 }
 

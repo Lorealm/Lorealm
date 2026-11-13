@@ -134,7 +134,7 @@ impl ConnectionStorage for PostgresStorage {
         .bind(&profile.name)
         .bind(&profile.provider)
         .bind(&profile.model)
-        .bind(&profile.token_budget)
+        .bind(profile.token_budget)
         .bind(&profile.common_params)
         .bind(&profile.provider_params)
         .execute(&self.pool)

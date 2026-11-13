@@ -107,10 +107,10 @@ impl UserService {
             return Err(AuthError::UsernameTaken(username));
         }
 
-        if let Some(email) = &email {
-            if let Ok(Some(_)) = self.storage.get_user_by_email(email).await {
-                return Err(AuthError::EmailTaken(email.clone()));
-            }
+        if let Some(email) = &email
+            && let Ok(Some(_)) = self.storage.get_user_by_email(email).await
+        {
+            return Err(AuthError::EmailTaken(email.clone()));
         }
 
         let pw_hash = password.hash().await?;
@@ -118,7 +118,7 @@ impl UserService {
         let create_user = CreateUser {
             id: self.snowflake.generate(),
             username: username.clone(),
-            email: email,
+            email,
             password_hash: pw_hash,
         };
 
@@ -132,7 +132,7 @@ impl UserService {
         if let Ok(Some(user)) = self.storage.get_user_by_id(user_id).await {
             return Ok(user);
         }
-        return Err(AuthError::UserNotFound);
+        Err(AuthError::UserNotFound)
     }
 
     /// Rename a user. A blank name clears it.
@@ -146,10 +146,10 @@ impl UserService {
             (!trimmed.is_empty()).then(|| trimmed.to_string())
         });
 
-        if let Some(name) = &display_name {
-            if name.chars().count() > MAX_DISPLAY_NAME_CHARS {
-                return Err(AuthError::DisplayNameTooLong);
-            }
+        if let Some(name) = &display_name
+            && name.chars().count() > MAX_DISPLAY_NAME_CHARS
+        {
+            return Err(AuthError::DisplayNameTooLong);
         }
 
         let update = UpdateUser {

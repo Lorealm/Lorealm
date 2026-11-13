@@ -10,7 +10,8 @@ pub enum CreationPreset {
 pub struct CreateLorebook {
     pub name: String,
     pub description: Option<String>,
-    pub preset: Option<CreationPreset>,
+    #[serde(rename = "preset")]
+    pub _preset: Option<CreationPreset>,
 }
 
 #[derive(Deserialize)]
