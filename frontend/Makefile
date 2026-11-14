@@ -1,4 +1,4 @@
-.PHONY: install clean reset dev-web dev-desktop dev-desktop-nvidia build-web build-desktop build-ui build-all check lint format docker-build docker-up docker-down docker-logs help
+.PHONY: install clean reset dev-web dev-desktop dev-desktop-nvidia build-web build-desktop build-ui build-all check lint format help
 
 # ─── Setup ───────────────────────────────────────────────────────────
 
@@ -58,24 +58,6 @@ lint: ## Run linters
 
 format: ## Format code
 	cd packages/ui && bun run format
-
-# ─── Docker ──────────────────────────────────────────────────────────
-
-docker-build: ## Build Docker image(s)
-	@echo "TODO: docker build"
-	# docker build -t lorealm -f apps/web/Dockerfile .
-
-docker-up: ## Start Docker containers
-	@echo "TODO: docker compose up"
-	# docker compose up -d
-
-docker-down: ## Stop Docker containers
-	@echo "TODO: docker compose down"
-	# docker compose down
-
-docker-logs: ## Tail Docker container logs
-	@echo "TODO: docker compose logs"
-	# docker compose logs -f
 
 # ─── Help ────────────────────────────────────────────────────────────
 
