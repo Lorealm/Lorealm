@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { navigator } from '#lib/navigation/navigator.js';
 	import PopupMenu from '#lib/components/PopupMenu.svelte';
@@ -54,46 +55,45 @@
 	<header class="head">
 		<h3 class="name" {@attach tooltip(meta.name)}>{meta.name}</h3>
 		{#if active}
-			<span class="pill">Active</span>
+			<span class="pill">{t.studio.lorebooks.active}</span>
 		{/if}
 	</header>
 
 	<p class="description" class:none={!meta.description}>
-		{meta.description || 'No description'}
+		{meta.description || t.studio.lorebooks.noDescription}
 	</p>
 
 	<div class="meta">
-		<span class="stat" {@attach tooltip('Entries in this lorebook')}>
+		<span class="stat" {@attach tooltip(t.studio.lorebooks.entriesHint)}>
 			<BookOpen size={13} />
-			{meta.entry_count}
-			{meta.entry_count === 1 ? 'entry' : 'entries'}
+			{t.studio.lorebooks.entries(meta.entry_count)}
 		</span>
 	</div>
 
 	{#if confirmingDelete}
 		<div class="controls confirm">
-			<span class="confirmText">Delete this lorebook?</span>
-			<button type="button" class="danger" onclick={remove}>Delete</button>
-			<button type="button" onclick={() => (confirmingDelete = false)}>Cancel</button>
+			<span class="confirmText">{t.studio.lorebooks.confirmDelete}</span>
+			<button type="button" class="danger" onclick={remove}>{t.common.delete}</button>
+			<button type="button" onclick={() => (confirmingDelete = false)}>{t.common.cancel}</button>
 		</div>
 	{:else}
 		<div class="controls">
 			<button type="button" class="toggle" class:on={active} disabled={busy} onclick={toggleActive}>
 				<Check size={14} />
-				{active ? 'Deactivate' : 'Activate'}
+				{active ? t.studio.lorebooks.deactivate : t.studio.lorebooks.activate}
 			</button>
 			<button type="button" onclick={() => navigator.start().studio().lorebooks(meta.id)}>
 				<Pencil size={14} />
-				Edit
+				{t.common.edit}
 			</button>
-			<PopupMenu title="Export" placement="down" items={exportItems}>
+			<PopupMenu title={t.studio.lorebooks.export} placement="down" items={exportItems}>
 				{#snippet icon()}<Upload size={14} />{/snippet}
 			</PopupMenu>
 			<button
 				type="button"
 				class="del"
-				{@attach tooltip('Delete lorebook')}
-				aria-label={`Delete ${meta.name}`}
+				{@attach tooltip(t.studio.lorebooks.delete)}
+				aria-label={t.studio.lorebooks.deleteNamed(meta.name)}
 				disabled={busy}
 				onclick={() => (confirmingDelete = true)}
 			>

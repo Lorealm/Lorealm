@@ -6,6 +6,7 @@ import type {
 	UpdateUserWidgetRequest,
 	UserWidget
 } from '#lib/types/widgets.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 /** The user's static display widgets (see [`UserWidget`]). */
 class UserWidgetStore {
@@ -19,7 +20,7 @@ class UserWidgetStore {
 		try {
 			this.loadedWidgets = await this.#api.userWidgets.list();
 		} catch (e) {
-			showError(e instanceof Error ? e.message : String(e), { title: 'Failed to load widgets' });
+			showError(e instanceof Error ? e.message : String(e), { title: t.errors.failed.loadWidgets });
 		}
 	}
 
@@ -30,7 +31,7 @@ class UserWidgetStore {
 		try {
 			this.builtinWidgets = await this.#api.userWidgets.builtins();
 		} catch (e) {
-			showError(e instanceof Error ? e.message : String(e), { title: 'Failed to load widgets' });
+			showError(e instanceof Error ? e.message : String(e), { title: t.errors.failed.loadWidgets });
 		}
 	}
 
@@ -44,7 +45,9 @@ class UserWidgetStore {
 			this.loadedWidgets = [...(this.loadedWidgets ?? []), widget];
 			return widget;
 		} catch (e) {
-			showError(e instanceof Error ? e.message : String(e), { title: 'Failed to create widget' });
+			showError(e instanceof Error ? e.message : String(e), {
+				title: t.errors.failed.createWidget
+			});
 			return null;
 		}
 	}
@@ -55,7 +58,7 @@ class UserWidgetStore {
 			this.loadedWidgets = (this.loadedWidgets ?? []).map((w) => (w.id === id ? saved : w));
 			return true;
 		} catch (e) {
-			showError(e instanceof Error ? e.message : String(e), { title: 'Failed to save widget' });
+			showError(e instanceof Error ? e.message : String(e), { title: t.errors.failed.saveWidget });
 			return false;
 		}
 	}
@@ -69,7 +72,9 @@ class UserWidgetStore {
 			await this.#api.userWidgets.toggle(id, enabled);
 		} catch (e) {
 			widget.enabled = previous;
-			showError(e instanceof Error ? e.message : String(e), { title: 'Failed to toggle widget' });
+			showError(e instanceof Error ? e.message : String(e), {
+				title: t.errors.failed.toggleWidget
+			});
 		}
 	}
 
@@ -78,7 +83,9 @@ class UserWidgetStore {
 			await this.#api.userWidgets.delete(id);
 			this.loadedWidgets = (this.loadedWidgets ?? []).filter((w) => w.id !== id);
 		} catch (e) {
-			showError(e instanceof Error ? e.message : String(e), { title: 'Failed to delete widget' });
+			showError(e instanceof Error ? e.message : String(e), {
+				title: t.errors.failed.deleteWidget
+			});
 		}
 	}
 }

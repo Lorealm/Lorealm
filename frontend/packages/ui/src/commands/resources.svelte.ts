@@ -2,6 +2,7 @@ import { SvelteMap } from 'svelte/reactivity';
 import { useApi } from '#lib/api/client.js';
 import type { Snowflake } from '#lib/types/core.js';
 import type { PickableResource } from '#lib/types/tools.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 /** One thing a resource-typed argument could name. */
 export interface ResourceOption {
@@ -22,7 +23,9 @@ export interface ResourceLoader {
 /** What each kind is called in the picker, and how to list it. */
 const KINDS: Record<PickableResource, ResourceLoader> = {
 	character: {
-		label: 'Character',
+		get label() {
+			return t.commands.resources.character;
+		},
 		load: async () =>
 			(await useApi().characters.list()).map((c) => ({
 				id: c.id,
@@ -31,7 +34,9 @@ const KINDS: Record<PickableResource, ResourceLoader> = {
 			}))
 	},
 	persona: {
-		label: 'Persona',
+		get label() {
+			return t.commands.resources.persona;
+		},
 		load: async () =>
 			(await useApi().personas.list()).map((p) => ({
 				id: p.id,
@@ -40,7 +45,9 @@ const KINDS: Record<PickableResource, ResourceLoader> = {
 			}))
 	},
 	connection_profile: {
-		label: 'Connection profile',
+		get label() {
+			return t.commands.resources.connection_profile;
+		},
 		load: async () =>
 			(await useApi().connection.profiles.list()).map((p) => ({
 				id: p.id,
@@ -49,19 +56,27 @@ const KINDS: Record<PickableResource, ResourceLoader> = {
 			}))
 	},
 	context_template: {
-		label: 'Context template',
+		get label() {
+			return t.commands.resources.context_template;
+		},
 		load: async () => (await useApi().templates.list()).map((t) => ({ id: t.id, name: t.name }))
 	},
 	lorebook: {
-		label: 'Lorebook',
+		get label() {
+			return t.commands.resources.lorebook;
+		},
 		load: async () => (await useApi().lorebooks.list()).map((l) => ({ id: l.id, name: l.name }))
 	},
 	tokenizer: {
-		label: 'Tokenizer',
+		get label() {
+			return t.commands.resources.tokenizer;
+		},
 		load: async () => (await useApi().tokenizers.list()).map((t) => ({ id: t.id, name: t.name }))
 	},
 	user_tool: {
-		label: 'Tool',
+		get label() {
+			return t.commands.resources.user_tool;
+		},
 		load: async () =>
 			(await useApi().tools.list()).map((t) => ({
 				id: t.id,
@@ -70,11 +85,15 @@ const KINDS: Record<PickableResource, ResourceLoader> = {
 			}))
 	},
 	user_widget: {
-		label: 'Widget',
+		get label() {
+			return t.commands.resources.user_widget;
+		},
 		load: async () => (await useApi().userWidgets.list()).map((w) => ({ id: w.id, name: w.name }))
 	},
 	realm: {
-		label: 'Realm',
+		get label() {
+			return t.commands.resources.realm;
+		},
 		load: async () => (await useApi().realms.list()).map((r) => ({ id: r.id, name: r.name }))
 	}
 };

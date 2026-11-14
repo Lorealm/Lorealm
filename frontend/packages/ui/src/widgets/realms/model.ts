@@ -1,15 +1,12 @@
 import type { Snowflake } from '#lib/types/core.js';
 import type { AgentAccess, AgentKind, RealmResourceKind } from '#lib/types/realm.js';
+import { localized, t } from '#lib/stores/i18n.svelte.js';
 
 /** The fields a `Ref<..>` projects.
  *
  * VOLATILE: Mirrors `projection()` in `project.rs`. Could change without notice. */
 export const PROJECTED_FIELDS = ['id', 'name', 'description', 'slug'] as const;
 
-/**
- * What sits in a resource-shaped field. Either the author picked something
- * concrete, or it reads off a loop variable, or off a singular entity input.
- */
 export type Binding =
 	| { source: 'resource'; kind: RealmResourceKind; id: Snowflake; name: string }
 	| { source: 'loop'; varName: string; path: string[] }
@@ -20,7 +17,6 @@ export interface InputDecl {
 	name: string;
 	ty: InputType;
 	defaultValue: string | null;
-	/** What the author says it is for. Written as `//` lines above the declaration. */
 	doc: string;
 }
 
@@ -99,10 +95,6 @@ export interface AgentBlock {
 	run_condition: string;
 }
 
-/**
- * One entry in the cast. A `foreach` emits its body once per element of the
- * input it walks, which is the whole of what makes a blueprint a blueprint.
- */
 export type CastEntry =
 	| { readonly key: string; kind: 'agent'; agent: AgentBlock }
 	| {
@@ -182,14 +174,11 @@ export function declaredText(ty: InputType): string {
 }
 
 export function browseText(ty: InputType): string {
-	if (ty.type === 'object') return 'Custom Object';
+	if (ty.type === 'object') return t.realms.customObject;
 	if (ty.type === 'list') return `[${browseText(ty.of)}]`;
 	return declaredText(ty);
 }
 
-/**
- * Every reference inside a type, and the field path that reaches it.
- */
 export function referencePaths(
 	ty: InputType,
 	prefix: string[] = []
@@ -207,7 +196,6 @@ export function referencePaths(
 	}
 }
 
-/** The name a `Ref<..>` writes for each kind. Mirrors `RealmResourceKind::ref_name`. */
 export const REF_NAME: Record<RealmResourceKind, string> = {
 	character: 'Character',
 	lorebook: 'Lorebook',
@@ -220,27 +208,9 @@ export const REF_NAME: Record<RealmResourceKind, string> = {
 };
 
 /** `REF_NAME` is the notation's spelling; this is what a person calls it. */
-export const TYPE_NAME: Record<RealmResourceKind, string> = {
-	character: 'Character',
-	lorebook: 'Lorebook',
-	template: 'Context Template',
-	persona: 'Persona',
-	tool: 'Tool',
-	connection_profile: 'Connection',
-	widget: 'Widget',
-	module: 'Module'
-};
+export const TYPE_NAME: Record<RealmResourceKind, string> = localized((m) => m.realms.typeNames);
 
-export const KIND_LABEL: Record<RealmResourceKind, string> = {
-	character: 'Characters',
-	lorebook: 'Lorebooks',
-	template: 'Templates',
-	tool: 'Tools',
-	persona: 'Personas',
-	connection_profile: 'Connections',
-	widget: 'Widgets',
-	module: 'Modules'
-};
+export const KIND_LABEL: Record<RealmResourceKind, string> = localized((m) => m.realms.kindsPlural);
 
 export function isList(ty: InputType): boolean {
 	return ty.type === 'list';

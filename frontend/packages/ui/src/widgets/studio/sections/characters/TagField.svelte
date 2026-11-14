@@ -1,8 +1,9 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	let {
 		items,
 		label,
-		placeholder = 'Add…',
+		placeholder,
 		onchange
 	}: {
 		items: string[];
@@ -42,12 +43,21 @@
 		{#each items as item, i (item)}
 			<span class="chip">
 				{item}
-				<button type="button" class="chip-x" aria-label={`Remove ${item}`} onclick={() => remove(i)}
-					>×</button
+				<button
+					type="button"
+					class="chip-x"
+					aria-label={t.studio.tagField.remove(item)}
+					onclick={() => remove(i)}>×</button
 				>
 			</span>
 		{/each}
-		<input class="chip-input" {placeholder} bind:value={entry} onkeydown={onKeydown} onblur={add} />
+		<input
+			class="chip-input"
+			placeholder={placeholder ?? t.studio.tagField.add}
+			bind:value={entry}
+			onkeydown={onKeydown}
+			onblur={add}
+		/>
 	</div>
 </div>
 

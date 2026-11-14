@@ -1,0 +1,60 @@
+/** Names of views and sections, used in the nav bar, breadcrumbs and menus. */
+export const nav = {
+	views: {
+		write: 'Write',
+		characters: 'Characters',
+		realms: 'Realms',
+		connections: 'Connections',
+		studio: 'Studio',
+		plugins: 'Plugins',
+		settings: 'Settings'
+	},
+	studio: {
+		realm: 'Realm',
+		characters: 'Characters',
+		lorebooks: 'Lorebooks',
+		templates: 'Templates',
+		tools: 'Tools',
+		modules: 'Modules',
+		personas: 'Personas',
+		widgets: 'Widgets'
+	},
+	scopes: {
+		user: 'You',
+		server: 'Server'
+	},
+	user: {
+		profile: 'Profile',
+		tokenizers: 'Tokenizers',
+		plugins: 'Plugins',
+		appearance: 'Appearance',
+		editor: 'Editor',
+		inspector: 'Inspector',
+		keybinds: 'Keybinds'
+	},
+	server: {
+		hosting: 'Hosting',
+		storage: 'Storage',
+		sessions: 'Sessions',
+		users: 'Users',
+		accounts: 'Accounts',
+		roles: 'Roles',
+		characters: 'Characters',
+		tokenizers: 'Tokenizers',
+		tasks: 'Tasks'
+	},
+	blueprints: 'Blueprints',
+	marketplace: 'Marketplace',
+	apiKeys: 'API keys',
+	closeMenu: 'Close menu',
+	expandMenu: 'Expand menu',
+	collapseMenu: 'Collapse menu',
+	openMenu: 'Open menu',
+	back: 'Back',
+	forward: 'Forward',
+	breadcrumb: 'Breadcrumb',
+	openInspector: 'Open inspector',
+	loadFailed: 'Something failed to load.',
+	retry: 'Retry',
+	rolesPlaceholder: 'Roles view'
+} as const;

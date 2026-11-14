@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { chatStore } from '#lib/stores/chat.svelte.js';
 	import { Eye, Pause, Play, Square, StepForward, User } from '@lucide/svelte';
@@ -13,15 +14,15 @@
 <div class="bar">
 	<span class="status">
 		{#if streaming}
-			Running turn…
+			{t.chat.turns.running}
 		{:else if awaiting}
-			Your turn as <strong>{awaiting.name}</strong>
+			{t.chat.turns.yourTurnAs} <strong>{awaiting.name}</strong>
 		{:else if empty}
-			Nothing has happened yet — run the first turn.
+			{t.chat.turns.emptyRunFirst}
 		{:else if nextAgent}
-			Next to act: <strong>{nextAgent.name}</strong>
+			{t.chat.turns.nextToAct} <strong>{nextAgent.name}</strong>
 		{:else}
-			Nobody can act right now.
+			{t.chat.turns.nobody}
 		{/if}
 	</span>
 
@@ -30,14 +31,12 @@
 			<button
 				type="button"
 				onclick={() => (chatStore.directorView = !chatStore.directorView)}
-				{@attach tooltip(
-					chatStore.directorView ? 'Seeing every turn' : 'Seeing only what your agent perceives'
-				)}
+				{@attach tooltip(chatStore.directorView ? t.chat.turns.seeingAll : t.chat.turns.seeingOwn)}
 			>
 				{#if chatStore.directorView}
-					<Eye size={14} /> Director
+					<Eye size={14} /> {t.chat.turns.director}
 				{:else}
-					<User size={14} /> Player
+					<User size={14} /> {t.chat.turns.player}
 				{/if}
 			</button>
 		{/if}
@@ -46,35 +45,39 @@
 				<button
 					type="button"
 					onclick={() => chatStore.pause()}
-					{@attach tooltip('Finish this turn, then stop')}
+					{@attach tooltip(t.chat.turns.pauseHint)}
 				>
-					<Pause size={14} /> Pause
+					<Pause size={14} />
+					{t.chat.turns.pause}
 				</button>
 			{/if}
 			<button
 				type="button"
 				onclick={() => chatStore.cancelStream()}
-				{@attach tooltip('Cancel this turn')}
+				{@attach tooltip(t.chat.turns.cancelHint)}
 			>
-				<Square size={14} /> Stop
+				<Square size={14} />
+				{t.chat.turns.stop}
 			</button>
 		{:else}
 			<button
 				type="button"
 				disabled={awaiting != null}
 				onclick={() => chatStore.step()}
-				{@attach tooltip('Run a single turn')}
+				{@attach tooltip(t.chat.turns.stepHint)}
 			>
-				<StepForward size={14} /> Step
+				<StepForward size={14} />
+				{t.chat.turns.step}
 			</button>
 			<button
 				type="button"
 				class="primary"
 				disabled={awaiting != null}
 				onclick={() => chatStore.play()}
-				{@attach tooltip("Run turns until it's your turn")}
+				{@attach tooltip(t.chat.turns.runHint)}
 			>
-				<Play size={14} /> Run
+				<Play size={14} />
+				{t.chat.turns.run}
 			</button>
 		{/if}
 	</div>

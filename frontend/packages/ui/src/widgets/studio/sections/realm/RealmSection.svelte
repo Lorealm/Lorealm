@@ -1,5 +1,6 @@
 <script>
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import Placeholder from '#lib/widgets/Placeholder.svelte';
 </script>
 
-<Placeholder label="Realm" />
+<Placeholder label={t.studio.sections.realm} />

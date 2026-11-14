@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { onMount } from 'svelte';
 	import { Check, FolderInput, Settings, Trash2 } from '@lucide/svelte';
@@ -52,7 +53,7 @@
 			const report = file
 				? await api.plugins.upload(file)
 				: await api.plugins.install(location.trim(), dev);
-			buildLog = report.log || `Installed ${report.handle}@${report.version}.`;
+			buildLog = report.log || t.plugins.installedReport(report.handle, report.version);
 		});
 		installing = false;
 	}
@@ -67,7 +68,7 @@
 {#snippet manualImport()}
 	<button type="button" class="outline" onclick={() => (panelOpen = !panelOpen)}>
 		<FolderInput size={14} />
-		Add from a link or file
+		{t.plugins.addManually}
 	</button>
 {/snippet}
 
@@ -80,7 +81,7 @@
 {#if panelOpen}
 	<div class="panel">
 		<label class="field">
-			<span class="label">Link or folder on the server</span>
+			<span class="label">{t.plugins.location}</span>
 			<input
 				type="text"
 				bind:value={location}
@@ -88,19 +89,18 @@
 				placeholder="https://github.com/owner/name"
 			/>
 			<span class="hint">
-				A GitHub repository or release, a link to a .zip, a git repository, or a folder holding a
-				manifest.toml.
+				{t.plugins.locationHint}
 			</span>
 		</label>
 		<label class="check">
 			<input type="checkbox" bind:checked={dev} disabled={file !== null} />
 			<span>
-				For development
-				<span class="hint">Rebuild and reload it from its folder whenever you change it.</span>
+				{t.plugins.dev}
+				<span class="hint">{t.plugins.devHint}</span>
 			</span>
 		</label>
 		<label class="field">
-			<span class="label">Or upload a .zip</span>
+			<span class="label">{t.plugins.upload}</span>
 			<input
 				bind:this={fileEl}
 				type="file"
@@ -112,9 +112,11 @@
 		{#if buildLog}<pre class="log">{buildLog}</pre>{/if}
 
 		<div class="panelActions">
-			<button type="button" class="ghost" onclick={closePanel} disabled={installing}>Close</button>
+			<button type="button" class="ghost" onclick={closePanel} disabled={installing}
+				>{t.common.close}</button
+			>
 			<button type="button" class="primary" onclick={install} disabled={!ready || installing}>
-				{installing ? 'Installing…' : 'Install'}
+				{installing ? t.plugins.installing : t.plugins.install}
 			</button>
 		</div>
 	</div>
@@ -123,12 +125,12 @@
 {#if error}<p class="error">{error}</p>{/if}
 
 {#if !pluginsStore.loaded}
-	<div class="empty">Loading…</div>
+	<div class="empty">{t.plugins.loading}</div>
 {:else if pluginsStore.plugins.length === 0}
 	<div class="empty">
-		<span>No plugins are installed yet.</span>
+		<span>{t.plugins.noneInstalled}</span>
 		<button type="button" class="outline" onclick={() => navigator.start().marketplace()}>
-			Browse the marketplace
+			{t.plugins.browse}
 		</button>
 		{@render manualImport()}
 	</div>
@@ -149,7 +151,7 @@
 							class="outline"
 							onclick={() => act(() => installListed(plugin.handle))}
 						>
-							Update to {listed}
+							{t.plugins.updateTo(listed)}
 						</button>
 					{:else if local}
 						<button
@@ -157,7 +159,7 @@
 							class="outline"
 							onclick={() => act(() => api.plugins.update(plugin.handle))}
 						>
-							Update to {local}
+							{t.plugins.updateTo(local)}
 						</button>
 					{/if}
 					<button
@@ -166,14 +168,15 @@
 						class:on={plugin.enabled}
 						onclick={() => act(() => api.plugins.toggle(plugin.handle, !plugin.enabled))}
 					>
-						{#if plugin.enabled}<Check size={14} /> Enabled{:else}Enable{/if}
+						{#if plugin.enabled}<Check size={14} /> {t.plugins.enabled}{:else}{t.plugins
+								.enable}{/if}
 					</button>
 					{#if plugin.has_settings}
 						<button
 							type="button"
 							class="outline"
-							aria-label="{plugin.name} settings"
-							{@attach tooltip('Settings')}
+							aria-label={t.plugins.settingsNamed(plugin.name)}
+							{@attach tooltip(t.plugins.settings)}
 							onclick={() => navigator.start().settings().user().plugins(plugin.handle)}
 						>
 							<Settings size={14} />
@@ -183,8 +186,8 @@
 						<button
 							type="button"
 							class="icon"
-							aria-label="Remove {plugin.name} for everyone"
-							{@attach tooltip('Remove for everyone')}
+							aria-label={t.plugins.removeNamed(plugin.name)}
+							{@attach tooltip(t.plugins.remove)}
 							onclick={() => act(() => api.plugins.uninstall(plugin.handle))}
 						>
 							<Trash2 size={16} />

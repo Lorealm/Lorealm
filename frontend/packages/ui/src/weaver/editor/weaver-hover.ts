@@ -10,6 +10,7 @@ import { activeConstruct, type Construct } from './weaver-context.js';
 import { infoDom, type ParamDoc } from './weaver-render.js';
 import { findVariable, knownVariables, type VariableRef } from './weaver-variables.js';
 import { messageStateStore } from '#lib/stores/messageState.svelte.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 /** The scope of a reference, when the hovered word is its name. */
 const SCOPE_BEFORE = /([A-Za-z_]\w*)\s*:\s*$/;
@@ -49,10 +50,7 @@ function referenceEntry(
 	const reference = scope ? `${scope}:${name}` : name;
 	const known = findVariable(refs, scope ?? '', name);
 	const preview = scope ? messageStateStore.previewVariable(reference) : undefined;
-	const live =
-		preview !== undefined
-			? `Resolves to \`${preview}\` for the loaded context.`
-			: 'No loaded value for this variable in the current context.';
+	const live = preview !== undefined ? t.weaver.resolvesTo(String(preview)) : t.weaver.noValue;
 	return {
 		signature: known?.signature ?? (ctx === 'var' ? `{{${reference}}}` : reference),
 		doc: known ? `${known.doc}\n\n${live}` : live

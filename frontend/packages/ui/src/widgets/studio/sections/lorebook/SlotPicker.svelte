@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import {
 		SLOT_CHOICES,
 		slotToForm,
@@ -37,7 +38,9 @@
 
 	function optionLabel(c: SlotChoice): string {
 		if (c === 'inherit') {
-			return inheritedDefault ? `inherit (${slotLabel(inheritedDefault)})` : 'inherit default';
+			return inheritedDefault
+				? t.studio.slot.inheritFrom(slotLabel(inheritedDefault))
+				: t.studio.slot.inheritDefault;
 		}
 		return c;
 	}
@@ -58,7 +61,7 @@
 			min={0}
 			step={1}
 			width="5.5rem"
-			ariaLabel="Depth"
+			ariaLabel={t.studio.slot.depth}
 			value={form.depth}
 			onchange={(v) => setDepth(v === '' ? 0 : v)}
 		/>

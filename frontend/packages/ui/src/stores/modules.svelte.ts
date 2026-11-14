@@ -5,6 +5,7 @@ import type { CodeModule, UpdateModuleRequest } from '#lib/types/modules.js';
 import { showError } from '#lib/stores/errorToast.svelte.js';
 import { weaverVocabularyStore } from '#lib/stores/weaverVocabulary.svelte.js';
 import type { SaveState } from '#lib/stores/tools.svelte.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 export interface ModuleDraft {
 	id: Snowflake;
@@ -52,7 +53,7 @@ class ModuleStore {
 		if (!this.loadedModules) await this.loadModules();
 		const found = this.loadedModules?.find((m) => m.id === id) ?? null;
 		if (!found) {
-			this.saveState = { status: 'error', message: 'Module not found' };
+			this.saveState = { status: 'error', message: t.errors.failed.moduleNotFound };
 			return;
 		}
 		this.#baseline = found;
@@ -70,7 +71,7 @@ class ModuleStore {
 			await this.loadModules();
 			return created.id;
 		} catch (e) {
-			showError(e, { title: 'Create failed' });
+			showError(e, { title: t.errors.failed.create });
 		}
 	}
 
@@ -83,7 +84,7 @@ class ModuleStore {
 			void weaverVocabularyStore.refresh();
 		} catch (e) {
 			this.loadedModules = previous;
-			showError(e, { title: 'Delete failed' });
+			showError(e, { title: t.errors.failed.delete });
 		}
 	}
 
@@ -98,7 +99,7 @@ class ModuleStore {
 			void weaverVocabularyStore.refresh();
 		} catch (e) {
 			list[i].enabled = previous;
-			showError(e, { title: 'Toggle failed' });
+			showError(e, { title: t.errors.failed.toggle });
 		}
 	}
 
@@ -110,7 +111,7 @@ class ModuleStore {
 		if (!NAME_RE.test(draft.name)) {
 			this.saveState = {
 				status: 'error',
-				message: 'Name may only use letters, digits and _, and may not start with a digit'
+				message: t.errors.failed.moduleName
 			};
 			return;
 		}
@@ -140,7 +141,7 @@ class ModuleStore {
 			const { message, code } = extractError(e);
 			this.saveState = { status: 'error', message, code };
 			if (code !== 'module.invalid' && message !== this.#lastError) {
-				showError(message, { title: 'Save failed' });
+				showError(message, { title: t.errors.failed.save });
 				this.#lastError = message;
 			}
 		} finally {

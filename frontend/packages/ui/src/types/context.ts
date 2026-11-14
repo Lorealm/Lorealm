@@ -1,4 +1,5 @@
 import type { UserPersona } from './persona.js';
+import { localized } from '#lib/stores/i18n.svelte.js';
 
 export type ContentRef =
 	| { kind: 'verbatim' }
@@ -131,10 +132,7 @@ export function groupAdjacentBlocks(blocks: TracedBlock[]): BlockGroup[] {
 	return groups;
 }
 
-/**
- * Which budgeting bucket a block belongs to. Mirrors `ContextSource` in
- * backend/server/src/util/context_eval.rs — keep the two in step.
- */
+/** Which budgeting bucket a block belongs to. */
 export type ContextSource =
 	| 'conversation'
 	| 'context_template'
@@ -144,18 +142,10 @@ export type ContextSource =
 	| 'miscellaneous'
 	| 'plugin';
 
-export const SOURCE_LABELS: Record<ContextSource, string> = {
-	conversation: 'chat history',
-	context_template: 'template',
-	lorebook: 'lorebook',
-	character: 'character',
-	character_examples: 'example messages',
-	miscellaneous: 'system prompts',
-	plugin: 'plugins'
-};
+export const SOURCE_LABELS: Record<ContextSource, string> = localized(
+	(m) => m.chat.inspector.sources
+);
 
-/** Mirrors `ContextSource::of`. Derived from origin alone, so it works on a
- *  persisted trace whose block contents were cleared. */
 export function sourceOf(origin: BlockOrigin): ContextSource {
 	if (origin.kind.kind !== 'source') return 'context_template';
 	const { source_id, node_id } = origin.kind;
@@ -176,9 +166,6 @@ export function sourceOf(origin: BlockOrigin): ContextSource {
 
 export type SourceCounts = Partial<Record<ContextSource, number>>;
 
-/** The token counts the server recorded when the turn was assembled. Ground
- *  truth: the persisted trace can't be re-counted, since recoverable blocks
- *  have their content cleared. */
 export interface UsageReport {
 	/** The budget the turn was fitted to. `null` = unlimited, or not recorded. */
 	budget: number | null;

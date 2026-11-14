@@ -10,15 +10,9 @@ import { moduleStore } from '#lib/stores/modules.svelte.js';
 import { toolStore } from '#lib/stores/tools.svelte.js';
 import { userWidgetStore } from '#lib/stores/userWidgets.svelte.js';
 import type { Snowflake } from '#lib/types/core.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 import { navigator } from './navigator.js';
-import {
-	SECRETS,
-	type Route,
-	type ServerSection,
-	type StudioSection,
-	type UserSection,
-	type ViewName
-} from './routes.js';
+import { SECRETS, type Route, type StudioSection } from './routes.js';
 
 export interface Crumb {
 	label: string;
@@ -26,54 +20,6 @@ export interface Crumb {
 }
 
 const PENDING = '…';
-
-export const VIEW_LABEL: Record<ViewName, string> = {
-	write: 'Write',
-	characters: 'Characters',
-	realms: 'Realms',
-	connections: 'Connections',
-	studio: 'Studio',
-	plugins: 'Plugins',
-	settings: 'Settings'
-};
-
-export const STUDIO_LABEL: Record<StudioSection, string> = {
-	realm: 'Realm',
-	characters: 'Characters',
-	lorebooks: 'Lorebooks',
-	templates: 'Templates',
-	tools: 'Tools',
-	modules: 'Modules',
-	personas: 'Personas',
-	widgets: 'Widgets'
-};
-
-const SCOPE_LABEL: Record<'user' | 'server', string> = {
-	user: 'You',
-	server: 'Server'
-};
-
-const USER_LABEL: Record<UserSection, string> = {
-	profile: 'Profile',
-	tokenizers: 'Tokenizers',
-	plugins: 'Plugins',
-	appearance: 'Appearance',
-	editor: 'Editor',
-	inspector: 'Inspector',
-	keybinds: 'Keybinds'
-};
-
-const SERVER_LABEL: Record<ServerSection, string> = {
-	hosting: 'Hosting',
-	storage: 'Storage',
-	sessions: 'Sessions',
-	users: 'Users',
-	accounts: 'Accounts',
-	roles: 'Roles',
-	characters: 'Characters',
-	tokenizers: 'Tokenizers',
-	tasks: 'Tasks'
-};
 
 interface Named {
 	id: Snowflake;
@@ -115,43 +61,44 @@ export function crumbsFor(route: Route): Crumb[] {
 	switch (route.view) {
 		case 'write':
 		case 'characters':
-			return [{ label: VIEW_LABEL[route.view] }];
+			return [{ label: t.nav.views[route.view] }];
 
 		case 'realms': {
 			if (route.tab === 'blueprints') {
 				return [
-					{ label: VIEW_LABEL.realms, go: () => navigator.start().realms() },
-					{ label: 'Blueprints' }
+					{ label: t.nav.views.realms, go: () => navigator.start().realms() },
+					{ label: t.nav.blueprints }
 				];
 			}
-			if (route.id === undefined) return [{ label: VIEW_LABEL.realms }];
+			if (route.id === undefined) return [{ label: t.nav.views.realms }];
 			return [
-				{ label: VIEW_LABEL.realms, go: () => navigator.start().realms() },
+				{ label: t.nav.views.realms, go: () => navigator.start().realms() },
 				{ label: nameIn(realmStore.summaries, route.id) }
 			];
 		}
 
 		case 'plugins': {
-			const plugins = { label: VIEW_LABEL.plugins, go: () => navigator.start().plugins() };
+			const plugins = { label: t.nav.views.plugins, go: () => navigator.start().plugins() };
 			if (route.tab === 'marketplace') {
-				if (route.id === undefined) return [plugins, { label: 'Marketplace' }];
+				if (route.id === undefined) return [plugins, { label: t.nav.marketplace }];
 				const listed = marketplaceStore.find(route.id);
 				return [
 					plugins,
-					{ label: 'Marketplace', go: () => navigator.start().marketplace() },
+					{ label: t.nav.marketplace, go: () => navigator.start().marketplace() },
 					{ label: listed ? shownVersion(listed).name : PENDING }
 				];
 			}
-			if (route.id === undefined) return [{ label: VIEW_LABEL.plugins }];
+			if (route.id === undefined) return [{ label: t.nav.views.plugins }];
 			const plugin = pluginsStore.plugins.find((p) => p.handle === route.id);
 			return [plugins, { label: plugin?.name ?? PENDING }];
 		}
 
 		case 'connections': {
-			if (route.id === undefined) return [{ label: VIEW_LABEL.connections }];
-			const label = route.id === SECRETS ? 'API keys' : nameIn(connectionStore.profiles, route.id);
+			if (route.id === undefined) return [{ label: t.nav.views.connections }];
+			const label =
+				route.id === SECRETS ? t.nav.apiKeys : nameIn(connectionStore.profiles, route.id);
 			return [
-				{ label: VIEW_LABEL.connections, go: () => navigator.start().connections() },
+				{ label: t.nav.views.connections, go: () => navigator.start().connections() },
 				{ label }
 			];
 		}
@@ -160,9 +107,9 @@ export function crumbsFor(route: Route): Crumb[] {
 			const section = route.section;
 			const name = route.id === undefined ? null : studioName(section, route.id);
 			return [
-				{ label: VIEW_LABEL.studio },
+				{ label: t.nav.views.studio },
 				{
-					label: STUDIO_LABEL[section],
+					label: t.nav.studio[section],
 					go: name === null ? undefined : () => navigator.start().studio()[section]()
 				},
 				...(name === null ? [] : [{ label: name }])
@@ -171,19 +118,19 @@ export function crumbsFor(route: Route): Crumb[] {
 
 		case 'settings': {
 			const section =
-				route.scope === 'user' ? USER_LABEL[route.section] : SERVER_LABEL[route.section];
+				route.scope === 'user' ? t.nav.user[route.section] : t.nav.server[route.section];
 			if (route.scope === 'user' && route.id !== undefined) {
 				const plugin = pluginsStore.plugins.find((p) => p.handle === route.id);
 				return [
-					{ label: VIEW_LABEL.settings },
-					{ label: SCOPE_LABEL.user },
+					{ label: t.nav.views.settings },
+					{ label: t.nav.scopes.user },
 					{ label: section, go: () => navigator.start().settings().user().plugins() },
 					{ label: plugin?.name ?? PENDING }
 				];
 			}
 			return [
-				{ label: VIEW_LABEL.settings },
-				{ label: SCOPE_LABEL[route.scope] },
+				{ label: t.nav.views.settings },
+				{ label: t.nav.scopes[route.scope] },
 				{ label: section }
 			];
 		}

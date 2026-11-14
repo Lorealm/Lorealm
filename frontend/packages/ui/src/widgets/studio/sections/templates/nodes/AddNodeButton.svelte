@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	type Kind = 'text' | 'source';
 
 	let { onpick }: { onpick: (kind: Kind) => void } = $props();
@@ -137,7 +138,7 @@
 		onpointercancel={onPointerCancel}
 		onkeydown={onTriggerKeydown}
 	>
-		<span>＋ Node</span>
+		<span>{t.studio.templateEditor.addNode}</span>
 		<svg class="chev" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
 			<path
 				d="M2 4l4 4 4-4"
@@ -160,7 +161,7 @@
 				data-kind="text"
 				onclick={() => pick('text')}
 			>
-				Text node
+				{t.studio.templateEditor.textNode}
 			</button>
 			<button
 				class="option"
@@ -170,7 +171,7 @@
 				data-kind="source"
 				onclick={() => pick('source')}
 			>
-				Source node
+				{t.studio.templateEditor.sourceNode}
 			</button>
 		</div>
 	{/if}

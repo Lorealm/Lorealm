@@ -1,10 +1,11 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { settings } from '#lib/stores/settings.svelte.js';
 </script>
 
 <section class="section">
 	<div class="body">
-		<h2>Editor</h2>
+		<h2>{t.nav.user.editor}</h2>
 
 		<label class="check">
 			<input
@@ -13,8 +14,8 @@
 				onchange={(e) => settings.set('weaverSuggestCrossBookIds', e.currentTarget.checked)}
 			/>
 			<span>
-				Suggest cross-book ids
-				<span class="hint">Complete entry ids from the other active lorebooks.</span>
+				{t.settings.editor.suggestCrossBook}
+				<span class="hint">{t.settings.editor.suggestCrossBookHint}</span>
 			</span>
 		</label>
 
@@ -25,8 +26,8 @@
 				onchange={(e) => settings.set('weaverFollowCrossBookIds', e.currentTarget.checked)}
 			/>
 			<span>
-				Follow cross-book ids
-				<span class="hint">Cmd/ctrl-click an id to open the book that owns it.</span>
+				{t.settings.editor.followCrossBook}
+				<span class="hint">{t.settings.editor.followCrossBookHint}</span>
 			</span>
 		</label>
 
@@ -37,8 +38,8 @@
 				onchange={(e) => settings.set('autoExpandLorebookAdvanced', e.currentTarget.checked)}
 			/>
 			<span>
-				Auto-expand advanced controls
-				<span class="hint">Automatically expands the advanced details in the Lorebook editor.</span>
+				{t.settings.editor.autoExpand}
+				<span class="hint">{t.settings.editor.autoExpandHint}</span>
 			</span>
 		</label>
 
@@ -49,10 +50,8 @@
 				onchange={(e) => settings.set('weaverHighlightTrimMarkers', e.currentTarget.checked)}
 			/>
 			<span>
-				Highlight trim markers
-				<span class="hint">
-					Colour the `-` in {'{#- … -#}'} apart from the delimiter around it.
-				</span>
+				{t.settings.editor.trimMarkers}
+				<span class="hint">{t.settings.editor.trimMarkersHint}</span>
 			</span>
 		</label>
 	</div>

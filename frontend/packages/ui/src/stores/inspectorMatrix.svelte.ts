@@ -1,6 +1,7 @@
 import type { ViewName } from '#lib/navigation/routes.js';
 import type { InspectorWidgetKey } from '#lib/widgets/inspector/registry.js';
 import { PersistedRecord } from './persisted.svelte.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 /**
  * One column of the inspector matrix
@@ -26,7 +27,7 @@ function defaults(): InspectorMatrix {
 		profiles: [
 			{
 				id: 'overview',
-				name: 'Overview',
+				name: t.settings.inspector.defaultProfile,
 				icon: 'layout-panel-left',
 				cells: {
 					write: DEFAULT_WIDGETS,
@@ -84,7 +85,7 @@ class InspectorMatrixStore {
 			// Not `crypto.randomUUID`: that needs a secure context, and a
 			// self-hosted server may well be reached over plain HTTP.
 			id: `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
-			name: `Profile ${this.profiles.length + 1}`,
+			name: t.settings.inspector.profileName(this.profiles.length + 1),
 			icon: 'eye',
 			cells: {}
 		};

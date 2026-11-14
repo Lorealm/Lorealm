@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { navigator } from '#lib/navigation/navigator.js';
 	import InstalledPlugins from './InstalledPlugins.svelte';
 	import MarketplacePlugins from './MarketplacePlugins.svelte';
@@ -7,7 +8,7 @@
 </script>
 
 <div class="page">
-	<div class="tabs" role="tablist" aria-label="Plugins">
+	<div class="tabs" role="tablist" aria-label={t.plugins.tabs.list}>
 		<button
 			type="button"
 			role="tab"
@@ -15,7 +16,7 @@
 			class:active={tab === 'installed'}
 			onclick={() => navigator.start().plugins()}
 		>
-			Installed
+			{t.plugins.tabs.installed}
 		</button>
 		<button
 			type="button"
@@ -24,7 +25,7 @@
 			class:active={tab === 'marketplace'}
 			onclick={() => navigator.start().marketplace()}
 		>
-			Marketplace
+			{t.plugins.tabs.marketplace}
 		</button>
 	</div>
 

@@ -12,6 +12,7 @@ import { parseStyle, styles } from './styles.svelte.js';
 import { templateStore } from './template.svelte.js';
 import { toolStore } from './tools.svelte.js';
 import { userWidgetStore } from './userWidgets.svelte.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 const KINDS: string[] = [
 	'template',
@@ -20,6 +21,10 @@ const KINDS: string[] = [
 	'widget',
 	'lorebook'
 ] satisfies TransferKind[];
+
+function kindLabel(kind: Detected['kind']): string {
+	return t.transfer.kinds[kind];
+}
 
 function fileStem(name: string, fallback: string): string {
 	return name.replace(/[^A-Za-z0-9 _-]/g, '_').trim() || fallback;
@@ -30,12 +35,12 @@ export async function exportItem(kind: TransferKind, id: Snowflake, name: string
 	try {
 		const file = await useApi().transfer.export(kind, id);
 		await usePlatform().files.save(JSON.stringify(file, null, '\t'), {
-			label: `Lorealm ${kind}`,
+			label: t.transfer.fileLabel(kindLabel(kind)),
 			extensions: ['json'],
 			suggestedName: `${fileStem(name, kind)}.${kind}.json`
 		});
 	} catch (e) {
-		showApiError(e, { title: `Could not export ${kind}` });
+		showApiError(e, { title: t.transfer.exportFailed(kindLabel(kind)) });
 	}
 }
 
@@ -43,25 +48,26 @@ export async function exportSillyTavernLorebook(id: Snowflake, name: string) {
 	try {
 		const { file, warnings } = await useApi().lorebooks.exportSillyTavern(id);
 		if (warnings.length > 0) {
+			const download = t.transfer.download;
 			const choice = await showPopup({
-				title: `Export ${name} for SillyTavern`,
+				title: t.transfer.sillyTavernTitle(name),
 				message: [
-					'Lorealm-only features come back when the file is imported into Lorealm again, unless a site removed them.',
-					"**What won't carry over:**",
+					t.transfer.sillyTavernNote,
+					t.transfer.wontCarry,
 					warnings.map((w) => `- ${w.message}`).join('\n')
 				].join('\n\n'),
 				variant: 'warning',
-				actions: [{ label: 'Cancel' }, { label: 'Download', tone: 'primary' }]
+				actions: [{ label: t.common.cancel }, { label: download, tone: 'primary' }]
 			});
-			if (choice !== 'Download') return;
+			if (choice !== download) return;
 		}
 		await usePlatform().files.save(JSON.stringify(file, null, '\t'), {
-			label: 'SillyTavern lorebook',
+			label: t.transfer.sillyTavernLabel,
 			extensions: ['json'],
-			suggestedName: `${fileStem(name, 'lorebook')}.json`
+			suggestedName: `${fileStem(name, t.transfer.lorebookFallback)}.json`
 		});
 	} catch (e) {
-		showApiError(e, { title: 'Could not export lorebook' });
+		showApiError(e, { title: t.transfer.lorebookExportFailed });
 	}
 }
 
@@ -107,7 +113,6 @@ async function detect(file: File): Promise<Detected | null> {
 
 /**
  * Works out what each file holds, asks to confirm the lot, then imports them.
- * Files that fail are left out and reported once everything has run.
  */
 export async function importFiles(files: File[]) {
 	const failed: string[] = [];
@@ -116,21 +121,22 @@ export async function importFiles(files: File[]) {
 	for (const file of files) {
 		const detected = await detect(file);
 		if (detected) items.push({ file, detected });
-		else failed.push(`**${file.name}**: not a character card, lorebook, style or Lorealm export.`);
+		else failed.push(t.transfer.unrecognised(file.name));
 	}
 
 	if (items.length > 0) {
+		const confirm = t.transfer.import;
 		const choice = await showPopup({
 			title:
 				items.length === 1
-					? `Importing as ${items[0].detected.kind}`
-					: `Importing ${items.length} files`,
+					? t.transfer.importingAs(kindLabel(items[0].detected.kind))
+					: t.transfer.importingFiles(items.length),
 			message: items
-				.map(({ file, detected }) => `- **${file.name}** as ${detected.kind}`)
+				.map(({ file, detected }) => t.transfer.fileAs(file.name, kindLabel(detected.kind)))
 				.join('\n'),
-			actions: [{ label: 'Cancel' }, { label: 'Import', tone: 'primary' }]
+			actions: [{ label: t.common.cancel }, { label: confirm, tone: 'primary' }]
 		});
-		if (choice !== 'Import') return;
+		if (choice !== confirm) return;
 	}
 
 	let imported = 0;
@@ -146,11 +152,11 @@ export async function importFiles(files: File[]) {
 			);
 			results.forEach((r, i) => {
 				if (r.status === 'ok') imported++;
-				else failed.push(`**${cards[i].file.name}**: ${r.reason}`);
+				else failed.push(t.transfer.failedFile(cards[i].file.name, r.reason));
 			});
 		} catch (e) {
 			const reason = extractError(e).message;
-			for (const c of cards) failed.push(`**${c.file.name}**: ${reason}`);
+			for (const c of cards) failed.push(t.transfer.failedFile(c.file.name, reason));
 		}
 	}
 
@@ -163,28 +169,26 @@ export async function importFiles(files: File[]) {
 				const name = file.name.replace(/\.json$/i, '');
 				const book = await useApi().lorebooks.importSillyTavern(detected.data, name);
 				touched.add('lorebook');
-				if (book.skipped > 0)
-					notes.push(`${book.skipped} entries in ${book.name} couldn't be read and were left out.`);
+				if (book.skipped > 0) notes.push(t.transfer.entriesSkipped(book.skipped, book.name));
 			} else {
 				const { id, report } = await useApi().transfer.import(detected.data);
 				touched.add(detected.kind);
-				if (id === null) throw new Error(`${report?.skipped.join(', ')} couldn't be read.`);
-				if (report?.created === 0) notes.push(`You already had ${file.name}.`);
-				for (const [from, to] of report?.renamed ?? [])
-					notes.push(`${from} was renamed to ${to}, since that name was taken.`);
+				if (id === null) throw new Error(t.transfer.unreadable(report?.skipped.join(', ') ?? ''));
+				if (report?.created === 0) notes.push(t.transfer.alreadyHad(file.name));
+				for (const [from, to] of report?.renamed ?? []) notes.push(t.transfer.renamed(from, to));
 			}
 			imported++;
 		} catch (e) {
-			failed.push(`**${file.name}**: ${extractError(e).message}`);
+			failed.push(t.transfer.failedFile(file.name, extractError(e).message));
 		}
 	}
 
-	const summary = [`Imported ${imported} of ${files.length}.`, ...notes].join(' ');
+	const summary = [t.transfer.summary(imported, files.length), ...notes].join(' ');
 	if (failed.length === 0) {
-		showToast({ title: 'Imported', message: summary, variant: 'success' });
+		showToast({ title: t.transfer.imported, message: summary, variant: 'success' });
 	} else {
 		void showPopup({
-			title: imported === 0 ? 'Nothing was imported' : 'Some files were not imported',
+			title: imported === 0 ? t.transfer.nothingImported : t.transfer.someFailed,
 			message: `${summary}\n\n${failed.map((f) => `- ${f}`).join('\n')}`,
 			variant: 'warning'
 		});
@@ -197,6 +201,6 @@ export async function importFiles(files: File[]) {
 		if (touched.has('widget')) await userWidgetStore.loadWidgets();
 		if (touched.has('lorebook')) await lorebookStore.loadList();
 	} catch (e) {
-		showApiError(e, { title: 'Could not refresh after importing' });
+		showApiError(e, { title: t.transfer.refreshFailed });
 	}
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { configStore, type SaveState } from '#lib/stores/serverConfig.svelte.js';
 	import type { SlidingPolicy, CsrfRotationPolicy } from '#lib/types/config.js';
 	import SettingsSection from '../SettingsSection.svelte';
@@ -48,22 +49,22 @@
 	}
 </script>
 
-<SettingsSection title="Sessions" {dirty} {saveState} onsave={save} onreset={reset}>
-	<Field label="Session token length">
+<SettingsSection title={t.nav.server.sessions} {dirty} {saveState} onsave={save} onreset={reset}>
+	<Field label={t.settings.server.tokenLength}>
 		<NumberField
 			value={draft.token_length}
 			min={1}
 			onchange={(v) => v !== '' && (draft.token_length = v)}
 		/>
 	</Field>
-	<Field label="CSRF token length">
+	<Field label={t.settings.server.csrfTokenLength}>
 		<NumberField
 			value={draft.csrf_token_length}
 			min={1}
 			onchange={(v) => v !== '' && (draft.csrf_token_length = v)}
 		/>
 	</Field>
-	<Field label="TTL (seconds)">
+	<Field label={t.settings.server.ttl}>
 		<NumberField
 			value={draft.ttl_seconds}
 			min={0}
@@ -71,15 +72,15 @@
 		/>
 	</Field>
 
-	<Field label="Sliding policy" hint="When to extend a session's expiry.">
+	<Field label={t.settings.server.slidingPolicy} hint={t.settings.server.slidingHint}>
 		<select value={slidingTag} onchange={(e) => setSlidingTag(e.currentTarget.value)}>
-			<option value="Fixed">Fixed</option>
-			<option value="Always">Always</option>
-			<option value="Window">Window</option>
+			<option value="Fixed">{t.settings.server.fixed}</option>
+			<option value="Always">{t.settings.server.always}</option>
+			<option value="Window">{t.settings.server.window}</option>
 		</select>
 	</Field>
 	{#if typeof draft.sliding_policy !== 'string'}
-		<Field label="Window (seconds)">
+		<Field label={t.settings.server.windowSeconds}>
 			<NumberField
 				value={draft.sliding_policy.Window}
 				min={0}
@@ -88,15 +89,15 @@
 		</Field>
 	{/if}
 
-	<Field label="CSRF rotation policy">
+	<Field label={t.settings.server.csrfRotation}>
 		<select value={csrfTag} onchange={(e) => setCsrfTag(e.currentTarget.value)}>
-			<option value="Never">Never</option>
-			<option value="Periodic">Periodic</option>
-			<option value="AfterRequests">After requests</option>
+			<option value="Never">{t.settings.server.never}</option>
+			<option value="Periodic">{t.settings.server.periodic}</option>
+			<option value="AfterRequests">{t.settings.server.afterRequests}</option>
 		</select>
 	</Field>
 	{#if typeof draft.csrf_rotation_policy !== 'string' && 'Periodic' in draft.csrf_rotation_policy}
-		<Field label="Rotate every (seconds)">
+		<Field label={t.settings.server.rotateEvery}>
 			<NumberField
 				value={draft.csrf_rotation_policy.Periodic}
 				min={0}
@@ -104,7 +105,7 @@
 			/>
 		</Field>
 	{:else if typeof draft.csrf_rotation_policy !== 'string' && 'AfterRequests' in draft.csrf_rotation_policy}
-		<Field label="Rotate after (requests)">
+		<Field label={t.settings.server.rotateAfter}>
 			<NumberField
 				value={draft.csrf_rotation_policy.AfterRequests}
 				min={0}

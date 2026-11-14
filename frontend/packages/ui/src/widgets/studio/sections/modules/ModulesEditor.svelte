@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { onDestroy } from 'svelte';
 	import { navigator } from '#lib/navigation/navigator.js';
@@ -55,7 +56,7 @@
 	}
 
 	async function removeModule(id: Snowflake, name: string) {
-		if (!confirm(`Delete "${name}"? Anything that calls it will stop working.`)) return;
+		if (!confirm(t.studio.modules.confirmDelete(name))) return;
 		clearTimeout(timer);
 		await moduleStore.deleteModule(id);
 		if (id === selectedId) navigator.start().studio().modules();
@@ -63,32 +64,37 @@
 
 	const saveLabel = $derived(
 		save.status === 'saving'
-			? 'Saving…'
+			? t.common.saving
 			: save.status === 'error'
-				? (save.message ?? 'Error')
+				? (save.message ?? t.common.error)
 				: moduleStore.hasUnsavedChanges
-					? 'Unsaved'
-					: 'Saved'
+					? t.studio.tools.unsaved
+					: t.common.saved
 	);
 </script>
 
 {#snippet hint(text: string)}
-	<button type="button" class="hint" {@attach tooltip(text)} aria-label={`Help: ${text}`}>?</button>
+	<button
+		type="button"
+		class="hint"
+		{@attach tooltip(text)}
+		aria-label={t.components.field.help(text)}>?</button
+	>
 {/snippet}
 
 <div class="module-editor">
 	<ListSidebar
-		title="Modules"
+		title={t.studio.modules.title}
 		detailOpen={selectedId !== null}
 		oncreate={newModule}
 		bind:query
 		bind:sort
 		sortOptions={[
-			{ value: 'name-asc', label: 'Name (A–Z)' },
-			{ value: 'name-desc', label: 'Name (Z–A)' },
-			{ value: 'enabled', label: 'Enabled first' }
+			{ value: 'name-asc', label: t.studio.tools.sortNameAsc },
+			{ value: 'name-desc', label: t.studio.tools.sortNameDesc },
+			{ value: 'enabled', label: t.studio.tools.sortEnabled }
 		]}
-		searchPlaceholder="Search modules…"
+		searchPlaceholder={t.studio.modules.search}
 	>
 		{#snippet status()}
 			{#if draft}
@@ -101,7 +107,7 @@
 
 		{#if shownModules.length === 0}
 			<p class="empty">
-				{modules.length === 0 ? 'No modules yet.' : 'No modules match that search.'}
+				{modules.length === 0 ? t.studio.modules.empty : t.studio.modules.noMatches}
 			</p>
 		{/if}
 		{#each shownModules as module (module.id)}
@@ -119,9 +125,11 @@
 					checked={module.enabled}
 					onchange={() => moduleStore.setEnabled(module.id, !module.enabled)}
 					{@attach tooltip(
-						module.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'
+						module.enabled ? t.studio.tools.enabledHint : t.studio.tools.disabledHint
 					)}
-					aria-label={module.enabled ? `Disable ${module.name}` : `Enable ${module.name}`}
+					aria-label={module.enabled
+						? t.studio.tools.disableNamed(module.name)
+						: t.studio.tools.enableNamed(module.name)}
 				/>
 			</div>
 		{/each}
@@ -131,30 +139,26 @@
 		{#if draft}
 			<div class="pane">
 				<div class="pane-head">
-					<h1>Edit module</h1>
+					<h1>{t.studio.modules.edit}</h1>
 					<button type="button" class="delete" onclick={() => removeModule(draft.id, draft.name)}>
-						Delete
+						{t.common.delete}
 					</button>
 				</div>
 
 				<div class="field">
 					<label for="m-name">
-						Name {@render hint(
-							'How templates reach this module: @[name.proc()] calls a proc, {{name:value}} reads a value.'
-						)}
+						{t.studio.tools.name}
+						{@render hint(t.studio.modules.nameHint)}
 					</label>
 					<input id="m-name" class="mono" bind:value={draft.name} oninput={requestSave} />
 				</div>
 
 				<div class="field">
-					<label for="m-description">Description</label>
+					<label for="m-description">{t.studio.tools.description}</label>
 					<input id="m-description" bind:value={draft.description} oninput={requestSave} />
 				</div>
 
-				<FieldShell
-					label="Source"
-					hint="Values and procs to share with tools, lorebooks and realms while this module is enabled."
-				>
+				<FieldShell label={t.studio.modules.source} hint={t.studio.modules.sourceHint}>
 					{#snippet editor(fill: boolean)}
 						<div class="body-editor" class:fill>
 							{#key draft.id}
@@ -173,7 +177,7 @@
 			</div>
 		{:else}
 			<div class="pane empty-pane">
-				<p class="empty">Select a module to edit, or create one.</p>
+				<p class="empty">{t.studio.modules.select}</p>
 			</div>
 		{/if}
 	</section>

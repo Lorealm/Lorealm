@@ -1,8 +1,9 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	let { widgetId }: { widgetId: string } = $props();
 </script>
 
-<div class="widget unknown">Unknown widget: {widgetId}</div>
+<div class="widget unknown">{t.components.unknownWidget(widgetId)}</div>
 
 <style>
 	.widget {

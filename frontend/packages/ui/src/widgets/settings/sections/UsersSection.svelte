@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { configStore, type SaveState } from '#lib/stores/serverConfig.svelte.js';
 	import SettingsSection from '../SettingsSection.svelte';
 	import Field from '../Field.svelte';
@@ -26,17 +27,17 @@
 	}
 </script>
 
-<SettingsSection title="Users" {dirty} {saveState} onsave={save} onreset={reset}>
-	<h3>Password length</h3>
+<SettingsSection title={t.nav.server.users} {dirty} {saveState} onsave={save} onreset={reset}>
+	<h3>{t.settings.server.passwordLength}</h3>
 	<div class="pair">
-		<Field label="Min">
+		<Field label={t.settings.server.min}>
 			<NumberField
 				value={draft.password_length.min}
 				min={0}
 				onchange={(v) => v !== '' && (draft.password_length.min = v)}
 			/>
 		</Field>
-		<Field label="Max">
+		<Field label={t.settings.server.max}>
 			<NumberField
 				value={draft.password_length.max}
 				min={0}
@@ -45,16 +46,16 @@
 		</Field>
 	</div>
 
-	<h3>Username length</h3>
+	<h3>{t.settings.server.usernameLength}</h3>
 	<div class="pair">
-		<Field label="Min">
+		<Field label={t.settings.server.min}>
 			<NumberField
 				value={draft.username_length.min}
 				min={0}
 				onchange={(v) => v !== '' && (draft.username_length.min = v)}
 			/>
 		</Field>
-		<Field label="Max">
+		<Field label={t.settings.server.max}>
 			<NumberField
 				value={draft.username_length.max}
 				min={0}
@@ -63,14 +64,14 @@
 		</Field>
 	</div>
 
-	<h3>Registration</h3>
+	<h3>{t.settings.server.registration}</h3>
 	<label class="check">
 		<input type="checkbox" bind:checked={draft.disable_register} />
-		<span>Disable registration</span>
+		<span>{t.settings.server.disableRegistration}</span>
 	</label>
 	<label class="check">
 		<input type="checkbox" bind:checked={draft.create_default_resources} />
-		<span>Create default resources for new users</span>
+		<span>{t.settings.server.defaultResources}</span>
 	</label>
 </SettingsSection>
 

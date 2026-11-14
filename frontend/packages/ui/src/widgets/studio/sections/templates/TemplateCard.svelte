@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { navigator } from '#lib/navigation/navigator.js';
 	import { templateStore } from '#lib/stores/template.svelte.js';
@@ -42,31 +43,32 @@
 	<header class="head">
 		<h3 class="name" {@attach tooltip(meta.name)}>{meta.name}</h3>
 		{#if active}
-			<span class="pill">Active</span>
+			<span class="pill">{t.studio.templates.active}</span>
 		{/if}
 	</header>
 
 	<p class="description" class:none={!meta.description}>
-		{meta.description || 'No description'}
+		{meta.description || t.studio.templates.noDescription}
 	</p>
 
 	<div class="meta">
-		<span class="stat" {@attach tooltip('Top-level nodes')}>
+		<span class="stat" {@attach tooltip(t.studio.templates.topLevelNodes)}>
 			<Layers size={13} />
-			{meta.node_count}
-			{meta.node_count === 1 ? 'node' : 'nodes'}
+			{t.studio.templates.nodes(meta.node_count)}
 		</span>
 		<span class="stat">v{meta.version}</span>
 		{#if updated}
-			<span class="stat" {@attach tooltip(meta.updated_at)}>Updated {updated}</span>
+			<span class="stat" {@attach tooltip(meta.updated_at)}
+				>{t.studio.templates.updated(updated)}</span
+			>
 		{/if}
 	</div>
 
 	{#if confirmingDelete}
 		<div class="controls confirm">
-			<span class="confirmText">Delete this template?</span>
-			<button type="button" class="danger" onclick={remove}>Delete</button>
-			<button type="button" onclick={() => (confirmingDelete = false)}>Cancel</button>
+			<span class="confirmText">{t.studio.templates.confirmDelete}</span>
+			<button type="button" class="danger" onclick={remove}>{t.common.delete}</button>
+			<button type="button" onclick={() => (confirmingDelete = false)}>{t.common.cancel}</button>
 		</div>
 	{:else}
 		<div class="controls">
@@ -78,17 +80,17 @@
 				onclick={activate}
 			>
 				<Check size={14} />
-				{active ? 'In use' : 'Use'}
+				{active ? t.studio.templates.inUse : t.studio.templates.use}
 			</button>
 			<button type="button" onclick={() => navigator.start().studio().templates(meta.id)}>
 				<Pencil size={14} />
-				Edit
+				{t.common.edit}
 			</button>
 			<button
 				type="button"
 				class="export"
-				{@attach tooltip('Export template')}
-				aria-label={`Export ${meta.name}`}
+				{@attach tooltip(t.studio.templates.export)}
+				aria-label={t.studio.templates.exportNamed(meta.name)}
 				onclick={() => exportItem('template', meta.id, meta.name)}
 			>
 				<Download size={14} />
@@ -96,8 +98,8 @@
 			<button
 				type="button"
 				class="del"
-				{@attach tooltip('Delete template')}
-				aria-label={`Delete ${meta.name}`}
+				{@attach tooltip(t.studio.templates.delete)}
+				aria-label={t.studio.templates.deleteNamed(meta.name)}
 				disabled={busy}
 				onclick={() => (confirmingDelete = true)}
 			>

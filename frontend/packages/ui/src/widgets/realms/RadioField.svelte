@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { CircleDot, X } from '@lucide/svelte';
 	import type { RealmResourceKind } from '#lib/types/realm.js';
@@ -31,7 +32,7 @@
 		inputs = [],
 		/** Jump to whatever the field points at. Inspired by how Unity does it. */
 		onlocate,
-		placeholder = 'None',
+		placeholder,
 		ariaLabel
 	}: {
 		value: Binding | null;
@@ -77,11 +78,9 @@
 				rows.push({
 					row: 'loop',
 					key: `loop:${reach}`,
-					group: 'From the loop',
+					group: t.realms.binding.fromLoop,
 					label: reach,
-					hint: path.length
-						? `each ${REF_NAME[kind]} in ${input.name}`
-						: `each ${REF_NAME[kind]} in ${input.name}`,
+					hint: t.realms.binding.each(REF_NAME[kind], input.name),
 					binding: { source: 'loop', varName, path }
 				});
 			}
@@ -100,9 +99,9 @@
 						return {
 							row: 'input',
 							key: reach,
-							group: 'From an input',
+							group: t.realms.binding.fromInput,
 							label: reach,
-							hint: 'chosen when the blueprint is expanded',
+							hint: t.realms.binding.chosenOnExpand,
 							binding: { source: 'input', name: decl.name, path }
 						};
 					})
@@ -145,7 +144,9 @@
 		});
 	});
 
-	const label = $derived(value === null ? placeholder : bindingLabel(value));
+	const label = $derived(
+		value === null ? (placeholder ?? t.realms.binding.none) : bindingLabel(value)
+	);
 
 	function openPicker() {
 		open = true;
@@ -254,8 +255,8 @@
 			class:empty={value === null}
 			class:loop={value !== null && value.source !== 'resource'}
 			aria-label={value === null
-				? `${ariaLabel ?? 'Field'}: empty. Pick a source.`
-				: `${ariaLabel ?? 'Field'}: ${label}. Reveal it, or double-click to open it.`}
+				? t.realms.binding.emptyAria(ariaLabel ?? t.realms.binding.field)
+				: t.realms.binding.filledAria(ariaLabel ?? t.realms.binding.field, label)}
 			onclick={() => {
 				if (value === null) return open ? close() : openPicker();
 				onlocate?.(value, 'select');
@@ -269,8 +270,8 @@
 			<button
 				type="button"
 				class="clear"
-				{@attach tooltip('Clear')}
-				aria-label="Clear {ariaLabel ?? 'field'}"
+				{@attach tooltip(t.realms.binding.clear)}
+				aria-label={t.realms.binding.clearAria(ariaLabel ?? t.realms.binding.fieldLower)}
 				onclick={() => onchange(null)}
 			>
 				<X size={12} />
@@ -280,8 +281,8 @@
 		<button
 			type="button"
 			class="pick"
-			{@attach tooltip('Pick a source')}
-			aria-label="Pick a source for {ariaLabel ?? 'this field'}"
+			{@attach tooltip(t.realms.binding.pick)}
+			aria-label={t.realms.binding.pickAria(ariaLabel ?? t.realms.binding.thisField)}
 			role="combobox"
 			aria-expanded={open}
 			aria-controls={listId}
@@ -299,7 +300,7 @@
 				bind:value={query}
 				type="text"
 				class="search"
-				placeholder="Search…"
+				placeholder={t.realms.binding.search}
 				autocomplete="off"
 				spellcheck="false"
 				aria-controls={listId}
@@ -328,7 +329,7 @@
 						{#if row.hint}<span class="hint">{row.hint}</span>{/if}
 					</button>
 				{:else}
-					<p class="empty-list">Nothing to bind here.</p>
+					<p class="empty-list">{t.realms.binding.nothing}</p>
 				{/each}
 			</div>
 		</div>

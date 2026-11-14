@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import ContextField from '#lib/components/ContextField.svelte';
 	import { chatStore } from '#lib/stores/chat.svelte.js';
 	import type { Snowflake } from '#lib/types/core.js';
@@ -9,13 +10,10 @@
 
 	let collapsed = $state(false);
 	let timer: ReturnType<typeof setTimeout> | null = null;
-	/** The edit waiting on the debounce */
 	let queued: { id: Snowflake; note: string } | null = null;
 
 	let conversation = $derived(chatStore.conversation);
-	/** A greeting is on screen but `start` hasn't created the row yet. */
 	let seeding = $derived(!conversation && chatStore.isPending);
-	// Seeded at init
 	let draft = $state(chatStore.conversation?.author_note ?? chatStore.pendingAuthorNote);
 	let lastId: Snowflake | null = chatStore.conversation?.id ?? null;
 
@@ -61,18 +59,18 @@
 <div class="widget" class:collapsed>
 	<button class="head" aria-expanded={!collapsed} onclick={() => (collapsed = !collapsed)}>
 		<span class="chev" class:collapsed><ChevronDown /></span>
-		<span class="label">Author's Note</span>
+		<span class="label">{t.inspector.widgets.authorNote}</span>
 	</button>
 
 	{#if !collapsed}
 		{#if !conversation && !seeding}
-			<div class="empty">No active chat.</div>
+			<div class="empty">{t.inspector.authorNote.noChat}</div>
 		{:else}
 			<div class="body">
 				<ContextField
 					value={draft}
 					{onchange}
-					placeholder="&lbrace;&lbrace;char:name&rbrace;&rbrace; has achieved something remarkable..."
+					placeholder={t.inspector.authorNote.placeholder}
 					surface="sunken"
 					fill
 				/>

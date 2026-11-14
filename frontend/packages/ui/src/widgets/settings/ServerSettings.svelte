@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { configStore } from '#lib/stores/serverConfig.svelte.js';
 	import type { ServerSection } from '#lib/navigation/routes.js';
 	import ServerSettingsNav from './ServerSettingsNav.svelte';
@@ -17,7 +18,7 @@
 
 <div class="server">
 	{#if !configStore.loaded}
-		<div class="status">Loading settings…</div>
+		<div class="status">{t.settings.loading}</div>
 	{:else}
 		<ServerSettingsNav {section} />
 

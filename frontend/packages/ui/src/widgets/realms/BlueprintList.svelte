@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { Download, FileCode2, Plus, Trash2, Upload } from '@lucide/svelte';
 	import { useApi, usePlatform } from '#lib/api/client.js';
@@ -27,7 +28,7 @@
 		if (busy) return;
 		busy = true;
 		try {
-			const name = 'Untitled Blueprint';
+			const name = t.realms.blueprints.untitled;
 			const made = await blueprintStore.create(
 				name,
 				toWtn(
@@ -97,12 +98,12 @@
 		try {
 			const file = await useApi().blueprints.export(id);
 			await usePlatform().files.save(file, {
-				label: 'Lorealm blueprint',
+				label: t.realms.blueprints.fileLabel,
 				extensions: ['lrlm'],
-				suggestedName: `${name.replace(/[^A-Za-z0-9 _-]/g, '_').trim() || 'blueprint'}.lrlm`
+				suggestedName: `${name.replace(/[^A-Za-z0-9 _-]/g, '_').trim() || t.realms.blueprints.fileFallback}.lrlm`
 			});
 		} catch (e) {
-			showApiError(e, { title: 'Could not export blueprint', durationMs: 15000 });
+			showApiError(e, { title: t.realms.blueprints.exportFailed, durationMs: 15000 });
 		}
 	}
 
@@ -114,12 +115,14 @@
 
 <div class="section">
 	<div class="head">
-		<h2>Blueprints</h2>
+		<h2>{t.realms.blueprints.title}</h2>
 		<button type="button" class="new" onclick={create} disabled={busy}>
-			<Plus size={13} /> New blueprint
+			<Plus size={13} />
+			{t.realms.blueprints.new}
 		</button>
 		<button type="button" class="new" onclick={() => fileEl?.click()}>
-			<Upload size={13} /> Import
+			<Upload size={13} />
+			{t.realms.blueprints.import}
 		</button>
 		<input
 			bind:this={fileEl}
@@ -146,8 +149,8 @@
 					<button
 						type="button"
 						class="act"
-						{@attach tooltip('Export with the resources it uses')}
-						aria-label="Export {blueprint.name}"
+						{@attach tooltip(t.realms.blueprints.exportHint)}
+						aria-label={t.realms.blueprints.exportNamed(blueprint.name)}
 						onclick={(e) => exportFile(e, blueprint.id, blueprint.name)}
 					>
 						<Download size={14} />
@@ -155,8 +158,8 @@
 					<button
 						type="button"
 						class="act del"
-						{@attach tooltip('Delete blueprint')}
-						aria-label="Delete {blueprint.name}"
+						{@attach tooltip(t.realms.blueprints.delete)}
+						aria-label={t.realms.cards.deleteNamed(blueprint.name)}
 						onclick={(e) => remove(e, blueprint.id)}
 					>
 						<Trash2 size={14} />
@@ -167,7 +170,7 @@
 				{/if}
 			</div>
 		{:else}
-			<p class="empty">No blueprints yet.</p>
+			<p class="empty">{t.realms.blueprints.empty}</p>
 		{/each}
 	</div>
 </div>

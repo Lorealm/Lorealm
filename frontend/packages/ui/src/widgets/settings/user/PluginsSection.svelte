@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { onMount } from 'svelte';
 	import { useApi } from '#lib/api/client.js';
 	import { navigator } from '#lib/navigation/navigator.js';
@@ -77,16 +78,18 @@
 				onclick={() => navigator.start().settings().user().plugins(plugin.handle)}
 			>
 				{plugin.name}
-				{#if !plugin.enabled}<span class="muted">disabled</span>{/if}
+				{#if !plugin.enabled}<span class="muted">{t.settings.plugins.disabled}</span>{/if}
 			</button>
 		{:else}
-			<p class="muted">{pluginsStore.loaded ? 'No installed plugin has settings.' : 'Loading…'}</p>
+			<p class="muted">
+				{pluginsStore.loaded ? t.settings.plugins.noSettings : t.settings.plugins.loading}
+			</p>
 		{/each}
 	</nav>
 
 	<div class="form">
 		{#if handle === undefined}
-			<p class="muted">Pick a plugin to change its settings.</p>
+			<p class="muted">{t.settings.plugins.pick}</p>
 		{:else}
 			{#each inputs as spec (spec.name)}
 				<div class="field">
@@ -106,9 +109,9 @@
 			{#if inputs.length}
 				<div class="actions">
 					<button type="button" class="primary" onclick={save} disabled={saving}>
-						{saving ? 'Saving…' : 'Save'}
+						{saving ? t.common.saving : t.common.save}
 					</button>
-					{#if saved}<span class="muted">Saved</span>{/if}
+					{#if saved}<span class="muted">{t.common.saved}</span>{/if}
 				</div>
 			{/if}
 			{#if error}<p class="error">{error}</p>{/if}

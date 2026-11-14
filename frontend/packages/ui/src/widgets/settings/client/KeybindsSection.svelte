@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import { Plus, RotateCcw, X } from '@lucide/svelte';
 
@@ -9,14 +10,9 @@
 	import { keybinds } from '#lib/keys/manager.svelte.js';
 	import { commandRegistry } from '#lib/keys/registry.svelte.js';
 	import type { RegisteredCommand } from '#lib/keys/types.js';
-	import { VIEW_LABEL } from '#lib/navigation/breadcrumbs.svelte.js';
 	import type { ViewName } from '#lib/navigation/routes.js';
 
-	const MODES: Array<{ value: KeybindMode; label: string }> = [
-		{ value: 'auto', label: 'Automatic' },
-		{ value: 'on', label: 'Always on' },
-		{ value: 'off', label: 'Off' }
-	];
+	const MODES: KeybindMode[] = ['auto', 'on', 'off'];
 
 	let capturing = $state<{ id: string; append: boolean } | null>(null);
 
@@ -36,9 +32,11 @@
 	function scopeLabel(command: RegisteredCommand): string {
 		switch (command.scope) {
 			case 'global':
-				return 'Global';
+				return t.settings.keybinds.global;
 			case 'view':
-				return `${VIEW_LABEL[command.layer as ViewName] ?? command.layer} view`;
+				return t.settings.keybinds.viewScope(
+					t.nav.views[command.layer as ViewName] ?? command.layer
+				);
 			default:
 				return command.layer;
 		}
@@ -92,40 +90,42 @@
 
 <section class="section">
 	<div class="body">
-		<h2>Keybinds</h2>
+		<h2>{t.nav.user.keybinds}</h2>
 
 		<div class="mode">
 			<label class="field">
-				<span>Keyboard shortcuts</span>
+				<span>{t.settings.keybinds.shortcuts}</span>
 				<select
 					value={keybindConfig.mode}
 					onchange={(e) => keybindConfig.setMode(e.currentTarget.value as KeybindMode)}
 				>
-					{#each MODES as mode (mode.value)}
-						<option value={mode.value}>{mode.label}</option>
+					{#each MODES as mode (mode)}
+						<option value={mode}>{t.settings.keybinds.modes[mode]}</option>
 					{/each}
 				</select>
 			</label>
 			<span class="hint">
 				{#if keybindConfig.mode === 'auto'}
-					Off automatically on phones and tablets, where there is no keyboard to press.
+					{t.settings.keybinds.autoHint}
 				{:else if keybindConfig.mode === 'on'}
-					On everywhere, including touch devices with a keyboard attached.
+					{t.settings.keybinds.onHint}
 				{:else}
-					Every shortcut below is disabled.
+					{t.settings.keybinds.offHint}
 				{/if}
 			</span>
 			{#if !keybinds.enabled}
 				<p class="notice">
-					Shortcuts are inactive on this device{inputEnvironment.touchOnly
-						? ' — it has no hover-capable pointer'
-						: ''}. Choose <strong>Always on</strong> to use them anyway.
+					{t.settings.keybinds.inactive}{inputEnvironment.touchOnly
+						? t.settings.keybinds.noHover
+						: ''}{t.settings.keybinds.choosePrefix}
+					<strong>{t.settings.keybinds.modes.on}</strong>
+					{t.settings.keybinds.chooseSuffix}
 				</p>
 			{/if}
 		</div>
 
 		{#if capturing}
-			<p class="notice recording">Press the keys to bind. Escape cancels.</p>
+			<p class="notice recording">{t.settings.keybinds.recording}</p>
 		{/if}
 
 		{#each groups as [group, entries] (group)}
@@ -146,7 +146,7 @@
 								{@const clashes = commandRegistry.conflictsWith(command, chord)}
 								{#if clashes.length > 0}
 									<span class="clash">
-										Also bound to {clashes.map((other) => other.title).join(', ')}.
+										{t.settings.keybinds.alsoBound(clashes.map((other) => other.title).join(', '))}
 									</span>
 								{/if}
 							{/each}
@@ -158,15 +158,15 @@
 									<KeyChord {chord} />
 									<button
 										class="icon"
-										{@attach tooltip('Unbind')}
-										aria-label="Unbind {chord}"
+										{@attach tooltip(t.settings.keybinds.unbind)}
+										aria-label={t.settings.keybinds.unbindChord(chord)}
 										onclick={() => unbind(command, chord)}
 									>
 										<X size={12} />
 									</button>
 								</span>
 							{:else}
-								<span class="unbound">Unbound</span>
+								<span class="unbound">{t.settings.keybinds.unbound}</span>
 							{/each}
 
 							<button
@@ -175,19 +175,19 @@
 								onclick={() => startCapture(command, chords.length > 0)}
 							>
 								{#if capturing?.id === command.id}
-									Press a key…
+									{t.settings.keybinds.pressKey}
 								{:else if chords.length > 0}
-									<Plus size={12} /> Add
+									<Plus size={12} /> {t.settings.keybinds.add}
 								{:else}
-									Record
+									{t.settings.keybinds.record}
 								{/if}
 							</button>
 
 							{#if keybindConfig.isOverridden(command.id)}
 								<button
 									class="icon"
-									{@attach tooltip('Reset to default')}
-									aria-label="Reset {command.title} to default"
+									{@attach tooltip(t.settings.keybinds.resetDefault)}
+									aria-label={t.settings.keybinds.resetNamed(command.title)}
 									onclick={() => keybindConfig.reset(command.id)}
 								>
 									<RotateCcw size={12} />
@@ -200,7 +200,7 @@
 		{/each}
 
 		<div class="footer">
-			<button onclick={() => keybindConfig.resetAll()}>Reset all to defaults</button>
+			<button onclick={() => keybindConfig.resetAll()}>{t.settings.keybinds.resetAll}</button>
 		</div>
 	</div>
 </section>

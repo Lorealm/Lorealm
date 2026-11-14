@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../stores/tooltip.svelte.ts';
 	import type { Snippet } from 'svelte';
 	import { Maximize2 } from '@lucide/svelte';
@@ -39,7 +40,7 @@
 				type="button"
 				class="hint"
 				{@attach tooltip(hint)}
-				aria-label={`Help: ${label ?? 'field'}`}>?</button
+				aria-label={t.components.field.help(label ?? t.components.field.fallbackLabel)}>?</button
 			>
 		{/if}
 		<span class="spacer"></span>
@@ -49,8 +50,8 @@
 			<button
 				type="button"
 				class="maximize"
-				{@attach tooltip('Maximize')}
-				aria-label={`Maximize ${label ?? 'field'}`}
+				{@attach tooltip(t.components.field.maximize)}
+				aria-label={t.components.field.maximizeField(label ?? t.components.field.fallbackLabel)}
 				onclick={() => (maximized = true)}
 			>
 				<Maximize2 size={13} />
@@ -61,12 +62,12 @@
 	{#if !maximized}
 		{@render editor(false)}
 	{:else}
-		<div class="placeholder" aria-hidden="true">Editing full screen…</div>
+		<div class="placeholder" aria-hidden="true">{t.components.field.editingFullScreen}</div>
 	{/if}
 </div>
 
 {#if maximized}
-	<MaximizeOverlay title={label ?? 'Edit'} onclose={() => (maximized = false)}>
+	<MaximizeOverlay title={label ?? t.components.field.edit} onclose={() => (maximized = false)}>
 		{#snippet actions()}
 			{#if tokenText !== undefined}<TokenBadge text={tokenText} />{/if}
 		{/snippet}

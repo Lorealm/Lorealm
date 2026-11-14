@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import { usePlatform } from '#lib/api/client.js';
 	import { BUILT_IN_STYLES, CLASSIC_NAME } from '#lib/assets/styles/builtin.js';
@@ -27,8 +28,11 @@
 		X
 	} from '@lucide/svelte';
 
-	const FILE = { label: 'Lorealm style', extensions: ['json'] };
-	const IMAGE = { label: 'Image', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif'] };
+	const file = () => ({ label: t.settings.appearance.fileLabel, extensions: ['json'] });
+	const image = () => ({
+		label: t.settings.appearance.imageLabel,
+		extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif']
+	});
 
 	const shipped = tokenCatalogue();
 
@@ -57,24 +61,27 @@
 
 	async function importStyle(): Promise<void> {
 		try {
-			const text = await usePlatform().files.open(FILE);
+			const text = await usePlatform().files.open(file());
 			if (text === null) return; // Nothing picked.
 
 			const style = parseStyle(text);
 			await styles.add(style);
-			showToast({ message: `“${style.name}” is now in force.`, title: 'Style imported' });
+			showToast({
+				message: t.settings.appearance.imported(style.name),
+				title: t.settings.appearance.importedTitle
+			});
 		} catch (e) {
-			showError(e, { title: 'Could not import that style' });
+			showError(e, { title: t.settings.appearance.importFailed });
 		}
 	}
 
 	async function chooseBackdrop(): Promise<void> {
 		try {
-			const picked = await usePlatform().files.openBinary(IMAGE);
+			const picked = await usePlatform().files.openBinary(image());
 			if (picked === null) return; // Nothing picked.
 			await backdrop.set(await fitImageForStorage(picked));
 		} catch (e) {
-			showError(e, { title: 'Could not load that image' });
+			showError(e, { title: t.settings.appearance.imageFailed });
 		}
 	}
 
@@ -84,11 +91,11 @@
 
 		try {
 			await usePlatform().files.save(styleFile(style), {
-				...FILE,
+				...file(),
 				suggestedName: styleFilename(style)
 			});
 		} catch (e) {
-			showError(e, { title: 'Could not export that style' });
+			showError(e, { title: t.settings.appearance.exportFailed });
 		}
 	}
 
@@ -134,11 +141,11 @@
 				class="swatch"
 				type="color"
 				value={color.hex}
-				aria-label="{field.label} colour"
+				aria-label={t.settings.appearance.colourAria(field.label)}
 				oninput={(e) => set(field, withAlpha(e.currentTarget.value, color.alpha))}
 			/>
 		{:else}
-			<span class="swatch empty" {@attach tooltip('Not a colour the picker can open')}></span>
+			<span class="swatch empty" {@attach tooltip(t.settings.appearance.notPickable)}></span>
 		{/if}
 		<input
 			class="text"
@@ -181,23 +188,23 @@
 
 <section class="section">
 	<div class="body">
-		<h2>Appearance</h2>
+		<h2>{t.nav.user.appearance}</h2>
 
 		<div class="library">
 			<select
 				class="picker"
-				aria-label="Style"
+				aria-label={t.settings.appearance.style}
 				value={styles.activeId ?? ''}
 				onchange={(e) => styles.select(e.currentTarget.value === '' ? null : e.currentTarget.value)}
 			>
-				<optgroup label="Built in">
+				<optgroup label={t.settings.appearance.builtIn}>
 					<option value="">{CLASSIC_NAME}</option>
 					{#each BUILT_IN_STYLES as style (style.id)}
 						<option value={style.id}>{style.name}</option>
 					{/each}
 				</optgroup>
 				{#if styles.all.length > 0}
-					<optgroup label="Yours">
+					<optgroup label={t.settings.appearance.yours}>
 						{#each styles.all as style (style.id)}
 							<option value={style.id}>{style.name}</option>
 						{/each}
@@ -206,22 +213,22 @@
 			</select>
 			<button class="action" onclick={() => styles.create()}>
 				<Plus size={14} />
-				New
+				{t.settings.appearance.new}
 			</button>
 			<button class="action" onclick={importStyle}>
 				<Upload size={14} />
-				Import
+				{t.settings.appearance.import}
 			</button>
 			<button class="action" disabled={!styles.active} onclick={exportStyle}>
 				<Download size={14} />
-				Export
+				{t.settings.appearance.export}
 			</button>
 		</div>
 
 		{#if styles.active && !styles.editable}
 			<p class="hint">
-				<code>{styles.active.name}</code> ships with the client. Changing anything below copies it into
-				a new style.
+				<code>{styles.active.name}</code>
+				{t.settings.appearance.shippedSuffix}
 			</p>
 		{/if}
 
@@ -230,47 +237,47 @@
 			<div class="library">
 				<input
 					class="name"
-					aria-label="Style name"
+					aria-label={t.settings.appearance.styleName}
 					value={active.name}
 					oninput={(e) => styles.rename(e.currentTarget.value)}
 				/>
 				<input
 					class="author"
-					aria-label="Style author"
-					placeholder="The author's name"
+					aria-label={t.settings.appearance.styleAuthor}
+					placeholder={t.settings.appearance.authorPlaceholder}
 					value={active.author ?? ''}
 					oninput={(e) => styles.setAuthor(e.currentTarget.value)}
 				/>
 				<button
 					class="action"
-					{@attach tooltip('Delete this style')}
+					{@attach tooltip(t.settings.appearance.deleteStyle)}
 					onclick={() => styles.remove(active.id)}
 				>
 					<Trash2 size={14} />
-					Delete
+					{t.common.delete}
 				</button>
 			</div>
 		{/if}
 
-		<h3>Backdrop</h3>
+		<h3>{t.settings.appearance.backdrop}</h3>
 		<div class="library">
 			{#if backdrop.image}
 				<span class="preview">
 					<TransportImage
 						src={backdrop.image}
-						alt="The current backdrop"
+						alt={t.settings.appearance.backdropAlt}
 						style="display:block;width:100%;height:100%"
 					/>
 				</span>
 			{/if}
 			<button class="action" onclick={chooseBackdrop}>
 				<ImageIcon size={14} />
-				{backdrop.image ? 'Replace image' : 'Choose image'}
+				{backdrop.image ? t.settings.appearance.replaceImage : t.settings.appearance.chooseImage}
 			</button>
 			{#if backdrop.image}
 				<button class="action" onclick={() => backdrop.clear()}>
 					<X size={14} />
-					Remove
+					{t.settings.appearance.remove}
 				</button>
 			{/if}
 		</div>
@@ -278,10 +285,12 @@
 		<div class="toolbar">
 			<div class="searchRow">
 				<Search size={14} />
-				<input class="search" placeholder="Search appearance settings" bind:value={query} />
+				<input class="search" placeholder={t.settings.appearance.search} bind:value={query} />
 			</div>
 			<span class="count">
-				{overridden === 0 ? 'Nothing overridden' : `${overridden} overridden`}
+				{overridden === 0
+					? t.settings.appearance.nothingOverridden
+					: t.settings.appearance.overridden(overridden)}
 			</span>
 			<button
 				class="reset"
@@ -289,7 +298,7 @@
 				onclick={() => styles.reset()}
 			>
 				<RotateCcw size={14} />
-				Reset all
+				{t.settings.appearance.resetAll}
 			</button>
 		</div>
 
@@ -307,7 +316,7 @@
 						<span class="control">{@render control(field)}</span>
 						<button
 							class="revert"
-							{@attach tooltip('Back to the shipped value')}
+							{@attach tooltip(t.settings.appearance.revert)}
 							disabled={!(field.name in styles.tokens)}
 							onclick={() => styles.removeToken(field.name)}
 						>
@@ -317,11 +326,11 @@
 				{/each}
 			</div>
 		{:else}
-			<span class="empty">Nothing matches “{query}”.</span>
+			<span class="empty">{t.settings.appearance.noMatch(query)}</span>
 		{/each}
 
 		<div class="group">
-			<h3>Custom CSS</h3>
+			<h3>{t.settings.appearance.customCss}</h3>
 
 			<textarea
 				class="css"

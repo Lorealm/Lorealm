@@ -1,5 +1,6 @@
 import { SvelteMap } from 'svelte/reactivity';
 import type { Component } from 'svelte';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 export type ToastActionTone = 'neutral' | 'primary' | 'danger';
 
@@ -49,7 +50,7 @@ function scheduleDismiss(id: number, durationMs: number) {
 export function showToast(input: ShowToastInput) {
 	const toast: Toast = {
 		id: nextId++,
-		title: input.title ?? 'Notification',
+		title: input.title ?? t.common.notification,
 		message: input.message,
 		variant: input.variant ?? 'info',
 		durationMs: input.durationMs ?? 6000,
@@ -67,11 +68,7 @@ export function showError(
 	options: Omit<ShowToastInput, 'message' | 'variant'> = {}
 ) {
 	const message =
-		typeof error === 'string'
-			? error
-			: error instanceof Error
-				? error.message
-				: 'Something went wrong';
+		typeof error === 'string' ? error : error instanceof Error ? error.message : t.errors.generic;
 
 	return showToast({
 		...options,

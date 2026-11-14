@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { connectionStore } from '#lib/stores/connection.svelte.js';
 	import type { ConnectionProfile } from '#lib/types/connection.js';
@@ -30,8 +31,10 @@
 	>
 		<button class="profile-open" type="button" onclick={() => onSelect(profile.id)}>
 			<span class="profile-text">
-				<span class="profile-name">{profile.name || 'Untitled profile'}</span>
-				<span class="profile-sub">{profile.provider} · {profile.model || 'no model'}</span>
+				<span class="profile-name">{profile.name || t.connections.untitledProfile}</span>
+				<span class="profile-sub"
+					>{profile.provider} · {profile.model || t.connections.noModel}</span
+				>
 			</span>
 		</button>
 		<button
@@ -39,12 +42,12 @@
 			class:on={profile.id === activeProfileId}
 			type="button"
 			{@attach tooltip(
-				profile.id === activeProfileId ? 'Active connection' : 'Set as active connection'
+				profile.id === activeProfileId ? t.connections.activeConnection : t.connections.setActive
 			)}
 			aria-pressed={profile.id === activeProfileId}
 			aria-label={profile.id === activeProfileId
-				? `${profile.name} is the active connection`
-				: `Set ${profile.name} as the active connection`}
+				? t.connections.isActive(profile.name)
+				: t.connections.makeActive(profile.name)}
 			onclick={() => onActivate(profile.id)}
 		>
 			<Star size={14} fill={profile.id === activeProfileId ? 'currentColor' : 'none'} />
@@ -52,8 +55,8 @@
 		<button
 			class="icon-button delete"
 			type="button"
-			{@attach tooltip('Delete profile')}
-			aria-label={`Delete ${profile.name}`}
+			{@attach tooltip(t.connections.deleteProfile)}
+			aria-label={t.connections.deleteNamed(profile.name)}
 			onclick={() => onDelete(profile.id)}
 		>
 			<Trash2 size={14} />

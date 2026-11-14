@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { dismissToast, toasts } from '#lib/stores/errorToast.svelte.js';
 </script>
 
@@ -18,7 +19,7 @@
 				<button
 					class="toast-dismiss-btn"
 					onclick={() => dismissToast(toast.id)}
-					aria-label="Dismiss toast"
+					aria-label={t.components.toast.dismiss}
 				>
 					✕
 				</button>

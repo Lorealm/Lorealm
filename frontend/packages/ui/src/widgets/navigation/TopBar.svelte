@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { ChevronLeft, ChevronRight, MenuIcon, PanelRight } from '@lucide/svelte';
 	import { crumbsFor } from '#lib/navigation/breadcrumbs.svelte.js';
@@ -11,15 +12,15 @@
 
 <div class="topBar">
 	{#if shell.narrow}
-		<button class="step" aria-label="Open menu" onclick={() => shell.openNav()}>
+		<button class="step" aria-label={t.nav.openMenu} onclick={() => shell.openNav()}>
 			<MenuIcon size={20} />
 		</button>
 	{/if}
 	<div class="history">
 		<button
 			class="step"
-			{@attach tooltip('Back')}
-			aria-label="Back"
+			{@attach tooltip(t.nav.back)}
+			aria-label={t.nav.back}
 			disabled={!router.canGoBack}
 			onclick={() => navigator.back()}
 		>
@@ -27,8 +28,8 @@
 		</button>
 		<button
 			class="step forward"
-			{@attach tooltip('Forward')}
-			aria-label="Forward"
+			{@attach tooltip(t.nav.forward)}
+			aria-label={t.nav.forward}
 			disabled={!router.canGoForward}
 			onclick={() => navigator.forward()}
 		>
@@ -36,7 +37,7 @@
 		</button>
 	</div>
 
-	<nav class="trail" aria-label="Breadcrumb">
+	<nav class="trail" aria-label={t.nav.breadcrumb}>
 		{#each crumbs as crumb, i (i)}
 			{#if i > 0}
 				<span class="separator" aria-hidden="true"><ChevronRight size={13} /></span>
@@ -56,7 +57,11 @@
 	</nav>
 
 	{#if shell.narrow}
-		<button class="step panel" aria-label="Open inspector" onclick={() => shell.openInspector()}>
+		<button
+			class="step panel"
+			aria-label={t.nav.openInspector}
+			onclick={() => shell.openInspector()}
+		>
 			<PanelRight size={20} />
 		</button>
 	{/if}

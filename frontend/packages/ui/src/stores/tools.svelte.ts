@@ -9,6 +9,7 @@ import type {
 	UserTool
 } from '#lib/types/tools.js';
 import { showError } from '#lib/stores/errorToast.svelte.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -86,7 +87,7 @@ class ToolStore {
 		if (!this.loadedTools) await this.loadTools();
 		const found = this.loadedTools?.find((t) => t.id === id) ?? null;
 		if (!found) {
-			this.saveState = { status: 'error', message: 'Tool not found' };
+			this.saveState = { status: 'error', message: t.errors.failed.toolNotFound };
 			return;
 		}
 		this.#baseline = found;
@@ -99,7 +100,7 @@ class ToolStore {
 		if (!this.builtinTools) await this.loadBuiltins();
 		const found = this.builtinTools?.find((t) => t.id === id) ?? null;
 		if (!found) {
-			this.saveState = { status: 'error', message: 'Tool not found' };
+			this.saveState = { status: 'error', message: t.errors.failed.toolNotFound };
 			return;
 		}
 		this._viewing = buildDraft(found);
@@ -129,7 +130,7 @@ class ToolStore {
 			await this.loadTools();
 			return id;
 		} catch (e) {
-			showError(e, { title: 'Create failed' });
+			showError(e, { title: t.errors.failed.create });
 		}
 	}
 
@@ -153,7 +154,7 @@ class ToolStore {
 			await this.loadTools();
 			return forked;
 		} catch (e) {
-			showError(e, { title: 'Could not create your version' });
+			showError(e, { title: t.errors.failed.fork });
 		}
 	}
 
@@ -165,7 +166,7 @@ class ToolStore {
 			await this.#api.tools.delete(id);
 		} catch (e) {
 			this.loadedTools = previous;
-			showError(e, { title: 'Delete failed' });
+			showError(e, { title: t.errors.failed.delete });
 		}
 	}
 
@@ -179,7 +180,7 @@ class ToolStore {
 			await this.#api.tools.toggle(id, { enabled });
 		} catch (e) {
 			list[i].enabled = previous;
-			showError(e, { title: 'Toggle failed' });
+			showError(e, { title: t.errors.failed.toggle });
 		}
 	}
 
@@ -208,7 +209,7 @@ class ToolStore {
 		if (!NAME_RE.test(draft.name)) {
 			this.saveState = {
 				status: 'error',
-				message: 'Name must be 1–64 chars: letters, digits, _ or -'
+				message: t.errors.failed.toolName
 			};
 			return;
 		}
@@ -236,11 +237,8 @@ class ToolStore {
 		} catch (e) {
 			const { message, code } = extractError(e);
 			this.saveState = { status: 'error', message, code };
-			// A body that doesn't compile is already underlined in the editor
-			// and spelled out in the save row. A toast would be the third copy,
-			// raised again on every pause in typing.
 			if (code !== 'tool.invalid_body' && message !== this.#lastError) {
-				showError(message, { title: 'Save failed' });
+				showError(message, { title: t.errors.failed.save });
 				this.#lastError = message;
 			}
 		} finally {

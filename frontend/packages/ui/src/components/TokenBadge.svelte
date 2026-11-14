@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../stores/tooltip.svelte.ts';
 	import { countTokens, type TokenCount } from '#lib/stores/tokenCount.js';
 	import { tokenizerStore } from '#lib/stores/tokenizer.svelte.js';
@@ -35,9 +36,7 @@
 	});
 
 	const title = $derived(
-		count?.estimated
-			? 'Estimated — no tokenizer is active. Pick one in Settings for exact counts.'
-			: 'Tokens under the active tokenizer'
+		count?.estimated ? t.components.tokenBadge.estimated : t.components.tokenBadge.exact
 	);
 </script>
 
@@ -47,7 +46,7 @@
 	{:else}
 		{count.estimated ? '~' : ''}{count.tokens.toLocaleString()}
 	{/if}
-	tokens
+	{t.components.tokenBadge.unit}
 </span>
 
 <style>

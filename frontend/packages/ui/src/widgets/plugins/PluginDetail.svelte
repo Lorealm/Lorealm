@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import DOMPurify from 'dompurify';
 	import { marked } from 'marked';
 	import type { Snippet } from 'svelte';
@@ -33,20 +34,7 @@
 	} = $props();
 
 	/** What each permission lets a plugin do. */
-	const permissionLabels: Record<string, string> = {
-		'chat:read': 'Read your chats',
-		'chat:write': 'Change or refuse messages before they are saved',
-		'data:persist': 'Store its own data',
-		'model:generate': 'Generate a response on your behalf',
-		'net:fetch': 'Send requests to the hosts below',
-		'persona:read': 'Read your active persona',
-		'prompt:write': 'Change prompts before they are sent',
-		'state:read': 'Read script variables',
-		'state:write': 'Change script variables',
-		'tools:write': 'Change tool calls and their results, or refuse calls',
-		'ui:autoplay': 'Play media without you clicking it first',
-		'ui:unsafe': 'Run code directly in the app'
-	};
+	const permissionLabels: Record<string, string> = $derived(t.plugins.permissions);
 
 	let rendered = $state<string | null | undefined>(undefined);
 
@@ -59,15 +47,11 @@
 			.catch(() => (rendered = null));
 	});
 
-	/**
-	 * GitHub marks a callout with `[!NOTE]` on a quote's first line, which
-	 * would otherwise show as that text. It becomes the callout's title.
-	 */
 	function callouts(markdown: string): string {
 		return markdown.replace(
 			/^([ \t]*>[ \t]*)\[!(note|tip|important|warning|caution)\][ \t]*$/gim,
 			(_, quote: string, kind: string) =>
-				`${quote}**${kind[0].toUpperCase()}${kind.slice(1).toLowerCase()}**\n${quote.trimEnd()}`
+				`${quote}**${t.plugins.callouts[kind.toLowerCase() as keyof typeof t.plugins.callouts]}**\n${quote.trimEnd()}`
 		);
 	}
 
@@ -95,14 +79,14 @@
 			{#if repository?.startsWith('https://')}
 				<button type="button" onclick={() => window.open(repository, '_blank', 'noopener')}>
 					<ExternalLink size={14} />
-					Repository
+					{t.plugins.repository}
 				</button>
 			{/if}
 		</div>
 		{@render notice?.()}
 		{#if error}<p class="error">{error}</p>{/if}
 
-		<h3>Permissions</h3>
+		<h3>{t.plugins.permissionsTitle}</h3>
 		{#if plugin.permissions.length || plugin.hosts.length}
 			<table>
 				<tbody>
@@ -114,22 +98,22 @@
 					{/each}
 					{#each plugin.hosts as host (host)}
 						<tr>
-							<td>Send requests to</td>
+							<td>{t.plugins.sendRequestsTo}</td>
 							<td class="muted"><code>{host}</code></td>
 						</tr>
 					{/each}
 				</tbody>
 			</table>
 		{:else}
-			<p class="muted">None.</p>
+			<p class="muted">{t.plugins.none}</p>
 		{/if}
 	</aside>
 
 	<section class="readme">
 		{#if rendered === undefined}
-			<p class="muted">Loading…</p>
+			<p class="muted">{t.plugins.loading}</p>
 		{:else if rendered === null}
-			<p class="muted">This plugin has no README.</p>
+			<p class="muted">{t.plugins.noReadme}</p>
 		{:else}
 			<!-- Sanitized with DOMPurify. -->
 			<!-- eslint-disable-next-line svelte/no-at-html-tags -->

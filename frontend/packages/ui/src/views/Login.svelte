@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import ErrorToast from '#lib/components/ErrorToast.svelte';
 	import { getPlatformApi } from '#lib/core/context.js';
 	import { setAuthState } from '#lib/stores/auth.svelte.js';
@@ -81,47 +82,47 @@
 
 <div class="container">
 	<form class="login-form" onsubmit={handleSubmit}>
-		<h1>Login Page</h1>
+		<h1>{t.shell.login.title}</h1>
 		{#if error}
 			<div class="error-box">{error}</div>
 		{/if}
 		{#if server}
 			<div class="input-row" style="margin-bottom: var(--spacing-xs);">
-				<label for="ServerUrl">Server URL</label>
+				<label for="ServerUrl">{t.shell.login.serverUrl}</label>
 				<input id="ServerUrl" type="text" class="standard-input" bind:value={serverUrl} />
 			</div>
 		{/if}
 		<div class="input-row" style="margin-bottom: var(--spacing-xs);">
-			<label for="UsernameInput">Username</label>
+			<label for="UsernameInput">{t.shell.login.username}</label>
 			<input id="UsernameInput" type="text" class="standard-input" bind:value={username} />
 		</div>
 		<div class="input-row" style="margin-bottom: var(--spacing-md);">
-			<label for="PasswordInput">Password</label>
+			<label for="PasswordInput">{t.shell.login.password}</label>
 			<input id="PasswordInput" type="password" class="standard-input" bind:value={password} />
 		</div>
 		{#if registering}
 			<div class="input-row" style="margin-bottom: var(--spacing-xs);">
-				<label for="EmailInput">Email (optional)</label>
+				<label for="EmailInput">{t.shell.login.emailOptional}</label>
 				<input id="EmailInput" type="email" class="standard-input" bind:value={email} />
 			</div>
 			<div class="input-row" style="margin-bottom: var(--spacing-md);">
-				<label for="InviteInput">Invite code</label>
+				<label for="InviteInput">{t.shell.login.inviteCode}</label>
 				<input
 					id="InviteInput"
 					type="text"
 					class="standard-input"
-					placeholder="Needed if sign-ups are closed"
+					placeholder={t.shell.login.invitePlaceholder}
 					bind:value={inviteCode}
 				/>
 			</div>
-			<button type="submit" class="push-button">Create account</button>
+			<button type="submit" class="push-button">{t.shell.login.createAccount}</button>
 			<button type="button" class="link-button" onclick={() => (registering = false)}>
-				I already have an account
+				{t.shell.login.haveAccount}
 			</button>
 		{:else}
-			<button type="submit" class="push-button">Log in</button>
+			<button type="submit" class="push-button">{t.shell.login.logIn}</button>
 			<button type="button" class="link-button" onclick={() => (registering = true)}>
-				Create an account
+				{t.shell.login.createAnAccount}
 			</button>
 		{/if}
 	</form>

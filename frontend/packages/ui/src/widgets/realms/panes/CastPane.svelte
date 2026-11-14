@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import {
 		Bot,
@@ -136,21 +137,21 @@
 			type="button"
 			class="agent"
 			class:selected={realmDraft.isSelected({ kind: 'agent', key: agent.key })}
-			{@attach tooltip(agent.kind === 'script' ? 'Double-click to edit its script' : undefined)}
+			{@attach tooltip(agent.kind === 'script' ? t.realms.castPane.editScript : undefined)}
 			onclick={() => realmDraft.select({ kind: 'agent', key: agent.key })}
 			ondblclick={() =>
 				agent.kind === 'script' && panes.show({ kind: 'script', agentKey: agent.key })}
 		>
 			<Icon size={13} />
-			<span class="handle">{agent.handle || 'unnamed'}</span>
+			<span class="handle">{agent.handle || t.realms.castPane.unnamed}</span>
 			{#if agent.name}<span class="display">{agent.name}</span>{/if}
 			<span class="kind">{agent.kind}</span>
 		</button>
 		<button
 			type="button"
 			class="remove"
-			{@attach tooltip('Remove agent')}
-			aria-label="Remove {agent.handle}"
+			{@attach tooltip(t.realms.castPane.removeAgent)}
+			aria-label={t.realms.castPane.removeNamed(agent.handle)}
 			onclick={() => realmDraft.removeAgent(agent.key)}
 		>
 			<Trash2 size={12} />
@@ -160,13 +161,15 @@
 
 <div class="pane">
 	<header>
-		<h2>Cast</h2>
-		<span class="order">turns run top-to-bottom</span>
+		<h2>{t.realms.castPane.title}</h2>
+		<span class="order">{t.realms.castPane.order}</span>
 		<button type="button" class="chip" onclick={() => realmDraft.addAgent()}>
-			<Plus size={12} /> Agent
+			<Plus size={12} />
+			{t.realms.castPane.agent}
 		</button>
 		<button type="button" class="chip" onclick={() => realmDraft.addForeach()}>
-			<Repeat size={12} /> For each
+			<Repeat size={12} />
+			{t.realms.castPane.forEach}
 		</button>
 	</header>
 
@@ -187,8 +190,8 @@
 				<button
 					type="button"
 					class="grip"
-					{@attach tooltip('Drag to reorder, or Alt+Arrow')}
-					aria-label="Reorder entry {index + 1} of {realmDraft.cast.length}"
+					{@attach tooltip(t.realms.castPane.reorder)}
+					aria-label={t.realms.castPane.reorderAria(index + 1, realmDraft.cast.length)}
 					onpointerdown={() => (gripped = entry.key)}
 					onpointerup={() => (gripped = null)}
 					onkeydown={(e) => onEntryKeydown(e, entry.key)}
@@ -222,23 +225,23 @@
 								onclick={() => realmDraft.select({ kind: 'foreach', key: entry.key })}
 							>
 								<Repeat size={13} />
-								<span class="kw">for each</span>
+								<span class="kw">{t.realms.castPane.forEachKw}</span>
 							</button>
 							<input
 								class="var"
 								value={entry.varName}
-								aria-label="Loop variable"
+								aria-label={t.realms.castPane.loopVariable}
 								spellcheck="false"
 								oninput={(e) => (entry.varName = e.currentTarget.value)}
 							/>
-							<span class="kw">in</span>
+							<span class="kw">{t.realms.castPane.inKw}</span>
 							<select
 								class="over"
-								aria-label="Input to walk"
+								aria-label={t.realms.castPane.inputToWalk}
 								value={entry.over ?? ''}
 								onchange={(e) => bindOver(entry, e.currentTarget.value || null)}
 							>
-								<option value="">— pick an input —</option>
+								<option value="">{t.realms.castPane.pickInput}</option>
 								{#each walkable as input (input.name)}
 									<option value={input.name}>{input.name}</option>
 								{/each}
@@ -246,9 +249,7 @@
 							{#if decl && loopReaches(decl.ty).length === 0}
 								<span
 									class="warn"
-									{@attach tooltip(
-										`Its elements aren't references. Only {{${entry.varName}}} can be reached.`
-									)}
+									{@attach tooltip(t.realms.castPane.notReferences(entry.varName))}
 								>
 									<FlagOff size={12} />
 								</span>
@@ -256,8 +257,8 @@
 							<button
 								type="button"
 								class="remove"
-								{@attach tooltip('Remove loop')}
-								aria-label="Remove loop"
+								{@attach tooltip(t.realms.castPane.removeLoop)}
+								aria-label={t.realms.castPane.removeLoop}
 								onclick={() => realmDraft.removeEntry(entry.key)}
 							>
 								<Trash2 size={12} />
@@ -280,7 +281,8 @@
 								class="addMember"
 								onclick={() => realmDraft.addToBody(entry.key)}
 							>
-								<Plus size={12} /> Agent per {entry.varName}
+								<Plus size={12} />
+								{t.realms.castPane.agentPer(entry.varName)}
 							</button>
 						</div>
 					{/if}
@@ -291,22 +293,22 @@
 				<div class="refused" role="status">
 					<TriangleAlert size={14} />
 					<div>
-						<p class="refusedHead">This document can't be opened in the cast pane.</p>
+						<p class="refusedHead">{t.realms.castPane.refused}</p>
 						<p class="refusedWhy">{blueprintStore.refusal}</p>
-						<p class="refusedWhy">
-							The Document tab still shows it. Building a cast here and saving will replace it.
-						</p>
+						<p class="refusedWhy">{t.realms.castPane.refusedNote}</p>
 					</div>
 				</div>
 			{/if}
 			<div class="empty">
-				<p>The cast is empty. Add one:</p>
+				<p>{t.realms.castPane.empty}</p>
 				<div class="emptyActions">
 					<button type="button" class="chip" onclick={() => realmDraft.addAgent()}>
-						<Plus size={12} /> Agent
+						<Plus size={12} />
+						{t.realms.castPane.agent}
 					</button>
 					<button type="button" class="chip" onclick={() => realmDraft.addForeach()}>
-						<Repeat size={12} /> For each
+						<Repeat size={12} />
+						{t.realms.castPane.forEach}
 					</button>
 				</div>
 			</div>

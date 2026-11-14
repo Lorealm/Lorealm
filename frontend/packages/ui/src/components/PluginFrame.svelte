@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { untrack } from 'svelte';
 	import { useApi } from '#lib/api/client.js';
 	import { frameTheme } from '#lib/stores/frameTheme.svelte.js';
@@ -214,7 +215,7 @@
 						type: 'lorealm:result',
 						id,
 						ok: false,
-						error: err instanceof Error ? err.message : 'The call failed.'
+						error: err instanceof Error ? err.message : t.components.plugin.callFailed
 					})
 			);
 	}
@@ -223,7 +224,7 @@
 <svelte:window onmessage={onMessage} />
 
 {#if failed}
-	<div class="empty">This plugin's panel couldn't be loaded.</div>
+	<div class="empty">{t.components.plugin.panelFailed}</div>
 {:else if srcdoc !== null}
 	<iframe
 		{title}

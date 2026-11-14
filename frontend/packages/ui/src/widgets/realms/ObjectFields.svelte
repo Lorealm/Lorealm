@@ -3,6 +3,7 @@
 </script>
 
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { Plus, Trash2, TriangleAlert } from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
 	import NumberInput from '#lib/components/NumberInput.svelte';
@@ -66,10 +67,10 @@
 
 <div class="fields">
 	<span class="head">
-		{depth === 0 ? 'Fields' : 'Fields of this group'}
+		{depth === 0 ? t.realms.fields.title : t.realms.fields.nested}
 		<button
 			type="button"
-			aria-label="Add a field"
+			aria-label={t.realms.fields.add}
 			onclick={() => onchange([...fields, blankField()])}
 		>
 			<Plus size={12} />
@@ -79,17 +80,16 @@
 	{#if depth > COMFORTABLE_DEPTH}
 		<p class="deep">
 			<TriangleAlert size={12} />
-			This object is {depth} layers deep. It will still work, but you may want to consider restructuring
-			your data.
+			{t.realms.fields.tooDeep(depth)}
 		</p>
 	{/if}
 
 	<table>
 		<thead>
 			<tr>
-				<th>Name</th>
-				<th>Holds</th>
-				<th class="checkCol">List</th>
+				<th>{t.realms.fields.name}</th>
+				<th>{t.realms.fields.holds}</th>
+				<th class="checkCol">{t.realms.fields.list}</th>
 				<th></th>
 			</tr>
 		</thead>
@@ -101,26 +101,26 @@
 							class="mono"
 							bind:this={nameEls[i]}
 							value={field.name}
-							placeholder="name"
+							placeholder={t.realms.fields.namePlaceholder}
 							spellcheck="false"
-							aria-label="Field {i + 1} name"
+							aria-label={t.realms.fields.nameAria(i + 1)}
 							onchange={(e) => set(i, { name: e.currentTarget.value })}
 						/>
 					</td>
 					<td>
 						<select
-							aria-label="Field {i + 1} type"
+							aria-label={t.realms.fields.typeAria(i + 1)}
 							value={holdsValue(field.ty)}
 							onchange={(e) =>
 								set(i, { ty: withList(holdsToBase(e.currentTarget.value), isList(field.ty)) })}
 						>
-							<option value="string">Text</option>
-							<option value="number">Number</option>
-							<option value="bool">Boolean</option>
-							<option value="enum">Enum</option>
-							<option value="range">Slider (single-value)</option>
-							<option value="span">Slider (from-to)</option>
-							<option value="object">Custom Object</option>
+							<option value="string">{t.realms.fields.types.string}</option>
+							<option value="number">{t.realms.fields.types.number}</option>
+							<option value="bool">{t.realms.fields.types.bool}</option>
+							<option value="enum">{t.realms.fields.types.enum}</option>
+							<option value="range">{t.realms.fields.types.range}</option>
+							<option value="span">{t.realms.fields.types.span}</option>
+							<option value="object">{t.realms.fields.types.object}</option>
 							{#each RESOURCE_KINDS as kind (kind)}
 								<option value="ref:{kind}">{TYPE_NAME[kind]}</option>
 							{/each}
@@ -129,7 +129,7 @@
 					<td class="checkCol">
 						<input
 							type="checkbox"
-							aria-label="Field {i + 1} is a list"
+							aria-label={t.realms.fields.listAria(i + 1)}
 							checked={isList(field.ty)}
 							onchange={(e) => set(i, { ty: withList(baseOf(field.ty), e.currentTarget.checked) })}
 						/>
@@ -138,7 +138,7 @@
 						<button
 							type="button"
 							class="remove"
-							aria-label="Remove field {i + 1}"
+							aria-label={t.realms.fields.removeAria(i + 1)}
 							onclick={() => remove(i)}
 						>
 							<Trash2 size={12} />
@@ -155,7 +155,7 @@
 		{@const inner = baseOf(field.ty)}
 		<div class="detail">
 			<span class="detailHead">
-				<code>{field.name || 'field'}</code>
+				<code>{field.name || t.realms.fields.fallbackName}</code>
 				<span class="declaredAs">{declaredText(field.ty)}</span>
 			</span>
 
@@ -163,10 +163,10 @@
 				{@const bounds = inner}
 				<div class="bounds">
 					<label>
-						<span>From</span>
+						<span>{t.realms.fields.from}</span>
 						<NumberInput
 							value={bounds.min}
-							ariaLabel="Lowest value"
+							ariaLabel={t.realms.fields.lowest}
 							onchange={(next) =>
 								set(at, {
 									ty: withList(
@@ -177,10 +177,10 @@
 						/>
 					</label>
 					<label>
-						<span>To</span>
+						<span>{t.realms.fields.to}</span>
 						<NumberInput
 							value={bounds.max}
-							ariaLabel="Highest value"
+							ariaLabel={t.realms.fields.highest}
 							onchange={(next) =>
 								set(at, {
 									ty: withList(
@@ -194,10 +194,10 @@
 			{:else if inner.type === 'enum'}
 				{@const choices = inner}
 				<label>
-					<span>Choices</span>
+					<span>{t.realms.fields.choices}</span>
 					<input
 						value={choices.variants.join(', ')}
-						placeholder="leader, follower"
+						placeholder={t.realms.fields.choicesPlaceholder}
 						onchange={(e) =>
 							set(at, {
 								ty: withList(
@@ -217,7 +217,7 @@
 						set(at, { ty: withList({ type: 'object', fields: next }, isList(field.ty)) })}
 				/>
 			{:else}
-				<p class="note">Nothing more to set for this one.</p>
+				<p class="note">{t.realms.fields.nothingMore}</p>
 			{/if}
 		</div>
 	{/if}

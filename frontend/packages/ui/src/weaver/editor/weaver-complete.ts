@@ -26,6 +26,7 @@ import {
 	visibleNamespaces,
 	type VariableRef
 } from './weaver-variables.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 const TOKEN = /[\w.]*/;
 const SCOPED = /([A-Za-z_]\w*)\s*:\s*([\w.]*)$/;
@@ -138,13 +139,9 @@ function scopeOptions(refs: VariableRef[], namespaces: NamespaceDef[]): Completi
 	return [
 		...[...scopes].map((scope) => ({
 			label: scope,
-			detail: 'namespace',
+			detail: t.weaver.kinds.namespace,
 			apply: `${scope}:`,
-			info: () =>
-				infoDom(
-					`${scope}:`,
-					documented.get(scope)?.description ?? 'A state namespace this document uses.'
-				)
+			info: () => infoDom(`${scope}:`, documented.get(scope)?.description ?? t.weaver.namespaceDoc)
 		})),
 		...refs.filter((r) => r.scope === '').map(variableOption)
 	];
@@ -157,7 +154,7 @@ function holds(group: VariableRef[], prefix: string): string {
 		.slice(0, 6)
 		.map((head) => `\`${head}\``)
 		.join(', ');
-	return `Holds ${shown}${heads.length > 6 ? ', and more' : ''}.`;
+	return t.weaver.holds(shown, heads.length > 6);
 }
 
 function memberCompletions(
@@ -199,7 +196,7 @@ function memberCompletions(
 			.filter(([label]) => !leaves.has(label))
 			.map(([label, group]) => ({
 				label,
-				detail: 'group',
+				detail: t.weaver.kinds.group,
 				apply: `${label}.`,
 				info: () => infoDom(`${scope}${sep}${prefix}${label}.…`, holds(group, `${prefix}${label}.`))
 			}))
@@ -230,7 +227,7 @@ function optionsFor(
 				...weaverVocabularyStore.processors.map((p) => ({
 					...option(
 						processorKey(p),
-						'processor',
+						t.weaver.kinds.processor,
 						formatProcessorSignature(p),
 						p.description,
 						paramDocs(p)
@@ -242,7 +239,13 @@ function optionsFor(
 		case 'cmd':
 			return [
 				...weaverVocabularyStore.commands.map((c) => ({
-					...option(c.name, 'command', formatCommandSignature(c), c.description, paramDocs(c)),
+					...option(
+						c.name,
+						t.weaver.kinds.command,
+						formatCommandSignature(c),
+						c.description,
+						paramDocs(c)
+					),
 					apply: callApply(c.params.length > 0)
 				})),
 				...(inArguments(before) ? variables() : [])
@@ -250,7 +253,7 @@ function optionsFor(
 		case 'tag':
 			return [
 				...Object.entries(keywords).map(([name, e]) => ({
-					...option(name, 'keyword', e.signature, e.doc),
+					...option(name, t.weaver.kinds.keyword, e.signature, e.doc),
 					apply: keywordApply(name)
 				})),
 				...variables()
@@ -267,8 +270,13 @@ function idCompletions(context: CompletionContext, site: IdSite): CompletionResu
 	const options = refs
 		.filter((ref) => writableAt(site, ref.id))
 		.map((ref) => {
-			const doc = [ref.name, ref.detail && `In ${ref.detail}.`].filter(Boolean).join('\n\n');
-			return { ...option(ref.id, ref.detail ?? 'entry', ref.id, doc), apply: idApply(site) };
+			const doc = [ref.name, ref.detail && t.weaver.inEntry(ref.detail)]
+				.filter(Boolean)
+				.join('\n\n');
+			return {
+				...option(ref.id, ref.detail ?? t.weaver.kinds.entry, ref.id, doc),
+				apply: idApply(site)
+			};
 		});
 	if (options.length === 0) return null;
 
@@ -286,8 +294,10 @@ const TRIGGER_OPEN = '<trigger id="';
 
 const TRIGGER_TAG: Completion = {
 	label: '<trigger>',
-	detail: 'trigger',
-	info: () => infoDom(`${TRIGGER_OPEN}entry_id">`, "Render another entry's text in place."),
+	get detail() {
+		return t.weaver.kinds.trigger;
+	},
+	info: () => infoDom(`${TRIGGER_OPEN}entry_id">`, t.weaver.triggerDoc),
 	apply: (view, _completion, from, to) => {
 		replace(view, from, to, `${TRIGGER_OPEN}">`, TRIGGER_OPEN.length);
 		startCompletion(view);

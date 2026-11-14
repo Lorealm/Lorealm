@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../stores/tooltip.svelte.ts';
 	import type { Snippet } from 'svelte';
 	import { Minimize2 } from '@lucide/svelte';
@@ -31,9 +32,14 @@
 		<span class="title">{title}</span>
 		<div class="actions">
 			{@render actions?.()}
-			<button type="button" class="close" onclick={onclose} {@attach tooltip('Minimize (Esc)')}>
+			<button
+				type="button"
+				class="close"
+				onclick={onclose}
+				{@attach tooltip(t.components.maximize.minimizeHint)}
+			>
 				<Minimize2 size={14} />
-				Minimize
+				{t.components.maximize.minimize}
 			</button>
 		</div>
 	</div>

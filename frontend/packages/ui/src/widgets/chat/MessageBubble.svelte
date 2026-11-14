@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { chatStore } from '#lib/stores/chat.svelte.js';
 	import { characterStore } from '#lib/stores/character.svelte.js';
@@ -19,20 +20,18 @@
 	let { message, last = false }: { message: ConversationMessage; last?: boolean } = $props();
 
 	let info = $derived(chatStore.siblingInfo(message.id));
-	/** Every turn is stamped with who took it. */
 	let turn = $derived(message.metadata as { agent_name?: string; handle?: string } | null);
 	let name = $derived(
 		message.role === 'user' && (!turn?.handle || turn.handle === chatStore.viewerAgent?.handle)
-			? 'You'
+			? t.chat.message.you
 			: (turn?.agent_name ??
 					(message.role === 'system'
-						? 'System'
-						: (characterStore.activeCharacter?.definition.name ?? 'Assistant')))
+						? t.chat.message.system
+						: (characterStore.activeCharacter?.definition.name ?? t.chat.message.assistant)))
 	);
 
 	let avatarUrl = $derived(blobUrl(characterStore.activeCharacter?.metadata.avatar_uri));
 
-	/** A command run's anchor message */
 	let commandName = $derived((message.metadata as { command?: string } | null)?.command ?? null);
 
 	let committed = $derived(!message.id.startsWith('tmp_'));
@@ -43,8 +42,6 @@
 	let editMode = $state<'edit' | 'branch'>('edit');
 	let editText = $state('');
 
-	// Picking up a reply the provider cut short only makes sense on the newest
-	// one; earlier replies have turns built on top of them already.
 	let canContinue = $derived(last && message.role === 'assistant');
 
 	let hasContext = $derived(parseContextBlocks(message.metadata) !== null);
@@ -98,9 +95,7 @@
 </script>
 
 {#if commandName !== null}
-	<!-- A command run reads as a mark in the timeline, not as someone speaking:
-	     it may carry no text at all and exist only to anchor its state writes. -->
-	<div class="command-mark" {@attach tooltip(`Ran /${commandName}`)}>
+	<div class="command-mark" {@attach tooltip(t.chat.message.ranCommand(commandName))}>
 		<span class="command-name">/{commandName}</span>
 		{#if message.content}
 			<span class="command-output">{message.content}</span>
@@ -124,7 +119,7 @@
 						{#if hasContext}
 							<button
 								class="icon-btn"
-								{@attach tooltip('Inspect context')}
+								{@attach tooltip(t.chat.message.inspectContext)}
 								onclick={() => contextInspector.open(message)}
 							>
 								<Layers />
@@ -133,7 +128,7 @@
 						{#if canContinue}
 							<button
 								class="icon-btn"
-								{@attach tooltip('Continue this reply')}
+								{@attach tooltip(t.chat.message.continue)}
 								disabled={busy}
 								onclick={() => chatStore.continueMessage(message.id)}
 							>
@@ -142,7 +137,7 @@
 						{/if}
 						<button
 							class="icon-btn"
-							{@attach tooltip('Edit')}
+							{@attach tooltip(t.common.edit)}
 							disabled={busy}
 							onclick={() => startEdit('edit')}
 						>
@@ -150,7 +145,7 @@
 						</button>
 						<button
 							class="icon-btn"
-							{@attach tooltip('Delete')}
+							{@attach tooltip(t.common.delete)}
 							disabled={busy}
 							onclick={() => chatStore.deleteMessage(message.id)}
 						>
@@ -162,7 +157,7 @@
 
 			{#if !editing && reasoning.length > 0}
 				<details class="reasoning" open={false}>
-					<summary>{committed ? 'Thoughts' : 'Thinking…'}</summary>
+					<summary>{committed ? t.chat.message.thoughts : t.chat.message.thinking}</summary>
 					<div class="reasoning-body">{reasoning}</div>
 				</details>
 			{/if}
@@ -171,9 +166,9 @@
 				<textarea class="editor" bind:value={editText} use:autosize></textarea>
 				<div class="edit-actions">
 					<button disabled={busy} onclick={saveEdit}
-						>{editMode === 'edit' ? 'Save' : 'Swipe'}</button
+						>{editMode === 'edit' ? t.common.save : t.chat.message.swipe}</button
 					>
-					<button onclick={() => (editing = false)}>Cancel</button>
+					<button onclick={() => (editing = false)}>{t.common.cancel}</button>
 				</div>
 			{:else if typing}
 				<div class="body">
@@ -214,7 +209,7 @@
 			<div class="slides">
 				<button
 					class="icon-btn"
-					{@attach tooltip('Previous')}
+					{@attach tooltip(t.common.previous)}
 					disabled={busy || info.index === 0}
 					onclick={() => chatStore.swipePrev(message.id)}
 				>
@@ -223,7 +218,7 @@
 				{#if info.count > 1}
 					<span class="counter">{info.index + 1}/{info.count}</span>
 				{/if}
-				<button class="icon-btn" {@attach tooltip('Next')} disabled={busy} onclick={onRight}>
+				<button class="icon-btn" {@attach tooltip(t.common.next)} disabled={busy} onclick={onRight}>
 					<ChevronRight />
 				</button>
 			</div>

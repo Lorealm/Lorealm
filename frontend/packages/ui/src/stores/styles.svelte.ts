@@ -1,6 +1,7 @@
 import { usePlatform } from '#lib/api/client.js';
 import { BUILT_IN_STYLES, isBuiltIn } from '#lib/assets/styles/builtin.js';
 import { PersistedRecord } from './persisted.svelte.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 /**
  * A named set of overrides on top of what the client ships
@@ -77,7 +78,7 @@ class StyleStore {
 		await this.select(style.id);
 	}
 
-	create(name = 'New style'): Promise<void> {
+	create(name: string = t.settings.appearance.newStyle): Promise<void> {
 		return this.add({ id: newId(), name, tokens: {}, css: '' });
 	}
 
@@ -131,8 +132,13 @@ class StyleStore {
 		if (active && !isBuiltIn(active.id)) return this.#update(change);
 
 		const base: Style = active
-			? { ...active, id: newId(), name: `${active.name} (copy)`, tokens: { ...active.tokens } }
-			: { id: newId(), name: 'Custom', tokens: {}, css: '' };
+			? {
+					...active,
+					id: newId(),
+					name: t.settings.appearance.copyOf(active.name),
+					tokens: { ...active.tokens }
+				}
+			: { id: newId(), name: t.settings.appearance.custom, tokens: {}, css: '' };
 
 		return this.add(change(base));
 	}
@@ -145,7 +151,7 @@ class StyleStore {
 		const tokens = old.tokens ?? {};
 		const css = old.css ?? '';
 		if (Object.keys(tokens).length > 0 || css !== '') {
-			await this.add({ id: newId(), name: 'Custom', tokens, css });
+			await this.add({ id: newId(), name: t.settings.appearance.custom, tokens, css });
 		}
 		await store.delete('theme');
 	}
@@ -202,28 +208,28 @@ export function parseStyle(text: string): Style {
 	try {
 		data = JSON.parse(text);
 	} catch {
-		throw new Error('That file is not valid JSON.');
+		throw new Error(t.errors.failed.styleNotJson);
 	}
 
 	if (typeof data !== 'object' || data === null || Array.isArray(data)) {
-		throw new Error('A style file has to be a JSON object.');
+		throw new Error(t.errors.failed.styleNotObject);
 	}
 
 	const raw = data as Record<string, unknown>;
 	if (typeof raw.name !== 'string' || raw.name.trim() === '') {
-		throw new Error('A style file needs a "name".');
+		throw new Error(t.errors.failed.styleNoName);
 	}
 	if (raw.css !== undefined && typeof raw.css !== 'string') {
-		throw new Error('"css" has to be a string.');
+		throw new Error(t.errors.failed.styleCss);
 	}
 
 	const tokens: Record<string, string> = {};
 	if (raw.tokens !== undefined) {
 		if (typeof raw.tokens !== 'object' || raw.tokens === null || Array.isArray(raw.tokens)) {
-			throw new Error('"tokens" has to be an object of custom property names to values.');
+			throw new Error(t.errors.failed.styleTokens);
 		}
 		for (const [name, value] of Object.entries(raw.tokens)) {
-			if (typeof value !== 'string') throw new Error(`"tokens" holds a non-string at "${name}".`);
+			if (typeof value !== 'string') throw new Error(t.errors.failed.styleTokenValue(name));
 			tokens[name] = value;
 		}
 	}

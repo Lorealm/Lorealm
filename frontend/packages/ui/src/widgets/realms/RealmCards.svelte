@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { FileCode2, Play, Trash2 } from '@lucide/svelte';
 	import { useApi } from '#lib/api/client.js';
@@ -25,7 +26,7 @@
 	});
 
 	const blueprintName = (id: Snowflake) =>
-		blueprintStore.summaries.find((b) => b.id === id)?.name ?? 'a deleted blueprint';
+		blueprintStore.summaries.find((b) => b.id === id)?.name ?? t.realms.cards.deletedBlueprint;
 
 	const playthroughs = (realmId: Snowflake) => conversations.filter((c) => c.realm_id === realmId);
 
@@ -45,12 +46,12 @@
 			{@const runs = playthroughs(realm.id)}
 			<div class="card">
 				<div class="cardTop">
-					<span class="name">{realm.name || 'Untitled Realm'}</span>
+					<span class="name">{realm.name || t.realms.cards.untitled}</span>
 					<button
 						type="button"
 						class="del"
-						{@attach tooltip('Delete realm')}
-						aria-label="Delete {realm.name}"
+						{@attach tooltip(t.realms.cards.delete)}
+						aria-label={t.realms.cards.deleteNamed(realm.name)}
 						onclick={(e) => remove(e, realm.id)}
 					>
 						<Trash2 size={14} />
@@ -68,20 +69,20 @@
 							{blueprintName(realm.origin.blueprint_id)}
 						</span>
 					{:else}
-						<span class="from imported">imported</span>
+						<span class="from imported">{t.realms.cards.imported}</span>
 					{/if}
 					<span class="runs">
-						{runs.length}
-						{runs.length === 1 ? 'playthrough' : 'playthroughs'}
+						{t.realms.cards.playthroughs(runs.length)}
 					</span>
 				</div>
 
 				<button type="button" class="play" onclick={() => (playing = realm)}>
-					<Play size={13} /> Play
+					<Play size={13} />
+					{t.realms.cards.play}
 				</button>
 			</div>
 		{:else}
-			<p class="empty">No realms yet. Import one or build one from a blueprint.</p>
+			<p class="empty">{t.realms.cards.empty}</p>
 		{/each}
 	</div>
 </div>

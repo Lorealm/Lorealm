@@ -53,6 +53,7 @@
 </script>
 
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { Check, ChevronRight } from '@lucide/svelte';
 	import { navigator } from '#lib/navigation/navigator.js';
 
@@ -60,50 +61,51 @@
 
 	const connectionHint = $derived.by(() => {
 		const profile = activeProfile();
-		if (!profile) return 'Create a profile and star it as your active connection.';
-		if (connectionReady()) return `Using ${profile.name || 'your profile'}.`;
+		if (!profile) return t.chat.setup.noProfile;
+		if (connectionReady())
+			return t.chat.setup.usingProfile(profile.name || t.chat.setup.yourProfileLower);
 		const label = getProviderSchema(profile.provider)?.label ?? profile.provider;
-		return `${profile.name || 'Your profile'} needs an API key to reach ${label}.`;
+		return t.chat.setup.needsKey(profile.name || t.chat.setup.yourProfile, label);
 	});
 
 	const steps = $derived([
 		{
 			done: templateReady(),
-			title: 'Create and enable a Context Template',
-			hint: 'This is how the text sent to the model is laid out. Without it there is nothing to send.',
+			title: t.chat.setup.template.title,
+			hint: t.chat.setup.template.hint,
 			go: () => navigator.start().studio().templates()
 		},
 		{
 			done: personaReady(),
-			title: 'Create and enable a Persona',
-			hint: 'A persona is the details about your character. Create and enable one in the studio.',
+			title: t.chat.setup.persona.title,
+			hint: t.chat.setup.persona.hint,
 			go: () => navigator.start().studio().personas()
 		},
 		{
 			done: connectionReady(),
-			title: 'Configure your connection profile',
+			title: t.chat.setup.connection.title,
 			hint: connectionHint,
 			// Open the active profile directly; its editor is where the key gets attached.
 			go: () => navigator.start().connections(activeProfile()?.id)
 		},
 		{
 			done: tokenizerStore.tokenizers.length > 0,
-			title: 'Install a tokenizer',
-			hint: 'Import one from a file or download it, so messages can be measured against your budget.',
+			title: t.chat.setup.installTokenizer.title,
+			hint: t.chat.setup.installTokenizer.hint,
 			go: openTokenizers
 		},
 		{
 			done: tokenizerStore.activeId != null,
-			title: 'Set your active tokenizer',
-			hint: 'Pick which installed tokenizer counts your tokens.',
+			title: t.chat.setup.activeTokenizer.title,
+			hint: t.chat.setup.activeTokenizer.hint,
 			go: openTokenizers
 		}
 	]);
 </script>
 
 <section class="guide" aria-labelledby="setup-guide-title">
-	<h2 id="setup-guide-title">Welcome to Lorealm</h2>
-	<p class="lead">You need to complete a few steps before you can get started:</p>
+	<h2 id="setup-guide-title">{t.chat.setup.title}</h2>
+	<p class="lead">{t.chat.setup.lead}</p>
 
 	<ol>
 		{#each steps as step (step.title)}
@@ -116,7 +118,7 @@
 						<span class="title">{step.title}</span>
 						<span class="hint">{step.hint}</span>
 					</span>
-					<span class="sr-only">{step.done ? '(done)' : '(to do)'}</span>
+					<span class="sr-only">{step.done ? t.chat.setup.done : t.chat.setup.todo}</span>
 					<ChevronRight size={16} class="chevron" aria-hidden="true" />
 				</button>
 			</li>

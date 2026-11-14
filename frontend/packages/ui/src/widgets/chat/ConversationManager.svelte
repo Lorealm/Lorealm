@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { useApi } from '#lib/api/client.js';
 	import { navigator } from '#lib/navigation/navigator.js';
@@ -24,7 +25,7 @@
 			if (conversationManager.characterId !== characterId) return; // stale
 			conversations = [...chats].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 		} catch (e) {
-			showApiError(e, { title: 'Failed to load conversations' });
+			showApiError(e, { title: t.chat.conversations.loadFailed });
 		} finally {
 			loading = false;
 		}
@@ -47,12 +48,12 @@
 		try {
 			await chatStore.loadConversation(meta.id);
 		} catch (e) {
-			showApiError(e, { title: 'Failed to open conversation' });
+			showApiError(e, { title: t.chat.conversations.openFailed });
 		}
 	}
 
 	async function remove(meta: ConversationMetadata) {
-		if (!confirm(`Delete "${label(meta)}"? This can't be undone.`)) return;
+		if (!confirm(t.chat.conversations.confirmDelete(label(meta)))) return;
 		try {
 			await chatStore.deleteConversation(meta.id);
 		} catch {
@@ -77,12 +78,12 @@
 			if (e.target === e.currentTarget) conversationManager.close();
 		}}
 	>
-		<div class="modal" role="dialog" aria-modal="true" aria-label="Conversations">
+		<div class="modal" role="dialog" aria-modal="true" aria-label={t.chat.conversations.title}>
 			<div class="header">
-				<h2>Conversations</h2>
+				<h2>{t.chat.conversations.title}</h2>
 				<button
 					class="icon-btn"
-					{@attach tooltip('Close')}
+					{@attach tooltip(t.common.close)}
 					onclick={() => conversationManager.close()}
 				>
 					<X />
@@ -95,7 +96,7 @@
 						<button type="button" class="pick" onclick={() => open(meta)}>
 							<span class="name">{label(meta)}</span>
 							<span class="meta">
-								{meta.length} message{meta.length === 1 ? '' : 's'}
+								{t.chat.conversations.messages(meta.length)}
 								<span class="dot">·</span>
 								{relativeTime(meta.updated_at) ?? ''}
 							</span>
@@ -103,7 +104,7 @@
 						<button
 							type="button"
 							class="icon-btn"
-							{@attach tooltip('Delete conversation')}
+							{@attach tooltip(t.chat.conversations.delete)}
 							onclick={() => remove(meta)}
 						>
 							<Trash2 size={16} />
@@ -111,7 +112,7 @@
 					</div>
 				{:else}
 					<div class="empty">
-						{loading ? 'Loading…' : 'No conversations with this character yet.'}
+						{loading ? t.chat.conversations.loading : t.chat.conversations.empty}
 					</div>
 				{/each}
 			</div>

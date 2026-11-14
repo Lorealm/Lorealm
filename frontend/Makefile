@@ -49,6 +49,7 @@ build-all: build-ui build-web build-desktop ## Build everything
 # ─── Quality ─────────────────────────────────────────────────────────
 
 check: ## Run type checking across workspaces
+	cd packages/i18n && bun run check
 	cd packages/ui && bun run check
 	cd apps/desktop && bun run check
 	cd apps/web && bun run check

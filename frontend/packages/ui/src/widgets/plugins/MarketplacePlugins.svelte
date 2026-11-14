@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { onMount } from 'svelte';
 	import { navigator } from '#lib/navigation/navigator.js';
 	import { marketplaceStore, shownVersion } from '#lib/stores/marketplace.svelte.js';
@@ -27,13 +28,13 @@
 	});
 
 	function status(plugin: ListedPlugin): { label: string; kind: 'on' | 'note' | 'off' } | null {
-		if (!plugin.offered) return { label: 'Not for this version of Lorealm', kind: 'off' };
+		if (!plugin.offered) return { label: t.plugins.status.unsupported, kind: 'off' };
 		if (canInstall() && marketplaceStore.updateFor(plugin.handle)) {
-			return { label: 'Update available', kind: 'note' };
+			return { label: t.plugins.status.update, kind: 'note' };
 		}
 		const mine = pluginsStore.plugins.find((p) => p.handle === plugin.handle);
-		if (mine?.enabled) return { label: 'Enabled', kind: 'on' };
-		if (mine) return { label: 'Installed', kind: 'note' };
+		if (mine?.enabled) return { label: t.plugins.status.enabled, kind: 'on' };
+		if (mine) return { label: t.plugins.status.installed, kind: 'note' };
 		return null;
 	}
 </script>
@@ -42,27 +43,25 @@
 	<input
 		type="search"
 		bind:value={query}
-		placeholder="Search plugins"
-		aria-label="Search plugins"
+		placeholder={t.plugins.search}
+		aria-label={t.plugins.search}
 	/>
 </div>
 
 {#if marketplaceStore.unavailable.length}
 	<p class="notice">
-		Some plugins may be missing: {marketplaceStore.unavailable.length === 1
-			? 'one plugin source'
-			: `${marketplaceStore.unavailable.length} plugin sources`} couldn't be reached.
+		{t.plugins.sourcesMissing(marketplaceStore.unavailable.length)}
 	</p>
 {/if}
 
 {#if !marketplaceStore.loaded}
-	<div class="empty">Loading…</div>
+	<div class="empty">{t.plugins.loading}</div>
 {:else if marketplaceStore.failed}
-	<div class="empty">The marketplace couldn't be loaded.</div>
+	<div class="empty">{t.plugins.marketplaceFailed}</div>
 {:else if marketplaceStore.plugins.length === 0}
-	<div class="empty">The marketplace has no plugins yet.</div>
+	<div class="empty">{t.plugins.marketplaceEmpty}</div>
 {:else if shown.length === 0}
-	<div class="empty">No plugin matches “{query}”.</div>
+	<div class="empty">{t.plugins.noMatch(query)}</div>
 {:else}
 	<div class="grid">
 		{#each shown as plugin (plugin.handle)}

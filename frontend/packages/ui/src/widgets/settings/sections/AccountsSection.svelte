@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { onMount } from 'svelte';
 	import { Clock, Copy, LogOut, Pencil, Plus, Shield, Trash2, Users, X } from '@lucide/svelte';
 	import Badge from '#lib/widgets/realms/Badge.svelte';
@@ -58,7 +59,7 @@
 	}
 
 	function roleName(id: Snowflake | null) {
-		return roles.find((r) => r.id === id)?.name ?? 'Unknown role';
+		return roles.find((r) => r.id === id)?.name ?? t.settings.accounts.unknownRole;
 	}
 
 	function date(iso: string) {
@@ -140,30 +141,30 @@
 	function copyCode() {
 		navigator.clipboard.writeText(createdCode);
 		showToast({
-			title: 'Copied code',
-			message: 'The invite code has been copied to your clipboard.',
+			title: t.settings.accounts.copied,
+			message: t.settings.accounts.copiedMessage,
 			variant: 'info',
 			durationMs: 3500
 		});
 	}
 
-	function inviteStatus(invite: Invite): 'Active' | 'Expired' | 'Used up' {
-		if (invite.expires_at && new Date(invite.expires_at) < new Date()) return 'Expired';
-		if (invite.max_uses !== null && invite.uses >= invite.max_uses) return 'Used up';
-		return 'Active';
+	function inviteStatus(invite: Invite): 'active' | 'expired' | 'usedUp' {
+		if (invite.expires_at && new Date(invite.expires_at) < new Date()) return 'expired';
+		if (invite.max_uses !== null && invite.uses >= invite.max_uses) return 'usedUp';
+		return 'active';
 	}
 
 	function usesLabel(invite: Invite) {
 		return invite.max_uses === null
-			? `${invite.uses} used`
-			: `${invite.uses} of ${invite.max_uses}`;
+			? t.settings.accounts.used(invite.uses)
+			: t.settings.accounts.usesOf(invite.uses, invite.max_uses);
 	}
 
 	function expiryLabel(invite: Invite) {
-		if (!invite.expires_at) return 'No expiry';
+		if (!invite.expires_at) return t.settings.accounts.noExpiry;
 		const days = Math.ceil((new Date(invite.expires_at).getTime() - Date.now()) / 86_400_000);
 		if (days <= 0) return date(invite.expires_at);
-		return days === 1 ? '1 day left' : `${days} days left`;
+		return t.settings.accounts.daysLeft(days);
 	}
 
 	onMount(() => {
@@ -184,19 +185,19 @@
 
 <div class="page">
 	<div class="topbar">
-		<h2>Accounts</h2>
+		<h2>{t.settings.accounts.title}</h2>
 		{#if canManage}
 			<button type="button" class="primary" onclick={() => (creating = !creating)} disabled={busy}>
 				<Plus size={16} />
-				New user
+				{t.settings.accounts.newUser}
 			</button>
 		{/if}
 	</div>
 
 	{#if !canManage}
-		<div class="status">Managing accounts needs the Manage users permission.</div>
+		<div class="status">{t.settings.accounts.noPermission}</div>
 	{:else if !loaded}
-		<div class="status">{error || 'Loading…'}</div>
+		<div class="status">{error || t.settings.accounts.loading}</div>
 	{:else}
 		<div class="content">
 			{#if error}<p class="error">{error}</p>{/if}
@@ -211,33 +212,35 @@
 				>
 					<div class="row">
 						<label class="field grow">
-							<span class="label">Username</span>
+							<span class="label">{t.settings.accounts.username}</span>
 							<input type="text" bind:value={newUser.username} />
 						</label>
 						<label class="field grow">
-							<span class="label">Email (optional)</span>
+							<span class="label">{t.settings.accounts.emailOptional}</span>
 							<input type="email" bind:value={newUser.email} />
 						</label>
 						<label class="field grow">
-							<span class="label">Password</span>
+							<span class="label">{t.settings.accounts.password}</span>
 							<input type="password" autocomplete="new-password" bind:value={newUser.password} />
 						</label>
 					</div>
 					<div class="actions">
 						<div class="spacer"></div>
-						<button type="button" class="ghost" onclick={() => (creating = false)}>Cancel</button>
+						<button type="button" class="ghost" onclick={() => (creating = false)}
+							>{t.common.cancel}</button
+						>
 						<button
 							type="submit"
 							class="primary"
 							disabled={busy || !newUser.username.trim() || !newUser.password}
 						>
-							Create
+							{t.settings.accounts.create}
 						</button>
 					</div>
 				</form>
 			{/if}
 
-			<h3>Users</h3>
+			<h3>{t.settings.accounts.users}</h3>
 			<ul class="list">
 				{#each users as user (user.id)}
 					<li class="card">
@@ -245,13 +248,13 @@
 							<span class="name">{user.display_name ?? user.username}</span>
 							<span class="hint">@{user.username}</span>
 							{#if user.email}<span class="hint">{user.email}</span>{/if}
-							<span class="hint">Joined {date(user.created_at)}</span>
+							<span class="hint">{t.settings.accounts.joined(date(user.created_at))}</span>
 							<div class="spacer"></div>
 							<button
 								type="button"
 								class="icon"
-								aria-label="Edit {user.username}"
-								{@attach tooltip('Edit')}
+								aria-label={t.settings.accounts.editNamed(user.username)}
+								{@attach tooltip(t.common.edit)}
 								onclick={() => (editingId === user.id ? (editingId = undefined) : startEdit(user))}
 							>
 								<Pencil size={14} />
@@ -259,8 +262,8 @@
 							<button
 								type="button"
 								class="icon"
-								aria-label="Sign {user.username} out everywhere"
-								{@attach tooltip('Sign out everywhere')}
+								aria-label={t.settings.accounts.signOutNamed(user.username)}
+								{@attach tooltip(t.settings.accounts.signOut)}
 								onclick={() => signOut(user.id)}
 								disabled={busy}
 							>
@@ -273,17 +276,17 @@
 									onclick={() => remove(user.id)}
 									disabled={busy}
 								>
-									Delete {user.username} and everything they made?
+									{t.settings.accounts.confirmDelete(user.username)}
 								</button>
 								<button type="button" class="ghost" onclick={() => (confirmingDelete = undefined)}>
-									Keep
+									{t.settings.accounts.keep}
 								</button>
 							{:else}
 								<button
 									type="button"
 									class="icon danger-icon"
-									aria-label="Delete {user.username}"
-									{@attach tooltip('Delete user')}
+									aria-label={t.settings.accounts.deleteNamed(user.username)}
+									{@attach tooltip(t.settings.accounts.delete)}
 									onclick={() => (confirmingDelete = user.id)}
 								>
 									<Trash2 size={14} />
@@ -300,33 +303,33 @@
 								}}
 							>
 								<label class="field grow">
-									<span class="label">Display name</span>
+									<span class="label">{t.settings.accounts.displayName}</span>
 									<input type="text" bind:value={edit.display_name} />
 								</label>
 								<label class="field grow">
-									<span class="label">Email</span>
+									<span class="label">{t.settings.accounts.email}</span>
 									<input type="email" bind:value={edit.email} />
 								</label>
 								<label class="field grow">
-									<span class="label">New password</span>
+									<span class="label">{t.settings.accounts.newPassword}</span>
 									<input
 										type="password"
 										autocomplete="new-password"
-										placeholder="Unchanged"
+										placeholder={t.settings.accounts.unchanged}
 										bind:value={edit.password}
 									/>
 								</label>
-								<button type="submit" class="primary" disabled={busy}>Save</button>
+								<button type="submit" class="primary" disabled={busy}>{t.common.save}</button>
 							</form>
-							<p class="hint">Setting a new password signs them out on every device.</p>
+							<p class="hint">{t.settings.accounts.passwordNote}</p>
 						{/if}
 					</li>
 				{/each}
 			</ul>
 
-			<h3>Invites</h3>
+			<h3>{t.settings.accounts.invites}</h3>
 			<p class="hint">
-				Anyone with a code can create an account, even while registration is turned off.
+				{t.settings.accounts.invitesNote}
 			</p>
 			<form
 				class="row"
@@ -336,53 +339,60 @@
 				}}
 			>
 				<div class="field">
-					<span class="label">Uses</span>
+					<span class="label">{t.settings.accounts.uses}</span>
 					<NumberField
 						value={newInvite.max_uses}
 						min={1}
 						width="7rem"
-						ariaLabel="Uses"
-						placeholder="Unlimited"
+						ariaLabel={t.settings.accounts.uses}
+						placeholder={t.settings.accounts.unlimited}
 						onchange={(v) => (newInvite.max_uses = v)}
 					/>
 				</div>
 				<div class="field">
-					<span class="label">Valid for (days)</span>
+					<span class="label">{t.settings.accounts.validFor}</span>
 					<NumberField
 						value={newInvite.days}
 						min={1}
 						width="7rem"
-						ariaLabel="Valid for (days)"
-						placeholder="Never"
+						ariaLabel={t.settings.accounts.validFor}
+						placeholder={t.settings.accounts.never}
 						onchange={(v) => (newInvite.days = v)}
 					/>
 				</div>
 				{#if assignableRoles.length > 0}
 					<label class="field">
-						<span class="label">Role</span>
+						<span class="label">{t.settings.accounts.role}</span>
 						<select bind:value={newInvite.role_id}>
-							<option value="">None</option>
+							<option value="">{t.settings.accounts.none}</option>
 							{#each assignableRoles as role (role.id)}
 								<option value={role.id}>{role.name}</option>
 							{/each}
 						</select>
 					</label>
 				{/if}
-				<button type="submit" class="ghost" disabled={busy}>Create invite</button>
+				<button type="submit" class="ghost" disabled={busy}
+					>{t.settings.accounts.createInvite}</button
+				>
 			</form>
 
 			{#if createdCode}
 				<div class="card code">
 					<code>{createdCode}</code>
-					<button type="button" class="icon" {@attach tooltip('Copy code')} onclick={copyCode}>
+					<button
+						type="button"
+						class="icon"
+						{@attach tooltip(t.settings.accounts.copyCode)}
+						onclick={copyCode}
+					>
 						<Copy size={14} />
 					</button>
-					<span class="hint">Copy it now. It won't be shown again.</span>
+					<span class="hint">{t.settings.accounts.copyNow}</span>
 					<div class="spacer"></div>
 					<button
 						type="button"
 						class="icon"
-						{@attach tooltip('Dismiss')}
+						{@attach tooltip(t.common.dismiss)}
 						onclick={() => (createdCode = '')}
 					>
 						<X size={14} />
@@ -390,35 +400,37 @@
 				</div>
 			{/if}
 
-			<h3>Active Invites</h3>
+			<h3>{t.settings.accounts.activeInvites}</h3>
 			{#if invites.length === 0}
-				<p class="hint">No invites yet.</p>
+				<p class="hint">{t.settings.accounts.noInvites}</p>
 			{:else}
 				<ul class="list">
 					{#each invites as invite (invite.id)}
 						{@const status = inviteStatus(invite)}
-						<li class="card line invite" class:inactive={status !== 'Active'}>
-							<Badge tone={status === 'Active' ? 'success' : 'neutral'}>{status}</Badge>
-							<span class="fact" {@attach tooltip('Uses')}>
+						<li class="card line invite" class:inactive={status !== 'active'}>
+							<Badge tone={status === 'active' ? 'success' : 'neutral'}
+								>{t.settings.accounts.status[status]}</Badge
+							>
+							<span class="fact" {@attach tooltip(t.settings.accounts.uses)}>
 								<Users size={14} />
 								{usesLabel(invite)}
 							</span>
-							<span class="fact" {@attach tooltip('Expiry')}>
+							<span class="fact" {@attach tooltip(t.settings.accounts.expiry)}>
 								<Clock size={14} />
 								{expiryLabel(invite)}
 							</span>
 							{#if invite.role_id}
-								<span class="role-pill" {@attach tooltip('Role given on sign-up')}>
+								<span class="role-pill" {@attach tooltip(t.settings.accounts.roleOnSignup)}>
 									<Shield />
 									{roleName(invite.role_id)}
 								</span>
 							{/if}
 							<div class="spacer"></div>
-							<span class="hint">Created {date(invite.created_at)}</span>
+							<span class="hint">{t.settings.accounts.created(date(invite.created_at))}</span>
 							<button
 								type="button"
 								class="icon danger-icon"
-								{@attach tooltip('Delete invite')}
+								{@attach tooltip(t.settings.accounts.deleteInvite)}
 								onclick={() => revokeInvite(invite.id)}
 								disabled={busy}
 							>

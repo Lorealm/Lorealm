@@ -16,6 +16,17 @@ You can read more about our vision [here](https://docs.lorealm.app/)
 - **Security & Privacy**: Lorealm offers a level of security and privacy that few alternatives can match. Your passwords and API keys are protected with modern, best-practice cryptography, and Lorealm is only reachable from your own machine unless you choose otherwise.
 - **Extensibility**: A working, documented plugin system from day one. Plugins let you extend Lorealm to your heart's content without giving up security: every plugin runs inside a sandbox and has to ask for each permission it uses.
 
+### Comparison
+A quick overview on how Lorealm compares to alternatives. These fields are gauged on "vanilla" installations (except for the Extensibility part).
+
+| Feature | Lorealm | SillyTavern | RisuAI | Agnai |
+|---------|---------|-------------|--------|-------|
+| Distribution | Everything, including complex scripts and Realm setups | Characters, lorebooks, presets, and regex embedded in cards. Scripts (STscript/Quick Replies) are not distributable. | Cards and Modules bundle lorebooks, regex, Lua/Python triggers, assets and custom HTML/CSS. Public hub (RisuRealm) | Characters with lorebook, sprites and JSON schema. Scenario books are separate. |
+| Security | Modern, best-practice cryptography and Plugin sandboxing | Solid server security (scrypt, accounts, CSRF, whitelists, SSO). Extensions and plugins are not sandboxed. | Sandboxed plugins. Self-hosted server is single-user and stores its password in plaintext. | bcrypt/JWT auth, but some outdated crypto. No plugins. |
+| Creative Ceiling | Virtually none | High. STscript and extensions are powerful but hard to ship with a character. | Very high. Lua/Python scripting, visual triggers, variables, custom UI. | Medium. Scenario state machines, JSON value tracking, template conditionals. |
+| Extensibility | Very High level of extensibility with a public plugin marketplace and security features | Almost unlimited, though has little to no security features | High. Sandboxed JS plugin API plus Lua/Python scripting | None. No plugin system |
+| Multi-user / Scale | Very High performance and low memory footprint. Can easily serve hundreds of users when configured for hosting. | Modest performance, higher memory footprint. Can not handle multiple users in parallel | Mostly client-side, single-user server | Multi-tenant, powers agnai.chat |
+
 ## Installing
 Lorealm runs on Windows, Linux and macOS, or anywhere Docker does. Mobile/Termux is untested.
 

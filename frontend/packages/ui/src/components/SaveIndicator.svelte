@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import type { SaveState } from '#lib/stores/lorebook.svelte.js';
 
 	let { state }: { state: SaveState } = $props();
@@ -11,14 +12,14 @@
 	class:error={state.status === 'error'}
 >
 	{#if state.status === 'saving'}
-		<span>Saving…</span>
+		<span>{t.common.saving}</span>
 	{:else if state.status === 'saved'}
-		<span>Saved</span>
+		<span>{t.common.saved}</span>
 	{:else if state.status === 'error'}
-		<span>Unsaved — invalid</span>
+		<span>{t.components.saveIndicator.invalid}</span>
 		{#if state.message}
 			<details class="diagnostic">
-				<summary>{state.code ?? 'Error'}</summary>
+				<summary>{state.code ?? t.common.error}</summary>
 				<pre>{state.message}</pre>
 			</details>
 		{/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { Download, X } from '@lucide/svelte';
 	import { blueprintStore } from '#lib/stores/blueprint.svelte.js';
 	import { showToast } from '#lib/stores/errorToast.svelte.js';
@@ -11,16 +12,7 @@
 
 	let { file, onclose }: { file: File; onclose: () => void } = $props();
 
-	const LABELS: Record<RealmResourceKind, string> = {
-		character: 'Character',
-		lorebook: 'Lorebook',
-		template: 'Template',
-		tool: 'Tool',
-		persona: 'Persona',
-		connection_profile: 'Connection profile',
-		widget: 'Widget',
-		module: 'Module'
-	};
+	const LABELS: Record<RealmResourceKind, string> = $derived(t.realms.kinds);
 
 	let preview = $state<BundlePreview | null>(null);
 	let refusal = $state<string | null>(null);
@@ -50,18 +42,18 @@
 
 		reload(RESOURCE_KINDS);
 		const notes = [
-			...imported.renamed.map(([from, to]) => `${from} was renamed to ${to}.`),
+			...imported.renamed.map(([from, to]) => t.realms.importDialog.renamed(from, to)),
 			...(imported.skipped.length > 0
-				? [`${imported.skipped.join(', ')} couldn't be read and was left out.`]
+				? [t.realms.importDialog.skipped(imported.skipped.join(', '))]
 				: [])
 		];
 		showToast({
-			title: 'Blueprint imported',
-			message: [`${imported.blueprint.name} is in your blueprints.`, ...notes].join(' '),
+			title: t.realms.importDialog.imported,
+			message: [t.realms.importDialog.inLibrary(imported.blueprint.name), ...notes].join(' '),
 			variant: 'success',
 			actions: [
 				{
-					label: 'Take me there!',
+					label: t.realms.importDialog.takeMeThere,
 					run: () => {
 						navigator.start().blueprints();
 					}
@@ -75,10 +67,10 @@
 <svelte:window onkeydown={(e) => e.key === 'Escape' && cancel()} />
 
 <div class="overlay" role="presentation" onclick={(e) => e.currentTarget === e.target && cancel()}>
-	<div class="dialog" role="dialog" aria-modal="true" aria-label="Import blueprint">
+	<div class="dialog" role="dialog" aria-modal="true" aria-label={t.realms.importDialog.title}>
 		<header>
-			<h2>Import blueprint</h2>
-			<button type="button" class="close" aria-label="Cancel" onclick={cancel}>
+			<h2>{t.realms.importDialog.title}</h2>
+			<button type="button" class="close" aria-label={t.common.cancel} onclick={cancel}>
 				<X size={14} />
 			</button>
 		</header>
@@ -87,7 +79,7 @@
 			{#if refusal}
 				<p class="refusal">{refusal}</p>
 			{:else if !preview}
-				<p class="quiet">Reading {file.name}…</p>
+				<p class="quiet">{t.realms.importDialog.reading(file.name)}</p>
 			{:else}
 				<div class="about">
 					<span class="title">{preview.name}</span>
@@ -96,14 +88,14 @@
 
 				{#if preview.resources.length === 0}
 					<p class="quiet">
-						This blueprint comes on its own. Nothing else is added to your library.
+						{t.realms.importDialog.standalone}
 					</p>
 				{:else}
 					<p class="lead">
 						{#if added === 0}
-							Everything this blueprint uses is already in your library.
+							{t.realms.importDialog.allPresent}
 						{:else}
-							Importing adds {added === 1 ? 'this' : `these ${added}`} to your library:
+							{t.realms.importDialog.adds(added)}
 						{/if}
 					</p>
 					<ul class="resources">
@@ -115,14 +107,16 @@
 									</Badge>
 									<span class="name">{resource.name}</span>
 									{#if resource.status === 'existing'}
-										<span class="note">Already in your library</span>
+										<span class="note">{t.realms.importDialog.existing}</span>
 									{/if}
 								</div>
 								{#if resource.includes.length > 0}
 									<span class="includes">
-										Comes with {resource.includes
-											.map((inc) => `${LABELS[inc.kind].toLowerCase()} ${inc.name}`)
-											.join(', ')}
+										{t.realms.importDialog.includes(
+											resource.includes
+												.map((inc) => `${LABELS[inc.kind].toLocaleLowerCase()} ${inc.name}`)
+												.join(', ')
+										)}
 									</span>
 								{/if}
 								{#if resource.problem}<span class="problem">{resource.problem}</span>{/if}
@@ -130,7 +124,7 @@
 						{/each}
 					</ul>
 					{#if preview.resources.some((r) => r.kind === 'module' && r.status === 'new')}
-						<p class="quiet">Modules are code that runs inside your realms.</p>
+						<p class="quiet">{t.realms.importDialog.modulesNote}</p>
 					{/if}
 				{/if}
 			{/if}
@@ -139,7 +133,7 @@
 		<footer>
 			<span class="spacer"></span>
 			<button type="button" onclick={cancel} disabled={importing}>
-				{refusal ? 'Close' : 'Cancel'}
+				{refusal ? t.common.close : t.common.cancel}
 			</button>
 			{#if !refusal}
 				<button
@@ -149,7 +143,7 @@
 					onclick={run}
 				>
 					<Download size={12} />
-					{importing ? 'Importing…' : 'Import'}
+					{importing ? t.realms.importDialog.importing : t.realms.importDialog.import}
 				</button>
 			{/if}
 		</footer>

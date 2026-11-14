@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { ScrollText } from '@lucide/svelte';
 	import WeaverEditor from '#lib/weaver/editor/WeaverEditor.svelte';
 	import { realmDraft } from '../draft.svelte.js';
@@ -13,10 +14,10 @@
 	<div class="pane">
 		<header>
 			<ScrollText size={13} />
-			<span class="handle">{agent.handle || 'unnamed'}</span>
+			<span class="handle">{agent.handle || t.realms.scriptPane.unnamed}</span>
 			{#if agent.name}<span class="name">{agent.name}</span>{/if}
 			<span class="spacer"></span>
-			<span class="hint">runs on this agent's turn</span>
+			<span class="hint">{t.realms.scriptPane.hint}</span>
 		</header>
 
 		<div class="editor">
@@ -30,7 +31,7 @@
 		</div>
 	</div>
 {:else}
-	<p class="gone">That agent is no longer in the cast.</p>
+	<p class="gone">{t.realms.scriptPane.gone}</p>
 {/if}
 
 <style>

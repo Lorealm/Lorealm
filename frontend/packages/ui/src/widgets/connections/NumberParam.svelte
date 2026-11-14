@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import type { NumberSpec } from '#lib/types/schema.js';
 	import NumberField from '#lib/components/NumberInput.svelte';
@@ -19,7 +20,6 @@
 	const shown = $derived(value ?? spec.default);
 	const overridden = $derived(value !== undefined);
 
-	// Slider only — range inputs are never empty, so this always yields a number.
 	function slide(e: Event) {
 		const n = Number((e.currentTarget as HTMLInputElement).value);
 		if (!Number.isNaN(n)) onChange(n);
@@ -33,7 +33,7 @@
 			<button
 				class="reset"
 				type="button"
-				{@attach tooltip('Use provider default')}
+				{@attach tooltip(t.connections.providerDefault)}
 				onclick={() => onChange(undefined)}>↺</button
 			>
 		{/if}
