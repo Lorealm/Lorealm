@@ -1,4 +1,5 @@
 import { base, keyName } from 'w3c-keyname';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 /**
  * A normalized key combination, e.g. `mod+shift+k`.
@@ -164,32 +165,40 @@ export function chordsFromEvent(event: KeyboardEvent): Chord[] {
 	return chords;
 }
 
-const MODIFIER_SYMBOLS: Record<string, string> = {
-	mod: IS_MAC ? '⌘' : 'Ctrl',
-	ctrl: IS_MAC ? '⌃' : 'Ctrl',
-	alt: IS_MAC ? '⌥' : 'Alt',
-	shift: IS_MAC ? '⇧' : 'Shift',
-	meta: IS_MAC ? '⌘' : 'Win'
-};
+function modifierSymbols(): Record<string, string> {
+	const names = t.keys.names;
+	return {
+		mod: IS_MAC ? '⌘' : names.ctrl,
+		ctrl: IS_MAC ? '⌃' : names.ctrl,
+		alt: IS_MAC ? '⌥' : names.alt,
+		shift: IS_MAC ? '⇧' : names.shift,
+		meta: IS_MAC ? '⌘' : names.win
+	};
+}
 
-const KEY_SYMBOLS: Record<string, string> = {
-	ArrowUp: '↑',
-	ArrowDown: '↓',
-	ArrowLeft: '←',
-	ArrowRight: '→',
-	Enter: IS_MAC ? '↩' : 'Enter',
-	Backspace: IS_MAC ? '⌫' : 'Backspace',
-	Delete: IS_MAC ? '⌦' : 'Delete',
-	Escape: IS_MAC ? '⎋' : 'Esc',
-	Tab: IS_MAC ? '⇥' : 'Tab',
-	Space: 'Space'
-};
+function keySymbols(): Record<string, string> {
+	const names = t.keys.names;
+	return {
+		ArrowUp: '↑',
+		ArrowDown: '↓',
+		ArrowLeft: '←',
+		ArrowRight: '→',
+		Enter: IS_MAC ? '↩' : names.enter,
+		Backspace: IS_MAC ? '⌫' : names.backspace,
+		Delete: IS_MAC ? '⌦' : names.delete,
+		Escape: IS_MAC ? '⎋' : names.escape,
+		Tab: IS_MAC ? '⇥' : names.tab,
+		Space: names.space
+	};
+}
 
 /** How a chord should read to the user: `⌘⇧K` on macOS, `Ctrl+Shift+K` elsewhere. */
 export function formatChord(chord: Chord): string {
 	const parts = splitChord(chord);
 	const key = parts.pop() ?? '';
-	const pieces = parts.map((part) => MODIFIER_SYMBOLS[part] ?? part);
-	pieces.push(KEY_SYMBOLS[key] ?? (key.length === 1 ? key.toUpperCase() : key));
+	const modifiers = modifierSymbols();
+	const keys = keySymbols();
+	const pieces = parts.map((part) => modifiers[part] ?? part);
+	pieces.push(keys[key] ?? (key.length === 1 ? key.toUpperCase() : key));
 	return pieces.join(IS_MAC ? '' : '+');
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import PopupMenu from '#lib/components/PopupMenu.svelte';
 	import TransportImage from '#lib/components/TransportImage.svelte';
@@ -33,7 +34,7 @@
 	const exportItems = $derived(
 		characterStore.exportProfiles.flatMap((profile) =>
 			(['png', 'json'] as const).map((format) => ({
-				label: `${profile.label} · ${format.toUpperCase()}`,
+				label: t.studio.characters.exportOption(profile.label, format.toUpperCase()),
 				icon: format === 'png' ? FileImage : FileBraces,
 				onSelect: () => void exportAs(profile, format)
 			}))
@@ -43,7 +44,7 @@
 	/** The file name the server uses too: unsafe characters become `_`. */
 	function fileStem(name: string): string {
 		const stem = name.replace(/[^A-Za-z0-9 _-]/g, '_').trim();
-		return stem || 'character';
+		return stem || t.studio.characters.fileFallback;
 	}
 
 	async function exportAs(profile: ExportProfileInfo, format: ExportFormat) {
@@ -51,26 +52,27 @@
 		try {
 			const warnings = await api.characters.exportWarnings(summary.id, profile.id, format);
 			if (warnings.length > 0) {
+				const download = t.studio.characters.download;
 				const choice = await showPopup({
-					title: `Export ${summary.name} as ${profile.label}`,
+					title: t.studio.characters.exportTitle(summary.name, profile.label),
 					message: [
 						profile.description,
-						"**What won't carry over:**",
+						t.studio.characters.wontCarry,
 						warnings.map((w) => `- ${w.message}`).join('\n')
 					].join('\n\n'),
 					variant: 'warning',
-					actions: [{ label: 'Cancel' }, { label: 'Download', tone: 'primary' }]
+					actions: [{ label: t.common.cancel }, { label: download, tone: 'primary' }]
 				});
-				if (choice !== 'Download') return;
+				if (choice !== download) return;
 			}
 			const file = await api.characters.export(summary.id, profile.id, format);
 			await usePlatform().files.save(file, {
-				label: format === 'png' ? 'Character card' : 'Character card (JSON)',
+				label: format === 'png' ? t.studio.characters.cardPng : t.studio.characters.cardJson,
 				extensions: [format],
 				suggestedName: `${fileStem(summary.name)}.${format}`
 			});
 		} catch (e) {
-			showApiError(e, { title: 'Could not export character' });
+			showApiError(e, { title: t.studio.characters.exportFailed });
 		}
 	}
 
@@ -83,7 +85,7 @@
 			await characterStore.delete(summary.id);
 			chatStore.forgetCharacter(summary.id);
 		} catch (e) {
-			showApiError(e, { title: 'Could not delete character' });
+			showApiError(e, { title: t.studio.characters.deleteFailed });
 			deleting = false;
 			confirmingDelete = false;
 		}
@@ -110,17 +112,21 @@
 		</div>
 
 		{#if relative}
-			<div class="subheader" {@attach tooltip(summary.updated_at)}>Updated {relative}</div>
+			<div class="subheader" {@attach tooltip(summary.updated_at)}>
+				{t.studio.characters.updated(relative)}
+			</div>
 		{/if}
 	</div>
 
 	{#if confirmingDelete}
 		<div class="controls confirm">
-			<span class="confirmText">Delete {summary.name} and all of its chats?</span>
+			<span class="confirmText">{t.studio.characters.confirmDelete(summary.name)}</span>
 			<div class="confirmButtons">
-				<button type="button" class="danger" disabled={deleting} onclick={remove}>Delete</button>
+				<button type="button" class="danger" disabled={deleting} onclick={remove}
+					>{t.common.delete}</button
+				>
 				<button type="button" disabled={deleting} onclick={() => (confirmingDelete = false)}>
-					Cancel
+					{t.common.cancel}
 				</button>
 			</div>
 		</div>
@@ -132,28 +138,38 @@
 				onclick={() => navigator.start().studio().characters(summary.id)}
 			>
 				<Pencil size={16} />
-				Edit
+				{t.common.edit}
 			</button>
 
 			<div class="minorControls">
-				<PopupMenu title="Export" placement="down" items={exportItems}>
+				<PopupMenu title={t.studio.characters.export} placement="down" items={exportItems}>
 					{#snippet icon()}<Upload size={16} />{/snippet}
 				</PopupMenu>
 				<button
 					type="button"
 					class="minor del"
-					{@attach tooltip('Delete character')}
-					aria-label={`Delete ${summary.name}`}
+					{@attach tooltip(t.studio.characters.delete)}
+					aria-label={t.studio.characters.deleteNamed(summary.name)}
 					onclick={() => (confirmingDelete = true)}
 				>
 					<Trash2 size={16} />
 				</button>
 				<PopupMenu
-					title="More actions"
+					title={t.studio.characters.moreActions}
 					placement="down"
 					items={[
-						{ label: 'Duplicate', icon: Copy, onSelect: () => {}, disabled: true },
-						{ label: 'Start chat', icon: MessageSquarePlus, onSelect: () => {}, disabled: true }
+						{
+							label: t.studio.characters.duplicate,
+							icon: Copy,
+							onSelect: () => {},
+							disabled: true
+						},
+						{
+							label: t.studio.characters.startChat,
+							icon: MessageSquarePlus,
+							onSelect: () => {},
+							disabled: true
+						}
 					]}
 				>
 					{#snippet icon()}<Ellipsis size={16} />{/snippet}

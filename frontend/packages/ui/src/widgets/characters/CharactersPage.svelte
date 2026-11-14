@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { characterStore } from '#lib/stores/character.svelte.js';
 	import { ArrowUpDown, Plus, Upload } from '@lucide/svelte';
 	import CharacterCard from './CharacterCard.svelte';
@@ -83,16 +84,18 @@
 		const skipped = reports.flatMap((r) => r.skipped);
 
 		const parts = [];
-		if (created > 0) parts.push(`Imported ${created}.`);
-		if (reused > 0) parts.push(`Reused ${reused} you already had.`);
+		if (created > 0) parts.push(t.characters.attachments.imported(created));
+		if (reused > 0) parts.push(t.characters.attachments.reused(reused));
 		if (renamed.length > 0)
 			parts.push(
-				`Renamed ${renamed.map(([from, to]) => `${from} to ${to}`).join(', ')}, since those names were taken.`
+				t.characters.attachments.renamed(
+					renamed.map(([from, to]) => t.characters.attachments.rename(from, to)).join(', ')
+				)
 			);
-		if (skipped.length > 0) parts.push(`Left out ${skipped.join(', ')}, which couldn't be read.`);
+		if (skipped.length > 0) parts.push(t.characters.attachments.skipped(skipped.join(', ')));
 
 		showToast({
-			title: 'Lorebooks, tools and widgets',
+			title: t.characters.attachments.title,
 			message: parts.join(' '),
 			variant: skipped.length > 0 ? 'warning' : 'success'
 		});
@@ -105,25 +108,27 @@
 		const skipped = lorebooks.reduce((sum, b) => sum + b.skipped, 0);
 
 		const subject =
-			lorebooks.length === 1 ? `“${lorebooks[0].name}”` : `${lorebooks.length} lorebooks`;
-		const entryCount = `${entries} ${entries === 1 ? 'entry' : 'entries'}`;
-		const tail = skipped > 0 ? ` ${skipped} could not be converted.` : '';
+			lorebooks.length === 1
+				? t.characters.lorebookImport.named(lorebooks[0].name)
+				: t.characters.lorebookImport.lorebooks(lorebooks.length);
+		const entryCount = t.characters.lorebookImport.entries(entries);
+		const tail = skipped > 0 ? t.characters.lorebookImport.notConverted(skipped) : '';
 
 		showToast({
-			title: 'Lorebook imported',
-			message: `Imported ${subject} with ${entryCount}.${tail}`,
+			title: t.characters.lorebookImport.title,
+			message: t.characters.lorebookImport.message(subject, entryCount, tail),
 			variant: skipped > 0 ? 'warning' : 'success'
 		});
 	}
 
 	async function createAndNavigateToCharacter() {
 		try {
-			const id = await characterStore.create('New Character');
+			const id = await characterStore.create(t.characters.newName);
 			navigator.start().studio().characters(id);
 		} catch (e) {
 			const error = extractError(e);
 			showToast({
-				title: "Couldn't create character",
+				title: t.characters.createFailed,
 				message: error.message,
 				variant: 'error'
 			});
@@ -148,38 +153,33 @@
 			<select
 				value={sortBy}
 				onchange={(e) => memory.set('charactersSort', e.currentTarget.value as CharacterSort)}
-				aria-label="Sort characters"
+				aria-label={t.characters.sort}
 			>
-				<option value="name-asc">Name (A–Z)</option>
-				<option value="name-desc">Name (Z–A)</option>
-				<option value="updated">Recently updated</option>
-				<option value="created">Recently added</option>
+				<option value="name-asc">{t.characters.sortOptions.nameAsc}</option>
+				<option value="name-desc">{t.characters.sortOptions.nameDesc}</option>
+				<option value="updated">{t.characters.sortOptions.updated}</option>
+				<option value="created">{t.characters.sortOptions.created}</option>
 			</select>
 		</div>
 
 		<div class="actions">
-			<label
-				class="reuse"
-				{@attach tooltip(
-					'When a card brings a lorebook identical to one you have, attach yours instead of importing a copy.'
-				)}
-			>
+			<label class="reuse" {@attach tooltip(t.characters.reuseHint)}>
 				<input type="checkbox" bind:checked={reuseLorebooks} />
-				Reuse matching lorebooks
+				{t.characters.reuse}
 			</label>
 			<button type="button" onclick={openPicker} disabled={busy}>
 				<Upload size={16} />
-				{busy ? 'Uploading…' : 'Import'}
+				{busy ? t.characters.uploading : t.characters.import}
 			</button>
 			<button type="button" class="primary" onclick={createAndNavigateToCharacter}>
 				<Plus size={16} />
-				New
+				{t.characters.new}
 			</button>
 		</div>
 	</div>
 
 	{#if sortedCharacters.length === 0}
-		<div class="empty">No characters yet — create one to get started.</div>
+		<div class="empty">{t.characters.empty}</div>
 	{:else}
 		<div class="list">
 			{#each sortedCharacters as char (char.id)}

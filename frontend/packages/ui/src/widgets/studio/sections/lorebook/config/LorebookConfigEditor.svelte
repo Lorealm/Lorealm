@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../../../stores/tooltip.svelte.ts';
 	import type { LorebookDraft, SaveState } from '#lib/stores/lorebook.svelte.js';
 	import type { NamespaceAccess, NamespaceConfig, Slot } from '#lib/types/lorebook.js';
@@ -79,12 +80,12 @@
 
 <div class="config-editor">
 	<header class="head">
-		<h2>Lorebook settings</h2>
+		<h2>{t.studio.lorebookConfig.title}</h2>
 		<SaveIndicator state={saveState} />
 	</header>
 
 	<label class="field">
-		<span>Name</span>
+		<span>{t.studio.lorebookConfig.name}</span>
 		<input
 			type="text"
 			value={draft.name}
@@ -96,7 +97,7 @@
 	</label>
 
 	<label class="field">
-		<span>Description</span>
+		<span>{t.studio.lorebookConfig.description}</span>
 		<textarea
 			rows="3"
 			value={draft.description}
@@ -108,10 +109,10 @@
 	</label>
 
 	<fieldset class="block">
-		<legend>Defaults</legend>
+		<legend>{t.studio.lorebookConfig.defaults}</legend>
 		<div class="field-row">
 			<label class="field">
-				<span>Scan depth</span>
+				<span>{t.studio.lorebookConfig.scanDepth}</span>
 				<NumberInput
 					min={0}
 					step={1}
@@ -120,11 +121,11 @@
 						draft.config.default_scan_depth = v === '' ? 0 : v;
 						touch();
 					}}
-					ariaLabel="Default scan depth"
+					ariaLabel={t.studio.lorebookConfig.defaultScanDepth}
 				/>
 			</label>
 			<label class="field">
-				<span>Priority</span>
+				<span>{t.studio.lorebookConfig.priority}</span>
 				<NumberInput
 					step={1}
 					value={config.default_priority}
@@ -132,40 +133,40 @@
 						draft.config.default_priority = v === '' ? 0 : v;
 						touch();
 					}}
-					ariaLabel="Default priority"
+					ariaLabel={t.studio.lorebookConfig.defaultPriority}
 				/>
 			</label>
 		</div>
 		<div class="field">
-			<span>Slot</span>
+			<span>{t.studio.lorebookConfig.slot}</span>
 			<SlotPicker
 				value={config.default_slot}
 				allowInherit={false}
 				onchange={setDefaultSlot}
-				ariaLabel="Default slot"
+				ariaLabel={t.studio.lorebookConfig.defaultSlot}
 			/>
 		</div>
 	</fieldset>
 
 	<fieldset class="block">
-		<legend>Budgets</legend>
+		<legend>{t.studio.lorebookConfig.budgets}</legend>
 		<label class="field">
-			<span>Token budget</span>
+			<span>{t.studio.lorebookConfig.tokenBudget}</span>
 			<NumberInput
 				min={0}
 				step={1}
-				placeholder="unlimited"
+				placeholder={t.studio.lorebookConfig.unlimited}
 				value={config.token_budget ?? ''}
 				onchange={(v) => {
 					draft.config.token_budget = v === '' ? null : v;
 					touch();
 				}}
-				ariaLabel="Token budget"
+				ariaLabel={t.studio.lorebookConfig.tokenBudget}
 			/>
 		</label>
 
 		<div class="field">
-			<span>Group budgets</span>
+			<span>{t.studio.lorebookConfig.groupBudgets}</span>
 			<div class="map-list">
 				{#each groupRows as [key, value] (key)}
 					<div class="map-row">
@@ -176,28 +177,32 @@
 							width="7rem"
 							{value}
 							onchange={(v) => setGroupBudget(key, v === '' ? 0 : v)}
-							ariaLabel={`${key} budget`}
+							ariaLabel={t.studio.lorebookConfig.groupBudget(key)}
 						/>
 						<button
 							type="button"
 							class="remove"
-							aria-label="Remove"
+							aria-label={t.studio.lorebookConfig.remove}
 							onclick={() => removeGroup(key)}>×</button
 						>
 					</div>
 				{/each}
 				<div class="map-row add">
-					<input type="text" placeholder="group name" bind:value={newGroup} />
+					<input
+						type="text"
+						placeholder={t.studio.lorebookConfig.groupName}
+						bind:value={newGroup}
+					/>
 					<NumberInput
 						min={0}
 						step={1}
 						width="7rem"
-						placeholder="budget"
+						placeholder={t.studio.lorebookConfig.budget}
 						value={newBudget}
 						onchange={(v) => (newBudget = v)}
-						ariaLabel="New group budget"
+						ariaLabel={t.studio.lorebookConfig.newGroupBudget}
 					/>
-					<button type="button" onclick={addGroup}>+ Add</button>
+					<button type="button" onclick={addGroup}>{t.studio.lorebookConfig.add}</button>
 				</div>
 			</div>
 		</div>
@@ -212,11 +217,11 @@
 				touch();
 			}}
 		/>
-		<span>Case-sensitive keywords</span>
+		<span>{t.studio.lorebookConfig.caseSensitive}</span>
 	</label>
 
 	<fieldset class="block">
-		<legend>Namespaces</legend>
+		<legend>{t.studio.lorebookConfig.namespaces}</legend>
 		<div class="map-list">
 			{#each namespaceRows as [name, ns] (name)}
 				<div class="ns-row">
@@ -225,23 +230,23 @@
 						class="ns-access"
 						value={ns.access}
 						onchange={(e) => setNamespaceAccess(name, e.currentTarget.value as NamespaceAccess)}
-						aria-label={`${name} access`}
+						aria-label={t.studio.lorebookConfig.access(name)}
 					>
-						<option value="readonly">readonly</option>
-						<option value="readwrite">readwrite</option>
+						<option value="readonly">{t.studio.lorebookConfig.readonly}</option>
+						<option value="readwrite">{t.studio.lorebookConfig.readwrite}</option>
 					</select>
 					<input
 						type="text"
 						class="ns-desc"
-						placeholder="description"
+						placeholder={t.studio.lorebookConfig.descriptionPlaceholder}
 						value={ns.description}
 						oninput={(e) => setNamespaceDescription(name, e.currentTarget.value)}
-						aria-label={`${name} description`}
+						aria-label={t.studio.lorebookConfig.descriptionAria(name)}
 					/>
 					<button
 						type="button"
 						class="remove"
-						aria-label="Remove"
+						aria-label={t.studio.lorebookConfig.remove}
 						onclick={() => removeNamespace(name)}>×</button
 					>
 				</div>
@@ -250,15 +255,24 @@
 				<input
 					type="text"
 					class="ns-name-input"
-					placeholder="namespace"
+					placeholder={t.studio.lorebookConfig.namespacePlaceholder}
 					bind:value={newNamespace}
 				/>
-				<select class="ns-access" bind:value={newAccess} aria-label="New namespace access">
-					<option value="readonly">readonly</option>
-					<option value="readwrite">readwrite</option>
+				<select
+					class="ns-access"
+					bind:value={newAccess}
+					aria-label={t.studio.lorebookConfig.newAccess}
+				>
+					<option value="readonly">{t.studio.lorebookConfig.readonly}</option>
+					<option value="readwrite">{t.studio.lorebookConfig.readwrite}</option>
 				</select>
-				<input type="text" class="ns-desc" placeholder="description" bind:value={newDescription} />
-				<button type="button" onclick={addNamespace}>+ Add</button>
+				<input
+					type="text"
+					class="ns-desc"
+					placeholder={t.studio.lorebookConfig.descriptionPlaceholder}
+					bind:value={newDescription}
+				/>
+				<button type="button" onclick={addNamespace}>{t.studio.lorebookConfig.add}</button>
 			</div>
 		</div>
 	</fieldset>

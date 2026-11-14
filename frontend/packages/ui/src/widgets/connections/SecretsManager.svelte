@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { connectionStore } from '#lib/stores/connection.svelte.js';
 	import { pluginsStore } from '#lib/stores/plugins.svelte.js';
 	import { PROVIDER_SCHEMAS } from '#lib/types/schema.js';
@@ -19,7 +20,7 @@
 		if (!id) return;
 		renamingId = null;
 		try {
-			await connectionStore.renameSecret(id, renameLabel.trim() || 'Unnamed key');
+			await connectionStore.renameSecret(id, renameLabel.trim() || t.connections.secrets.unnamed);
 		} catch (e) {
 			console.error(e);
 		}
@@ -51,7 +52,7 @@
 
 	async function addSecret() {
 		if (!newLabel.trim() || !newKey.trim()) {
-			createError = 'Label and key are required.';
+			createError = t.connections.secrets.required;
 			return;
 		}
 		creating = true;
@@ -74,7 +75,7 @@
 
 <div class="secrets-manager">
 	<section class="group">
-		<h3>API keys</h3>
+		<h3>{t.connections.apiKeys}</h3>
 		<ul class="secret-list">
 			{#each secrets as secret (secret.id)}
 				<li class="row">
@@ -93,41 +94,50 @@
 					{/if}
 					<span class="provider">{secret.provider}</span>
 					<code class="hint">{secret.key_hint}</code>
-					<button class="action" type="button" onclick={() => startRename(secret)}>Rename</button>
-					<button class="action" type="button" onclick={() => removeSecret(secret)}>Delete</button>
+					<button class="action" type="button" onclick={() => startRename(secret)}
+						>{t.connections.secrets.rename}</button
+					>
+					<button class="action" type="button" onclick={() => removeSecret(secret)}
+						>{t.common.delete}</button
+					>
 				</li>
 			{:else}
-				<li class="none">No keys stored.</li>
+				<li class="none">{t.connections.secrets.none}</li>
 			{/each}
 		</ul>
 	</section>
 
 	<section class="group">
-		<h3>Add key</h3>
+		<h3>{t.connections.secrets.add}</h3>
 		<label class="field">
-			<span>Provider</span>
+			<span>{t.connections.secrets.provider}</span>
 			<select bind:value={newProvider}>
 				{#each PROVIDER_SCHEMAS as s (s.provider)}
 					<option value={s.provider}>{s.label}</option>
 				{/each}
 				{#if pluginKeyTypes.length}
-					<optgroup label="From plugins">
-						{#each pluginKeyTypes as t (t)}<option value={t}>{t}</option>{/each}
+					<optgroup label={t.connections.secrets.fromPlugins}>
+						{#each pluginKeyTypes as keyType (keyType)}<option value={keyType}>{keyType}</option
+							>{/each}
 					</optgroup>
 				{/if}
 			</select>
 		</label>
 		<label class="field">
-			<span>Label</span>
-			<input type="text" bind:value={newLabel} placeholder="Personal key" />
+			<span>{t.connections.secrets.label}</span>
+			<input
+				type="text"
+				bind:value={newLabel}
+				placeholder={t.connections.secrets.labelPlaceholder}
+			/>
 		</label>
 		<label class="field">
-			<span>Key</span>
+			<span>{t.connections.secrets.key}</span>
 			<input type="password" bind:value={newKey} autocomplete="off" />
 		</label>
 		<div class="form-row">
 			<button type="button" disabled={creating} onclick={addSecret}>
-				{creating ? 'Adding…' : 'Add key'}
+				{creating ? t.connections.secrets.adding : t.connections.secrets.add}
 			</button>
 			{#if createError}
 				<span class="error">{createError}</span>

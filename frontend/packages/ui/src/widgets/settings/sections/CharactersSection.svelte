@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { configStore, type SaveState } from '#lib/stores/serverConfig.svelte.js';
 	import SettingsSection from '../SettingsSection.svelte';
 	import Field from '../Field.svelte';
@@ -26,15 +27,15 @@
 	}
 </script>
 
-<SettingsSection title="Characters" {dirty} {saveState} onsave={save} onreset={reset}>
-	<Field label="Upload limit (MB)">
+<SettingsSection title={t.nav.server.characters} {dirty} {saveState} onsave={save} onreset={reset}>
+	<Field label={t.settings.server.uploadLimit}>
 		<NumberField
 			value={draft.upload_limit_mb}
 			min={0}
 			onchange={(v) => v !== '' && (draft.upload_limit_mb = v)}
 		/>
 	</Field>
-	<Field label="Edit session TTL (seconds)">
+	<Field label={t.settings.server.editSessionTtl}>
 		<NumberField
 			value={draft.edit_session_ttl}
 			min={0}

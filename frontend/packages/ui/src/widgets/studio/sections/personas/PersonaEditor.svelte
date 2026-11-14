@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { onDestroy } from 'svelte';
 	import { navigator } from '#lib/navigation/navigator.js';
@@ -78,7 +79,7 @@
 			.map((c) => {
 				const other = personaStore.overrideFor(c.id);
 				const owner = other && personas.find((p) => p.id === other.persona_id);
-				return { id: c.id, label: owner ? `${c.name} — bound to ${owner.name}` : c.name };
+				return { id: c.id, label: owner ? t.studio.personas.boundTo(c.name, owner.name) : c.name };
 			});
 	});
 
@@ -95,7 +96,7 @@
 		try {
 			await personaStore.setOverride(characterId, personaId);
 		} catch (err) {
-			bindError = err instanceof Error ? err.message : 'Could not bind that character';
+			bindError = err instanceof Error ? err.message : t.studio.personas.bindFailed;
 		}
 	}
 
@@ -104,7 +105,7 @@
 		try {
 			await personaStore.clearOverride(characterId);
 		} catch (err) {
-			bindError = err instanceof Error ? err.message : 'Could not unbind that character';
+			bindError = err instanceof Error ? err.message : t.studio.personas.unbindFailed;
 		}
 	}
 
@@ -121,7 +122,7 @@
 			await personaStore.delete(id);
 			navigator.start().studio().personas();
 		} catch (e) {
-			showApiError(e, { title: 'Could not delete persona' });
+			showApiError(e, { title: t.studio.personas.deleteFailed });
 		} finally {
 			deleting = false;
 			confirmingDelete = false;
@@ -164,7 +165,7 @@
 		try {
 			await personaStore.setAvatar(file);
 		} catch (err) {
-			avatarError = err instanceof Error ? err.message : 'Upload failed';
+			avatarError = err instanceof Error ? err.message : t.studio.personas.uploadFailed;
 		} finally {
 			busy = false;
 			input.value = '';
@@ -173,12 +174,12 @@
 
 	const saveLabel = $derived(
 		save.status === 'saving'
-			? 'Saving…'
+			? t.common.saving
 			: save.status === 'error'
-				? 'Unsaved; error'
+				? t.studio.personas.unsavedError
 				: personaStore.hasUnsavedChanges
-					? 'Unsaved'
-					: 'Saved'
+					? t.studio.personas.unsaved
+					: t.common.saved
 	);
 </script>
 
@@ -192,23 +193,28 @@
 />
 
 {#snippet hint(text: string)}
-	<button type="button" class="hint" {@attach tooltip(text)} aria-label={`Help: ${text}`}>?</button>
+	<button
+		type="button"
+		class="hint"
+		{@attach tooltip(text)}
+		aria-label={t.components.field.help(text)}>?</button
+	>
 {/snippet}
 
 <div class="persona-editor">
 	<ListSidebar
-		title="Personas"
+		title={t.studio.personas.title}
 		detailOpen={selectedId !== null}
 		oncreate={createPersona}
 		{creating}
 		bind:query
 		bind:sort
 		sortOptions={[
-			{ value: 'name-asc', label: 'Name (A–Z)' },
-			{ value: 'name-desc', label: 'Name (Z–A)' },
-			{ value: 'active', label: 'Active first' }
+			{ value: 'name-asc', label: t.studio.personas.sortNameAsc },
+			{ value: 'name-desc', label: t.studio.personas.sortNameDesc },
+			{ value: 'active', label: t.studio.personas.sortActive }
 		]}
-		searchPlaceholder="Search personas…"
+		searchPlaceholder={t.studio.personas.search}
 	>
 		{#snippet status()}
 			{#if draft}
@@ -224,7 +230,7 @@
 
 		{#if shownPersonas.length === 0}
 			<p class="empty">
-				{personas.length === 0 ? 'No personas yet.' : 'No personas match that search.'}
+				{personas.length === 0 ? t.studio.personas.empty : t.studio.personas.noMatches}
 			</p>
 		{/if}
 		{#each shownPersonas as persona (persona.id)}
@@ -238,7 +244,7 @@
 						<TransportImage src={avatarSrc(persona.id)} alt="" />
 					</span>
 					<span class="persona-text">
-						<span class="persona-name">{persona.name || 'Untitled'}</span>
+						<span class="persona-name">{persona.name || t.studio.personas.untitled}</span>
 						{#if persona.display_name}
 							<span class="persona-sub">{persona.display_name}</span>
 						{/if}
@@ -248,11 +254,13 @@
 					class="icon-button active-toggle"
 					class:on={persona.id === activePersonaId}
 					type="button"
-					{@attach tooltip(persona.id === activePersonaId ? 'Active persona' : 'Set as active')}
+					{@attach tooltip(
+						persona.id === activePersonaId ? t.studio.personas.active : t.studio.personas.setActive
+					)}
 					aria-pressed={persona.id === activePersonaId}
 					aria-label={persona.id === activePersonaId
-						? `${persona.name} is the active persona`
-						: `Set ${persona.name} as active`}
+						? t.studio.personas.isActive(persona.name)
+						: t.studio.personas.makeActive(persona.name)}
 					onclick={() => makeActive(persona.id)}
 				>
 					<Star size={14} fill={persona.id === activePersonaId ? 'currentColor' : 'none'} />
@@ -265,23 +273,25 @@
 		{#if draft}
 			<div class="pane">
 				<div class="pane-head">
-					<h1>Edit persona</h1>
+					<h1>{t.studio.personas.edit}</h1>
 					<button type="button" onclick={() => exportItem('persona', draft.id, draft.name)}>
-						Export
+						{t.studio.personas.export}
 					</button>
 				</div>
 
 				<div class="identity-top">
 					<div class="identity-fields">
 						<div class="field">
-							<label for="p-name">Name {@render hint('The persona’s name.')}</label>
+							<label for="p-name"
+								>{t.studio.personas.name} {@render hint(t.studio.personas.nameHint)}</label
+							>
 							<input id="p-name" bind:value={draft.name} oninput={requestSave} />
 						</div>
 
 						<div class="field">
 							<label for="p-display">
-								Display name
-								{@render hint('Shown instead of the name. Leave blank to use the name.')}
+								{t.studio.personas.displayName}
+								{@render hint(t.studio.personas.displayNameHint)}
 							</label>
 							<input
 								id="p-display"
@@ -293,7 +303,8 @@
 
 						<div class="field">
 							<label for="p-pseudonym">
-								Pseudonym {@render hint('An alternate name or alias for this persona.')}
+								{t.studio.personas.pseudonym}
+								{@render hint(t.studio.personas.pseudonymHint)}
 							</label>
 							<input id="p-pseudonym" bind:value={draft.pseudonym} oninput={requestSave} />
 						</div>
@@ -301,10 +312,13 @@
 
 					<div class="avatar">
 						<div class="avatar-preview">
-							<TransportImage src={avatarSrc(draft.id)} alt={`${draft.name} avatar`} />
+							<TransportImage
+								src={avatarSrc(draft.id)}
+								alt={t.studio.personas.avatarAlt(draft.name)}
+							/>
 						</div>
 						<button type="button" class="pickFile" onclick={openPicker} disabled={busy}>
-							{busy ? 'Uploading…' : 'Change avatar'}
+							{busy ? t.studio.personas.uploading : t.studio.personas.changeAvatar}
 						</button>
 						{#if avatarError}
 							<span class="avatar-error">{avatarError}</span>
@@ -314,8 +328,8 @@
 
 				{#key draft}
 					<ContextField
-						label="Description"
-						hint="Free-form notes describing this persona. Reaches the model as {'{{persona:description}}'}."
+						label={t.studio.personas.description}
+						hint={t.studio.personas.descriptionHint}
 						value={draft.description}
 						rows={8}
 						onchange={(v) => {
@@ -327,17 +341,16 @@
 
 				<section class="overrides">
 					<div class="overrides-head">
-						<h2>Character overrides</h2>
-						<select onchange={bind} aria-label="Bind a character to this persona">
-							<option value="">Bind a character…</option>
+						<h2>{t.studio.personas.overrides}</h2>
+						<select onchange={bind} aria-label={t.studio.personas.bindAria}>
+							<option value="">{t.studio.personas.bindPrompt}</option>
 							{#each bindable as option (option.id)}
 								<option value={option.id}>{option.label}</option>
 							{/each}
 						</select>
 					</div>
 					<p class="overrides-note">
-						Chats with these characters use this persona instead of your active one. A character can
-						only be bound to one persona.
+						{t.studio.personas.overridesNote}
 					</p>
 
 					{#if bindError}
@@ -345,7 +358,7 @@
 					{/if}
 
 					{#if boundCharacters.length === 0}
-						<p class="empty">No characters are bound to this persona.</p>
+						<p class="empty">{t.studio.personas.noneBound}</p>
 					{:else}
 						<ul class="bound-list">
 							{#each boundCharacters as character (character.id)}
@@ -357,8 +370,8 @@
 									<button
 										type="button"
 										class="unbind"
-										{@attach tooltip('Remove override')}
-										aria-label={`Unbind ${character.name}`}
+										{@attach tooltip(t.studio.personas.removeOverride)}
+										aria-label={t.studio.personas.unbindNamed(character.name)}
 										onclick={() => unbind(character.id)}
 									>
 										<X size={14} />
@@ -372,15 +385,14 @@
 				<section class="danger-zone">
 					{#if confirmingDelete}
 						<p class="danger-text">
-							Delete {draft.name || 'this persona'}? Characters bound to it go back to using your
-							active persona.
+							{t.studio.personas.confirmDelete(draft.name || t.studio.personas.thisPersona)}
 						</p>
 						<div class="danger-buttons">
 							<button type="button" class="danger" disabled={deleting} onclick={deletePersona}>
-								Delete
+								{t.common.delete}
 							</button>
 							<button type="button" disabled={deleting} onclick={() => (confirmingDelete = false)}>
-								Cancel
+								{t.common.cancel}
 							</button>
 						</div>
 					{:else}
@@ -391,11 +403,11 @@
 							onclick={() => (confirmingDelete = true)}
 						>
 							<Trash2 size={14} />
-							Delete persona
+							{t.studio.personas.delete}
 						</button>
 						{#if isLastPersona}
 							<p class="danger-text">
-								You need at least one persona, so this one can't be deleted.
+								{t.studio.personas.lastPersona}
 							</p>
 						{/if}
 					{/if}
@@ -403,7 +415,7 @@
 			</div>
 		{:else}
 			<div class="pane empty-pane">
-				<p class="empty">Select a persona to edit.</p>
+				<p class="empty">{t.studio.personas.select}</p>
 			</div>
 		{/if}
 	</section>

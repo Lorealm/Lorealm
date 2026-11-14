@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { chatStore } from '#lib/stores/chat.svelte.js';
 	import { parseContextBlocks, groupAdjacentBlocks } from '#lib/types/context.js';
 	import { resolveBlockContent } from '#lib/types/content.js';
@@ -42,25 +43,29 @@
 		return role === 'system' || role === 'user' || role === 'assistant' ? role : 'unknown';
 	}
 	function abbrevKind(k: string): string {
-		return k === 'source' ? 'SRC' : k === 'group_wrapper' ? 'GRP' : 'TXT';
+		return k === 'source'
+			? t.inspector.context.kinds.source
+			: k === 'group_wrapper'
+				? t.inspector.context.kinds.group
+				: t.inspector.context.kinds.text;
 	}
 </script>
 
 <div class="widget" class:collapsed>
 	<button class="head" aria-expanded={!collapsed} onclick={() => (collapsed = !collapsed)}>
 		<span class="chev" class:collapsed><ChevronDown /></span>
-		<span class="label">Live Context</span>
+		<span class="label">{t.inspector.context.title}</span>
 		{#if latest}
-			<span class="count">{latest.blocks.length} block{latest.blocks.length === 1 ? '' : 's'}</span>
+			<span class="count">{t.inspector.context.blocks(latest.blocks.length)}</span>
 		{/if}
 	</button>
 
 	{#if !collapsed}
 		<div class="list">
 			{#if !groups}
-				<div class="empty">No traced turn yet.</div>
+				<div class="empty">{t.inspector.context.noTrace}</div>
 			{:else if groups.length === 0}
-				<div class="empty">Latest turn produced no blocks.</div>
+				<div class="empty">{t.inspector.context.noBlocks}</div>
 			{:else}
 				{#each groups as group, gi (gi)}
 					{@const single = group.blocks.length === 1}
@@ -77,7 +82,7 @@
 						{:else}
 							<span class="badge">{group.blocks.length}</span>
 						{/if}
-						<span class="title">{group.title || '(untitled)'}</span>
+						<span class="title">{group.title || t.inspector.context.untitled}</span>
 						<span class="chev" class:open={openGroup === gi}><ChevronDown /></span>
 					</button>
 
@@ -87,15 +92,19 @@
 							<div class="detail">
 								<div class="meta">
 									{#if r.label}<span class="ref">{r.label}</span>{/if}
-									<span>node {group.blocks[0].origin.node_id || '—'}</span>
+									<span>{t.chat.inspector.node(group.blocks[0].origin.node_id || '—')}</span>
 									{#if group.blocks[0].origin.kind.kind === 'source'}
-										<span>source {group.blocks[0].origin.kind.source_id || '—'}</span>
+										<span
+											>{t.inspector.context.source(
+												group.blocks[0].origin.kind.source_id || '—'
+											)}</span
+										>
 									{/if}
 								</div>
 								{#if r.text}
 									<pre class="content">{r.text}</pre>
 								{:else}
-									<div class="unresolved">content not reconstructed</div>
+									<div class="unresolved">{t.chat.inspector.notReconstructed}</div>
 								{/if}
 							</div>
 						{:else}
@@ -119,7 +128,7 @@
 										{#if r.text}
 											<pre class="content">{r.text}</pre>
 										{:else}
-											<div class="unresolved">content not reconstructed</div>
+											<div class="unresolved">{t.chat.inspector.notReconstructed}</div>
 										{/if}
 									</div>
 								{/if}

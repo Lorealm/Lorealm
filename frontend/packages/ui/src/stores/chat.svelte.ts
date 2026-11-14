@@ -17,6 +17,7 @@ import { messageStateStore } from './messageState.svelte.ts';
 import { type ToastAction } from './errorToast.svelte.ts';
 import { showApiError } from './errorActions.js';
 import { applyEffect } from '#lib/commands/server.svelte.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 export interface FeedEntry {
 	message: ConversationMessage;
@@ -320,7 +321,7 @@ class ChatStore {
 			this._cast = cast;
 			this._nextHandle = next.handle;
 		} catch (e) {
-			this.#handleError(e, { title: 'Failed to load the cast' }, 5000);
+			this.#handleError(e, { title: t.errors.failed.loadCast }, 5000);
 		}
 	}
 
@@ -423,7 +424,7 @@ class ChatStore {
 				});
 				this.#ingestFull(full);
 			} catch (e) {
-				this.#handleError(e, { title: 'Failed to start the chat' }, 5000);
+				this.#handleError(e, { title: t.errors.failed.startChat }, 5000);
 				return;
 			}
 			await Promise.all([this.loadList(), this.#loadCast()]);
@@ -666,7 +667,7 @@ class ChatStore {
 			this.#handleError(
 				e,
 				{
-					title: 'Failed to edit message'
+					title: t.errors.failed.editMessage
 				},
 				5000
 			);
@@ -688,7 +689,7 @@ class ChatStore {
 			this.#handleError(
 				e,
 				{
-					title: 'Failed to switch message'
+					title: t.errors.failed.switchMessage
 				},
 				5000
 			);
@@ -728,7 +729,7 @@ class ChatStore {
 			this.#handleError(
 				e,
 				{
-					title: 'Failed to delete message'
+					title: t.errors.failed.deleteMessage
 				},
 				5000
 			);
@@ -753,7 +754,7 @@ class ChatStore {
 			this.#handleError(
 				e,
 				{
-					title: 'Failed to delete conversation'
+					title: t.errors.failed.deleteConversation
 				},
 				5000
 			);
@@ -778,7 +779,7 @@ class ChatStore {
 			if (previous && current?.id === id) {
 				this._conversation = { ...current, author_note: previous.author_note };
 			}
-			showApiError(e, { title: 'Failed to save the author’s note' });
+			showApiError(e, { title: t.errors.failed.saveAuthorNote });
 		}
 	}
 

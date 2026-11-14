@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { tick } from 'svelte';
 	import CommandAutocomplete from './CommandAutocomplete.svelte';
@@ -164,10 +165,10 @@
 			<CommandAutocomplete items={suggestions} activeIndex={active} {heading} onSelect={accept} />
 		{/if}
 		<PopupMenu
-			title="Functions"
+			title={t.chat.composer.functions}
 			items={[
 				{
-					label: 'Conversations',
+					label: t.chat.composer.conversations,
 					icon: MessagesSquare,
 					onSelect: () => {
 						if (activeCharacter) conversationManager.open(activeCharacter);
@@ -175,7 +176,7 @@
 					disabled: activeCharacter === null
 				},
 				{
-					label: 'Start new chat',
+					label: t.chat.composer.newChat,
 					icon: FilePlus,
 					onSelect: async () => await startNewChat(),
 					disabled: activeCharacter === null
@@ -184,11 +185,13 @@
 		>
 			{#snippet icon()}<Sparkles />{/snippet}
 		</PopupMenu>
-		<button class="attachement-button" {@attach tooltip('Attachments')}><Paperclip /></button>
+		<button class="attachement-button" {@attach tooltip(t.chat.composer.attachments)}
+			><Paperclip /></button
+		>
 		<textarea
 			use:keyLayer={{ id: CHAT_COMPOSER_LAYER, data: composerLayer }}
 			class="text-input"
-			placeholder="Send a message..."
+			placeholder={t.chat.composer.placeholder}
 			rows="1"
 			bind:value={inputText}
 			bind:this={textareaEl}
@@ -198,16 +201,16 @@
 			oninput={resize}
 		></textarea>
 		{#if !busy}
-			<button class="send-button" aria-label="Send" onclick={send}><Send /></button>
+			<button class="send-button" aria-label={t.chat.composer.send} onclick={send}><Send /></button>
 		{:else}
 			<button
 				class="send-button"
 				{@attach tooltip(
 					runningCommand
-						? `Stop /${runningCommand.name}`
+						? t.chat.composer.stopCommand(runningCommand.name)
 						: waitingOn
-							? `Stop ${waitingOn}`
-							: 'Stop generating'
+							? t.chat.composer.stopPlugin(waitingOn)
+							: t.chat.composer.stopGenerating
 				)}
 				onclick={cancelGeneration}><Square /></button
 			>

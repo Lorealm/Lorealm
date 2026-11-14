@@ -1,9 +1,10 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	let {
 		values,
 		onchange,
 		placeholder = '',
-		addLabel = '+ Add',
+		addLabel,
 		ariaLabel
 	}: {
 		values: string[] | undefined;
@@ -40,10 +41,15 @@
 				value={item}
 				oninput={(e) => update(i, e.currentTarget.value)}
 			/>
-			<button type="button" class="remove" aria-label="Remove" onclick={() => remove(i)}>×</button>
+			<button
+				type="button"
+				class="remove"
+				aria-label={t.studio.stringList.remove}
+				onclick={() => remove(i)}>×</button
+			>
 		</div>
 	{/each}
-	<button type="button" class="add" onclick={add}>{addLabel}</button>
+	<button type="button" class="add" onclick={add}>{addLabel ?? t.studio.stringList.add}</button>
 </div>
 
 <style>

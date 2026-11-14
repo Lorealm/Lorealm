@@ -2,11 +2,11 @@ import type { EntryMeta } from '../types/lorebook.ts';
 
 export type SortKey = 'name' | 'priority' | 'insertion_order' | 'id';
 
-export const SORT_KEYS: { key: SortKey; label: string }[] = [
-	{ key: 'name', label: 'Name' },
-	{ key: 'priority', label: 'Priority' },
-	{ key: 'insertion_order', label: 'Insertion order' },
-	{ key: 'id', label: 'ID' }
+export const SORT_KEYS: { key: SortKey }[] = [
+	{ key: 'name' },
+	{ key: 'priority' },
+	{ key: 'insertion_order' },
+	{ key: 'id' }
 ];
 
 interface Sortable {

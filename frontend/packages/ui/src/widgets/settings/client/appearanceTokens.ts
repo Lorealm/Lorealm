@@ -1,12 +1,5 @@
-/**
- * The tokens the Appearance editor puts a labelled control behind.
- *
- * Hand-picked rather than read off `variables.css`: the stylesheet holds plenty
- * a reader has no business touching one at a time (the alpha-derived status
- * backgrounds, the shadow stacks), and nothing there says what a token is *for*.
- * Anything left out is still reachable through the custom CSS block, so this
- * list is about what to put in front of someone, not what they are allowed.
- */
+import type { Messages } from '@lorealm/i18n';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 /** How a value is edited. Anything unclassified falls back to a text field. */
 export type TokenKind = 'color' | 'px' | 'font' | 'text';
@@ -30,177 +23,234 @@ export const FONT_CHOICES: Array<{ label: string; value: string }> = [
 	{ label: 'Nunito', value: 'var(--font-family-nunito)' },
 	{ label: 'Josefin Sans', value: 'var(--font-family-josefin)' },
 	{ label: 'Karla', value: 'var(--font-family-karla)' },
-	{ label: 'System', value: 'var(--font-family-system)' },
-	{ label: 'Monospace', value: 'var(--font-family-mono)' }
+	{
+		get label() {
+			return t.settings.appearance.fonts.system;
+		},
+		value: 'var(--font-family-system)'
+	},
+	{
+		get label() {
+			return t.settings.appearance.fonts.monospace;
+		},
+		value: 'var(--font-family-mono)'
+	}
 ];
 
-const colors = (entries: Array<[string, string]>): TokenField[] =>
-	entries.map(([name, label]) => ({ name, label, kind: 'color' }));
+type TokenName = keyof Messages['settings']['appearance']['tokens'];
 
-const lengths = (entries: Array<[string, string]>): TokenField[] =>
-	entries.map(([name, label]) => ({ name, label, kind: 'px' }));
+/** A row whose label follows the active locale. */
+const field = (name: TokenName, kind: TokenKind): TokenField => ({
+	name,
+	get label() {
+		return t.settings.appearance.tokens[name];
+	},
+	kind
+});
+
+const colors = (names: TokenName[]): TokenField[] => names.map((name) => field(name, 'color'));
+
+const lengths = (names: TokenName[]): TokenField[] => names.map((name) => field(name, 'px'));
 
 export const APPEARANCE_GROUPS: TokenGroup[] = [
 	{
-		title: 'Accent',
-		blurb: 'The colour the client is built around. Most borders and highlights derive from it.',
+		get title() {
+			return t.settings.appearance.groups.accent.title;
+		},
+		get blurb() {
+			return t.settings.appearance.groups.accent.blurb;
+		},
 		fields: colors([
-			['--color-primary', 'Accent'],
-			['--color-primary-light', 'Accent, light'],
-			['--color-primary-lighter', 'Accent, lighter'],
-			['--color-primary-dark', 'Accent, dark'],
-			['--color-primary-darker', 'Accent, darker']
+			'--color-primary',
+			'--color-primary-light',
+			'--color-primary-lighter',
+			'--color-primary-dark',
+			'--color-primary-darker'
 		])
 	},
 	{
-		title: 'Surfaces',
-		blurb: 'Backgrounds; window colors, modals and dialogs',
+		get title() {
+			return t.settings.appearance.groups.surfaces.title;
+		},
+		get blurb() {
+			return t.settings.appearance.groups.surfaces.blurb;
+		},
 		fields: colors([
-			['--color-bg-base', 'Window'],
-			['--color-bg-elevated', 'Raised'],
-			['--color-bg-elevated-2', 'Raised, higher'],
-			['--color-bg-elevated-3', 'Raised, highest'],
-			['--color-bg-panel-solid', 'Panel'],
-			['--color-bg-input', 'Input field'],
-			['--color-bg-modal', 'Dialog'],
-			['--color-bg-disabled', 'Disabled']
+			'--color-bg-base',
+			'--color-bg-elevated',
+			'--color-bg-elevated-2',
+			'--color-bg-elevated-3',
+			'--color-bg-panel-solid',
+			'--color-bg-input',
+			'--color-bg-modal',
+			'--color-bg-disabled'
 		])
 	},
 	{
-		title: 'Text',
-		blurb: 'Foreground colours, in descending prominence.',
+		get title() {
+			return t.settings.appearance.groups.text.title;
+		},
+		get blurb() {
+			return t.settings.appearance.groups.text.blurb;
+		},
 		fields: colors([
-			['--color-text-primary', 'Body'],
-			['--color-text-secondary', 'Secondary'],
-			['--color-text-muted', 'Muted'],
-			['--color-text-disabled', 'Disabled'],
-			['--color-text-accent', 'Accented'],
-			['--color-text-inverse', 'On accent']
+			'--color-text-primary',
+			'--color-text-secondary',
+			'--color-text-muted',
+			'--color-text-disabled',
+			'--color-text-accent',
+			'--color-text-inverse'
 		])
 	},
 	{
-		title: 'Borders',
-		blurb: 'Dividers and outlines.',
+		get title() {
+			return t.settings.appearance.groups.borders.title;
+		},
+		get blurb() {
+			return t.settings.appearance.groups.borders.blurb;
+		},
 		fields: colors([
-			['--color-border-subtle', 'Subtle'],
-			['--color-border-medium', 'Medium'],
-			['--color-border-strong', 'Strong'],
-			['--color-border-active', 'Active'],
-			['--color-border-default', 'Neutral']
+			'--color-border-subtle',
+			'--color-border-medium',
+			'--color-border-strong',
+			'--color-border-active',
+			'--color-border-default'
 		])
 	},
 	{
-		title: 'Interaction',
-		blurb: 'Conditional colors for UI feedback',
+		get title() {
+			return t.settings.appearance.groups.interaction.title;
+		},
+		get blurb() {
+			return t.settings.appearance.groups.interaction.blurb;
+		},
+		fields: colors(['--color-hover', '--color-active', '--color-focus', '--color-selected'])
+	},
+	{
+		get title() {
+			return t.settings.appearance.groups.status.title;
+		},
+		get blurb() {
+			return t.settings.appearance.groups.status.blurb;
+		},
 		fields: colors([
-			['--color-hover', 'Hover'],
-			['--color-active', 'Pressed'],
-			['--color-focus', 'Focus ring'],
-			['--color-selected', 'Selected']
+			'--color-success',
+			'--color-success-text',
+			'--color-error',
+			'--color-error-text',
+			'--color-warning',
+			'--color-warning-text',
+			'--color-info',
+			'--color-info-text'
 		])
 	},
 	{
-		title: 'Status',
-		blurb: 'Toasts and inline feedback. The matching backgrounds are derived from these.',
+		get title() {
+			return t.settings.appearance.groups.chatRoles.title;
+		},
+		get blurb() {
+			return t.settings.appearance.groups.chatRoles.blurb;
+		},
 		fields: colors([
-			['--color-success', 'Success'],
-			['--color-success-text', 'Success text'],
-			['--color-error', 'Error'],
-			['--color-error-text', 'Error text'],
-			['--color-warning', 'Warning'],
-			['--color-warning-text', 'Warning text'],
-			['--color-info', 'Info'],
-			['--color-info-text', 'Info text']
+			'--color-role-system',
+			'--color-role-system-text',
+			'--color-role-user',
+			'--color-role-user-text',
+			'--color-role-assistant',
+			'--color-role-assistant-text'
 		])
 	},
 	{
-		title: 'Chat roles',
-		blurb: 'How the three speakers are told apart in a conversation.',
-		fields: colors([
-			['--color-role-system', 'System'],
-			['--color-role-system-text', 'System text'],
-			['--color-role-user', 'You'],
-			['--color-role-user-text', 'Your text'],
-			['--color-role-assistant', 'Assistant'],
-			['--color-role-assistant-text', 'Assistant text']
-		])
-	},
-	{
-		title: 'Type',
-		blurb: 'Families and the size scale. Every size in the client is one of these.',
+		get title() {
+			return t.settings.appearance.groups.type.title;
+		},
+		get blurb() {
+			return t.settings.appearance.groups.type.blurb;
+		},
 		fields: [
-			{ name: '--font-family-heading', label: 'Headings', kind: 'font' },
-			{ name: '--font-family-body', label: 'Body', kind: 'font' },
+			field('--font-family-heading', 'font'),
+			field('--font-family-body', 'font'),
 			...lengths([
-				['--font-size-xs', 'Extra small'],
-				['--font-size-sm', 'Small'],
-				['--font-size-base', 'Base'],
-				['--font-size-md', 'Medium'],
-				['--font-size-lg', 'Large'],
-				['--font-size-xl', 'Extra large'],
-				['--font-size-h1', 'Heading 1'],
-				['--font-size-h2', 'Heading 2'],
-				['--font-size-h3', 'Heading 3'],
-				['--font-size-h4', 'Heading 4']
+				'--font-size-xs',
+				'--font-size-sm',
+				'--font-size-base',
+				'--font-size-md',
+				'--font-size-lg',
+				'--font-size-xl',
+				'--font-size-h1',
+				'--font-size-h2',
+				'--font-size-h3',
+				'--font-size-h4'
 			])
 		]
 	},
 	{
-		title: 'Shape',
-		blurb: 'Corner rounding.',
+		get title() {
+			return t.settings.appearance.groups.shape.title;
+		},
+		get blurb() {
+			return t.settings.appearance.groups.shape.blurb;
+		},
+		fields: lengths(['--radius-sm', '--radius-md', '--radius-lg', '--radius-xl', '--radius-2xl'])
+	},
+	{
+		get title() {
+			return t.settings.appearance.groups.spacing.title;
+		},
+		get blurb() {
+			return t.settings.appearance.groups.spacing.blurb;
+		},
 		fields: lengths([
-			['--radius-sm', 'Small'],
-			['--radius-md', 'Medium'],
-			['--radius-lg', 'Large'],
-			['--radius-xl', 'Extra large'],
-			['--radius-2xl', 'Largest']
+			'--spacing-xs',
+			'--spacing-sm',
+			'--spacing-md',
+			'--spacing-lg',
+			'--spacing-xl'
 		])
 	},
 	{
-		title: 'Spacing',
-		blurb: 'The gap scale. Affects the entire application.',
-		fields: lengths([
-			['--spacing-xs', 'Extra small'],
-			['--spacing-sm', 'Small'],
-			['--spacing-md', 'Medium'],
-			['--spacing-lg', 'Large'],
-			['--spacing-xl', 'Extra large']
-		])
-	},
-	{
-		title: 'Layout',
-		blurb: 'Fixed dimensions of the frame around your content.',
+		get title() {
+			return t.settings.appearance.groups.layout.title;
+		},
+		get blurb() {
+			return t.settings.appearance.groups.layout.blurb;
+		},
 		fields: [
 			...lengths([
-				['--width-sidebar-full', 'Sidebar'],
-				['--width-sidebar-small', 'Inspector'],
-				['--width-sidebar-collapsed', 'Sidebar, collapsed'],
-				['--width-content-max', 'Content width'],
-				['--height-header', 'Header height'],
-				['--height-input', 'Control height']
+				'--width-sidebar-full',
+				'--width-sidebar-small',
+				'--width-sidebar-collapsed',
+				'--width-content-max',
+				'--height-header',
+				'--height-input'
 			]),
-			{ name: '--grid-card-min', label: 'Card width', kind: 'text' },
-			{ name: '--avatar-aspect-ratio', label: 'Avatar ratio', kind: 'text' }
+			field('--grid-card-min', 'text'),
+			field('--avatar-aspect-ratio', 'text')
 		]
 	},
 	{
-		title: 'Motion',
-		blurb: 'Transition durations. Set them to 0s to turn animation off.',
+		get title() {
+			return t.settings.appearance.groups.motion.title;
+		},
+		get blurb() {
+			return t.settings.appearance.groups.motion.blurb;
+		},
 		fields: [
-			{ name: '--transition-fast', label: 'Fast', kind: 'text' },
-			{ name: '--transition-normal', label: 'Normal', kind: 'text' },
-			{ name: '--transition-slow', label: 'Slow', kind: 'text' }
+			field('--transition-fast', 'text'),
+			field('--transition-normal', 'text'),
+			field('--transition-slow', 'text')
 		]
 	},
 	{
-		title: 'Scrollbars',
-		blurb: 'The thin scrollbars the client draws over the native ones.',
+		get title() {
+			return t.settings.appearance.groups.scrollbars.title;
+		},
+		get blurb() {
+			return t.settings.appearance.groups.scrollbars.blurb;
+		},
 		fields: [
-			{ name: '--scrollbar-width', label: 'Width', kind: 'px' },
-			...colors([
-				['--scrollbar-thumb', 'Thumb'],
-				['--scrollbar-thumb-hover', 'Thumb, hovered']
-			])
+			field('--scrollbar-width', 'px'),
+			...colors(['--scrollbar-thumb', '--scrollbar-thumb-hover'])
 		]
 	}
 ];

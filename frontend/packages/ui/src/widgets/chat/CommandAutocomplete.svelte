@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import type { Suggestion } from '#lib/commands/index.js';
 
 	let {
@@ -15,7 +16,7 @@
 	} = $props();
 </script>
 
-<div class="suggestions" role="listbox" aria-label={heading ?? 'Commands'}>
+<div class="suggestions" role="listbox" aria-label={heading ?? t.chat.composer.commands}>
 	{#if heading}
 		<p class="heading">{heading}</p>
 	{/if}

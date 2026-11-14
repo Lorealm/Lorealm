@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { lorebookStore, type DraftEntry, type SaveState } from '#lib/stores/lorebook.svelte.js';
 	import type { EntryMeta, LorebookConfig, Slot } from '#lib/types/lorebook.js';
 	import type { ReferenceSource } from '#lib/weaver/editor/weaver-references.js';
@@ -25,8 +26,6 @@
 
 	let openAdvanced = $derived(settings.current.autoExpandLorebookAdvanced);
 
-	// Read through the store rather than off a snapshot, so ids stay current as
-	// entries are added or renamed while this editor is open.
 	const references: ReferenceSource = {
 		entries: () => lorebookStore.referenceableEntries,
 		navigate: (ref) => lorebookStore.navigateToEntry(ref.id)
@@ -64,7 +63,7 @@
 	<header class="head">
 		<div class="head-fields">
 			<label class="field id">
-				<span>ID</span>
+				<span>{t.studio.entry.id}</span>
 				<input
 					type="text"
 					value={entry.meta.id}
@@ -72,7 +71,7 @@
 				/>
 			</label>
 			<label class="field name">
-				<span>Name</span>
+				<span>{t.studio.entry.name}</span>
 				<input
 					type="text"
 					value={entry.meta.name ?? ''}
@@ -85,13 +84,13 @@
 					checked={entry.meta.enabled ?? true}
 					onchange={(e) => set('enabled', e.currentTarget.checked)}
 				/>
-				<span>Enabled</span>
+				<span>{t.studio.entry.enabled}</span>
 			</label>
 		</div>
 		<SaveIndicator state={saveState} />
 	</header>
 
-	<FieldShell label="Content" tokenText={entry.body}>
+	<FieldShell label={t.studio.entry.content} tokenText={entry.body}>
 		{#snippet editor(fill: boolean)}
 			<div class="content-editor" class:fill>
 				<WeaverEditor doc={entry.body} onChange={setBody} {references} />
@@ -100,35 +99,35 @@
 	</FieldShell>
 
 	<fieldset class="block activation">
-		<legend>Activation</legend>
+		<legend>{t.studio.entry.activation}</legend>
 
 		<div class="field">
-			<span>Keywords</span>
+			<span>{t.studio.entry.keywords}</span>
 			<StringListField
 				values={entry.meta.keywords}
 				onchange={(v) => set('keywords', v)}
-				placeholder="keyword"
-				ariaLabel="Keywords"
+				placeholder={t.studio.entry.keywordPlaceholder}
+				ariaLabel={t.studio.entry.keywords}
 			/>
 		</div>
 
 		<div class="field">
-			<span>Regex</span>
+			<span>{t.studio.entry.regex}</span>
 			<StringListField
 				values={entry.meta.regex}
 				onchange={(v) => set('regex', v)}
-				placeholder="pattern"
-				ariaLabel="Regex patterns"
+				placeholder={t.studio.entry.patternPlaceholder}
+				ariaLabel={t.studio.entry.regexPatterns}
 			/>
 		</div>
 
 		<div class="field">
-			<span>Condition</span>
+			<span>{t.studio.entry.condition}</span>
 			<WeaverField
 				doc={entry.meta.condition ?? ''}
 				onChange={(v) => setOptStr('condition', v)}
 				dialect="expression"
-				hint="weaver expression, e.g. {'{{state:level}}'} > 5"
+				hint={t.studio.entry.conditionHint}
 				{references}
 			/>
 		</div>
@@ -140,59 +139,59 @@
 					checked={entry.meta.constant ?? false}
 					onchange={(e) => set('constant', e.currentTarget.checked)}
 				/>
-				<span>Constant (always active)</span>
+				<span>{t.studio.entry.constant}</span>
 			</label>
 			<label class="field scan">
-				<span>Scan depth</span>
+				<span>{t.studio.entry.scanDepth}</span>
 				<NumberInput
 					min={0}
 					step={1}
 					value={entry.meta.scan_depth ?? ''}
 					placeholder={config?.default_scan_depth?.toString() ?? ''}
 					onchange={(v) => set('scan_depth', v === '' ? undefined : v)}
-					ariaLabel="Scan depth"
+					ariaLabel={t.studio.entry.scanDepth}
 				/>
 			</label>
 		</div>
 	</fieldset>
 
 	<details class="block advanced" bind:open={openAdvanced}>
-		<summary>Advanced</summary>
+		<summary>{t.studio.entry.advanced}</summary>
 
 		<div class="field-row">
 			<label class="field">
-				<span>Priority</span>
+				<span>{t.studio.entry.priority}</span>
 				<NumberInput
 					step={1}
 					value={entry.meta.priority ?? ''}
 					placeholder={config?.default_priority?.toString() ?? ''}
 					onchange={(v) => set('priority', v === '' ? undefined : v)}
-					ariaLabel="Priority"
+					ariaLabel={t.studio.entry.priority}
 				/>
 			</label>
 			<label class="field">
-				<span>Insertion order</span>
+				<span>{t.studio.entry.insertionOrder}</span>
 				<NumberInput
 					step={1}
 					value={entry.meta.insertion_order ?? ''}
 					onchange={(v) => set('insertion_order', v === '' ? undefined : v)}
-					ariaLabel="Insertion order"
+					ariaLabel={t.studio.entry.insertionOrder}
 				/>
 			</label>
 		</div>
 
 		<div class="field">
-			<span>Slot</span>
+			<span>{t.studio.entry.slot}</span>
 			<SlotPicker
 				value={entry.meta.slot}
 				inheritedDefault={config?.default_slot}
 				onchange={(v) => set('slot', v)}
-				ariaLabel="Slot"
+				ariaLabel={t.studio.entry.slot}
 			/>
 		</div>
 
 		<div class="field">
-			<span>Fallback slots</span>
+			<span>{t.studio.entry.fallbackSlots}</span>
 			<div class="fallback-list">
 				{#each fallback as fb, i (i)}
 					<div class="fallback-row">
@@ -200,45 +199,46 @@
 							value={fb}
 							allowInherit={false}
 							onchange={(v) => setFallback(i, v)}
-							ariaLabel={`Fallback ${i + 1}`}
+							ariaLabel={t.studio.entry.fallback(i + 1)}
 						/>
 						<button
 							type="button"
 							class="remove"
-							aria-label="Remove"
+							aria-label={t.studio.entry.remove}
 							onclick={() => removeFallback(i)}>×</button
 						>
 					</div>
 				{/each}
-				<button type="button" class="add" onclick={addFallback}>+ Add fallback</button>
+				<button type="button" class="add" onclick={addFallback}>{t.studio.entry.addFallback}</button
+				>
 			</div>
 		</div>
 
 		<div class="field-row">
 			<label class="field">
-				<span>Sticky turns</span>
+				<span>{t.studio.entry.stickyTurns}</span>
 				<NumberInput
 					min={0}
 					step={1}
 					value={entry.meta.sticky_turns ?? ''}
 					onchange={(v) => set('sticky_turns', v === '' ? undefined : v)}
-					ariaLabel="Sticky turns"
+					ariaLabel={t.studio.entry.stickyTurns}
 				/>
 			</label>
 			<label class="field">
-				<span>Cooldown</span>
+				<span>{t.studio.entry.cooldown}</span>
 				<NumberInput
 					min={0}
 					step={1}
 					value={entry.meta.cooldown ?? ''}
 					onchange={(v) => set('cooldown', v === '' ? undefined : v)}
-					ariaLabel="Cooldown"
+					ariaLabel={t.studio.entry.cooldown}
 				/>
 			</label>
 		</div>
 
 		<label class="field">
-			<span>Group</span>
+			<span>{t.studio.entry.group}</span>
 			<input
 				type="text"
 				value={entry.meta.group ?? ''}
@@ -247,12 +247,12 @@
 		</label>
 
 		<div class="field">
-			<span>Tags</span>
+			<span>{t.studio.entry.tags}</span>
 			<StringListField
 				values={entry.meta.tags}
 				onchange={(v) => set('tags', v)}
-				placeholder="tag"
-				ariaLabel="Tags"
+				placeholder={t.studio.entry.tagPlaceholder}
+				ariaLabel={t.studio.entry.tags}
 			/>
 		</div>
 	</details>

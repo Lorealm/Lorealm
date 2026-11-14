@@ -2,6 +2,7 @@ import { chatStore } from '#lib/stores/chat.svelte.js';
 import { characterStore } from '#lib/stores/character.svelte.js';
 import type { Snowflake } from '#lib/types/core.js';
 import type { CharacterPart, TracedBlock } from '#lib/types/context.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 export interface ResolvedContent {
 	text: string;
@@ -12,17 +13,17 @@ export interface ResolvedContent {
 function characterPartLabel(part: CharacterPart): string {
 	switch (part.part) {
 		case 'definition':
-			return 'character · definition';
+			return t.chat.inspector.refs.definition;
 		case 'personality':
-			return 'character · personality';
+			return t.chat.inspector.refs.personality;
 		case 'scenario':
-			return 'character · scenario';
+			return t.chat.inspector.refs.scenario;
 		case 'greeting':
-			return `character · greeting #${part.order}`;
+			return t.chat.inspector.refs.greeting(part.order);
 		case 'example':
-			return `character · example #${part.order}`;
+			return t.chat.inspector.refs.example(part.order);
 		default:
-			return 'character';
+			return t.chat.inspector.refs.character;
 	}
 }
 
@@ -57,7 +58,11 @@ export function resolveBlockContent(block: TracedBlock): ResolvedContent {
 			const msg = chatStore.messageById(ref.id as unknown as Snowflake);
 			if (msg) return { text: msg.content, label: 'message', resolved: true };
 			// Legacy fallback if present
-			return { text: inline, label: 'message · unresolved', resolved: inline !== '' };
+			return {
+				text: inline,
+				label: t.chat.inspector.refs.unresolvedMessage,
+				resolved: inline !== ''
+			};
 		}
 
 		case 'character': {
@@ -68,7 +73,7 @@ export function resolveBlockContent(block: TracedBlock): ResolvedContent {
 		}
 
 		case 'persona': {
-			const label = `persona · ${ref.persona.name}`;
+			const label = t.chat.inspector.refs.persona(ref.persona.name);
 			const text = ref.persona.description ?? '';
 			if (text !== '') return { text, label, resolved: true };
 			// Legacy fallback if present
@@ -76,7 +81,11 @@ export function resolveBlockContent(block: TracedBlock): ResolvedContent {
 		}
 
 		case 'plugin':
-			return { text: inline, label: `plugin · ${ref.source_id}`, resolved: inline !== '' };
+			return {
+				text: inline,
+				label: t.chat.inspector.refs.plugin(ref.source_id),
+				resolved: inline !== ''
+			};
 
 		default:
 			return { text: inline, label: '', resolved: inline !== '' };

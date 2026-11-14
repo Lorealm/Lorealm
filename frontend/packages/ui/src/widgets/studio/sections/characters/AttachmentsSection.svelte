@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { onMount } from 'svelte';
 	import { characterStore } from '#lib/stores/character.svelte.js';
@@ -23,8 +24,8 @@
 	const lorebooks = $derived<Option[]>(
 		(lorebookStore.metadataList ?? []).map((b) => ({
 			id: b.id,
-			name: b.name || 'Untitled lorebook',
-			tags: [`${b.entry_count} ${b.entry_count === 1 ? 'entry' : 'entries'}`],
+			name: b.name || t.studio.attachments.untitledLorebook,
+			tags: [t.studio.attachments.entries(b.entry_count)],
 			description: b.description
 		}))
 	);
@@ -47,39 +48,26 @@
 
 	const groups: Array<{
 		kind: AttachmentKind;
-		title: string;
-		noun: string;
-		hint: string;
 		ordered: boolean;
 		options: () => Option[];
 	}> = [
 		{
 			kind: 'lorebook',
-			title: 'Lorebooks',
-			noun: 'lorebook',
-			hint: 'Active in every chat with this character, on top of your active lorebooks. The first one is the main lorebook: exports that allow only one lorebook, like SillyTavern cards, keep that one.',
 			ordered: true,
 			options: () => lorebooks
 		},
 		{
 			kind: 'tool',
-			title: 'Tools',
-			noun: 'tool',
-			hint: 'The model can use these in chats with this character, even if they are switched off in the Tools studio.',
 			ordered: false,
 			options: () => tools
 		},
 		{
 			kind: 'widget',
-			title: 'Widgets',
-			noun: 'widget',
-			hint: 'Run in every chat with this character, even if they are switched off in the Widgets studio.',
 			ordered: true,
 			options: () => widgets
 		}
 	];
 
-	/** Tools that come along with an attached widget, and aren't attached themselves. */
 	const impliedTools = $derived.by(() => {
 		const out: Array<{ tool: Option | undefined; id: Snowflake; via: string }> = [];
 		for (const widgetId of characterStore.attached('widget')) {
@@ -127,43 +115,44 @@
 			if (kind === 'tool') await toolStore.loadTools();
 			if (kind === 'widget') await userWidgetStore.loadWidgets();
 		} catch (e) {
-			showApiError(e, { title: 'Could not duplicate' });
+			showApiError(e, { title: t.studio.attachments.duplicateFailed });
 		} finally {
 			duplicating = null;
 		}
 	}
 </script>
 
-<h1>Attachments</h1>
-<p class="hint">Lorebooks, tools and widgets that get exported along with the character.</p>
+<h1>{t.studio.attachments.title}</h1>
+<p class="hint">{t.studio.attachments.intro}</p>
 
 {#each groups as group (group.kind)}
 	{@const attached = characterStore.attached(group.kind)}
 	{@const available = group.options().filter((o) => !attached.includes(o.id))}
+	{@const text = t.studio.attachments.groups[group.kind]}
 	<section class="group">
 		<div class="group-head">
-			<h2>{group.title}</h2>
+			<h2>{text.title}</h2>
 			<select
-				aria-label={`Attach a ${group.noun}`}
+				aria-label={text.attach}
 				disabled={available.length === 0}
 				onchange={(e) => attach(group.kind, e)}
 			>
 				<option value=""
 					>{group.options().length === 0
-						? `No ${group.noun}s yet`
+						? text.none
 						: available.length === 0
-							? `Every ${group.noun} is attached`
-							: `Attach a ${group.noun}…`}</option
+							? text.allAttached
+							: text.attachPrompt}</option
 				>
 				{#each available as option (option.id)}
 					<option value={option.id}>{option.name}</option>
 				{/each}
 			</select>
 		</div>
-		<p class="hint">{group.hint}</p>
+		<p class="hint">{text.hint}</p>
 
 		{#if attached.length === 0 && (group.kind !== 'tool' || impliedTools.length === 0)}
-			<p class="empty">No {group.noun}s attached.</p>
+			<p class="empty">{text.noneAttached}</p>
 		{/if}
 
 		{#each attached as id, i (id)}
@@ -171,39 +160,37 @@
 			<div class="item-card">
 				<div class="row">
 					<div class="meta">
-						<span class="name">{option?.name ?? `Unknown ${group.noun}`}</span>
+						<span class="name">{option?.name ?? text.unknown}</span>
 						{#if group.kind === 'lorebook' && i === 0}
-							<span class="tag main">Main</span>
+							<span class="tag main">{t.studio.attachments.main}</span>
 						{/if}
 						{#if option}
 							{#each option.tags as tag (tag)}
 								<span class="tag">{tag}</span>
 							{/each}
 						{:else}
-							<span class="tag missing">missing</span>
+							<span class="tag missing">{t.studio.attachments.missing}</span>
 						{/if}
 					</div>
 					<div class="item-actions">
 						{#if group.ordered}
 							<button
 								type="button"
-								aria-label="Move up"
+								aria-label={t.studio.attachments.moveUp}
 								disabled={i === 0}
 								onclick={() => move(group.kind, i, -1)}>↑</button
 							>
 							<button
 								type="button"
-								aria-label="Move down"
+								aria-label={t.studio.attachments.moveDown}
 								disabled={i === attached.length - 1}
 								onclick={() => move(group.kind, i, 1)}>↓</button
 							>
 						{/if}
 						<button
 							type="button"
-							{@attach tooltip(
-								`Duplicate: edit a copy without changing anything else that uses this ${group.noun}`
-							)}
-							aria-label={`Duplicate ${option?.name ?? group.noun}`}
+							{@attach tooltip(text.duplicateHint)}
+							aria-label={t.studio.attachments.duplicateNamed(option?.name ?? text.noun)}
 							disabled={!option || duplicating !== null}
 							onclick={() => duplicate(group.kind, id)}
 						>
@@ -212,7 +199,7 @@
 						<button
 							type="button"
 							class="danger"
-							aria-label={`Detach ${option?.name ?? group.noun}`}
+							aria-label={t.studio.attachments.detachNamed(option?.name ?? text.noun)}
 							onclick={() => detach(group.kind, id)}>✕</button
 						>
 					</div>
@@ -228,8 +215,10 @@
 				<div class="item-card implied">
 					<div class="row">
 						<div class="meta">
-							<span class="name">{implied.tool?.name ?? 'Unknown tool'}</span>
-							<span class="tag">via {implied.via}</span>
+							<span class="name"
+								>{implied.tool?.name ?? t.studio.attachments.groups.tool.unknown}</span
+							>
+							<span class="tag">{t.studio.attachments.via(implied.via)}</span>
 						</div>
 					</div>
 				</div>

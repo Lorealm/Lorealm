@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { navigator } from '#lib/navigation/navigator.js';
 	import type { ServerSection } from '#lib/navigation/routes.js';
 	import { configStore } from '#lib/stores/serverConfig.svelte.js';
@@ -7,29 +8,29 @@
 
 	const server = () => navigator.start().settings().server();
 
-	const sections: Array<{ id: ServerSection; label: string; go: () => void }> = [
-		{ id: 'hosting', label: 'Hosting', go: () => server().hosting() },
-		{ id: 'storage', label: 'Storage', go: () => server().storage() },
-		{ id: 'sessions', label: 'Sessions', go: () => server().sessions() },
-		{ id: 'users', label: 'Users', go: () => server().users() },
-		{ id: 'accounts', label: 'Accounts', go: () => server().accounts() },
-		{ id: 'roles', label: 'Roles', go: () => server().roles() },
-		{ id: 'characters', label: 'Characters', go: () => server().characters() },
-		{ id: 'tokenizers', label: 'Tokenizers', go: () => server().tokenizers() },
-		{ id: 'tasks', label: 'Tasks', go: () => server().tasks() }
+	const sections: Array<{ id: ServerSection; go: () => void }> = [
+		{ id: 'hosting', go: () => server().hosting() },
+		{ id: 'storage', go: () => server().storage() },
+		{ id: 'sessions', go: () => server().sessions() },
+		{ id: 'users', go: () => server().users() },
+		{ id: 'accounts', go: () => server().accounts() },
+		{ id: 'roles', go: () => server().roles() },
+		{ id: 'characters', go: () => server().characters() },
+		{ id: 'tokenizers', go: () => server().tokenizers() },
+		{ id: 'tasks', go: () => server().tasks() }
 	];
 </script>
 
 <nav class="settingsNav">
-	{#each sections as { id, label, go } (id)}
+	{#each sections as { id, go } (id)}
 		<button class="tab" class:active={section === id} onclick={go}>
-			{label}
+			{t.nav.server[id]}
 		</button>
 	{/each}
 </nav>
 
 {#if !configStore.canEditServer && section !== 'roles' && section !== 'accounts'}
-	<p class="readonly">Read-only. You don't have permission to change server settings.</p>
+	<p class="readonly">{t.settings.readOnly}</p>
 {/if}
 
 <style>

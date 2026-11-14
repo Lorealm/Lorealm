@@ -10,6 +10,7 @@
 </script>
 
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { lazy } from '#lib/core/lazy.js';
 	import { router } from '#lib/navigation/router.svelte.js';
 	import ChatBox from '#lib/widgets/chat/ChatBox.svelte';
@@ -23,8 +24,8 @@
 
 {#if router.status === 'error'}
 	<div class="loadError" role="alert">
-		<span>{router.error ?? 'Something failed to load.'}</span>
-		<button type="button" onclick={() => router.enter()}>Retry</button>
+		<span>{router.error ?? t.nav.loadFailed}</span>
+		<button type="button" onclick={() => router.enter()}>{t.nav.retry}</button>
 	</div>
 {/if}
 

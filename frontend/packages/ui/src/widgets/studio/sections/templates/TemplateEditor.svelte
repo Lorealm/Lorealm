@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { setContext } from 'svelte';
 	import { flip } from 'svelte/animate';
@@ -207,10 +208,10 @@
 				<button
 					class="back"
 					onclick={() => navigator.start().studio().templates()}
-					aria-label="Back to templates">←</button
+					aria-label={t.studio.templateEditor.back}>←</button
 				>
 				<span class="tpl-name" {@attach tooltip(template?.name)}
-					>{template?.name ?? 'Loading…'}</span
+					>{template?.name ?? t.studio.templateEditor.loading}</span
 				>
 			</div>
 			<div class="header-row">
@@ -219,11 +220,11 @@
 						class="add-btn"
 						class:active={showSettings}
 						type="button"
-						onclick={() => (showSettings = true)}>Settings</button
+						onclick={() => (showSettings = true)}>{t.studio.templateEditor.settings}</button
 					>
 					<AddNodeButton onpick={(kind) => (creating = { kind })} />
 					<button class="add-btn" type="button" onclick={() => (creating = { kind: 'group' })}>
-						＋ Group
+						{t.studio.templateEditor.addGroup}
 					</button>
 				</div>
 			</div>
@@ -233,8 +234,8 @@
 				class:saved={saveState === 'saved'}
 				class:error={saveState === 'error'}
 			>
-				{#if saveState === 'saving'}Saving…{:else if saveState === 'saved'}Saved{:else if saveState === 'error'}Save
-					failed{/if}
+				{#if saveState === 'saving'}{t.common.saving}{:else if saveState === 'saved'}{t.common
+						.saved}{:else if saveState === 'error'}{t.studio.templates.saveFailed}{/if}
 			</div>
 		</header>
 

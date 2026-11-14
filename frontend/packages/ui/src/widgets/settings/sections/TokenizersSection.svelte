@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { configStore, type SaveState } from '#lib/stores/serverConfig.svelte.js';
 	import SettingsSection from '../SettingsSection.svelte';
 	import Field from '../Field.svelte';
@@ -35,15 +36,15 @@
 	}
 </script>
 
-<SettingsSection title="Tokenizers" {dirty} {saveState} onsave={save} onreset={reset}>
-	<Field label="Max tokenizer size (MB)">
+<SettingsSection title={t.nav.server.tokenizers} {dirty} {saveState} onsave={save} onreset={reset}>
+	<Field label={t.settings.server.maxTokenizerSize}>
 		<NumberField
 			value={draft.max_tokenizer_size_mb}
 			min={0}
 			onchange={(v) => v !== '' && (draft.max_tokenizer_size_mb = v)}
 		/>
 	</Field>
-	<Field label="Tokenizer TTL (seconds)">
+	<Field label={t.settings.server.tokenizerTtl}>
 		<NumberField
 			value={draft.tokenizer_ttl}
 			min={0}
@@ -51,14 +52,16 @@
 		/>
 	</Field>
 
-	<h3>Default tokenizers</h3>
+	<h3>{t.settings.server.defaultTokenizers}</h3>
 	{#each draft.default_tokenizers, i (i)}
 		<div class="row">
 			<input type="text" bind:value={draft.default_tokenizers[i]} placeholder="hf:org/model" />
-			<button type="button" class="remove" onclick={() => removeTokenizer(i)}>Remove</button>
+			<button type="button" class="remove" onclick={() => removeTokenizer(i)}
+				>{t.settings.server.remove}</button
+			>
 		</div>
 	{/each}
-	<button type="button" class="add" onclick={addTokenizer}>+ Add tokenizer</button>
+	<button type="button" class="add" onclick={addTokenizer}>{t.settings.server.addTokenizer}</button>
 </SettingsSection>
 
 <style>

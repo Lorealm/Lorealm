@@ -9,6 +9,7 @@ import type { Snowflake } from '#lib/types/core.js';
 import type { CommandEffect, CommandRun, UserTool } from '#lib/types/tools.js';
 import { slashCommands } from './registry.svelte.js';
 import type { SlashCommand } from './types.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 /**
  * Names a server command may not take, mirroring the server's own rule.
@@ -17,9 +18,6 @@ const RESERVED_NAMES = new Set(['send']);
 
 /**
  * Server-backed weaver commands, mirrored into the composer's registry.
- *
- * The composer does not distinguish these from client commands — a `/name`
- * either resolves locally or round-trips, and the dispatcher cannot tell.
  */
 class ServerCommands {
 	#unregister: (() => void) | null = null;
@@ -48,8 +46,6 @@ class ServerCommands {
 		try {
 			tools = await this.#api.tools.commands();
 		} catch (e) {
-			// A failed load leaves only client commands available, which is a
-			// degraded composer rather than a broken one.
 			console.warn('Failed to load server commands', e);
 			return;
 		}
@@ -78,16 +74,17 @@ function toSlashCommand(tool: UserTool): SlashCommand {
 			required: p.required,
 			resource: p.resource
 		})),
-		restLabel: 'text',
-		// One at a time per conversation: cancellation tokens are keyed by
-		// conversation id, so a command overlapping a streaming reply would
-		// displace the stream's token and leave it unstoppable.
+		get restLabel() {
+			return t.commands.server.rest;
+		},
 		enabled: () =>
 			chatStore.conversationId !== null &&
 			serverCommands.running === null &&
 			pluginCalls.waitingOn(chatStore.conversationId) === null &&
 			!chatStore.isStreaming,
-		unavailable: 'Wait for the current reply, command or plugin to finish.',
+		get unavailable() {
+			return t.commands.server.unavailable;
+		},
 		run: async ({ named, rest }) => {
 			const conversationId = chatStore.conversationId;
 			if (!conversationId) return;

@@ -1,10 +1,5 @@
 <script lang="ts">
-	// Number field with custom, themeable spinner buttons. The native spinner
-	// draws a black glyph with sub-borders that don't fit a dark UI, so we strip
-	// it and drive changes through stepUp()/stepDown(). Controlled via the same
-	// value/onchange contract as the other field components; emits '' for an empty
-	// field so callers map it to undefined/null/0 per their field's rules. Owns
-	// parsing — non-numeric input is ignored (the guard the old setNum had).
+	import { t } from '#lib/stores/i18n.svelte.js';
 	let {
 		value,
 		onchange,
@@ -56,8 +51,18 @@
 		oninput={onInput}
 	/>
 	<div class="spinner">
-		<button type="button" tabindex="-1" aria-label="Increment" onclick={() => nudge(1)}>▲</button>
-		<button type="button" tabindex="-1" aria-label="Decrement" onclick={() => nudge(-1)}>▼</button>
+		<button
+			type="button"
+			tabindex="-1"
+			aria-label={t.components.numberInput.increment}
+			onclick={() => nudge(1)}>▲</button
+		>
+		<button
+			type="button"
+			tabindex="-1"
+			aria-label={t.components.numberInput.decrement}
+			onclick={() => nudge(-1)}>▼</button
+		>
 	</div>
 </div>
 

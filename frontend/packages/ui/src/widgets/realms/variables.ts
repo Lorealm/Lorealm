@@ -5,6 +5,7 @@ import {
 } from '#lib/weaver/editor/weaver-variables.js';
 import { realmDraft } from './draft.svelte.js';
 import { declaredText, isRequired, type AgentBlock } from './model.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 export function realmVariables(agentKey?: string): VariableSource {
 	return { variables: () => collect(agentKey), elements: castElements };
@@ -20,10 +21,16 @@ function castElements(iterable: string): VariableRef[] | null {
 	const walked = everyAgent().filter((a) => a.handle && (!kind || a.kind === kind));
 
 	const fields = [
-		variable('', 'handle', 'cast member', 'This member’s handle.', 'string'),
-		variable('', 'name', 'cast member', 'This member’s display name.', 'string'),
-		variable('', 'kind', 'cast member', '`llm`, `player` or `script`.', 'string'),
-		variable('', 'turn_order', 'cast member', 'Its place in the rotation.', 'number')
+		variable('', 'handle', t.realms.variables.castMember, t.realms.variables.handle, 'string'),
+		variable('', 'name', t.realms.variables.castMember, t.realms.variables.name, 'string'),
+		variable('', 'kind', t.realms.variables.castMember, t.realms.variables.kind, 'string'),
+		variable(
+			'',
+			'turn_order',
+			t.realms.variables.castMember,
+			t.realms.variables.turnOrder,
+			'number'
+		)
 	];
 
 	const carriers = new Map<string, string[]>();
@@ -39,10 +46,12 @@ function castElements(iterable: string): VariableRef[] | null {
 			variable(
 				'',
 				key,
-				all ? 'property' : `property · ${handles.length}/${walked.length}`,
 				all
-					? 'Carried by every member this loop walks.'
-					: `Carried by ${handles.map((h) => `\`${h}\``).join(', ')}. Reads as nothing on the rest.`
+					? t.realms.variables.property
+					: t.realms.variables.propertyShare(handles.length, walked.length),
+				all
+					? t.realms.variables.carriedByAll
+					: t.realms.variables.carriedBy(handles.map((h) => `\`${h}\``).join(', '))
 			)
 		);
 	}
@@ -66,8 +75,8 @@ export function inputVariables(): VariableSource {
 				variable(
 					'input',
 					decl.name,
-					isRequired(decl) ? 'input' : 'optional input',
-					decl.doc.trim() || 'Chosen by whoever builds a realm from this.',
+					isRequired(decl) ? t.realms.variables.input : t.realms.variables.optionalInput,
+					decl.doc.trim() || t.realms.variables.inputDoc,
 					declaredText(decl.ty)
 				)
 			)
@@ -84,32 +93,50 @@ function collect(agentKey?: string): VariableRef[] {
 			variable(
 				'cast',
 				`agents.${agent.handle}.name`,
-				'cast member',
-				`${agent.name || agent.handle}'s display name.`,
+				t.realms.variables.castMember,
+				t.realms.variables.agentName(agent.name || agent.handle),
 				'string'
 			),
-			variable('cast', `agents.${agent.handle}.kind`, 'cast member', agent.kind, 'string'),
+			variable(
+				'cast',
+				`agents.${agent.handle}.kind`,
+				t.realms.variables.castMember,
+				agent.kind,
+				'string'
+			),
 			variable(
 				'cast',
 				`agents.${agent.handle}.turn_order`,
-				'cast member',
-				'Where this member sits in the rotation.',
+				t.realms.variables.castMember,
+				t.realms.variables.seat,
 				'number'
 			)
 		);
 		for (const property of agent.properties) {
 			if (!property.key.trim()) continue;
-			const seeded = `Seeded to \`${property.value}\` on ${agent.handle}.`;
+			const seeded = t.realms.variables.seededOn(property.value, agent.handle);
 			refs.push(
-				variable('agents', `${agent.handle}.${property.key}`, 'property', seeded),
-				variable('cast', `agents.${agent.handle}.${property.key}`, 'property', seeded)
+				variable('agents', `${agent.handle}.${property.key}`, t.realms.variables.property, seeded),
+				variable(
+					'cast',
+					`agents.${agent.handle}.${property.key}`,
+					t.realms.variables.property,
+					seeded
+				)
 			);
 		}
 	}
 
 	for (const property of own?.properties ?? []) {
 		if (!property.key.trim()) continue;
-		refs.push(variable('self', property.key, 'own property', `Seeded to \`${property.value}\`.`));
+		refs.push(
+			variable(
+				'self',
+				property.key,
+				t.realms.variables.ownProperty,
+				t.realms.variables.seeded(property.value)
+			)
+		);
 	}
 
 	for (const grant of own?.grants ?? []) {
@@ -118,8 +145,8 @@ function collect(agentKey?: string): VariableRef[] {
 			variable(
 				grant.namespace,
 				grantName(grant.scope) ?? '',
-				`granted ${grant.access}`,
-				`State this agent may ${grant.access === 'read' ? 'read' : 'read and write'}.`
+				t.realms.variables.granted(grant.access),
+				grant.access === 'read' ? t.realms.variables.mayRead : t.realms.variables.mayReadWrite
 			)
 		);
 	}

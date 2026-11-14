@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import TransportImage from '#lib/components/TransportImage.svelte';
 	import { blobUrl } from '#lib/api/blobs.js';
 	import { characterStore } from '#lib/stores/character.svelte.js';
@@ -40,12 +41,12 @@
 		<div class="actions">
 			<button class="btn btn-chat" type="button" onclick={startChat}>
 				<MessageCircle size={16} aria-hidden="true" />
-				<span>Chat</span>
+				<span>{t.characters.chat}</span>
 			</button>
 			<button
 				class="btn btn-edit"
 				type="button"
-				aria-label="Edit"
+				aria-label={t.common.edit}
 				onclick={() => navigator.start().studio().characters(summary.id)}
 			>
 				<Pencil size={16} aria-hidden="true" />

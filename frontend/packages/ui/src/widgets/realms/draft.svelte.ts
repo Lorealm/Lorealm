@@ -23,6 +23,7 @@ import {
 	type ScenarioBlock,
 	type Selection
 } from './model.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 /**
  * A declaration as the server reports it, back in the editor's shape.
@@ -313,7 +314,7 @@ class RealmDraft {
 
 	addScenario(): ScenarioBlock {
 		const scenario = emptyScenario();
-		scenario.name = `Opening ${this.scenarios.length + 1}`;
+		scenario.name = t.realms.scenarios.defaultName(this.scenarios.length + 1);
 		this.scenarios.push(scenario);
 		return scenario;
 	}

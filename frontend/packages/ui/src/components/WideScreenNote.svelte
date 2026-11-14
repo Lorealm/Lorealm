@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { shell } from '#lib/stores/shell.svelte.js';
 	import { MonitorSmartphone, X } from '@lucide/svelte';
 
@@ -10,8 +11,8 @@
 {#if shell.narrow && !dismissed}
 	<div class="note" role="note">
 		<MonitorSmartphone size={16} aria-hidden="true" />
-		<span>{subject} is easier to use on a tablet or computer.</span>
-		<button type="button" aria-label="Dismiss" onclick={() => (dismissed = true)}>
+		<span>{t.components.wideScreenNote(subject)}</span>
+		<button type="button" aria-label={t.common.dismiss} onclick={() => (dismissed = true)}>
 			<X size={16} />
 		</button>
 	</div>

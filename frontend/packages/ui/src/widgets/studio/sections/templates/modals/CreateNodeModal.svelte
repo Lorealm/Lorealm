@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import type { CreateNodeRequest } from '#lib/types/template.js';
 	import {
 		type GroupWrapMode,
@@ -51,7 +52,11 @@
 	);
 
 	const heading = $derived(
-		kind === 'text' ? 'New text node' : kind === 'group' ? 'New group' : 'Add source node'
+		kind === 'text'
+			? t.studio.templateEditor.newText
+			: kind === 'group'
+				? t.studio.templateEditor.newGroup
+				: t.studio.templateEditor.addSource
 	);
 	const showForm = $derived(!(kind === 'source' && !picked));
 	const canSubmit = $derived(!submitting && showForm && title.trim().length > 0);
@@ -99,7 +104,7 @@
 		try {
 			await oncreate(req);
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to add node.';
+			error = e instanceof Error ? e.message : t.studio.templateEditor.addFailed;
 			submitting = false;
 		}
 	}
@@ -128,7 +133,7 @@
 	<div class="panel" role="dialog" aria-modal="true" aria-label={heading}>
 		<header class="panel-header">
 			<h3>{heading}</h3>
-			<button class="close" type="button" aria-label="Close" onclick={onclose}>×</button>
+			<button class="close" type="button" aria-label={t.common.close} onclick={onclose}>×</button>
 		</header>
 
 		<div class="panel-body">
@@ -137,88 +142,89 @@
 			{:else}
 				{#if kind === 'source' && picked}
 					<button class="link" type="button" onclick={() => (picked = null)}>
-						← Choose a different source
+						{t.studio.templateEditor.chooseDifferent}
 					</button>
 				{/if}
 
 				<label class="field">
-					<span>Title</span>
-					<input use:focusOnMount bind:value={title} placeholder="Title" />
+					<span>{t.studio.templateEditor.title}</span>
+					<input use:focusOnMount bind:value={title} placeholder={t.studio.templateEditor.title} />
 				</label>
 
 				<label class="field">
-					<span>Description</span>
-					<textarea bind:value={description} rows="2" placeholder="Optional"></textarea>
+					<span>{t.studio.templateEditor.description}</span>
+					<textarea bind:value={description} rows="2" placeholder={t.studio.templateEditor.optional}
+					></textarea>
 				</label>
 
 				{#if kind === 'text'}
 					<label class="field">
-						<span>Role</span>
+						<span>{t.studio.templateEditor.role}</span>
 						<select bind:value={role}>
-							<option value="system">System</option>
-							<option value="user">User</option>
-							<option value="assistant">Assistant</option>
+							<option value="system">{t.studio.templateEditor.roles.system}</option>
+							<option value="user">{t.studio.templateEditor.roles.user}</option>
+							<option value="assistant">{t.studio.templateEditor.roles.assistant}</option>
 						</select>
 					</label>
 					<ContextField
-						label="Content"
+						label={t.studio.templateEditor.content}
 						value={textContent}
 						rows={4}
-						placeholder="Optional — you can edit this later"
+						placeholder={t.studio.templateEditor.contentPlaceholder}
 						onchange={(v) => (textContent = v)}
 					/>
 				{/if}
 
 				{#if kind === 'group'}
 					<label class="field">
-						<span>Mode</span>
+						<span>{t.studio.templateEditor.mode}</span>
 						<select bind:value={mode}>
-							<option value="collection">Collection</option>
-							<option value="invariant">Invariant</option>
+							<option value="collection">{t.studio.templateEditor.modes.collection}</option>
+							<option value="invariant">{t.studio.templateEditor.modes.invariant}</option>
 						</select>
 					</label>
 					<label class="field">
-						<span>Wrap Behavior</span>
+						<span>{t.studio.templateEditor.wrapBehavior}</span>
 						<div class="inline-row">
 							<select bind:value={wrap}>
-								<option value="no_mixed">No mixed (same role only)</option>
-								<option value="majority">Majority (most common role)</option>
-								<option value="all">All (one group per role)</option>
-								<option value="only">Only (specific role)</option>
+								<option value="no_mixed">{t.studio.templateEditor.wraps.no_mixed}</option>
+								<option value="majority">{t.studio.templateEditor.wraps.majority}</option>
+								<option value="all">{t.studio.templateEditor.wraps.all}</option>
+								<option value="only">{t.studio.templateEditor.wraps.only}</option>
 							</select>
 
 							{#if typeof wrap === 'object'}
 								<select value={wrap.only}>
-									<option value="system">System</option>
-									<option value="user">User</option>
-									<option value="assistant">Assistant</option>
+									<option value="system">{t.studio.templateEditor.roles.system}</option>
+									<option value="user">{t.studio.templateEditor.roles.user}</option>
+									<option value="assistant">{t.studio.templateEditor.roles.assistant}</option>
 								</select>
 							{/if}
 						</div>
 					</label>
 					<ContextField
-						label="Prefix"
+						label={t.studio.templateEditor.prefix}
 						value={prefix}
 						rows={2}
-						placeholder="Optional (prepended before children)"
+						placeholder={t.studio.templateEditor.prefixPlaceholder}
 						onchange={(v) => (prefix = v)}
 					/>
 					<ContextField
-						label="Suffix"
+						label={t.studio.templateEditor.suffix}
 						value={suffix}
 						rows={2}
-						placeholder="Optional (appended after children)"
+						placeholder={t.studio.templateEditor.suffixPlaceholder}
 						onchange={(v) => (suffix = v)}
 					/>
 					<label class="check">
 						<input type="checkbox" bind:checked={alwaysIncludeWrappers} />
-						<span>Always include prefix/suffix, even if all children are disabled</span>
+						<span>{t.studio.templateEditor.alwaysWrap}</span>
 					</label>
 				{/if}
 
 				{#if kind === 'source' && picked}
 					<p class="hint">
-						{picked.def.settings.length} setting{picked.def.settings.length === 1 ? '' : 's'} set to defaults.
+						{t.studio.templateEditor.defaultsSet(picked.def.settings.length)}
 					</p>
 				{/if}
 			{/if}
@@ -230,9 +236,11 @@
 
 		{#if showForm}
 			<footer class="panel-footer">
-				<button class="ghost" type="button" onclick={onclose} disabled={submitting}>Cancel</button>
+				<button class="ghost" type="button" onclick={onclose} disabled={submitting}
+					>{t.common.cancel}</button
+				>
 				<button class="primary" type="button" onclick={submit} disabled={!canSubmit}>
-					{submitting ? 'Adding…' : 'Add'}
+					{submitting ? t.studio.templateEditor.adding : t.studio.templateEditor.add}
 				</button>
 			</footer>
 		{/if}

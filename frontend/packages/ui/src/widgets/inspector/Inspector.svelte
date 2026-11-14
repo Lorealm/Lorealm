@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { iconFor } from '#lib/assets/icons/catalogue.js';
 	import { router } from '#lib/navigation/router.svelte.js';
@@ -52,13 +53,13 @@
 	<button
 		type="button"
 		class="grip"
-		aria-label="Resize inspector, currently {inspectorWidth.value} pixels. Use arrow keys."
+		aria-label={t.inspector.resize(inspectorWidth.value)}
 		onpointerdown={startResize}
 		onkeydown={nudge}
 	></button>
 	<div class="topBar">
 		{#if view === 'realms'}
-			<button>Realm Placeholder</button>
+			<button>{t.inspector.realmPlaceholder}</button>
 		{:else}
 			{#each profiles as profile (profile.id)}
 				{@const Icon = iconFor(profile.icon)}
@@ -77,7 +78,7 @@
 			{/each}
 		{/if}
 		{#if shell.narrow}
-			<button class="close" aria-label="Close inspector" onclick={() => shell.closeDrawer()}>
+			<button class="close" aria-label={t.inspector.close} onclick={() => shell.closeDrawer()}>
 				<X size={20} />
 			</button>
 		{/if}
@@ -97,7 +98,7 @@
 					<Widget />
 				{/if}
 			{:else}
-				<span class="empty">Nothing configured for this view.</span>
+				<span class="empty">{t.inspector.nothingConfigured}</span>
 			{/each}
 		{/if}
 	</div>

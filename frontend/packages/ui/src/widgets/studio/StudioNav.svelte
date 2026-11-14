@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { STUDIO_LABEL } from '#lib/navigation/breadcrumbs.svelte.js';
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { navigator } from '#lib/navigation/navigator.js';
 	import type { StudioSection } from '#lib/navigation/routes.js';
 	import { realmStore } from '#lib/stores/realm.svelte.js';
@@ -37,7 +37,7 @@
 
 <nav class="studioNav">
 	<select bind:value={selectedWorld}>
-		<option>None</option>
+		<option value="None">{t.studio.nav.noRealm}</option>
 		<hr />
 		{#each realms as realm (realm.id)}
 			<option>{realm.name}</option>
@@ -47,7 +47,7 @@
 	{#each sections as { id, go } (id)}
 		{#if id !== 'realm' || activeRealmExists}
 			<button class="tab" class:active={section === id} onclick={go}>
-				{STUDIO_LABEL[id]}
+				{t.nav.studio[id]}
 			</button>
 		{/if}
 	{/each}
@@ -62,7 +62,7 @@
 	/>
 	<button class="tab import" onclick={() => inputEl.click()}>
 		<Upload size={16} />
-		Import
+		{t.studio.nav.import}
 	</button>
 </nav>
 

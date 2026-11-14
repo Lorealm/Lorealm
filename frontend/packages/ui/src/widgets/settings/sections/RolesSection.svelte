@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { onMount } from 'svelte';
 	import { Plus, Trash2, X } from '@lucide/svelte';
 	import { useApi } from '#lib/api/client.js';
@@ -39,8 +40,6 @@
 	);
 	const membersEditable = $derived(editable && !isEveryone);
 
-	/** The Administrator role always keeps its own flag. */
-	/** You can hand out flags you hold; administrators can hand out any. */
 	function flagLocked(flag: bigint) {
 		const grantable = configStore.can(Permission.ADMINISTRATOR) || configStore.can(flag);
 		return !grantable || (isAdministratorRole && flag === Permission.ADMINISTRATOR);
@@ -93,45 +92,36 @@
 	function newRole() {
 		run(async () => {
 			const taken = new Set(roles.map((r) => r.name));
-			let name = 'New role';
-			for (let n = 2; taken.has(name); n++) name = `New role ${n}`;
+			let name = t.settings.roles.newName;
+			for (let n = 2; taken.has(name); n++) name = t.settings.roles.newNameNumbered(n);
 			const role = await api.roles.create({ name, permissions: '0', position: 1 });
 			replace(role);
 			select(role);
 		});
 	}
 
-	const ENABLE = 'Enable anyway';
-
 	/** What each code-execution flag exposes, for the warning. */
-	const CODE_EXECUTION_RISKS: Array<[bigint, string]> = [
-		[
-			Permission.BUILD_PLUGINS,
-			'**Build plugins:** can run any code on your server, including reading your database, files and secrets.'
-		],
-		[
-			Permission.UNSAFE_PLUGINS,
-			'**Unsafe plugins:** can run any code in visitors’ browsers, including acting as logged-in users.'
-		]
+	const codeExecutionRisks = (): Array<[bigint, string]> => [
+		[Permission.BUILD_PLUGINS, t.settings.roles.buildRisk],
+		[Permission.UNSAFE_PLUGINS, t.settings.roles.unsafeRisk]
 	];
 
 	/** Asks before turning on flags that let outside code run. True to go ahead. */
 	async function confirmCodeExecution(enabling: bigint): Promise<boolean> {
 		if (enabling === 0n) return true;
-		const risks = CODE_EXECUTION_RISKS.filter(([flag]) => (enabling & flag) === flag).map(
-			([, risk]) => risk
-		);
+		const risks = codeExecutionRisks()
+			.filter(([flag]) => (enabling & flag) === flag)
+			.map(([, risk]) => risk);
+		const enable = t.settings.roles.enableAnyway;
 		const choice = await showPopup({
-			title: 'Allow plugins to run unrestricted code?',
+			title: t.settings.roles.confirmTitle,
 			variant: 'danger',
-			message: [
-				...risks,
-				'A malicious or compromised plugin could **steal or destroy your data**. Only enable these if you need a specific plugin that requires them, and only install plugins you trust.',
-				'_Lorealm is not responsible for damage caused by third-party plugins._'
-			].join('\n\n'),
-			actions: [{ label: 'Cancel' }, { label: ENABLE, tone: 'danger' }]
+			message: [...risks, t.settings.roles.confirmWarning, t.settings.roles.disclaimer].join(
+				'\n\n'
+			),
+			actions: [{ label: t.common.cancel }, { label: enable, tone: 'danger' }]
 		});
-		return choice === ENABLE;
+		return choice === enable;
 	}
 
 	async function save() {
@@ -199,7 +189,7 @@
 
 <div class="page">
 	<div class="topbar">
-		<h2>Roles</h2>
+		<h2>{t.settings.roles.title}</h2>
 		{#if canManage}
 			<button
 				type="button"
@@ -208,13 +198,13 @@
 				disabled={busy || configStore.highestPosition <= 1}
 			>
 				<Plus size={16} />
-				New role
+				{t.settings.roles.new}
 			</button>
 		{/if}
 	</div>
 
 	{#if !loaded}
-		<div class="status">{error || 'Loading…'}</div>
+		<div class="status">{error || t.settings.roles.loading}</div>
 	{:else}
 		<div class="layout">
 			<ul class="roleList">
@@ -237,25 +227,25 @@
 				<div class="editor">
 					{#if !canManage}
 						<p class="note">
-							You can see roles, but changing them needs the Manage roles permission.
+							{t.settings.roles.viewOnly}
 						</p>
 					{:else if !editable}
-						<p class="note">This role is at or above your highest role, so you can’t edit it.</p>
+						<p class="note">{t.settings.roles.aboveYou}</p>
 					{/if}
 
 					<fieldset disabled={!editable || busy}>
 						{#if isEveryone}
 							<p class="note">
-								Everyone has this role. Its permissions are the baseline for all users.
+								{t.settings.roles.everyone}
 							</p>
 						{:else}
 							<div class="row">
 								<label class="field grow">
-									<span class="label">Name</span>
+									<span class="label">{t.settings.roles.name}</span>
 									<input type="text" bind:value={draft.name} />
 								</label>
 								<div class="field">
-									<span class="label">Position</span>
+									<span class="label">{t.settings.roles.position}</span>
 									{#if isAdministratorRole}
 										<span class="fixed">{selected.position}</span>
 									{:else}
@@ -264,16 +254,14 @@
 											min={1}
 											max={configStore.highestPosition - 1}
 											width="7rem"
-											ariaLabel="Position"
+											ariaLabel={t.settings.roles.position}
 											onchange={(v) => v !== '' && (draft.position = v)}
 										/>
 									{/if}
 								</div>
 							</div>
 							<p class="hint">
-								{isAdministratorRole
-									? 'Always the highest role. Administrators can manage every role.'
-									: 'Higher roles can manage lower ones.'}
+								{isAdministratorRole ? t.settings.roles.adminHint : t.settings.roles.positionHint}
 							</p>
 						{/if}
 
@@ -303,16 +291,16 @@
 							{#if !isEveryone && selected.id !== ADMINISTRATOR_ROLE_ID}
 								{#if confirmingDelete}
 									<button type="button" class="danger" onclick={remove} disabled={busy}>
-										Delete {selected.name}?
+										{t.settings.roles.confirmDelete(selected.name)}
 									</button>
 									<button type="button" class="ghost" onclick={() => (confirmingDelete = false)}>
-										Keep
+										{t.settings.roles.keep}
 									</button>
 								{:else}
 									<button
 										type="button"
 										class="icon"
-										aria-label="Delete role"
+										aria-label={t.settings.roles.delete}
 										onclick={() => (confirmingDelete = true)}
 									>
 										<Trash2 size={16} />
@@ -321,18 +309,18 @@
 							{/if}
 							<div class="spacer"></div>
 							<button type="button" class="ghost" onclick={reset} disabled={!dirty || busy}>
-								Reset
+								{t.settings.reset}
 							</button>
 							<button type="button" class="primary" onclick={save} disabled={!dirty || busy}>
-								Save
+								{t.common.save}
 							</button>
 						</div>
 					{/if}
 
 					{#if canManage && !isEveryone}
-						<h3>Members</h3>
+						<h3>{t.settings.roles.members}</h3>
 						{#if members.length === 0}
-							<p class="hint">Nobody has this role yet.</p>
+							<p class="hint">{t.settings.roles.noMembers}</p>
 						{:else}
 							<ul class="members">
 								{#each members as member (member.id)}
@@ -343,7 +331,7 @@
 											<button
 												type="button"
 												class="icon"
-												aria-label="Remove {member.username}"
+												aria-label={t.settings.roles.removeMember(member.username)}
 												onclick={() => removeMember(member.id)}
 												disabled={busy}
 											>
@@ -362,8 +350,10 @@
 									addMember();
 								}}
 							>
-								<input type="text" placeholder="Username" bind:value={username} />
-								<button type="submit" class="ghost" disabled={busy || !username.trim()}>Add</button>
+								<input type="text" placeholder={t.settings.roles.username} bind:value={username} />
+								<button type="submit" class="ghost" disabled={busy || !username.trim()}
+									>{t.settings.roles.add}</button
+								>
 							</form>
 						{/if}
 					{/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import IconPicker from '#lib/components/IconPicker.svelte';
 	import type { ViewName } from '#lib/navigation/routes.js';
@@ -12,14 +13,14 @@
 	} from '#lib/widgets/inspector/registry.js';
 	import { ChevronDown, ChevronUp, Plus, Search, Trash2, X } from '@lucide/svelte';
 
-	const VIEWS: Array<{ id: ViewName; label: string }> = [
-		{ id: 'write', label: 'Write' },
-		{ id: 'characters', label: 'Characters' },
-		{ id: 'realms', label: 'Realms' },
-		{ id: 'connections', label: 'Connections' },
-		{ id: 'studio', label: 'Studio' },
-		{ id: 'plugins', label: 'Plugins' },
-		{ id: 'settings', label: 'Settings' }
+	const VIEWS: Array<{ id: ViewName }> = [
+		{ id: 'write' },
+		{ id: 'characters' },
+		{ id: 'realms' },
+		{ id: 'connections' },
+		{ id: 'studio' },
+		{ id: 'plugins' },
+		{ id: 'settings' }
 	];
 
 	let selectedId = $state<string | null>(null);
@@ -38,7 +39,7 @@
 	/** A plugin's widget keeps its key in a profile after the plugin is disabled. */
 	function label(key: InspectorWidgetKey): string {
 		if (!isPluginWidgetKey(key)) return inspectorRegistry[key].label;
-		return pluginsStore.inspectorSlot(key)?.title ?? `${key} (unavailable)`;
+		return pluginsStore.inspectorSlot(key)?.title ?? t.settings.inspector.unavailable(key);
 	}
 
 	const available = $derived.by(() => {
@@ -59,11 +60,9 @@
 
 <section class="section">
 	<div class="body">
-		<h2>Inspector</h2>
+		<h2>{t.nav.user.inspector}</h2>
 		<p class="hint">
-			A profile is one column of the inspector: it decides which widgets each view shows, and in
-			what order. Profiles appear as icon buttons above the inspector; ones with nothing configured
-			for the current view are greyed out and sorted last.
+			{t.settings.inspector.intro}
 		</p>
 
 		<div class="profiles">
@@ -76,7 +75,11 @@
 					{p.name}
 				</button>
 			{/each}
-			<button class="chip add" {@attach tooltip('Add profile')} onclick={addProfile}>
+			<button
+				class="chip add"
+				{@attach tooltip(t.settings.inspector.addProfile)}
+				onclick={addProfile}
+			>
 				<Plus size={14} />
 			</button>
 		</div>
@@ -94,7 +97,7 @@
 				/>
 				<button
 					class="delete"
-					{@attach tooltip('Delete profile')}
+					{@attach tooltip(t.settings.inspector.deleteProfile)}
 					disabled={inspectorMatrix.profiles.length < 2}
 					onclick={() => inspectorMatrix.removeProfile(profile.id)}
 				>
@@ -106,7 +109,7 @@
 				{#each VIEWS as v (v.id)}
 					{@const count = (profile.cells[v.id] ?? []).length}
 					<button class="viewTab" class:active={v.id === view} onclick={() => (view = v.id)}>
-						{v.label}
+						{t.nav.views[v.id]}
 						{#if count > 0}<span class="count">{count}</span>{/if}
 					</button>
 				{/each}
@@ -118,7 +121,7 @@
 						<span class="entryLabel">{label(key)}</span>
 						<button
 							class="iconBtn"
-							{@attach tooltip('Move up')}
+							{@attach tooltip(t.settings.inspector.moveUp)}
 							disabled={i === 0}
 							onclick={() => inspectorMatrix.moveWidget(profile.id, view, i, -1)}
 						>
@@ -126,7 +129,7 @@
 						</button>
 						<button
 							class="iconBtn"
-							{@attach tooltip('Move down')}
+							{@attach tooltip(t.settings.inspector.moveDown)}
 							disabled={i === stack.length - 1}
 							onclick={() => inspectorMatrix.moveWidget(profile.id, view, i, 1)}
 						>
@@ -134,7 +137,7 @@
 						</button>
 						<button
 							class="iconBtn"
-							{@attach tooltip('Remove')}
+							{@attach tooltip(t.settings.inspector.remove)}
 							onclick={() => inspectorMatrix.removeWidget(profile.id, view, i)}
 						>
 							<X size={14} />
@@ -142,8 +145,7 @@
 					</div>
 				{:else}
 					<span class="empty">
-						No widgets here yet — this profile is greyed out on {VIEWS.find((v) => v.id === view)
-							?.label}.
+						{t.settings.inspector.empty(t.nav.views[view])}
 					</span>
 				{/each}
 			</div>
@@ -151,7 +153,7 @@
 			<div class="picker">
 				<div class="searchRow">
 					<Search size={14} />
-					<input class="search" placeholder="Search widgets to add" bind:value={query} />
+					<input class="search" placeholder={t.settings.inspector.search} bind:value={query} />
 				</div>
 				<div class="results">
 					{#each available as key (key)}
@@ -161,7 +163,7 @@
 						</button>
 					{:else}
 						<span class="empty">
-							{query ? `Nothing matches “${query}”.` : 'Every widget is already in this stack.'}
+							{query ? t.settings.inspector.noMatch(query) : t.settings.inspector.allAdded}
 						</span>
 					{/each}
 				</div>

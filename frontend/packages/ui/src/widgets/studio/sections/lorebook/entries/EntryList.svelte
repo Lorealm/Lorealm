@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../../../stores/tooltip.svelte.ts';
 	import type { DraftEntry, SaveState } from '#lib/stores/lorebook.svelte.js';
 	import type { Snowflake } from '#lib/types/core.js';
@@ -42,17 +43,17 @@
 <div class="entry-list">
 	<div class="controls">
 		<label class="sort">
-			Sort
+			{t.studio.lorebookEditor.sort}
 			<select value={sortKey} onchange={(e) => changeSort(e.currentTarget.value as SortKey)}>
 				{#each SORT_KEYS as s (s.key)}
-					<option value={s.key}>{s.label}</option>
+					<option value={s.key}>{t.studio.lorebookEditor.sortKeys[s.key]}</option>
 				{/each}
 			</select>
 		</label>
 	</div>
 
 	{#if sorted.length === 0}
-		<p class="empty">No entries yet.</p>
+		<p class="empty">{t.studio.lorebookEditor.noEntries}</p>
 	{:else}
 		<ul class="rows">
 			{#each pageItems as entry (entry.snowflake)}
@@ -63,7 +64,7 @@
 						type="checkbox"
 						class="toggle"
 						checked={enabled}
-						aria-label="Enabled"
+						aria-label={t.studio.lorebookEditor.enabled}
 						onclick={(e) => {
 							e.stopPropagation();
 							onToggle(entry.snowflake);
@@ -71,12 +72,14 @@
 					/>
 					<button type="button" class="select" onclick={() => onSelect(entry.snowflake)}>
 						<span class="name" {@attach tooltip(label(entry))}>{label(entry)}</span>
-						{#if invalid}<span class="badge" {@attach tooltip('Unsaved — invalid')}>!</span>{/if}
+						{#if invalid}<span class="badge" {@attach tooltip(t.studio.lorebookEditor.invalid)}
+								>!</span
+							>{/if}
 					</button>
 					<button
 						type="button"
 						class="delete"
-						aria-label="Delete entry"
+						aria-label={t.studio.lorebookEditor.deleteEntry}
 						onclick={(e) => {
 							e.stopPropagation();
 							onDelete(entry.snowflake);

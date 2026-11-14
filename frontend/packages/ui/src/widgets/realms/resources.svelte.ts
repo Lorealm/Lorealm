@@ -8,6 +8,7 @@ import { personaStore } from '#lib/stores/persona.svelte.js';
 import { templateStore } from '#lib/stores/template.svelte.js';
 import { toolStore } from '#lib/stores/tools.svelte.js';
 import { userWidgetStore } from '#lib/stores/userWidgets.svelte.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 /** One bindable thing, flattened out of whichever store owns it. */
 export interface ResourceItem {
@@ -53,7 +54,7 @@ const SOURCES: Record<
 				kind: 'lorebook' as const,
 				id: l.id,
 				name: l.name,
-				hint: `${l.entry_count} entries`
+				hint: t.realms.entries(l.entry_count)
 			}))
 	},
 	template: {

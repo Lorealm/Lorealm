@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { ArrowUpDown, Plus, Search } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 
@@ -7,7 +8,7 @@
 		query = $bindable(''),
 		sort = $bindable(''),
 		sortOptions = [],
-		searchPlaceholder = 'Search…',
+		searchPlaceholder,
 		createLabel,
 		oncreate,
 		creating = false,
@@ -38,16 +39,16 @@
 			<Search size={14} />
 			<input
 				type="text"
-				placeholder={searchPlaceholder}
+				placeholder={searchPlaceholder ?? t.studio.list.search}
 				bind:value={query}
-				aria-label={searchPlaceholder}
+				aria-label={searchPlaceholder ?? t.studio.list.search}
 			/>
 		</div>
 
 		{#if sortOptions.length > 0}
 			<div class="sort">
 				<ArrowUpDown size={14} />
-				<select bind:value={sort} aria-label={`Sort ${title.toLowerCase()}`}>
+				<select bind:value={sort} aria-label={t.studio.list.sort(title)}>
 					{#each sortOptions as option (option.value)}
 						<option value={option.value}>{option.label}</option>
 					{/each}
@@ -57,7 +58,7 @@
 
 		<button type="button" class="create" onclick={oncreate} disabled={creating}>
 			<Plus size={16} />
-			{creating ? 'Creating…' : createLabel}
+			{creating ? t.studio.list.creating : createLabel}
 		</button>
 	</div>
 
@@ -120,7 +121,7 @@
 		gap: var(--spacing-xs);
 		color: var(--color-text-secondary);
 	}
-	/* Undo the global `select { width: 100% }` so it sizes to the bar */
+
 	.sort select {
 		width: auto;
 		min-width: 150px;

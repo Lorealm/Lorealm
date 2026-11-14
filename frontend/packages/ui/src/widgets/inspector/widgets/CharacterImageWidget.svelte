@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import TransportImage from '#lib/components/TransportImage.svelte';
 	import { blobUrl } from '#lib/api/blobs.js';
@@ -7,9 +8,9 @@
 	import { ChevronDown, Crop, Scan, UnfoldVertical } from '@lucide/svelte';
 
 	const MODES = [
-		{ id: 'cover', icon: Crop, hint: 'Fill the panel, cropping the edges' },
-		{ id: 'fit', icon: Scan, hint: 'Fit the whole image inside the panel' },
-		{ id: 'full', icon: UnfoldVertical, hint: 'Grow the panel to the whole image' }
+		{ id: 'cover', icon: Crop },
+		{ id: 'fit', icon: Scan },
+		{ id: 'full', icon: UnfoldVertical }
 	] as const;
 
 	type Mode = (typeof MODES)[number]['id'];
@@ -29,7 +30,7 @@
 	<div class="head">
 		<button class="title" aria-expanded={!collapsed} onclick={() => (collapsed = !collapsed)}>
 			<span class="chev" class:collapsed><ChevronDown /></span>
-			<span class="label">Character Image</span>
+			<span class="label">{t.inspector.widgets.characterImage}</span>
 		</button>
 		{#if !collapsed && activeCharacter}
 			<div class="modes">
@@ -38,8 +39,8 @@
 					<button
 						class="mode"
 						class:active={option.id === mode}
-						{@attach tooltip(option.hint)}
-						aria-label={option.hint}
+						{@attach tooltip(t.inspector.image[option.id])}
+						aria-label={t.inspector.image[option.id]}
 						aria-pressed={option.id === mode}
 						onclick={() => (mode = option.id)}
 					>
@@ -53,14 +54,14 @@
 		{#if activeCharacter}
 			<button
 				class="image-container"
-				{@attach tooltip('Change how the image fits')}
-				aria-label="Change how the image fits"
+				{@attach tooltip(t.inspector.image.change)}
+				aria-label={t.inspector.image.change}
 				onclick={cycle}
 			>
 				<TransportImage src={imageEndpoint} />
 			</button>
 		{:else}
-			<div class="empty">No active character.</div>
+			<div class="empty">{t.inspector.image.noCharacter}</div>
 		{/if}
 	{/if}
 </div>

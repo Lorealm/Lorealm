@@ -2,6 +2,7 @@ import { showToast } from '#lib/stores/errorToast.svelte.js';
 import { extractError } from '#lib/types/error.js';
 import { parseArgs, parseInput } from './parse.js';
 import { slashCommands } from './registry.svelte.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 /**
  * Run one line of composer input.
@@ -19,8 +20,8 @@ async function invoke(name: string, rest: string): Promise<void> {
 	const command = slashCommands.resolve(name);
 	if (!command) {
 		showToast({
-			title: 'Unknown command',
-			message: `There is no /${name} command.`,
+			title: t.commands.unknown,
+			message: t.commands.noSuchCommand(name),
 			variant: 'error'
 		});
 		return;
@@ -28,8 +29,8 @@ async function invoke(name: string, rest: string): Promise<void> {
 
 	if (command.enabled && !command.enabled()) {
 		showToast({
-			title: `/${command.name} is unavailable`,
-			message: command.unavailable ?? 'Not available right now.',
+			title: t.commands.unavailableTitle(command.name),
+			message: command.unavailable ?? t.commands.notAvailable,
 			variant: 'warning'
 		});
 		return;
@@ -40,7 +41,7 @@ async function invoke(name: string, rest: string): Promise<void> {
 	} catch (error) {
 		if (extractError(error).code === 'command.cancelled') return;
 		showToast({
-			title: `/${command.name} failed`,
+			title: t.commands.failed(command.name),
 			message: error instanceof Error ? error.message : String(error),
 			variant: 'error'
 		});

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { showToast } from '#lib/stores/errorToast.svelte.js';
 	import { realmStore } from '#lib/stores/realm.svelte.js';
@@ -71,8 +72,8 @@
 			asking = false;
 			showToast({
 				variant: 'info',
-				title: 'Realm built',
-				message: `${made.definition.name || 'It'} is ready to play.`
+				title: t.realms.page.built,
+				message: t.realms.page.ready(made.definition.name || t.realms.page.it)
 			});
 			await realmStore.loadList();
 		} finally {
@@ -96,7 +97,7 @@
 				<button
 					type="button"
 					class="icon"
-					{@attach tooltip('Back to Realms')}
+					{@attach tooltip(t.realms.page.back)}
 					onclick={closeBlueprint}
 				>
 					<ArrowLeft size={18} />
@@ -104,11 +105,11 @@
 				<input
 					class="nameField"
 					value={realmDraft.name}
-					aria-label="Blueprint name"
+					aria-label={t.realms.page.blueprintName}
 					oninput={(e) => (realmDraft.name = e.currentTarget.value)}
 				/>
 			{:else}
-				<div class="title">Realms</div>
+				<div class="title">{t.realms.page.title}</div>
 			{/if}
 		</div>
 
@@ -116,29 +117,26 @@
 			<div class="actions">
 				{#if blueprintStore.saveStatus === 'error'}
 					<span class="saveError" {@attach tooltip(blueprintStore.saveError ?? '')}>
-						Unsaved — the server refused it
+						{t.realms.page.refused}
 					</span>
 				{:else if blueprintStore.saveStatus === 'saving'}
-					<span class="saving">Saving…</span>
+					<span class="saving">{t.common.saving}</span>
 				{:else if blueprintStore.saveStatus === 'blocked'}
-					<span
-						class="saveError"
-						{@attach tooltip(
-							'The editor is empty but this blueprint is not. Automatic saving stopped so nothing is accidentally lost. Press Save if you meant to clear it.'
-						)}
-					>
-						AutoSave refused: editor is empty
+					<span class="saveError" {@attach tooltip(t.realms.page.blockedHint)}>
+						{t.realms.page.blocked}
 					</span>
 				{:else if blueprintStore.saveStatus === 'dirty'}
-					<span class="saving">Unsaved changes</span>
+					<span class="saving">{t.realms.page.dirty}</span>
 				{:else if blueprintStore.saveStatus === 'saved'}
-					<span class="saved">Saved</span>
+					<span class="saved">{t.common.saved}</span>
 				{/if}
 				<button type="button" onclick={save} disabled={blueprintStore.saveStatus === 'saving'}>
-					<Save size={13} /> Save
+					<Save size={13} />
+					{t.common.save}
 				</button>
 				<button type="button" class="primary" onclick={build} disabled={building}>
-					<Play size={13} /> Build realm
+					<Play size={13} />
+					{t.realms.page.build}
 				</button>
 			</div>
 		{/if}
@@ -147,10 +145,10 @@
 	<div class="body">
 		<div class="main">
 			{#if blueprint}
-				<WideScreenNote subject="The realm editor" />
+				<WideScreenNote subject={t.realms.page.editorSubject} />
 				<RealmEditor />
 			{:else}
-				<div class="tabs" role="tablist" aria-label="Realms and blueprints">
+				<div class="tabs" role="tablist" aria-label={t.realms.page.tabs}>
 					<button
 						type="button"
 						role="tab"
@@ -158,7 +156,7 @@
 						class:active={tab === 'realms'}
 						onclick={() => navigator.start().realms()}
 					>
-						Realms
+						{t.realms.page.realms}
 					</button>
 					<button
 						type="button"
@@ -167,7 +165,7 @@
 						class:active={tab === 'blueprints'}
 						onclick={() => navigator.start().blueprints()}
 					>
-						Blueprints
+						{t.realms.page.blueprints}
 					</button>
 				</div>
 				<div class="lists">

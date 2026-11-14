@@ -2,6 +2,7 @@ import { linter, type Diagnostic } from '@codemirror/lint';
 import type { Extension } from '@codemirror/state';
 import { useApi } from '#lib/api/client.js';
 import type { WeaverDialect, WeaverDiagnostic, WeaverProfile } from '#lib/types/weaver.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 const DELAY = 400;
 
@@ -15,7 +16,7 @@ function toDiagnostic(server: WeaverDiagnostic, length: number): Diagnostic {
 		from,
 		to,
 		severity: server.severity,
-		message: server.hint ? `${server.message}\n\nHint: ${server.hint}` : server.message
+		message: server.hint ? t.weaver.hint(server.message, server.hint) : server.message
 	};
 }
 

@@ -2,12 +2,8 @@ import { useApi } from '#lib/api/client.js';
 import type { Snowflake } from '#lib/types/core.js';
 import type { Realm, RealmSummary } from '#lib/types/realm.js';
 import { showApiError } from './errorActions.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
-/**
- * The realms you have built. A realm is read-only once built: changing one
- * means editing its blueprint and building again, and playing one is the chat
- * store's business, like any other conversation.
- */
 class RealmStore {
 	get #api() {
 		return useApi();
@@ -29,7 +25,7 @@ class RealmStore {
 			await this.#api.realms.delete(id);
 		} catch (e) {
 			this.summaries = prev;
-			showApiError(e, { title: 'Failed to delete realm', durationMs: 5000 });
+			showApiError(e, { title: t.errors.failed.deleteRealm, durationMs: 5000 });
 		}
 	}
 

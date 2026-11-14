@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { navigator } from '#lib/navigation/navigator.js';
 	import type { UserSection } from '#lib/navigation/routes.js';
 	import ProfileSection from './user/ProfileSection.svelte';
@@ -11,44 +12,41 @@
 
 	let { section, id }: { section: UserSection; id?: string } = $props();
 
-	type Tab = { id: UserSection; label: string; go: () => void };
+	type Tab = { id: UserSection; go: () => void };
 
 	const account: Tab[] = [
-		{ id: 'profile', label: 'Profile', go: () => navigator.start().settings().user().profile() },
+		{ id: 'profile', go: () => navigator.start().settings().user().profile() },
 		{
 			id: 'tokenizers',
-			label: 'Tokenizers',
 			go: () => navigator.start().settings().user().tokenizers()
 		},
-		{ id: 'plugins', label: 'Plugins', go: () => navigator.start().settings().user().plugins() }
+		{ id: 'plugins', go: () => navigator.start().settings().user().plugins() }
 	];
 
 	const device: Tab[] = [
 		{
 			id: 'appearance',
-			label: 'Appearance',
 			go: () => navigator.start().settings().user().appearance()
 		},
-		{ id: 'editor', label: 'Editor', go: () => navigator.start().settings().user().editor() },
+		{ id: 'editor', go: () => navigator.start().settings().user().editor() },
 		{
 			id: 'inspector',
-			label: 'Inspector',
 			go: () => navigator.start().settings().user().inspector()
 		},
-		{ id: 'keybinds', label: 'Keybinds', go: () => navigator.start().settings().user().keybinds() }
+		{ id: 'keybinds', go: () => navigator.start().settings().user().keybinds() }
 	];
 </script>
 
 <div class="user">
 	<nav class="nav">
-		{#each account as { id, label, go } (id)}
-			<button class="tab" class:active={section === id} onclick={go}>{label}</button>
+		{#each account as { id, go } (id)}
+			<button class="tab" class:active={section === id} onclick={go}>{t.nav.user[id]}</button>
 		{/each}
 
 		<span class="divider" role="separator"></span>
 
-		{#each device as { id, label, go } (id)}
-			<button class="tab" class:active={section === id} onclick={go}>{label}</button>
+		{#each device as { id, go } (id)}
+			<button class="tab" class:active={section === id} onclick={go}>{t.nav.user[id]}</button>
 		{/each}
 	</nav>
 

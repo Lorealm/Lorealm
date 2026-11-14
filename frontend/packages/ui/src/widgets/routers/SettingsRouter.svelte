@@ -1,10 +1,11 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	let { view }: { view: string } = $props();
 </script>
 
 <div class="container">
 	{#if view === 'roles'}
-		Roles view
+		{t.nav.rolesPlaceholder}
 	{/if}
 </div>
 

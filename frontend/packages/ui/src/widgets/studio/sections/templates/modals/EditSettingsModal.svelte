@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import type { ContextNode } from '#lib/types/node.js';
 	import Modal from './Modal.svelte';
 	import NodeSettings from '../nodes/NodeSettings.svelte';
@@ -8,7 +9,7 @@
 	let saveState = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
 </script>
 
-<Modal title="Edit node" {onclose}>
+<Modal title={t.studio.templates.editNode} {onclose}>
 	<NodeSettings {node} bind:saveState />
 
 	{#snippet footer()}
@@ -18,10 +19,10 @@
 			class:saved={saveState === 'saved'}
 			class:error={saveState === 'error'}
 		>
-			{#if saveState === 'saving'}Saving…{:else if saveState === 'saved'}Saved{:else if saveState === 'error'}Save
-				failed{/if}
+			{#if saveState === 'saving'}{t.common.saving}{:else if saveState === 'saved'}{t.common
+					.saved}{:else if saveState === 'error'}{t.studio.templates.saveFailed}{/if}
 		</span>
-		<button class="primary" type="button" onclick={onclose}>Done</button>
+		<button class="primary" type="button" onclick={onclose}>{t.studio.templates.done}</button>
 	{/snippet}
 </Modal>
 

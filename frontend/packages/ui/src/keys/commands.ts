@@ -5,6 +5,7 @@ import { conversationManager } from '#lib/stores/conversationManager.svelte.js';
 import { inspectorMatrix } from '#lib/stores/inspectorMatrix.svelte.js';
 import { GLOBAL_LAYER, layers } from './layers.svelte.js';
 import type { Command } from './types.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 export const CHAT_COMPOSER_LAYER = 'chat.composer';
 export const CONVERSATION_MANAGER_LAYER = 'chat.conversationManager';
@@ -44,9 +45,15 @@ function cycleInspectorProfile(delta: 1 | -1) {
 export const builtInCommands: Command[] = [
 	{
 		id: 'nav.back',
-		title: 'Back',
-		description: 'Return to the previous destination.',
-		group: 'Navigation',
+		get title() {
+			return t.keys.commands.navBack.title;
+		},
+		get description() {
+			return t.keys.commands.navBack.description;
+		},
+		get group() {
+			return t.keys.groups.navigation;
+		},
 		scope: 'global',
 		layer: GLOBAL_LAYER,
 		keys: ['mod+[', 'alt+ArrowLeft'],
@@ -55,9 +62,15 @@ export const builtInCommands: Command[] = [
 	},
 	{
 		id: 'nav.forward',
-		title: 'Forward',
-		description: 'Undo a Back.',
-		group: 'Navigation',
+		get title() {
+			return t.keys.commands.navForward.title;
+		},
+		get description() {
+			return t.keys.commands.navForward.description;
+		},
+		get group() {
+			return t.keys.groups.navigation;
+		},
 		scope: 'global',
 		layer: GLOBAL_LAYER,
 		keys: ['mod+]', 'alt+ArrowRight'],
@@ -66,8 +79,12 @@ export const builtInCommands: Command[] = [
 	},
 	{
 		id: 'view.write',
-		title: 'Go to Write',
-		group: 'Views',
+		get title() {
+			return t.keys.commands.viewWrite.title;
+		},
+		get group() {
+			return t.keys.groups.views;
+		},
 		scope: 'global',
 		layer: GLOBAL_LAYER,
 		keys: ['alt+1'],
@@ -75,8 +92,12 @@ export const builtInCommands: Command[] = [
 	},
 	{
 		id: 'view.characters',
-		title: 'Go to Characters',
-		group: 'Views',
+		get title() {
+			return t.keys.commands.viewCharacters.title;
+		},
+		get group() {
+			return t.keys.groups.views;
+		},
 		scope: 'global',
 		layer: GLOBAL_LAYER,
 		keys: ['alt+2'],
@@ -84,8 +105,12 @@ export const builtInCommands: Command[] = [
 	},
 	{
 		id: 'view.realms',
-		title: 'Go to Realms',
-		group: 'Views',
+		get title() {
+			return t.keys.commands.viewRealms.title;
+		},
+		get group() {
+			return t.keys.groups.views;
+		},
 		scope: 'global',
 		layer: GLOBAL_LAYER,
 		keys: ['alt+3'],
@@ -93,8 +118,12 @@ export const builtInCommands: Command[] = [
 	},
 	{
 		id: 'view.connections',
-		title: 'Go to Connections',
-		group: 'Views',
+		get title() {
+			return t.keys.commands.viewConnections.title;
+		},
+		get group() {
+			return t.keys.groups.views;
+		},
 		scope: 'global',
 		layer: GLOBAL_LAYER,
 		keys: ['alt+4'],
@@ -102,8 +131,12 @@ export const builtInCommands: Command[] = [
 	},
 	{
 		id: 'view.studio',
-		title: 'Go to Studio',
-		group: 'Views',
+		get title() {
+			return t.keys.commands.viewStudio.title;
+		},
+		get group() {
+			return t.keys.groups.views;
+		},
 		scope: 'global',
 		layer: GLOBAL_LAYER,
 		keys: ['alt+5'],
@@ -111,8 +144,12 @@ export const builtInCommands: Command[] = [
 	},
 	{
 		id: 'settings.open',
-		title: 'Open settings',
-		group: 'Settings',
+		get title() {
+			return t.keys.commands.settingsOpen.title;
+		},
+		get group() {
+			return t.keys.groups.settings;
+		},
 		scope: 'global',
 		layer: GLOBAL_LAYER,
 		keys: ['mod+,'],
@@ -120,9 +157,15 @@ export const builtInCommands: Command[] = [
 	},
 	{
 		id: 'keys.help',
-		title: 'Keyboard shortcuts',
-		description: 'Open the shortcut list.',
-		group: 'Settings',
+		get title() {
+			return t.keys.commands.keysHelp.title;
+		},
+		get description() {
+			return t.keys.commands.keysHelp.description;
+		},
+		get group() {
+			return t.keys.groups.settings;
+		},
 		scope: 'global',
 		layer: GLOBAL_LAYER,
 		keys: ['F1'],
@@ -130,9 +173,15 @@ export const builtInCommands: Command[] = [
 	},
 	{
 		id: 'chat.focus',
-		title: 'Focus the composer',
-		description: 'Put the cursor in the chat box.',
-		group: 'Chat',
+		get title() {
+			return t.keys.commands.chatFocus.title;
+		},
+		get description() {
+			return t.keys.commands.chatFocus.description;
+		},
+		get group() {
+			return t.keys.groups.chat;
+		},
 		scope: 'view',
 		layer: 'write',
 		keys: ['mod+l'],
@@ -141,8 +190,12 @@ export const builtInCommands: Command[] = [
 	},
 	{
 		id: 'chat.send',
-		title: 'Send message',
-		group: 'Chat',
+		get title() {
+			return t.keys.commands.chatSend.title;
+		},
+		get group() {
+			return t.keys.groups.chat;
+		},
 		scope: 'module',
 		layer: CHAT_COMPOSER_LAYER,
 		keys: ['mod+Enter'],
@@ -151,9 +204,15 @@ export const builtInCommands: Command[] = [
 	},
 	{
 		id: 'chat.conversations',
-		title: 'Conversations',
-		description: 'List the chats with the active character.',
-		group: 'Chat',
+		get title() {
+			return t.keys.commands.chatConversations.title;
+		},
+		get description() {
+			return t.keys.commands.chatConversations.description;
+		},
+		get group() {
+			return t.keys.groups.chat;
+		},
 		scope: 'global',
 		layer: GLOBAL_LAYER,
 		keys: ['mod+k'],
@@ -166,8 +225,12 @@ export const builtInCommands: Command[] = [
 	},
 	{
 		id: 'chat.conversations.close',
-		title: 'Close conversations',
-		group: 'Chat',
+		get title() {
+			return t.keys.commands.chatConversationsClose.title;
+		},
+		get group() {
+			return t.keys.groups.chat;
+		},
 		scope: 'module',
 		layer: CONVERSATION_MANAGER_LAYER,
 		keys: ['mod+k'],
@@ -176,9 +239,15 @@ export const builtInCommands: Command[] = [
 	},
 	{
 		id: 'chat.branchPrev',
-		title: 'Previous branch',
-		description: 'Swipe the newest message back to its previous variant.',
-		group: 'Chat',
+		get title() {
+			return t.keys.commands.chatBranchPrev.title;
+		},
+		get description() {
+			return t.keys.commands.chatBranchPrev.description;
+		},
+		get group() {
+			return t.keys.groups.chat;
+		},
 		scope: 'view',
 		layer: 'write',
 		keys: ['ArrowLeft'],
@@ -193,10 +262,15 @@ export const builtInCommands: Command[] = [
 	},
 	{
 		id: 'chat.branchNext',
-		title: 'Next branch',
-		description:
-			'Swipe the newest message forward, generating a fresh reply once past the last variant.',
-		group: 'Chat',
+		get title() {
+			return t.keys.commands.chatBranchNext.title;
+		},
+		get description() {
+			return t.keys.commands.chatBranchNext.description;
+		},
+		get group() {
+			return t.keys.groups.chat;
+		},
 		scope: 'view',
 		layer: 'write',
 		keys: ['ArrowRight'],
@@ -213,8 +287,12 @@ export const builtInCommands: Command[] = [
 	},
 	{
 		id: 'inspector.nextProfile',
-		title: 'Next inspector profile',
-		group: 'Inspector',
+		get title() {
+			return t.keys.commands.inspectorNextProfile.title;
+		},
+		get group() {
+			return t.keys.groups.inspector;
+		},
 		scope: 'global',
 		layer: GLOBAL_LAYER,
 		keys: [']'],
@@ -223,8 +301,12 @@ export const builtInCommands: Command[] = [
 	},
 	{
 		id: 'inspector.prevProfile',
-		title: 'Previous inspector profile',
-		group: 'Inspector',
+		get title() {
+			return t.keys.commands.inspectorPrevProfile.title;
+		},
+		get group() {
+			return t.keys.groups.inspector;
+		},
 		scope: 'global',
 		layer: GLOBAL_LAYER,
 		keys: ['['],

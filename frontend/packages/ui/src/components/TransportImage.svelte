@@ -3,12 +3,6 @@
 	// browser issue an unauthenticated GET, then renders it via a real <img>.
 	// Required for proper authentication.
 	//
-	// A `data:` or `blob:` src carries its own bytes and is rendered as-is: it
-	// needs no server, and asking the transport for one would send the whole
-	// thing to the backend as a path. That is what lets something held locally
-	// — a backdrop the user picked off their disk — move to server storage
-	// later by changing nothing but the string it is given.
-	//
 	// This file should be considered a wholesale replacement for <img />.
 
 	type Entry = {
@@ -69,6 +63,7 @@
 </script>
 
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { getPlatformApi } from '#lib/core/context.js';
 
 	let transport = getPlatformApi();
@@ -120,7 +115,7 @@
 	{:else if status === 'error'}
 		<span class="transport-image-error" aria-label={alt}></span>
 	{:else}
-		<span class="transport-image-loading" aria-label="Loading"></span>
+		<span class="transport-image-loading" aria-label={t.components.loading}></span>
 	{/if}
 </span>
 

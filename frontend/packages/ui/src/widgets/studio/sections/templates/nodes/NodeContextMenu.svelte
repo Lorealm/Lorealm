@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import type { ContextNode } from '#lib/types/node.js';
 
 	type ChildKind = 'text' | 'source' | 'group';
@@ -87,9 +88,11 @@
 	onmouseleave={() => (submenuOpen = false)}
 	tabindex="0"
 >
-	<button class="item" type="button" role="menuitem" onclick={edit}>Edit…</button>
+	<button class="item" type="button" role="menuitem" onclick={edit}
+		>{t.studio.templateEditor.editMenu}</button
+	>
 	<button class="item" type="button" role="menuitem" onclick={toggle}>
-		{node.enabled ? 'Disable' : 'Enable'}
+		{node.enabled ? t.studio.templateEditor.disable : t.studio.templateEditor.enable}
 	</button>
 
 	{#if isGroup}
@@ -106,19 +109,19 @@
 				}
 			}}
 		>
-			<span>Add child</span>
+			<span>{t.studio.templateEditor.addChild}</span>
 			<span class="chev" aria-hidden="true">▸</span>
 
 			{#if submenuOpen}
 				<div class="submenu" role="menu">
 					<button class="item" type="button" role="menuitem" onclick={() => addChild('text')}>
-						Text node
+						{t.studio.templateEditor.textNode}
 					</button>
 					<button class="item" type="button" role="menuitem" onclick={() => addChild('source')}>
-						Source node
+						{t.studio.templateEditor.sourceNode}
 					</button>
 					<button class="item" type="button" role="menuitem" onclick={() => addChild('group')}>
-						Group
+						{t.studio.templateEditor.group}
 					</button>
 				</div>
 			{/if}
@@ -134,7 +137,7 @@
 		role="menuitem"
 		onclick={deleteClick}
 	>
-		{confirmingDelete ? 'Click again to delete' : 'Delete'}
+		{confirmingDelete ? t.studio.templateEditor.confirmDelete : t.common.delete}
 	</button>
 </div>
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { configStore, type SaveState } from '#lib/stores/serverConfig.svelte.js';
 	import type { BackendConfig } from '#lib/types/config.js';
 	import SettingsSection from '../SettingsSection.svelte';
@@ -51,8 +52,8 @@
 	}
 </script>
 
-<SettingsSection title="Storage" {dirty} {saveState} onsave={save} onreset={reset}>
-	<h3>Backends</h3>
+<SettingsSection title={t.nav.server.storage} {dirty} {saveState} onsave={save} onreset={reset}>
+	<h3>{t.settings.server.backends}</h3>
 	{#each draft.backends as backend, i (i)}
 		<div class="backend">
 			<div class="backend-head">
@@ -61,16 +62,21 @@
 					onchange={(e) => setBackendType(i, e.currentTarget.value as BackendConfig['type'])}
 				>
 					<option value="postgres">Postgres</option>
-					<option value="memory">Memory</option>
+					<option value="memory">{t.settings.server.memory}</option>
 				</select>
-				<button type="button" class="remove" onclick={() => removeBackend(i)}>Remove</button>
+				<button type="button" class="remove" onclick={() => removeBackend(i)}
+					>{t.settings.server.remove}</button
+				>
 			</div>
 
 			{#if backend.type === 'postgres'}
-				<Field label="Connection string" hint="Leave blank to use the server default.">
+				<Field
+					label={t.settings.server.connectionString}
+					hint={t.settings.server.connectionStringHint}
+				>
 					<input type="text" bind:value={backend.connection_string} placeholder="postgresql://…" />
 				</Field>
-				<Field label="Max connections">
+				<Field label={t.settings.server.maxConnections}>
 					<NumberField
 						value={backend.max_connections}
 						min={1}
@@ -78,7 +84,7 @@
 					/>
 				</Field>
 			{:else}
-				<Field label="Max size">
+				<Field label={t.settings.server.maxSize}>
 					<NumberField
 						value={backend.max_size}
 						min={0}
@@ -88,18 +94,18 @@
 			{/if}
 		</div>
 	{/each}
-	<button type="button" class="add" onclick={addBackend}>+ Add backend</button>
+	<button type="button" class="add" onclick={addBackend}>{t.settings.server.addBackend}</button>
 
-	<h3>General</h3>
-	<Field label="Data directory">
+	<h3>{t.settings.server.general}</h3>
+	<Field label={t.settings.server.dataDirectory}>
 		<input type="text" bind:value={draft.data_directory} />
 	</Field>
 	<label class="check">
 		<input type="checkbox" bind:checked={draft.require_postgres_fallback} />
-		<span>Require Postgres fallback</span>
+		<span>{t.settings.server.requirePostgres}</span>
 	</label>
 
-	<h3>Cache</h3>
+	<h3>{t.settings.server.cache}</h3>
 	<label class="check">
 		<input
 			type="checkbox"
@@ -107,20 +113,20 @@
 			checked={draft.cache != null}
 			onchange={(e) => toggleCache(e.currentTarget.checked)}
 		/>
-		<span>Enable Redis cache</span>
+		<span>{t.settings.server.enableRedis}</span>
 	</label>
 	{#if draft.cache != null}
-		<Field label="Redis URL">
+		<Field label={t.settings.server.redisUrl}>
 			<input type="text" bind:value={draft.cache.redis_url} />
 		</Field>
-		<Field label="TTL (seconds)">
+		<Field label={t.settings.server.ttl}>
 			<NumberField
 				value={draft.cache.ttl_seconds}
 				min={0}
 				onchange={(v) => v !== '' && draft.cache && (draft.cache.ttl_seconds = v)}
 			/>
 		</Field>
-		<Field label="Key prefix">
+		<Field label={t.settings.server.keyPrefix}>
 			<input type="text" bind:value={draft.cache.key_prefix} />
 		</Field>
 	{/if}

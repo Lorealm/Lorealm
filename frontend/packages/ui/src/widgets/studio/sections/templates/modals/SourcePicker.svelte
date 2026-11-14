@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import type { SourceDefinition, SourceNodeDefinition } from '#lib/types/node.js';
 
 	let {
@@ -34,9 +35,9 @@
 
 <div class="source-picker">
 	{#if sources === undefined}
-		<p class="muted">Loading sources…</p>
+		<p class="muted">{t.studio.templateEditor.loadingSources}</p>
 	{:else if available.length === 0}
-		<p class="muted">Every available source node is already in this template.</p>
+		<p class="muted">{t.studio.templateEditor.allSourcesUsed}</p>
 	{:else if !current}
 		<ul class="list">
 			{#each available as entry (entry.source.source_id)}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { Construction } from '@lucide/svelte';
 
 	let { label }: { label: string } = $props();
@@ -7,7 +8,7 @@
 <div class="container">
 	<div class="middle">
 		<Construction size="5em" />
-		<div class="display: flex; margin-top: 1em;"><b>{label}</b>: Under Construction</div>
+		<div class="display: flex; margin-top: 1em;"><b>{label}</b>: {t.shell.underConstruction}</div>
 	</div>
 </div>
 

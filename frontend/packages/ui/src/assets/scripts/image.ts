@@ -1,3 +1,5 @@
+import { t } from '#lib/stores/i18n.svelte.js';
+
 /**
  * The max length of the output string-represented image
  */
@@ -16,7 +18,7 @@ function load(dataUri: string): Promise<HTMLImageElement> {
 	return new Promise((resolve, reject) => {
 		const element = new Image();
 		element.onload = () => resolve(element);
-		element.onerror = () => reject(new Error('That file could not be read as an image.'));
+		element.onerror = () => reject(new Error(t.errors.failed.imageUnreadable));
 		element.src = dataUri;
 	});
 }
@@ -41,7 +43,7 @@ function draw(image: HTMLImageElement, edge: number): HTMLCanvasElement | null {
 export async function fitImageForStorage(dataUri: string): Promise<string> {
 	const image = await load(dataUri);
 	if (image.width === 0 || image.height === 0) {
-		throw new Error('That image has no size to it.');
+		throw new Error(t.errors.failed.imageEmpty);
 	}
 
 	let type = 'image/webp';

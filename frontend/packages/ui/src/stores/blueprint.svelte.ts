@@ -10,6 +10,7 @@ import type {
 import type { Snowflake } from '#lib/types/core.js';
 import type { Realm } from '#lib/types/realm.js';
 import { showApiError } from './errorActions.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 export type SaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'blocked';
 
@@ -37,7 +38,7 @@ class BlueprintStore {
 		try {
 			this.summaries = await this.#api.blueprints.list();
 		} catch (e) {
-			showApiError(e, { title: 'Failed to load blueprints' });
+			showApiError(e, { title: t.errors.failed.loadBlueprints });
 		}
 	}
 
@@ -52,7 +53,7 @@ class BlueprintStore {
 			this.refusal = result.status === 'refused' ? result.reason.message : null;
 			return result;
 		} catch (e) {
-			showApiError(e, { title: 'Failed to read the blueprint' });
+			showApiError(e, { title: t.errors.failed.readBlueprint });
 			this.refusal = null;
 			return null;
 		}
@@ -77,7 +78,7 @@ class BlueprintStore {
 			await this.loadList();
 			return made;
 		} catch (e) {
-			showApiError(e, { title: 'Failed to create blueprint' });
+			showApiError(e, { title: t.errors.failed.createBlueprint });
 			return null;
 		}
 	}
@@ -164,7 +165,7 @@ class BlueprintStore {
 			if (this.current?.id === id) this.close();
 			await this.loadList();
 		} catch (e) {
-			showApiError(e, { title: 'Failed to delete blueprint' });
+			showApiError(e, { title: t.errors.failed.deleteBlueprint });
 		}
 	}
 
@@ -178,7 +179,7 @@ class BlueprintStore {
 			await this.loadList();
 			return imported;
 		} catch (e) {
-			showApiError(e, { title: 'Could not import blueprint' });
+			showApiError(e, { title: t.errors.failed.importBlueprint });
 			return null;
 		}
 	}
@@ -188,7 +189,7 @@ class BlueprintStore {
 		try {
 			return await this.#api.blueprints.expand(id, inputs);
 		} catch (e) {
-			showApiError(e, { title: 'Failed to build a realm' });
+			showApiError(e, { title: t.errors.failed.buildRealm });
 			return null;
 		}
 	}

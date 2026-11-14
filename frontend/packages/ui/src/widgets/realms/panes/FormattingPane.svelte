@@ -1,27 +1,12 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { REALM_CONFIG_DEFAULTS } from '#lib/types/realm.js';
 	import { realmDraft } from '../draft.svelte.js';
 
-	/** Each override, with what it governs and the holes it can use. */
 	const FORMATS = [
-		{
-			key: 'speech_format',
-			label: 'Someone speaking',
-			about: 'How another agent’s speech reads in an observer’s feed.',
-			holes: '{name}, {content}'
-		},
-		{
-			key: 'action_format',
-			label: 'Someone acting',
-			about: 'The line an agent’s tool use leaves in the feed.',
-			holes: '{name}, {tool}'
-		},
-		{
-			key: 'tool_result_format',
-			label: 'A tool’s result',
-			about: 'The private note the actor sees after its tool runs.',
-			holes: '{tool}, {output}'
-		}
+		{ key: 'speech_format', holes: '{name}, {content}' },
+		{ key: 'action_format', holes: '{name}, {tool}' },
+		{ key: 'tool_result_format', holes: '{tool}, {output}' }
 	] as const;
 
 	function set(key: string, value: string) {
@@ -32,13 +17,13 @@
 
 <div class="pane">
 	<header>
-		<h2>Formatting</h2>
+		<h2>{t.realms.panes.formatting}</h2>
 	</header>
 
 	<div class="body">
 		{#each FORMATS as format (format.key)}
 			<label>
-				<span class="label">{format.label}</span>
+				<span class="label">{t.realms.formatting[format.key].label}</span>
 				<input
 					class="mono"
 					value={realmDraft.config[format.key] ?? ''}
@@ -47,7 +32,7 @@
 					oninput={(e) => set(format.key, e.currentTarget.value)}
 				/>
 				<span class="about">
-					{format.about}
+					{t.realms.formatting[format.key].about}
 					<code>{format.holes}</code>
 				</span>
 			</label>

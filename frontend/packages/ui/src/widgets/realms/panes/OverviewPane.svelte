@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { Maximize2, Shuffle, X } from '@lucide/svelte';
 	import type { AgentFilter, AgentKind } from '#lib/types/realm.js';
 	import { realmDraft } from '../draft.svelte.js';
@@ -52,48 +53,48 @@
 
 <div class="pane">
 	<header>
-		<h2>Overview</h2>
+		<h2>{t.realms.panes.overview}</h2>
 	</header>
 
 	<div class="body">
 		<label>
-			<span>Name</span>
+			<span>{t.realms.overview.name}</span>
 			<input
 				value={realmDraft.name}
-				placeholder="Untitled"
+				placeholder={t.realms.overview.untitled}
 				oninput={(e) => (realmDraft.name = e.currentTarget.value)}
 			/>
 		</label>
 
 		<label>
-			<span>Description</span>
+			<span>{t.realms.overview.description}</span>
 			<textarea
 				rows="4"
 				value={realmDraft.description}
-				placeholder="What happens here, and who it is for."
+				placeholder={t.realms.overview.descriptionPlaceholder}
 				oninput={(e) => (realmDraft.description = e.currentTarget.value)}
 			></textarea>
 		</label>
 
 		<label>
-			<span>Introduction</span>
+			<span>{t.realms.overview.introduction}</span>
 			<textarea
 				rows="8"
 				value={realmDraft.introduction}
-				placeholder="Shown first to anyone building a realm from this. Say what it is and how to set it up. Markdown works."
+				placeholder={t.realms.overview.introductionPlaceholder}
 				oninput={(e) => (realmDraft.introduction = e.currentTarget.value)}
 			></textarea>
 		</label>
 
 		<div class="field">
-			<span>Tags</span>
+			<span>{t.realms.overview.tags}</span>
 			<div class="tags">
 				{#each realmDraft.tags as tag (tag)}
 					<span class="tag">
 						{tag}
 						<button
 							type="button"
-							aria-label="Remove {tag}"
+							aria-label={t.realms.overview.removeTag(tag)}
 							onclick={() => (realmDraft.tags = realmDraft.tags.filter((t) => t !== tag))}
 						>
 							<X size={10} />
@@ -103,8 +104,8 @@
 				<input
 					class="tagInput plain"
 					bind:value={tagDraft}
-					placeholder="Add a tag…"
-					aria-label="Add a tag"
+					placeholder={t.realms.overview.addTagPlaceholder}
+					aria-label={t.realms.overview.addTag}
 					onkeydown={(e) => {
 						if (e.key === 'Enter') {
 							e.preventDefault();
@@ -117,13 +118,13 @@
 		</div>
 
 		<div class="field">
-			<span>Modules</span>
+			<span>{t.realms.overview.modules}</span>
 			{#each realmDraft.modules as module, i (i)}
 				<RadioField
 					value={module}
 					kinds={['module']}
 					inputs={realmDraft.inputs}
-					ariaLabel="Module {i + 1}"
+					ariaLabel={t.realms.overview.module(i + 1)}
 					onchange={(next) => {
 						if (next) realmDraft.modules[i] = next;
 						else realmDraft.modules.splice(i, 1);
@@ -134,18 +135,18 @@
 				value={null}
 				kinds={['module']}
 				inputs={realmDraft.inputs}
-				placeholder="Import a module…"
-				ariaLabel="Import another module"
+				placeholder={t.realms.overview.importModule}
+				ariaLabel={t.realms.overview.importAnother}
 				onchange={(next) => next && realmDraft.modules.push(next)}
 			/>
 		</div>
 
 		<div class="field">
-			<span class="withIcon"><Shuffle size={13} /> Director</span>
+			<span class="withIcon"><Shuffle size={13} /> {t.realms.overview.director}</span>
 			<select value={kind} onchange={(e) => setKind(e.currentTarget.value)}>
-				<option value="round_robin">Round Robin</option>
-				<option value="random">Random</option>
-				<option value="script">Custom Script</option>
+				<option value="round_robin">{t.realms.overview.roundRobin}</option>
+				<option value="random">{t.realms.overview.random}</option>
+				<option value="script">{t.realms.overview.customScript}</option>
 			</select>
 
 			{#if kind === 'script'}
@@ -153,23 +154,23 @@
 					type="button"
 					class="scriptCard"
 					class:blank={!scriptPreview}
-					aria-label={scriptPreview ? 'Open the director script' : 'Write a director script'}
+					aria-label={scriptPreview ? t.realms.overview.openScript : t.realms.overview.writeScript}
 					onclick={() => panes.show({ kind: 'director' })}
 				>
 					{#if scriptPreview}
 						<pre aria-hidden="true">{scriptPreview}</pre>
 					{:else}
-						<span class="blankText">Nothing written yet</span>
+						<span class="blankText">{t.realms.overview.nothingWritten}</span>
 					{/if}
 					<span class="openOverlay" aria-hidden="true">
 						<Maximize2 size={12} />
-						{scriptPreview ? 'Open' : 'Write one'}
+						{scriptPreview ? t.realms.overview.open : t.realms.overview.writeOne}
 					</span>
 				</button>
-				<p class="note">Should return the handle of whoever acts next.</p>
+				<p class="note">{t.realms.overview.scriptNote}</p>
 			{:else}
 				<label class="sub">
-					<span>Over</span>
+					<span>{t.realms.overview.over}</span>
 					<select
 						value={filterOf.match}
 						onchange={(e) => {
@@ -183,15 +184,15 @@
 							);
 						}}
 					>
-						<option value="all">Everyone</option>
-						<option value="kind">A specific agent kind</option>
-						<option value="handles">Only certain agents</option>
+						<option value="all">{t.realms.overview.everyone}</option>
+						<option value="kind">{t.realms.overview.byKind}</option>
+						<option value="handles">{t.realms.overview.byHandles}</option>
 					</select>
 				</label>
 
 				{#if filterOf.match === 'kind'}
 					<label class="sub">
-						<span>Kind</span>
+						<span>{t.realms.overview.kind}</span>
 						<select
 							value={filterOf.kind}
 							onchange={(e) =>
@@ -204,11 +205,11 @@
 					</label>
 				{:else if filterOf.match === 'handles'}
 					<label class="sub">
-						<span>Handles</span>
+						<span>{t.realms.overview.handles}</span>
 						<input
 							class="mono"
 							value={filterOf.handles.join(', ')}
-							placeholder="narrator, player"
+							placeholder={t.realms.overview.handlesPlaceholder}
 							onchange={(e) =>
 								setFilter({
 									match: 'handles',

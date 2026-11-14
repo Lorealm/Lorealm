@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import type { Snippet } from 'svelte';
 	import { configStore, type SaveState } from '#lib/stores/serverConfig.svelte.js';
 	import SaveIndicator from '#lib/components/SaveIndicator.svelte';
@@ -30,14 +31,16 @@
 		<SaveIndicator state={saveState} />
 		<div class="spacer"></div>
 		{#if configStore.canEditServer}
-			<button type="button" class="ghost" onclick={onreset} disabled={!dirty}>Reset</button>
+			<button type="button" class="ghost" onclick={onreset} disabled={!dirty}
+				>{t.settings.reset}</button
+			>
 			<button
 				type="button"
 				class="primary"
 				onclick={onsave}
 				disabled={!dirty || saveState.status === 'saving'}
 			>
-				Save
+				{t.common.save}
 			</button>
 		{/if}
 	</footer>
