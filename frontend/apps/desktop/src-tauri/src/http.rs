@@ -18,7 +18,9 @@ pub struct HttpResponse {
 #[derive(Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum StreamEvent {
-    Message { data: serde_json::Value },
+    Message {
+        data: serde_json::Value,
+    },
     Error {
         message: String,
         body: Option<serde_json::Value>,
