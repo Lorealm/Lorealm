@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/*",
+    "../sdk/js"
   ],
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.4"

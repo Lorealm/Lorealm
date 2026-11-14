@@ -5,6 +5,7 @@
 	import { pluginCalls } from '#lib/stores/pluginCalls.svelte.js';
 	import { pluginEvents } from '#lib/stores/pluginEvents.svelte.js';
 	import type { JsonValue, Snowflake } from '#lib/types/core.js';
+	import type { SlotContext } from '@lorealm/plugin';
 
 	let {
 		handle,
@@ -20,7 +21,7 @@
 		entry: string;
 		title: string;
 		/** What the slot tells the plugin, such as the message it's attached to. */
-		context: JsonValue;
+		context: SlotContext;
 		/** Where the slot is, sent with every call the plugin makes. */
 		conversation?: Snowflake | null;
 		message?: Snowflake | null;
@@ -44,6 +45,9 @@
 	/**
 	 * Gives the frame `lorealm` (`call`, `on`, `context`, `onContext`) before any
 	 * plugin script runs, applies theme and font updates, and reports its height.
+	 *
+	 * `LorealmApi` in `@lorealm/plugin` documents `lorealm` for plugin authors;
+	 * nothing checks this script against it, so change both together.
 	 */
 	function bridge(context: JsonValue): string {
 		// JSON is valid JS; escaping `<` keeps it from ending the script early.

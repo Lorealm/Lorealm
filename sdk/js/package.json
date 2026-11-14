@@ -1,0 +1,25 @@
+{
+	"name": "@lorealm/plugin",
+	"version": "0.1.0",
+	"description": "Types for the frontend of a Lorealm plugin.",
+	"license": "MIT",
+	"type": "module",
+	"types": "./index.d.ts",
+	"exports": {
+		".": {
+			"types": "./index.d.ts"
+		},
+		"./frame": {
+			"types": "./frame.d.ts"
+		}
+	},
+	"files": [
+		"index.d.ts",
+		"frame.d.ts",
+		"README.md"
+	],
+	"keywords": [
+		"lorealm",
+		"plugin"
+	]
+}

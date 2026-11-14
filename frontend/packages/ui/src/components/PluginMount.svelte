@@ -2,19 +2,9 @@
 	import { useApi } from '#lib/api/client.js';
 	import { pluginCalls } from '#lib/stores/pluginCalls.svelte.js';
 	import { pluginEvents } from '#lib/stores/pluginEvents.svelte.js';
-	import type { JsonValue, Snowflake } from '#lib/types/core.js';
-
-	/** What an unsafe slot's module is handed; the same as a frame's `lorealm`. */
-	interface PluginApi {
-		readonly context: JsonValue;
-		call(name: string, args?: JsonValue, options?: { blocking?: boolean }): Promise<JsonValue>;
-		on(name: string, listener: (payload: JsonValue) => void): () => void;
-		onContext(listener: (context: JsonValue) => void): () => void;
-	}
-
-	interface PluginModule {
-		mount(element: HTMLElement, api: PluginApi): void | (() => void);
-	}
+	import type { Snowflake } from '#lib/types/core.js';
+	// The SDK documents this API for plugin authors; keep the two in step.
+	import type { LorealmApi, PluginModule, SlotContext } from '@lorealm/plugin';
 
 	let {
 		handle,
@@ -25,7 +15,7 @@
 	}: {
 		handle: string;
 		entry: string;
-		context: JsonValue;
+		context: SlotContext;
 		/** Where the slot is, sent with every call the plugin makes. */
 		conversation?: Snowflake | null;
 		message?: Snowflake | null;
@@ -37,12 +27,12 @@
 	let failed = $state(false);
 
 	// Plain, not `$state`: the module reads it through `api.context`.
-	let current: JsonValue = null;
+	let current: SlotContext = { conversation: null, message: null };
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
-	const listeners = new Set<(context: JsonValue) => void>();
+	const listeners = new Set<(context: SlotContext) => void>();
 
 	$effect(() => {
-		current = $state.snapshot(context as unknown) as JsonValue;
+		current = $state.snapshot(context);
 		for (const listener of listeners) listener(current);
 	});
 
@@ -57,7 +47,7 @@
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const stops = new Set<() => void>();
 
-		const pluginApi: PluginApi = {
+		const pluginApi: LorealmApi = {
 			get context() {
 				return current;
 			},

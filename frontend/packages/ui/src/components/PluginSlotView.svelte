@@ -2,6 +2,7 @@
 	import type { PluginSlot } from '#lib/stores/plugins.svelte.js';
 	import type { Snowflake } from '#lib/types/core.js';
 	import type { ConversationMessage } from '#lib/types/conversation.js';
+	import type { SlotContext } from '@lorealm/plugin';
 	import PluginFrame from './PluginFrame.svelte';
 	import PluginMount from './PluginMount.svelte';
 
@@ -20,8 +21,11 @@
 		fill?: boolean;
 	} = $props();
 
-	/** What the slot tells the plugin. Every slot says where it is. */
-	const context = $derived({
+	/**
+	 * What the slot tells the plugin. Every slot says where it is.
+	 * `@lorealm/plugin` documents this for plugin authors, slot by slot.
+	 */
+	const context: SlotContext = $derived({
 		conversation,
 		message: message
 			? {
