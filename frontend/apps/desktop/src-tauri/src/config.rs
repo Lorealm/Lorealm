@@ -11,7 +11,6 @@ use crate::{state::AppState, AppResult, Error};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthState {
     pub session_token: Option<String>,
-    pub csrf_token: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,7 +27,6 @@ impl Default for AppConfig {
         Self {
             auth: AuthState {
                 session_token: None,
-                csrf_token: None,
             },
             server_url: "http://127.0.0.1:1551".to_string(),
             store: HashMap::new(),

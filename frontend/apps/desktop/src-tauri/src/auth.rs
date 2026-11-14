@@ -70,7 +70,6 @@ pub async fn login(handle: AppHandle, username: &str, password: &str) -> AppResu
     let state = handle.state::<Mutex<AppState>>();
     let mut state = state.lock().await;
     state.config.auth.session_token = Some(res.session_token.clone());
-    state.config.auth.csrf_token = Some(res.csrf_token.clone());
     state
         .config
         .save(&handle)

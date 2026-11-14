@@ -50,7 +50,6 @@ pub async fn http_post(
     if let Some(t) = token {
         req = req.bearer_auth(t);
     }
-    // TODO: Attach CSRF
 
     send_request(&handle, req).await
 }
@@ -66,7 +65,6 @@ pub async fn http_put(
     if let Some(t) = token {
         req = req.bearer_auth(t);
     }
-    // TODO: Attach CSRF
 
     send_request(&handle, req).await
 }
@@ -82,7 +80,6 @@ pub async fn http_patch(
     if let Some(t) = token {
         req = req.bearer_auth(t);
     }
-    // TODO: Attach CSRF
 
     send_request(&handle, req).await
 }
@@ -94,7 +91,6 @@ pub async fn http_delete(handle: AppHandle, path: String) -> AppResult<HttpRespo
     if let Some(t) = token {
         req = req.bearer_auth(t);
     }
-    // TODO: Attach CSRF
 
     send_request(&handle, req).await
 }
@@ -144,7 +140,6 @@ pub fn http_put_blob(handle: AppHandle, request: Request<'_>) -> AppResult<HttpR
         if let Some(t) = token {
             req = req.bearer_auth(t);
         }
-        // TODO: Attach CSRF
 
         send_request(&handle, req).await
     })
@@ -214,6 +209,12 @@ pub async fn http_stream(
     Ok(())
 }
 
+/// The desktop authenticates with `Authorization: Bearer` only; this client
+/// keeps no cookie jar. The server checks CSRF only for cookie-authenticated
+/// requests, because a browser attaches cookies on its own and a Bearer token
+/// must be added on purpose. Don't send an X-CSRF-Token header from here, and
+/// don't turn on reqwest's `cookies` feature: with cookies, the server would
+/// read the session from the cookie and start requiring CSRF.
 async fn extract_request_deps(
     handle: &AppHandle,
 ) -> AppResult<(String, Arc<reqwest::Client>, Option<String>)> {
