@@ -29,35 +29,19 @@ scenario: {title: string, content: string}
   {# endif #}
 {# endforeach #}
 
-// Currently needed because we can only generate integers. Numbers can still be represented in decimals.
-$[set_var("local:precision_cheat", 100)]
-
-// The `local` namespace is cleared every turn.
-$[set_var("local:total_weight", 0)]
-
 // `cast:llm.members` is one object per LLM-typed agent, carrying that agent's
 // properties. The Realm system seeds it every turn.
-{# foreach c in {{cast:llm.members}} #}
-  $[inc_var("local:total_weight", {{c.talkativeness}})]
-{# endforeach #}
-
-{# if {{local:total_weight}} <= 0 #}
-  {# return null #}
-{# endif #}
-
+// Members with zero talkativeness are never picked; `none` when nobody can speak.
+// The `local` namespace is cleared every turn.
 $[set_var(
-  "local:r",
-  @[random.gen(0, {{local:total_weight}} * {{local:precision_cheat}})]
+  "local:next",
+  @[random.weighted(items: {{cast:llm.members}}, key: "talkativeness")]
 )]
 
-$[set_var("local:cumulative", 0)]
-{# foreach c in {{cast:llm.members}} #}
-  $[inc_var("local:cumulative", {{c.talkativeness}})]
-
-  {# if {{local:r}} <= {{local:cumulative}} * {{local:precision_cheat}} #}
-    {# return c.handle #}
-  {# endif #}
-{# endforeach #}"#
+{# if {{local:next}} #}
+  {# return {{local:next.handle}} #}
+{# endif #}
+{# return null #}"#
   }
   scenarios: [
     {# if "{{input:scenario.title}}" != r"" #}

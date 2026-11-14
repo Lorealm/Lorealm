@@ -244,7 +244,12 @@ async fn plugin_over_the_memory_limit_fails() {
 
         let result = plugin.prompt_build(ask("hog memory")).await;
         assert!(
-            matches!(result, Err(PluginError::OutOfMemory { limit: MEMORY_LIMIT })),
+            matches!(
+                result,
+                Err(PluginError::OutOfMemory {
+                    limit: MEMORY_LIMIT
+                })
+            ),
             "{name}: {:?}",
             result.err()
         );
