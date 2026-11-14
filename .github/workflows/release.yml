@@ -79,6 +79,9 @@ jobs:
           bun install --frozen-lockfile
           (cd packages/ui && bun run prepack)
           (cd apps/desktop && bun run tauri build)
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.os }}
@@ -89,6 +92,8 @@ jobs:
             frontend/apps/desktop/src-tauri/target/release/bundle/*/*.msi
             frontend/apps/desktop/src-tauri/target/release/bundle/*/*.exe
             frontend/apps/desktop/src-tauri/target/release/bundle/*/*.dmg
+            frontend/apps/desktop/src-tauri/target/release/bundle/*/*.app.tar.gz
+            frontend/apps/desktop/src-tauri/target/release/bundle/*/*.sig
 
   release:
     needs: [server, web, desktop]
@@ -102,7 +107,31 @@ jobs:
           merge-multiple: true
       - run: |
           mkdir assets && find out -type f -exec mv -t assets {} +
-          cd assets && sha256sum * > SHA256SUMS
+          cd assets
+          shopt -s nullglob
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME"
+          platforms='{}'
+          for sig in *.sig; do
+            file="${sig%.sig}"
+            case "$file" in
+              *.AppImage) key=linux-x86_64-appimage ;;
+              *.deb) key=linux-x86_64-deb ;;
+              *.rpm) key=linux-x86_64-rpm ;;
+              *-setup.exe) key=windows-x86_64-nsis ;;
+              *.msi) key=windows-x86_64-msi ;;
+              *.app.tar.gz) key=darwin-aarch64-app ;;
+              *) echo "::error::no updater platform for $file"; exit 1 ;;
+            esac
+            [ -f "$file" ] || { echo "::error::$sig has no matching bundle"; exit 1; }
+            platforms=$(jq --arg k "$key" --rawfile sig "$sig" --arg url "$base/$file" \
+              '. + {($k): {signature: ($sig | rtrimstr("\n")), url: $url}}' <<<"$platforms")
+          done
+          [ "$platforms" != '{}' ] || { echo "::error::no signed update bundles were built"; exit 1; }
+          jq -n --arg v "${GITHUB_REF_NAME#v}" --arg d "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson p "$platforms" \
+            '{version: $v, pub_date: $d, platforms: $p}' > latest.json
+          jq . latest.json
+
+          sha256sum * > SHA256SUMS
           gh release create "$GITHUB_REF_NAME" --draft --generate-notes --repo "$GITHUB_REPOSITORY" *
         env:
           GH_TOKEN: ${{ github.token }}
