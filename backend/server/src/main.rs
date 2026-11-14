@@ -1,4 +1,5 @@
 use std::{
+    future::IntoFuture,
     net::{IpAddr, SocketAddr},
     sync::Arc,
     time::Duration,
@@ -13,6 +14,7 @@ use tower_http::{
     services::{ServeDir, ServeFile},
     set_header::SetResponseHeaderLayer,
 };
+use tokio_util::sync::CancellationToken;
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::{
@@ -69,7 +71,7 @@ async fn main() -> anyhow::Result<()> {
         routes::api_routes(Arc::clone(&state), session_state).await,
     );
 
-    let _cleanup = state
+    let cleanup = state
         .services()
         .start_cleanup_task(Duration::from_secs(cfg_task.cleanup_interval));
 
@@ -123,12 +125,69 @@ async fn main() -> anyhow::Result<()> {
     let listener = tokio::net::TcpListener::bind(addr)
         .await
         .with_context(|| format!("could not bind to {addr}; is the port already in use?"))?;
-    axum::serve(
+    let stop = CancellationToken::new();
+    let server = axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
-    .await
-    .context("server stopped unexpectedly")?;
+    .with_graceful_shutdown(stop.clone().cancelled_owned())
+    .into_future();
+    let mut server = std::pin::pin!(server);
+
+    tokio::select! {
+        res = &mut server => {
+            res.context("server stopped unexpectedly")?;
+            anyhow::bail!("server stopped unexpectedly");
+        }
+        () = shutdown_signal() => {}
+    }
+
+    tracing::info!(
+        "Shutting down: finishing in-flight requests (up to {}s)",
+        SHUTDOWN_DRAIN.as_secs()
+    );
+    stop.cancel();
+    match tokio::time::timeout(SHUTDOWN_DRAIN, server).await {
+        Ok(res) => res.context("server failed while shutting down")?,
+        Err(_) => tracing::warn!("requests still open after the drain period, closing them"),
+    }
+
+    cleanup.abort();
+    state.services().plugins().shutdown().await;
+    tracing::info!("Shutdown complete");
 
     Ok(())
+}
+
+/// How long in-flight requests get to finish once shutdown starts.
+const SHUTDOWN_DRAIN: Duration = Duration::from_secs(5);
+
+/// Resolves on SIGTERM or Ctrl+C.
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        if let Err(e) = tokio::signal::ctrl_c().await {
+            tracing::error!("could not listen for Ctrl+C: {e}");
+            std::future::pending::<()>().await;
+        }
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+            Ok(mut sig) => {
+                sig.recv().await;
+            }
+            Err(e) => {
+                tracing::error!("could not listen for SIGTERM: {e}");
+                std::future::pending::<()>().await;
+            }
+        }
+    };
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        () = ctrl_c => tracing::info!("received Ctrl+C"),
+        () = terminate => tracing::info!("received SIGTERM"),
+    }
 }

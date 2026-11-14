@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use axum::Router;
+use axum::{Router, routing::get};
 
 use crate::{core::AppState, middleware::SessionMiddlewareState};
 
@@ -23,8 +23,14 @@ mod transfer;
 mod users;
 mod widgets;
 
+/// Liveness probe: answers as long as the server is accepting requests.
+async fn health() -> &'static str {
+    "ok"
+}
+
 pub async fn api_routes(app_state: Arc<AppState>, session_state: SessionMiddlewareState) -> Router {
     Router::new()
+        .route("/health", get(health))
         .nest(
             "/blobs",
             blobs::router(Arc::clone(&app_state), session_state.clone()),

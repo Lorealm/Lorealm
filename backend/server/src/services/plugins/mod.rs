@@ -1081,6 +1081,15 @@ impl PluginService {
         }
     }
 
+    /// Unloads every user's plugins, letting each flush with `shutdown` first.
+    /// Called once as the server stops.
+    pub async fn shutdown(&self) {
+        let users: Vec<Snowflake> = self.mounted.iter().map(|e| *e.key()).collect();
+        for user_id in users {
+            self.unmount(user_id).await;
+        }
+    }
+
     /// Unloads the plugins of every user running `handle`; they load again
     /// when next needed.
     async fn unmount_handle(&self, handle: &str) {

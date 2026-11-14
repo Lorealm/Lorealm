@@ -6,6 +6,12 @@ services:
       - "1551:1551"
     volumes:
       - lorealm:/lorealm
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:1551/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     environment:
       # Creates the admin account on first start; ignored afterwards.
       LOREALM_ADMIN_USERNAME: admin
