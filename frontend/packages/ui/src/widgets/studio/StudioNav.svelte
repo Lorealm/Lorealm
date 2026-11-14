@@ -2,17 +2,10 @@
 	import { t } from '#lib/stores/i18n.svelte.js';
 	import { navigator } from '#lib/navigation/navigator.js';
 	import type { StudioSection } from '#lib/navigation/routes.js';
-	import { realmStore } from '#lib/stores/realm.svelte.js';
 	import { importFiles } from '#lib/stores/transfer.js';
 	import { Upload } from '@lucide/svelte';
 
 	let { section }: { section: StudioSection } = $props();
-
-	var selectedWorld = $state();
-
-	const realms = $derived(realmStore.summaries);
-
-	const activeRealmExists = $derived(selectedWorld !== 'None');
 
 	let inputEl: HTMLInputElement;
 
@@ -24,7 +17,6 @@
 	}
 
 	const sections: Array<{ id: StudioSection; go: () => void }> = [
-		{ id: 'realm', go: () => navigator.start().studio().realm() },
 		{ id: 'characters', go: () => navigator.start().studio().characters() },
 		{ id: 'lorebooks', go: () => navigator.start().studio().lorebooks() },
 		{ id: 'templates', go: () => navigator.start().studio().templates() },
@@ -36,20 +28,10 @@
 </script>
 
 <nav class="studioNav">
-	<select bind:value={selectedWorld}>
-		<option value="None">{t.studio.nav.noRealm}</option>
-		<hr />
-		{#each realms as realm (realm.id)}
-			<option>{realm.name}</option>
-		{/each}
-	</select>
-	<hr />
 	{#each sections as { id, go } (id)}
-		{#if id !== 'realm' || activeRealmExists}
-			<button class="tab" class:active={section === id} onclick={go}>
-				{t.nav.studio[id]}
-			</button>
-		{/if}
+		<button class="tab" class:active={section === id} onclick={go}>
+			{t.nav.studio[id]}
+		</button>
 	{/each}
 	<input
 		bind:this={inputEl}
@@ -60,9 +42,9 @@
 		hidden
 		style="display:none"
 	/>
-	<button class="tab import" onclick={() => inputEl.click()}>
+	<button class="import" onclick={() => inputEl.click()}>
 		<Upload size={16} />
-		{t.studio.nav.import}
+		<span class="import-label">{t.studio.nav.import}</span>
 	</button>
 </nav>
 
@@ -76,18 +58,28 @@
 		backdrop-filter: var(--surface-blur);
 	}
 	.tab {
+		display: flex;
 		justify-content: center;
 		padding: var(--spacing-xs) var(--spacing-md);
 		border-radius: var(--radius-full);
 		border: 1px solid transparent;
 		background: none;
 		cursor: pointer;
+		align-items: center;
+		height: auto;
+		flex: 0 1;
 	}
 	.import {
+		justify-content: center;
+		padding: var(--spacing-sm) var(--spacing-md);
 		margin-left: auto;
+		background-color: var(--color-bg-elevated-3);
 	}
 	.tab.active {
 		border-color: currentColor;
+	}
+	.import-label {
+		margin-left: var(--spacing-sm);
 	}
 
 	@media (max-width: 768px) {
@@ -99,10 +91,6 @@
 		.studioNav > * {
 			flex-shrink: 0;
 			white-space: nowrap;
-		}
-		.studioNav select {
-			width: auto;
-			max-width: 9em;
 		}
 	}
 </style>
