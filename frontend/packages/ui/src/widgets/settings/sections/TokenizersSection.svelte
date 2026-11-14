@@ -52,7 +52,7 @@
 	</Field>
 
 	<h3>Default tokenizers</h3>
-	{#each draft.default_tokenizers as _, i (i)}
+	{#each draft.default_tokenizers, i (i)}
 		<div class="row">
 			<input type="text" bind:value={draft.default_tokenizers[i]} placeholder="hf:org/model" />
 			<button type="button" class="remove" onclick={() => removeTokenizer(i)}>Remove</button>

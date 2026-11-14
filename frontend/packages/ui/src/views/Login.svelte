@@ -35,7 +35,7 @@
 	function showError(e: unknown) {
 		if ((e as AppError).error_type == 'Server') {
 			const data = (e as ServerError).data;
-			error = `<b>${data.error_code}:</b> ${data.message}`;
+			error = `${data.error_code}: ${data.message}`;
 			return;
 		}
 		error = JSON.stringify(e);
@@ -83,7 +83,7 @@
 	<form class="login-form" onsubmit={handleSubmit}>
 		<h1>Login Page</h1>
 		{#if error}
-			<div class="error-box">{@html error}</div>
+			<div class="error-box">{error}</div>
 		{/if}
 		{#if server}
 			<div class="input-row" style="margin-bottom: var(--spacing-xs);">
