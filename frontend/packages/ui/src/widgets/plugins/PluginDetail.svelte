@@ -21,6 +21,7 @@
 		repository,
 		actions,
 		notice,
+		logs,
 		error = ''
 	}: {
 		plugin: Details;
@@ -30,6 +31,7 @@
 		repository?: string;
 		actions: Snippet;
 		notice?: Snippet;
+		logs?: Snippet;
 		error?: string;
 	} = $props();
 
@@ -37,6 +39,7 @@
 	const permissionLabels: Record<string, string> = $derived(t.plugins.permissions);
 
 	let rendered = $state<string | null | undefined>(undefined);
+	let tab = $state<'readme' | 'logs'>('readme');
 
 	$effect(() => {
 		rendered = undefined;
@@ -109,17 +112,39 @@
 		{/if}
 	</aside>
 
-	<section class="readme">
-		{#if rendered === undefined}
-			<p class="muted">{t.plugins.loading}</p>
-		{:else if rendered === null}
-			<p class="muted">{t.plugins.noReadme}</p>
-		{:else}
-			<!-- Sanitized with DOMPurify. -->
-			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-			<div onclickcapture={openLinksOutside}>{@html rendered}</div>
+	<div class="body">
+		{#if logs}
+			<div class="tabs" role="tablist" aria-label={t.plugins.detailTabs.list}>
+				{#each ['readme', 'logs'] as const as key (key)}
+					<button
+						type="button"
+						role="tab"
+						aria-selected={tab === key}
+						class:active={tab === key}
+						onclick={() => (tab = key)}
+					>
+						{t.plugins.detailTabs[key]}
+					</button>
+				{/each}
+			</div>
 		{/if}
-	</section>
+
+		{#if logs && tab === 'logs'}
+			<section class="content">{@render logs()}</section>
+		{:else}
+			<section class="content readme">
+				{#if rendered === undefined}
+					<p class="muted">{t.plugins.loading}</p>
+				{:else if rendered === null}
+					<p class="muted">{t.plugins.noReadme}</p>
+				{:else}
+					<!-- Sanitized with DOMPurify. -->
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+					<div onclickcapture={openLinksOutside}>{@html rendered}</div>
+				{/if}
+			</section>
+		{/if}
+	</div>
 </div>
 
 <style>
@@ -220,9 +245,42 @@
 		font-family: var(--font-family-mono);
 	}
 
-	.readme {
+	.body {
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+		min-width: 0;
+	}
+	.tabs {
+		display: flex;
+		flex: 0 0 auto;
+		gap: var(--spacing-xs);
+		padding: 0 var(--spacing-lg);
+		border-bottom: 1px solid var(--color-border-subtle);
+	}
+	.tabs button {
+		padding: var(--spacing-sm) var(--spacing-md);
+		background: transparent;
+		border: none;
+		border-bottom: 2px solid transparent;
+		color: var(--color-text-muted);
+		font-family: var(--font-family-heading);
+		font-size: var(--font-size-h6);
+	}
+	.tabs button:hover {
+		color: var(--color-text-secondary);
+	}
+	.tabs button.active {
+		border-bottom-color: var(--color-primary-light);
+		color: var(--color-text-primary);
+	}
+	.content {
+		flex: 1 1 auto;
+		min-height: 0;
 		padding: var(--spacing-lg);
 		overflow-y: auto;
+	}
+	.readme {
 		line-height: 1.6;
 		overflow-wrap: anywhere;
 	}

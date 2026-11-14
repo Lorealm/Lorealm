@@ -10,6 +10,7 @@
 	import { configStore } from '#lib/stores/serverConfig.svelte.js';
 	import { canInstall, change, installListed } from './actions.svelte.js';
 	import PluginDetail from './PluginDetail.svelte';
+	import PluginLogs from './PluginLogs.svelte';
 
 	let { handle }: { handle: string } = $props();
 
@@ -106,6 +107,9 @@
 					<Trash2 size={16} />
 				</button>
 			{/if}
+		{/snippet}
+		{#snippet logs()}
+			<PluginLogs {handle} />
 		{/snippet}
 	</PluginDetail>
 {/if}

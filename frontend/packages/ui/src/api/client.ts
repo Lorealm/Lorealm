@@ -54,6 +54,7 @@ import type {
 	Marketplace,
 	PluginCallSlot,
 	PluginEvent,
+	PluginLog,
 	PluginSettings
 } from '#lib/types/plugins.js';
 import type {
@@ -471,6 +472,7 @@ export function createApiClient(platform: PlatformAPI) {
 			/** The plugin's README, as Markdown. */
 			readme: async (handle: string) =>
 				(await http.getBlob(`/api/v1/plugins/${handle}/readme`)).text(),
+			logs: (handle: string) => http.get<Array<PluginLog>>(`/api/v1/plugins/${handle}/logs`),
 			settings: (handle: string) => http.get<PluginSettings>(`/api/v1/plugins/${handle}/settings`),
 			saveSettings: (handle: string, values: Record<string, unknown>) =>
 				http.put(`/api/v1/plugins/${handle}/settings`, values),
