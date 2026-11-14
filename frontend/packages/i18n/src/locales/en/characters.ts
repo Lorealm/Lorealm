@@ -3,6 +3,7 @@ import { plural } from './plural.js';
 /** The Characters page. */
 export const characters = {
 	chat: 'Chat',
+	showInInspector: (name: string) => `Show ${name} in the inspector`,
 	sort: 'Sort characters',
 	sortOptions: {
 		nameAsc: 'Name (A–Z)',

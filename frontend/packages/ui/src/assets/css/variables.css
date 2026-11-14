@@ -185,6 +185,7 @@
 	--height-input-lg: 44px;
 	--inspector-widget-normal: 280px;
 	--inspector-widget-large: 340px;
+	--inspector-widget-huge: 480px;
 
 	/* TRANSITIONS */
 	--transition-fast: 0.2s;
@@ -237,15 +238,6 @@
 	--avatar-aspect-ratio: 3 / 4;
 }
 
-/*
- * Honour the OS "reduce transparency" setting.
- *
- * `:root:root` is deliberate. The active style is injected as a plain
- * `:root { ... }` block in a <style> appended to the end of <head>, which beats
- * this file on document order at equal specificity. A media query adds no
- * specificity of its own, so repeating the selector is what lets the user's
- * accessibility preference win over whatever the style asked for.
- */
 @media (prefers-reduced-transparency: reduce) {
 	:root:root {
 		--surface-blur: none;

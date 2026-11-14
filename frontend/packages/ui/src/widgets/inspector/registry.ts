@@ -2,13 +2,20 @@ import type { Component } from 'svelte';
 import AuthorNoteWidget from './widgets/AuthorNoteWidget.svelte';
 import CharacterImageWidget from './widgets/CharacterImageWidget.svelte';
 import ContextWidget from './widgets/ContextWidget.svelte';
+import CreatorNotesWidget from './widgets/CreatorNotesWidget.svelte';
 import RealmAgentWidget from './widgets/RealmAgentWidget.svelte';
 import StateWidget from './widgets/StateWidget.svelte';
 import TemplateWidget from './widgets/TemplateWidget.svelte';
 import { t } from '#lib/stores/i18n.svelte.js';
 
 export type BuiltinWidgetKey =
-	'character-image' | 'template' | 'context' | 'state' | 'realm-agent' | 'author-note';
+	| 'character-image'
+	| 'template'
+	| 'context'
+	| 'state'
+	| 'realm-agent'
+	| 'author-note'
+	| 'creator-notes';
 
 /** A plugin's inspector slot. */
 export type PluginWidgetKey = `plugin:${string}:${string}`;
@@ -52,6 +59,12 @@ export const inspectorRegistry: Record<BuiltinWidgetKey, { label: string; compon
 				return t.inspector.widgets.authorNote;
 			},
 			component: AuthorNoteWidget
+		},
+		'creator-notes': {
+			get label() {
+				return t.inspector.widgets.creatorNotes;
+			},
+			component: CreatorNotesWidget
 		}
 	};
 

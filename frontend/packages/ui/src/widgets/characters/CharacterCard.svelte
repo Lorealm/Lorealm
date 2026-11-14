@@ -8,9 +8,11 @@
 	import type { CharacterSummary } from '#lib/types/character.js';
 	import { Ellipsis, MessageCircle, MessageSquarePlus, Pencil } from '@lucide/svelte';
 	import PopupMenu from '#lib/components/PopupMenu.svelte';
+	import { inspectorFocus } from '#lib/stores/inspectorFocus.svelte.js';
 
 	let { summary }: { summary: CharacterSummary } = $props();
 	let imageEndpoint = $derived(blobUrl(summary.avatar_uri));
+	let selected = $derived(inspectorFocus.characterId === summary.id);
 
 	async function startChat(startNew: boolean = false) {
 		navigator.start().write();
@@ -33,8 +35,16 @@
 	}
 </script>
 
-<div class="card">
+<div class="card" class:selected>
 	<TransportImage src={imageEndpoint} alt={summary.name} />
+
+	<button
+		class="select"
+		type="button"
+		aria-pressed={selected}
+		aria-label={t.characters.showInInspector(summary.display_name ?? summary.name)}
+		onclick={() => inspectorFocus.toggleCharacter(summary.id)}
+	></button>
 
 	<div class="overlay">
 		<h6 class="name">{summary.display_name ?? summary.name}</h6>
@@ -82,6 +92,26 @@
 
 	.card:hover {
 		box-shadow: var(--shadow-lg);
+	}
+
+	.card.selected {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 2px;
+	}
+
+	.select {
+		position: absolute;
+		inset: 0;
+		z-index: var(--z-index-base);
+		padding: 0;
+		border: none;
+		border-radius: 0;
+		background: transparent;
+		cursor: pointer;
+	}
+	.select:focus-visible {
+		outline: 2px solid var(--color-border-active);
+		outline-offset: -2px;
 	}
 
 	.card :global(img) {
