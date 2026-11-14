@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["storage", "llm_providers", "encryption", "server", "plugins", "plugin_manifest", "tools/*"]
+default-members = ["server"]
 
 [workspace.dependencies]
 
