@@ -52,6 +52,4 @@ The API isn't stable before 1.0: each new version needs a rebuild against the ma
 - `Result` and `Error`: `?` works on any error that can be displayed, and the message reaches the user or the plugin's log.
 - `bindings`: the generated bindings as they are, for anything the rest doesn't cover.
 
-`plugins/hypebot` and `plugins/tts` in the Lorealm repository are complete examples.
-
 For the plugin's frontend, [`@lorealm/plugin`](../js) has the types and docs for `lorealm.call` and `lorealm.on`, the other end of `Plugin::frontend` and `host::send_frontend`.
