@@ -22,14 +22,17 @@ const tauriAuth: AuthApi = {
 		console.log("[HYDRATE] Hydrating authentication state");
 		// Read stored token, then validate it against your server
 		const token = await invoke<string | null>("get_stored_token");
-		if (!token) throw new Error("No token found");
+		if (!token) return null;
 
 		try {
 			const user = await invoke<User>("validate_token");
 			return { token, user };
 		} catch (e) {
 			console.log("[HYDRATE] Error encountered: " + JSON.stringify(e));
-			await invoke("clear_stored_token");
+			// Forget the token only if the server rejected it.
+			if ((e as { error_type?: string }).error_type === "Server") {
+				await invoke("clear_stored_token");
+			}
 			return null;
 		}
 	},
@@ -44,7 +47,13 @@ const tauriAuth: AuthApi = {
 	},
 
 	async logout() {
-		await invoke("clear_stored_token");
+		try {
+			await invoke("http_post", { path: "/api/v1/users/logout", body: null });
+		} catch (e) {
+			console.warn("[LOGOUT] Server logout failed: " + JSON.stringify(e));
+		} finally {
+			await invoke("clear_stored_token");
+		}
 	},
 };
 
@@ -59,6 +68,14 @@ export class ApiError extends Error {
 		super(message);
 		this.name = "ApiError";
 	}
+}
+
+let sessionEnded = false;
+
+function endSession() {
+	if (sessionEnded) return;
+	sessionEnded = true;
+	invoke("clear_stored_token").finally(() => location.reload());
 }
 
 function check<T>(res: HttpResponse): T {
@@ -76,6 +93,7 @@ function check<T>(res: HttpResponse): T {
 		} else {
 			message = `HTTP ${res.status}`;
 		}
+		if (code === "auth.session_invalid" || code === "auth.missing_token") endSession();
 		throw new ApiError(res.status, code, message, body, details);
 	}
 	return res.body as T;

@@ -43,17 +43,17 @@
 		align-items: stretch;
 		justify-content: flex-end;
 		height: var(--height-titlebar, 36px);
-		background: var(--color-bg-base);
+		background:
+			linear-gradient(var(--color-bg-elevated), var(--color-bg-elevated)), var(--color-bg-base);
+		-webkit-backdrop-filter: var(--surface-blur);
+		backdrop-filter: var(--surface-blur);
 		border-bottom: 1px solid var(--color-border-subtle);
 		user-select: none;
 		-webkit-user-select: none;
 	}
 
-	/* macOS overlay: transparent so the app background shows through behind the
-	   native traffic lights; pad the left so content clears them. */
 	.titlebar.overlay {
 		padding-left: 80px;
-		background-color: var(--color-bg-elevated-3);
 	}
 
 	.drag {
