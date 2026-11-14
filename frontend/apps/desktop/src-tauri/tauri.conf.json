@@ -16,11 +16,14 @@
         "width": 1300,
         "height": 800,
         "label": "main",
-  			"visible": false,
-  			"decorations": true,
-  			"titleBarStyle": "Overlay",
-  			"hiddenTitle": true,
-  			"trafficLightPosition": { "x": 18, "y": 16 }
+        "visible": false,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 18,
+          "y": 16
+        }
       }
     ],
     "security": {
@@ -38,12 +41,16 @@
         "base-uri": "'self'",
         "form-action": "'none'"
       },
-      "dangerousDisableAssetCspModification": ["script-src", "style-src"]
+      "dangerousDisableAssetCspModification": [
+        "script-src",
+        "style-src"
+      ]
     }
   },
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -51,6 +58,15 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "macOS": { "signingIdentity": "-" }
+    "macOS": {
+      "signingIdentity": "-"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJDQTYzREEwNDAyOTIxMTkKUldRWklTbEFvRDJtdkp4L0FVUTNWZGdtYzhqRU45WnhwbC93ZVM5akhBSU1ka1VZTVBoNi82RVYK",
+      "endpoints": ["https://github.com/Lorealm/Lorealm/releases/latest/download/latest.json"],
+      "windows": { "installMode": "passive" }
+    }
   }
 }

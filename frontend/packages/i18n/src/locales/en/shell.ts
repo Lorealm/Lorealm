@@ -18,5 +18,14 @@ export const shell = {
 		maximize: 'Maximize',
 		close: 'Close'
 	},
-	underConstruction: 'Under Construction'
+	underConstruction: 'Under Construction',
+	update: {
+		title: 'Update available',
+		message: (version: string) => `Lorealm ${version} is ready to install.`,
+		install: 'Restart and update',
+		later: 'Later',
+		installingTitle: 'Updating',
+		installing: 'Downloading the update. Lorealm will restart when it’s done.',
+		failed: 'The update couldn’t be installed'
+	}
 } as const;

@@ -10,6 +10,8 @@ export interface PlatformAPI {
 	capabilities: Set<KnownCapability | (string & {})>;
 	window?: WindowControls;
 	server?: ServerControls;
+	/** Absent on platforms that update some other way, like the web build. */
+	updates?: UpdateControls;
 }
 
 export interface AuthApi {
@@ -82,4 +84,17 @@ export interface LocalStore {
 export interface ServerControls {
 	url(): Promise<string>;
 	setUrl(url: string): Promise<void>;
+}
+
+/** Self-updating for installed clients. */
+export interface UpdateControls {
+	/** The newer release on offer, or null when this build is current. */
+	check(): Promise<AvailableUpdate | null>;
+}
+
+export interface AvailableUpdate {
+	version: string;
+	notes?: string;
+	/** Downloads and installs the update, then restarts the app. */
+	install(): Promise<void>;
 }
