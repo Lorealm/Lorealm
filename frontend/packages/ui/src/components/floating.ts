@@ -20,9 +20,6 @@ function clamp(value: number, min: number, max: number): number {
 /**
  * Pins `panel` (a `position: fixed` element) beside `anchor`, moving it to the
  * opposite side when it doesn't fit and keeping it inside the viewport.
- * `align: 'start'` lines the edges up, as a dropdown does; `'center'` is for
- * tooltips. Reading the panel's natural size means its `max-height` is lifted
- * first, so a panel that shrank to fit one side can still grow back on the other.
  */
 export function placeFloating(
 	panel: HTMLElement,
@@ -30,8 +27,15 @@ export function placeFloating(
 	{
 		side = 'bottom',
 		align = 'start',
-		gap = 4
-	}: { side?: Side; align?: 'start' | 'center'; gap?: number } = {}
+		gap = 4,
+		bounds
+	}: {
+		side?: Side;
+		align?: 'start' | 'center' | 'end' | 'auto';
+		gap?: number;
+		/** The box `align: 'auto'` keeps the panel inside; defaults to the viewport. */
+		bounds?: DOMRect;
+	} = {}
 ) {
 	panel.style.maxHeight = '';
 	const { width, height } = panel.getBoundingClientRect();
@@ -44,7 +48,13 @@ export function placeFloating(
 	let left: number;
 	let top: number;
 	if (vertical) {
-		const start = align === 'center' ? anchor.left + (anchor.width - width) / 2 : anchor.left;
+		const start =
+			align === 'center'
+				? anchor.left + (anchor.width - width) / 2
+				: align === 'end' ||
+					  (align === 'auto' && anchor.left + width > (bounds?.right ?? window.innerWidth))
+					? anchor.right - width
+					: anchor.left;
 		left = clamp(start, MARGIN, window.innerWidth - width - MARGIN);
 		const available = room(anchor, final) - gap;
 		if (height > available) panel.style.maxHeight = `${Math.max(available, 0)}px`;
