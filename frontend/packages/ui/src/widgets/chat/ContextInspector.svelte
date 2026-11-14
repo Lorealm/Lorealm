@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { tick } from 'svelte';
 	import { useApi } from '#lib/api/client.js';
@@ -84,7 +85,6 @@
 	);
 	let groups = $derived(blocks ? groupAdjacentBlocks(blocks) : null);
 
-	/** Blocks flattened in context order, each tagged with its owning group. */
 	let flat = $derived.by(() => {
 		const out: { block: TracedBlock; gi: number }[] = [];
 		(groups ?? []).forEach((g, gi) => g.blocks.forEach((block) => out.push({ block, gi })));
@@ -118,7 +118,6 @@
 		return m;
 	});
 
-	/** The same per-block sizes, folded by budgeting source instead of by node. */
 	let sourceTotals = $derived.by<SourceCounts>(() => {
 		const out: SourceCounts = {};
 		flat.forEach((f, i) => {
@@ -129,24 +128,17 @@
 	});
 	let sourceRows = $derived(rankSources(sourceTotals));
 
-	/** What the server counted at assembly time. */
 	let recorded = $derived(
 		contextInspector.message ? parseUsageReport(contextInspector.message.metadata) : null
 	);
+
 	let trimmedRows = $derived(recorded ? rankSources(recorded.trimmed) : []);
-	/** Trimmed tokens aren't part of the visible total, so these bars are scaled
-	 *  against the largest shed source instead. */
 	let trimmedMax = $derived(trimmedRows.reduce((m, [, n]) => Math.max(m, n), 0));
 
 	function pct(n: number, of: number): number {
 		return of > 0 ? Math.min(100, (n / of) * 100) : 0;
 	}
 
-	/**
-	 * The panel recounts the trace live, but rehydrates message and character
-	 * blocks from whatever is current — so an edit since this turn shows up as a
-	 * gap against the recorded total. Only flagged once it is worth explaining.
-	 */
 	let drift = $derived.by(() => {
 		if (!recorded || display.unit !== 'tokens') return null;
 		const then = countsTotal(recorded.kept);
@@ -180,7 +172,7 @@
 					typeof res.total_tokens === 'number' ? res.total_tokens : norm.reduce((a, b) => a + b, 0);
 				tokenData = { unit: 'tokens', counts: norm, total };
 			})
-			.catch((e) => showApiError(e, { title: 'Token count failed' }));
+			.catch((e) => showApiError(e, { title: t.chat.inspector.tokenCountFailed }));
 	});
 
 	let templateName = $state<string | null>(null);
@@ -232,32 +224,25 @@
 								: {};
 					}
 				})
-				// Deliberately not a toast: a hover hint failing shouldn't
-				// interrupt, but it mustn't render as a table of dashes either.
 				.catch(() => {
 					if (contextInspector.message?.id === msgId) profileFailed = true;
 				});
 	});
 
-	/** The Sampling group as ProfileEditor defines it. */
-	const SAMPLING: [string, string][] = [
-		['temperature', 'Temperature'],
-		['top_p', 'Top P'],
-		['top_k', 'Top K'],
-		['min_p', 'Min P']
+	const sampling = (): [string, string][] => [
+		['temperature', t.chat.inspector.sampling.temperature],
+		['top_p', t.chat.inspector.sampling.topP],
+		['top_k', t.chat.inspector.sampling.topK],
+		['min_p', t.chat.inspector.sampling.minP]
 	];
 
 	let samplingRows = $derived(
-		SAMPLING.map(([key, label]) => {
+		sampling().map(([key, label]) => {
 			const v = profileParams[key];
 			return { label, value: typeof v === 'number' ? String(v) : '—' };
 		})
 	);
 
-	/**
-	 * Prefer the budget the turn was actually fitted to. Profiles are mutable
-	 * and unversioned, so the live one can disagree with the counts beside it.
-	 */
 	let budgetShown = $derived(recorded?.budget ?? profileBudget);
 	let budgetIsLive = $derived(recorded?.budget == null && profileBudget !== null);
 	let hintReady = $derived(templateName !== null || profileName !== null || profileFailed);
@@ -295,7 +280,7 @@
 			.catch((e) => {
 				if (contextInspector.message?.id !== msgId) return;
 				reconLoading = false;
-				showApiError(e, { title: 'Failed to load state' });
+				showApiError(e, { title: t.chat.inspector.stateFailed });
 			});
 	});
 
@@ -345,7 +330,7 @@
 			return {
 				round: typeof o.round === 'number' ? o.round : 0,
 				id: typeof o.id === 'string' ? o.id : '',
-				name: typeof o.name === 'string' ? o.name : '(unknown)',
+				name: typeof o.name === 'string' ? o.name : t.chat.inspector.unknownTool,
 				input: o.input,
 				output: o.output,
 				isError: o.is_error === true,
@@ -383,7 +368,6 @@
 	type Tab = 'context' | 'state' | 'tools';
 	let tab = $state<Tab>('context');
 
-	/** Context tab: show the blocks as one continuous transcript instead of cards. */
 	let raw = $state(false);
 
 	let rawText = $derived.by(() =>
@@ -451,25 +435,27 @@
 						' '
 					)}{/if}
 			</span>
-			<span class="num">{fmtCount(display.counts[fi] ?? 0)} {display.unit}</span>
+			<span class="num"
+				>{fmtCount(display.counts[fi] ?? 0)} {t.chat.inspector.units[display.unit]}</span
+			>
 		</div>
 
 		{#if !compact}
-			<div class="entry-title">{block.origin.node_title || '(untitled node)'}</div>
+			<div class="entry-title">{block.origin.node_title || t.chat.inspector.untitledNode}</div>
 			<div class="crumbs">
 				{#if content.label}<span class="ref">{content.label}</span>{/if}
 				{#if block.origin.kind.kind === 'source'}<span>{block.origin.kind.source_id || '—'}</span
 					>{/if}
 				{#if block.origin.path.length > 0}<span class="path">{block.origin.path.join(' › ')}</span
 					>{/if}
-				<span>node {block.origin.node_id || '—'}</span>
+				<span>{t.chat.inspector.node(block.origin.node_id || '—')}</span>
 			</div>
 		{/if}
 
 		{#if content.text}
 			<pre class="content">{content.text}</pre>
 		{:else}
-			<div class="unresolved">content not reconstructed</div>
+			<div class="unresolved">{t.chat.inspector.notReconstructed}</div>
 		{/if}
 	</div>
 {/snippet}
@@ -483,23 +469,23 @@
 			if (e.target === e.currentTarget) contextInspector.close();
 		}}
 	>
-		<div class="modal" role="dialog" aria-modal="true" aria-label="Context inspector">
+		<div class="modal" role="dialog" aria-modal="true" aria-label={t.chat.inspector.dialog}>
 			<div class="header">
 				<div class="titles">
-					<h2>Context Inspector</h2>
+					<h2>{t.chat.inspector.title}</h2>
 					<span class="sub">
 						{#if blocks === null}
-							no trace on this message
+							{t.chat.inspector.noTrace}
 						{:else}
-							{blocks.length} block{blocks.length === 1 ? '' : 's'} · {fmtCount(display.total)}
-							{display.unit}
+							{t.chat.inspector.blocks(blocks.length)} · {fmtCount(display.total)}
+							{t.chat.inspector.units[display.unit]}
 							{#if templateName}
 								<span class="sep">·</span>{templateName}
 								{#if hintReady}
 									<button
 										type="button"
 										class="hint-btn"
-										aria-label="Generation settings"
+										aria-label={t.chat.inspector.generationSettings}
 										{@attach tooltip({ content: setupCard, side: 'bottom' })}
 									>
 										<Info />
@@ -511,12 +497,12 @@
 											{/if}
 											<dl>
 												<div>
-													<dt>Token budget</dt>
+													<dt>{t.chat.inspector.tokenBudget}</dt>
 													<dd>
 														{budgetShown === null
 															? '—'
 															: budgetShown === 0
-																? 'unlimited'
+																? t.chat.inspector.unlimited
 																: fmtCount(budgetShown)}
 													</dd>
 												</div>
@@ -530,15 +516,12 @@
 												{/if}
 											</dl>
 											{#if profileFailed}
-												<span class="hint-src">couldn't load the connection profile</span>
+												<span class="hint-src">{t.chat.inspector.profileFailed}</span>
 											{:else if profileName}
-												<span class="hint-src">from {profileName}</span>
+												<span class="hint-src">{t.chat.inspector.fromProfile(profileName)}</span>
 											{/if}
 											{#if budgetIsLive}
-												<span class="hint-src"
-													>Token budget wasn't recorded on this turn, so this is the profile's
-													current value.</span
-												>
+												<span class="hint-src">{t.chat.inspector.budgetNotRecorded}</span>
 											{/if}
 										</span>
 									{/snippet}
@@ -551,7 +534,7 @@
 				</div>
 				<button
 					class="icon-btn"
-					{@attach tooltip('Close')}
+					{@attach tooltip(t.common.close)}
 					onclick={() => contextInspector.close()}
 				>
 					<X />
@@ -561,13 +544,14 @@
 			<div class="columns">
 				<aside class="left">
 					<div class="left-head">
-						<span>Layout</span>
-						<span class="num">{fmtCount(display.total)} {display.unit}</span>
+						<span>{t.chat.inspector.layout}</span>
+						<span class="num">{fmtCount(display.total)} {t.chat.inspector.units[display.unit]}</span
+						>
 					</div>
 					{#if flat.length === 0}
-						<div class="left-empty">no blocks</div>
+						<div class="left-empty">{t.chat.inspector.noBlocks}</div>
 					{:else}
-						<div class="minimap" role="list" aria-label="Context layout, oldest at top">
+						<div class="minimap" role="list" aria-label={t.chat.inspector.layoutAria}>
 							{#each flat as f, i (i)}
 								<button
 									type="button"
@@ -575,35 +559,31 @@
 									class:active={selected === i}
 									style="flex-grow: {display.counts[i] ?? 0}"
 									{@attach tooltip(
-										`${f.block.origin.node_title || 'node'} · ${f.block.role} · ${fmtCount(
+										`${f.block.origin.node_title || t.chat.inspector.nodeFallback} · ${f.block.role} · ${fmtCount(
 											display.counts[i] ?? 0
-										)} ${display.unit}`
+										)} ${t.chat.inspector.units[display.unit]}`
 									)}
-									aria-label="{f.block.role} block, {fmtCount(
-										display.counts[i] ?? 0
-									)} {display.unit}"
+									aria-label={t.chat.inspector.blockAria(
+										f.block.role,
+										`${fmtCount(display.counts[i] ?? 0)} ${t.chat.inspector.units[display.unit]}`
+									)}
 									onclick={() => focusBlock(i)}
 								></button>
 							{/each}
 						</div>
 					{/if}
 					<div class="legend">
-						<span class="swatch accent-system"></span>system
-						<span class="swatch accent-user"></span>user
-						<span class="swatch accent-assistant"></span>assistant
+						<span class="swatch accent-system"></span>{t.chat.inspector.roles.system}
+						<span class="swatch accent-user"></span>{t.chat.inspector.roles.user}
+						<span class="swatch accent-assistant"></span>{t.chat.inspector.roles.assistant}
 					</div>
 
 					{#if sourceRows.length > 0}
 						<div class="left-head">
-							<span>By source</span>
+							<span>{t.chat.inspector.bySource}</span>
 							{#if drift !== null}
-								<span
-									class="drift"
-									{@attach tooltip(
-										`Recorded ${fmtCount(drift)} tokens when this turn was sent. The difference is content edited since — the panel recounts what those blocks say now.`
-									)}
-								>
-									was {fmtCount(drift)}
+								<span class="drift" {@attach tooltip(t.chat.inspector.drift(fmtCount(drift)))}>
+									{t.chat.inspector.was(fmtCount(drift))}
 								</span>
 							{/if}
 						</div>
@@ -612,7 +592,7 @@
 								<li
 									style="--share: {pct(n, display.total)}%"
 									{@attach tooltip(
-										`${SOURCE_LABELS[source]} · ${fmtCount(n)} ${display.unit} · ${pct(
+										`${SOURCE_LABELS[source]} · ${fmtCount(n)} ${t.chat.inspector.units[display.unit]} · ${pct(
 											n,
 											display.total
 										).toFixed(1)}%`
@@ -628,15 +608,13 @@
 
 					{#if trimmedRows.length > 0}
 						<div class="left-head">
-							<span>Trimmed to fit</span>
+							<span>{t.chat.inspector.trimmed}</span>
 						</div>
 						<ul class="sources trimmed">
 							{#each trimmedRows as [source, n] (source)}
 								<li
 									style="--share: {pct(n, trimmedMax)}%"
-									{@attach tooltip(
-										`${SOURCE_LABELS[source]} · ${fmtCount(n)} tokens shed to fit the budget`
-									)}
+									{@attach tooltip(t.chat.inspector.shed(SOURCE_LABELS[source], fmtCount(n)))}
 								>
 									<span class="fill" aria-hidden="true"></span>
 									<span class="src-name">{SOURCE_LABELS[source]}</span>
@@ -656,7 +634,7 @@
 							aria-selected={tab === 'context'}
 							onclick={() => (tab = 'context')}
 						>
-							Context
+							{t.chat.inspector.tabs.context}
 							{#if groups}<span class="tab-count">{groups.length}</span>{/if}
 						</button>
 						<button
@@ -666,7 +644,7 @@
 							aria-selected={tab === 'state'}
 							onclick={() => (tab = 'state')}
 						>
-							State
+							{t.chat.inspector.tabs.state}
 							{#if recon}<span class="tab-count"
 									>{activationGroups.length + persistentPools.length}</span
 								>{/if}
@@ -678,7 +656,7 @@
 							aria-selected={tab === 'tools'}
 							onclick={() => (tab = 'tools')}
 						>
-							Tools
+							{t.chat.inspector.tabs.tools}
 							{#if toolCalls.length > 0}<span class="tab-count">{toolCalls.length}</span>{/if}
 						</button>
 						{#if tab === 'context'}
@@ -686,10 +664,10 @@
 								class="raw-toggle"
 								class:active={raw}
 								aria-pressed={raw}
-								{@attach tooltip('Show the context as raw text')}
+								{@attach tooltip(t.chat.inspector.rawHint)}
 								onclick={() => (raw = !raw)}
 							>
-								Raw
+								{t.chat.inspector.raw}
 							</button>
 						{/if}
 					</div>
@@ -698,11 +676,10 @@
 						{#if tab === 'context'}
 							{#if groups === null}
 								<div class="empty">
-									This message carries no context trace. Only turns generated through the weaver
-									pipeline record one.
+									{t.chat.inspector.noTraceLong}
 								</div>
 							{:else if groups.length === 0}
-								<div class="empty">The pipeline produced no context blocks for this turn.</div>
+								<div class="empty">{t.chat.inspector.noContextBlocks}</div>
 							{:else if raw}
 								<pre class="raw">{rawText}</pre>
 							{:else}
@@ -717,9 +694,15 @@
 												<span class="chev" class:open={!collapsedGroups.has(gi)}
 													><ChevronDown /></span
 												>
-												<span class="group-title">{group.title || '(untitled node)'}</span>
-												<span class="num">{fmtCount(groupTotals.get(gi) ?? 0)} {display.unit}</span>
-												<span class="group-count">{group.blocks.length} msgs</span>
+												<span class="group-title"
+													>{group.title || t.chat.inspector.untitledNode}</span
+												>
+												<span class="num"
+													>{fmtCount(groupTotals.get(gi) ?? 0)}
+													{t.chat.inspector.units[display.unit]}</span
+												>
+												<span class="group-count">{t.chat.inspector.msgs(group.blocks.length)}</span
+												>
 											</button>
 											{#if !collapsedGroups.has(gi)}
 												{#each group.blocks as block, bi (bi)}
@@ -733,13 +716,13 @@
 								{/each}
 							{/if}
 						{:else if tab === 'state' && reconLoading && !recon}
-							<div class="empty">Loading state…</div>
+							<div class="empty">{t.chat.inspector.loadingState}</div>
 						{:else if tab === 'state' && !recon}
-							<div class="empty">No reconstructed state for this turn.</div>
+							<div class="empty">{t.chat.inspector.noState}</div>
 						{:else if tab === 'state'}
-							<div class="sub-label">Activation</div>
+							<div class="sub-label">{t.chat.inspector.activation}</div>
 							{#if activationGroups.length === 0}
-								<div class="unresolved">no activation state</div>
+								<div class="unresolved">{t.chat.inspector.noActivation}</div>
 							{:else}
 								{#each activationGroups as lore (lore.id)}
 									<button
@@ -749,7 +732,7 @@
 									>
 										<span class="badge">T{lore.currentTurn}</span>
 										{#await lorebookStore.getLorebook(lore.id)}
-											<span class="row-title mono">Loading…</span>
+											<span class="row-title mono">{t.common.loading}</span>
 										{:then lorebook}
 											<span class="row-title mono">{lorebook?.name ?? lore.id}</span>
 										{:catch}
@@ -761,7 +744,7 @@
 									{#if openLore === lore.id}
 										<div class="detail">
 											{#if lore.entries.length === 0}
-												<div class="unresolved">no tracked entries</div>
+												<div class="unresolved">{t.chat.inspector.noTrackedEntries}</div>
 											{:else}
 												{#each lore.entries as e (e.entryId)}
 													<div class="kv-row">
@@ -770,14 +753,14 @@
 															class="chip"
 															class:dim={e.lastActivated === undefined}
 															{@attach tooltip(
-																`last activated ${e.lastActivated ?? '—'} turns ago`
-															)}>act {e.lastActivated ?? '—'}</span
+																t.chat.inspector.lastActivated(String(e.lastActivated ?? '—'))
+															)}>{t.chat.inspector.act(String(e.lastActivated ?? '—'))}</span
 														>
 														<span
 															class="chip"
 															class:dim={e.sticky === undefined}
-															{@attach tooltip(`${e.sticky ?? 0} sticky turns remaining`)}
-															>stk {e.sticky ?? '—'}</span
+															{@attach tooltip(t.chat.inspector.stickyRemaining(e.sticky ?? 0))}
+															>{t.chat.inspector.stk(String(e.sticky ?? '—'))}</span
 														>
 													</div>
 												{/each}
@@ -787,9 +770,9 @@
 								{/each}
 							{/if}
 
-							<div class="sub-label">Persistent</div>
+							<div class="sub-label">{t.chat.inspector.persistent}</div>
 							{#if persistentPools.length === 0}
-								<div class="unresolved">no persistent state</div>
+								<div class="unresolved">{t.chat.inspector.noPersistent}</div>
 							{:else}
 								{#each persistentPools as pool (pool.name)}
 									<button
@@ -797,7 +780,7 @@
 										aria-expanded={openPool === pool.name}
 										onclick={() => (openPool = openPool === pool.name ? null : pool.name)}
 									>
-										<span class="kind-tag">POOL</span>
+										<span class="kind-tag">{t.chat.inspector.pool}</span>
 										<span class="row-title">{pool.name}</span>
 										<span class="group-count">{pool.entries.length}</span>
 										<span class="chev" class:open={openPool === pool.name}><ChevronDown /></span>
@@ -805,7 +788,7 @@
 									{#if openPool === pool.name}
 										<div class="detail">
 											{#if pool.entries.length === 0}
-												<div class="unresolved">empty pool</div>
+												<div class="unresolved">{t.chat.inspector.emptyPool}</div>
 											{:else}
 												{#each pool.entries as kv (kv.key)}
 													<div class="kv">
@@ -820,17 +803,15 @@
 							{/if}
 						{:else}
 							<div class="round-head">
-								<span class="round-label">Available</span>
+								<span class="round-label">{t.chat.inspector.available}</span>
 								{#if availableTools}
-									<span class="group-count"
-										>{availableTools.length} tool{availableTools.length === 1 ? '' : 's'}</span
-									>
+									<span class="group-count">{t.chat.inspector.tools(availableTools.length)}</span>
 								{/if}
 							</div>
 							{#if availableTools === null}
-								<div class="empty">This message doesn't record which tools were available.</div>
+								<div class="empty">{t.chat.inspector.noToolRecord}</div>
 							{:else if availableTools.length === 0}
-								<div class="empty">The model was offered no tools on this turn.</div>
+								<div class="empty">{t.chat.inspector.noToolsOffered}</div>
 							{:else}
 								<div class="offered">
 									{#each availableTools as name (name)}
@@ -840,14 +821,12 @@
 							{/if}
 
 							{#if toolCalls.length === 0}
-								<div class="empty">No tool calls on this turn.</div>
+								<div class="empty">{t.chat.inspector.noToolCalls}</div>
 							{/if}
 							{#each toolRounds as rnd (rnd.round)}
 								<div class="round-head">
-									<span class="round-label">Round {rnd.round}</span>
-									<span class="group-count"
-										>{rnd.calls.length} call{rnd.calls.length === 1 ? '' : 's'}</span
-									>
+									<span class="round-label">{t.chat.inspector.round(rnd.round)}</span>
+									<span class="group-count">{t.chat.inspector.calls(rnd.calls.length)}</span>
 								</div>
 								{#each rnd.calls as call, ci (ci)}
 									{@const key = `${rnd.round}:${ci}`}
@@ -860,15 +839,15 @@
 											<span class="chev" class:open={openCalls.has(key)}><ChevronDown /></span>
 											<span class="tool-name">{call.name}</span>
 											<span class="chip" class:chip-err={call.isError}
-												>{call.isError ? 'error' : 'ok'}</span
+												>{call.isError ? t.chat.inspector.error : t.chat.inspector.ok}</span
 											>
 											<span class="dur">{fmtDuration(call.durationMs)}</span>
 										</button>
 										{#if openCalls.has(key)}
 											<div class="tool-body">
-												<div class="io-label">input</div>
+												<div class="io-label">{t.chat.inspector.input}</div>
 												<pre class="io">{fmtJson(call.input)}</pre>
-												<div class="io-label">output</div>
+												<div class="io-label">{t.chat.inspector.output}</div>
 												<pre class="io" class:io-err={call.isError}>{fmtJson(call.output)}</pre>
 											</div>
 										{/if}
@@ -1051,10 +1030,6 @@
 		list-style: none;
 	}
 
-	/* The column is a fixed 200px, so a name/meter/number three-column layout
-	   squeezes the number off the end. Each row is instead one full-width track
-	   with the label and count sitting on top of it: the count is never the
-	   thing that gets cut, and the name ellipsizes if anything has to give. */
 	.sources li {
 		position: relative;
 		display: flex;
@@ -1072,8 +1047,6 @@
 		position: absolute;
 		inset: 0 auto 0 0;
 		width: var(--share);
-		/* A tint rather than a solid: the text crosses the fill edge, so it has
-		   to stay legible on both sides of it. */
 		background: var(--color-text-accent);
 		opacity: 0.28;
 	}
@@ -1097,9 +1070,6 @@
 	.sources.trimmed .num {
 		color: var(--color-text-muted);
 	}
-	/* Deliberately unpositioned: the card anchors to `.titles` instead, so its
-	   placement doesn't drift with the length of the template and model names
-	   and can't run past the modal, which clips overflow. */
 	.hint-btn {
 		display: inline-flex;
 		padding: 0;

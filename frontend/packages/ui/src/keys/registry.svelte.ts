@@ -27,7 +27,12 @@ class CommandRegistry {
 	register(commands: Command[], source: CommandSource = 'core'): () => void {
 		const ids: string[] = [];
 		for (const command of commands) {
-			this.#commands.set(command.id, { ...command, source });
+			// Copy descriptors, not values, so translated getters (`title`, `group`…) stay live.
+			const registered = Object.defineProperties(
+				{ source },
+				Object.getOwnPropertyDescriptors(command)
+			) as RegisteredCommand;
+			this.#commands.set(command.id, registered);
 			ids.push(command.id);
 		}
 		return () => {

@@ -1,16 +1,17 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { ArrowUpDown, Plus, Search } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 
 	let {
 		title,
-		createLabel = 'New',
+		createLabel,
 		oncreate,
 		creating = false,
 		query = $bindable(''),
 		sort = $bindable(''),
 		sortOptions = [],
-		searchPlaceholder = 'Search…',
+		searchPlaceholder,
 		showBuiltins = $bindable(),
 		detailOpen = false,
 		status,
@@ -40,7 +41,9 @@
 			<span class="title">{title}</span>
 			<button type="button" class="new" onclick={oncreate} disabled={creating}>
 				<Plus size={14} />
-				{creating ? 'Creating…' : createLabel}
+				{creating
+					? t.components.listSidebar.creating
+					: (createLabel ?? t.components.listSidebar.new)}
 			</button>
 		</div>
 
@@ -49,15 +52,15 @@
 				<Search size={13} />
 				<input
 					type="text"
-					placeholder={searchPlaceholder}
+					placeholder={searchPlaceholder ?? t.components.listSidebar.search}
 					bind:value={query}
-					aria-label={searchPlaceholder}
+					aria-label={searchPlaceholder ?? t.components.listSidebar.search}
 				/>
 			</div>
 			{#if sortOptions.length > 0}
 				<div class="sort">
 					<ArrowUpDown size={13} />
-					<select bind:value={sort} aria-label={`Sort ${title.toLowerCase()}`}>
+					<select bind:value={sort} aria-label={t.components.listSidebar.sort(title)}>
 						{#each sortOptions as option (option.value)}
 							<option value={option.value}>{option.label}</option>
 						{/each}
@@ -67,7 +70,7 @@
 			{#if showBuiltins !== undefined}
 				<label class="builtins">
 					<input type="checkbox" class="switch" bind:checked={showBuiltins} />
-					Show built-in
+					{t.components.listSidebar.showBuiltIn}
 				</label>
 			{/if}
 		</div>

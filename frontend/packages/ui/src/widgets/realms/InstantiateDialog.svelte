@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { ArrowLeft, ArrowRight, Play, X } from '@lucide/svelte';
 	import DOMPurify from 'dompurify';
 	import { marked } from 'marked';
@@ -94,11 +95,11 @@
 		class:wide={onIntro}
 		role="dialog"
 		aria-modal="true"
-		aria-label="Build a realm"
+		aria-label={t.realms.instantiate.title}
 	>
 		<header>
-			<h2>Build a realm</h2>
-			<button type="button" class="close" aria-label="Cancel" onclick={oncancel}>
+			<h2>{t.realms.instantiate.title}</h2>
+			<button type="button" class="close" aria-label={t.common.cancel} onclick={oncancel}>
 				<X size={14} />
 			</button>
 		</header>
@@ -113,7 +114,7 @@
 					<div class="field">
 						<span class="label">
 							{spec.name}
-							{#if !spec.required}<span class="optional">optional</span>{/if}
+							{#if !spec.required}<span class="optional">{t.realms.instantiate.optional}</span>{/if}
 						</span>
 						{#if spec.doc}<span class="doc">{spec.doc}</span>{/if}
 
@@ -127,7 +128,7 @@
 						<span class="declared">{spec.declared}</span>
 					</div>
 				{:else}
-					<p class="nothing">This document declares no inputs.</p>
+					<p class="nothing">{t.realms.instantiate.noInputs}</p>
 				{/each}
 			</div>
 		{/if}
@@ -135,19 +136,21 @@
 		<footer>
 			{#if intro !== null && !onIntro}
 				<button type="button" class="back" onclick={() => (read = false)}>
-					<ArrowLeft size={12} /> Introduction
+					<ArrowLeft size={12} />
+					{t.realms.instantiate.introduction}
 				</button>
 			{/if}
 			{#if !onIntro && missing.length > 0}
 				<span class="missing">
-					Still needed: {missing.map((s) => s.name).join(', ')}
+					{t.realms.instantiate.stillNeeded(missing.map((s) => s.name).join(', '))}
 				</span>
 			{/if}
 			<span class="spacer"></span>
-			<button type="button" onclick={oncancel}>Cancel</button>
+			<button type="button" onclick={oncancel}>{t.common.cancel}</button>
 			{#if onIntro && specs.length > 0}
 				<button type="button" class="primary" onclick={() => (read = true)}>
-					Continue <ArrowRight size={12} />
+					{t.realms.instantiate.continue}
+					<ArrowRight size={12} />
 				</button>
 			{:else}
 				<button
@@ -157,7 +160,7 @@
 					onclick={submit}
 				>
 					<Play size={12} />
-					{busy ? 'Building…' : 'Build realm'}
+					{busy ? t.realms.instantiate.building : t.realms.page.build}
 				</button>
 			{/if}
 		</footer>

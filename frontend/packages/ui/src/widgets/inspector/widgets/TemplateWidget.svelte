@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import { showError } from '#lib/stores/errorToast.svelte.js';
 	import { templateStore } from '#lib/stores/template.svelte.js';
@@ -63,7 +64,7 @@
 	function toggle(node: ContextNode) {
 		templateStore
 			.toggleActiveNode(node.id)
-			.catch((err) => showError(err, { title: 'Toggle failed' }));
+			.catch((err) => showError(err, { title: t.inspector.template.toggleFailed }));
 	}
 
 	function onBox(e: MouseEvent, node: ContextNode) {
@@ -106,16 +107,14 @@
 			class:group={group !== null}
 			aria-pressed={node.enabled}
 			aria-expanded={group ? !isFolded : undefined}
-			{@attach tooltip(
-				group ? 'Click to toggle, shift-click to collapse' : node.description || node.title
-			)}
+			{@attach tooltip(group ? t.inspector.template.rowHint : node.description || node.title)}
 			onclick={(e) => onRow(e, node)}
 		>
 			<span class="fold" class:collapsed={isFolded}>
 				{#if group}<ChevronDown />{/if}
 			</span>
 			<span class="tick"></span>
-			<span class="row-name">{node.title || 'Untitled'}</span>
+			<span class="row-name">{node.title || t.inspector.template.untitled}</span>
 			<span class="marks">
 				{#if group}
 					{#if group.mode === 'invariant'}
@@ -139,7 +138,7 @@
 	<div class="bar">
 		<button class="head" aria-expanded={!collapsed} onclick={() => (collapsed = !collapsed)}>
 			<span class="chev" class:collapsed><ChevronDown /></span>
-			<span class="label">Template Nodes</span>
+			<span class="label">{t.inspector.template.title}</span>
 			{#if template}
 				<span class="count">{enabledCount}/{counted.length}</span>
 			{/if}
@@ -147,8 +146,8 @@
 		{#if template && !collapsed}
 			<button
 				class="switch"
-				aria-label={tree ? 'Show as grid' : 'Show as tree'}
-				{@attach tooltip(tree ? 'Show as grid' : 'Show as tree')}
+				aria-label={tree ? t.inspector.template.showGrid : t.inspector.template.showTree}
+				{@attach tooltip(tree ? t.inspector.template.showGrid : t.inspector.template.showTree)}
 				onclick={() => templateWidgetView.set(tree ? 'grid' : 'tree')}
 			>
 				{#if tree}<LayoutGrid />{:else}<ListTree />{/if}
@@ -158,11 +157,11 @@
 
 	{#if !collapsed}
 		{#if !template}
-			<div class="empty">No active template.</div>
+			<div class="empty">{t.inspector.template.noTemplate}</div>
 		{:else if tree}
-			<div class="tree" role="group" aria-label="Template nodes">
+			<div class="tree" role="group" aria-label={t.inspector.template.nodes}>
 				{#if template.nodes.length === 0}
-					<div class="empty">Empty template.</div>
+					<div class="empty">{t.inspector.template.empty}</div>
 				{:else}
 					{@render branch(template.nodes)}
 				{/if}
@@ -170,7 +169,7 @@
 		{:else}
 			<div class="crumbs">
 				<button class="crumb" disabled={trail.length === 0} onclick={() => (trail = [])}>
-					{template.name || 'Untitled'}
+					{template.name || t.inspector.template.untitled}
 				</button>
 				{#each view.crumbs as crumb, i (crumb.id)}
 					<span class="sep">/</span>
@@ -179,15 +178,15 @@
 						disabled={i === trail.length - 1}
 						onclick={() => (trail = trail.slice(0, i + 1))}
 					>
-						{crumb.title || 'Untitled'}
+						{crumb.title || t.inspector.template.untitled}
 					</button>
 				{/each}
 			</div>
 
 			<!-- Right-click anywhere in the grid leaves the current group. -->
-			<div class="grid" role="group" aria-label="Template nodes" oncontextmenu={goUp}>
+			<div class="grid" role="group" aria-label={t.inspector.template.nodes} oncontextmenu={goUp}>
 				{#if view.nodes.length === 0}
-					<div class="empty">Empty group.</div>
+					<div class="empty">{t.inspector.template.emptyGroup}</div>
 				{:else}
 					{#each view.nodes as node (node.id)}
 						{@const group = groupOf(node)}
@@ -196,12 +195,12 @@
 							class:on={node.enabled}
 							class:group={group !== null}
 							{@attach tooltip(
-								group ? 'Click to toggle, shift-click to open' : node.description || node.title
+								group ? t.inspector.template.boxHint : node.description || node.title
 							)}
 							onclick={(e) => onBox(e, node)}
 							onkeydown={onBoxKey}
 						>
-							<span class="name">{node.title || 'Untitled'}</span>
+							<span class="name">{node.title || t.inspector.template.untitled}</span>
 							<span class="marks">
 								{#if group}
 									<Folder />

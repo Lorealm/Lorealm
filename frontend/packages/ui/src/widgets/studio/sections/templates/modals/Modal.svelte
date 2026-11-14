@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import type { Snippet } from 'svelte';
 
 	let {
@@ -33,7 +34,7 @@
 	<div class="panel" role="dialog" aria-modal="true" aria-label={title}>
 		<header class="panel-header">
 			<h3>{title}</h3>
-			<button class="close" type="button" aria-label="Close" onclick={onclose}>×</button>
+			<button class="close" type="button" aria-label={t.common.close} onclick={onclose}>×</button>
 		</header>
 
 		<div class="panel-body">

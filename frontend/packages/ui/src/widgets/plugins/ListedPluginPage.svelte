@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { onMount } from 'svelte';
 	import { Check, Download } from '@lucide/svelte';
 	import { useApi } from '#lib/api/client.js';
@@ -40,9 +41,9 @@
 </script>
 
 {#if !marketplaceStore.loaded}
-	<div class="empty">Loading…</div>
+	<div class="empty">{t.plugins.loading}</div>
 {:else if !listed || !version}
-	<div class="empty">This plugin isn't in the marketplace.</div>
+	<div class="empty">{t.plugins.notListed}</div>
 {:else}
 	<PluginDetail plugin={version} {readme} repository={listed.repository} {error}>
 		{#snippet actions()}
@@ -53,14 +54,16 @@
 					disabled={busy}
 					onclick={() => act(() => api.plugins.toggle(handle, !mine.enabled))}
 				>
-					{#if mine.enabled}<Check size={14} /> Enabled{:else}Enable{/if}
+					{#if mine.enabled}<Check size={14} /> {t.plugins.enabled}{:else}{t.plugins.enable}{/if}
 				</button>
 				{#if update}
 					<button type="button" disabled={busy} onclick={() => act(() => installListed(handle))}>
-						Update to {update}
+						{t.plugins.updateTo(update)}
 					</button>
 				{/if}
-				<button type="button" onclick={() => navigator.start().plugins(handle)}>Manage</button>
+				<button type="button" onclick={() => navigator.start().plugins(handle)}
+					>{t.plugins.manage}</button
+				>
 			{:else if listed.offered && canInstall()}
 				<button
 					type="button"
@@ -69,17 +72,15 @@
 					onclick={() => act(() => installListed(handle))}
 				>
 					<Download size={14} />
-					{busy ? 'Installing…' : 'Install'}
+					{busy ? t.plugins.installing : t.plugins.install}
 				</button>
 			{/if}
 		{/snippet}
 		{#snippet notice()}
 			{#if !listed.offered}
-				<p class="muted">No version of it works with this version of Lorealm.</p>
+				<p class="muted">{t.plugins.noCompatible}</p>
 			{:else if !mine && !canInstall()}
-				<p class="muted">
-					It isn't on this server yet. Someone who manages its plugins can add it.
-				</p>
+				<p class="muted">{t.plugins.notOnServer}</p>
 			{/if}
 		{/snippet}
 	</PluginDetail>

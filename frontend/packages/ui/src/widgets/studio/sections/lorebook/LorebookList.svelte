@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { lorebookStore } from '#lib/stores/lorebook.svelte.js';
 	import { navigator } from '#lib/navigation/navigator.js';
 	import LorebookCard from './LorebookCard.svelte';
@@ -31,7 +32,7 @@
 		if (creating) return;
 		creating = true;
 		try {
-			const book = await lorebookStore.createLorebook({ name: 'Untitled lorebook' });
+			const book = await lorebookStore.createLorebook({ name: t.studio.lorebooks.untitled });
 			navigator.start().studio().lorebooks(book.id);
 		} catch (e) {
 			console.error(e);
@@ -42,26 +43,24 @@
 </script>
 
 <StudioList
-	title="Lorebooks"
+	title={t.studio.lorebooks.title}
 	bind:query
 	bind:sort
 	sortOptions={[
-		{ value: 'name-asc', label: 'Name (A–Z)' },
-		{ value: 'name-desc', label: 'Name (Z–A)' },
-		{ value: 'entries', label: 'Most entries' },
-		{ value: 'active', label: 'Active first' }
+		{ value: 'name-asc', label: t.studio.lorebooks.sortNameAsc },
+		{ value: 'name-desc', label: t.studio.lorebooks.sortNameDesc },
+		{ value: 'entries', label: t.studio.lorebooks.sortEntries },
+		{ value: 'active', label: t.studio.lorebooks.sortActive }
 	]}
-	searchPlaceholder="Search lorebooks…"
-	createLabel="New lorebook"
+	searchPlaceholder={t.studio.lorebooks.search}
+	createLabel={t.studio.lorebooks.new}
 	oncreate={create}
 	{creating}
 >
 	{#snippet empty()}
 		{#if shown.length === 0}
 			<p class="empty">
-				{lorebooks.length === 0
-					? 'No lorebooks yet — create one to start writing world knowledge.'
-					: 'No lorebooks match that search.'}
+				{lorebooks.length === 0 ? t.studio.lorebooks.empty : t.studio.lorebooks.noMatches}
 			</p>
 		{/if}
 	{/snippet}

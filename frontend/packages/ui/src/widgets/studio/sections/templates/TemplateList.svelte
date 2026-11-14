@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { templateStore } from '#lib/stores/template.svelte.js';
 	import { navigator } from '#lib/navigation/navigator.js';
 	import TemplateCard from './TemplateCard.svelte';
@@ -34,7 +35,7 @@
 		creating = true;
 		try {
 			const tpl = await templateStore.createTemplate({
-				name: 'Untitled template',
+				name: t.studio.templates.untitled,
 				default: true
 			});
 			navigator.start().studio().templates(tpl.id);
@@ -47,26 +48,24 @@
 </script>
 
 <StudioList
-	title="Templates"
+	title={t.studio.templates.title}
 	bind:query
 	bind:sort
 	sortOptions={[
-		{ value: 'updated', label: 'Recently updated' },
-		{ value: 'name-asc', label: 'Name (A–Z)' },
-		{ value: 'name-desc', label: 'Name (Z–A)' },
-		{ value: 'nodes', label: 'Most nodes' }
+		{ value: 'updated', label: t.studio.templates.sortUpdated },
+		{ value: 'name-asc', label: t.studio.templates.sortNameAsc },
+		{ value: 'name-desc', label: t.studio.templates.sortNameDesc },
+		{ value: 'nodes', label: t.studio.templates.sortNodes }
 	]}
-	searchPlaceholder="Search templates…"
-	createLabel="New template"
+	searchPlaceholder={t.studio.templates.search}
+	createLabel={t.studio.templates.new}
 	oncreate={create}
 	{creating}
 >
 	{#snippet empty()}
 		{#if shown.length === 0}
 			<p class="empty">
-				{templates.length === 0
-					? 'No templates yet — create one to shape how context reaches the model.'
-					: 'No templates match that search.'}
+				{templates.length === 0 ? t.studio.templates.empty : t.studio.templates.noMatches}
 			</p>
 		{/if}
 	{/snippet}

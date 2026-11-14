@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { Shuffle } from '@lucide/svelte';
 	import WeaverEditor from '#lib/weaver/editor/WeaverEditor.svelte';
 	import { realmDraft } from '../draft.svelte.js';
@@ -12,9 +13,9 @@
 	<div class="pane">
 		<header>
 			<Shuffle size={13} />
-			<span class="title">Director</span>
+			<span class="title">{t.realms.panes.director}</span>
 			<span class="spacer"></span>
-			<span class="hint">answers with the handle of whoever acts next</span>
+			<span class="hint">{t.realms.director.hint}</span>
 		</header>
 
 		<div class="editor">
@@ -28,7 +29,7 @@
 		</div>
 	</div>
 {:else}
-	<p class="gone">This realm no longer picks its turns with a script.</p>
+	<p class="gone">{t.realms.director.gone}</p>
 {/if}
 
 <style>

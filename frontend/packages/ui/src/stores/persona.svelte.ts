@@ -2,6 +2,7 @@ import { extractError } from '#lib/types/error.js';
 import { useApi } from '#lib/api/client.js';
 import type { Snowflake } from '#lib/types/core.js';
 import type { PersonaOverride, UpdatePersona, UserPersona } from '#lib/types/persona.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -128,7 +129,7 @@ class PersonaStore {
 		if (!this.loadedPersonas) await this.loadPersonas();
 		const found = this.loadedPersonas?.find((p) => p.id === id) ?? null;
 		if (!found) {
-			this.saveState = { status: 'error', message: 'Persona not found' };
+			this.saveState = { status: 'error', message: t.errors.failed.personaNotFound };
 			return;
 		}
 		this.#baseline = found;

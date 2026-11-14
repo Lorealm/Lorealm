@@ -1,5 +1,6 @@
 import { usePlatform } from '#lib/api/client.js';
 import { showError } from './errorToast.svelte.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { LocalStore } from '#lib/core/api.js'; // Imported for doc links
@@ -46,7 +47,7 @@ export class PersistedRecord<T extends object> {
 		try {
 			await usePlatform().store.set(this.#key, $state.snapshot(this.#value));
 		} catch (e) {
-			showError(e, { title: `Could not save ${this.#key}` });
+			showError(e, { title: t.errors.failed.persist(this.#key) });
 		}
 	}
 }

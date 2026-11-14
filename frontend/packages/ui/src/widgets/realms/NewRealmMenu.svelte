@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { ChevronDown, Plus, Search } from '@lucide/svelte';
 	import { useApi } from '#lib/api/client.js';
 	import { blueprintStore } from '#lib/stores/blueprint.svelte.js';
@@ -70,8 +71,8 @@
 			picked = null;
 			showToast({
 				variant: 'info',
-				title: 'Realm built',
-				message: `${made.definition.name || 'It'} is ready to play.`
+				title: t.realms.page.built,
+				message: t.realms.page.ready(made.definition.name || t.realms.page.it)
 			});
 			await realmStore.loadList();
 		} finally {
@@ -89,7 +90,7 @@
 		onclick={toggle}
 	>
 		<Plus size={13} />
-		<span class="label">New</span>
+		<span class="label">{t.realms.newMenu.new}</span>
 		<span class="caret"><ChevronDown size={13} /></span>
 	</button>
 
@@ -102,15 +103,15 @@
 					class="plain"
 					type="text"
 					bind:value={query}
-					placeholder="Search blueprints…"
-					aria-label="Search blueprints"
+					placeholder={t.realms.newMenu.search}
+					aria-label={t.realms.newMenu.searchAria}
 					autocomplete="off"
 					spellcheck="false"
 					onkeydown={(e) => e.key === 'Enter' && matches[0] && pick(matches[0])}
 				/>
 			</div>
 
-			<div class="list" role="listbox" aria-label="Blueprints">
+			<div class="list" role="listbox" aria-label={t.realms.newMenu.list}>
 				{#each matches as blueprint (blueprint.id)}
 					<button
 						type="button"
@@ -122,7 +123,7 @@
 						{blueprint.name}
 					</button>
 				{:else}
-					<p class="empty">{needle ? 'No matching blueprints.' : 'No blueprints yet.'}</p>
+					<p class="empty">{needle ? t.realms.newMenu.noMatches : t.realms.blueprints.empty}</p>
 				{/each}
 			</div>
 		</div>

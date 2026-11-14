@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { TriangleAlert, Info, X } from '@lucide/svelte';
 	import DOMPurify from 'dompurify';
 	import { Marked } from 'marked';
@@ -61,7 +62,7 @@
 					{/if}
 					<h2 id="popup-title-{popup.id}">{popup.title}</h2>
 					{#if popup.dismissible}
-						<button type="button" class="close" aria-label="Close" onclick={dismiss}>
+						<button type="button" class="close" aria-label={t.common.close} onclick={dismiss}>
 							<X size={14} />
 						</button>
 					{/if}

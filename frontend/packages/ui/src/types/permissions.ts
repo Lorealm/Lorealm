@@ -1,10 +1,7 @@
+import type { Messages } from '@lorealm/i18n';
+import { t } from '#lib/stores/i18n.svelte.js';
 import type { Snowflake } from './core.js';
 
-/**
- * Permission flags. Mirrors `Permissions` in
- * `backend/server/src/services/permission/mod.rs`. Bits travel as decimal
- * strings because the high flags don't fit in a JavaScript number.
- */
 export const Permission = {
 	IMPORT_CONTENT: 1n << 0n,
 	UPLOAD_TOKENIZERS: 1n << 1n,
@@ -29,76 +26,53 @@ export interface PermissionInfo {
 	hint: string;
 }
 
+type PermissionKey = keyof Messages['settings']['permissions']['flags'];
+
+/** Label and hint follow the active locale. */
+function info(flag: bigint, key: PermissionKey): PermissionInfo {
+	return {
+		flag,
+		get label() {
+			return t.settings.permissions.flags[key].label;
+		},
+		get hint() {
+			return t.settings.permissions.flags[key].hint;
+		}
+	};
+}
+
 export const PERMISSION_GROUPS: Array<{ title: string; items: PermissionInfo[] }> = [
 	{
-		title: 'Content',
+		get title() {
+			return t.settings.permissions.groups.content;
+		},
 		items: [
-			{
-				flag: Permission.IMPORT_CONTENT,
-				label: 'Import content',
-				hint: 'Import character cards, realms and other outside formats.'
-			},
-			{
-				flag: Permission.UPLOAD_TOKENIZERS,
-				label: 'Upload tokenizers',
-				hint: 'Upload tokenizers or have the server download them.'
-			},
-			{
-				flag: Permission.PUBLISH_PUBLIC,
-				label: 'Publish publicly',
-				hint: 'Make things, such as a tokenizer, visible to every user.'
-			},
-			{
-				flag: Permission.CUSTOM_ENDPOINTS,
-				label: 'Custom endpoints',
-				hint: 'Point connections at any URL, including ones on the server’s own network.'
-			}
+			info(Permission.IMPORT_CONTENT, 'importContent'),
+			info(Permission.UPLOAD_TOKENIZERS, 'uploadTokenizers'),
+			info(Permission.PUBLISH_PUBLIC, 'publishPublic'),
+			info(Permission.CUSTOM_ENDPOINTS, 'customEndpoints')
 		]
 	},
 	{
-		title: 'Plugins',
+		get title() {
+			return t.settings.permissions.groups.plugins;
+		},
 		items: [
-			{
-				flag: Permission.USE_PLUGINS,
-				label: 'Use plugins',
-				hint: 'Enable, configure and use plugins installed on the server.'
-			},
-			{
-				flag: Permission.INSTALL_PLUGINS,
-				label: 'Install plugins',
-				hint: 'Install and uninstall pre-built plugins for everyone.'
-			},
-			{
-				flag: Permission.BUILD_PLUGINS,
-				label: 'Build plugins',
-				hint: 'Build plugins from source, which runs their code on the server. Administrator doesn’t include this.'
-			},
-			{
-				flag: Permission.UNSAFE_PLUGINS,
-				label: 'Unsafe plugins',
-				hint: 'Run plugins with full access to the app in your browser. Administrator doesn’t include this.'
-			}
+			info(Permission.USE_PLUGINS, 'usePlugins'),
+			info(Permission.INSTALL_PLUGINS, 'installPlugins'),
+			info(Permission.BUILD_PLUGINS, 'buildPlugins'),
+			info(Permission.UNSAFE_PLUGINS, 'unsafePlugins')
 		]
 	},
 	{
-		title: 'Administration',
+		get title() {
+			return t.settings.permissions.groups.administration;
+		},
 		items: [
-			{ flag: Permission.MANAGE_USERS, label: 'Manage users', hint: 'Manage user accounts.' },
-			{
-				flag: Permission.MANAGE_ROLES,
-				label: 'Manage roles',
-				hint: 'Create and edit roles below your own, and give them to people.'
-			},
-			{
-				flag: Permission.MANAGE_SERVER,
-				label: 'Manage server',
-				hint: 'Change server settings and see them in full.'
-			},
-			{
-				flag: Permission.ADMINISTRATOR,
-				label: 'Administrator',
-				hint: 'Everything except building and unsafe plugins.'
-			}
+			info(Permission.MANAGE_USERS, 'manageUsers'),
+			info(Permission.MANAGE_ROLES, 'manageRoles'),
+			info(Permission.MANAGE_SERVER, 'manageServer'),
+			info(Permission.ADMINISTRATOR, 'administrator')
 		]
 	}
 ];

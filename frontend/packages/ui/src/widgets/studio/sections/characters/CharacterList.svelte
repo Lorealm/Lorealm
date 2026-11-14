@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { characterStore } from '#lib/stores/character.svelte.js';
 	import CharacterListItem from './CharacterListItem.svelte';
 	import StudioList from '../StudioList.svelte';
@@ -46,26 +47,24 @@
 </script>
 
 <StudioList
-	title="Characters"
+	title={t.studio.characters.title}
 	bind:query
 	bind:sort
 	layout="list"
 	sortOptions={[
-		{ value: 'updated', label: 'Recently updated' },
-		{ value: 'name-asc', label: 'Name (A–Z)' },
-		{ value: 'name-desc', label: 'Name (Z–A)' }
+		{ value: 'updated', label: t.studio.characters.sortUpdated },
+		{ value: 'name-asc', label: t.studio.characters.sortNameAsc },
+		{ value: 'name-desc', label: t.studio.characters.sortNameDesc }
 	]}
-	searchPlaceholder="Search characters…"
-	createLabel="New character"
+	searchPlaceholder={t.studio.characters.search}
+	createLabel={t.studio.characters.new}
 	oncreate={create}
 	{creating}
 >
 	{#snippet empty()}
 		{#if shown.length === 0}
 			<p class="empty">
-				{characters.length === 0
-					? 'No characters yet — create one to get started.'
-					: 'No characters match that search.'}
+				{characters.length === 0 ? t.studio.characters.empty : t.studio.characters.noMatches}
 			</p>
 		{/if}
 	{/snippet}

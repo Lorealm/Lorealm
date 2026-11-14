@@ -18,7 +18,10 @@ class SlashCommandRegistry {
 
 		untrack(() => {
 			for (const command of commands) {
-				const entry = { ...command, source };
+				const entry = Object.defineProperties(
+					{ source },
+					Object.getOwnPropertyDescriptors(command)
+				) as RegisteredSlashCommand;
 				added.push(entry);
 				// Replaced rather than mutated: a push would not notify readers.
 				this.#stacks.set(command.name, [...(this.#stacks.get(command.name) ?? []), entry]);

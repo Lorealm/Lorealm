@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { onMount } from 'svelte';
 	import { Upload, Check, Trash2, Globe } from '@lucide/svelte';
 	import { tokenizerStore } from '#lib/stores/tokenizer.svelte.js';
@@ -90,11 +91,11 @@
 
 <div class="page">
 	<div class="topbar">
-		<h2>Tokenizers</h2>
+		<h2>{t.nav.user.tokenizers}</h2>
 		<div class="actions">
 			<button type="button" class="primary" onclick={openPanel}>
 				<Upload size={16} />
-				Import
+				{t.settings.tokenizers.import}
 			</button>
 		</div>
 	</div>
@@ -108,7 +109,7 @@
 					class:active={mode === 'file'}
 					onclick={() => (mode = 'file')}
 				>
-					File
+					{t.settings.tokenizers.file}
 				</button>
 				<button
 					type="button"
@@ -116,51 +117,61 @@
 					class:active={mode === 'network'}
 					onclick={() => (mode = 'network')}
 				>
-					Network
+					{t.settings.tokenizers.network}
 				</button>
 			</div>
 
 			{#if mode === 'file'}
 				<div class="field">
-					<span class="label">File</span>
+					<span class="label">{t.settings.tokenizers.file}</span>
 					<div class="filePick">
 						<input bind:this={fileEl} type="file" hidden onchange={onPick} />
-						<button type="button" class="ghost" onclick={() => fileEl?.click()}>Choose file</button>
-						<span class="filename">{file?.name ?? 'No file selected'}</span>
+						<button type="button" class="ghost" onclick={() => fileEl?.click()}
+							>{t.settings.tokenizers.chooseFile}</button
+						>
+						<span class="filename">{file?.name ?? t.settings.tokenizers.noFile}</span>
 					</div>
 				</div>
 			{:else}
 				<div class="field">
-					<span class="label">Source</span>
-					<input type="text" bind:value={source} placeholder="hf:org/model or https://…" />
+					<span class="label">{t.settings.tokenizers.source}</span>
+					<input
+						type="text"
+						bind:value={source}
+						placeholder={t.settings.tokenizers.sourcePlaceholder}
+					/>
 				</div>
 			{/if}
 
 			<div class="field">
-				<span class="label">Name {mode === 'file' ? '' : '(optional)'}</span>
-				<input type="text" bind:value={name} placeholder="Display name" />
+				<span class="label"
+					>{mode === 'file' ? t.settings.tokenizers.name : t.settings.tokenizers.nameOptional}</span
+				>
+				<input type="text" bind:value={name} placeholder={t.settings.tokenizers.displayName} />
 			</div>
 
 			<label class="check">
 				<input type="checkbox" bind:checked={isPublic} />
-				<span>Make public</span>
+				<span>{t.settings.tokenizers.makePublic}</span>
 			</label>
 
 			{#if error}<p class="error">{error}</p>{/if}
 
 			<div class="panelActions">
-				<button type="button" class="ghost" onclick={closePanel} disabled={busy}>Cancel</button>
+				<button type="button" class="ghost" onclick={closePanel} disabled={busy}
+					>{t.common.cancel}</button
+				>
 				<button type="button" class="primary" onclick={doImport} disabled={!canImport || busy}>
-					{busy ? 'Importing…' : 'Import'}
+					{busy ? t.settings.tokenizers.importing : t.settings.tokenizers.import}
 				</button>
 			</div>
 		</div>
 	{/if}
 
 	{#if !tokenizerStore.loaded}
-		<div class="status">Loading…</div>
+		<div class="status">{t.settings.tokenizers.loading}</div>
 	{:else if tokenizerStore.tokenizers.length === 0}
-		<div class="empty">No tokenizers yet — import one to get started.</div>
+		<div class="empty">{t.settings.tokenizers.empty}</div>
 	{:else}
 		<div class="list">
 			{#each tokenizerStore.tokenizers as tok (tok.id)}
@@ -177,9 +188,15 @@
 							class:on={active}
 							onclick={() => toggleActive(tok.id)}
 						>
-							{#if active}<Check size={14} /> Active{:else}Set active{/if}
+							{#if active}<Check size={14} /> {t.settings.tokenizers.active}{:else}{t.settings
+									.tokenizers.setActive}{/if}
 						</button>
-						<button type="button" class="icon" aria-label="Delete" onclick={() => remove(tok.id)}>
+						<button
+							type="button"
+							class="icon"
+							aria-label={t.common.delete}
+							onclick={() => remove(tok.id)}
+						>
 							<Trash2 size={16} />
 						</button>
 					</div>

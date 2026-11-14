@@ -8,6 +8,7 @@
 </script>
 
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { ChevronDown } from '@lucide/svelte';
 
 	let {
@@ -15,7 +16,7 @@
 		options,
 		onchange,
 		placeholder = '',
-		emptyText = 'No matches.',
+		emptyText,
 		/** Accept text that matches no option. Off means free text reverts on commit. */
 		allowCustom = false,
 		ariaLabel
@@ -115,7 +116,6 @@
 		}
 	}
 
-	// The field keeps focus after a pick, so a second click fires no focus event.
 	function onClick() {
 		if (open) return;
 		open = true;
@@ -128,8 +128,6 @@
 		activeIndex = -1;
 	}
 
-	// Clicking a row must not blur the field: the blur would commit and tear the
-	// menu down before the click ever lands.
 	function holdFocus(e: MouseEvent) {
 		e.preventDefault();
 	}
@@ -163,7 +161,9 @@
 			type="button"
 			class="toggle"
 			tabindex="-1"
-			aria-label={open ? 'Hide suggestions' : 'Show suggestions'}
+			aria-label={open
+				? t.components.searchSelect.hideSuggestions
+				: t.components.searchSelect.showSuggestions}
 			onmousedown={holdFocus}
 			onclick={() => {
 				if (open) close();
@@ -199,7 +199,7 @@
 						</span>
 					</button>
 				{:else}
-					<p class="empty">{emptyText}</p>
+					<p class="empty">{emptyText ?? t.components.searchSelect.noMatches}</p>
 				{/each}
 			</div>
 		</div>

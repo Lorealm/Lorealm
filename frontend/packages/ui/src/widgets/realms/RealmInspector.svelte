@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { ExternalLink, Maximize2, Plus, Trash2 } from '@lucide/svelte';
 	import ContextField from '#lib/components/ContextField.svelte';
@@ -117,10 +118,6 @@
 		if (studio) navigator.start().studio().resource(studio, id);
 	}
 
-	/**
-	 * The Unity-like ping. Handles navigating to the source of an object when clicking it
-	 * in a Radio field.
-	 */
 	function locate(binding: Binding, mode: 'select' | 'open') {
 		if (binding.source === 'input') {
 			realmDraft.select({ kind: 'input', name: binding.name });
@@ -151,10 +148,6 @@
 		return a.kind !== 'script';
 	}
 
-	/**
-	 * Retype a declaration, dropping a default that the new type can't hold
-	 */
-
 	function retypeBounds(decl: InputDecl, many: boolean, min: number, max: number) {
 		const base = baseOf(decl.ty);
 		if (base.type !== 'range' && base.type !== 'span') return;
@@ -177,10 +170,7 @@
 		}
 	}
 
-	const RUN_CONDITION_HINT =
-		'Lets this agent take its turn only when this is true.\nLeave it empty and it always does.';
-
-	const noun = (kind: RealmResourceKind) => TYPE_NAME[kind].toLowerCase();
+	const noun = (kind: RealmResourceKind) => TYPE_NAME[kind].toLocaleLowerCase();
 
 	const blankProperty = (): Property => ({ key: '', value: '' });
 
@@ -211,18 +201,18 @@
 {#snippet boundsEditor(min: number, max: number, apply: (min: number, max: number) => void)}
 	<div class="bounds">
 		<label>
-			<span>From</span>
+			<span>{t.realms.inspector.from}</span>
 			<NumberInput
 				value={min}
-				ariaLabel="Lowest value"
+				ariaLabel={t.realms.inspector.lowest}
 				onchange={(next) => apply(Number(next) || 0, max)}
 			/>
 		</label>
 		<label>
-			<span>To</span>
+			<span>{t.realms.inspector.to}</span>
 			<NumberInput
 				value={max}
-				ariaLabel="Highest value"
+				ariaLabel={t.realms.inspector.highest}
 				onchange={(next) => apply(min, Number(next) || 0)}
 			/>
 		</label>
@@ -232,9 +222,9 @@
 <div class="inspector">
 	{#if agent}
 		{@const a = agent}
-		<h3>Agent</h3>
+		<h3>{t.realms.inspector.agent}</h3>
 		<label>
-			<span>Handle</span>
+			<span>{t.realms.inspector.handle}</span>
 			<input
 				class="mono"
 				class:candidate={textTakes('slug')}
@@ -247,24 +237,22 @@
 			/>
 		</label>
 		<p class="note">
-			The agent's unique name in this realm. Scripts and other agents use it to find this one.
+			{t.realms.inspector.handleNote}
 			<br />
 			<br />
 			{#if loopReach}
 				<span class="warn"
-					>You're in a for-each loop: every pass needs a different name, so build it from <code
-						>&lbrace;&lbrace;{loopReach}&rbrace;&rbrace;</code
-					>
+					>{t.realms.inspector.loopWarning} <code>&lbrace;&lbrace;{loopReach}&rbrace;&rbrace;</code>
 					<br />
 					<br />
-					For example:
+					{t.realms.inspector.forExample}
 					<code>regent_&lbrace;&lbrace;{loopReach}.slug&rbrace;&rbrace;</code>.
 				</span>
 			{/if}
 		</p>
 
 		<label>
-			<span>Name</span>
+			<span>{t.realms.inspector.name}</span>
 			<input
 				class:candidate={textTakes('name')}
 				class:incompatible={incoming !== null && !textTakes('name')}
@@ -276,7 +264,7 @@
 		</label>
 
 		<label>
-			<span>Kind</span>
+			<span>{t.realms.inspector.kind}</span>
 			<select value={a.kind} onchange={(e) => (a.kind = e.currentTarget.value as AgentKind)}>
 				{#each AGENT_KINDS as kind (kind)}
 					<option value={kind}>{kind}</option>
@@ -286,13 +274,13 @@
 
 		{#if shows(a, 'character')}
 			<div class="field">
-				<span>Character</span>
+				<span>{t.realms.inspector.character}</span>
 				<RadioField
 					value={a.character}
 					kinds={['character']}
 					{scope}
 					{inputs}
-					ariaLabel="Character"
+					ariaLabel={t.realms.inspector.character}
 					onlocate={locate}
 					onchange={(next) => (a.character = next)}
 				/>
@@ -301,25 +289,25 @@
 
 		{#if shows(a, 'template')}
 			<div class="field">
-				<span>Context template</span>
+				<span>{t.realms.inspector.contextTemplate}</span>
 				<RadioField
 					value={a.template}
 					kinds={['template']}
 					{scope}
 					{inputs}
-					ariaLabel="Context template"
+					ariaLabel={t.realms.inspector.contextTemplate}
 					onlocate={locate}
 					onchange={(next) => (a.template = next)}
 				/>
 			</div>
 			<div class="field">
-				<span>Connection</span>
+				<span>{t.realms.inspector.connection}</span>
 				<RadioField
 					value={a.profile}
 					kinds={['connection_profile']}
 					{scope}
 					{inputs}
-					ariaLabel="Connection profile"
+					ariaLabel={t.realms.inspector.connectionProfile}
 					onlocate={locate}
 					onchange={(next) => (a.profile = next)}
 				/>
@@ -328,13 +316,13 @@
 
 		{#if shows(a, 'persona')}
 			<div class="field">
-				<span>Persona</span>
+				<span>{t.realms.inspector.persona}</span>
 				<RadioField
 					value={a.persona}
 					kinds={['persona']}
 					{scope}
 					{inputs}
-					ariaLabel="Persona"
+					ariaLabel={t.realms.inspector.persona}
 					onlocate={locate}
 					onchange={(next) => (a.persona = next)}
 				/>
@@ -342,14 +330,14 @@
 		{/if}
 
 		<div class="field">
-			<span>Lorebooks</span>
+			<span>{t.realms.inspector.lorebooks}</span>
 			{#each a.lorebooks as book, i (i)}
 				<RadioField
 					value={book}
 					kinds={['lorebook']}
 					{scope}
 					{inputs}
-					ariaLabel="Lorebook {i + 1}"
+					ariaLabel={t.realms.inspector.lorebook(i + 1)}
 					onlocate={locate}
 					onchange={(next) => {
 						if (next) a.lorebooks[i] = next;
@@ -362,21 +350,21 @@
 				kinds={['lorebook']}
 				{scope}
 				{inputs}
-				placeholder="Bind a lorebook…"
-				ariaLabel="Bind another lorebook"
+				placeholder={t.realms.inspector.bindLorebook}
+				ariaLabel={t.realms.inspector.bindAnotherLorebook}
 				onchange={(next) => next && a.lorebooks.push(next)}
 			/>
 		</div>
 
 		<div class="field">
-			<span>Widgets</span>
+			<span>{t.realms.inspector.widgets}</span>
 			{#each a.widgets as widget, i (i)}
 				<RadioField
 					value={widget}
 					kinds={['widget']}
 					{scope}
 					{inputs}
-					ariaLabel="Widget {i + 1}"
+					ariaLabel={t.realms.inspector.widget(i + 1)}
 					onlocate={locate}
 					onchange={(next) => {
 						if (next) a.widgets[i] = next;
@@ -389,14 +377,14 @@
 				kinds={['widget']}
 				{scope}
 				{inputs}
-				placeholder="Bind a widget…"
-				ariaLabel="Bind another widget"
+				placeholder={t.realms.inspector.bindWidget}
+				ariaLabel={t.realms.inspector.bindAnotherWidget}
 				onchange={(next) => next && a.widgets.push(next)}
 			/>
 		</div>
 
 		<div class="field">
-			<span>Tools</span>
+			<span>{t.realms.inspector.tools}</span>
 			{#each a.tools as tool, i (i)}
 				<div class="stack">
 					<RadioField
@@ -404,7 +392,7 @@
 						kinds={['tool']}
 						{scope}
 						{inputs}
-						ariaLabel="Tool {i + 1}"
+						ariaLabel={t.realms.inspector.tool(i + 1)}
 						onlocate={locate}
 						onchange={(next) => {
 							if (next) a.tools[i].tool = next;
@@ -412,11 +400,11 @@
 						}}
 					/>
 					<label class="inline">
-						<span>announces on</span>
+						<span>{t.realms.inspector.announcesOn}</span>
 						<input
 							class="mono channel"
 							value={tool.eventChannel}
-							placeholder="nobody"
+							placeholder={t.realms.inspector.nobody}
 							spellcheck="false"
 							oninput={(e) => (a.tools[i].eventChannel = e.currentTarget.value)}
 						/>
@@ -428,14 +416,14 @@
 				kinds={['tool']}
 				{scope}
 				{inputs}
-				placeholder="Bind a tool…"
-				ariaLabel="Bind another tool"
+				placeholder={t.realms.inspector.bindTool}
+				ariaLabel={t.realms.inspector.bindAnotherTool}
 				onchange={(next) => next && a.tools.push({ tool: next, eventChannel: '' })}
 			/>
 		</div>
 
 		<label>
-			<span>Speaks on</span>
+			<span>{t.realms.inspector.speaksOn}</span>
 			<input
 				class="mono"
 				value={a.speechChannel}
@@ -447,8 +435,8 @@
 
 		<div class="field">
 			<span class="withAction">
-				Grants
-				<button type="button" aria-label="Add a grant" onclick={() => addGrant(a)}>
+				{t.realms.inspector.grants}
+				<button type="button" aria-label={t.realms.inspector.addGrant} onclick={() => addGrant(a)}>
 					<Plus size={12} />
 				</button>
 			</span>
@@ -456,9 +444,9 @@
 				<table>
 					<thead>
 						<tr>
-							<th>Namespace</th>
-							<th>Scope</th>
-							<th class="narrow">Access</th>
+							<th>{t.realms.inspector.namespace}</th>
+							<th>{t.realms.inspector.scope}</th>
+							<th class="narrow">{t.realms.inspector.access}</th>
 							<th></th>
 						</tr>
 					</thead>
@@ -471,7 +459,7 @@
 										value={grant.namespace}
 										placeholder="world"
 										spellcheck="false"
-										aria-label="Grant {i + 1} namespace"
+										aria-label={t.realms.inspector.grantNamespace(i + 1)}
 										oninput={(e) => (a.grants[i].namespace = e.currentTarget.value)}
 									/>
 								</td>
@@ -481,7 +469,7 @@
 										value={grant.scope}
 										placeholder="*"
 										spellcheck="false"
-										aria-label="Grant {i + 1} scope"
+										aria-label={t.realms.inspector.grantScope(i + 1)}
 										oninput={(e) => (a.grants[i].scope = e.currentTarget.value)}
 									/>
 								</td>
@@ -490,18 +478,20 @@
 										type="button"
 										class="access"
 										class:write={grant.access === 'read_write'}
-										{@attach tooltip('Click to change what this agent may do')}
+										{@attach tooltip(t.realms.inspector.changeAccess)}
 										onclick={() =>
 											(a.grants[i].access = grant.access === 'read' ? 'read_write' : 'read')}
 									>
-										{grant.access === 'read' ? 'read' : 'read/write'}
+										{grant.access === 'read'
+											? t.realms.inspector.read
+											: t.realms.inspector.readWrite}
 									</button>
 								</td>
 								<td>
 									<button
 										type="button"
 										class="remove"
-										aria-label="Remove grant {i + 1}"
+										aria-label={t.realms.inspector.removeGrant(i + 1)}
 										onclick={() => a.grants.splice(i, 1)}
 									>
 										<Trash2 size={12} />
@@ -512,17 +502,17 @@
 					</tbody>
 				</table>
 			{:else}
-				<p class="note">Reads and writes only its own <code>agents:{a.handle || '…'}</code>.</p>
+				<p class="note">{t.realms.inspector.ownOnly} <code>agents:{a.handle || '…'}</code>.</p>
 			{/if}
 		</div>
 
 		<div class="field">
-			<span>Properties</span>
+			<span>{t.realms.inspector.properties}</span>
 			<table>
 				<thead>
 					<tr>
-						<th>Key</th>
-						<th>Value</th>
+						<th>{t.realms.inspector.key}</th>
+						<th>{t.realms.inspector.value}</th>
 						<th></th>
 					</tr>
 				</thead>
@@ -534,9 +524,9 @@
 								<input
 									class="mono"
 									value={property.key}
-									placeholder="key"
+									placeholder={t.realms.inspector.keyPlaceholder}
 									spellcheck="false"
-									aria-label="Property {i + 1} key"
+									aria-label={t.realms.inspector.propertyKey(i + 1)}
 									oninput={(e) => editProperty(a, i, { key: e.currentTarget.value })}
 								/>
 							</td>
@@ -544,9 +534,9 @@
 								<input
 									class="mono"
 									value={property.value}
-									placeholder="value"
+									placeholder={t.realms.inspector.valuePlaceholder}
 									spellcheck="false"
-									aria-label="Property {i + 1} value"
+									aria-label={t.realms.inspector.propertyValue(i + 1)}
 									oninput={(e) => editProperty(a, i, { value: e.currentTarget.value })}
 								/>
 							</td>
@@ -555,7 +545,7 @@
 									<button
 										type="button"
 										class="remove"
-										aria-label="Remove property {i + 1}"
+										aria-label={t.realms.inspector.removeProperty(i + 1)}
 										onclick={() => a.properties.splice(i, 1)}
 									>
 										<Trash2 size={12} />
@@ -567,12 +557,12 @@
 				</tbody>
 			</table>
 			<p class="note">
-				Accessible as <code>agents:{a.handle || '…'}.&lt;key&gt;</code>.
+				{t.realms.inspector.accessibleAs} <code>agents:{a.handle || '…'}.&lt;key&gt;</code>.
 			</p>
 		</div>
 
 		<ContextField
-			label="Run condition"
+			label={t.realms.inspector.runCondition}
 			value={a.run_condition}
 			dialect="expression"
 			profile="realm_condition"
@@ -580,43 +570,43 @@
 			multiline={false}
 			tokens={false}
 			maximizable={false}
-			hint={RUN_CONDITION_HINT}
+			hint={t.realms.inspector.runConditionHint}
 			onchange={(next) => (a.run_condition = next)}
 		/>
 
 		{#if shows(a, 'script')}
 			{@const shown = preview(a.script)}
 			<div class="field">
-				<span>Script</span>
+				<span>{t.realms.inspector.script}</span>
 				<button
 					type="button"
 					class="scriptCard"
 					class:blank={!shown.text}
 					class:truncated={shown.truncated}
 					aria-label={shown.text
-						? `Open the script for ${a.handle || 'this agent'}`
-						: `Write a script for ${a.handle || 'this agent'}`}
+						? t.realms.inspector.openScript(a.handle || t.realms.inspector.thisAgent)
+						: t.realms.inspector.writeScript(a.handle || t.realms.inspector.thisAgent)}
 					onclick={() => panes.show({ kind: 'script', agentKey: a.key })}
 				>
 					{#if shown.text}
 						<pre aria-hidden="true">{shown.text}</pre>
 					{:else}
-						<span class="blankText">Nothing written yet</span>
+						<span class="blankText">{t.realms.overview.nothingWritten}</span>
 					{/if}
 					<span class="openOverlay" aria-hidden="true">
 						<Maximize2 size={12} />
-						{shown.text ? 'Open' : 'Write one'}
+						{shown.text ? t.realms.overview.open : t.realms.overview.writeOne}
 					</span>
 				</button>
-				<p class="note">Runs every time it's this agent's turn. Opens in its own pane.</p>
+				<p class="note">{t.realms.inspector.scriptNote}</p>
 			</div>
 		{/if}
 	{:else if loop?.kind === 'foreach'}
 		{@const l = loop}
 		{@const decl = realmDraft.inputs.find((i) => i.name === l.over)}
-		<h3>For each</h3>
+		<h3>{t.realms.inspector.forEach}</h3>
 		<label>
-			<span>Variable</span>
+			<span>{t.realms.inspector.variable}</span>
 			<input
 				class="mono"
 				value={l.varName}
@@ -625,7 +615,7 @@
 			/>
 		</label>
 		<label>
-			<span>Over</span>
+			<span>{t.realms.inspector.over}</span>
 			<select
 				value={l.over ?? ''}
 				onchange={(e) => {
@@ -633,24 +623,24 @@
 					realmDraft.clearStaleBindings(l.key);
 				}}
 			>
-				<option value="">— pick an input —</option>
+				<option value="">{t.realms.castPane.pickInput}</option>
 				{#each realmDraft.inputs.filter((i) => i.ty.type === 'list') as i (i.name)}
 					<option value={i.name}>{i.name} · {declaredText(i.ty)}</option>
 				{/each}
 			</select>
 		</label>
 		{#if !decl}
-			<p class="note">Pick a list input, or drag one onto the loop from the browser.</p>
+			<p class="note">{t.realms.inspector.pickList}</p>
 		{/if}
 	{:else if input}
 		{@const decl = input}
 		{@const base = baseOf(decl.ty)}
 		{@const many = isList(decl.ty)}
-		<h3>Input</h3>
-		<p class="note">Something the person building a realm from this gets to choose.</p>
+		<h3>{t.realms.inspector.input}</h3>
+		<p class="note">{t.realms.inspector.inputNote}</p>
 
 		<label>
-			<span>Name</span>
+			<span>{t.realms.inspector.name}</span>
 			<input
 				class="mono"
 				value={decl.name}
@@ -660,31 +650,31 @@
 		</label>
 
 		<label>
-			<span>Description</span>
+			<span>{t.realms.inspector.description}</span>
 			<textarea
 				rows="3"
 				value={decl.doc}
-				placeholder="Shown with this field when someone builds a realm."
+				placeholder={t.realms.inspector.descriptionPlaceholder}
 				oninput={(e) => (decl.doc = e.currentTarget.value)}
 			></textarea>
 		</label>
 
 		<label>
-			<span>Holds</span>
+			<span>{t.realms.inspector.holds}</span>
 			<select
 				value={holdsValue(decl.ty)}
 				onchange={(e) => retype(decl, holdsToBase(e.currentTarget.value), many)}
 			>
-				<optgroup label="Values">
-					<option value="string">Text</option>
-					<option value="number">Number</option>
-					<option value="bool">Boolean</option>
-					<option value="enum">Enum</option>
-					<option value="range">Slider (single-value)</option>
-					<option value="span">Slider (from-to)</option>
-					<option value="object">Custom Object</option>
+				<optgroup label={t.realms.inspector.values}>
+					<option value="string">{t.realms.fields.types.string}</option>
+					<option value="number">{t.realms.fields.types.number}</option>
+					<option value="bool">{t.realms.fields.types.bool}</option>
+					<option value="enum">{t.realms.fields.types.enum}</option>
+					<option value="range">{t.realms.fields.types.range}</option>
+					<option value="span">{t.realms.fields.types.span}</option>
+					<option value="object">{t.realms.fields.types.object}</option>
 				</optgroup>
-				<optgroup label="Something they already own">
+				<optgroup label={t.realms.inspector.owned}>
 					{#each RESOURCE_KINDS as kind (kind)}
 						<option value="ref:{kind}">{TYPE_NAME[kind]}</option>
 					{/each}
@@ -698,9 +688,12 @@
 				checked={many}
 				onchange={(e) => retype(decl, base, e.currentTarget.checked)}
 			/>
-			<span>Is List</span>
+			<span>{t.realms.inspector.isList}</span>
 		</label>
-		<p class="note">A list is what a <code>for each</code> in the cast repeats over.</p>
+		<p class="note">
+			{t.realms.inspector.listNotePrefix} <code>for each</code>
+			{t.realms.inspector.listNoteSuffix}
+		</p>
 
 		{#if base.type === 'range' || base.type === 'span'}
 			{@const bounds = base}
@@ -708,9 +701,7 @@
 				retypeBounds(decl, many, min, max)
 			)}
 			<p class="note">
-				{base.type === 'span'
-					? 'They drag two handles and it arrives as {from, to}.'
-					: 'They drag one handle and it arrives as a number.'}
+				{base.type === 'span' ? t.realms.inspector.spanNote : t.realms.inspector.rangeNote}
 			</p>
 		{/if}
 		{#if base.type === 'object'}
@@ -724,10 +715,10 @@
 
 		{#if base.type === 'enum'}
 			<label>
-				<span>Choices</span>
+				<span>{t.realms.inspector.choices}</span>
 				<input
 					value={base.variants.join(', ')}
-					placeholder="gentle, brutal"
+					placeholder={t.realms.inspector.choicesPlaceholder}
 					onchange={(e) => {
 						const variants = e.currentTarget.value
 							.split(',')
@@ -744,20 +735,19 @@
 
 		{#if base.type === 'reference'}
 			<p class="note">
-				They pick the {noun(base.kind ?? 'character')} themselves, so there's nothing sensible to fill
-				in ahead of time. Always required.
+				{t.realms.inspector.referenceNote(noun(base.kind ?? 'character'))}
 			</p>
 		{:else if many}
-			<p class="note">Lists can't have a default yet, so this is always required.</p>
+			<p class="note">{t.realms.inspector.listNoDefault}</p>
 		{:else}
 			<label>
-				<span>Default</span>
+				<span>{t.realms.inspector.default}</span>
 				{#if base.type === 'enum'}
 					<select
 						value={decl.defaultValue ?? ''}
 						onchange={(e) => (decl.defaultValue = e.currentTarget.value || null)}
 					>
-						<option value="">No default — required</option>
+						<option value="">{t.realms.inspector.noDefault}</option>
 						{#each base.variants as variant (variant)}
 							<option value={variant}>{variant}</option>
 						{/each}
@@ -767,23 +757,23 @@
 						value={decl.defaultValue ?? ''}
 						onchange={(e) => (decl.defaultValue = e.currentTarget.value || null)}
 					>
-						<option value="">No default — required</option>
-						<option value="true">Yes</option>
-						<option value="false">No</option>
+						<option value="">{t.realms.inspector.noDefault}</option>
+						<option value="true">{t.realms.inspector.yes}</option>
+						<option value="false">{t.realms.inspector.no}</option>
 					</select>
 				{:else if base.type === 'number' || base.type === 'range'}
 					<NumberInput
 						value={decl.defaultValue === null ? '' : Number(decl.defaultValue)}
 						min={base.type === 'range' ? base.min : undefined}
 						max={base.type === 'range' ? base.max : undefined}
-						placeholder="No default — required"
-						ariaLabel="Default"
+						placeholder={t.realms.inspector.noDefault}
+						ariaLabel={t.realms.inspector.default}
 						onchange={(next) => (decl.defaultValue = next === '' ? null : String(next))}
 					/>
 				{:else}
 					<input
 						value={decl.defaultValue ?? ''}
-						placeholder="No default — required"
+						placeholder={t.realms.inspector.noDefault}
 						onchange={(e) => (decl.defaultValue = e.currentTarget.value.trim() || null)}
 					/>
 				{/if}
@@ -791,25 +781,27 @@
 		{/if}
 
 		<div class="declaration">
-			<span class="declLabel">Declares</span>
+			<span class="declLabel">{t.realms.inspector.declares}</span>
 			<code>{declarationLine(decl)}</code>
 			<span class="declTag" class:optional={!isRequired(decl)}>
-				{isRequired(decl) ? 'required' : 'optional'}
+				{isRequired(decl) ? t.realms.inspector.required : t.realms.inspector.optional}
 			</span>
 		</div>
 
 		<button type="button" class="danger" onclick={() => realmDraft.removeInput(decl.name)}>
-			<Trash2 size={12} /> Delete input
+			<Trash2 size={12} />
+			{t.realms.inspector.deleteInput}
 		</button>
 	{:else if resource}
 		<h3>{TYPE_NAME[resource.resourceKind]}</h3>
 		<p class="resourceName">{resource.name}</p>
 		<p class="note"><code>{resource.id}</code></p>
 		<button type="button" onclick={() => openResource(resource.resourceKind, resource.id)}>
-			<ExternalLink size={12} /> Open in Studio
+			<ExternalLink size={12} />
+			{t.realms.inspector.openInStudio}
 		</button>
 	{:else}
-		<p class="nothing">Select something in the cast, or an input in the browser.</p>
+		<p class="nothing">{t.realms.inspector.nothing}</p>
 	{/if}
 </div>
 

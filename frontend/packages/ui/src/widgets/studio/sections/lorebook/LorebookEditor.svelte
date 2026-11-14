@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { onDestroy } from 'svelte';
 	import { navigator } from '#lib/navigation/navigator.js';
@@ -80,9 +81,11 @@
 				<button
 					class="back"
 					onclick={() => navigator.start().studio().lorebooks()}
-					aria-label="Back to lorebooks">←</button
+					aria-label={t.studio.lorebookEditor.back}>←</button
 				>
-				<span class="book-name" {@attach tooltip(draft?.name)}>{draft?.name ?? 'Loading…'}</span>
+				<span class="book-name" {@attach tooltip(draft?.name)}
+					>{draft?.name ?? t.studio.lorebookEditor.loading}</span
+				>
 			</div>
 			<div class="header-row">
 				<button
@@ -92,9 +95,11 @@
 					onclick={() => {
 						selected = 'config';
 						paneOpen = true;
-					}}>Settings</button
+					}}>{t.studio.lorebookEditor.settings}</button
 				>
-				<button class="add" type="button" onclick={addEntry}>＋ Entry</button>
+				<button class="add" type="button" onclick={addEntry}
+					>{t.studio.lorebookEditor.addEntry}</button
+				>
 			</div>
 			<SaveIndicator state={lorebookStore.bookSaveState} />
 		</header>
@@ -116,7 +121,9 @@
 	</section>
 
 	<section class="col-content">
-		<button type="button" class="to-list" onclick={() => (paneOpen = false)}>← Entries</button>
+		<button type="button" class="to-list" onclick={() => (paneOpen = false)}
+			>{t.studio.lorebookEditor.entries}</button
+		>
 		{#if selectedEntry && draft}
 			{#key selectedEntry.snowflake}
 				<EntryEditor

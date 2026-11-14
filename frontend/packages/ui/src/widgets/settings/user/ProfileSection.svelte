@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import { daysSince, monthYear, relativeTime } from '#lib/assets/scripts/datetime.js';
 	import { blobUrl } from '#lib/api/blobs.js';
@@ -23,11 +24,11 @@
 	const memberSince = $derived(user ? monthYear(user.created_at) : null);
 
 	const stats = $derived([
-		{ label: 'Characters', value: characterStore.metadataList?.length ?? 0 },
-		{ label: 'Lorebooks', value: lorebookStore.metadataList?.length ?? 0 },
-		{ label: 'Realms', value: realmStore.summaries?.length ?? 0 },
+		{ label: t.settings.profile.stats.characters, value: characterStore.metadataList?.length ?? 0 },
+		{ label: t.settings.profile.stats.lorebooks, value: lorebookStore.metadataList?.length ?? 0 },
+		{ label: t.settings.profile.stats.realms, value: realmStore.summaries?.length ?? 0 },
 		{
-			label: 'Days here',
+			label: t.settings.profile.stats.daysHere,
 			value: user ? daysSince(user.created_at) : 0
 		}
 	]);
@@ -95,7 +96,7 @@
 			await currentUser.changePassword(pwCurrent, pwNew);
 			pwCurrent = pwNew = pwConfirm = '';
 			showToast({
-				message: 'Password changed. Your other devices have been signed out.',
+				message: t.settings.profile.passwordChanged,
 				variant: 'success'
 			});
 		} catch (e) {
@@ -121,13 +122,9 @@
 		}
 	}
 
-	/**
-	 * "Firefox on Linux" or "Lorealm Desktop 0.3.0 on macOS" out of a user-agent
-	 * string, or a plain fallback.
-	 */
 	function describe(session: UserSession): string {
 		const ua = session.user_agent;
-		if (!ua) return 'Unknown device';
+		if (!ua) return t.settings.profile.unknownDevice;
 
 		const browser = /Edg\//.test(ua)
 			? 'Edge'
@@ -159,8 +156,8 @@
 							? 'Linux'
 							: null;
 
-		if (client && os) return `${client} on ${os}`;
-		return client ?? os ?? 'Unknown device';
+		if (client && os) return t.settings.profile.clientOn(client, os);
+		return client ?? os ?? t.settings.profile.unknownDevice;
 	}
 
 	const otherSessions = $derived(currentUser.sessions.filter((s) => !s.current).length);
@@ -173,14 +170,14 @@
 				class="avatar"
 				onclick={() => avatarInput?.click()}
 				disabled={busy}
-				{@attach tooltip('Change profile picture')}
+				{@attach tooltip(t.settings.profile.changePicture)}
 			>
 				{#if avatar}
 					<img src={avatar} alt="" />
 				{:else}
 					<span class="initial">{currentUser.name.charAt(0).toUpperCase()}</span>
 				{/if}
-				<span class="avatarHint">Change</span>
+				<span class="avatarHint">{t.settings.profile.change}</span>
 			</button>
 			<input
 				bind:this={avatarInput}
@@ -207,13 +204,17 @@
 						}}
 					/>
 				{:else}
-					<button class="name" onclick={startRename} {@attach tooltip('Change display name')}>
+					<button
+						class="name"
+						onclick={startRename}
+						{@attach tooltip(t.settings.profile.changeName)}
+					>
 						{currentUser.name}
 					</button>
 				{/if}
 				<span class="handle">@{user.username}</span>
 				{#if memberSince}
-					<span class="since">Joined {memberSince}</span>
+					<span class="since">{t.settings.profile.joined(memberSince)}</span>
 				{/if}
 			</div>
 		</header>
@@ -228,35 +229,35 @@
 		</div>
 
 		<form class="password" onsubmit={changePassword}>
-			<h3>Password</h3>
-			<label for="pw-current">Current password</label>
+			<h3>{t.settings.profile.password}</h3>
+			<label for="pw-current">{t.settings.profile.currentPassword}</label>
 			<input
 				id="pw-current"
 				type="password"
 				autocomplete="current-password"
 				bind:value={pwCurrent}
 			/>
-			<label for="pw-new">New password</label>
+			<label for="pw-new">{t.settings.profile.newPassword}</label>
 			<input id="pw-new" type="password" autocomplete="new-password" bind:value={pwNew} />
-			<label for="pw-confirm">Confirm new password</label>
+			<label for="pw-confirm">{t.settings.profile.confirmPassword}</label>
 			<input id="pw-confirm" type="password" autocomplete="new-password" bind:value={pwConfirm} />
 			{#if pwMismatch}
-				<p class="pwMessage">The new passwords don't match.</p>
+				<p class="pwMessage">{t.settings.profile.mismatch}</p>
 			{:else if pwError}
 				<p class="pwMessage">{pwError}</p>
 			{/if}
 			<button type="submit" disabled={!pwReady || pwBusy}>
-				{pwBusy ? 'Changing…' : 'Change password'}
+				{pwBusy ? t.settings.profile.changing : t.settings.profile.changePassword}
 			</button>
-			<p class="pwNote">Changing your password signs out all your other devices.</p>
+			<p class="pwNote">{t.settings.profile.passwordNote}</p>
 		</form>
 
 		<div class="sessions">
 			<div class="sessionsHead">
-				<h3>Sessions</h3>
+				<h3>{t.settings.profile.sessions}</h3>
 				{#if otherSessions > 0}
 					<button class="linkish" onclick={revokeOthers}>
-						Sign out {otherSessions} other{otherSessions === 1 ? '' : 's'}
+						{t.settings.profile.signOutOthers(otherSessions)}
 					</button>
 				{/if}
 			</div>
@@ -267,21 +268,23 @@
 						<div class="device">
 							<span class="deviceName">
 								{describe(session)}
-								{#if session.current}<span class="badge">this device</span>{/if}
+								{#if session.current}<span class="badge">{t.settings.profile.thisDevice}</span>{/if}
 							</span>
 							<span class="meta">
-								{session.ip_address ?? 'unknown address'} ·
-								{relativeTime(session.last_rotated_at) ?? 'unknown'}
+								{session.ip_address ?? t.settings.profile.unknownAddress} ·
+								{relativeTime(session.last_rotated_at) ?? t.settings.profile.unknown}
 							</span>
 						</div>
 						{#if session.current}
-							<button class="linkish" onclick={signOut}>Sign out</button>
+							<button class="linkish" onclick={signOut}>{t.settings.profile.signOut}</button>
 						{:else}
-							<button class="linkish" onclick={() => revoke(session.id)}>Sign out</button>
+							<button class="linkish" onclick={() => revoke(session.id)}
+								>{t.settings.profile.signOut}</button
+							>
 						{/if}
 					</li>
 				{:else}
-					<li class="empty">No active sessions.</li>
+					<li class="empty">{t.settings.profile.noSessions}</li>
 				{/each}
 			</ul>
 		</div>

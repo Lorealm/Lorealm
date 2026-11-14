@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { onMount } from 'svelte';
 	import { navigator } from '#lib/navigation/navigator.js';
 	import { router } from '#lib/navigation/router.svelte.js';
@@ -25,14 +26,14 @@
 				class:active={scope === 'user'}
 				onclick={() => navigator.start().settings().user()}
 			>
-				You
+				{t.nav.scopes.user}
 			</button>
 			<button
 				class="tab"
 				class:active={scope === 'server'}
 				onclick={() => navigator.start().settings().server()}
 			>
-				Server
+				{t.nav.scopes.server}
 			</button>
 		</nav>
 	{/if}

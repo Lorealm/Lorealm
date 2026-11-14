@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import Inspector from '#lib/widgets/inspector/Inspector.svelte';
 	import NavBar from '#lib/widgets/navigation/NavBar.svelte';
 	import TopBar from '#lib/widgets/navigation/TopBar.svelte';
@@ -41,7 +42,11 @@
 
 <div class="container">
 	{#if shell.drawerOpen}
-		<button type="button" class="scrim" aria-label="Close panel" onclick={() => shell.closeDrawer()}
+		<button
+			type="button"
+			class="scrim"
+			aria-label={t.shell.closePanel}
+			onclick={() => shell.closeDrawer()}
 		></button>
 	{/if}
 	<NavBar />

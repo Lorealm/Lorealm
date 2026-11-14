@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../../../stores/tooltip.svelte.ts';
 	import { getContext } from 'svelte';
 	import { flip } from 'svelte/animate';
@@ -14,11 +15,8 @@
 	const DND_KEY = 'template:dnd';
 	const MENU_KEY = 'template:menu';
 
-	/** True for the placeholder item svelte-dnd-action injects during a drag. */
 	const isShadow = (n: ContextNode) => SHADOW_ITEM_MARKER_PROPERTY_NAME in n;
 
-	// Shared drag controller, provided by TemplateEditor. Kept structural so the
-	// two files don't need a shared type module.
 	interface DndContext {
 		isForbidden(ownerId: Snowflake): boolean;
 		onConsider(info: { trigger: string; id: Snowflake }): void;
@@ -119,8 +117,8 @@
 		class="enable"
 		type="checkbox"
 		checked={node.enabled}
-		aria-label="Enabled"
-		{@attach tooltip('Enabled')}
+		aria-label={t.studio.templateEditor.enabled}
+		{@attach tooltip(t.studio.templateEditor.enabled)}
 		onpointerdown={stop}
 		onclick={stop}
 		onchange={toggleEnabled}
@@ -128,7 +126,13 @@
 {/snippet}
 
 {#snippet kebab()}
-	<button class="kebab" type="button" aria-label="Actions" onpointerdown={stop} onclick={openKebab}>
+	<button
+		class="kebab"
+		type="button"
+		aria-label={t.studio.templateEditor.actions}
+		onpointerdown={stop}
+		onclick={openKebab}
+	>
 		⋯
 	</button>
 {/snippet}
@@ -137,13 +141,19 @@
 	{#if showBadges}
 		<div class="badges" class:selected={selectedId === node.id}>
 			{#if group?.mode === 'invariant'}
-				<span class="badge-item" {@attach tooltip('Invariant')}><CircleDot /></span>
+				<span class="badge-item" {@attach tooltip(t.studio.templateEditor.invariant)}
+					><CircleDot /></span
+				>
 			{/if}
 			{#if group && group.children.length === 0}
-				<span class="badge-item" {@attach tooltip('Empty')}><SquaresSubtract /></span>
+				<span class="badge-item" {@attach tooltip(t.studio.templateEditor.empty)}
+					><SquaresSubtract /></span
+				>
 			{/if}
 			{#if isSource}
-				<span class="badge-item" {@attach tooltip('Dynamic source')}><Plug /></span>
+				<span class="badge-item" {@attach tooltip(t.studio.templateEditor.dynamicSource)}
+					><Plug /></span
+				>
 			{/if}
 		</div>
 	{/if}
@@ -167,7 +177,9 @@
 			<button
 				class="caret"
 				type="button"
-				aria-label={collapsed ? 'Expand group' : 'Collapse group'}
+				aria-label={collapsed
+					? t.studio.templateEditor.expandGroup
+					: t.studio.templateEditor.collapseGroup}
 				aria-expanded={!collapsed}
 				onpointerdown={stop}
 				onclick={toggleCollapse}

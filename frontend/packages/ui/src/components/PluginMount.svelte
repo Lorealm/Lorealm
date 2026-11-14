@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { useApi } from '#lib/api/client.js';
 	import { pluginCalls } from '#lib/stores/pluginCalls.svelte.js';
 	import { pluginEvents } from '#lib/stores/pluginEvents.svelte.js';
@@ -106,7 +107,7 @@
 </script>
 
 {#if failed}
-	<div class="empty">This plugin's panel couldn't be loaded.</div>
+	<div class="empty">{t.components.plugin.panelFailed}</div>
 {/if}
 <div class="mount" bind:this={host}></div>
 

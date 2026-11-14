@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { untrack } from 'svelte';
 	import { templateStore } from '#lib/stores/template.svelte.js';
 	import type { ContextNode, NodeContent } from '#lib/types/node.js';
@@ -66,7 +67,7 @@
 
 <div class="node-editor">
 	{#if !node}
-		<div class="empty">Select a node to edit</div>
+		<div class="empty">{t.studio.templateEditor.selectNode}</div>
 	{:else}
 		<div class="settings-region" class:grow={node.content.type !== 'text'}>
 			<NodeSettings {node} bind:saveState />
@@ -74,10 +75,16 @@
 
 		{#if node.content.type === 'text'}
 			<div class="content-region">
-				<FieldShell label="Content" tokenText={text} fill>
+				<FieldShell label={t.studio.templateEditor.content} tokenText={text} fill>
 					{#snippet editor(fill: boolean)}
 						{#key syncedId}
-							<WeaverArea doc={text} onChange={onInput} hint="Empty prompt" fill autofocus={fill} />
+							<WeaverArea
+								doc={text}
+								onChange={onInput}
+								hint={t.studio.templateEditor.emptyPrompt}
+								fill
+								autofocus={fill}
+							/>
 						{/key}
 					{/snippet}
 				</FieldShell>

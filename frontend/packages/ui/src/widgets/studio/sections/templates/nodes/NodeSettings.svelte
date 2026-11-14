@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { untrack } from 'svelte';
 	import { templateStore } from '#lib/stores/template.svelte.js';
 	import type {
@@ -133,14 +134,18 @@
 
 <div class="settings">
 	{#if node.content.type === 'source'}
-		<p class="source-line">From source · {sourceDef ? sourceDef.title : 'Unknown source node'}</p>
+		<p class="source-line">
+			{t.studio.templateEditor.fromSource(
+				sourceDef ? sourceDef.title : t.studio.templateEditor.unknownSource
+			)}
+		</p>
 	{/if}
 
 	<label class="field">
-		<span>Title</span>
+		<span>{t.studio.templateEditor.title}</span>
 		<input
 			value={title}
-			placeholder="Title"
+			placeholder={t.studio.templateEditor.title}
 			oninput={(e) => {
 				title = e.currentTarget.value;
 				scheduleSave('title');
@@ -149,11 +154,11 @@
 	</label>
 
 	<label class="field">
-		<span>Description</span>
+		<span>{t.studio.templateEditor.description}</span>
 		<textarea
 			value={description}
 			rows="2"
-			placeholder="Optional"
+			placeholder={t.studio.templateEditor.optional}
 			oninput={(e) => {
 				description = e.currentTarget.value;
 				scheduleSave('description');
@@ -163,7 +168,7 @@
 
 	{#if node.content.type === 'text'}
 		<label class="field">
-			<span>Role</span>
+			<span>{t.studio.templateEditor.role}</span>
 			<select
 				value={role}
 				onchange={(e) => {
@@ -171,16 +176,16 @@
 					scheduleSave('content', true);
 				}}
 			>
-				<option value="system">System</option>
-				<option value="user">User</option>
-				<option value="assistant">Assistant</option>
+				<option value="system">{t.studio.templateEditor.roles.system}</option>
+				<option value="user">{t.studio.templateEditor.roles.user}</option>
+				<option value="assistant">{t.studio.templateEditor.roles.assistant}</option>
 			</select>
 		</label>
 	{/if}
 
 	{#if node.content.type === 'group'}
 		<label class="field">
-			<span>Mode</span>
+			<span>{t.studio.templateEditor.mode}</span>
 			<select
 				value={mode}
 				onchange={(e) => {
@@ -188,12 +193,12 @@
 					scheduleSave('content', true);
 				}}
 			>
-				<option value="collection">Collection</option>
-				<option value="invariant">Invariant (one active child)</option>
+				<option value="collection">{t.studio.templateEditor.modes.collection}</option>
+				<option value="invariant">{t.studio.templateEditor.invariantOne}</option>
 			</select>
 		</label>
 		<label class="field">
-			<span>Wrap Behavior</span>
+			<span>{t.studio.templateEditor.wrapBehavior}</span>
 			<div class="inline-row">
 				<select
 					value={typeof wrap === 'string' ? wrap : 'only'}
@@ -203,10 +208,10 @@
 						scheduleSave('content', true);
 					}}
 				>
-					<option value="no_mixed">No mixed (same role only)</option>
-					<option value="majority">Majority (most common role)</option>
-					<option value="all">All (one group per role)</option>
-					<option value="only">Only (specific role)</option>
+					<option value="no_mixed">{t.studio.templateEditor.wraps.no_mixed}</option>
+					<option value="majority">{t.studio.templateEditor.wraps.majority}</option>
+					<option value="all">{t.studio.templateEditor.wraps.all}</option>
+					<option value="only">{t.studio.templateEditor.wraps.only}</option>
 				</select>
 
 				{#if typeof wrap === 'object'}
@@ -217,29 +222,29 @@
 							scheduleSave('content', true);
 						}}
 					>
-						<option value="system">System</option>
-						<option value="user">User</option>
-						<option value="assistant">Assistant</option>
+						<option value="system">{t.studio.templateEditor.roles.system}</option>
+						<option value="user">{t.studio.templateEditor.roles.user}</option>
+						<option value="assistant">{t.studio.templateEditor.roles.assistant}</option>
 					</select>
 				{/if}
 			</div>
 		</label>
 		{#key syncedId}
 			<ContextField
-				label="Prefix"
+				label={t.studio.templateEditor.prefix}
 				value={prefix}
 				rows={2}
-				placeholder="Optional — prepended before children"
+				placeholder={t.studio.templateEditor.prefixDash}
 				onchange={(v) => {
 					prefix = v;
 					scheduleSave('content');
 				}}
 			/>
 			<ContextField
-				label="Suffix"
+				label={t.studio.templateEditor.suffix}
 				value={suffix}
 				rows={2}
-				placeholder="Optional — appended after children"
+				placeholder={t.studio.templateEditor.suffixDash}
 				onchange={(v) => {
 					suffix = v;
 					scheduleSave('content');
@@ -255,17 +260,17 @@
 					scheduleSave('content', true);
 				}}
 			/>
-			<span>Always include prefix/suffix, even if all children are disabled</span>
+			<span>{t.studio.templateEditor.alwaysWrap}</span>
 		</label>
 	{/if}
 
 	{#if node.content.type === 'source'}
 		<div class="custom">
-			<div class="section-title">Source settings</div>
+			<div class="section-title">{t.studio.templateEditor.sourceSettings}</div>
 			{#if !sourceDef}
-				<p class="muted">Source definition unavailable — settings can't be shown.</p>
+				<p class="muted">{t.studio.templateEditor.sourceUnavailable}</p>
 			{:else if sourceDef.settings.length === 0}
-				<p class="muted">This source node has no settings.</p>
+				<p class="muted">{t.studio.templateEditor.noSourceSettings}</p>
 			{:else}
 				{#each sourceDef.settings as s (s.key)}
 					{@const st = s.setting_type}

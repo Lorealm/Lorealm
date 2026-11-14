@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { onDestroy } from 'svelte';
 	import { navigator } from '#lib/navigation/navigator.js';
@@ -27,22 +28,21 @@
 		| 'history';
 	let section = $state<Section>('identity');
 
-	const sections: Array<{ key: Section; label: string; count?: () => number }> = [
-		{ key: 'identity', label: 'Identity' },
-		{ key: 'persona', label: 'Persona' },
-		{ key: 'prompts', label: 'Prompts' },
-		{ key: 'greetings', label: 'Greetings', count: () => draft?.greetings.length ?? 0 },
-		{ key: 'examples', label: 'Examples', count: () => draft?.examples.length ?? 0 },
+	const sections: Array<{ key: Section; count?: () => number }> = [
+		{ key: 'identity' },
+		{ key: 'persona' },
+		{ key: 'prompts' },
+		{ key: 'greetings', count: () => draft?.greetings.length ?? 0 },
+		{ key: 'examples', count: () => draft?.examples.length ?? 0 },
 		{
 			key: 'attachments',
-			label: 'Attachments',
 			count: () =>
 				(draft?.lorebook_ids.length ?? 0) +
 				(draft?.tool_ids.length ?? 0) +
 				(draft?.widget_ids.length ?? 0)
 		},
-		{ key: 'authoring', label: 'Authoring' },
-		{ key: 'history', label: 'History', count: () => characterStore.versions.length }
+		{ key: 'authoring' },
+		{ key: 'history', count: () => characterStore.versions.length }
 	];
 
 	const currentVersion = $derived(
@@ -106,14 +106,14 @@
 	// beautiful
 	const saveLabel = $derived(
 		save.status === 'saving'
-			? 'Saving…'
+			? t.common.saving
 			: save.status === 'saved'
-				? 'Saved'
+				? t.common.saved
 				: save.status === 'error'
-					? 'Unsaved; error'
+					? t.studio.characterEditor.unsavedError
 					: characterStore.hasUnsavedChanges
-						? 'Unsaved'
-						: 'Saved'
+						? t.studio.characterEditor.unsaved
+						: t.common.saved
 	);
 </script>
 
@@ -146,9 +146,11 @@
 				<button
 					class="back"
 					onclick={() => navigator.start().studio().characters()}
-					aria-label="Back to characters">←</button
+					aria-label={t.studio.characterEditor.back}>←</button
 				>
-				<span class="char-name" {@attach tooltip(draft?.name)}>{draft?.name || 'Loading…'}</span>
+				<span class="char-name" {@attach tooltip(draft?.name)}
+					>{draft?.name || t.studio.characterEditor.loading}</span
+				>
 			</div>
 			<div class="save-row" class:error={save.status === 'error'}>
 				<span class="dot" data-status={save.status}></span>
@@ -160,9 +162,9 @@
 						>v{currentVersion.version_num}</span
 					>
 					{#if characterStore.lastSaveCreatedVersion}
-						<span class="version-note">new version started</span>
+						<span class="version-note">{t.studio.characterEditor.newVersion}</span>
 					{:else}
-						<span class="version-note muted">updating current</span>
+						<span class="version-note muted">{t.studio.characterEditor.updatingCurrent}</span>
 					{/if}
 				</div>
 			{/if}
@@ -179,7 +181,7 @@
 					type="button"
 					onclick={() => (section = s.key)}
 				>
-					<span>{s.label}</span>
+					<span>{t.studio.characterEditor.sections[s.key]}</span>
 					{#if s.count}<span class="badge">{s.count()}</span>{/if}
 				</button>
 			{/each}
@@ -191,23 +193,32 @@
 			{#key draft}
 				<div class="pane">
 					{#if section === 'identity'}
-						<h1>Identity</h1>
+						<h1>{t.studio.characterEditor.sections.identity}</h1>
 						<div class="identity-top">
 							<div class="avatar">
 								{#if characterStore.avatarUrl}
-									<img src={characterStore.avatarUrl} alt={`${draft.name} avatar`} />
+									<img
+										src={characterStore.avatarUrl}
+										alt={t.studio.characterEditor.avatarAlt(draft.name)}
+									/>
 								{:else}
 									<div class="avatar-placeholder" aria-hidden="true"></div>
 								{/if}
 								<button onclick={openPicker} disabled={busy} class="pickFile">
-									{busy ? 'Uploading…' : 'Change avatar'}</button
+									{busy
+										? t.studio.characterEditor.uploading
+										: t.studio.characterEditor.changeAvatar}</button
 								>
 							</div>
 							<div class="identity-fields">
-								<label for="f-name">Name <span class="req">in-chat, {`{{char:name}}`}</span></label>
+								<label for="f-name"
+									>{t.studio.characterEditor.name}
+									<span class="req">{t.studio.characterEditor.nameNote} {`{{char:name}}`}</span
+									></label
+								>
 								<input id="f-name" bind:value={draft.name} oninput={requestSave} />
 
-								<label for="f-display">Display name</label>
+								<label for="f-display">{t.studio.characterEditor.displayName}</label>
 								<input
 									id="f-display"
 									placeholder={draft.name}
@@ -218,66 +229,68 @@
 						</div>
 
 						<TagField
-							label="Tags"
+							label={t.studio.characterEditor.tags}
 							items={draft.tags}
 							onchange={requestSave}
-							placeholder="Add tag…"
+							placeholder={t.studio.characterEditor.addTag}
 						/>
 						<TagField
-							label="Alternate names"
+							label={t.studio.characterEditor.altNames}
 							items={draft.alt_names}
 							onchange={requestSave}
-							placeholder="Add name…"
+							placeholder={t.studio.characterEditor.addName}
 						/>
 					{:else if section === 'persona'}
-						<h1>Persona</h1>
+						<h1>{t.studio.characterEditor.sections.persona}</h1>
 						{@render field(
-							'Description',
-							'The main character definition. Reaches the model through the Description node.',
+							t.studio.characterEditor.description,
+							t.studio.characterEditor.descriptionHint,
 							() => draft.description,
 							(v) => (draft.description = v),
 							8
 						)}
 						{@render field(
-							'Personality',
-							'Traits and behaviour, placed by the Personality node.',
+							t.studio.characterEditor.personality,
+							t.studio.characterEditor.personalityHint,
 							() => draft.personality,
 							(v) => (draft.personality = v)
 						)}
 						{@render field(
-							'Scenario',
-							'The situation the roleplay opens in, placed by the Scenario node.',
+							t.studio.characterEditor.scenario,
+							t.studio.characterEditor.scenarioHint,
 							() => draft.scenario,
 							(v) => (draft.scenario = v)
 						)}
 					{:else if section === 'prompts'}
-						<h1>Prompts</h1>
+						<h1>{t.studio.characterEditor.sections.prompts}</h1>
 						{@render field(
-							'System prompt',
-							'Overrides the template’s system prompt for this character.',
+							t.studio.characterEditor.systemPrompt,
+							t.studio.characterEditor.systemPromptHint,
 							() => draft.system_prompt,
 							(v) => (draft.system_prompt = v),
 							8
 						)}
 						{@render field(
-							'Post-history instructions',
-							'Placed after the chat history, closest to the model’s reply.',
+							t.studio.characterEditor.postHistory,
+							t.studio.characterEditor.postHistoryHint,
 							() => draft.post_history_instructions,
 							(v) => (draft.post_history_instructions = v)
 						)}
 						{@render field(
-							'Template injection',
-							'Fills the Character Injection node. Write {{template}} where that node’s own text should go, and read stored values like {{story:traits}}.',
+							t.studio.characterEditor.injection,
+							t.studio.characterEditor.injectionHint,
 							() => draft.template_injection,
 							(v) => (draft.template_injection = v)
 						)}
 					{:else if section === 'greetings'}
 						<div class="section-head">
-							<h1>Greetings</h1>
-							<button type="button" class="add" onclick={addGreeting}>＋ Greeting</button>
+							<h1>{t.studio.characterEditor.sections.greetings}</h1>
+							<button type="button" class="add" onclick={addGreeting}
+								>{t.studio.characterEditor.addGreeting}</button
+							>
 						</div>
 						{#if draft.greetings.length === 0}
-							<p class="empty">No greetings yet.</p>
+							<p class="empty">{t.studio.characterEditor.noGreetings}</p>
 						{/if}
 						{#each draft.greetings as greeting, i (greeting)}
 							<div class="item-card">
@@ -285,20 +298,20 @@
 									<div class="item-actions">
 										<button
 											type="button"
-											aria-label="Move up"
+											aria-label={t.studio.characterEditor.moveUp}
 											disabled={i === 0}
 											onclick={() => moveGreeting(i, -1)}>↑</button
 										>
 										<button
 											type="button"
-											aria-label="Move down"
+											aria-label={t.studio.characterEditor.moveDown}
 											disabled={i === draft.greetings.length - 1}
 											onclick={() => moveGreeting(i, 1)}>↓</button
 										>
 										<button
 											type="button"
 											class="danger"
-											aria-label="Remove"
+											aria-label={t.studio.characterEditor.remove}
 											onclick={() => removeGreeting(i)}>✕</button
 										>
 									</div>
@@ -310,17 +323,19 @@
 										greeting.text = v;
 										requestSave();
 									}}
-									label={`Greeting ${i + 1}`}
+									label={t.studio.characterEditor.greeting(i + 1)}
 								/>
 							</div>
 						{/each}
 					{:else if section === 'examples'}
 						<div class="section-head">
-							<h1>Example dialogues</h1>
-							<button type="button" class="add" onclick={addExample}>＋ Example</button>
+							<h1>{t.studio.characterEditor.exampleDialogues}</h1>
+							<button type="button" class="add" onclick={addExample}
+								>{t.studio.characterEditor.addExample}</button
+							>
 						</div>
 						{#if draft.examples.length === 0}
-							<p class="empty">No example dialogues yet.</p>
+							<p class="empty">{t.studio.characterEditor.noExamples}</p>
 						{/if}
 						{#each draft.examples as example, i (example)}
 							<div class="item-card">
@@ -328,26 +343,26 @@
 									<div class="item-actions">
 										<button
 											type="button"
-											aria-label="Move up"
+											aria-label={t.studio.characterEditor.moveUp}
 											disabled={i === 0}
 											onclick={() => moveExample(i, -1)}>↑</button
 										>
 										<button
 											type="button"
-											aria-label="Move down"
+											aria-label={t.studio.characterEditor.moveDown}
 											disabled={i === draft.examples.length - 1}
 											onclick={() => moveExample(i, 1)}>↓</button
 										>
 										<button
 											type="button"
 											class="danger"
-											aria-label="Remove"
+											aria-label={t.studio.characterEditor.remove}
 											onclick={() => removeExample(i)}>✕</button
 										>
 									</div>
 								</div>
 								<ContextField
-									label={`Example ${i + 1}`}
+									label={t.studio.characterEditor.example(i + 1)}
 									value={example.content}
 									rows={5}
 									onchange={(v) => {
@@ -360,16 +375,16 @@
 					{:else if section === 'attachments'}
 						<AttachmentsSection onchange={requestSave} />
 					{:else if section === 'authoring'}
-						<h1>Authoring</h1>
-						<label for="f-creator">Creator</label>
+						<h1>{t.studio.characterEditor.sections.authoring}</h1>
+						<label for="f-creator">{t.studio.characterEditor.creator}</label>
 						<input id="f-creator" bind:value={draft.creator} oninput={requestSave} />
 
-						<label for="f-version">Card version</label>
+						<label for="f-version">{t.studio.characterEditor.cardVersion}</label>
 						<input id="f-version" bind:value={draft.card_version} oninput={requestSave} />
 
 						<ContextField
-							label="Creator notes"
-							hint="Notes for whoever opens this card. Never sent to the model."
+							label={t.studio.characterEditor.creatorNotes}
+							hint={t.studio.characterEditor.creatorNotesHint}
 							value={draft.creator_notes}
 							rows={6}
 							tokens={false}
@@ -380,13 +395,12 @@
 							}}
 						/>
 					{:else if section === 'history'}
-						<h1>History</h1>
+						<h1>{t.studio.characterEditor.sections.history}</h1>
 						<p class="hint">
-							Edits made close together are grouped into one version. A new version starts after a
-							period of inactivity.
+							{t.studio.characterEditor.historyHint}
 						</p>
 						{#if characterStore.versions.length === 0}
-							<p class="empty">No versions recorded yet.</p>
+							<p class="empty">{t.studio.characterEditor.noVersions}</p>
 						{/if}
 						{#each characterStore.versions as v (v.id)}
 							<div class="version-item" class:current={v.id === characterStore.currentVersionId}>
@@ -394,7 +408,7 @@
 									<span class="version-item-num">v{v.version_num}</span>
 									<span class="version-item-card">{v.card_version}</span>
 									{#if v.id === characterStore.currentVersionId}
-										<span class="version-item-tag">current</span>
+										<span class="version-item-tag">{t.studio.characterEditor.current}</span>
 									{/if}
 								</div>
 								<span class="version-item-date">{formatDate(v.created_at)}</span>

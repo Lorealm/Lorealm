@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import { lorebookStore } from '#lib/stores/lorebook.svelte.js';
 	import { messageStateStore } from '#lib/stores/messageState.svelte.js';
@@ -76,19 +77,19 @@
 <div class="widget" class:collapsed>
 	<button class="head" aria-expanded={!collapsed} onclick={() => (collapsed = !collapsed)}>
 		<span class="chev" class:collapsed><ChevronDown /></span>
-		<span class="label">Live State</span>
+		<span class="label">{t.inspector.state.title}</span>
 		{#if messageState && currentTurn !== null}
-			<span class="count">turn {currentTurn}</span>
+			<span class="count">{t.inspector.state.turn(currentTurn)}</span>
 		{/if}
 	</button>
 
 	{#if !collapsed}
 		{#if !targetId}
-			<div class="empty">No message pinned.</div>
+			<div class="empty">{t.inspector.state.noMessage}</div>
 		{:else if loading && !messageState}
-			<div class="empty">Loading state…</div>
+			<div class="empty">{t.chat.inspector.loadingState}</div>
 		{:else if !messageState}
-			<div class="empty">State unavailable.</div>
+			<div class="empty">{t.inspector.state.unavailable}</div>
 		{:else}
 			<div class="tabs" role="tablist">
 				<button
@@ -98,7 +99,7 @@
 					aria-selected={tab === 'activation'}
 					onclick={() => (tab = 'activation')}
 				>
-					Activation
+					{t.chat.inspector.activation}
 					<span class="tab-count">{activationGroups.length}</span>
 				</button>
 				<button
@@ -108,7 +109,7 @@
 					aria-selected={tab === 'persistent'}
 					onclick={() => (tab = 'persistent')}
 				>
-					Persistent
+					{t.chat.inspector.persistent}
 					<span class="tab-count">{persistentPools.length}</span>
 				</button>
 			</div>
@@ -116,7 +117,7 @@
 			<div class="list">
 				{#if tab === 'activation'}
 					{#if activationGroups.length === 0}
-						<div class="empty">No activation state.</div>
+						<div class="empty">{t.inspector.state.noActivation}</div>
 					{:else}
 						{#each activationGroups as group (group.id)}
 							<button
@@ -126,11 +127,11 @@
 							>
 								<span class="badge">T{group.currentTurn}</span>
 								{#await lorebookStore.getLorebook(group.id)}
-									<span class="title mono">Loading...</span>
+									<span class="title mono">{t.common.loading}</span>
 								{:then lorebook}
 									<span class="title mono">{lorebook?.name}</span>
 								{:catch}
-									<span class="title mono">Unknown</span>
+									<span class="title mono">{t.inspector.state.unknown}</span>
 								{/await}
 								<span class="count">{group.entries.length}</span>
 								<span class="chev" class:open={openGroup === group.id}><ChevronDown /></span>
@@ -139,7 +140,7 @@
 							{#if openGroup === group.id}
 								<div class="detail">
 									{#if group.entries.length === 0}
-										<div class="unresolved">no tracked entries</div>
+										<div class="unresolved">{t.chat.inspector.noTrackedEntries}</div>
 									{:else}
 										{#each group.entries as e (e.entryId)}
 											<div class="entry">
@@ -147,14 +148,15 @@
 												<span
 													class="chip"
 													class:dim={e.lastActivated === undefined}
-													{@attach tooltip(`last activated ${e.lastActivated ?? '—'} turns ago`)}
-													>act {e.lastActivated ?? '—'}</span
+													{@attach tooltip(
+														t.chat.inspector.lastActivated(String(e.lastActivated ?? '—'))
+													)}>{t.chat.inspector.act(String(e.lastActivated ?? '—'))}</span
 												>
 												<span
 													class="chip"
 													class:dim={e.sticky === undefined}
-													{@attach tooltip(`${e.sticky ?? 0} sticky turns remaining`)}
-													>stk {e.sticky ?? '—'}</span
+													{@attach tooltip(t.chat.inspector.stickyRemaining(e.sticky ?? 0))}
+													>{t.chat.inspector.stk(String(e.sticky ?? '—'))}</span
 												>
 											</div>
 										{/each}
@@ -164,7 +166,7 @@
 						{/each}
 					{/if}
 				{:else if persistentPools.length === 0}
-					<div class="empty">No persistent state.</div>
+					<div class="empty">{t.inspector.state.noPersistent}</div>
 				{:else}
 					{#each persistentPools as pool (pool.name)}
 						<button
@@ -172,7 +174,7 @@
 							aria-expanded={openPool === pool.name}
 							onclick={() => togglePool(pool.name)}
 						>
-							<span class="kind kind-source">POOL</span>
+							<span class="kind kind-source">{t.chat.inspector.pool}</span>
 							<span class="title">{pool.name}</span>
 							<span class="count">{pool.entries.length}</span>
 							<span class="chev" class:open={openPool === pool.name}><ChevronDown /></span>
@@ -181,7 +183,7 @@
 						{#if openPool === pool.name}
 							<div class="detail">
 								{#if pool.entries.length === 0}
-									<div class="unresolved">empty pool</div>
+									<div class="unresolved">{t.chat.inspector.emptyPool}</div>
 								{:else}
 									{#each pool.entries as kv (kv.key)}
 										<div class="kv">

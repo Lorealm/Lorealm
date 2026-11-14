@@ -1,3 +1,4 @@
+import { t } from '#lib/stores/i18n.svelte.js';
 export type PopupVariant = 'info' | 'warning' | 'danger';
 export type PopupActionTone = 'neutral' | 'primary' | 'danger';
 
@@ -33,8 +34,7 @@ let nextId = 1;
 export const popups = $state<Popup[]>([]);
 
 /**
- * Opens a popup. Resolves with the label of the action clicked, or `null` if it
- * was dismissed.
+ * Opens a popup. Resolves with the label of the action clicked.
  */
 export function showPopup(input: PopupInput): Promise<string | null> {
 	return new Promise((resolve) => {
@@ -43,7 +43,7 @@ export function showPopup(input: PopupInput): Promise<string | null> {
 			title: input.title,
 			message: input.message,
 			variant: input.variant ?? 'info',
-			actions: input.actions?.length ? input.actions : [{ label: 'OK', tone: 'primary' }],
+			actions: input.actions?.length ? input.actions : [{ label: t.common.ok, tone: 'primary' }],
 			dismissible: input.dismissible ?? true,
 			settle: resolve
 		});

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { chatStore } from '#lib/stores/chat.svelte.js';
 	import { userWidgetStore } from '#lib/stores/userWidgets.svelte.js';
 	import MessageBubble from './MessageBubble.svelte';
@@ -38,9 +39,9 @@
 	{:else if feed.length === 0}
 		<div class="empty">
 			{#if chatStore.conversationId}
-				Nothing has happened yet.
+				{t.chat.feed.nothingYet}
 			{:else}
-				Pick a character and send a message to begin.
+				{t.chat.feed.pickCharacter}
 			{/if}
 		</div>
 	{:else}
@@ -55,7 +56,7 @@
 	{/if}
 
 	{#if chatStore.hiddenTurnActive}
-		<div class="stir">the world stirs…</div>
+		<div class="stir">{t.chat.feed.worldStirs}</div>
 	{/if}
 </div>
 

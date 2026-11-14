@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { Copy, FileCode2 } from '@lucide/svelte';
 	import WeaverEditor from '#lib/weaver/editor/WeaverEditor.svelte';
 	import { showToast } from '#lib/stores/errorToast.svelte.js';
@@ -25,17 +26,20 @@
 
 	async function copy() {
 		await navigator.clipboard.writeText(wtn.source);
-		showToast({ variant: 'info', message: 'Document copied.' });
+		showToast({ variant: 'info', message: t.realms.documentPane.copied });
 	}
 </script>
 
 <div class="pane">
 	<header>
 		<FileCode2 size={13} />
-		<span class="title">{wtn.hasInputs ? 'Blueprint' : 'Realm'}</span>
+		<span class="title"
+			>{wtn.hasInputs ? t.realms.documentPane.blueprint : t.realms.documentPane.realm}</span
+		>
 		<span class="spacer"></span>
 		<button type="button" onclick={copy}>
-			<Copy size={12} /> Copy
+			<Copy size={12} />
+			{t.realms.documentPane.copy}
 		</button>
 	</header>
 

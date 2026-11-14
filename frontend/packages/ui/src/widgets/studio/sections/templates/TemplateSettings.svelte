@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { onDestroy } from 'svelte';
 	import { templateStore } from '#lib/stores/template.svelte.js';
 	import { extractError } from '#lib/types/error.js';
@@ -35,17 +36,17 @@
 
 <div class="settings-editor">
 	<header class="head">
-		<h2>Template settings</h2>
+		<h2>{t.studio.templates.settings}</h2>
 		<SaveIndicator state={saveState} />
 	</header>
 
 	<label class="field">
-		<span>Name</span>
+		<span>{t.studio.templates.name}</span>
 		<input type="text" bind:value={name} oninput={requestSave} />
 	</label>
 
 	<label class="field">
-		<span>Description</span>
+		<span>{t.studio.templates.description}</span>
 		<textarea rows="3" bind:value={description} oninput={requestSave}></textarea>
 	</label>
 </div>

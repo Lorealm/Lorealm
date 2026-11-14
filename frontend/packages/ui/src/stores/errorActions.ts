@@ -22,6 +22,8 @@ import {
 	type ResourceKind
 } from '#lib/types/error.js';
 import { showToast, type ToastAction } from './errorToast.svelte.js';
+import type { Messages } from '@lorealm/i18n';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 /**
  * Where a resource kind lives, and what to call it in a button.
@@ -29,8 +31,11 @@ import { showToast, type ToastAction } from './errorToast.svelte.js';
  * `open` receives the id only when the resource still exists (see
  * {@link resourceAction}).
  */
+type DestinationKey = keyof Messages['errors']['open'];
+
 interface Destination {
-	noun: string;
+	/** Picks the action's label. */
+	key: DestinationKey;
 	icon: Component;
 	open: (id?: Snowflake) => void;
 }
@@ -57,31 +62,31 @@ const studio = (kind: 'character' | 'lorebook' | 'template' | 'tool' | 'persona'
 };
 
 const DESTINATIONS: Partial<Record<ResourceKind, Destination>> = {
-	character: { noun: 'character', icon: SquareUser, open: studio('character') },
-	character_version: { noun: 'character', icon: SquareUser, open: studio('character') },
-	greeting: { noun: 'character', icon: SquareUser, open: studio('character') },
-	lorebook: { noun: 'lorebook', icon: BookOpen, open: studio('lorebook') },
-	lorebook_entry: { noun: 'lorebook', icon: BookOpen, open: studio('lorebook') },
-	context_template: { noun: 'template', icon: ScrollText, open: studio('template') },
-	template_node: { noun: 'template', icon: ScrollText, open: studio('template') },
-	user_tool: { noun: 'tool', icon: Wrench, open: studio('tool') },
-	persona: { noun: 'persona', icon: User, open: studio('persona') },
-	user_widget: { noun: 'widget', icon: Puzzle, open: studio('widget') },
-	realm: { noun: 'realm', icon: Users, open: (id) => navigator.start().realms(id) },
-	realm_agent: { noun: 'realm', icon: Users, open: (id) => navigator.start().realms(id) },
+	character: { key: 'character', icon: SquareUser, open: studio('character') },
+	character_version: { key: 'character', icon: SquareUser, open: studio('character') },
+	greeting: { key: 'character', icon: SquareUser, open: studio('character') },
+	lorebook: { key: 'lorebook', icon: BookOpen, open: studio('lorebook') },
+	lorebook_entry: { key: 'lorebook', icon: BookOpen, open: studio('lorebook') },
+	context_template: { key: 'template', icon: ScrollText, open: studio('template') },
+	template_node: { key: 'template', icon: ScrollText, open: studio('template') },
+	user_tool: { key: 'tool', icon: Wrench, open: studio('tool') },
+	persona: { key: 'persona', icon: User, open: studio('persona') },
+	user_widget: { key: 'widget', icon: Puzzle, open: studio('widget') },
+	realm: { key: 'realm', icon: Users, open: (id) => navigator.start().realms(id) },
+	realm_agent: { key: 'realm', icon: Users, open: (id) => navigator.start().realms(id) },
 	connection_profile: {
-		noun: 'connection profile',
+		key: 'connectionProfile',
 		icon: Plug,
 		open: (id) => navigator.start().connections(id)
 	},
 	secret: {
-		noun: 'API keys',
+		key: 'secrets',
 		icon: KeyRound,
 		// The key manager is a single panel; individual keys aren't addressable.
 		open: () => navigator.start().connections(SECRETS)
 	},
 	tokenizer: {
-		noun: 'tokenizers',
+		key: 'tokenizers',
 		icon: Ruler,
 		open: () => navigator.start().settings().user().tokenizers()
 	}
@@ -89,10 +94,6 @@ const DESTINATIONS: Partial<Record<ResourceKind, Destination>> = {
 
 /**
  * Builds a "take me there" action from whatever the server pointed at.
- *
- * A `404` means `details.id` names something that no longer exists, so the
- * action opens the surrounding list instead of deep-linking into a dead
- * resource.
  */
 export function resourceAction(
 	details: ErrorDetails | undefined,
@@ -105,7 +106,7 @@ export function resourceAction(
 	const id = gone ? undefined : (details?.id as Snowflake | undefined);
 
 	return {
-		label: gone ? `Browse ${destination.noun}s` : `Open ${destination.noun}`,
+		label: gone ? t.errors.browse[destination.key] : t.errors.open[destination.key],
 		icon: destination.icon,
 		tone: 'primary',
 		run: () => destination.open(id)
@@ -114,17 +115,12 @@ export function resourceAction(
 
 /**
  * Toast treatment for one server error code.
- *
- * This is the client half of the error contract: the server states what went
- * wrong, and this table decides how to present it. Only codes needing more than
- * {@link resourceAction} already provides belong here (see `docs/errors.md`).
  */
 interface Recipe {
 	title: string;
 	/**
 	 * Replaces the server message. Use only where the client knows something the
-	 * server can't, Otherwise the server message is better, because it carries the
-	 * specifics.
+	 * server can't.
 	 */
 	message?: string;
 	/** 0 keeps the toast up until dismissed. Use when the user must act. */
@@ -133,31 +129,30 @@ interface Recipe {
 	actions?: ToastAction[];
 }
 
-const RECIPES: Partial<Record<ErrorCode, Recipe>> = {
+const recipes = (): Partial<Record<ErrorCode, Recipe>> => ({
 	// Connection profiles: the first thing a new install has to set up.
 	'state.no_active_connection_profile': {
-		title: 'No connection selected',
-		message:
-			'A connection profile is needed to continue. Click the button below to open the Connections tab.',
+		title: t.errors.noConnection.title,
+		message: t.errors.noConnection.message,
 		durationMs: 0
 	},
-	'connection.not_found': { title: 'Connection profile missing' },
-	'connection.invalid_profile': { title: 'Connection profile incomplete', durationMs: 0 },
-	'connection.secret_corrupted': { title: 'API key unreadable', durationMs: 0 },
+	'connection.not_found': { title: t.errors.connectionMissing },
+	'connection.invalid_profile': { title: t.errors.connectionIncomplete, durationMs: 0 },
+	'connection.secret_corrupted': { title: t.errors.secretCorrupted, durationMs: 0 },
 	// Keeps the server message: it names what the provider actually rejected.
-	'chat.provider_failed': { title: 'Model provider failed', durationMs: 0 },
+	'chat.provider_failed': { title: t.errors.providerFailed, durationMs: 0 },
 
 	// Tokenizers: the second setup step, can be easy to miss
 	'state.no_active_tokenizer': {
-		title: 'No tokenizer selected',
-		message: 'Choose a tokenizer to see token counts and stay inside the budget.',
+		title: t.errors.noTokenizer.title,
+		message: t.errors.noTokenizer.message,
 		durationMs: 0
 	},
-	'tokenizer.not_found': { title: 'Tokenizer missing' },
-	'tokenizer.fetch_failed': { title: 'Tokenizer download failed' },
-	'tokenizer.invalid_source': { title: 'Tokenizer source invalid' },
-	'tokenizer.invalid_data': { title: 'Tokenizer file invalid' }
-};
+	'tokenizer.not_found': { title: t.errors.tokenizerMissing },
+	'tokenizer.fetch_failed': { title: t.errors.tokenizerFetchFailed },
+	'tokenizer.invalid_source': { title: t.errors.tokenizerInvalidSource },
+	'tokenizer.invalid_data': { title: t.errors.tokenizerInvalidData }
+});
 
 interface Fallback {
 	title?: string;
@@ -174,14 +169,14 @@ interface Fallback {
  */
 export function showApiError(e: unknown, fallback: Fallback = {}) {
 	const err = extractError(e);
-	const recipe = err.code ? RECIPES[err.code] : undefined;
+	const recipe = err.code ? recipes()[err.code] : undefined;
 	const generic = resourceAction(err.details, err.httpStatus);
 
 	// A recipe's actions replace the generic one; a caller's are added to it.
 	const routed = recipe?.actions ?? (generic ? [generic] : []);
 
 	return showToast({
-		title: recipe?.title ?? fallback.title ?? 'Something went wrong',
+		title: recipe?.title ?? fallback.title ?? t.errors.generic,
 		message: recipe?.message ?? err.message,
 		variant: 'error',
 		durationMs: recipe?.durationMs ?? fallback.durationMs ?? 6000,

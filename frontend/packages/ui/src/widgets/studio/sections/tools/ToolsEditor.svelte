@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { onDestroy } from 'svelte';
 	import { navigator } from '#lib/navigation/navigator.js';
@@ -80,7 +81,7 @@
 	}
 
 	async function removeTool(id: Snowflake, name: string) {
-		if (!confirm(`Delete "${name || 'Untitled'}"? This can't be undone.`)) return;
+		if (!confirm(t.studio.tools.confirmDelete(name || t.studio.tools.untitled))) return;
 		clearTimeout(timer);
 		await toolStore.deleteTool(id);
 		if (id === selectedId) navigator.start().studio().tools();
@@ -157,33 +158,38 @@
 
 	const saveLabel = $derived(
 		save.status === 'saving'
-			? 'Saving…'
+			? t.common.saving
 			: save.status === 'error'
-				? (save.message ?? 'Error')
+				? (save.message ?? t.common.error)
 				: toolStore.hasUnsavedChanges
-					? 'Unsaved'
-					: 'Saved'
+					? t.studio.tools.unsaved
+					: t.common.saved
 	);
 </script>
 
 {#snippet hint(text: string)}
-	<button type="button" class="hint" {@attach tooltip(text)} aria-label={`Help: ${text}`}>?</button>
+	<button
+		type="button"
+		class="hint"
+		{@attach tooltip(text)}
+		aria-label={t.components.field.help(text)}>?</button
+	>
 {/snippet}
 
 <div class="tool-editor">
 	<ListSidebar
-		title="Tools"
+		title={t.studio.tools.title}
 		detailOpen={selectedId !== null}
 		oncreate={newTool}
 		bind:query
 		bind:sort
 		bind:showBuiltins
 		sortOptions={[
-			{ value: 'name-asc', label: 'Name (A–Z)' },
-			{ value: 'name-desc', label: 'Name (Z–A)' },
-			{ value: 'enabled', label: 'Enabled first' }
+			{ value: 'name-asc', label: t.studio.tools.sortNameAsc },
+			{ value: 'name-desc', label: t.studio.tools.sortNameDesc },
+			{ value: 'enabled', label: t.studio.tools.sortEnabled }
 		]}
-		searchPlaceholder="Search tools…"
+		searchPlaceholder={t.studio.tools.search}
 	>
 		{#snippet status()}
 			{#if draft}
@@ -195,7 +201,7 @@
 		{/snippet}
 
 		{#if shownTools.length === 0}
-			<p class="empty">{tools.length === 0 ? 'No tools yet.' : 'No tools match that search.'}</p>
+			<p class="empty">{tools.length === 0 ? t.studio.tools.empty : t.studio.tools.noMatches}</p>
 		{/if}
 		{#each shownTools as tool (tool.id)}
 			<div class="tool-item" class:selected={tool.id === selectedId} class:disabled={!tool.enabled}>
@@ -208,7 +214,7 @@
 					</span>
 				</button>
 				{#if builtinIds.has(tool.id)}
-					<Badge>Built-in</Badge>
+					<Badge>{t.studio.tools.builtIn}</Badge>
 				{:else}
 					<input
 						type="checkbox"
@@ -216,9 +222,11 @@
 						checked={tool.enabled}
 						onchange={() => toolStore.setEnabled(tool.id, !tool.enabled)}
 						{@attach tooltip(
-							tool.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'
+							tool.enabled ? t.studio.tools.enabledHint : t.studio.tools.disabledHint
 						)}
-						aria-label={tool.enabled ? `Disable ${tool.name}` : `Enable ${tool.name}`}
+						aria-label={tool.enabled
+							? t.studio.tools.disableNamed(tool.name)
+							: t.studio.tools.enableNamed(tool.name)}
 					/>
 				{/if}
 			</div>
@@ -229,17 +237,17 @@
 		{#if shown}
 			<div class="pane">
 				<div class="pane-head">
-					<h1>{readOnly ? 'Built-in tool' : 'Edit tool'}</h1>
+					<h1>{readOnly ? t.studio.tools.builtInTool : t.studio.tools.editTool}</h1>
 					{#if !readOnly}
 						<button
 							type="button"
 							class="export"
 							onclick={() => exportItem('tool', shown.id, shown.name)}
 						>
-							Export
+							{t.studio.tools.export}
 						</button>
 						<button type="button" class="delete" onclick={() => removeTool(shown.id, shown.name)}>
-							Delete
+							{t.common.delete}
 						</button>
 					{/if}
 				</div>
@@ -247,15 +255,15 @@
 				{#if readOnly}
 					<div class="readonly-note">
 						<p>
-							Ships with the server and is available to every realm without an import. Read-only —
-							make a copy to change how it behaves.
+							{t.studio.tools.builtInNote}
 						</p>
 						{#if forkable}
-							<button type="button" class="fork" onclick={forkBuiltin}> Create my version </button>
+							<button type="button" class="fork" onclick={forkBuiltin}>{t.studio.tools.fork}</button
+							>
 						{:else if shown}
 							<p class="already-forked">
-								You already have a <code>{shown.name}</code> of your own, which takes precedence over
-								this one.
+								{t.studio.tools.alreadyForkedPrefix} <code>{shown.name}</code>
+								{t.studio.tools.alreadyForkedSuffix}
 							</p>
 						{/if}
 					</div>
@@ -263,9 +271,8 @@
 
 				<div class="field">
 					<label for="t-name">
-						Name {@render hint(
-							'The identifier the model calls. Letters, digits, _ or -, up to 64.'
-						)}
+						{t.studio.tools.name}
+						{@render hint(t.studio.tools.nameHint)}
 					</label>
 					<input
 						id="t-name"
@@ -278,7 +285,8 @@
 
 				<div class="field">
 					<label for="t-display">
-						Display name {@render hint('Shown in the UI instead of the name. Optional.')}
+						{t.studio.tools.displayName}
+						{@render hint(t.studio.tools.displayNameHint)}
 					</label>
 					<input
 						id="t-display"
@@ -291,9 +299,8 @@
 
 				<div class="field">
 					<label for="t-surface">
-						Callable from {@render hint(
-							'A tool is offered to the model on a turn.\nA command is invoked by you as /name in the composer.\nThe same body can serve both.'
-						)}
+						{t.studio.tools.callableFrom}
+						{@render hint(t.studio.tools.callableHint)}
 					</label>
 					<select
 						id="t-surface"
@@ -304,23 +311,25 @@
 							requestSave();
 						}}
 					>
-						<option value="tool">The model, as a tool</option>
-						<option value="command">You, as /{shown.name || 'name'}</option>
-						<option value="both">Both</option>
+						<option value="tool">{t.studio.tools.surfaceTool}</option>
+						<option value="command"
+							>{t.studio.tools.surfaceCommand(shown.name || t.studio.tools.namePlaceholder)}</option
+						>
+						<option value="both">{t.studio.tools.surfaceBoth}</option>
 					</select>
 				</div>
 
 				{#if shadowed}
 					<p class="shadow-note">
-						Overrides the built-in <code>/{shadowed}</code>. Delete or rename this command to get
-						the original back.
+						{t.studio.tools.overridesPrefix} <code>/{shadowed}</code>.
+						{t.studio.tools.overridesSuffix}
 					</p>
 				{/if}
 
 				{#key shown.id}
 					<ContextField
-						label="Description"
-						hint="Tells the model when and why to call this tool."
+						label={t.studio.tools.description}
+						hint={t.studio.tools.descriptionHint}
 						value={shown.description}
 						rows={3}
 						{readOnly}
@@ -335,15 +344,18 @@
 				<div class="field">
 					<div class="params-head">
 						<span class="params-title">
-							Parameters {@render hint('Become available in the cmd namespace, e.g. {{cmd:name}}.')}
+							{t.studio.tools.parameters}
+							{@render hint(t.studio.tools.parametersHint)}
 						</span>
 						{#if !readOnly}
-							<button type="button" class="add-param" onclick={addParam}>Add parameter</button>
+							<button type="button" class="add-param" onclick={addParam}
+								>{t.studio.tools.addParameter}</button
+							>
 						{/if}
 					</div>
 
 					{#if shown.params.length === 0}
-						<p class="empty params-empty">No parameters. The tool takes no input.</p>
+						<p class="empty params-empty">{t.studio.tools.noParameters}</p>
 					{/if}
 
 					<div class="param-cards">
@@ -353,7 +365,7 @@
 								<div class="param-card-top">
 									<input
 										class="param-name mono"
-										placeholder="name"
+										placeholder={t.studio.tools.namePlaceholder}
 										readonly={readOnly}
 										bind:value={param.name}
 										oninput={requestSave}
@@ -372,24 +384,24 @@
 									{#if nameable(param)}
 										<select
 											class="param-resource"
-											{@attach tooltip('Offer a search for this kind and store its id')}
+											{@attach tooltip(t.studio.tools.resourceHint)}
 											value={param.resource ?? ''}
 											disabled={readOnly}
 											onchange={(e) => setResource(param, e.currentTarget.value)}
 										>
-											<option value="">free text</option>
+											<option value="">{t.studio.tools.freeText}</option>
 											{#each RESOURCE_KINDS as kind (kind)}
 												<option value={kind}>{resourceLabel(kind)}</option>
 											{/each}
 										</select>
 									{/if}
-									<div class="depth" {@attach tooltip('Array nesting')}>
+									<div class="depth" {@attach tooltip(t.studio.tools.arrayNesting)}>
 										{#if !readOnly}
 											<button
 												type="button"
 												onclick={() => setDepth(param, flat.depth - 1)}
 												disabled={flat.depth === 0}
-												aria-label="Remove array layer">−</button
+												aria-label={t.studio.tools.removeLayer}>−</button
 											>
 										{/if}
 										<span class="depth-label mono">{'[]'.repeat(flat.depth) || '·'}</span>
@@ -398,7 +410,7 @@
 												type="button"
 												onclick={() => setDepth(param, flat.depth + 1)}
 												disabled={flat.depth >= MAX_DEPTH}
-												aria-label="Add array layer">+</button
+												aria-label={t.studio.tools.addLayer}>+</button
 											>
 										{/if}
 									</div>
@@ -406,7 +418,7 @@
 
 								<input
 									class="param-desc"
-									placeholder="description (optional)"
+									placeholder={t.studio.tools.paramDescription}
 									readonly={readOnly}
 									bind:value={param.description}
 									oninput={requestSave}
@@ -420,11 +432,11 @@
 											bind:checked={param.required}
 											onchange={requestSave}
 										/>
-										<span>Required</span>
+										<span>{t.studio.tools.required}</span>
 									</label>
 									{#if !readOnly}
 										<button type="button" class="param-remove" onclick={() => removeParam(i)}>
-											Remove
+											{t.studio.tools.remove}
 										</button>
 									{/if}
 								</div>
@@ -433,10 +445,7 @@
 					</div>
 				</div>
 
-				<FieldShell
-					label="Body"
-					hint="weaver-lang source. Its output is returned to the model as the tool result."
-				>
+				<FieldShell label={t.studio.tools.body} hint={t.studio.tools.bodyHint}>
 					{#snippet editor(fill: boolean)}
 						<div class="body-editor" class:fill>
 							{#key shown.id}
@@ -457,7 +466,7 @@
 			</div>
 		{:else}
 			<div class="pane empty-pane">
-				<p class="empty">Select a tool to edit, or create one.</p>
+				<p class="empty">{t.studio.tools.select}</p>
 			</div>
 		{/if}
 	</section>

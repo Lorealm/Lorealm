@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { configStore, type SaveState } from '#lib/stores/serverConfig.svelte.js';
 	import SettingsSection from '../SettingsSection.svelte';
 	import Field from '../Field.svelte';
@@ -26,8 +27,8 @@
 	}
 </script>
 
-<SettingsSection title="Tasks" {dirty} {saveState} onsave={save} onreset={reset}>
-	<Field label="Cleanup interval (seconds)">
+<SettingsSection title={t.nav.server.tasks} {dirty} {saveState} onsave={save} onreset={reset}>
+	<Field label={t.settings.server.cleanupInterval}>
 		<NumberField
 			value={draft.cleanup_interval}
 			min={0}

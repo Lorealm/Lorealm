@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import { BookOpen, Plus, Trash2 } from '@lucide/svelte';
 	import ContextField from '#lib/components/ContextField.svelte';
@@ -29,11 +30,12 @@
 
 <div class="pane">
 	<header>
-		<h2>Scenarios</h2>
-		<span class="hint">the openings a playthrough can start from</span>
+		<h2>{t.realms.scenarios.title}</h2>
+		<span class="hint">{t.realms.scenarios.hint}</span>
 		<span class="spacer"></span>
 		<button type="button" class="chip" onclick={add}>
-			<Plus size={12} /> Scenario
+			<Plus size={12} />
+			{t.realms.scenarios.add}
 		</button>
 	</header>
 
@@ -43,20 +45,22 @@
 				<div class="row" class:active={entry.key === selected}>
 					<button type="button" onclick={() => (selected = entry.key)}>
 						<BookOpen size={12} />
-						<span>{entry.name || 'Untitled'}</span>
+						<span>{entry.name || t.realms.scenarios.untitled}</span>
 					</button>
 					<button
 						type="button"
 						class="remove"
-						{@attach tooltip('Remove scenario')}
-						aria-label="Remove {entry.name || 'scenario'}"
+						{@attach tooltip(t.realms.scenarios.remove)}
+						aria-label={t.realms.scenarios.removeNamed(
+							entry.name || t.realms.scenarios.fallbackName
+						)}
 						onclick={() => remove(entry.key)}
 					>
 						<Trash2 size={12} />
 					</button>
 				</div>
 			{:else}
-				<p class="empty">None yet.</p>
+				<p class="empty">{t.realms.scenarios.none}</p>
 			{/each}
 		</div>
 
@@ -64,12 +68,12 @@
 			{#if scenario}
 				{@const at = index}
 				<label>
-					<span>Name</span>
+					<span>{t.realms.scenarios.name}</span>
 					<input
 						class:candidate={takesInput}
 						class:incompatible={incoming !== null && !takesInput}
 						value={scenario.name}
-						placeholder="Untitled"
+						placeholder={t.realms.scenarios.untitled}
 						oninput={(e) => (realmDraft.scenarios[at].name = e.currentTarget.value)}
 						ondragover={(e) => carriesAsset(e) && takesInput && e.preventDefault()}
 						ondrop={(e) => {
@@ -79,23 +83,23 @@
 					/>
 				</label>
 				<label>
-					<span>Slug</span>
+					<span>{t.realms.scenarios.slug}</span>
 					<input
 						class="mono"
 						value={scenario.slug}
-						placeholder={slug(scenario.name) || 'from the name'}
+						placeholder={slug(scenario.name) || t.realms.scenarios.slugPlaceholder}
 						spellcheck="false"
 						oninput={(e) => (realmDraft.scenarios[at].slug = e.currentTarget.value)}
 					/>
 				</label>
 
 				<label>
-					<span>Description</span>
+					<span>{t.realms.scenarios.description}</span>
 					<input
 						class:candidate={takesInput}
 						class:incompatible={incoming !== null && !takesInput}
 						value={scenario.description}
-						placeholder="What this opening sets up."
+						placeholder={t.realms.scenarios.descriptionPlaceholder}
 						oninput={(e) => (realmDraft.scenarios[at].description = e.currentTarget.value)}
 						ondragover={(e) => carriesAsset(e) && takesInput && e.preventDefault()}
 						ondrop={(e) => {
@@ -106,21 +110,19 @@
 				</label>
 
 				<ContextField
-					label="Opening"
+					label={t.realms.scenarios.opening}
 					value={scenario.opening}
 					onchange={(next) => (realmDraft.scenarios[at].opening = next)}
 					dialect="template"
 					profile="realm_template"
 					surface="sunken"
 					fill
-					placeholder="The narration a playthrough starts on."
-					hint="Opens the playthrough as a system message. Leave it empty to start on nothing."
+					placeholder={t.realms.scenarios.openingPlaceholder}
+					hint={t.realms.scenarios.openingHint}
 				/>
 			{:else}
 				<p class="nothing">
-					{realmDraft.scenarios.length === 0
-						? 'No scenarios. Add one above.'
-						: 'Pick one to edit it.'}
+					{realmDraft.scenarios.length === 0 ? t.realms.scenarios.empty : t.realms.scenarios.pick}
 				</p>
 			{/if}
 		</div>

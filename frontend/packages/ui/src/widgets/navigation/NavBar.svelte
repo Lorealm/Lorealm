@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import {
 		ChevronLeft,
 		Earth,
@@ -30,13 +31,17 @@
 			<div class="branding">Lorealm</div>
 		{/if}
 		{#if shell.narrow}
-			<button class="collapse-button" aria-label="Close menu" onclick={() => shell.closeDrawer()}>
+			<button
+				class="collapse-button"
+				aria-label={t.nav.closeMenu}
+				onclick={() => shell.closeDrawer()}
+			>
 				<X />
 			</button>
 		{:else}
 			<button
 				class="collapse-button"
-				aria-label={collapsed ? 'Expand menu' : 'Collapse menu'}
+				aria-label={collapsed ? t.nav.expandMenu : t.nav.collapseMenu}
 				onclick={() => (userCollapsed = !userCollapsed)}
 			>
 				{#if collapsed}
@@ -48,35 +53,35 @@
 		{/if}
 	</div>
 	<NavButton
-		label="Write"
+		label={t.nav.views.write}
 		Icon={PencilIcon}
 		{collapsed}
 		view="write"
 		onselect={() => navigator.start().write()}
 	/>
 	<NavButton
-		label="Characters"
+		label={t.nav.views.characters}
 		Icon={User}
 		{collapsed}
 		view="characters"
 		onselect={() => navigator.start().characters()}
 	/>
 	<NavButton
-		label="Realms"
+		label={t.nav.views.realms}
 		Icon={Earth}
 		{collapsed}
 		view="realms"
 		onselect={() => navigator.start().realms()}
 	/>
 	<NavButton
-		label="Connections"
+		label={t.nav.views.connections}
 		Icon={Plug2}
 		{collapsed}
 		view="connections"
 		onselect={() => navigator.start().connections()}
 	/>
 	<NavButton
-		label="Studio"
+		label={t.nav.views.studio}
 		Icon={Palette}
 		{collapsed}
 		view="studio"
@@ -85,14 +90,14 @@
 
 	<div style="margin-top: auto; margin-bottom: 0.33em;">
 		<NavButton
-			label="Plugins"
+			label={t.nav.views.plugins}
 			Icon={Blocks}
 			{collapsed}
 			view="plugins"
 			onselect={() => navigator.start().plugins()}
 		/>
 		<NavButton
-			label="Settings"
+			label={t.nav.views.settings}
 			Icon={Settings}
 			{collapsed}
 			view="settings"

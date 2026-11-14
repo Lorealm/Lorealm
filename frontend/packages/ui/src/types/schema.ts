@@ -1,3 +1,4 @@
+import { t } from '#lib/stores/i18n.svelte.js';
 export interface NumberSpec {
 	kind: 'number';
 	min: number;
@@ -92,7 +93,9 @@ export const PROVIDER_SCHEMAS: ProviderSchema[] = [
 	},
 	{
 		provider: 'openai',
-		label: 'OpenAI-compatible',
+		get label() {
+			return t.connections.openAiCompatible;
+		},
 		requiresKey: false,
 		common: {
 			temperature: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },

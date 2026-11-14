@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { MessageSquare, Play, X } from '@lucide/svelte';
 	import { useApi } from '#lib/api/client.js';
 	import { chatStore } from '#lib/stores/chat.svelte.js';
@@ -42,10 +43,13 @@
 			});
 			await chatStore.loadConversation(conversation.metadata.id);
 			navigator.start().write();
-			showToast({ variant: 'info', message: `${realm.name || 'Realm'} started.` });
+			showToast({
+				variant: 'info',
+				message: t.realms.play.started(realm.name || t.realms.play.realm)
+			});
 			onclose();
 		} catch (e) {
-			showApiError(e, { title: 'Failed to start' });
+			showApiError(e, { title: t.realms.play.startFailed });
 		} finally {
 			busy = false;
 		}
@@ -59,7 +63,7 @@
 			navigator.start().write();
 			onclose();
 		} catch (e) {
-			showApiError(e, { title: 'Failed to open that playthrough' });
+			showApiError(e, { title: t.realms.play.openFailed });
 		} finally {
 			busy = false;
 		}
@@ -69,17 +73,17 @@
 <svelte:window onkeydown={(e) => e.key === 'Escape' && onclose()} />
 
 <div class="overlay" role="presentation" onclick={(e) => e.currentTarget === e.target && onclose()}>
-	<div class="dialog" role="dialog" aria-modal="true" aria-label="Play {realm.name}">
+	<div class="dialog" role="dialog" aria-modal="true" aria-label={t.realms.play.dialog(realm.name)}>
 		<header>
-			<h2>{realm.name || 'Untitled Realm'}</h2>
-			<button type="button" class="close" aria-label="Close" onclick={onclose}>
+			<h2>{realm.name || t.realms.cards.untitled}</h2>
+			<button type="button" class="close" aria-label={t.common.close} onclick={onclose}>
 				<X size={14} />
 			</button>
 		</header>
 
 		<div class="body">
 			<section>
-				<h3>Start a new playthrough</h3>
+				<h3>{t.realms.play.newPlaythrough}</h3>
 				{#each scenarios as scenario (scenario.slug)}
 					<button type="button" class="row" disabled={busy} onclick={() => start(scenario.slug)}>
 						<Play size={12} />
@@ -94,29 +98,29 @@
 					<button type="button" class="row" disabled={busy} onclick={() => start(null)}>
 						<Play size={12} />
 						<span class="rowText">
-							<span class="rowName">Open start</span>
-							<span class="rowHint">This realm defines no scenarios yet.</span>
+							<span class="rowName">{t.realms.play.openStart}</span>
+							<span class="rowHint">{t.realms.play.noScenarios}</span>
 						</span>
 					</button>
 				{/each}
 			</section>
 
 			<section>
-				<h3>Continue</h3>
+				<h3>{t.realms.play.continue}</h3>
 				{#each conversations as conversation (conversation.id)}
 					<button type="button" class="row" disabled={busy} onclick={() => resume(conversation.id)}>
 						<MessageSquare size={12} />
 						<span class="rowText">
-							<span class="rowName">{conversation.title || 'Untitled playthrough'}</span>
+							<span class="rowName">{conversation.title || t.realms.play.untitled}</span>
 							<span class="rowHint">
-								{conversation.length} messages · {new Date(
+								{t.realms.play.messages(conversation.length)} · {new Date(
 									conversation.updated_at
 								).toLocaleDateString()}
 							</span>
 						</span>
 					</button>
 				{:else}
-					<p class="none">Nothing played yet.</p>
+					<p class="none">{t.realms.play.nothing}</p>
 				{/each}
 			</section>
 		</div>

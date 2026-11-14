@@ -1,12 +1,11 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import type { PlatformAPI } from '@lorealm/ui';
 
 	let { api }: { api: PlatformAPI } = $props();
 
-	// macOS: native traffic lights live in a transparent overlay strip.
 	// svelte-ignore state_referenced_locally
 	const overlay = api.capabilities.has('titlebar-overlay');
-	// Windows/Linux: frameless window, we render our own controls.
 	// svelte-ignore state_referenced_locally
 	const controls = api.capabilities.has('window-controls');
 	const show = overlay || controls;
@@ -19,13 +18,25 @@
 
 		{#if controls && api.window}
 			<div class="controls">
-				<button class="tb-btn" aria-label="Minimize" onclick={() => api.window!.minimize()}>
+				<button
+					class="tb-btn"
+					aria-label={t.shell.window.minimize}
+					onclick={() => api.window!.minimize()}
+				>
 					<svg viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6" /></svg>
 				</button>
-				<button class="tb-btn" aria-label="Maximize" onclick={() => api.window!.toggleMaximize()}>
+				<button
+					class="tb-btn"
+					aria-label={t.shell.window.maximize}
+					onclick={() => api.window!.toggleMaximize()}
+				>
 					<svg viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" /></svg>
 				</button>
-				<button class="tb-btn close" aria-label="Close" onclick={() => api.window!.close()}>
+				<button
+					class="tb-btn close"
+					aria-label={t.shell.window.close}
+					onclick={() => api.window!.close()}
+				>
 					<svg viewBox="0 0 12 12">
 						<line x1="2.5" y1="2.5" x2="9.5" y2="9.5" />
 						<line x1="9.5" y1="2.5" x2="2.5" y2="9.5" />

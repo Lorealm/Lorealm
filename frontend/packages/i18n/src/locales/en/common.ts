@@ -1,0 +1,17 @@
+/** Words and short phrases reused across many screens. */
+export const common = {
+	close: 'Close',
+	dismiss: 'Dismiss',
+	error: 'Error',
+	saving: 'Saving…',
+	saved: 'Saved',
+	save: 'Save',
+	cancel: 'Cancel',
+	edit: 'Edit',
+	delete: 'Delete',
+	previous: 'Previous',
+	next: 'Next',
+	loading: 'Loading…',
+	ok: 'OK',
+	notification: 'Notification'
+} as const;

@@ -5,6 +5,7 @@ import ContextWidget from './widgets/ContextWidget.svelte';
 import RealmAgentWidget from './widgets/RealmAgentWidget.svelte';
 import StateWidget from './widgets/StateWidget.svelte';
 import TemplateWidget from './widgets/TemplateWidget.svelte';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 export type BuiltinWidgetKey =
 	'character-image' | 'template' | 'context' | 'state' | 'realm-agent' | 'author-note';
@@ -16,12 +17,42 @@ export type InspectorWidgetKey = BuiltinWidgetKey | PluginWidgetKey;
 
 export const inspectorRegistry: Record<BuiltinWidgetKey, { label: string; component: Component }> =
 	{
-		'character-image': { label: 'Character Image', component: CharacterImageWidget },
-		template: { label: 'Template', component: TemplateWidget },
-		context: { label: 'Context', component: ContextWidget },
-		state: { label: 'State', component: StateWidget },
-		'realm-agent': { label: 'Realm Agent', component: RealmAgentWidget },
-		'author-note': { label: "Author's Note", component: AuthorNoteWidget }
+		'character-image': {
+			get label() {
+				return t.inspector.widgets.characterImage;
+			},
+			component: CharacterImageWidget
+		},
+		template: {
+			get label() {
+				return t.inspector.widgets.template;
+			},
+			component: TemplateWidget
+		},
+		context: {
+			get label() {
+				return t.inspector.widgets.context;
+			},
+			component: ContextWidget
+		},
+		state: {
+			get label() {
+				return t.inspector.widgets.state;
+			},
+			component: StateWidget
+		},
+		'realm-agent': {
+			get label() {
+				return t.inspector.widgets.realmAgent;
+			},
+			component: RealmAgentWidget
+		},
+		'author-note': {
+			get label() {
+				return t.inspector.widgets.authorNote;
+			},
+			component: AuthorNoteWidget
+		}
 	};
 
 /** Catalogue order, used by the cell editor. */

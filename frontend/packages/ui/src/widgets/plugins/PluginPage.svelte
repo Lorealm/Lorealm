@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { onMount } from 'svelte';
 	import { Check, RotateCw, Settings, Trash2 } from '@lucide/svelte';
@@ -44,9 +45,9 @@
 </script>
 
 {#if !pluginsStore.loaded}
-	<div class="empty">Loading…</div>
+	<div class="empty">{t.plugins.loading}</div>
 {:else if !plugin}
-	<div class="empty">This plugin isn't installed.</div>
+	<div class="empty">{t.plugins.notInstalled}</div>
 {:else}
 	<PluginDetail
 		{plugin}
@@ -61,13 +62,13 @@
 				disabled={busy}
 				onclick={() => act(() => api.plugins.toggle(handle, !plugin.enabled))}
 			>
-				{#if plugin.enabled}<Check size={14} /> Enabled{:else}Enable{/if}
+				{#if plugin.enabled}<Check size={14} /> {t.plugins.enabled}{:else}{t.plugins.enable}{/if}
 			</button>
 			{#if plugin.has_settings}
 				<button
 					type="button"
-					aria-label="{plugin.name} settings"
-					{@attach tooltip('Settings')}
+					aria-label={t.plugins.settingsNamed(plugin.name)}
+					{@attach tooltip(t.plugins.settings)}
 					onclick={() => navigator.start().settings().user().plugins(handle)}
 				>
 					<Settings size={14} />
@@ -76,29 +77,29 @@
 			{#if plugin.dev}
 				<button
 					type="button"
-					{@attach tooltip('Rebuild from its folder and reload')}
+					{@attach tooltip(t.plugins.reloadHint)}
 					disabled={busy}
 					onclick={() => act(() => api.plugins.reload(handle))}
 				>
 					<RotateCw size={14} />
-					Reload
+					{t.plugins.reload}
 				</button>
 			{/if}
 			{#if listed}
 				<button type="button" disabled={busy} onclick={() => act(() => installListed(handle))}>
-					Update to {listed}
+					{t.plugins.updateTo(listed)}
 				</button>
 			{:else if local}
 				<button type="button" disabled={busy} onclick={() => act(() => api.plugins.update(handle))}>
-					Update to {local}
+					{t.plugins.updateTo(local)}
 				</button>
 			{/if}
 			{#if canInstall()}
 				<button
 					type="button"
 					class="icon"
-					aria-label="Remove {plugin.name} for everyone"
-					{@attach tooltip('Remove for everyone')}
+					aria-label={t.plugins.removeNamed(plugin.name)}
+					{@attach tooltip(t.plugins.remove)}
 					disabled={busy}
 					onclick={uninstall}
 				>

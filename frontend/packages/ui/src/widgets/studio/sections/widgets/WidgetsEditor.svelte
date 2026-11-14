@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { navigator } from '#lib/navigation/navigator.js';
 	import { toolStore } from '#lib/stores/tools.svelte.js';
@@ -69,9 +70,9 @@ ${'</'}script>
 
 	const availableTools = $derived([
 		...(toolStore.loadedTools ?? []).map((t) => ({ id: t.id, name: t.display_name ?? t.name })),
-		...(toolStore.builtinTools ?? []).map((t) => ({
-			id: t.id,
-			name: `${t.display_name ?? t.name} (builtin)`
+		...(toolStore.builtinTools ?? []).map((tool) => ({
+			id: tool.id,
+			name: t.studio.widgets.builtinSuffix(tool.display_name ?? tool.name)
 		}))
 	]);
 	const toolName = (id: Snowflake) => availableTools.find((t) => t.id === id)?.name ?? id;
@@ -168,7 +169,7 @@ ${'</'}script>
 		try {
 			await saveNow();
 			const created = await userWidgetStore.createWidget({
-				name: 'New widget',
+				name: t.studio.widgets.newName,
 				source: STARTER
 			});
 			if (created) navigator.start().studio().widgets(created.id);
@@ -195,7 +196,7 @@ ${'</'}script>
 	}
 
 	async function removeWidget(id: Snowflake, name: string) {
-		if (!confirm(`Delete "${name || 'Untitled'}"? This can't be undone.`)) return;
+		if (!confirm(t.studio.tools.confirmDelete(name || t.studio.widgets.untitled))) return;
 		clearTimeout(timer);
 		await userWidgetStore.deleteWidget(id);
 		if (selectedId === id) navigator.start().studio().widgets();
@@ -226,7 +227,7 @@ ${'</'}script>
 
 <div class="widgets-editor">
 	<ListSidebar
-		title="Widgets"
+		title={t.studio.widgets.title}
 		detailOpen={selectedId !== null}
 		oncreate={newWidget}
 		{creating}
@@ -234,15 +235,15 @@ ${'</'}script>
 		bind:sort
 		bind:showBuiltins
 		sortOptions={[
-			{ value: 'name-asc', label: 'Name (A–Z)' },
-			{ value: 'name-desc', label: 'Name (Z–A)' },
-			{ value: 'enabled', label: 'Enabled first' }
+			{ value: 'name-asc', label: t.studio.tools.sortNameAsc },
+			{ value: 'name-desc', label: t.studio.tools.sortNameDesc },
+			{ value: 'enabled', label: t.studio.tools.sortEnabled }
 		]}
-		searchPlaceholder="Search widgets…"
+		searchPlaceholder={t.studio.widgets.search}
 	>
 		{#if shownWidgets.length === 0}
 			<p class="empty">
-				{widgets.length === 0 ? 'No widgets yet.' : 'No widgets match that search.'}
+				{widgets.length === 0 ? t.studio.widgets.empty : t.studio.widgets.noMatches}
 			</p>
 		{/if}
 		{#each shownWidgets as widget (widget.id)}
@@ -254,7 +255,11 @@ ${'</'}script>
 				<button class="widget-open" type="button" onclick={() => select(widget.id)}>
 					<span
 						class="widget-icon"
-						{@attach tooltip(widget.placement === 'attachment' ? 'Attachment' : 'Widget')}
+						{@attach tooltip(
+							widget.placement === 'attachment'
+								? t.studio.widgets.attachment
+								: t.studio.widgets.widget
+						)}
 					>
 						{#if widget.placement === 'attachment'}
 							<Paperclip size={16} />
@@ -263,14 +268,14 @@ ${'</'}script>
 						{/if}
 					</span>
 					<span class="widget-text">
-						<span class="widget-name">{widget.name || 'Untitled'}</span>
+						<span class="widget-name">{widget.name || t.studio.widgets.untitled}</span>
 						{#if widget.description}
 							<span class="widget-sub">{widget.description}</span>
 						{/if}
 					</span>
 				</button>
 				{#if builtinIds.has(widget.id)}
-					<Badge>Built-in</Badge>
+					<Badge>{t.studio.tools.builtIn}</Badge>
 				{:else}
 					<input
 						type="checkbox"
@@ -278,9 +283,11 @@ ${'</'}script>
 						checked={widget.enabled}
 						onchange={(e) => void userWidgetStore.setEnabled(widget.id, e.currentTarget.checked)}
 						{@attach tooltip(
-							widget.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'
+							widget.enabled ? t.studio.tools.enabledHint : t.studio.tools.disabledHint
 						)}
-						aria-label={widget.enabled ? `Disable ${widget.name}` : `Enable ${widget.name}`}
+						aria-label={widget.enabled
+							? t.studio.tools.disableNamed(widget.name)
+							: t.studio.tools.enableNamed(widget.name)}
 					/>
 				{/if}
 			</div>
@@ -291,34 +298,36 @@ ${'</'}script>
 		{#if selected}
 			<div class="pane">
 				<div class="pane-head">
-					<h1>{readOnly ? 'Built-in widget' : 'Edit widget'}</h1>
+					<h1>{readOnly ? t.studio.widgets.builtInWidget : t.studio.widgets.edit}</h1>
 					{#if !readOnly}
 						<button
 							type="button"
 							class="export"
 							onclick={() => exportItem('widget', selected.id, selected.name)}
 						>
-							Export
+							{t.studio.widgets.export}
 						</button>
 						<button
 							type="button"
 							class="delete"
 							onclick={() => void removeWidget(selected.id, selected.name)}
 						>
-							Delete
+							{t.common.delete}
 						</button>
 					{/if}
 				</div>
 
 				{#if readOnly}
 					<div class="readonly-note">
-						<p>Ships with Lorealm and is always available. Read-only — make a copy to change it.</p>
+						<p>{t.studio.widgets.builtInNote}</p>
 						{#if forkable}
-							<button type="button" class="fork" onclick={forkBuiltin}>Create my version</button>
+							<button type="button" class="fork" onclick={forkBuiltin}
+								>{t.studio.widgets.fork}</button
+							>
 						{:else}
 							<p class="already-forked">
-								You already have a <code>{selected.name}</code> of your own, which replaces this one while
-								it's enabled.
+								{t.studio.widgets.alreadyForkedPrefix} <code>{selected.name}</code>
+								{t.studio.widgets.alreadyForkedSuffix}
 							</p>
 						{/if}
 					</div>
@@ -327,28 +336,28 @@ ${'</'}script>
 				<fieldset class="body" disabled={readOnly}>
 					<div class="fields">
 						<label>
-							<span>Name</span>
+							<span>{t.studio.widgets.name}</span>
 							<input type="text" bind:value={draftName} oninput={requestSave} />
 						</label>
 						<label>
 							<span>
-								{isAttachment ? 'Description' : 'Description'}
+								{t.studio.widgets.description}
 							</span>
 							<input type="text" bind:value={draftDescription} oninput={requestSave} />
 						</label>
 						<label>
-							<span>Placement</span>
+							<span>{t.studio.widgets.placement}</span>
 							<select bind:value={draftPlacement} onchange={requestSave}>
-								<option value="widget">Widget — always on, reads state</option>
-								<option value="attachment">Attachment — the model places it inline</option>
+								<option value="widget">{t.studio.widgets.placementWidget}</option>
+								<option value="attachment">{t.studio.widgets.placementAttachment}</option>
 							</select>
 						</label>
 						{#if !isAttachment}
 							<label>
-								<span>Renders on</span>
+								<span>{t.studio.widgets.rendersOn}</span>
 								<select bind:value={draftMode} onchange={requestSave}>
-									<option value="latest">Latest message only</option>
-									<option value="every">Every message (costly in long chats)</option>
+									<option value="latest">{t.studio.widgets.latest}</option>
+									<option value="every">{t.studio.widgets.every}</option>
 								</select>
 							</label>
 						{/if}
@@ -357,43 +366,44 @@ ${'</'}script>
 					{#if isAttachment}
 						<div class="props">
 							<span class="propsLabel">
-								Properties
+								{t.studio.widgets.properties}
 								<code>{'{ type: "lorealm:props", props }'}</code>.
 							</span>
 							{#each draftProps, i (i)}
 								<div class="propRow">
 									<input
 										type="text"
-										placeholder="name"
+										placeholder={t.studio.widgets.propPlaceholder}
 										bind:value={draftProps[i]}
 										oninput={requestSave}
 									/>
 									<button
 										type="button"
 										class="del"
-										{@attach tooltip('Remove prop')}
+										{@attach tooltip(t.studio.widgets.removeProp)}
 										onclick={() => removeProp(i)}
 									>
 										×
 									</button>
 								</div>
 							{/each}
-							<button type="button" class="new" onclick={addProp}>Add prop</button>
+							<button type="button" class="new" onclick={addProp}>{t.studio.widgets.addProp}</button
+							>
 						</div>
 					{/if}
 
 					<div class="split">
 						<label class="sourceBox">
-							<span> HTML source </span>
+							<span>{t.studio.widgets.htmlSource}</span>
 							<textarea spellcheck="false" bind:value={draftSource} oninput={requestSave}
 							></textarea>
 						</label>
 
 						<div class="previewBox">
-							<span>Preview (sample state)</span>
+							<span>{t.studio.widgets.preview}</span>
 							{#key draftSource}
 								<iframe
-									title="Widget preview"
+									title={t.studio.widgets.previewTitle}
 									sandbox="allow-scripts"
 									srcdoc={draftSource}
 									bind:this={previewFrame}
@@ -406,12 +416,12 @@ ${'</'}script>
 					<div class="prompt">
 						{#key syncedId}
 							<ContextField
-								label="Directive"
+								label={t.studio.widgets.directive}
 								value={draftPrompt}
-								hint="A weaver-formatted prompt sent to the model. Describes how the model should maintain this "
+								hint={t.studio.widgets.directiveHint}
 								rows={3}
 								{readOnly}
-								placeholder="When affection changes, update relationship:&lbrace;&lbrace;char:name&rbrace;&rbrace;.affection using the set_var tool."
+								placeholder={t.studio.widgets.directivePlaceholder}
 								onchange={(v) => {
 									draftPrompt = v;
 									requestSave();
@@ -423,16 +433,16 @@ ${'</'}script>
 					<div class="prompt">
 						{#key syncedId}
 							<ContextField
-								label="Text rendering"
+								label={t.studio.widgets.textRendering}
 								value={draftRender}
 								hint={isAttachment
-									? 'What the model reads in place of this attachment. Props arrive as {{props:name}}. Leave empty to show [widget: id].'
-									: 'What the model reads for this widget, inserted wherever the node exists. Reads state as {{namespace:name}}.'}
+									? t.studio.widgets.renderHintAttachment
+									: t.studio.widgets.renderHintWidget}
 								rows={3}
 								{readOnly}
 								placeholder={isAttachment
-									? 'A handwritten note: \\{\\{props:content\\}\\}"'
-									: 'Affection \\{\\{relationship:affection\\}\\}/10, trust \\{\\{;relationship:trust\\}\\}/10.'}
+									? t.studio.widgets.renderPlaceholderAttachment
+									: t.studio.widgets.renderPlaceholderWidget}
 								onchange={(v) => {
 									draftRender = v;
 									requestSave();
@@ -443,8 +453,7 @@ ${'</'}script>
 
 					<div class="tools">
 						<span class="toolsLabel">
-							Tools — made available to the model whenever this widget is active. Imported into a
-							realm with the widget; no separate tool import needed.
+							{t.studio.widgets.tools}
 						</span>
 						{#each draftTools as id (id)}
 							<div class="toolRow">
@@ -452,7 +461,7 @@ ${'</'}script>
 								<button
 									type="button"
 									class="del"
-									{@attach tooltip('Remove tool')}
+									{@attach tooltip(t.studio.widgets.removeTool)}
 									onclick={() => unbindTool(id)}
 								>
 									×
@@ -462,12 +471,14 @@ ${'</'}script>
 						{#if availableTools.some((t) => !draftTools.includes(t.id))}
 							<div class="bindRow">
 								<select bind:value={toolPick}>
-									<option value="">Add a tool…</option>
-									{#each availableTools.filter((t) => !draftTools.includes(t.id)) as t (t.id)}
-										<option value={t.id}>{t.name}</option>
+									<option value="">{t.studio.widgets.addTool}</option>
+									{#each availableTools.filter((tool) => !draftTools.includes(tool.id)) as tool (tool.id)}
+										<option value={tool.id}>{tool.name}</option>
 									{/each}
 								</select>
-								<button type="button" class="bind" onclick={bindTool}>Bind</button>
+								<button type="button" class="bind" onclick={bindTool}
+									>{t.studio.widgets.bind}</button
+								>
 							</div>
 						{/if}
 					</div>
@@ -475,7 +486,7 @@ ${'</'}script>
 			</div>
 		{:else}
 			<div class="pane empty-pane">
-				<p class="empty">Select a widget to edit, or create one.</p>
+				<p class="empty">{t.studio.widgets.select}</p>
 			</div>
 		{/if}
 	</section>

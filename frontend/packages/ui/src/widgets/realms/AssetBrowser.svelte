@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { ChevronRight, Plus, Search } from '@lucide/svelte';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -77,8 +78,8 @@
 			class="plain"
 			type="text"
 			bind:value={query}
-			placeholder="Search assets…"
-			aria-label="Search assets"
+			placeholder={t.realms.assets.search}
+			aria-label={t.realms.assets.searchAria}
 			autocomplete="off"
 			spellcheck="false"
 		/>
@@ -93,14 +94,14 @@
 				onclick={() => toggle('inputs')}
 			>
 				<span class="chevron" class:open={isOpen('inputs')}><ChevronRight size={12} /></span>
-				<span class="title">Inputs</span>
+				<span class="title">{t.realms.assets.inputs}</span>
 				<span class="count">{realmDraft.inputs.length}</span>
 			</button>
 			<button
 				type="button"
 				class="add"
-				{@attach tooltip('Declare an input')}
-				aria-label="Declare an input"
+				{@attach tooltip(t.realms.assets.declare)}
+				aria-label={t.realms.assets.declare}
 				onclick={() => realmDraft.addInput()}
 			>
 				<Plus size={12} />
@@ -139,7 +140,7 @@
 				{/if}
 			{:else}
 				<p class="empty">
-					{needle ? 'No matching inputs.' : 'No inputs. A document with none is a realm.'}
+					{needle ? t.realms.assets.noMatchingInputs : t.realms.assets.noInputs}
 				</p>
 			{/each}
 		{/if}
@@ -191,15 +192,13 @@
 							})}
 						ondblclick={() => open(studio, item.id)}
 						onkeydown={(e) => e.key === 'Enter' && open(studio, item.id)}
-						{@attach tooltip(
-							studio ? 'Drag onto a field, or double-click to open' : 'Drag onto a field'
-						)}
+						{@attach tooltip(studio ? t.realms.assets.dragOrOpen : t.realms.assets.drag)}
 					>
 						<span class="name">{item.name}</span>
 						{#if item.hint}<span class="hint">{item.hint}</span>{/if}
 					</button>
 				{:else}
-					<p class="empty">Nothing here yet.</p>
+					<p class="empty">{t.realms.assets.nothing}</p>
 				{/each}
 			{/if}
 		{/each}

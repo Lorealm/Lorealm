@@ -1,6 +1,7 @@
 import { Facet, type EditorState } from '@codemirror/state';
 import { weaverVocabularyStore } from '#lib/stores/weaverVocabulary.svelte.js';
 import type { NamespaceDef, WeaverProfile } from '#lib/types/weaver.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 /**
  * One variable an editor can offer.
@@ -88,7 +89,7 @@ function scanDeclared(text: string): VariableRef[] {
 	VAR_COMMAND.lastIndex = 0;
 	let m: RegExpExecArray | null;
 	while ((m = VAR_COMMAND.exec(text))) {
-		found.push(variable(m[1], m[2], 'declared here', 'Written by a command in this body.'));
+		found.push(variable(m[1], m[2], t.weaver.kinds.declaredHere, t.weaver.writtenByCommand));
 	}
 
 	return found;
@@ -140,17 +141,15 @@ function procParams(text: string, pos: number): VariableRef[] {
 		const m = PARAM.exec(param.trim());
 		if (!m) return [];
 		const [, name, type, fallback] = m;
-		const doc = fallback
-			? `A parameter of \`${proc}\`. Defaults to \`${fallback}\`.`
-			: `A parameter of \`${proc}\`.`;
-		return [variable('input', name, 'parameter', doc, type)];
+		const doc = fallback ? t.weaver.parameterDefault(proc, fallback) : t.weaver.parameterOf(proc);
+		return [variable('input', name, t.weaver.kinds.parameter, doc, type)];
 	});
 }
 
 function loopRefs(state: EditorState, pos: number): VariableRef[] {
 	const source = state.facet(variableSource);
 	return bindingsAt(state.doc.toString(), pos).flatMap((loop) => [
-		variable('', loop.name, 'loop binding', `Each element of \`${loop.iterable}\`.`),
+		variable('', loop.name, t.weaver.kinds.loopBinding, t.weaver.eachElement(loop.iterable)),
 		...(source?.elements?.(loop.iterable) ?? []).map((field) => ({
 			...field,
 			scope: loop.name,

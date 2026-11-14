@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import {
 		BookOpen,
@@ -28,19 +29,14 @@
 			.map((agent) => agent.key)
 	);
 
-	// Editing an agent out of the cast, or away from `script`, closes its pane.
 	$effect(() => {
 		panes.prune(scriptKeys);
 	});
 
 	function label(pane: Pane): string {
-		if (pane.kind === 'overview') return 'Overview';
-		if (pane.kind === 'scenarios') return 'Scenarios';
-		if (pane.kind === 'cast') return 'Cast';
-		if (pane.kind === 'document') return 'Document';
-		if (pane.kind === 'formatting') return 'Formatting';
-		if (pane.kind === 'director') return 'Director';
-		return realmDraft.agent(pane.agentKey)?.handle || 'script';
+		if (pane.kind === 'script')
+			return realmDraft.agent(pane.agentKey)?.handle || t.realms.panes.script;
+		return t.realms.panes[pane.kind];
 	}
 
 	function iconFor(pane: Pane) {
@@ -55,7 +51,7 @@
 </script>
 
 <div class="shell">
-	<div class="tabs" role="tablist" aria-label="Open panes">
+	<div class="tabs" role="tablist" aria-label={t.realms.panes.open}>
 		{#each panes.open as pane (paneId(pane))}
 			{@const id = paneId(pane)}
 			{@const active = panes.activeId === id}
@@ -74,8 +70,8 @@
 					<button
 						type="button"
 						class="close"
-						{@attach tooltip('Close pane')}
-						aria-label="Close {label(pane)}"
+						{@attach tooltip(t.realms.panes.close)}
+						aria-label={t.realms.panes.closeNamed(label(pane))}
 						onclick={() => panes.close(id)}
 					>
 						<X size={11} />

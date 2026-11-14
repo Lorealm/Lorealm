@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../stores/tooltip.svelte.ts';
 	import { iconFor, iconNames } from '#lib/assets/icons/catalogue.js';
 
@@ -34,7 +35,7 @@
 	<button
 		type="button"
 		class="trigger"
-		{@attach tooltip('Change icon')}
+		{@attach tooltip(t.components.iconPicker.change)}
 		aria-haspopup="dialog"
 		aria-expanded={open}
 		onclick={() => (open = !open)}
@@ -43,9 +44,14 @@
 	</button>
 
 	{#if open}
-		<div class="panel" role="dialog" aria-label="Pick an icon">
+		<div class="panel" role="dialog" aria-label={t.components.iconPicker.pick}>
 			<!-- svelte-ignore a11y_autofocus -->
-			<input class="search" placeholder="Search {numIcons} icons" bind:value={query} autofocus />
+			<input
+				class="search"
+				placeholder={t.components.iconPicker.search(numIcons)}
+				bind:value={query}
+				autofocus
+			/>
 			<div class="grid">
 				{#each matches as name (name)}
 					{@const Icon = iconFor(name)}
@@ -60,7 +66,7 @@
 					</button>
 				{/each}
 				{#if matches.length === 0}
-					<span class="empty">No icon matches “{query}”.</span>
+					<span class="empty">{t.components.iconPicker.noMatch(query)}</span>
 				{/if}
 			</div>
 		</div>

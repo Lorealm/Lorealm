@@ -1,4 +1,5 @@
 import { SLOT_KINDS, isAtDepth, type Slot } from '../types/lorebook.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 export type SlotChoice = 'inherit' | (typeof SLOT_KINDS)[number];
 
@@ -23,7 +24,7 @@ export function formToSlot(form: SlotFormValue): Slot | undefined {
 
 /** Human label for a resolved slot */
 export function slotLabel(slot: Slot | undefined): string {
-	if (slot === undefined) return 'inherit';
-	if (isAtDepth(slot)) return `at depth ${slot.at_depth}`;
+	if (slot === undefined) return t.studio.slot.inherit;
+	if (isAtDepth(slot)) return t.studio.slot.atDepth(slot.at_depth);
 	return slot;
 }

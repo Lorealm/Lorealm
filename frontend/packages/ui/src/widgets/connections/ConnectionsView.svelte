@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { onDestroy } from 'svelte';
 	import { navigator } from '#lib/navigation/navigator.js';
 	import { router } from '#lib/navigation/router.svelte.js';
@@ -80,7 +81,7 @@
 		creating = true;
 		try {
 			const id = await connectionStore.createProfile(
-				'Untitled profile',
+				t.connections.untitledProfile,
 				PROVIDER_SCHEMAS[0]?.provider ?? ''
 			);
 			if (id) await selectProfile(id);
@@ -103,13 +104,13 @@
 
 <div class="connections-view">
 	<ListSidebar
-		title="Connections"
-		createLabel="New profile"
+		title={t.connections.title}
+		createLabel={t.connections.newProfile}
 		oncreate={createProfile}
 		{creating}
 		detailOpen={selected !== null}
 		bind:query
-		searchPlaceholder="Search profiles…"
+		searchPlaceholder={t.connections.searchProfiles}
 	>
 		{#snippet status()}
 			<SaveIndicator state={connectionStore.saveState} />
@@ -122,12 +123,12 @@
 			onclick={() => void openSecrets()}
 		>
 			<KeyRound size={14} />
-			<span>API keys</span>
+			<span>{t.connections.apiKeys}</span>
 		</button>
 
 		{#if shownProfiles.length === 0}
 			<p class="empty">
-				{(profiles ?? []).length === 0 ? 'No profiles yet.' : 'No profiles match that search.'}
+				{(profiles ?? []).length === 0 ? t.connections.noProfiles : t.connections.noMatches}
 			</p>
 		{/if}
 		<ProfileList
@@ -151,7 +152,7 @@
 		{:else if selected === SECRETS}
 			<SecretsManager />
 		{:else}
-			<div class="empty-pane">Select a profile, or create one.</div>
+			<div class="empty-pane">{t.connections.selectProfile}</div>
 		{/if}
 	</section>
 </div>

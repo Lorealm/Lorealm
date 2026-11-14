@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { navigator } from '#lib/navigation/navigator.js';
 	import { characterStore } from '#lib/stores/character.svelte.js';
 	import type { Snowflake } from '#lib/types/core.js';
@@ -8,7 +9,7 @@
 	let { id }: { id?: Snowflake } = $props();
 
 	async function handleCreate() {
-		const created = await characterStore.create('New Character');
+		const created = await characterStore.create(t.characters.newName);
 		navigator.start().studio().characters(created);
 	}
 </script>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '#lib/stores/i18n.svelte.js';
 	import { configStore, type SaveState } from '#lib/stores/serverConfig.svelte.js';
 	import SettingsSection from '../SettingsSection.svelte';
 	import Field from '../Field.svelte';
@@ -26,11 +27,11 @@
 	}
 </script>
 
-<SettingsSection title="Hosting" {dirty} {saveState} onsave={save} onreset={reset}>
-	<Field label="IP address">
+<SettingsSection title={t.nav.server.hosting} {dirty} {saveState} onsave={save} onreset={reset}>
+	<Field label={t.settings.server.ipAddress}>
 		<input type="text" bind:value={draft.ip} />
 	</Field>
-	<Field label="Port">
+	<Field label={t.settings.server.port}>
 		<NumberField
 			value={draft.port}
 			min={1}

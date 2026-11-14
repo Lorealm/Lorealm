@@ -4,6 +4,7 @@ import { characterStore } from '#lib/stores/character.svelte.js';
 import { chatStore } from '#lib/stores/chat.svelte.js';
 import { conversationManager } from '#lib/stores/conversationManager.svelte.js';
 import type { SlashCommand } from './types.js';
+import { t } from '#lib/stores/i18n.svelte.js';
 
 const VIEWS: Record<string, () => void> = {
 	write: () => navigator.start().write(),
@@ -20,20 +21,30 @@ const VIEWS: Record<string, () => void> = {
 export const builtInSlashCommands: SlashCommand[] = [
 	{
 		name: 'send',
-		description: 'Send a message and generate a reply.',
-		restLabel: 'message',
+		get description() {
+			return t.commands.send.description;
+		},
+		get restLabel() {
+			return t.commands.send.rest;
+		},
 		raw: true,
 		enabled: () => !chatStore.isStreaming,
-		unavailable: 'A reply is still streaming.',
+		get unavailable() {
+			return t.commands.send.unavailable;
+		},
 		run: async ({ rest }) => {
 			if (rest) await chatStore.sendMessage(rest);
 		}
 	},
 	{
 		name: 'newchat',
-		description: 'Start a fresh conversation with the active character.',
+		get description() {
+			return t.commands.newchat.description;
+		},
 		enabled: () => characterStore.activeCharacter !== null,
-		unavailable: 'No character is active.',
+		get unavailable() {
+			return t.commands.noCharacter;
+		},
 		run: () => {
 			const character = characterStore.activeCharacter;
 			if (!character) return;
@@ -47,9 +58,13 @@ export const builtInSlashCommands: SlashCommand[] = [
 	{
 		name: 'conversations',
 		aliases: ['convos'],
-		description: 'List the chats with the active character.',
+		get description() {
+			return t.commands.conversations.description;
+		},
 		enabled: () => chatStore.characterId !== null,
-		unavailable: 'No character is active.',
+		get unavailable() {
+			return t.commands.noCharacter;
+		},
 		run: () => {
 			const characterId = chatStore.characterId;
 			if (characterId) conversationManager.open(characterId);
@@ -57,19 +72,27 @@ export const builtInSlashCommands: SlashCommand[] = [
 	},
 	{
 		name: 'go',
-		description: `Open a view: ${Object.keys(VIEWS).join(', ')}.`,
-		restLabel: 'view',
+		get description() {
+			return t.commands.go.description(Object.keys(VIEWS).join(', '));
+		},
+		get restLabel() {
+			return t.commands.go.rest;
+		},
 		run: ({ rest }) => {
 			const open = VIEWS[rest.trim().toLowerCase()];
-			if (!open) throw new Error(`Unknown view '${rest.trim()}'.`);
+			if (!open) throw new Error(t.commands.go.unknownView(rest.trim()));
 			open();
 		}
 	},
 	{
 		name: 'back',
-		description: 'Return to the previous destination.',
+		get description() {
+			return t.commands.back.description;
+		},
 		enabled: () => router.canGoBack,
-		unavailable: 'There is nothing to go back to.',
+		get unavailable() {
+			return t.commands.back.unavailable;
+		},
 		run: () => void navigator.back()
 	}
 ];
