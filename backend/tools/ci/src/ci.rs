@@ -5,7 +5,7 @@ use crate::{
 };
 use argh::FromArgs;
 
-/// The CI command line tool for Bevy.
+/// The CI command line tool for Lorealm.
 #[derive(FromArgs)]
 pub struct CI {
     #[argh(subcommand)]
@@ -26,9 +26,6 @@ pub struct CI {
 
 impl CI {
     /// Runs the specified commands or all commands if none are specified.
-    ///
-    /// When run locally, results may differ from actual CI runs triggered by `.github/workflows/ci.yml`.
-    /// This is usually related to differing toolchains and configuration.
     pub fn run(self) {
         let sh = xshell::Shell::new().unwrap();
         let prepared_commands = self.prepare(&sh);
