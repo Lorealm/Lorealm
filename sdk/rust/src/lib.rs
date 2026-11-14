@@ -34,6 +34,7 @@
 pub const API_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// The bindings generated from the `lorealm:plugin` WIT package.
+#[allow(clippy::too_many_arguments)]
 pub mod bindings {
     wit_bindgen::generate!({
         path: "wit",

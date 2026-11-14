@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+# A new push to a PR cancels the run for its previous commit.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # The backend jobs go through the `ci` tool, so `cargo run -p ci` runs the same checks locally.
+  backend-lints:
+    name: Backend lints
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+      # cargo fmt --check, cargo clippy -D warnings
+      - run: cargo run -p ci -- lints
+      # cargo doc with -D warnings
+      - run: cargo run -p ci -- doc-check
+
+  backend-tests:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      # The plugin tests build their fixtures: the Rust one for wasm32-wasip2,
+      # the Python one with componentize-py through uvx.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip2
+      - uses: astral-sh/setup-uv@v6
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            backend
+            backend/plugins/tests/fixtures/hello
+      - run: cargo run -p ci -- test
+      - run: cargo run -p ci -- doc-test
+
+  # Crates outside the backend workspace.
+  rust-crates:
+    name: Desktop and SDK crates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip2
+          components: rustfmt, clippy
+      - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            frontend/apps/desktop/src-tauri
+            sdk/rust
+      - name: Desktop
+        working-directory: frontend/apps/desktop/src-tauri
+        run: |
+          # Tauri embeds frontendDist at compile time, so it must exist; its contents don't matter here.
+          mkdir -p ../dist
+          cargo fmt -- --check
+          cargo clippy --all-targets -- -D warnings
+      - name: SDK
+        working-directory: sdk/rust
+        run: |
+          cargo fmt -- --check
+          cargo clippy --target wasm32-wasip2 -- -D warnings
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      # The apps import @lorealm/ui from its packaged output.
+      - run: bun run prepack
+        working-directory: frontend/packages/ui
+      - run: bun run lint
+        working-directory: frontend/packages/ui
+      - run: bun run check
+        working-directory: frontend/packages/ui
+      - run: bun run check
+        working-directory: frontend/apps/web
+      - run: bun run check
+        working-directory: frontend/apps/desktop
+      - run: bun run build
+        working-directory: frontend/apps/web
+      - run: bun run build
+        working-directory: frontend/apps/desktop

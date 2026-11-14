@@ -15,7 +15,7 @@ You can read more about our vision [here](https://docs.lorealm.app/)
 - **Realms**: The system that holds everything together. A Realm is essentially a stage, where every actor only sees what it's given. This allows us to express simple 1-on-1 conversations, group chats or even full game systems, within one single system. We highly encourage you to [read more](https://docs.lorealm.app/realms/what_are_realms/) so you can appreciate what this system offers.
 - **Security & Privacy**: Lorealm offers a level of security and privacy that few alternatives can match. Your passwords and API keys are protected with modern, best-practice cryptography, and Lorealm is only reachable from your own machine unless you choose otherwise.
 - **Extensibility**: A working, documented plugin system from day one. Plugins let you extend Lorealm to your heart's content without giving up security: every plugin runs inside a sandbox and has to ask for each permission it uses.
-- 
+
 ## Installing
 Lorealm runs on Windows, Linux and macOS, or anywhere Docker does. Mobile/Termux is untested.
 
