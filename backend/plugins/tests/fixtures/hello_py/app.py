@@ -87,6 +87,8 @@ def prompt_build(prompt: list[Message], conversation: int | None) -> list[Messag
     if last == "loop forever":
         while True:
             pass
+    if last == "hog memory":
+        bytearray(1 << 30)
     if last == "forget":
         host.delete_data("greetings")
     if last == "crash":

@@ -11,6 +11,7 @@
 	import AccountsSection from './sections/AccountsSection.svelte';
 	import CharactersSection from './sections/CharactersSection.svelte';
 	import TokenizersSection from './sections/TokenizersSection.svelte';
+	import PluginsSection from './sections/PluginsSection.svelte';
 	import TasksSection from './sections/TasksSection.svelte';
 
 	let { section }: { section: ServerSection } = $props();
@@ -38,6 +39,8 @@
 			<CharactersSection />
 		{:else if section === 'tokenizers'}
 			<TokenizersSection />
+		{:else if section === 'plugins'}
+			<PluginsSection />
 		{:else if section === 'tasks'}
 			<TasksSection />
 		{/if}

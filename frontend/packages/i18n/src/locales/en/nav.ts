@@ -41,6 +41,7 @@ export const nav = {
 		roles: 'Roles',
 		characters: 'Characters',
 		tokenizers: 'Tokenizers',
+		plugins: 'Plugins',
 		tasks: 'Tasks'
 	},
 	blueprints: 'Blueprints',

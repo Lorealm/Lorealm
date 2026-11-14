@@ -19,6 +19,7 @@ export type ServerSection =
 	| 'roles'
 	| 'characters'
 	| 'tokenizers'
+	| 'plugins'
 	| 'tasks';
 
 /** The list the Realms view shows. Left out, it is the realms themselves. */

@@ -77,6 +77,7 @@ class ServerSettingsStage {
 	roles = () => this.#section('roles');
 	characters = () => this.#section('characters');
 	tokenizers = () => this.#section('tokenizers');
+	plugins = () => this.#section('plugins');
 	tasks = () => this.#section('tasks');
 }
 

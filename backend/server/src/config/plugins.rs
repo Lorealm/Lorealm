@@ -10,6 +10,9 @@ pub struct PluginConfig {
     /// How long a plugin's `generate` may wait for the model in seconds.
     #[serde(default = "generate_timeout")]
     pub generate_timeout: u64,
+    /// Memory each running plugin may use, in megabytes.
+    #[serde(default = "memory_limit_mb")]
+    pub memory_limit_mb: usize,
     /// The plugin indexes the marketplace reads.
     #[serde(default = "indexes")]
     pub indexes: Vec<String>,
@@ -28,11 +31,16 @@ fn generate_timeout() -> u64 {
     120
 }
 
+fn memory_limit_mb() -> usize {
+    128
+}
+
 impl Default for PluginConfig {
     fn default() -> Self {
         Self {
             log_cap: log_cap(),
             generate_timeout: generate_timeout(),
+            memory_limit_mb: memory_limit_mb(),
             indexes: indexes(),
         }
     }

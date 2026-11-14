@@ -287,7 +287,10 @@ impl PluginService {
             }),
             storage,
             state,
-            host: Arc::new(PluginHost::new(CALL_TIMEOUT).expect("plugin host should initialize")),
+            host: Arc::new(
+                PluginHost::new(CALL_TIMEOUT, config.memory_limit_mb.saturating_mul(1024 * 1024))
+                    .expect("plugin host should initialize"),
+            ),
             dir,
             packages: DashMap::new(),
             mounted: DashMap::new(),
