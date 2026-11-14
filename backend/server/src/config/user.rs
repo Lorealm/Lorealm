@@ -29,7 +29,7 @@ fn username_length() -> MinMax {
 }
 
 fn disable_register() -> bool {
-    false
+    true
 }
 
 fn create_default_resources() -> bool {
