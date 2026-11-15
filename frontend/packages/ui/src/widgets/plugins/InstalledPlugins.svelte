@@ -53,7 +53,8 @@
 			const report = file
 				? await api.plugins.upload(file)
 				: await api.plugins.install(location.trim(), dev);
-			buildLog = report.log || t.plugins.installedReport(report.handle, report.version);
+			buildLog =
+				report.log || t.plugins.installedReport({ handle: report.handle, version: report.version });
 		});
 		installing = false;
 	}
@@ -151,7 +152,7 @@
 							class="outline"
 							onclick={() => act(() => installListed(plugin.handle))}
 						>
-							{t.plugins.updateTo(listed)}
+							{t.plugins.updateTo({ version: listed })}
 						</button>
 					{:else if local}
 						<button
@@ -159,7 +160,7 @@
 							class="outline"
 							onclick={() => act(() => api.plugins.update(plugin.handle))}
 						>
-							{t.plugins.updateTo(local)}
+							{t.plugins.updateTo({ version: local })}
 						</button>
 					{/if}
 					<button
@@ -175,7 +176,7 @@
 						<button
 							type="button"
 							class="outline"
-							aria-label={t.plugins.settingsNamed(plugin.name)}
+							aria-label={t.plugins.settingsNamed({ name: plugin.name })}
 							{@attach tooltip(t.plugins.settings)}
 							onclick={() => navigator.start().settings().user().plugins(plugin.handle)}
 						>
@@ -186,7 +187,7 @@
 						<button
 							type="button"
 							class="icon"
-							aria-label={t.plugins.removeNamed(plugin.name)}
+							aria-label={t.plugins.removeNamed({ name: plugin.name })}
 							{@attach tooltip(t.plugins.remove)}
 							onclick={() => act(() => api.plugins.uninstall(plugin.handle))}
 						>

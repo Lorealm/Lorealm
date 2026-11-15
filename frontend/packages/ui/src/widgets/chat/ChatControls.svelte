@@ -207,9 +207,9 @@
 				class="send-button"
 				{@attach tooltip(
 					runningCommand
-						? t.chat.composer.stopCommand(runningCommand.name)
+						? t.chat.composer.stopCommand({ name: runningCommand.name })
 						: waitingOn
-							? t.chat.composer.stopPlugin(waitingOn)
+							? t.chat.composer.stopPlugin({ name: waitingOn })
 							: t.chat.composer.stopGenerating
 				)}
 				onclick={cancelGeneration}><Square /></button

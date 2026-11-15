@@ -35,12 +35,12 @@ export async function exportItem(kind: TransferKind, id: Snowflake, name: string
 	try {
 		const file = await useApi().transfer.export(kind, id);
 		await usePlatform().files.save(JSON.stringify(file, null, '\t'), {
-			label: t.transfer.fileLabel(kindLabel(kind)),
+			label: t.transfer.fileLabel({ kind: kindLabel(kind) }),
 			extensions: ['json'],
 			suggestedName: `${fileStem(name, kind)}.${kind}.json`
 		});
 	} catch (e) {
-		showApiError(e, { title: t.transfer.exportFailed(kindLabel(kind)) });
+		showApiError(e, { title: t.transfer.exportFailed({ kind: kindLabel(kind) }) });
 	}
 }
 
@@ -50,7 +50,7 @@ export async function exportSillyTavernLorebook(id: Snowflake, name: string) {
 		if (warnings.length > 0) {
 			const download = t.transfer.download;
 			const choice = await showPopup({
-				title: t.transfer.sillyTavernTitle(name),
+				title: t.transfer.sillyTavernTitle({ name }),
 				message: [
 					t.transfer.sillyTavernNote,
 					t.transfer.wontCarry,
@@ -121,7 +121,7 @@ export async function importFiles(files: File[]) {
 	for (const file of files) {
 		const detected = await detect(file);
 		if (detected) items.push({ file, detected });
-		else failed.push(t.transfer.unrecognised(file.name));
+		else failed.push(t.transfer.unrecognised({ file: file.name }));
 	}
 
 	if (items.length > 0) {
@@ -129,10 +129,12 @@ export async function importFiles(files: File[]) {
 		const choice = await showPopup({
 			title:
 				items.length === 1
-					? t.transfer.importingAs(kindLabel(items[0].detected.kind))
-					: t.transfer.importingFiles(items.length),
+					? t.transfer.importingAs({ kind: kindLabel(items[0].detected.kind) })
+					: t.transfer.importingFiles({ count: items.length }),
 			message: items
-				.map(({ file, detected }) => t.transfer.fileAs(file.name, kindLabel(detected.kind)))
+				.map(({ file, detected }) =>
+					t.transfer.fileAs({ file: file.name, kind: kindLabel(detected.kind) })
+				)
 				.join('\n'),
 			actions: [{ label: t.common.cancel }, { label: confirm, tone: 'primary' }]
 		});
@@ -152,11 +154,11 @@ export async function importFiles(files: File[]) {
 			);
 			results.forEach((r, i) => {
 				if (r.status === 'ok') imported++;
-				else failed.push(t.transfer.failedFile(cards[i].file.name, r.reason));
+				else failed.push(t.transfer.failedFile({ file: cards[i].file.name, reason: r.reason }));
 			});
 		} catch (e) {
 			const reason = extractError(e).message;
-			for (const c of cards) failed.push(t.transfer.failedFile(c.file.name, reason));
+			for (const c of cards) failed.push(t.transfer.failedFile({ file: c.file.name, reason }));
 		}
 	}
 
@@ -169,21 +171,24 @@ export async function importFiles(files: File[]) {
 				const name = file.name.replace(/\.json$/i, '');
 				const book = await useApi().lorebooks.importSillyTavern(detected.data, name);
 				touched.add('lorebook');
-				if (book.skipped > 0) notes.push(t.transfer.entriesSkipped(book.skipped, book.name));
+				if (book.skipped > 0)
+					notes.push(t.transfer.entriesSkipped({ count: book.skipped, book: book.name }));
 			} else {
 				const { id, report } = await useApi().transfer.import(detected.data);
 				touched.add(detected.kind);
-				if (id === null) throw new Error(t.transfer.unreadable(report?.skipped.join(', ') ?? ''));
-				if (report?.created === 0) notes.push(t.transfer.alreadyHad(file.name));
-				for (const [from, to] of report?.renamed ?? []) notes.push(t.transfer.renamed(from, to));
+				if (id === null)
+					throw new Error(t.transfer.unreadable({ list: report?.skipped.join(', ') ?? '' }));
+				if (report?.created === 0) notes.push(t.transfer.alreadyHad({ file: file.name }));
+				for (const [from, to] of report?.renamed ?? [])
+					notes.push(t.transfer.renamed({ from, to }));
 			}
 			imported++;
 		} catch (e) {
-			failed.push(t.transfer.failedFile(file.name, extractError(e).message));
+			failed.push(t.transfer.failedFile({ file: file.name, reason: extractError(e).message }));
 		}
 	}
 
-	const summary = [t.transfer.summary(imported, files.length), ...notes].join(' ');
+	const summary = [t.transfer.summary({ imported, total: files.length }), ...notes].join(' ');
 	if (failed.length === 0) {
 		showToast({ title: t.transfer.imported, message: summary, variant: 'success' });
 	} else {

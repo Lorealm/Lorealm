@@ -34,9 +34,9 @@
 			case 'global':
 				return t.settings.keybinds.global;
 			case 'view':
-				return t.settings.keybinds.viewScope(
-					t.nav.views[command.layer as ViewName] ?? command.layer
-				);
+				return t.settings.keybinds.viewScope({
+					view: t.nav.views[command.layer as ViewName] ?? command.layer
+				});
 			default:
 				return command.layer;
 		}
@@ -146,7 +146,9 @@
 								{@const clashes = commandRegistry.conflictsWith(command, chord)}
 								{#if clashes.length > 0}
 									<span class="clash">
-										{t.settings.keybinds.alsoBound(clashes.map((other) => other.title).join(', '))}
+										{t.settings.keybinds.alsoBound({
+											titles: clashes.map((other) => other.title).join(', ')
+										})}
 									</span>
 								{/if}
 							{/each}
@@ -159,7 +161,7 @@
 									<button
 										class="icon"
 										{@attach tooltip(t.settings.keybinds.unbind)}
-										aria-label={t.settings.keybinds.unbindChord(chord)}
+										aria-label={t.settings.keybinds.unbindChord({ chord })}
 										onclick={() => unbind(command, chord)}
 									>
 										<X size={12} />
@@ -187,7 +189,7 @@
 								<button
 									class="icon"
 									{@attach tooltip(t.settings.keybinds.resetDefault)}
-									aria-label={t.settings.keybinds.resetNamed(command.title)}
+									aria-label={t.settings.keybinds.resetNamed({ title: command.title })}
 									onclick={() => keybindConfig.reset(command.id)}
 								>
 									<RotateCcw size={12} />

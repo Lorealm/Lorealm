@@ -42,7 +42,7 @@
 		class="select"
 		type="button"
 		aria-pressed={selected}
-		aria-label={t.characters.showInInspector(summary.display_name ?? summary.name)}
+		aria-label={t.characters.showInInspector({ name: summary.display_name ?? summary.name })}
 		onclick={() => inspectorFocus.toggleCharacter(summary.id)}
 	></button>
 

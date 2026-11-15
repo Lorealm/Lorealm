@@ -47,7 +47,7 @@ export class PersistedRecord<T extends object> {
 		try {
 			await usePlatform().store.set(this.#key, $state.snapshot(this.#value));
 		} catch (e) {
-			showError(e, { title: t.errors.failed.persist(this.#key) });
+			showError(e, { title: t.errors.failed.persist({ key: this.#key }) });
 		}
 	}
 }

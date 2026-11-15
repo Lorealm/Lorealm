@@ -79,7 +79,7 @@
 		<span class="chev" class:collapsed><ChevronDown /></span>
 		<span class="label">{t.inspector.state.title}</span>
 		{#if messageState && currentTurn !== null}
-			<span class="count">{t.inspector.state.turn(currentTurn)}</span>
+			<span class="count">{t.inspector.state.turn({ n: currentTurn })}</span>
 		{/if}
 	</button>
 
@@ -149,14 +149,17 @@
 													class="chip"
 													class:dim={e.lastActivated === undefined}
 													{@attach tooltip(
-														t.chat.inspector.lastActivated(String(e.lastActivated ?? '—'))
-													)}>{t.chat.inspector.act(String(e.lastActivated ?? '—'))}</span
+														t.chat.inspector.lastActivated({
+															turns: String(e.lastActivated ?? '—')
+														})
+													)}>{t.chat.inspector.act({ turns: String(e.lastActivated ?? '—') })}</span
 												>
 												<span
 													class="chip"
 													class:dim={e.sticky === undefined}
-													{@attach tooltip(t.chat.inspector.stickyRemaining(e.sticky ?? 0))}
-													>{t.chat.inspector.stk(String(e.sticky ?? '—'))}</span
+													{@attach tooltip(
+														t.chat.inspector.stickyRemaining({ turns: e.sticky ?? 0 })
+													)}>{t.chat.inspector.stk({ turns: String(e.sticky ?? '—') })}</span
 												>
 											</div>
 										{/each}

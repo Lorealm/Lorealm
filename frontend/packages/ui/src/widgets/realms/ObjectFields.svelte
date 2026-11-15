@@ -80,7 +80,7 @@
 	{#if depth > COMFORTABLE_DEPTH}
 		<p class="deep">
 			<TriangleAlert size={12} />
-			{t.realms.fields.tooDeep(depth)}
+			{t.realms.fields.tooDeep({ depth })}
 		</p>
 	{/if}
 
@@ -103,13 +103,13 @@
 							value={field.name}
 							placeholder={t.realms.fields.namePlaceholder}
 							spellcheck="false"
-							aria-label={t.realms.fields.nameAria(i + 1)}
+							aria-label={t.realms.fields.nameAria({ n: i + 1 })}
 							onchange={(e) => set(i, { name: e.currentTarget.value })}
 						/>
 					</td>
 					<td>
 						<select
-							aria-label={t.realms.fields.typeAria(i + 1)}
+							aria-label={t.realms.fields.typeAria({ n: i + 1 })}
 							value={holdsValue(field.ty)}
 							onchange={(e) =>
 								set(i, { ty: withList(holdsToBase(e.currentTarget.value), isList(field.ty)) })}
@@ -129,7 +129,7 @@
 					<td class="checkCol">
 						<input
 							type="checkbox"
-							aria-label={t.realms.fields.listAria(i + 1)}
+							aria-label={t.realms.fields.listAria({ n: i + 1 })}
 							checked={isList(field.ty)}
 							onchange={(e) => set(i, { ty: withList(baseOf(field.ty), e.currentTarget.checked) })}
 						/>
@@ -138,7 +138,7 @@
 						<button
 							type="button"
 							class="remove"
-							aria-label={t.realms.fields.removeAria(i + 1)}
+							aria-label={t.realms.fields.removeAria({ n: i + 1 })}
 							onclick={() => remove(i)}
 						>
 							<Trash2 size={12} />

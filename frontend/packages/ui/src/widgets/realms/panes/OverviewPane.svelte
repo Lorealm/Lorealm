@@ -94,7 +94,7 @@
 						{tag}
 						<button
 							type="button"
-							aria-label={t.realms.overview.removeTag(tag)}
+							aria-label={t.realms.overview.removeTag({ tag })}
 							onclick={() => (realmDraft.tags = realmDraft.tags.filter((t) => t !== tag))}
 						>
 							<X size={10} />
@@ -124,7 +124,7 @@
 					value={module}
 					kinds={['module']}
 					inputs={realmDraft.inputs}
-					ariaLabel={t.realms.overview.module(i + 1)}
+					ariaLabel={t.realms.overview.module({ n: i + 1 })}
 					onchange={(next) => {
 						if (next) realmDraft.modules[i] = next;
 						else realmDraft.modules.splice(i, 1);

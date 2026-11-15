@@ -448,7 +448,7 @@
 					>{/if}
 				{#if block.origin.path.length > 0}<span class="path">{block.origin.path.join(' › ')}</span
 					>{/if}
-				<span>{t.chat.inspector.node(block.origin.node_id || '—')}</span>
+				<span>{t.chat.inspector.node({ id: block.origin.node_id || '—' })}</span>
 			</div>
 		{/if}
 
@@ -477,7 +477,7 @@
 						{#if blocks === null}
 							{t.chat.inspector.noTrace}
 						{:else}
-							{t.chat.inspector.blocks(blocks.length)} · {fmtCount(display.total)}
+							{t.chat.inspector.blocks({ count: blocks.length })} · {fmtCount(display.total)}
 							{t.chat.inspector.units[display.unit]}
 							{#if templateName}
 								<span class="sep">·</span>{templateName}
@@ -518,7 +518,9 @@
 											{#if profileFailed}
 												<span class="hint-src">{t.chat.inspector.profileFailed}</span>
 											{:else if profileName}
-												<span class="hint-src">{t.chat.inspector.fromProfile(profileName)}</span>
+												<span class="hint-src"
+													>{t.chat.inspector.fromProfile({ name: profileName })}</span
+												>
 											{/if}
 											{#if budgetIsLive}
 												<span class="hint-src">{t.chat.inspector.budgetNotRecorded}</span>
@@ -563,10 +565,10 @@
 											display.counts[i] ?? 0
 										)} ${t.chat.inspector.units[display.unit]}`
 									)}
-									aria-label={t.chat.inspector.blockAria(
-										f.block.role,
-										`${fmtCount(display.counts[i] ?? 0)} ${t.chat.inspector.units[display.unit]}`
-									)}
+									aria-label={t.chat.inspector.blockAria({
+										role: f.block.role,
+										size: `${fmtCount(display.counts[i] ?? 0)} ${t.chat.inspector.units[display.unit]}`
+									})}
 									onclick={() => focusBlock(i)}
 								></button>
 							{/each}
@@ -582,8 +584,11 @@
 						<div class="left-head">
 							<span>{t.chat.inspector.bySource}</span>
 							{#if drift !== null}
-								<span class="drift" {@attach tooltip(t.chat.inspector.drift(fmtCount(drift)))}>
-									{t.chat.inspector.was(fmtCount(drift))}
+								<span
+									class="drift"
+									{@attach tooltip(t.chat.inspector.drift({ count: fmtCount(drift) }))}
+								>
+									{t.chat.inspector.was({ count: fmtCount(drift) })}
 								</span>
 							{/if}
 						</div>
@@ -614,7 +619,9 @@
 							{#each trimmedRows as [source, n] (source)}
 								<li
 									style="--share: {pct(n, trimmedMax)}%"
-									{@attach tooltip(t.chat.inspector.shed(SOURCE_LABELS[source], fmtCount(n)))}
+									{@attach tooltip(
+										t.chat.inspector.shed({ source: SOURCE_LABELS[source], count: fmtCount(n) })
+									)}
 								>
 									<span class="fill" aria-hidden="true"></span>
 									<span class="src-name">{SOURCE_LABELS[source]}</span>
@@ -701,7 +708,8 @@
 													>{fmtCount(groupTotals.get(gi) ?? 0)}
 													{t.chat.inspector.units[display.unit]}</span
 												>
-												<span class="group-count">{t.chat.inspector.msgs(group.blocks.length)}</span
+												<span class="group-count"
+													>{t.chat.inspector.msgs({ count: group.blocks.length })}</span
 												>
 											</button>
 											{#if !collapsedGroups.has(gi)}
@@ -753,14 +761,20 @@
 															class="chip"
 															class:dim={e.lastActivated === undefined}
 															{@attach tooltip(
-																t.chat.inspector.lastActivated(String(e.lastActivated ?? '—'))
-															)}>{t.chat.inspector.act(String(e.lastActivated ?? '—'))}</span
+																t.chat.inspector.lastActivated({
+																	turns: String(e.lastActivated ?? '—')
+																})
+															)}
+															>{t.chat.inspector.act({
+																turns: String(e.lastActivated ?? '—')
+															})}</span
 														>
 														<span
 															class="chip"
 															class:dim={e.sticky === undefined}
-															{@attach tooltip(t.chat.inspector.stickyRemaining(e.sticky ?? 0))}
-															>{t.chat.inspector.stk(String(e.sticky ?? '—'))}</span
+															{@attach tooltip(
+																t.chat.inspector.stickyRemaining({ turns: e.sticky ?? 0 })
+															)}>{t.chat.inspector.stk({ turns: String(e.sticky ?? '—') })}</span
 														>
 													</div>
 												{/each}
@@ -805,7 +819,9 @@
 							<div class="round-head">
 								<span class="round-label">{t.chat.inspector.available}</span>
 								{#if availableTools}
-									<span class="group-count">{t.chat.inspector.tools(availableTools.length)}</span>
+									<span class="group-count"
+										>{t.chat.inspector.tools({ count: availableTools.length })}</span
+									>
 								{/if}
 							</div>
 							{#if availableTools === null}
@@ -825,8 +841,10 @@
 							{/if}
 							{#each toolRounds as rnd (rnd.round)}
 								<div class="round-head">
-									<span class="round-label">{t.chat.inspector.round(rnd.round)}</span>
-									<span class="group-count">{t.chat.inspector.calls(rnd.calls.length)}</span>
+									<span class="round-label">{t.chat.inspector.round({ n: rnd.round })}</span>
+									<span class="group-count"
+										>{t.chat.inspector.calls({ count: rnd.calls.length })}</span
+									>
 								</div>
 								{#each rnd.calls as call, ci (ci)}
 									{@const key = `${rnd.round}:${ci}`}

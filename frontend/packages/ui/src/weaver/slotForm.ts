@@ -25,6 +25,6 @@ export function formToSlot(form: SlotFormValue): Slot | undefined {
 /** Human label for a resolved slot */
 export function slotLabel(slot: Slot | undefined): string {
 	if (slot === undefined) return t.studio.slot.inherit;
-	if (isAtDepth(slot)) return t.studio.slot.atDepth(slot.at_depth);
+	if (isAtDepth(slot)) return t.studio.slot.atDepth({ depth: slot.at_depth });
 	return slot;
 }

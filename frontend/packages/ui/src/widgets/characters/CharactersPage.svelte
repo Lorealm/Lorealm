@@ -84,15 +84,18 @@
 		const skipped = reports.flatMap((r) => r.skipped);
 
 		const parts = [];
-		if (created > 0) parts.push(t.characters.attachments.imported(created));
-		if (reused > 0) parts.push(t.characters.attachments.reused(reused));
+		if (created > 0) parts.push(t.characters.attachments.imported({ count: created }));
+		if (reused > 0) parts.push(t.characters.attachments.reused({ count: reused }));
 		if (renamed.length > 0)
 			parts.push(
-				t.characters.attachments.renamed(
-					renamed.map(([from, to]) => t.characters.attachments.rename(from, to)).join(', ')
-				)
+				t.characters.attachments.renamed({
+					list: renamed
+						.map(([from, to]) => t.characters.attachments.rename({ from, to }))
+						.join(', ')
+				})
 			);
-		if (skipped.length > 0) parts.push(t.characters.attachments.skipped(skipped.join(', ')));
+		if (skipped.length > 0)
+			parts.push(t.characters.attachments.skipped({ list: skipped.join(', ') }));
 
 		showToast({
 			title: t.characters.attachments.title,
@@ -109,14 +112,16 @@
 
 		const subject =
 			lorebooks.length === 1
-				? t.characters.lorebookImport.named(lorebooks[0].name)
-				: t.characters.lorebookImport.lorebooks(lorebooks.length);
-		const entryCount = t.characters.lorebookImport.entries(entries);
-		const tail = skipped > 0 ? t.characters.lorebookImport.notConverted(skipped) : '';
+				? t.characters.lorebookImport.named({ name: lorebooks[0].name })
+				: t.characters.lorebookImport.lorebooks({ count: lorebooks.length });
+		const entryCount = t.characters.lorebookImport.entries({ count: entries });
+
+		const parts = [t.characters.lorebookImport.message({ subject, entries: entryCount })];
+		if (skipped > 0) parts.push(t.characters.lorebookImport.notConverted({ count: skipped }));
 
 		showToast({
 			title: t.characters.lorebookImport.title,
-			message: t.characters.lorebookImport.message(subject, entryCount, tail),
+			message: parts.join(' '),
 			variant: skipped > 0 ? 'warning' : 'success'
 		});
 	}

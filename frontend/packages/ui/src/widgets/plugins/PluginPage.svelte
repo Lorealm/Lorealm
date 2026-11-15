@@ -68,7 +68,7 @@
 			{#if plugin.has_settings}
 				<button
 					type="button"
-					aria-label={t.plugins.settingsNamed(plugin.name)}
+					aria-label={t.plugins.settingsNamed({ name: plugin.name })}
 					{@attach tooltip(t.plugins.settings)}
 					onclick={() => navigator.start().settings().user().plugins(handle)}
 				>
@@ -88,18 +88,18 @@
 			{/if}
 			{#if listed}
 				<button type="button" disabled={busy} onclick={() => act(() => installListed(handle))}>
-					{t.plugins.updateTo(listed)}
+					{t.plugins.updateTo({ version: listed })}
 				</button>
 			{:else if local}
 				<button type="button" disabled={busy} onclick={() => act(() => api.plugins.update(handle))}>
-					{t.plugins.updateTo(local)}
+					{t.plugins.updateTo({ version: local })}
 				</button>
 			{/if}
 			{#if canInstall()}
 				<button
 					type="button"
 					class="icon"
-					aria-label={t.plugins.removeNamed(plugin.name)}
+					aria-label={t.plugins.removeNamed({ name: plugin.name })}
 					{@attach tooltip(t.plugins.remove)}
 					disabled={busy}
 					onclick={uninstall}

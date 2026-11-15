@@ -79,7 +79,12 @@
 			.map((c) => {
 				const other = personaStore.overrideFor(c.id);
 				const owner = other && personas.find((p) => p.id === other.persona_id);
-				return { id: c.id, label: owner ? t.studio.personas.boundTo(c.name, owner.name) : c.name };
+				return {
+					id: c.id,
+					label: owner
+						? t.studio.personas.boundTo({ character: c.name, persona: owner.name })
+						: c.name
+				};
 			});
 	});
 
@@ -197,7 +202,7 @@
 		type="button"
 		class="hint"
 		{@attach tooltip(text)}
-		aria-label={t.components.field.help(text)}>?</button
+		aria-label={t.components.field.help({ label: text })}>?</button
 	>
 {/snippet}
 
@@ -259,8 +264,8 @@
 					)}
 					aria-pressed={persona.id === activePersonaId}
 					aria-label={persona.id === activePersonaId
-						? t.studio.personas.isActive(persona.name)
-						: t.studio.personas.makeActive(persona.name)}
+						? t.studio.personas.isActive({ name: persona.name })
+						: t.studio.personas.makeActive({ name: persona.name })}
 					onclick={() => makeActive(persona.id)}
 				>
 					<Star size={14} fill={persona.id === activePersonaId ? 'currentColor' : 'none'} />
@@ -314,7 +319,7 @@
 						<div class="avatar-preview">
 							<TransportImage
 								src={avatarSrc(draft.id)}
-								alt={t.studio.personas.avatarAlt(draft.name)}
+								alt={t.studio.personas.avatarAlt({ name: draft.name })}
 							/>
 						</div>
 						<button type="button" class="pickFile" onclick={openPicker} disabled={busy}>
@@ -371,7 +376,7 @@
 										type="button"
 										class="unbind"
 										{@attach tooltip(t.studio.personas.removeOverride)}
-										aria-label={t.studio.personas.unbindNamed(character.name)}
+										aria-label={t.studio.personas.unbindNamed({ name: character.name })}
 										onclick={() => unbind(character.id)}
 									>
 										<X size={14} />
@@ -385,7 +390,9 @@
 				<section class="danger-zone">
 					{#if confirmingDelete}
 						<p class="danger-text">
-							{t.studio.personas.confirmDelete(draft.name || t.studio.personas.thisPersona)}
+							{t.studio.personas.confirmDelete({
+								name: draft.name || t.studio.personas.thisPersona
+							})}
 						</p>
 						<div class="danger-buttons">
 							<button type="button" class="danger" disabled={deleting} onclick={deletePersona}>

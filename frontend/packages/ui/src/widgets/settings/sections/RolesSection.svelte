@@ -93,7 +93,7 @@
 		run(async () => {
 			const taken = new Set(roles.map((r) => r.name));
 			let name = t.settings.roles.newName;
-			for (let n = 2; taken.has(name); n++) name = t.settings.roles.newNameNumbered(n);
+			for (let n = 2; taken.has(name); n++) name = t.settings.roles.newNameNumbered({ n });
 			const role = await api.roles.create({ name, permissions: '0', position: 1 });
 			replace(role);
 			select(role);
@@ -291,7 +291,7 @@
 							{#if !isEveryone && selected.id !== ADMINISTRATOR_ROLE_ID}
 								{#if confirmingDelete}
 									<button type="button" class="danger" onclick={remove} disabled={busy}>
-										{t.settings.roles.confirmDelete(selected.name)}
+										{t.settings.roles.confirmDelete({ name: selected.name })}
 									</button>
 									<button type="button" class="ghost" onclick={() => (confirmingDelete = false)}>
 										{t.settings.roles.keep}
@@ -331,7 +331,7 @@
 											<button
 												type="button"
 												class="icon"
-												aria-label={t.settings.roles.removeMember(member.username)}
+												aria-label={t.settings.roles.removeMember({ name: member.username })}
 												onclick={() => removeMember(member.id)}
 												disabled={busy}
 											>

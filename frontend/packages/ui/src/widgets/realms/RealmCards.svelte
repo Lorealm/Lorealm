@@ -51,7 +51,7 @@
 						type="button"
 						class="del"
 						{@attach tooltip(t.realms.cards.delete)}
-						aria-label={t.realms.cards.deleteNamed(realm.name)}
+						aria-label={t.realms.cards.deleteNamed({ name: realm.name })}
 						onclick={(e) => remove(e, realm.id)}
 					>
 						<Trash2 size={14} />
@@ -72,7 +72,7 @@
 						<span class="from imported">{t.realms.cards.imported}</span>
 					{/if}
 					<span class="runs">
-						{t.realms.cards.playthroughs(runs.length)}
+						{t.realms.cards.playthroughs({ count: runs.length })}
 					</span>
 				</div>
 

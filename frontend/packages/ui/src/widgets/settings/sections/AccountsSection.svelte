@@ -156,15 +156,15 @@
 
 	function usesLabel(invite: Invite) {
 		return invite.max_uses === null
-			? t.settings.accounts.used(invite.uses)
-			: t.settings.accounts.usesOf(invite.uses, invite.max_uses);
+			? t.settings.accounts.used({ uses: invite.uses })
+			: t.settings.accounts.usesOf({ uses: invite.uses, max: invite.max_uses });
 	}
 
 	function expiryLabel(invite: Invite) {
 		if (!invite.expires_at) return t.settings.accounts.noExpiry;
 		const days = Math.ceil((new Date(invite.expires_at).getTime() - Date.now()) / 86_400_000);
 		if (days <= 0) return date(invite.expires_at);
-		return t.settings.accounts.daysLeft(days);
+		return t.settings.accounts.daysLeft({ days });
 	}
 
 	onMount(() => {
@@ -248,12 +248,13 @@
 							<span class="name">{user.display_name ?? user.username}</span>
 							<span class="hint">@{user.username}</span>
 							{#if user.email}<span class="hint">{user.email}</span>{/if}
-							<span class="hint">{t.settings.accounts.joined(date(user.created_at))}</span>
+							<span class="hint">{t.settings.accounts.joined({ date: date(user.created_at) })}</span
+							>
 							<div class="spacer"></div>
 							<button
 								type="button"
 								class="icon"
-								aria-label={t.settings.accounts.editNamed(user.username)}
+								aria-label={t.settings.accounts.editNamed({ name: user.username })}
 								{@attach tooltip(t.common.edit)}
 								onclick={() => (editingId === user.id ? (editingId = undefined) : startEdit(user))}
 							>
@@ -262,7 +263,7 @@
 							<button
 								type="button"
 								class="icon"
-								aria-label={t.settings.accounts.signOutNamed(user.username)}
+								aria-label={t.settings.accounts.signOutNamed({ name: user.username })}
 								{@attach tooltip(t.settings.accounts.signOut)}
 								onclick={() => signOut(user.id)}
 								disabled={busy}
@@ -276,7 +277,7 @@
 									onclick={() => remove(user.id)}
 									disabled={busy}
 								>
-									{t.settings.accounts.confirmDelete(user.username)}
+									{t.settings.accounts.confirmDelete({ name: user.username })}
 								</button>
 								<button type="button" class="ghost" onclick={() => (confirmingDelete = undefined)}>
 									{t.settings.accounts.keep}
@@ -285,7 +286,7 @@
 								<button
 									type="button"
 									class="icon danger-icon"
-									aria-label={t.settings.accounts.deleteNamed(user.username)}
+									aria-label={t.settings.accounts.deleteNamed({ name: user.username })}
 									{@attach tooltip(t.settings.accounts.delete)}
 									onclick={() => (confirmingDelete = user.id)}
 								>
@@ -426,7 +427,9 @@
 								</span>
 							{/if}
 							<div class="spacer"></div>
-							<span class="hint">{t.settings.accounts.created(date(invite.created_at))}</span>
+							<span class="hint"
+								>{t.settings.accounts.created({ date: date(invite.created_at) })}</span
+							>
 							<button
 								type="button"
 								class="icon danger-icon"

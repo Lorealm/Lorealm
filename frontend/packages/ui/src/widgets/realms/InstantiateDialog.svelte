@@ -142,7 +142,7 @@
 			{/if}
 			{#if !onIntro && missing.length > 0}
 				<span class="missing">
-					{t.realms.instantiate.stillNeeded(missing.map((s) => s.name).join(', '))}
+					{t.realms.instantiate.stillNeeded({ names: missing.map((s) => s.name).join(', ') })}
 				</span>
 			{/if}
 			<span class="spacer"></span>

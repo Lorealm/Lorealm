@@ -39,7 +39,7 @@
 	/** A plugin's widget keeps its key in a profile after the plugin is disabled. */
 	function label(key: InspectorWidgetKey): string {
 		if (!isPluginWidgetKey(key)) return inspectorRegistry[key].label;
-		return pluginsStore.inspectorSlot(key)?.title ?? t.settings.inspector.unavailable(key);
+		return pluginsStore.inspectorSlot(key)?.title ?? t.settings.inspector.unavailable({ key });
 	}
 
 	const available = $derived.by(() => {
@@ -145,7 +145,7 @@
 					</div>
 				{:else}
 					<span class="empty">
-						{t.settings.inspector.empty(t.nav.views[view])}
+						{t.settings.inspector.empty({ view: t.nav.views[view] })}
 					</span>
 				{/each}
 			</div>
@@ -163,7 +163,7 @@
 						</button>
 					{:else}
 						<span class="empty">
-							{query ? t.settings.inspector.noMatch(query) : t.settings.inspector.allAdded}
+							{query ? t.settings.inspector.noMatch({ query }) : t.settings.inspector.allAdded}
 						</span>
 					{/each}
 				</div>

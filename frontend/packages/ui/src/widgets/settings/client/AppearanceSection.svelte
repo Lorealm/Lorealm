@@ -67,7 +67,7 @@
 			const style = parseStyle(text);
 			await styles.add(style);
 			showToast({
-				message: t.settings.appearance.imported(style.name),
+				message: t.settings.appearance.imported({ name: style.name }),
 				title: t.settings.appearance.importedTitle
 			});
 		} catch (e) {
@@ -141,7 +141,7 @@
 				class="swatch"
 				type="color"
 				value={color.hex}
-				aria-label={t.settings.appearance.colourAria(field.label)}
+				aria-label={t.settings.appearance.colourAria({ label: field.label })}
 				oninput={(e) => set(field, withAlpha(e.currentTarget.value, color.alpha))}
 			/>
 		{:else}
@@ -290,7 +290,7 @@
 			<span class="count">
 				{overridden === 0
 					? t.settings.appearance.nothingOverridden
-					: t.settings.appearance.overridden(overridden)}
+					: t.settings.appearance.overridden({ count: overridden })}
 			</span>
 			<button
 				class="reset"
@@ -326,7 +326,7 @@
 				{/each}
 			</div>
 		{:else}
-			<span class="empty">{t.settings.appearance.noMatch(query)}</span>
+			<span class="empty">{t.settings.appearance.noMatch({ query })}</span>
 		{/each}
 
 		<div class="group">

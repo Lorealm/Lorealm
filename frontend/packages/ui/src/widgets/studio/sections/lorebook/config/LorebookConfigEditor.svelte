@@ -177,7 +177,7 @@
 							width="7rem"
 							{value}
 							onchange={(v) => setGroupBudget(key, v === '' ? 0 : v)}
-							ariaLabel={t.studio.lorebookConfig.groupBudget(key)}
+							ariaLabel={t.studio.lorebookConfig.groupBudget({ group: key })}
 						/>
 						<button
 							type="button"
@@ -230,7 +230,7 @@
 						class="ns-access"
 						value={ns.access}
 						onchange={(e) => setNamespaceAccess(name, e.currentTarget.value as NamespaceAccess)}
-						aria-label={t.studio.lorebookConfig.access(name)}
+						aria-label={t.studio.lorebookConfig.access({ name })}
 					>
 						<option value="readonly">{t.studio.lorebookConfig.readonly}</option>
 						<option value="readwrite">{t.studio.lorebookConfig.readwrite}</option>
@@ -241,7 +241,7 @@
 						placeholder={t.studio.lorebookConfig.descriptionPlaceholder}
 						value={ns.description}
 						oninput={(e) => setNamespaceDescription(name, e.currentTarget.value)}
-						aria-label={t.studio.lorebookConfig.descriptionAria(name)}
+						aria-label={t.studio.lorebookConfig.descriptionAria({ name })}
 					/>
 					<button
 						type="button"

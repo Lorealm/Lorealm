@@ -81,7 +81,7 @@
 	}
 
 	async function removeTool(id: Snowflake, name: string) {
-		if (!confirm(t.studio.tools.confirmDelete(name || t.studio.tools.untitled))) return;
+		if (!confirm(t.studio.tools.confirmDelete({ name: name || t.studio.tools.untitled }))) return;
 		clearTimeout(timer);
 		await toolStore.deleteTool(id);
 		if (id === selectedId) navigator.start().studio().tools();
@@ -172,7 +172,7 @@
 		type="button"
 		class="hint"
 		{@attach tooltip(text)}
-		aria-label={t.components.field.help(text)}>?</button
+		aria-label={t.components.field.help({ label: text })}>?</button
 	>
 {/snippet}
 
@@ -225,8 +225,8 @@
 							tool.enabled ? t.studio.tools.enabledHint : t.studio.tools.disabledHint
 						)}
 						aria-label={tool.enabled
-							? t.studio.tools.disableNamed(tool.name)
-							: t.studio.tools.enableNamed(tool.name)}
+							? t.studio.tools.disableNamed({ name: tool.name })
+							: t.studio.tools.enableNamed({ name: tool.name })}
 					/>
 				{/if}
 			</div>
@@ -313,7 +313,9 @@
 					>
 						<option value="tool">{t.studio.tools.surfaceTool}</option>
 						<option value="command"
-							>{t.studio.tools.surfaceCommand(shown.name || t.studio.tools.namePlaceholder)}</option
+							>{t.studio.tools.surfaceCommand({
+								name: shown.name || t.studio.tools.namePlaceholder
+							})}</option
 						>
 						<option value="both">{t.studio.tools.surfaceBoth}</option>
 					</select>

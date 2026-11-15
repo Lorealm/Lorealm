@@ -53,7 +53,7 @@
 	<button
 		type="button"
 		class="grip"
-		aria-label={t.inspector.resize(inspectorWidth.value)}
+		aria-label={t.inspector.resize({ width: inspectorWidth.value })}
 		onpointerdown={startResize}
 		onkeydown={nudge}
 	></button>

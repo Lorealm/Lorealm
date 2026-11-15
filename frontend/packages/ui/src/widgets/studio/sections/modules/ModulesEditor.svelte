@@ -56,7 +56,7 @@
 	}
 
 	async function removeModule(id: Snowflake, name: string) {
-		if (!confirm(t.studio.modules.confirmDelete(name))) return;
+		if (!confirm(t.studio.modules.confirmDelete({ name }))) return;
 		clearTimeout(timer);
 		await moduleStore.deleteModule(id);
 		if (id === selectedId) navigator.start().studio().modules();
@@ -78,7 +78,7 @@
 		type="button"
 		class="hint"
 		{@attach tooltip(text)}
-		aria-label={t.components.field.help(text)}>?</button
+		aria-label={t.components.field.help({ label: text })}>?</button
 	>
 {/snippet}
 
@@ -128,8 +128,8 @@
 						module.enabled ? t.studio.tools.enabledHint : t.studio.tools.disabledHint
 					)}
 					aria-label={module.enabled
-						? t.studio.tools.disableNamed(module.name)
-						: t.studio.tools.enableNamed(module.name)}
+						? t.studio.tools.disableNamed({ name: module.name })
+						: t.studio.tools.enableNamed({ name: module.name })}
 				/>
 			</div>
 		{/each}

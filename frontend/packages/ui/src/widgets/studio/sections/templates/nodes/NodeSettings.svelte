@@ -135,9 +135,9 @@
 <div class="settings">
 	{#if node.content.type === 'source'}
 		<p class="source-line">
-			{t.studio.templateEditor.fromSource(
-				sourceDef ? sourceDef.title : t.studio.templateEditor.unknownSource
-			)}
+			{t.studio.templateEditor.fromSource({
+				name: sourceDef ? sourceDef.title : t.studio.templateEditor.unknownSource
+			})}
 		</p>
 	{/if}
 

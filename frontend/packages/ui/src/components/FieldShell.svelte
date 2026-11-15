@@ -40,7 +40,8 @@
 				type="button"
 				class="hint"
 				{@attach tooltip(hint)}
-				aria-label={t.components.field.help(label ?? t.components.field.fallbackLabel)}>?</button
+				aria-label={t.components.field.help({ label: label ?? t.components.field.fallbackLabel })}
+				>?</button
 			>
 		{/if}
 		<span class="spacer"></span>
@@ -51,7 +52,9 @@
 				type="button"
 				class="maximize"
 				{@attach tooltip(t.components.field.maximize)}
-				aria-label={t.components.field.maximizeField(label ?? t.components.field.fallbackLabel)}
+				aria-label={t.components.field.maximizeField({
+					label: label ?? t.components.field.fallbackLabel
+				})}
 				onclick={() => (maximized = true)}
 			>
 				<Maximize2 size={13} />

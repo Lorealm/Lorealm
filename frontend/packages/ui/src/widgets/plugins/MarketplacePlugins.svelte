@@ -50,7 +50,7 @@
 
 {#if marketplaceStore.unavailable.length}
 	<p class="notice">
-		{t.plugins.sourcesMissing(marketplaceStore.unavailable.length)}
+		{t.plugins.sourcesMissing({ count: marketplaceStore.unavailable.length })}
 	</p>
 {/if}
 
@@ -61,7 +61,7 @@
 {:else if marketplaceStore.plugins.length === 0}
 	<div class="empty">{t.plugins.marketplaceEmpty}</div>
 {:else if shown.length === 0}
-	<div class="empty">{t.plugins.noMatch(query)}</div>
+	<div class="empty">{t.plugins.noMatch({ query })}</div>
 {:else}
 	<div class="grid">
 		{#each shown as plugin (plugin.handle)}

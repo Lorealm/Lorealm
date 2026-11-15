@@ -56,7 +56,7 @@
 		<span class="chev" class:collapsed><ChevronDown /></span>
 		<span class="label">{t.inspector.context.title}</span>
 		{#if latest}
-			<span class="count">{t.inspector.context.blocks(latest.blocks.length)}</span>
+			<span class="count">{t.inspector.context.blocks({ count: latest.blocks.length })}</span>
 		{/if}
 	</button>
 
@@ -92,12 +92,13 @@
 							<div class="detail">
 								<div class="meta">
 									{#if r.label}<span class="ref">{r.label}</span>{/if}
-									<span>{t.chat.inspector.node(group.blocks[0].origin.node_id || '—')}</span>
+									<span>{t.chat.inspector.node({ id: group.blocks[0].origin.node_id || '—' })}</span
+									>
 									{#if group.blocks[0].origin.kind.kind === 'source'}
 										<span
-											>{t.inspector.context.source(
-												group.blocks[0].origin.kind.source_id || '—'
-											)}</span
+											>{t.inspector.context.source({
+												id: group.blocks[0].origin.kind.source_id || '—'
+											})}</span
 										>
 									{/if}
 								</div>
