@@ -289,6 +289,9 @@ fn prompt_build(assembly: PromptAssembly) -> Result<Vec<Message>, String> {
     // Test controls: the last message's content.
     match prompt.last().map(|m| m.content.as_str()) {
         Some("loop forever") => loop {},
+        Some("hog memory") => {
+            std::hint::black_box(vec![1u8; 1 << 30]);
+        }
         Some("forget") => delete_data("greetings")?,
         Some("crash") => panic!("crashed on purpose"),
         _ => {}

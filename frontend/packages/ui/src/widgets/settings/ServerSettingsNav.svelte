@@ -17,6 +17,7 @@
 		{ id: 'roles', go: () => server().roles() },
 		{ id: 'characters', go: () => server().characters() },
 		{ id: 'tokenizers', go: () => server().tokenizers() },
+		{ id: 'plugins', go: () => server().plugins() },
 		{ id: 'tasks', go: () => server().tasks() }
 	];
 </script>

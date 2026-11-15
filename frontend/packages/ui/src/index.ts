@@ -6,7 +6,9 @@ export type {
 	FileTransfer,
 	HttpTransport,
 	LocalStore,
-	ServerControls
+	ServerControls,
+	UpdateControls,
+	AvailableUpdate
 } from './core/api.ts';
 export type { User } from './types/user.js';
 export type { Session } from './types/auth.ts';

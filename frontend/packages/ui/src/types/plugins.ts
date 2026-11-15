@@ -35,6 +35,16 @@ export interface FrontendSlot {
 	mode: 'latest' | 'every';
 }
 
+export type PluginLogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error';
+
+export interface PluginLog {
+	id: Snowflake;
+	level: PluginLogLevel;
+	source: 'host' | 'guest';
+	message: string;
+	created_at: string;
+}
+
 /** What installing a plugin produced. */
 export interface InstallReport {
 	handle: string;

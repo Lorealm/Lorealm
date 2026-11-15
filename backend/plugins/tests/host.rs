@@ -27,8 +27,10 @@ fn build_hello() {
     assert!(status.success(), "failed to build the hello fixture");
 }
 
+const MEMORY_LIMIT: usize = 128 * 1024 * 1024;
+
 fn host() -> PluginHost {
-    PluginHost::new(Duration::from_secs(5)).unwrap()
+    PluginHost::new(Duration::from_secs(5), MEMORY_LIMIT).unwrap()
 }
 
 #[derive(Default)]
@@ -233,8 +235,50 @@ async fn missing_manifest_is_an_error() {
 }
 
 #[tokio::test]
+async fn plugin_over_the_memory_limit_fails() {
+    let host = PluginHost::new(Duration::from_secs(5), MEMORY_LIMIT).unwrap();
+    for name in HELLOS {
+        let package = compile(&host, name);
+        let services = Arc::new(TestServices::default());
+        let mut plugin = host.instantiate(&package, services.clone()).await.unwrap();
+
+        let result = plugin.prompt_build(ask("hog memory")).await;
+        assert!(
+            matches!(
+                result,
+                Err(PluginError::OutOfMemory {
+                    limit: MEMORY_LIMIT
+                })
+            ),
+            "{name}: {:?}",
+            result.err()
+        );
+        assert!(
+            services.logged(Level::Error, LogSource::Host, "out of memory"),
+            "{name}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn memory_limit_applies_from_instantiation() {
+    let host = PluginHost::new(Duration::from_secs(5), 64 * 1024).unwrap();
+    let package = compile(&host, "hello");
+
+    let result = host
+        .instantiate(&package, Arc::new(TestServices::default()))
+        .await;
+
+    assert!(
+        matches!(result, Err(PluginError::OutOfMemory { .. })),
+        "{:?}",
+        result.err()
+    );
+}
+
+#[tokio::test]
 async fn runaway_hook_times_out() {
-    let host = PluginHost::new(Duration::from_millis(100)).unwrap();
+    let host = PluginHost::new(Duration::from_millis(100), MEMORY_LIMIT).unwrap();
     for name in HELLOS {
         let package = compile(&host, name);
         let services = Arc::new(TestServices::default());
@@ -605,7 +649,7 @@ async fn plugin_fetches_only_from_its_hosts() {
 #[tokio::test]
 async fn time_spent_fetching_does_not_count_toward_the_limit() {
     // Fetching takes longer than a whole call may.
-    let host = PluginHost::new(Duration::from_millis(200)).unwrap();
+    let host = PluginHost::new(Duration::from_millis(200), MEMORY_LIMIT).unwrap();
     let package = compile(&host, "hello");
     let services = Arc::new(TestServices {
         latency: Duration::from_millis(500),
@@ -697,7 +741,7 @@ async fn generating_answers_with_the_model_and_the_slot() {
 #[tokio::test]
 async fn time_spent_generating_does_not_count_toward_the_limit() {
     // Generating takes longer than a whole call may.
-    let host = PluginHost::new(Duration::from_millis(200)).unwrap();
+    let host = PluginHost::new(Duration::from_millis(200), MEMORY_LIMIT).unwrap();
     let package = compile(&host, "hello");
     let services = Arc::new(TestServices {
         latency: Duration::from_millis(500),

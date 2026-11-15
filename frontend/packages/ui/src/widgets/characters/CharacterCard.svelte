@@ -6,12 +6,15 @@
 	import { chatStore } from '#lib/stores/chat.svelte.js';
 	import { navigator } from '#lib/navigation/navigator.js';
 	import type { CharacterSummary } from '#lib/types/character.js';
-	import { MessageCircle, Pencil } from '@lucide/svelte';
+	import { Ellipsis, MessageCircle, MessageSquarePlus, Pencil } from '@lucide/svelte';
+	import PopupMenu from '#lib/components/PopupMenu.svelte';
+	import { inspectorFocus } from '#lib/stores/inspectorFocus.svelte.js';
 
 	let { summary }: { summary: CharacterSummary } = $props();
 	let imageEndpoint = $derived(blobUrl(summary.avatar_uri));
+	let selected = $derived(inspectorFocus.characterId === summary.id);
 
-	async function startChat() {
+	async function startChat(startNew: boolean = false) {
 		navigator.start().write();
 
 		const [, opened] = await Promise.all([
@@ -19,7 +22,7 @@
 			chatStore.openLatestForCharacter(summary.id)
 		]);
 
-		if (!opened) {
+		if (!opened || startNew) {
 			const character = characterStore.activeCharacter;
 			if (character) {
 				chatStore.beginNewConversation({
@@ -32,25 +35,46 @@
 	}
 </script>
 
-<div class="card">
+<div class="card" class:selected>
 	<TransportImage src={imageEndpoint} alt={summary.name} />
+
+	<button
+		class="select"
+		type="button"
+		aria-pressed={selected}
+		aria-label={t.characters.showInInspector(summary.display_name ?? summary.name)}
+		onclick={() => inspectorFocus.toggleCharacter(summary.id)}
+	></button>
 
 	<div class="overlay">
 		<h6 class="name">{summary.display_name ?? summary.name}</h6>
 
 		<div class="actions">
-			<button class="btn btn-chat" type="button" onclick={startChat}>
+			<button class="btn btn-chat" type="button" onclick={() => startChat()}>
 				<MessageCircle size={16} aria-hidden="true" />
 				<span>{t.characters.chat}</span>
 			</button>
-			<button
-				class="btn btn-edit"
-				type="button"
-				aria-label={t.common.edit}
-				onclick={() => navigator.start().studio().characters(summary.id)}
+			<PopupMenu
+				title={t.studio.characters.moreActions}
+				placement="down"
+				align="start"
+				items={[
+					{
+						label: t.chat.composer.newChat,
+						icon: MessageSquarePlus,
+						onSelect: () => startChat(true),
+						disabled: false
+					},
+					{
+						label: t.common.edit,
+						icon: Pencil,
+						onSelect: () => navigator.start().studio().characters(summary.id),
+						disabled: false
+					}
+				]}
 			>
-				<Pencil size={16} aria-hidden="true" />
-			</button>
+				{#snippet icon()}<Ellipsis size={16} />{/snippet}
+			</PopupMenu>
 		</div>
 	</div>
 </div>
@@ -68,6 +92,26 @@
 
 	.card:hover {
 		box-shadow: var(--shadow-lg);
+	}
+
+	.card.selected {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 2px;
+	}
+
+	.select {
+		position: absolute;
+		inset: 0;
+		z-index: var(--z-index-base);
+		padding: 0;
+		border: none;
+		border-radius: 0;
+		background: transparent;
+		cursor: pointer;
+	}
+	.select:focus-visible {
+		outline: 2px solid var(--color-border-active);
+		outline-offset: -2px;
 	}
 
 	.card :global(img) {
@@ -156,18 +200,6 @@
 
 	.btn-chat:hover {
 		background: var(--color-primary-dark);
-	}
-
-	.btn-edit {
-		padding: var(--spacing-xs);
-		background: var(--color-bg-overlay);
-		border-color: var(--color-border-medium);
-		color: var(--color-text-primary);
-	}
-
-	.btn-edit:hover {
-		background: var(--color-hover);
-		border-color: var(--color-border-active);
 	}
 
 	@media (hover: none) {

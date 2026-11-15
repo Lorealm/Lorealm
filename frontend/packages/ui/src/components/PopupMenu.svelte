@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tooltip } from '../stores/tooltip.svelte.ts';
 	import type { Component, Snippet } from 'svelte';
+	import { placeFloating } from './floating.ts';
 
 	type MenuItem = {
 		label: string;
@@ -13,12 +14,14 @@
 		items,
 		title,
 		icon,
-		placement = 'up'
+		placement = 'up',
+		align = placement === 'down' ? 'end' : 'auto'
 	}: {
 		items: MenuItem[];
 		title?: string;
 		icon: Snippet;
 		placement?: 'up' | 'down';
+		align?: 'start' | 'end' | 'auto';
 	} = $props();
 
 	let open = $state(false);
@@ -31,6 +34,34 @@
 	let pressing = false;
 	// did the pointer leave the trigger during that press?
 	let movedAway = false;
+
+	function clippingBox(el: HTMLElement): DOMRect | undefined {
+		for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) {
+			if (getComputedStyle(node).overflowX !== 'visible') return node.getBoundingClientRect();
+		}
+		return undefined;
+	}
+
+	$effect(() => {
+		if (!open || !menuEl) return;
+		const menu = menuEl;
+		menu.showPopover();
+		placeFloating(menu, triggerEl.getBoundingClientRect(), {
+			side: placement === 'down' ? 'bottom' : 'top',
+			align,
+			bounds: clippingBox(triggerEl)
+		});
+
+		const onScroll = (e: Event) => {
+			if (!menu.contains(e.target as Node)) close();
+		};
+		window.addEventListener('scroll', onScroll, true);
+		window.addEventListener('resize', close);
+		return () => {
+			window.removeEventListener('scroll', onScroll, true);
+			window.removeEventListener('resize', close);
+		};
+	});
 
 	function itemIndexAtPoint(x: number, y: number) {
 		const el = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-item]');
@@ -129,7 +160,13 @@
 	</button>
 
 	{#if open}
-		<div class="menu" class:down={placement === 'down'} role="menu" bind:this={menuEl}>
+		<div
+			class="menu"
+			class:down={placement === 'down'}
+			role="menu"
+			bind:this={menuEl}
+			popover="manual"
+		>
 			{#each items as item, i (i)}
 				<button
 					class="item"
@@ -139,7 +176,9 @@
 					disabled={item.disabled}
 					onclick={() => select(item)}
 				>
-					{#if item.icon}<div class="list-icon"><item.icon /></div>{/if}{item.label}
+					{#if item.icon}<div class="list-icon">
+							<item.icon size={16} strokeWidth={1.75} />
+						</div>{/if}<span class="item-label">{item.label}</span>
 				</button>
 			{/each}
 		</div>
@@ -155,7 +194,7 @@
 		display: inline-flex;
 		justify-content: center;
 		align-items: center;
-		touch-action: none; /* stop touch-drag from scrolling */
+		touch-action: none;
 	}
 	.trigger:focus-visible,
 	.item:focus-visible {
@@ -168,9 +207,9 @@
 		outline: none;
 	}
 	.menu {
-		position: absolute;
-		bottom: calc(100% + 4px);
-		left: 0;
+		position: fixed;
+		inset: auto;
+		margin: 0;
 		z-index: 50;
 		display: flex;
 		flex-direction: column;
@@ -184,11 +223,8 @@
 		gap: var(--spacing-xs);
 		-moz-user-select: none;
 	}
-	.menu.down {
-		top: calc(100% + 4px);
-		bottom: auto;
-		left: auto;
-		right: 0;
+	.menu:popover-open {
+		display: flex;
 	}
 	.item {
 		display: flex;
@@ -215,8 +251,10 @@
 	.list-icon {
 		display: flex;
 		margin-right: var(--spacing-sm);
-		height: 0.9em;
 		justify-content: center;
 		align-items: center;
+	}
+	.item-label {
+		font-size: var(--font-size-sm);
 	}
 </style>

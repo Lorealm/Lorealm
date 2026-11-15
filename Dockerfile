@@ -12,7 +12,7 @@ RUN bun install --frozen-lockfile \
 
 FROM debian:bookworm-slim
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates libssl3 \
+ && apt-get install -y --no-install-recommends ca-certificates libssl3 curl \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=server /src/target/release/lorealm_server /usr/local/bin/lorealm
 COPY --from=web /src/apps/web/dist /usr/share/lorealm/web

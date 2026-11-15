@@ -12,7 +12,13 @@ export const inspector = {
 		context: 'Context',
 		state: 'State',
 		realmAgent: 'Realm Agent',
-		authorNote: "Author's Note"
+		authorNote: "Author's Note",
+		creatorNotes: "Creator's Notes"
+	},
+	creatorNotes: {
+		loading: 'Loading…',
+		noCharacter: 'No active character. Pick one on the characters screen to read its notes.',
+		empty: "This character has no creator's notes."
 	},
 	authorNote: {
 		noChat: 'No active chat.',

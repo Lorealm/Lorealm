@@ -31,6 +31,26 @@
 		void characterStore.loadExportProfiles().catch(() => {});
 	});
 
+	async function startChat() {
+		navigator.start().write();
+
+		const [, opened] = await Promise.all([
+			characterStore.setActive(summary.id),
+			chatStore.openLatestForCharacter(summary.id)
+		]);
+
+		if (!opened) {
+			const character = characterStore.activeCharacter;
+			if (character) {
+				chatStore.beginNewConversation({
+					characterId: character.id,
+					versionId: character.current_version_id,
+					greetings: character.definition.greetings
+				});
+			}
+		}
+	}
+
 	const exportItems = $derived(
 		characterStore.exportProfiles.flatMap((profile) =>
 			(['png', 'json'] as const).map((format) => ({
@@ -167,8 +187,8 @@
 						{
 							label: t.studio.characters.startChat,
 							icon: MessageSquarePlus,
-							onSelect: () => {},
-							disabled: true
+							onSelect: () => startChat(),
+							disabled: false
 						}
 					]}
 				>
@@ -282,7 +302,6 @@
 		flex-direction: row;
 		gap: var(--spacing-xs);
 	}
-	/* the three minor controls share the width of the Edit button above them */
 	.minorControls > :global(*) {
 		flex: 1 1 0;
 	}

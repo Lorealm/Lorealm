@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use semver::Version;
 
 use wasmtime::component::{Component, HasSelf, Linker, Resource, ResourceTable};
-use wasmtime::{Config, Engine, Store, Trap, UpdateDeadline};
+use wasmtime::{Config, Engine, ResourceLimiter, Store, Trap, UpdateDeadline};
 use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
 
 use crate::log::{LogBuffer, LogEntry, LogSource};
@@ -43,6 +43,8 @@ pub enum PluginError {
     Wasm(wasmtime::Error),
     #[error("plugin call timed out")]
     Timeout,
+    #[error("plugin ran out of memory (limit {limit} bytes)")]
+    OutOfMemory { limit: usize },
     #[error("plugin init failed: {0}")]
     Init(String),
     /// The plugin answered a call with an error (or the wrong response).
@@ -78,6 +80,38 @@ pub fn check_api(manifest: &Manifest) -> Result<(), PluginError> {
 
 /// How often the engine's epoch advances; the granularity of call timeouts.
 const EPOCH_TICK: Duration = Duration::from_millis(10);
+
+struct MemoryLimit {
+    limit: usize,
+    used: usize,
+    exceeded: bool,
+}
+
+impl ResourceLimiter for MemoryLimit {
+    fn memory_growing(
+        &mut self,
+        current: usize,
+        desired: usize,
+        _maximum: Option<usize>,
+    ) -> wasmtime::Result<bool> {
+        let used = self.used.saturating_sub(current) + desired;
+        if used > self.limit {
+            self.exceeded = true;
+            return Ok(false);
+        }
+        self.used = used;
+        Ok(true)
+    }
+
+    fn table_growing(
+        &mut self,
+        _current: usize,
+        _desired: usize,
+        _maximum: Option<usize>,
+    ) -> wasmtime::Result<bool> {
+        Ok(true)
+    }
+}
 
 const MAX_DATA_KEY: usize = 256;
 const MAX_DATA_VALUE: usize = 1024 * 1024;
@@ -167,6 +201,7 @@ pub struct PluginState {
     conversation: Option<i64>,
     /// Whether a user is waiting for the current call; see [`acting`].
     blocking: bool,
+    memory: MemoryLimit,
 }
 
 impl PluginState {
@@ -419,6 +454,8 @@ pub struct PluginHost {
     linker: Linker<PluginState>,
     /// Epoch ticks a single call into a plugin may take.
     deadline: u64,
+    /// Bytes of linear memory each plugin instance may hold.
+    memory_limit: usize,
 }
 
 /// A validated manifest and its compiled component.
@@ -434,7 +471,7 @@ pub struct LoadedPlugin {
 }
 
 impl PluginHost {
-    pub fn new(call_timeout: Duration) -> Result<Self, PluginError> {
+    pub fn new(call_timeout: Duration, memory_limit: usize) -> Result<Self, PluginError> {
         let engine = Engine::new(Config::new().epoch_interruption(true))?;
 
         let ticker = engine.weak();
@@ -453,6 +490,7 @@ impl PluginHost {
             engine,
             linker,
             deadline: ticks(call_timeout).max(1),
+            memory_limit,
         })
     }
 
@@ -503,8 +541,14 @@ impl PluginHost {
             waited: Duration::ZERO,
             conversation: None,
             blocking: false,
+            memory: MemoryLimit {
+                limit: self.memory_limit,
+                used: 0,
+                exceeded: false,
+            },
         };
         let mut store = Store::new(&self.engine, state);
+        store.limiter(|state| &mut state.memory);
         store.set_epoch_deadline(self.deadline);
         // Time spent in `http-fetch` is given back.
         let deadline = self.deadline;
@@ -526,6 +570,7 @@ impl PluginHost {
             Ok(instance)
         }
         .await;
+        let result = out_of_memory(&mut store, result);
         flush_logs(&mut store, result.as_ref().err()).await;
         let instance = result?;
         store.data_mut().initializing = false;
@@ -821,11 +866,13 @@ impl LoadedPlugin {
         state.emitted.clear();
         state.started = Instant::now();
         state.waited = Duration::ZERO;
+        state.memory.exceeded = false;
         (state.conversation, state.blocking) = acting(&event);
         let result = match self.instance.call_handle(&mut self.store, &event).await {
             Ok(result) => result.map_err(PluginError::Call),
             Err(err) => Err(err.into()),
         };
+        let result = out_of_memory(&mut self.store, result);
         flush_logs(&mut self.store, result.as_ref().err()).await;
         if result.is_err() {
             self.store.data_mut().emitted.clear();
@@ -854,6 +901,20 @@ fn acting(event: &Event) -> (Option<i64>, bool) {
         | Event::Upgrade(_)
         | Event::SettingsChanged
         | Event::Shutdown => (None, false),
+    }
+}
+
+fn out_of_memory<T>(
+    store: &mut Store<PluginState>,
+    result: Result<T, PluginError>,
+) -> Result<T, PluginError> {
+    let memory = &store.data().memory;
+    match result {
+        Err(PluginError::Timeout) => Err(PluginError::Timeout),
+        Err(_) if memory.exceeded => Err(PluginError::OutOfMemory {
+            limit: memory.limit,
+        }),
+        result => result,
     }
 }
 

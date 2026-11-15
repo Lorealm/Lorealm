@@ -8,11 +8,14 @@ import type {
 	PlatformAPI,
 	ServerControls,
 	Session,
+	UpdateControls,
 	User,
 } from "@lorealm/ui";
 import { SvelteSet } from "svelte/reactivity";
 import { platform } from "@tauri-apps/plugin-os";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { check as checkForUpdate } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 
 const isMac = platform() === "macos";
 const w = getCurrentWindow();
@@ -246,12 +249,28 @@ const server: ServerControls = {
 	setUrl: (url) => invoke("set_server_url", { url }),
 };
 
+const updates: UpdateControls = {
+	async check() {
+		const update = await checkForUpdate();
+		if (!update) return null;
+		return {
+			version: update.version,
+			notes: update.body,
+			async install() {
+				await update.downloadAndInstall();
+				await relaunch();
+			},
+		};
+	},
+};
+
 export const tauriPlatform: PlatformAPI = {
 	auth: tauriAuth,
 	http,
 	store,
 	files,
 	server,
+	updates: import.meta.env.DEV ? undefined : updates,
 	window: isMac
 		? undefined
 		: {

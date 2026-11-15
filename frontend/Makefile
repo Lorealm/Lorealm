@@ -20,17 +20,17 @@ reset: clean ## Full reset: remove all node_modules and lockfiles, reinstall
 
 dev-web: ## Run the web app dev server
 	@trap 'kill 0' EXIT INT TERM; \
-	(cd packages/ui && bunx svelte-package --watch) & \
+	(cd packages/ui && bunx svelte-package --watch -i src) & \
 	sleep 2 && cd apps/web && bun run dev
 
 dev-desktop: ## Run the tauri app in dev mode
 	@trap 'kill 0' EXIT INT TERM; \
-	(cd packages/ui && bunx svelte-package --watch) & \
+	(cd packages/ui && bunx svelte-package --watch -i src) & \
 	sleep 2 && cd apps/desktop && bun run tauri dev
 
 dev-desktop-nvidia: ## Run the tauri app in dev mode (NVIDIA GPU + Wayland workaround)
 	@trap 'kill 0' EXIT INT TERM; \
-	(cd packages/ui && bunx svelte-package --watch) & \
+	(cd packages/ui && bunx svelte-package --watch -i src) & \
 	sleep 2 && cd apps/desktop && WEBKIT_DISABLE_DMABUF_RENDERER=1 bun run tauri dev
 
 # ─── Build ───────────────────────────────────────────────────────────

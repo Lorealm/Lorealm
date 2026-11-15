@@ -58,25 +58,21 @@
 		onkeydown={nudge}
 	></button>
 	<div class="topBar">
-		{#if view === 'realms'}
-			<button>{t.inspector.realmPlaceholder}</button>
-		{:else}
-			{#each profiles as profile (profile.id)}
-				{@const Icon = iconFor(profile.icon)}
-				{@const active = profile.id === inspectorMatrix.activeId}
-				<button
-					class="profile"
-					class:active
-					class:unconfigured={!inspectorMatrix.isConfigured(profile, view)}
-					{@attach tooltip(profile.name)}
-					aria-pressed={active}
-					onclick={() => inspectorMatrix.select(profile.id)}
-				>
-					<Icon size={16} />
-					{#if active}<span class="name">{profile.name}</span>{/if}
-				</button>
-			{/each}
-		{/if}
+		{#each profiles as profile (profile.id)}
+			{@const Icon = iconFor(profile.icon)}
+			{@const active = profile.id === inspectorMatrix.activeId}
+			<button
+				class="profile"
+				class:active
+				class:unconfigured={!inspectorMatrix.isConfigured(profile, view)}
+				{@attach tooltip(profile.name)}
+				aria-pressed={active}
+				onclick={() => inspectorMatrix.select(profile.id)}
+			>
+				<Icon size={16} />
+				{#if active}<span class="name">{profile.name}</span>{/if}
+			</button>
+		{/each}
 		{#if shell.narrow}
 			<button class="close" aria-label={t.inspector.close} onclick={() => shell.closeDrawer()}>
 				<X size={20} />

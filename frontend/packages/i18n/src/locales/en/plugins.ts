@@ -74,5 +74,33 @@ export const plugins = {
 	noReadme: 'This plugin has no README.',
 	notInstalled: "This plugin isn't installed.",
 	reloadHint: 'Rebuild from its folder and reload',
-	reload: 'Reload'
+	reload: 'Reload',
+	detailTabs: {
+		list: 'Plugin details',
+		readme: 'README',
+		logs: 'Logs'
+	},
+	logs: {
+		levels: {
+			trace: 'Trace',
+			debug: 'Debug',
+			info: 'Info',
+			warn: 'Warn',
+			error: 'Error'
+		},
+		levelFilter: 'Levels to show',
+		period: 'Time period',
+		periods: {
+			'15m': 'Last 15 minutes',
+			'1h': 'Last hour',
+			'24h': 'Last 24 hours',
+			'7d': 'Last 7 days',
+			all: 'All time'
+		},
+		refresh: 'Refresh',
+		fromServer: 'Logged by Lorealm',
+		empty: 'Nothing logged yet.',
+		noMatch: 'No entries match these filters.',
+		failed: "The logs couldn't be loaded."
+	}
 } as const;

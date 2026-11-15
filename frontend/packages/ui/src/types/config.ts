@@ -55,6 +55,13 @@ export interface TokenizerConfig {
 	default_tokenizers: string[];
 }
 
+export interface PluginConfig {
+	log_cap: number;
+	generate_timeout: number;
+	memory_limit_mb: number;
+	indexes: string[];
+}
+
 export interface TaskConfig {
 	cleanup_interval: number;
 }
@@ -66,6 +73,7 @@ export interface ServerConfig {
 	users: UserConfig;
 	characters: CharacterConfig;
 	tokenizers: TokenizerConfig;
+	plugins: PluginConfig;
 	tasks: TaskConfig;
 }
 

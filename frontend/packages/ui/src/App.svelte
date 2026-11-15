@@ -20,6 +20,7 @@
 	import PopupHost from './components/PopupHost.svelte';
 	import { inspectorMatrix } from './stores/inspectorMatrix.svelte.ts';
 	import { keybindConfig } from './keys/config.svelte.ts';
+	import { offerUpdate } from './stores/updates.svelte.ts';
 
 	let { api }: { api: PlatformAPI } = $props();
 
@@ -47,7 +48,8 @@
 			})
 			.catch((error: Error) => {
 				showToast({ message: error.message, variant: 'error' });
-			});
+			})
+			.finally(() => offerUpdate(api.updates));
 	});
 
 	$effect(() => {

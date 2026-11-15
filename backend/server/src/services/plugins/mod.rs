@@ -287,7 +287,13 @@ impl PluginService {
             }),
             storage,
             state,
-            host: Arc::new(PluginHost::new(CALL_TIMEOUT).expect("plugin host should initialize")),
+            host: Arc::new(
+                PluginHost::new(
+                    CALL_TIMEOUT,
+                    config.memory_limit_mb.saturating_mul(1024 * 1024),
+                )
+                .expect("plugin host should initialize"),
+            ),
             dir,
             packages: DashMap::new(),
             mounted: DashMap::new(),
@@ -1072,6 +1078,15 @@ impl PluginService {
     async fn unmount(&self, user_id: Snowflake) {
         if let Some((_, slot)) = self.mounted.remove(&user_id) {
             Mounted::shut_down(&mut *slot.lock().await).await;
+        }
+    }
+
+    /// Unloads every user's plugins, letting each flush with `shutdown` first.
+    /// Called once as the server stops.
+    pub async fn shutdown(&self) {
+        let users: Vec<Snowflake> = self.mounted.iter().map(|e| *e.key()).collect();
+        for user_id in users {
+            self.unmount(user_id).await;
         }
     }
 

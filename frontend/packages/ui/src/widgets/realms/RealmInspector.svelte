@@ -63,7 +63,7 @@
 
 	const scope = $derived(agent ? realmDraft.scopeOf(agent.key) : []);
 	const inputs = $derived(realmDraft.inputs);
-	/** How the enclosing loop's entity is reached, for the hint and the drops. */
+	/** How the enclosing loop's entity is reached */
 	const loopReach = $derived.by(() => {
 		const looped = scope[0];
 		if (!looped?.input) return null;
@@ -72,15 +72,9 @@
 	});
 	const incoming = $derived(activeDrag());
 
-	/**
-	 * How an input reads inside a string field, or null where it cannot be read
-	 * at all.
-	 */
 	function interpolation(name: string, field: 'slug' | 'name'): string | null {
 		const looped = scope.find((v) => v.input?.name === name);
 		if (looped?.input) {
-			// The loop variable is not always the projection: walking a list of
-			// objects binds the whole entry, and the reference sits in a field.
 			const reach = loopReaches(looped.input.ty)[0];
 			return reach ? `{{${[looped.varName, ...reach.path, field].join('.')}}}` : null;
 		}
@@ -140,7 +134,6 @@
 		});
 	}
 
-	/** An agent's shape depends on its kind; these say which fields mean anything. */
 	function shows(a: AgentBlock, field: 'character' | 'template' | 'persona' | 'script') {
 		if (field === 'script') return a.kind === 'script';
 		if (field === 'character') return a.kind === 'llm';
@@ -151,8 +144,6 @@
 	function retypeBounds(decl: InputDecl, many: boolean, min: number, max: number) {
 		const base = baseOf(decl.ty);
 		if (base.type !== 'range' && base.type !== 'span') return;
-		// A slider whose ends are the wrong way around errors in `weaver_lang`
-		// so we'll (hopefully) stop it before it gets there.
 		const low = Math.min(min, max);
 		const high = Math.max(min, max);
 		realmDraft.retypeInput(decl.name, withList({ type: base.type, min: low, max: high }, many));
@@ -835,6 +826,24 @@
 	.mono {
 		font-family: var(--font-family-mono);
 	}
+
+	input:not([type='checkbox'], .channel),
+	select,
+	textarea,
+	.inspector :global(.number-field input),
+	.inspector :global(.radio:not(.dropping) .field) {
+		background-color: var(--color-bg-base);
+		border: 1px solid var(--color-border-subtle);
+	}
+	input:not([type='checkbox'], .channel):focus,
+	select:focus,
+	textarea:focus,
+	.inspector :global(.number-field input:focus),
+	.inspector :global(.radio .field:is(:hover, :focus-within)) {
+		background-color: var(--color-bg-base);
+		border-color: var(--color-border-active);
+	}
+
 	.note {
 		margin: 0;
 		color: var(--color-text-muted);
@@ -889,7 +898,7 @@
 		flex-wrap: wrap;
 		gap: var(--spacing-xs) var(--spacing-sm);
 		padding: var(--spacing-sm);
-		background-color: var(--color-bg-input);
+		background-color: var(--color-bg-base);
 		border: 1px solid var(--color-border-subtle);
 		border-radius: var(--radius-sm);
 	}
@@ -923,7 +932,7 @@
 		width: 100%;
 		min-width: 0;
 		padding: var(--spacing-sm);
-		background-color: var(--color-bg-input);
+		background-color: var(--color-bg-base);
 		border: 1px solid var(--color-border-subtle);
 		border-radius: var(--radius-sm);
 		text-align: left;
@@ -983,6 +992,10 @@
 	.scriptCard:focus-visible .openOverlay {
 		opacity: 1;
 	}
+	table,
+	.inspector :global(table) {
+		background-color: var(--color-bg-base);
+	}
 	table {
 		width: 100%;
 		border-collapse: collapse;
@@ -1018,7 +1031,7 @@
 	}
 	td :global(input:not([type='checkbox']):focus),
 	td :global(select:focus) {
-		background-color: var(--color-bg-input);
+		background-color: var(--color-bg-elevated-2);
 	}
 	tbody tr:hover td {
 		background-color: var(--color-hover);
