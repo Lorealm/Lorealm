@@ -154,7 +154,7 @@ function holds(group: VariableRef[], prefix: string): string {
 		.slice(0, 6)
 		.map((head) => `\`${head}\``)
 		.join(', ');
-	return t.weaver.holds(shown, heads.length > 6);
+	return t.weaver.holds({ list: shown, more: heads.length > 6 });
 }
 
 function memberCompletions(
@@ -270,7 +270,7 @@ function idCompletions(context: CompletionContext, site: IdSite): CompletionResu
 	const options = refs
 		.filter((ref) => writableAt(site, ref.id))
 		.map((ref) => {
-			const doc = [ref.name, ref.detail && t.weaver.inEntry(ref.detail)]
+			const doc = [ref.name, ref.detail && t.weaver.inEntry({ detail: ref.detail })]
 				.filter(Boolean)
 				.join('\n\n');
 			return {

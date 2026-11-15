@@ -53,7 +53,7 @@
 	}
 
 	async function remove(meta: ConversationMetadata) {
-		if (!confirm(t.chat.conversations.confirmDelete(label(meta)))) return;
+		if (!confirm(t.chat.conversations.confirmDelete({ name: label(meta) }))) return;
 		try {
 			await chatStore.deleteConversation(meta.id);
 		} catch {
@@ -96,7 +96,7 @@
 						<button type="button" class="pick" onclick={() => open(meta)}>
 							<span class="name">{label(meta)}</span>
 							<span class="meta">
-								{t.chat.conversations.messages(meta.length)}
+								{t.chat.conversations.messages({ count: meta.length })}
 								<span class="dot">·</span>
 								{relativeTime(meta.updated_at) ?? ''}
 							</span>

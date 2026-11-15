@@ -25,7 +25,7 @@
 		(lorebookStore.metadataList ?? []).map((b) => ({
 			id: b.id,
 			name: b.name || t.studio.attachments.untitledLorebook,
-			tags: [t.studio.attachments.entries(b.entry_count)],
+			tags: [t.studio.attachments.entries({ count: b.entry_count })],
 			description: b.description
 		}))
 	);
@@ -190,7 +190,7 @@
 						<button
 							type="button"
 							{@attach tooltip(text.duplicateHint)}
-							aria-label={t.studio.attachments.duplicateNamed(option?.name ?? text.noun)}
+							aria-label={t.studio.attachments.duplicateNamed({ name: option?.name ?? text.noun })}
 							disabled={!option || duplicating !== null}
 							onclick={() => duplicate(group.kind, id)}
 						>
@@ -199,7 +199,7 @@
 						<button
 							type="button"
 							class="danger"
-							aria-label={t.studio.attachments.detachNamed(option?.name ?? text.noun)}
+							aria-label={t.studio.attachments.detachNamed({ name: option?.name ?? text.noun })}
 							onclick={() => detach(group.kind, id)}>✕</button
 						>
 					</div>
@@ -218,7 +218,7 @@
 							<span class="name"
 								>{implied.tool?.name ?? t.studio.attachments.groups.tool.unknown}</span
 							>
-							<span class="tag">{t.studio.attachments.via(implied.via)}</span>
+							<span class="tag">{t.studio.attachments.via({ name: implied.via })}</span>
 						</div>
 					</div>
 				</div>

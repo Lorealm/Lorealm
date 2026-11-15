@@ -16,7 +16,9 @@ function toDiagnostic(server: WeaverDiagnostic, length: number): Diagnostic {
 		from,
 		to,
 		severity: server.severity,
-		message: server.hint ? t.weaver.hint(server.message, server.hint) : server.message
+		message: server.hint
+			? t.weaver.hint({ message: server.message, hint: server.hint })
+			: server.message
 	};
 }
 

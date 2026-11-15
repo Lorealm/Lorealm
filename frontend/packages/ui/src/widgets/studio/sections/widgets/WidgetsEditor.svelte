@@ -72,7 +72,7 @@ ${'</'}script>
 		...(toolStore.loadedTools ?? []).map((t) => ({ id: t.id, name: t.display_name ?? t.name })),
 		...(toolStore.builtinTools ?? []).map((tool) => ({
 			id: tool.id,
-			name: t.studio.widgets.builtinSuffix(tool.display_name ?? tool.name)
+			name: t.studio.widgets.builtinSuffix({ name: tool.display_name ?? tool.name })
 		}))
 	]);
 	const toolName = (id: Snowflake) => availableTools.find((t) => t.id === id)?.name ?? id;
@@ -196,7 +196,7 @@ ${'</'}script>
 	}
 
 	async function removeWidget(id: Snowflake, name: string) {
-		if (!confirm(t.studio.tools.confirmDelete(name || t.studio.widgets.untitled))) return;
+		if (!confirm(t.studio.tools.confirmDelete({ name: name || t.studio.widgets.untitled }))) return;
 		clearTimeout(timer);
 		await userWidgetStore.deleteWidget(id);
 		if (selectedId === id) navigator.start().studio().widgets();
@@ -286,8 +286,8 @@ ${'</'}script>
 							widget.enabled ? t.studio.tools.enabledHint : t.studio.tools.disabledHint
 						)}
 						aria-label={widget.enabled
-							? t.studio.tools.disableNamed(widget.name)
-							: t.studio.tools.enableNamed(widget.name)}
+							? t.studio.tools.disableNamed({ name: widget.name })
+							: t.studio.tools.enableNamed({ name: widget.name })}
 					/>
 				{/if}
 			</div>

@@ -328,7 +328,7 @@
 					kinds={['lorebook']}
 					{scope}
 					{inputs}
-					ariaLabel={t.realms.inspector.lorebook(i + 1)}
+					ariaLabel={t.realms.inspector.lorebook({ n: i + 1 })}
 					onlocate={locate}
 					onchange={(next) => {
 						if (next) a.lorebooks[i] = next;
@@ -355,7 +355,7 @@
 					kinds={['widget']}
 					{scope}
 					{inputs}
-					ariaLabel={t.realms.inspector.widget(i + 1)}
+					ariaLabel={t.realms.inspector.widget({ n: i + 1 })}
 					onlocate={locate}
 					onchange={(next) => {
 						if (next) a.widgets[i] = next;
@@ -383,7 +383,7 @@
 						kinds={['tool']}
 						{scope}
 						{inputs}
-						ariaLabel={t.realms.inspector.tool(i + 1)}
+						ariaLabel={t.realms.inspector.tool({ n: i + 1 })}
 						onlocate={locate}
 						onchange={(next) => {
 							if (next) a.tools[i].tool = next;
@@ -450,7 +450,7 @@
 										value={grant.namespace}
 										placeholder="world"
 										spellcheck="false"
-										aria-label={t.realms.inspector.grantNamespace(i + 1)}
+										aria-label={t.realms.inspector.grantNamespace({ n: i + 1 })}
 										oninput={(e) => (a.grants[i].namespace = e.currentTarget.value)}
 									/>
 								</td>
@@ -460,7 +460,7 @@
 										value={grant.scope}
 										placeholder="*"
 										spellcheck="false"
-										aria-label={t.realms.inspector.grantScope(i + 1)}
+										aria-label={t.realms.inspector.grantScope({ n: i + 1 })}
 										oninput={(e) => (a.grants[i].scope = e.currentTarget.value)}
 									/>
 								</td>
@@ -482,7 +482,7 @@
 									<button
 										type="button"
 										class="remove"
-										aria-label={t.realms.inspector.removeGrant(i + 1)}
+										aria-label={t.realms.inspector.removeGrant({ n: i + 1 })}
 										onclick={() => a.grants.splice(i, 1)}
 									>
 										<Trash2 size={12} />
@@ -517,7 +517,7 @@
 									value={property.key}
 									placeholder={t.realms.inspector.keyPlaceholder}
 									spellcheck="false"
-									aria-label={t.realms.inspector.propertyKey(i + 1)}
+									aria-label={t.realms.inspector.propertyKey({ n: i + 1 })}
 									oninput={(e) => editProperty(a, i, { key: e.currentTarget.value })}
 								/>
 							</td>
@@ -527,7 +527,7 @@
 									value={property.value}
 									placeholder={t.realms.inspector.valuePlaceholder}
 									spellcheck="false"
-									aria-label={t.realms.inspector.propertyValue(i + 1)}
+									aria-label={t.realms.inspector.propertyValue({ n: i + 1 })}
 									oninput={(e) => editProperty(a, i, { value: e.currentTarget.value })}
 								/>
 							</td>
@@ -536,7 +536,7 @@
 									<button
 										type="button"
 										class="remove"
-										aria-label={t.realms.inspector.removeProperty(i + 1)}
+										aria-label={t.realms.inspector.removeProperty({ n: i + 1 })}
 										onclick={() => a.properties.splice(i, 1)}
 									>
 										<Trash2 size={12} />
@@ -575,8 +575,8 @@
 					class:blank={!shown.text}
 					class:truncated={shown.truncated}
 					aria-label={shown.text
-						? t.realms.inspector.openScript(a.handle || t.realms.inspector.thisAgent)
-						: t.realms.inspector.writeScript(a.handle || t.realms.inspector.thisAgent)}
+						? t.realms.inspector.openScript({ name: a.handle || t.realms.inspector.thisAgent })
+						: t.realms.inspector.writeScript({ name: a.handle || t.realms.inspector.thisAgent })}
 					onclick={() => panes.show({ kind: 'script', agentKey: a.key })}
 				>
 					{#if shown.text}
@@ -726,7 +726,7 @@
 
 		{#if base.type === 'reference'}
 			<p class="note">
-				{t.realms.inspector.referenceNote(noun(base.kind ?? 'character'))}
+				{t.realms.inspector.referenceNote({ noun: noun(base.kind ?? 'character') })}
 			</p>
 		{:else if many}
 			<p class="note">{t.realms.inspector.listNoDefault}</p>

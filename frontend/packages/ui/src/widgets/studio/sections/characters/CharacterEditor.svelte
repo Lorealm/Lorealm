@@ -199,7 +199,7 @@
 								{#if characterStore.avatarUrl}
 									<img
 										src={characterStore.avatarUrl}
-										alt={t.studio.characterEditor.avatarAlt(draft.name)}
+										alt={t.studio.characterEditor.avatarAlt({ name: draft.name })}
 									/>
 								{:else}
 									<div class="avatar-placeholder" aria-hidden="true"></div>
@@ -323,7 +323,7 @@
 										greeting.text = v;
 										requestSave();
 									}}
-									label={t.studio.characterEditor.greeting(i + 1)}
+									label={t.studio.characterEditor.greeting({ n: i + 1 })}
 								/>
 							</div>
 						{/each}
@@ -362,7 +362,7 @@
 									</div>
 								</div>
 								<ContextField
-									label={t.studio.characterEditor.example(i + 1)}
+									label={t.studio.characterEditor.example({ n: i + 1 })}
 									value={example.content}
 									rows={5}
 									onchange={(v) => {

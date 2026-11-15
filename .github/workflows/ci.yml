@@ -94,6 +94,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
+      # Generated message types are current and every translation parses with valid arguments.
+      - run: bun run check
+        working-directory: frontend/packages/i18n
       # The apps import @lorealm/ui from its packaged output.
       - run: bun run prepack
         working-directory: frontend/packages/ui

@@ -3,7 +3,7 @@
 	let { widgetId }: { widgetId: string } = $props();
 </script>
 
-<div class="widget unknown">{t.components.unknownWidget(widgetId)}</div>
+<div class="widget unknown">{t.components.unknownWidget({ id: widgetId })}</div>
 
 <style>
 	.widget {

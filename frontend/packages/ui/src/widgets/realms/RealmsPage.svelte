@@ -73,7 +73,7 @@
 			showToast({
 				variant: 'info',
 				title: t.realms.page.built,
-				message: t.realms.page.ready(made.definition.name || t.realms.page.it)
+				message: t.realms.page.ready({ name: made.definition.name || t.realms.page.it })
 			});
 			await realmStore.loadList();
 		} finally {

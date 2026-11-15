@@ -48,7 +48,7 @@
 			<!-- svelte-ignore a11y_autofocus -->
 			<input
 				class="search"
-				placeholder={t.components.iconPicker.search(numIcons)}
+				placeholder={t.components.iconPicker.search({ count: numIcons })}
 				bind:value={query}
 				autofocus
 			/>
@@ -66,7 +66,7 @@
 					</button>
 				{/each}
 				{#if matches.length === 0}
-					<span class="empty">{t.components.iconPicker.noMatch(query)}</span>
+					<span class="empty">{t.components.iconPicker.noMatch({ query })}</span>
 				{/if}
 			</div>
 		</div>

@@ -71,7 +71,7 @@
 						type="button"
 						class="close"
 						{@attach tooltip(t.realms.panes.close)}
-						aria-label={t.realms.panes.closeNamed(label(pane))}
+						aria-label={t.realms.panes.closeNamed({ name: label(pane) })}
 						onclick={() => panes.close(id)}
 					>
 						<X size={11} />

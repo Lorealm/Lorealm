@@ -33,7 +33,7 @@ export async function offerUpdate(updates: UpdateControls | undefined) {
 
 	showToast({
 		title: t.shell.update.title,
-		message: t.shell.update.message(update.version),
+		message: t.shell.update.message({ version: update.version }),
 		durationMs: 0,
 		actions: [
 			{ label: t.shell.update.install, tone: 'primary', run: () => void install() },

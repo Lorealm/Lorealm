@@ -46,7 +46,7 @@
 				<button
 					type="button"
 					class="chip-x"
-					aria-label={t.studio.tagField.remove(item)}
+					aria-label={t.studio.tagField.remove({ item })}
 					onclick={() => remove(i)}>×</button
 				>
 			</span>

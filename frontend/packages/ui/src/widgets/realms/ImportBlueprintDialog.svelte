@@ -42,14 +42,16 @@
 
 		reload(RESOURCE_KINDS);
 		const notes = [
-			...imported.renamed.map(([from, to]) => t.realms.importDialog.renamed(from, to)),
+			...imported.renamed.map(([from, to]) => t.realms.importDialog.renamed({ from, to })),
 			...(imported.skipped.length > 0
-				? [t.realms.importDialog.skipped(imported.skipped.join(', '))]
+				? [t.realms.importDialog.skipped({ list: imported.skipped.join(', ') })]
 				: [])
 		];
 		showToast({
 			title: t.realms.importDialog.imported,
-			message: [t.realms.importDialog.inLibrary(imported.blueprint.name), ...notes].join(' '),
+			message: [t.realms.importDialog.inLibrary({ name: imported.blueprint.name }), ...notes].join(
+				' '
+			),
 			variant: 'success',
 			actions: [
 				{
@@ -79,7 +81,7 @@
 			{#if refusal}
 				<p class="refusal">{refusal}</p>
 			{:else if !preview}
-				<p class="quiet">{t.realms.importDialog.reading(file.name)}</p>
+				<p class="quiet">{t.realms.importDialog.reading({ file: file.name })}</p>
 			{:else}
 				<div class="about">
 					<span class="title">{preview.name}</span>
@@ -95,7 +97,7 @@
 						{#if added === 0}
 							{t.realms.importDialog.allPresent}
 						{:else}
-							{t.realms.importDialog.adds(added)}
+							{t.realms.importDialog.adds({ count: added })}
 						{/if}
 					</p>
 					<ul class="resources">
@@ -112,11 +114,11 @@
 								</div>
 								{#if resource.includes.length > 0}
 									<span class="includes">
-										{t.realms.importDialog.includes(
-											resource.includes
+										{t.realms.importDialog.includes({
+											list: resource.includes
 												.map((inc) => `${LABELS[inc.kind].toLocaleLowerCase()} ${inc.name}`)
 												.join(', ')
-										)}
+										})}
 									</span>
 								{/if}
 								{#if resource.problem}<span class="problem">{resource.problem}</span>{/if}

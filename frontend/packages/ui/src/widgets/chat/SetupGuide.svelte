@@ -63,9 +63,12 @@
 		const profile = activeProfile();
 		if (!profile) return t.chat.setup.noProfile;
 		if (connectionReady())
-			return t.chat.setup.usingProfile(profile.name || t.chat.setup.yourProfileLower);
+			return t.chat.setup.usingProfile({ name: profile.name || t.chat.setup.yourProfileLower });
 		const label = getProviderSchema(profile.provider)?.label ?? profile.provider;
-		return t.chat.setup.needsKey(profile.name || t.chat.setup.yourProfile, label);
+		return t.chat.setup.needsKey({
+			profile: profile.name || t.chat.setup.yourProfile,
+			provider: label
+		});
 	});
 
 	const steps = $derived([

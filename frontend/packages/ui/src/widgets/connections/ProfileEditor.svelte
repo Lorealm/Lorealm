@@ -390,7 +390,7 @@
 	{/if}
 
 	{#if !schema}
-		<p class="hint">{t.connections.editor.noSchema(draft.provider)}</p>
+		<p class="hint">{t.connections.editor.noSchema({ provider: draft.provider })}</p>
 	{/if}
 
 	{#if hasSampling}

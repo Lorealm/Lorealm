@@ -73,14 +73,14 @@ export const builtInSlashCommands: SlashCommand[] = [
 	{
 		name: 'go',
 		get description() {
-			return t.commands.go.description(Object.keys(VIEWS).join(', '));
+			return t.commands.go.description({ views: Object.keys(VIEWS).join(', ') });
 		},
 		get restLabel() {
 			return t.commands.go.rest;
 		},
 		run: ({ rest }) => {
 			const open = VIEWS[rest.trim().toLowerCase()];
-			if (!open) throw new Error(t.commands.go.unknownView(rest.trim()));
+			if (!open) throw new Error(t.commands.go.unknownView({ view: rest.trim() }));
 			open();
 		}
 	},

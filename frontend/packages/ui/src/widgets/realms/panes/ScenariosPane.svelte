@@ -51,9 +51,9 @@
 						type="button"
 						class="remove"
 						{@attach tooltip(t.realms.scenarios.remove)}
-						aria-label={t.realms.scenarios.removeNamed(
-							entry.name || t.realms.scenarios.fallbackName
-						)}
+						aria-label={t.realms.scenarios.removeNamed({
+							name: entry.name || t.realms.scenarios.fallbackName
+						})}
 						onclick={() => remove(entry.key)}
 					>
 						<Trash2 size={12} />

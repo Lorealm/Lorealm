@@ -46,8 +46,8 @@
 			)}
 			aria-pressed={profile.id === activeProfileId}
 			aria-label={profile.id === activeProfileId
-				? t.connections.isActive(profile.name)
-				: t.connections.makeActive(profile.name)}
+				? t.connections.isActive({ name: profile.name })
+				: t.connections.makeActive({ name: profile.name })}
 			onclick={() => onActivate(profile.id)}
 		>
 			<Star size={14} fill={profile.id === activeProfileId ? 'currentColor' : 'none'} />
@@ -56,7 +56,7 @@
 			class="icon-button delete"
 			type="button"
 			{@attach tooltip(t.connections.deleteProfile)}
-			aria-label={t.connections.deleteNamed(profile.name)}
+			aria-label={t.connections.deleteNamed({ name: profile.name })}
 			onclick={() => onDelete(profile.id)}
 		>
 			<Trash2 size={14} />

@@ -135,7 +135,7 @@ class StyleStore {
 			? {
 					...active,
 					id: newId(),
-					name: t.settings.appearance.copyOf(active.name),
+					name: t.settings.appearance.copyOf({ name: active.name }),
 					tokens: { ...active.tokens }
 				}
 			: { id: newId(), name: t.settings.appearance.custom, tokens: {}, css: '' };
@@ -229,7 +229,7 @@ export function parseStyle(text: string): Style {
 			throw new Error(t.errors.failed.styleTokens);
 		}
 		for (const [name, value] of Object.entries(raw.tokens)) {
-			if (typeof value !== 'string') throw new Error(t.errors.failed.styleTokenValue(name));
+			if (typeof value !== 'string') throw new Error(t.errors.failed.styleTokenValue({ name }));
 			tokens[name] = value;
 		}
 	}

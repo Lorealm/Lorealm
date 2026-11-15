@@ -150,7 +150,7 @@
 						type="button"
 						class="act"
 						{@attach tooltip(t.realms.blueprints.exportHint)}
-						aria-label={t.realms.blueprints.exportNamed(blueprint.name)}
+						aria-label={t.realms.blueprints.exportNamed({ name: blueprint.name })}
 						onclick={(e) => exportFile(e, blueprint.id, blueprint.name)}
 					>
 						<Download size={14} />
@@ -159,7 +159,7 @@
 						type="button"
 						class="act del"
 						{@attach tooltip(t.realms.blueprints.delete)}
-						aria-label={t.realms.cards.deleteNamed(blueprint.name)}
+						aria-label={t.realms.cards.deleteNamed({ name: blueprint.name })}
 						onclick={(e) => remove(e, blueprint.id)}
 					>
 						<Trash2 size={14} />

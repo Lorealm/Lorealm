@@ -50,7 +50,8 @@ function referenceEntry(
 	const reference = scope ? `${scope}:${name}` : name;
 	const known = findVariable(refs, scope ?? '', name);
 	const preview = scope ? messageStateStore.previewVariable(reference) : undefined;
-	const live = preview !== undefined ? t.weaver.resolvesTo(String(preview)) : t.weaver.noValue;
+	const live =
+		preview !== undefined ? t.weaver.resolvesTo({ value: String(preview) }) : t.weaver.noValue;
 	return {
 		signature: known?.signature ?? (ctx === 'var' ? `{{${reference}}}` : reference),
 		doc: known ? `${known.doc}\n\n${live}` : live

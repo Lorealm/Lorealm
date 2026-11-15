@@ -85,7 +85,7 @@ class InspectorMatrixStore {
 			// Not `crypto.randomUUID`: that needs a secure context, and a
 			// self-hosted server may well be reached over plain HTTP.
 			id: `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
-			name: t.settings.inspector.profileName(this.profiles.length + 1),
+			name: t.settings.inspector.profileName({ n: this.profiles.length + 1 }),
 			icon: 'eye',
 			cells: {}
 		};

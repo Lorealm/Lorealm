@@ -199,7 +199,7 @@
 							value={fb}
 							allowInherit={false}
 							onchange={(v) => setFallback(i, v)}
-							ariaLabel={t.studio.entry.fallback(i + 1)}
+							ariaLabel={t.studio.entry.fallback({ n: i + 1 })}
 						/>
 						<button
 							type="button"
