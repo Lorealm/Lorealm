@@ -16,7 +16,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates libssl3 curl \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=server /src/target/release/lorealm_server /usr/local/bin/lorealm
-COPY --from=web /src/apps/web/dist /usr/share/lorealm/web
+COPY --from=web /src/frontend/apps/web/dist /usr/share/lorealm/web
 
 # Seeded into the volume on first start; everything else falls back to defaults.
 RUN printf 'hosting:\n  ip: 0.0.0.0\n  serve_frontend: true\n  frontend_dir: /usr/share/lorealm/web\n' \
