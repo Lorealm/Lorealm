@@ -300,6 +300,7 @@ fn register_math(registry: &mut Registry) {
     registry.register_processor(MathPiProcessor);
     registry.register_processor(MathRadiansProcessor);
     registry.register_processor(MathDegreesProcessor);
+    registry.register_processor(MathLogProcessor);
 }
 
 /// `@[math.add(a: 1, b: 2)]` → `3`
@@ -522,6 +523,28 @@ fn math_radians(value: f64) -> Result<Value, EvalError> {
 #[weaver_processor(namespace = "math", name = "degrees", returns = "number")]
 fn math_degrees(value: f64) -> Result<Value, EvalError> {
     Ok(Value::Number(value.to_degrees()))
+}
+
+/// Logarithm of `value` in `base` (default e). Errors when `value` isn't
+/// positive, or `base` isn't positive or is 1.
+///
+/// `@[math.log(value: 100, base: 10)]` → `2`
+#[weaver_processor(namespace = "math", name = "log", returns = "number")]
+fn math_log(value: f64, base: Option<f64>) -> Result<Value, EvalError> {
+    if value <= 0.0 {
+        return Err(EvalError::new(
+            EvalErrorKind::ArithmeticError,
+            format!("math.log: {value} isn't positive"),
+        ));
+    }
+    match base {
+        None => Ok(Value::Number(value.ln())),
+        Some(base) if base <= 0.0 || base == 1.0 => Err(EvalError::new(
+            EvalErrorKind::ArithmeticError,
+            format!("math.log: base {base} must be positive and not 1"),
+        )),
+        Some(base) => Ok(Value::Number(value.log(base))),
+    }
 }
 
 fn register_array(registry: &mut Registry) {
@@ -1806,6 +1829,20 @@ mod tests {
         assert_eq!(ok("math.pi", vec![]), n(PI));
         assert_eq!(ok("math.radians", vec![("value", n(180.0))]), n(PI));
         assert_eq!(ok("math.degrees", vec![("value", n(PI))]), n(180.0));
+    }
+
+    #[test]
+    fn math_log() {
+        use std::f64::consts::E;
+        assert_eq!(ok("math.log", vec![("value", n(E))]), n(1.0));
+        assert_eq!(
+            ok("math.log", vec![("value", n(8.0)), ("base", n(2.0))]),
+            n(3.0)
+        );
+        assert!(call("math.log", vec![("value", n(0.0))]).is_err());
+        assert!(call("math.log", vec![("value", n(-1.0))]).is_err());
+        assert!(call("math.log", vec![("value", n(5.0)), ("base", n(1.0))]).is_err());
+        assert!(call("math.log", vec![("value", n(5.0)), ("base", n(0.0))]).is_err());
     }
 
     #[test]
