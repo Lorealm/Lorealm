@@ -4,8 +4,9 @@ COPY backend .
 RUN cargo build --release -p lorealm_server
 
 FROM oven/bun:1 AS web
-WORKDIR /src
+WORKDIR /src/frontend
 COPY frontend .
+COPY sdk/js ../sdk/js
 RUN bun install --frozen-lockfile \
  && cd packages/ui && bun run prepack \
  && cd ../../apps/web && bun run build
@@ -15,7 +16,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates libssl3 curl \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=server /src/target/release/lorealm_server /usr/local/bin/lorealm
-COPY --from=web /src/apps/web/dist /usr/share/lorealm/web
+COPY --from=web /src/frontend/apps/web/dist /usr/share/lorealm/web
 
 # Seeded into the volume on first start; everything else falls back to defaults.
 RUN printf 'hosting:\n  ip: 0.0.0.0\n  serve_frontend: true\n  frontend_dir: /usr/share/lorealm/web\n' \
