@@ -4,8 +4,9 @@ COPY backend .
 RUN cargo build --release -p lorealm_server
 
 FROM oven/bun:1 AS web
-WORKDIR /src
+WORKDIR /src/frontend
 COPY frontend .
+COPY sdk/js ../sdk/js
 RUN bun install --frozen-lockfile \
  && cd packages/ui && bun run prepack \
  && cd ../../apps/web && bun run build
