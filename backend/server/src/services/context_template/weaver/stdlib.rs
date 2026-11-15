@@ -290,6 +290,16 @@ fn register_math(registry: &mut Registry) {
     registry.register_processor(MathPowProcessor);
     registry.register_processor(MathSqrtProcessor);
     registry.register_processor(MathSignProcessor);
+    registry.register_processor(MathSinProcessor);
+    registry.register_processor(MathCosProcessor);
+    registry.register_processor(MathTanProcessor);
+    registry.register_processor(MathAsinProcessor);
+    registry.register_processor(MathAcosProcessor);
+    registry.register_processor(MathAtanProcessor);
+    registry.register_processor(MathAtan2Processor);
+    registry.register_processor(MathPiProcessor);
+    registry.register_processor(MathRadiansProcessor);
+    registry.register_processor(MathDegreesProcessor);
 }
 
 /// `@[math.add(a: 1, b: 2)]` → `3`
@@ -422,6 +432,96 @@ fn math_sign(value: f64) -> Result<Value, EvalError> {
         0.0
     };
     Ok(Value::Number(sign))
+}
+
+/// Sine of `value` in radians.
+///
+/// `@[math.sin(value: 0)]` → `0`
+#[weaver_processor(namespace = "math", name = "sin", returns = "number")]
+fn math_sin(value: f64) -> Result<Value, EvalError> {
+    Ok(Value::Number(value.sin()))
+}
+
+/// Cosine of `value` in radians.
+///
+/// `@[math.cos(value: 0)]` → `1`
+#[weaver_processor(namespace = "math", name = "cos", returns = "number")]
+fn math_cos(value: f64) -> Result<Value, EvalError> {
+    Ok(Value::Number(value.cos()))
+}
+
+/// Tangent of `value` in radians.
+///
+/// `@[math.tan(value: 0)]` → `0`
+#[weaver_processor(namespace = "math", name = "tan", returns = "number")]
+fn math_tan(value: f64) -> Result<Value, EvalError> {
+    Ok(Value::Number(value.tan()))
+}
+
+/// Arcsine of `value`, in radians. Errors outside -1..=1.
+///
+/// `@[math.asin(value: 1)]` → `1.5707963267948966`
+#[weaver_processor(namespace = "math", name = "asin", returns = "number")]
+fn math_asin(value: f64) -> Result<Value, EvalError> {
+    if !(-1.0..=1.0).contains(&value) {
+        return Err(EvalError::new(
+            EvalErrorKind::ArithmeticError,
+            format!("math.asin: {value} is outside -1 to 1"),
+        ));
+    }
+    Ok(Value::Number(value.asin()))
+}
+
+/// Arccosine of `value`, in radians. Errors outside -1..=1.
+///
+/// `@[math.acos(value: 1)]` → `0`
+#[weaver_processor(namespace = "math", name = "acos", returns = "number")]
+fn math_acos(value: f64) -> Result<Value, EvalError> {
+    if !(-1.0..=1.0).contains(&value) {
+        return Err(EvalError::new(
+            EvalErrorKind::ArithmeticError,
+            format!("math.acos: {value} is outside -1 to 1"),
+        ));
+    }
+    Ok(Value::Number(value.acos()))
+}
+
+/// Arctangent of `value`, in radians.
+///
+/// `@[math.atan(value: 0)]` → `0`
+#[weaver_processor(namespace = "math", name = "atan", returns = "number")]
+fn math_atan(value: f64) -> Result<Value, EvalError> {
+    Ok(Value::Number(value.atan()))
+}
+
+/// Angle in radians of the point (`x`, `y`), from -π to π.
+///
+/// `@[math.atan2(y: 1, x: 1)]` → `0.7853981633974483`
+#[weaver_processor(namespace = "math", name = "atan2", returns = "number")]
+fn math_atan2(y: f64, x: f64) -> Result<Value, EvalError> {
+    Ok(Value::Number(y.atan2(x)))
+}
+
+/// `@[math.pi()]` → `3.141592653589793`
+#[weaver_processor(namespace = "math", name = "pi", returns = "number")]
+fn math_pi() -> Result<Value, EvalError> {
+    Ok(Value::Number(std::f64::consts::PI))
+}
+
+/// Converts `value` from degrees to radians.
+///
+/// `@[math.radians(value: 180)]` → `3.141592653589793`
+#[weaver_processor(namespace = "math", name = "radians", returns = "number")]
+fn math_radians(value: f64) -> Result<Value, EvalError> {
+    Ok(Value::Number(value.to_radians()))
+}
+
+/// Converts `value` from radians to degrees.
+///
+/// `@[math.degrees(value: 3.141592653589793)]` → `180`
+#[weaver_processor(namespace = "math", name = "degrees", returns = "number")]
+fn math_degrees(value: f64) -> Result<Value, EvalError> {
+    Ok(Value::Number(value.to_degrees()))
 }
 
 fn register_array(registry: &mut Registry) {
@@ -1685,6 +1785,27 @@ mod tests {
         assert_eq!(ok("math.sign", vec![("value", n(-4.0))]), n(-1.0));
         assert_eq!(ok("math.sign", vec![("value", n(0.0))]), n(0.0));
         assert_eq!(ok("math.sign", vec![("value", n(0.1))]), n(1.0));
+    }
+
+    #[test]
+    fn math_trig() {
+        use std::f64::consts::{FRAC_PI_2, FRAC_PI_4};
+        assert_eq!(ok("math.sin", vec![("value", n(0.0))]), n(0.0));
+        assert_eq!(ok("math.cos", vec![("value", n(0.0))]), n(1.0));
+        assert_eq!(ok("math.tan", vec![("value", n(0.0))]), n(0.0));
+        assert_eq!(ok("math.asin", vec![("value", n(1.0))]), n(FRAC_PI_2));
+        assert_eq!(ok("math.acos", vec![("value", n(1.0))]), n(0.0));
+        assert_eq!(ok("math.atan", vec![("value", n(0.0))]), n(0.0));
+        assert_eq!(
+            ok("math.atan2", vec![("y", n(1.0)), ("x", n(1.0))]),
+            n(FRAC_PI_4)
+        );
+        assert!(call("math.asin", vec![("value", n(1.5))]).is_err());
+        assert!(call("math.acos", vec![("value", n(-2.0))]).is_err());
+        use std::f64::consts::PI;
+        assert_eq!(ok("math.pi", vec![]), n(PI));
+        assert_eq!(ok("math.radians", vec![("value", n(180.0))]), n(PI));
+        assert_eq!(ok("math.degrees", vec![("value", n(PI))]), n(180.0));
     }
 
     #[test]
