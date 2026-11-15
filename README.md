@@ -1,4 +1,6 @@
 # Lorealm
+[![Discord](https://discord.com/api/guilds/1525884209829384295/widget.png?style=shield)](https://discord.gg/HGucxzNMhq)
+
 Lorealm is a self-hosted frontend for LLM chat and roleplay where the logic travels with the content. A character, lorebook or whole world can carry its own scripts, state and tools, and whoever imports it gets a working system with nothing to install or configure.
 
 <img width="1990" height="1271" alt="Screen Shot 2026-11-14 at 03 08 08(4)" src="https://github.com/user-attachments/assets/e3a628ba-3d88-47e2-822b-6e091e1c01bd" />
