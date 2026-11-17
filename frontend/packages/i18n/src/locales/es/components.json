@@ -1,0 +1,54 @@
+{
+	"toast": {
+		"dismiss": "Descartar notificación"
+	},
+	"saveIndicator": {
+		"invalid": "Sin guardar — no válido"
+	},
+	"wideScreenNote": "{subject} se usa mejor en una tableta o un ordenador.",
+	"tokenBadge": {
+		"estimated": "Estimado — no hay ningún tokenizador activo. Elige uno en Ajustes para obtener recuentos exactos.",
+		"exact": "Tokens según el tokenizador activo",
+		"unit": "tokens"
+	},
+	"searchSelect": {
+		"noMatches": "Sin coincidencias.",
+		"hideSuggestions": "Ocultar sugerencias",
+		"showSuggestions": "Mostrar sugerencias"
+	},
+	"iconPicker": {
+		"change": "Cambiar icono",
+		"pick": "Elegir un icono",
+		"search": "{count, plural, one {Buscar # icono} many {Buscar # iconos} other {Buscar # iconos}}",
+		"noMatch": "Ningún icono coincide con “{query}”."
+	},
+	"listSidebar": {
+		"new": "Nuevo",
+		"creating": "Creando…",
+		"search": "Buscar…",
+		"sort": "Ordenar {title}",
+		"showBuiltIn": "Mostrar integrados"
+	},
+	"field": {
+		"help": "Ayuda: {label}",
+		"maximize": "Maximizar",
+		"maximizeField": "Maximizar {label}",
+		"fallbackLabel": "campo",
+		"editingFullScreen": "Editando a pantalla completa…",
+		"edit": "Editar"
+	},
+	"numberInput": {
+		"increment": "Aumentar",
+		"decrement": "Disminuir"
+	},
+	"plugin": {
+		"callFailed": "La llamada ha fallado.",
+		"panelFailed": "No se pudo cargar el panel de este plugin."
+	},
+	"loading": "Cargando",
+	"unknownWidget": "Widget desconocido: {id}",
+	"maximize": {
+		"minimizeHint": "Minimizar (Esc)",
+		"minimize": "Minimizar"
+	}
+}

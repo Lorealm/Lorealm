@@ -1,0 +1,186 @@
+{
+	"feed": {
+		"nothingYet": "还什么都没有发生。",
+		"pickCharacter": "选择一个角色并发送消息即可开始。",
+		"worldStirs": "世界开始躁动……"
+	},
+	"turns": {
+		"running": "正在运行回合…",
+		"yourTurnAs": "轮到你，扮演",
+		"emptyRunFirst": "还什么都没有发生——运行第一个回合吧。",
+		"nextToAct": "下一个行动者：",
+		"nobody": "目前没有人可以行动。",
+		"seeingAll": "可见每个回合",
+		"seeingOwn": "仅可见你的智能体所感知到的内容",
+		"director": "导演",
+		"player": "玩家",
+		"pauseHint": "完成当前回合后停止",
+		"pause": "暂停",
+		"cancelHint": "取消当前回合",
+		"stop": "停止",
+		"stepHint": "运行单个回合",
+		"step": "单步",
+		"runHint": "持续运行回合，直到轮到你",
+		"run": "运行"
+	},
+	"composer": {
+		"functions": "功能",
+		"conversations": "对话",
+		"newChat": "开始新聊天",
+		"attachments": "附件",
+		"placeholder": "发送消息...",
+		"send": "发送",
+		"stopCommand": "停止 /{name}",
+		"stopPlugin": "停止 {name}",
+		"stopGenerating": "停止生成",
+		"commands": "命令"
+	},
+	"message": {
+		"you": "你",
+		"system": "系统",
+		"assistant": "助手",
+		"ranCommand": "已运行 /{name}",
+		"inspectContext": "查看上下文",
+		"continue": "继续此回复",
+		"thoughts": "思考",
+		"thinking": "正在思考…",
+		"swipe": "滑动切换"
+	},
+	"setup": {
+		"title": "欢迎使用 Lorealm",
+		"lead": "开始之前，你需要完成几个步骤：",
+		"done": "（已完成）",
+		"todo": "（待办）",
+		"noProfile": "创建一个配置，并将其标星设为当前连接。",
+		"usingProfile": "正在使用 {name}。",
+		"yourProfileLower": "你的配置",
+		"yourProfile": "你的配置",
+		"needsKey": "{profile}需要 API 密钥才能连接 {provider}。",
+		"template": {
+			"title": "创建并启用上下文模板",
+			"hint": "它决定了发送给模型的文本如何排布。没有它就无内容可发送。"
+		},
+		"persona": {
+			"title": "创建并启用人设",
+			"hint": "人设是关于你所扮演角色的详细信息。请在工作室中创建并启用一个。"
+		},
+		"connection": {
+			"title": "配置你的连接配置"
+		},
+		"installTokenizer": {
+			"title": "安装分词器",
+			"hint": "从文件导入或下载一个，这样就能对照预算衡量消息长度。"
+		},
+		"activeTokenizer": {
+			"title": "设置当前分词器",
+			"hint": "选择用哪个已安装的分词器来统计 Token。"
+		}
+	},
+	"inspector": {
+		"title": "上下文检查器",
+		"dialog": "上下文检查器",
+		"tokenCountFailed": "Token 计数失败",
+		"stateFailed": "无法加载状态",
+		"sampling": {
+			"temperature": "温度",
+			"topP": "Top P",
+			"topK": "Top K",
+			"minP": "Min P"
+		},
+		"unknownTool": "（未知）",
+		"untitledNode": "（未命名节点）",
+		"node": "节点 {id}",
+		"notReconstructed": "内容未重建",
+		"noTrace": "此消息没有追踪记录",
+		"blocks": "{count, plural, other {# 个块}}",
+		"units": {
+			"tokens": "Token",
+			"chars": "字符"
+		},
+		"generationSettings": "生成设置",
+		"tokenBudget": "Token 预算",
+		"unlimited": "无限制",
+		"profileFailed": "无法加载连接配置",
+		"fromProfile": "来自 {name}",
+		"budgetNotRecorded": "此回合未记录 Token 预算，因此这里显示的是该配置的当前值。",
+		"layout": "布局",
+		"noBlocks": "无块",
+		"layoutAria": "上下文布局，最早的在顶部",
+		"nodeFallback": "节点",
+		"blockAria": "{role}块，{size}",
+		"roles": {
+			"system": "系统",
+			"user": "用户",
+			"assistant": "助手"
+		},
+		"bySource": "按来源",
+		"drift": "此回合发送时记录了 {count} 个 Token。差异来自之后编辑过的内容——面板会按这些块现在的内容重新计数。",
+		"was": "原为 {count}",
+		"trimmed": "已裁剪以适配",
+		"shed": "{source} · 为适配预算裁掉了 {count} 个 Token",
+		"sources": {
+			"conversation": "聊天记录",
+			"context_template": "模板",
+			"lorebook": "世界书",
+			"character": "角色",
+			"character_examples": "示例消息",
+			"miscellaneous": "系统提示词",
+			"plugin": "插件"
+		},
+		"tabs": {
+			"context": "上下文",
+			"state": "状态",
+			"tools": "工具"
+		},
+		"rawHint": "以原始文本显示上下文",
+		"raw": "原始",
+		"noTraceLong": "此消息没有上下文追踪记录。只有通过 weaver 管线生成的回合才会记录。",
+		"noContextBlocks": "管线没有为此回合生成任何上下文块。",
+		"msgs": "{count, number} 条消息",
+		"loadingState": "正在加载状态…",
+		"noState": "此回合没有重建的状态。",
+		"activation": "激活",
+		"noActivation": "无激活状态",
+		"noTrackedEntries": "无被跟踪的条目",
+		"lastActivated": "上次激活于 {turns} 回合前",
+		"act": "激活 {turns}",
+		"stickyRemaining": "还剩 {turns, number} 个粘滞回合",
+		"stk": "粘滞 {turns}",
+		"persistent": "持久",
+		"noPersistent": "无持久状态",
+		"pool": "POOL",
+		"emptyPool": "空池",
+		"available": "可用",
+		"tools": "{count, plural, other {# 个工具}}",
+		"noToolRecord": "此消息没有记录当时有哪些工具可用。",
+		"noToolsOffered": "此回合没有向模型提供任何工具。",
+		"noToolCalls": "此回合没有工具调用。",
+		"round": "第 {n, number} 轮",
+		"calls": "{count, plural, other {# 次调用}}",
+		"error": "错误",
+		"ok": "正常",
+		"input": "输入",
+		"output": "输出",
+		"refs": {
+			"definition": "角色 · 定义",
+			"personality": "角色 · 性格",
+			"scenario": "角色 · 场景",
+			"greeting": "角色 · 问候语 #{n, number}",
+			"example": "角色 · 示例 #{n, number}",
+			"character": "角色",
+			"unresolvedMessage": "消息 · 未解析",
+			"persona": "人设 · {name}",
+			"plugin": "插件 · {id}"
+		}
+	},
+	"conversations": {
+		"title": "对话",
+		"loadFailed": "无法加载对话",
+		"openFailed": "无法打开对话",
+		"confirmDelete": "删除“{name}”？此操作无法撤销。",
+		"messages": "{count, plural, other {# 条消息}}",
+		"delete": "删除对话",
+		"loading": "正在加载…",
+		"empty": "还没有与此角色的对话。"
+	}
+}

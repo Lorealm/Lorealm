@@ -1,0 +1,16 @@
+{
+	"close": "Fermer",
+	"dismiss": "Ignorer",
+	"error": "Erreur",
+	"saving": "Enregistrement…",
+	"saved": "Enregistré",
+	"save": "Enregistrer",
+	"cancel": "Annuler",
+	"edit": "Modifier",
+	"delete": "Supprimer",
+	"previous": "Précédent",
+	"next": "Suivant",
+	"loading": "Chargement…",
+	"ok": "OK",
+	"notification": "Notification"
+}

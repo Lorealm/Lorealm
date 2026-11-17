@@ -1,0 +1,81 @@
+{
+	"groups": {
+		"navigation": "Навигация",
+		"views": "Разделы",
+		"settings": "Настройки",
+		"chat": "Чат",
+		"inspector": "Инспектор"
+	},
+	"commands": {
+		"navBack": {
+			"title": "Назад",
+			"description": "Вернуться на предыдущий экран."
+		},
+		"navForward": {
+			"title": "Вперёд",
+			"description": "Отменить «Назад»."
+		},
+		"viewWrite": {
+			"title": "Перейти в «Чат»"
+		},
+		"viewCharacters": {
+			"title": "Перейти в «Персонажи»"
+		},
+		"viewRealms": {
+			"title": "Перейти в «Миры»"
+		},
+		"viewConnections": {
+			"title": "Перейти в «Подключения»"
+		},
+		"viewStudio": {
+			"title": "Перейти в «Студию»"
+		},
+		"settingsOpen": {
+			"title": "Открыть настройки"
+		},
+		"keysHelp": {
+			"title": "Сочетания клавиш",
+			"description": "Открыть список сочетаний клавиш."
+		},
+		"chatFocus": {
+			"title": "Перейти к полю ввода",
+			"description": "Поставить курсор в поле ввода сообщения."
+		},
+		"chatSend": {
+			"title": "Отправить сообщение"
+		},
+		"chatConversations": {
+			"title": "Разговоры",
+			"description": "Показать чаты с активным персонажем."
+		},
+		"chatConversationsClose": {
+			"title": "Закрыть разговоры"
+		},
+		"chatBranchPrev": {
+			"title": "Предыдущая ветка",
+			"description": "Вернуть последнее сообщение к предыдущему варианту."
+		},
+		"chatBranchNext": {
+			"title": "Следующая ветка",
+			"description": "Перелистнуть последнее сообщение вперёд; после последнего варианта генерируется новый ответ."
+		},
+		"inspectorNextProfile": {
+			"title": "Следующий профиль инспектора"
+		},
+		"inspectorPrevProfile": {
+			"title": "Предыдущий профиль инспектора"
+		}
+	},
+	"names": {
+		"ctrl": "Ctrl",
+		"alt": "Alt",
+		"shift": "Shift",
+		"win": "Win",
+		"enter": "Enter",
+		"backspace": "Backspace",
+		"delete": "Delete",
+		"escape": "Esc",
+		"tab": "Tab",
+		"space": "Space"
+	}
+}

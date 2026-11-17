@@ -1,0 +1,35 @@
+{
+	"chat": "チャット",
+	"showInInspector": "{name}をインスペクターに表示",
+	"sort": "キャラクターを並べ替え",
+	"sortOptions": {
+		"nameAsc": "名前 (A〜Z)",
+		"nameDesc": "名前 (Z〜A)",
+		"updated": "最近更新した順",
+		"created": "最近追加した順"
+	},
+	"reuseHint": "カードに含まれるロアブックが手持ちのものと同一の場合、コピーをインポートせずに手持ちのものを添付します。",
+	"reuse": "一致するロアブックを再利用",
+	"uploading": "アップロード中…",
+	"import": "インポート",
+	"new": "新規",
+	"empty": "キャラクターはまだありません — 作成して始めましょう。",
+	"newName": "新しいキャラクター",
+	"createFailed": "キャラクターを作成できませんでした",
+	"attachments": {
+		"title": "ロアブック、ツール、ウィジェット",
+		"imported": "{count, number} 件をインポートしました。",
+		"reused": "すでにある {count, number} 件を再利用しました。",
+		"rename": "{from}を{to}に",
+		"renamed": "名前がすでに使われているため、{list}の名前を変更しました。",
+		"skipped": "読み取れなかった{list}を除外しました。"
+	},
+	"lorebookImport": {
+		"title": "ロアブックをインポートしました",
+		"named": "「{name}」",
+		"lorebooks": "{count, plural, other {# 冊のロアブック}}",
+		"entries": "{count, plural, other {# 件のエントリー}}",
+		"notConverted": "{count, plural, other {# 件のエントリーを変換できませんでした。}}",
+		"message": "{subject}を{entries}と共にインポートしました。"
+	}
+}

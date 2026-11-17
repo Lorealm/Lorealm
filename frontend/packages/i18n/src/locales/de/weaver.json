@@ -1,0 +1,38 @@
+{
+	"keywords": {
+		"if": "Bedingter Block. Der Rumpf wird ausgegeben, wenn `<expr>` wahr ist.\n\nIn einem Array- oder Objektliteral steht er für Elemente und liefert die Elemente, die sein gewählter Zweig enthält.",
+		"elif": "Zusätzlicher Zweig in einem `if`-Block.",
+		"else": "Ersatzzweig in einem `if`-Block.",
+		"endif": "Schließt einen `if`-Block.",
+		"foreach": "Durchläuft `<array>` und bindet jedes Element in einem temporären Geltungsbereich an `<name>`.\n\nIn einem Array- oder Objektliteral steht er für Elemente und liefert pro Durchlauf eines.",
+		"endforeach": "Schließt einen `foreach`-Block.",
+		"in": "Trennt die Schleifenbindung vom durchlaufenen Objekt.",
+		"break": "Verlässt sofort das innerste `foreach`.",
+		"continue": "Springt zum nächsten Durchlauf des innersten `foreach`.",
+		"return": "Beendet die Auswertung sofort und gibt den Wert von `<expr>` zurück.",
+		"stop": "Beendet die Auswertung sofort und behält den bisher ausgegebenen Text."
+	},
+	"kinds": {
+		"namespace": "Namespace",
+		"group": "Gruppe",
+		"processor": "Prozessor",
+		"command": "Befehl",
+		"keyword": "Schlüsselwort",
+		"entry": "Eintrag",
+		"trigger": "Trigger",
+		"declaredHere": "hier deklariert",
+		"parameter": "Parameter",
+		"loopBinding": "Schleifenbindung"
+	},
+	"namespaceDoc": "Ein Zustands-Namespace, den dieses Dokument verwendet.",
+	"holds": "Enthält {list}{more, select, true { und weitere} other {}}.",
+	"inEntry": "In {detail}.",
+	"triggerDoc": "Gibt den Text eines anderen Eintrags an dieser Stelle aus.",
+	"resolvesTo": "Wird im geladenen Kontext zu `{value}` aufgelöst.",
+	"noValue": "Für diese Variable ist im aktuellen Kontext kein Wert geladen.",
+	"writtenByCommand": "Von einem Befehl in diesem Rumpf geschrieben.",
+	"parameterOf": "Ein Parameter von `{proc}`.",
+	"parameterDefault": "Ein Parameter von `{proc}`. Standardwert: `{fallback}`.",
+	"eachElement": "Jedes Element von `{iterable}`.",
+	"hint": "{message}\n\nTipp: {hint}"
+}

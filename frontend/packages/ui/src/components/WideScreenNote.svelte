@@ -11,7 +11,7 @@
 {#if shell.narrow && !dismissed}
 	<div class="note" role="note">
 		<MonitorSmartphone size={16} aria-hidden="true" />
-		<span>{t.components.wideScreenNote(subject)}</span>
+		<span>{t.components.wideScreenNote({ subject })}</span>
 		<button type="button" aria-label={t.common.dismiss} onclick={() => (dismissed = true)}>
 			<X size={16} />
 		</button>

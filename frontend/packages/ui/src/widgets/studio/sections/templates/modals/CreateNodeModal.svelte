@@ -224,7 +224,7 @@
 
 				{#if kind === 'source' && picked}
 					<p class="hint">
-						{t.studio.templateEditor.defaultsSet(picked.def.settings.length)}
+						{t.studio.templateEditor.defaultsSet({ count: picked.def.settings.length })}
 					</p>
 				{/if}
 			{/if}

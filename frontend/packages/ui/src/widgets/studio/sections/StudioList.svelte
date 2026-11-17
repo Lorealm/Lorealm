@@ -48,7 +48,7 @@
 		{#if sortOptions.length > 0}
 			<div class="sort">
 				<ArrowUpDown size={14} />
-				<select bind:value={sort} aria-label={t.studio.list.sort(title)}>
+				<select bind:value={sort} aria-label={t.studio.list.sort({ title })}>
 					{#each sortOptions as option (option.value)}
 						<option value={option.value}>{option.label}</option>
 					{/each}

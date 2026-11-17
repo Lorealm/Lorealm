@@ -45,7 +45,7 @@
 			navigator.start().write();
 			showToast({
 				variant: 'info',
-				message: t.realms.play.started(realm.name || t.realms.play.realm)
+				message: t.realms.play.started({ name: realm.name || t.realms.play.realm })
 			});
 			onclose();
 		} catch (e) {
@@ -73,7 +73,12 @@
 <svelte:window onkeydown={(e) => e.key === 'Escape' && onclose()} />
 
 <div class="overlay" role="presentation" onclick={(e) => e.currentTarget === e.target && onclose()}>
-	<div class="dialog" role="dialog" aria-modal="true" aria-label={t.realms.play.dialog(realm.name)}>
+	<div
+		class="dialog"
+		role="dialog"
+		aria-modal="true"
+		aria-label={t.realms.play.dialog({ name: realm.name })}
+	>
 		<header>
 			<h2>{realm.name || t.realms.cards.untitled}</h2>
 			<button type="button" class="close" aria-label={t.common.close} onclick={onclose}>
@@ -113,7 +118,7 @@
 						<span class="rowText">
 							<span class="rowName">{conversation.title || t.realms.play.untitled}</span>
 							<span class="rowHint">
-								{t.realms.play.messages(conversation.length)} · {new Date(
+								{t.realms.play.messages({ count: conversation.length })} · {new Date(
 									conversation.updated_at
 								).toLocaleDateString()}
 							</span>

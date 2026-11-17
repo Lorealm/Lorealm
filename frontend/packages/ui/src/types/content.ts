@@ -19,9 +19,9 @@ function characterPartLabel(part: CharacterPart): string {
 		case 'scenario':
 			return t.chat.inspector.refs.scenario;
 		case 'greeting':
-			return t.chat.inspector.refs.greeting(part.order);
+			return t.chat.inspector.refs.greeting({ n: part.order });
 		case 'example':
-			return t.chat.inspector.refs.example(part.order);
+			return t.chat.inspector.refs.example({ n: part.order });
 		default:
 			return t.chat.inspector.refs.character;
 	}
@@ -73,7 +73,7 @@ export function resolveBlockContent(block: TracedBlock): ResolvedContent {
 		}
 
 		case 'persona': {
-			const label = t.chat.inspector.refs.persona(ref.persona.name);
+			const label = t.chat.inspector.refs.persona({ name: ref.persona.name });
 			const text = ref.persona.description ?? '';
 			if (text !== '') return { text, label, resolved: true };
 			// Legacy fallback if present
@@ -83,7 +83,7 @@ export function resolveBlockContent(block: TracedBlock): ResolvedContent {
 		case 'plugin':
 			return {
 				text: inline,
-				label: t.chat.inspector.refs.plugin(ref.source_id),
+				label: t.chat.inspector.refs.plugin({ id: ref.source_id }),
 				resolved: inline !== ''
 			};
 

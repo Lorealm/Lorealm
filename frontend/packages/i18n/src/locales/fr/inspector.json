@@ -1,0 +1,66 @@
+{
+	"resize": "Redimensionner l’inspecteur, actuellement {width, number} pixels. Utilisez les touches fléchées.",
+	"realmPlaceholder": "Espace réservé du royaume",
+	"close": "Fermer l’inspecteur",
+	"nothingConfigured": "Rien n’est configuré pour cette vue.",
+	"widgets": {
+		"characterImage": "Image du personnage",
+		"template": "Modèle",
+		"context": "Contexte",
+		"state": "État",
+		"realmAgent": "Agent du royaume",
+		"authorNote": "Note de l’auteur",
+		"creatorNotes": "Notes du créateur"
+	},
+	"creatorNotes": {
+		"loading": "Chargement…",
+		"noCharacter": "Aucun personnage actif. Choisissez-en un sur l’écran des personnages pour lire ses notes.",
+		"empty": "Ce personnage n’a pas de notes de créateur."
+	},
+	"authorNote": {
+		"noChat": "Aucun chat actif.",
+		"placeholder": "'{{'char:name'}}' a accompli quelque chose de remarquable..."
+	},
+	"image": {
+		"cover": "Remplir le panneau en rognant les bords",
+		"fit": "Ajuster l’image entière dans le panneau",
+		"full": "Agrandir le panneau à la taille de l’image",
+		"change": "Changer l’ajustement de l’image",
+		"noCharacter": "Aucun personnage actif."
+	},
+	"context": {
+		"title": "Contexte en direct",
+		"blocks": "{count, plural, one {# bloc} many {# blocs} other {# blocs}}",
+		"noTrace": "Aucun tour tracé pour l’instant.",
+		"noBlocks": "Le dernier tour n’a produit aucun bloc.",
+		"kinds": {
+			"source": "SRC",
+			"group": "GRP",
+			"text": "TXT"
+		},
+		"untitled": "(sans titre)",
+		"source": "source {id}"
+	},
+	"template": {
+		"title": "Nœuds du modèle",
+		"toggleFailed": "Échec du basculement",
+		"rowHint": "Cliquez pour basculer, Maj+clic pour réduire",
+		"boxHint": "Cliquez pour basculer, Maj+clic pour ouvrir",
+		"untitled": "Sans titre",
+		"showGrid": "Afficher en grille",
+		"showTree": "Afficher en arbre",
+		"noTemplate": "Aucun modèle actif.",
+		"nodes": "Nœuds du modèle",
+		"empty": "Modèle vide.",
+		"emptyGroup": "Groupe vide."
+	},
+	"state": {
+		"title": "État en direct",
+		"turn": "tour {n, number}",
+		"noMessage": "Aucun message épinglé.",
+		"unavailable": "État indisponible.",
+		"noActivation": "Aucun état d’activation.",
+		"unknown": "Inconnu",
+		"noPersistent": "Aucun état persistant."
+	}
+}

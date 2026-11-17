@@ -5,7 +5,7 @@
 	import ProfileSection from './user/ProfileSection.svelte';
 	import TokenizersSection from './user/TokenizersSection.svelte';
 	import PluginsSection from './user/PluginsSection.svelte';
-	import AppearanceSection from './client/AppearanceSection.svelte';
+	import InterfaceSection from './client/InterfaceSection.svelte';
 	import EditorSection from './client/EditorSection.svelte';
 	import InspectorSection from './client/InspectorSection.svelte';
 	import KeybindsSection from './client/KeybindsSection.svelte';
@@ -57,7 +57,7 @@
 	{:else if section === 'plugins'}
 		<PluginsSection handle={id} />
 	{:else if section === 'appearance'}
-		<AppearanceSection />
+		<InterfaceSection />
 	{:else if section === 'editor'}
 		<EditorSection />
 	{:else if section === 'inspector'}

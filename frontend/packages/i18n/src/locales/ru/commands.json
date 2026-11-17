@@ -1,0 +1,43 @@
+{
+	"send": {
+		"description": "Отправить сообщение и сгенерировать ответ.",
+		"rest": "сообщение",
+		"unavailable": "Ответ ещё формируется."
+	},
+	"newchat": {
+		"description": "Начать новый разговор с активным персонажем."
+	},
+	"conversations": {
+		"description": "Показать чаты с активным персонажем."
+	},
+	"go": {
+		"description": "Открыть раздел: {views}.",
+		"rest": "раздел",
+		"unknownView": "Неизвестный раздел ''{view}'."
+	},
+	"back": {
+		"description": "Вернуться на предыдущий экран.",
+		"unavailable": "Возвращаться некуда."
+	},
+	"noCharacter": "Нет активного персонажа.",
+	"server": {
+		"rest": "текст",
+		"unavailable": "Дождитесь, пока завершится текущий ответ, команда или плагин."
+	},
+	"unknown": "Неизвестная команда",
+	"noSuchCommand": "Команды /{name} не существует.",
+	"unavailableTitle": "Команда /{name} недоступна",
+	"notAvailable": "Сейчас недоступно.",
+	"failed": "Ошибка в команде /{name}",
+	"resources": {
+		"character": "Персонаж",
+		"persona": "Персона",
+		"connection_profile": "Профиль подключения",
+		"context_template": "Шаблон контекста",
+		"lorebook": "Лорбук",
+		"tokenizer": "Токенайзер",
+		"user_tool": "Инструмент",
+		"user_widget": "Виджет",
+		"realm": "Мир"
+	}
+}

@@ -1,0 +1,60 @@
+{
+	"views": {
+		"write": "Écrire",
+		"characters": "Personnages",
+		"realms": "Royaumes",
+		"connections": "Connexions",
+		"studio": "Studio",
+		"plugins": "Plugins",
+		"settings": "Paramètres"
+	},
+	"studio": {
+		"realm": "Royaume",
+		"characters": "Personnages",
+		"lorebooks": "Lorebooks",
+		"templates": "Modèles",
+		"tools": "Outils",
+		"modules": "Modules",
+		"personas": "Personas",
+		"widgets": "Widgets"
+	},
+	"scopes": {
+		"user": "Vous",
+		"server": "Serveur"
+	},
+	"user": {
+		"profile": "Profil",
+		"tokenizers": "Tokenizers",
+		"plugins": "Plugins",
+		"appearance": "Apparence",
+		"editor": "Éditeur",
+		"inspector": "Inspecteur",
+		"keybinds": "Raccourcis"
+	},
+	"server": {
+		"hosting": "Hébergement",
+		"storage": "Stockage",
+		"sessions": "Sessions",
+		"users": "Utilisateurs",
+		"accounts": "Comptes",
+		"roles": "Rôles",
+		"characters": "Personnages",
+		"tokenizers": "Tokenizers",
+		"plugins": "Plugins",
+		"tasks": "Tâches"
+	},
+	"blueprints": "Plans",
+	"marketplace": "Marketplace",
+	"apiKeys": "Clés API",
+	"closeMenu": "Fermer le menu",
+	"expandMenu": "Développer le menu",
+	"collapseMenu": "Réduire le menu",
+	"openMenu": "Ouvrir le menu",
+	"back": "Retour",
+	"forward": "Suivant",
+	"breadcrumb": "Fil d’Ariane",
+	"openInspector": "Ouvrir l’inspecteur",
+	"loadFailed": "Un élément n’a pas pu être chargé.",
+	"retry": "Réessayer",
+	"rolesPlaceholder": "Vue des rôles"
+}

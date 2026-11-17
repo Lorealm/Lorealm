@@ -1,0 +1,60 @@
+{
+	"views": {
+		"write": "Письмо",
+		"characters": "Персонажи",
+		"realms": "Миры",
+		"connections": "Подключения",
+		"studio": "Студия",
+		"plugins": "Плагины",
+		"settings": "Настройки"
+	},
+	"studio": {
+		"realm": "Мир",
+		"characters": "Персонажи",
+		"lorebooks": "Лорбуки",
+		"templates": "Шаблоны",
+		"tools": "Инструменты",
+		"modules": "Модули",
+		"personas": "Персоны",
+		"widgets": "Виджеты"
+	},
+	"scopes": {
+		"user": "Вы",
+		"server": "Сервер"
+	},
+	"user": {
+		"profile": "Профиль",
+		"tokenizers": "Токенайзеры",
+		"plugins": "Плагины",
+		"appearance": "Оформление",
+		"editor": "Редактор",
+		"inspector": "Инспектор",
+		"keybinds": "Горячие клавиши"
+	},
+	"server": {
+		"hosting": "Хостинг",
+		"storage": "Хранилище",
+		"sessions": "Сеансы",
+		"users": "Пользователи",
+		"accounts": "Учётные записи",
+		"roles": "Роли",
+		"characters": "Персонажи",
+		"tokenizers": "Токенайзеры",
+		"plugins": "Плагины",
+		"tasks": "Задачи"
+	},
+	"blueprints": "Заготовки",
+	"marketplace": "Маркетплейс",
+	"apiKeys": "API-ключи",
+	"closeMenu": "Закрыть меню",
+	"expandMenu": "Развернуть меню",
+	"collapseMenu": "Свернуть меню",
+	"openMenu": "Открыть меню",
+	"back": "Назад",
+	"forward": "Вперёд",
+	"breadcrumb": "Навигационная цепочка",
+	"openInspector": "Открыть инспектор",
+	"loadFailed": "Не удалось что-то загрузить.",
+	"retry": "Повторить",
+	"rolesPlaceholder": "Раздел «Роли»"
+}

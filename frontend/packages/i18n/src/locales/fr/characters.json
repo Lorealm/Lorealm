@@ -1,0 +1,35 @@
+{
+	"chat": "Chat",
+	"showInInspector": "Afficher {name} dans l’inspecteur",
+	"sort": "Trier les personnages",
+	"sortOptions": {
+		"nameAsc": "Nom (A–Z)",
+		"nameDesc": "Nom (Z–A)",
+		"updated": "Modifiés récemment",
+		"created": "Ajoutés récemment"
+	},
+	"reuseHint": "Lorsqu’une carte apporte un lorebook identique à l’un des vôtres, associer le vôtre au lieu d’en importer une copie.",
+	"reuse": "Réutiliser les lorebooks identiques",
+	"uploading": "Téléversement…",
+	"import": "Importer",
+	"new": "Nouveau",
+	"empty": "Aucun personnage pour l’instant — créez-en un pour commencer.",
+	"newName": "Nouveau personnage",
+	"createFailed": "Impossible de créer le personnage",
+	"attachments": {
+		"title": "Lorebooks, outils et widgets",
+		"imported": "{count, number} importé(s).",
+		"reused": "{count, number} réutilisé(s) parmi ceux que vous aviez déjà.",
+		"rename": "{from} en {to}",
+		"renamed": "{list} renommé(s), car ces noms étaient déjà pris.",
+		"skipped": "{list} ignoré(s), car illisible(s)."
+	},
+	"lorebookImport": {
+		"title": "Lorebook importé",
+		"named": "« {name} »",
+		"lorebooks": "{count, plural, one {# lorebook} many {# lorebooks} other {# lorebooks}}",
+		"entries": "{count, plural, one {# entrée} many {# entrées} other {# entrées}}",
+		"notConverted": "{count, plural, one {# entrée n’a pas pu être convertie.} many {# entrées n’ont pas pu être converties.} other {# entrées n’ont pas pu être converties.}}",
+		"message": "{subject} importé avec {entries}."
+	}
+}

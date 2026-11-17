@@ -1,0 +1,43 @@
+{
+	"send": {
+		"description": "Envia uma mensagem e gera uma resposta.",
+		"rest": "mensagem",
+		"unavailable": "Ainda está a ser transmitida uma resposta."
+	},
+	"newchat": {
+		"description": "Inicia uma nova conversa com a personagem ativa."
+	},
+	"conversations": {
+		"description": "Lista as conversas com a personagem ativa."
+	},
+	"go": {
+		"description": "Abre uma vista: {views}.",
+		"rest": "vista",
+		"unknownView": "Vista desconhecida ''{view}'."
+	},
+	"back": {
+		"description": "Volta ao destino anterior.",
+		"unavailable": "Não há nada para onde voltar."
+	},
+	"noCharacter": "Nenhuma personagem está ativa.",
+	"server": {
+		"rest": "texto",
+		"unavailable": "Aguarde que a resposta, o comando ou o plugin atual terminem."
+	},
+	"unknown": "Comando desconhecido",
+	"noSuchCommand": "Não existe o comando /{name}.",
+	"unavailableTitle": "/{name} não está disponível",
+	"notAvailable": "Não disponível neste momento.",
+	"failed": "/{name} falhou",
+	"resources": {
+		"character": "Personagem",
+		"persona": "Persona",
+		"connection_profile": "Perfil de ligação",
+		"context_template": "Modelo de contexto",
+		"lorebook": "Lorebook",
+		"tokenizer": "Tokenizador",
+		"user_tool": "Ferramenta",
+		"user_widget": "Widget",
+		"realm": "Reino"
+	}
+}

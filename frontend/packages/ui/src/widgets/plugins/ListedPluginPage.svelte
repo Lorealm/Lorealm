@@ -58,7 +58,7 @@
 				</button>
 				{#if update}
 					<button type="button" disabled={busy} onclick={() => act(() => installListed(handle))}>
-						{t.plugins.updateTo(update)}
+						{t.plugins.updateTo({ version: update })}
 					</button>
 				{/if}
 				<button type="button" onclick={() => navigator.start().plugins(handle)}

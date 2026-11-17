@@ -156,7 +156,7 @@
 							? 'Linux'
 							: null;
 
-		if (client && os) return t.settings.profile.clientOn(client, os);
+		if (client && os) return t.settings.profile.clientOn({ client, os });
 		return client ?? os ?? t.settings.profile.unknownDevice;
 	}
 
@@ -214,7 +214,7 @@
 				{/if}
 				<span class="handle">@{user.username}</span>
 				{#if memberSince}
-					<span class="since">{t.settings.profile.joined(memberSince)}</span>
+					<span class="since">{t.settings.profile.joined({ when: memberSince })}</span>
 				{/if}
 			</div>
 		</header>
@@ -257,7 +257,7 @@
 				<h3>{t.settings.profile.sessions}</h3>
 				{#if otherSessions > 0}
 					<button class="linkish" onclick={revokeOthers}>
-						{t.settings.profile.signOutOthers(otherSessions)}
+						{t.settings.profile.signOutOthers({ count: otherSessions })}
 					</button>
 				{/if}
 			</div>

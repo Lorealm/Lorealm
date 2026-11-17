@@ -1,0 +1,66 @@
+{
+	"resize": "Redimensionar el inspector, actualmente {width, number} píxeles. Usa las teclas de flecha.",
+	"realmPlaceholder": "Marcador del reino",
+	"close": "Cerrar inspector",
+	"nothingConfigured": "No hay nada configurado para esta vista.",
+	"widgets": {
+		"characterImage": "Imagen del personaje",
+		"template": "Plantilla",
+		"context": "Contexto",
+		"state": "Estado",
+		"realmAgent": "Agente del reino",
+		"authorNote": "Nota del autor",
+		"creatorNotes": "Notas del creador"
+	},
+	"creatorNotes": {
+		"loading": "Cargando…",
+		"noCharacter": "No hay ningún personaje activo. Elige uno en la pantalla de personajes para leer sus notas.",
+		"empty": "Este personaje no tiene notas del creador."
+	},
+	"authorNote": {
+		"noChat": "No hay ningún chat activo.",
+		"placeholder": "'{{'char:name'}}' ha logrado algo extraordinario..."
+	},
+	"image": {
+		"cover": "Llenar el panel, recortando los bordes",
+		"fit": "Ajustar la imagen completa dentro del panel",
+		"full": "Ampliar el panel a toda la imagen",
+		"change": "Cambiar cómo se ajusta la imagen",
+		"noCharacter": "No hay ningún personaje activo."
+	},
+	"context": {
+		"title": "Contexto en vivo",
+		"blocks": "{count, plural, one {# bloque} many {# bloques} other {# bloques}}",
+		"noTrace": "Aún no hay ningún turno registrado.",
+		"noBlocks": "El último turno no produjo bloques.",
+		"kinds": {
+			"source": "ORI",
+			"group": "GRP",
+			"text": "TXT"
+		},
+		"untitled": "(sin título)",
+		"source": "origen {id}"
+	},
+	"template": {
+		"title": "Nodos de la plantilla",
+		"toggleFailed": "No se pudo alternar",
+		"rowHint": "Haz clic para alternar, Shift+clic para contraer",
+		"boxHint": "Haz clic para alternar, Shift+clic para abrir",
+		"untitled": "Sin título",
+		"showGrid": "Mostrar como cuadrícula",
+		"showTree": "Mostrar como árbol",
+		"noTemplate": "No hay ninguna plantilla activa.",
+		"nodes": "Nodos de la plantilla",
+		"empty": "Plantilla vacía.",
+		"emptyGroup": "Grupo vacío."
+	},
+	"state": {
+		"title": "Estado en vivo",
+		"turn": "turno {n, number}",
+		"noMessage": "No hay ningún mensaje fijado.",
+		"unavailable": "Estado no disponible.",
+		"noActivation": "No hay estado de activación.",
+		"unknown": "Desconocido",
+		"noPersistent": "No hay estado persistente."
+	}
+}

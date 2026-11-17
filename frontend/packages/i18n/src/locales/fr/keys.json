@@ -1,0 +1,81 @@
+{
+	"groups": {
+		"navigation": "Navigation",
+		"views": "Vues",
+		"settings": "Paramètres",
+		"chat": "Chat",
+		"inspector": "Inspecteur"
+	},
+	"commands": {
+		"navBack": {
+			"title": "Retour",
+			"description": "Revenir à la destination précédente."
+		},
+		"navForward": {
+			"title": "Suivant",
+			"description": "Annuler un retour."
+		},
+		"viewWrite": {
+			"title": "Aller à Écrire"
+		},
+		"viewCharacters": {
+			"title": "Aller à Personnages"
+		},
+		"viewRealms": {
+			"title": "Aller à Royaumes"
+		},
+		"viewConnections": {
+			"title": "Aller à Connexions"
+		},
+		"viewStudio": {
+			"title": "Aller à Studio"
+		},
+		"settingsOpen": {
+			"title": "Ouvrir les paramètres"
+		},
+		"keysHelp": {
+			"title": "Raccourcis clavier",
+			"description": "Ouvrir la liste des raccourcis."
+		},
+		"chatFocus": {
+			"title": "Activer la zone de saisie",
+			"description": "Placer le curseur dans la zone de chat."
+		},
+		"chatSend": {
+			"title": "Envoyer le message"
+		},
+		"chatConversations": {
+			"title": "Conversations",
+			"description": "Lister les chats avec le personnage actif."
+		},
+		"chatConversationsClose": {
+			"title": "Fermer les conversations"
+		},
+		"chatBranchPrev": {
+			"title": "Branche précédente",
+			"description": "Revenir du dernier message à sa variante précédente."
+		},
+		"chatBranchNext": {
+			"title": "Branche suivante",
+			"description": "Avancer le dernier message vers sa variante suivante, en générant une nouvelle réponse une fois la dernière variante dépassée."
+		},
+		"inspectorNextProfile": {
+			"title": "Profil d’inspecteur suivant"
+		},
+		"inspectorPrevProfile": {
+			"title": "Profil d’inspecteur précédent"
+		}
+	},
+	"names": {
+		"ctrl": "Ctrl",
+		"alt": "Alt",
+		"shift": "Maj",
+		"win": "Win",
+		"enter": "Entrée",
+		"backspace": "Retour arrière",
+		"delete": "Suppr",
+		"escape": "Échap",
+		"tab": "Tab",
+		"space": "Espace"
+	}
+}

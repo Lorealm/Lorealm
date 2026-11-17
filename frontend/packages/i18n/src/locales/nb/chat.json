@@ -1,0 +1,186 @@
+{
+	"feed": {
+		"nothingYet": "Ingenting har skjedd ennå.",
+		"pickCharacter": "Velg en karakter og send en melding for å begynne.",
+		"worldStirs": "verden rører på seg…"
+	},
+	"turns": {
+		"running": "Kjører tur…",
+		"yourTurnAs": "Din tur som",
+		"emptyRunFirst": "Ingenting har skjedd ennå – kjør den første turen.",
+		"nextToAct": "Neste til å handle:",
+		"nobody": "Ingen kan handle akkurat nå.",
+		"seeingAll": "Ser alle turer",
+		"seeingOwn": "Ser bare det agenten din oppfatter",
+		"director": "Regissør",
+		"player": "Spiller",
+		"pauseHint": "Fullfør denne turen, og stopp så",
+		"pause": "Pause",
+		"cancelHint": "Avbryt denne turen",
+		"stop": "Stopp",
+		"stepHint": "Kjør én enkelt tur",
+		"step": "Steg",
+		"runHint": "Kjør turer til det er din tur",
+		"run": "Kjør"
+	},
+	"composer": {
+		"functions": "Funksjoner",
+		"conversations": "Samtaler",
+		"newChat": "Start ny chat",
+		"attachments": "Vedlegg",
+		"placeholder": "Send en melding...",
+		"send": "Send",
+		"stopCommand": "Stopp /{name}",
+		"stopPlugin": "Stopp {name}",
+		"stopGenerating": "Stopp generering",
+		"commands": "Kommandoer"
+	},
+	"message": {
+		"you": "Du",
+		"system": "System",
+		"assistant": "Assistent",
+		"ranCommand": "Kjørte /{name}",
+		"inspectContext": "Inspiser kontekst",
+		"continue": "Fortsett dette svaret",
+		"thoughts": "Tanker",
+		"thinking": "Tenker…",
+		"swipe": "Bla"
+	},
+	"setup": {
+		"title": "Velkommen til Lorealm",
+		"lead": "Du må fullføre noen få steg før du kan komme i gang:",
+		"done": "(ferdig)",
+		"todo": "(gjenstår)",
+		"noProfile": "Opprett en profil og merk den med stjerne som din aktive tilkobling.",
+		"usingProfile": "Bruker {name}.",
+		"yourProfileLower": "profilen din",
+		"yourProfile": "Profilen din",
+		"needsKey": "{profile} trenger en API-nøkkel for å nå {provider}.",
+		"template": {
+			"title": "Opprett og aktiver en kontekstmal",
+			"hint": "Slik er teksten som sendes til modellen lagt opp. Uten den er det ingenting å sende."
+		},
+		"persona": {
+			"title": "Opprett og aktiver en persona",
+			"hint": "En persona er opplysningene om karakteren din. Opprett og aktiver en i studioet."
+		},
+		"connection": {
+			"title": "Sett opp tilkoblingsprofilen din"
+		},
+		"installTokenizer": {
+			"title": "Installer en tokenizer",
+			"hint": "Importer en fra en fil eller last den ned, slik at meldinger kan måles mot budsjettet ditt."
+		},
+		"activeTokenizer": {
+			"title": "Velg din aktive tokenizer",
+			"hint": "Velg hvilken installert tokenizer som teller tokensene dine."
+		}
+	},
+	"inspector": {
+		"title": "Kontekstinspektør",
+		"dialog": "Kontekstinspektør",
+		"tokenCountFailed": "Token-telling mislyktes",
+		"stateFailed": "Kunne ikke laste tilstand",
+		"sampling": {
+			"temperature": "Temperatur",
+			"topP": "Top P",
+			"topK": "Top K",
+			"minP": "Min P"
+		},
+		"unknownTool": "(ukjent)",
+		"untitledNode": "(node uten tittel)",
+		"node": "node {id}",
+		"notReconstructed": "innhold ikke gjenopprettet",
+		"noTrace": "ingen sporing på denne meldingen",
+		"blocks": "{count, plural, one {# blokk} other {# blokker}}",
+		"units": {
+			"tokens": "tokens",
+			"chars": "tegn"
+		},
+		"generationSettings": "Genereringsinnstillinger",
+		"tokenBudget": "Token-budsjett",
+		"unlimited": "ubegrenset",
+		"profileFailed": "kunne ikke laste tilkoblingsprofilen",
+		"fromProfile": "fra {name}",
+		"budgetNotRecorded": "Token-budsjettet ble ikke registrert for denne turen, så dette er profilens nåværende verdi.",
+		"layout": "Oppsett",
+		"noBlocks": "ingen blokker",
+		"layoutAria": "Kontekstoppsett, eldst øverst",
+		"nodeFallback": "node",
+		"blockAria": "{role}-blokk, {size}",
+		"roles": {
+			"system": "system",
+			"user": "bruker",
+			"assistant": "assistent"
+		},
+		"bySource": "Etter kilde",
+		"drift": "Registrerte {count} tokens da denne turen ble sendt. Forskjellen er innhold som er redigert siden – panelet teller på nytt det blokkene sier nå.",
+		"was": "var {count}",
+		"trimmed": "Kuttet ned for å passe",
+		"shed": "{source} · {count} tokens fjernet for å passe budsjettet",
+		"sources": {
+			"conversation": "chathistorikk",
+			"context_template": "mal",
+			"lorebook": "lorebok",
+			"character": "karakter",
+			"character_examples": "eksempelmeldinger",
+			"miscellaneous": "systemprompter",
+			"plugin": "plugins"
+		},
+		"tabs": {
+			"context": "Kontekst",
+			"state": "Tilstand",
+			"tools": "Verktøy"
+		},
+		"rawHint": "Vis konteksten som rå tekst",
+		"raw": "Rå",
+		"noTraceLong": "Denne meldingen har ingen kontekstsporing. Bare turer generert gjennom weaver-pipelinen registrerer en.",
+		"noContextBlocks": "Pipelinen produserte ingen kontekstblokker for denne turen.",
+		"msgs": "{count, number} meld.",
+		"loadingState": "Laster tilstand…",
+		"noState": "Ingen gjenopprettet tilstand for denne turen.",
+		"activation": "Aktivering",
+		"noActivation": "ingen aktiveringstilstand",
+		"noTrackedEntries": "ingen sporede oppføringer",
+		"lastActivated": "sist aktivert for {turns} turer siden",
+		"act": "akt {turns}",
+		"stickyRemaining": "{turns, number} klebrige turer igjen",
+		"stk": "klb {turns}",
+		"persistent": "Vedvarende",
+		"noPersistent": "ingen vedvarende tilstand",
+		"pool": "POOL",
+		"emptyPool": "tom pool",
+		"available": "Tilgjengelig",
+		"tools": "{count, plural, one {# verktøy} other {# verktøy}}",
+		"noToolRecord": "Denne meldingen registrerer ikke hvilke verktøy som var tilgjengelige.",
+		"noToolsOffered": "Modellen ble ikke tilbudt noen verktøy på denne turen.",
+		"noToolCalls": "Ingen verktøykall på denne turen.",
+		"round": "Runde {n, number}",
+		"calls": "{count, plural, one {# kall} other {# kall}}",
+		"error": "feil",
+		"ok": "ok",
+		"input": "inndata",
+		"output": "utdata",
+		"refs": {
+			"definition": "karakter · definisjon",
+			"personality": "karakter · personlighet",
+			"scenario": "karakter · scenario",
+			"greeting": "karakter · hilsen #{n, number}",
+			"example": "karakter · eksempel #{n, number}",
+			"character": "karakter",
+			"unresolvedMessage": "melding · uløst",
+			"persona": "persona · {name}",
+			"plugin": "plugin · {id}"
+		}
+	},
+	"conversations": {
+		"title": "Samtaler",
+		"loadFailed": "Kunne ikke laste samtaler",
+		"openFailed": "Kunne ikke åpne samtalen",
+		"confirmDelete": "Slette «{name}»? Dette kan ikke angres.",
+		"messages": "{count, plural, one {# melding} other {# meldinger}}",
+		"delete": "Slett samtale",
+		"loading": "Laster…",
+		"empty": "Ingen samtaler med denne karakteren ennå."
+	}
+}

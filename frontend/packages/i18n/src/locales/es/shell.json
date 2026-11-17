@@ -1,0 +1,31 @@
+{
+	"login": {
+		"title": "Página de inicio de sesión",
+		"serverUrl": "URL del servidor",
+		"username": "Nombre de usuario",
+		"password": "Contraseña",
+		"emailOptional": "Correo electrónico (opcional)",
+		"inviteCode": "Código de invitación",
+		"invitePlaceholder": "Necesario si los registros están cerrados",
+		"createAccount": "Crear cuenta",
+		"haveAccount": "Ya tengo una cuenta",
+		"logIn": "Iniciar sesión",
+		"createAnAccount": "Crear una cuenta"
+	},
+	"closePanel": "Cerrar panel",
+	"window": {
+		"minimize": "Minimizar",
+		"maximize": "Maximizar",
+		"close": "Cerrar"
+	},
+	"underConstruction": "En construcción",
+	"update": {
+		"title": "Actualización disponible",
+		"message": "Lorealm {version} está listo para instalarse.",
+		"install": "Reiniciar y actualizar",
+		"later": "Más tarde",
+		"installingTitle": "Actualizando",
+		"installing": "Descargando la actualización. Lorealm se reiniciará cuando termine.",
+		"failed": "No se pudo instalar la actualización"
+	}
+}

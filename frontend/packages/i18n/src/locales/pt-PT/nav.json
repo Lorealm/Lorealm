@@ -1,0 +1,60 @@
+{
+	"views": {
+		"write": "Escrever",
+		"characters": "Personagens",
+		"realms": "Reinos",
+		"connections": "Ligações",
+		"studio": "Estúdio",
+		"plugins": "Plugins",
+		"settings": "Definições"
+	},
+	"studio": {
+		"realm": "Reino",
+		"characters": "Personagens",
+		"lorebooks": "Lorebooks",
+		"templates": "Modelos",
+		"tools": "Ferramentas",
+		"modules": "Módulos",
+		"personas": "Personas",
+		"widgets": "Widgets"
+	},
+	"scopes": {
+		"user": "Você",
+		"server": "Servidor"
+	},
+	"user": {
+		"profile": "Perfil",
+		"tokenizers": "Tokenizadores",
+		"plugins": "Plugins",
+		"appearance": "Aspeto",
+		"editor": "Editor",
+		"inspector": "Inspetor",
+		"keybinds": "Atalhos"
+	},
+	"server": {
+		"hosting": "Alojamento",
+		"storage": "Armazenamento",
+		"sessions": "Sessões",
+		"users": "Utilizadores",
+		"accounts": "Contas",
+		"roles": "Funções",
+		"characters": "Personagens",
+		"tokenizers": "Tokenizadores",
+		"plugins": "Plugins",
+		"tasks": "Tarefas"
+	},
+	"blueprints": "Planos",
+	"marketplace": "Mercado",
+	"apiKeys": "Chaves de API",
+	"closeMenu": "Fechar menu",
+	"expandMenu": "Expandir menu",
+	"collapseMenu": "Recolher menu",
+	"openMenu": "Abrir menu",
+	"back": "Voltar",
+	"forward": "Avançar",
+	"breadcrumb": "Caminho de navegação",
+	"openInspector": "Abrir inspetor",
+	"loadFailed": "Algo falhou ao carregar.",
+	"retry": "Tentar novamente",
+	"rolesPlaceholder": "Vista de funções"
+}

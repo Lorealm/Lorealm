@@ -314,7 +314,7 @@ class RealmDraft {
 
 	addScenario(): ScenarioBlock {
 		const scenario = emptyScenario();
-		scenario.name = t.realms.scenarios.defaultName(this.scenarios.length + 1);
+		scenario.name = t.realms.scenarios.defaultName({ n: this.scenarios.length + 1 });
 		this.scenarios.push(scenario);
 		return scenario;
 	}

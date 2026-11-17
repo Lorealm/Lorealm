@@ -54,7 +54,7 @@ const SOURCES: Record<
 				kind: 'lorebook' as const,
 				id: l.id,
 				name: l.name,
-				hint: t.realms.entries(l.entry_count)
+				hint: t.realms.entries({ count: l.entry_count })
 			}))
 	},
 	template: {

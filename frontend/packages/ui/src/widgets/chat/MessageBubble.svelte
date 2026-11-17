@@ -95,7 +95,7 @@
 </script>
 
 {#if commandName !== null}
-	<div class="command-mark" {@attach tooltip(t.chat.message.ranCommand(commandName))}>
+	<div class="command-mark" {@attach tooltip(t.chat.message.ranCommand({ name: commandName }))}>
 		<span class="command-name">/{commandName}</span>
 		{#if message.content}
 			<span class="command-output">{message.content}</span>

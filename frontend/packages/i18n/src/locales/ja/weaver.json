@@ -1,0 +1,38 @@
+{
+	"keywords": {
+		"if": "条件ブロック。`<expr>` が真のとき、本文が出力されます。\n\n配列またはオブジェクトのリテラル内では項目の代わりになり、実行された分岐が持つ項目を追加します。",
+		"elif": "`if` ブロックの追加の分岐。",
+		"else": "`if` ブロックのフォールバック分岐。",
+		"endif": "`if` ブロックを閉じます。",
+		"foreach": "`<array>` を反復し、一時的なスコープ内で各要素を `<name>` に束縛します。\n\n配列またはオブジェクトのリテラル内では項目の代わりになり、反復ごとに1つ追加します。",
+		"endforeach": "`foreach` ブロックを閉じます。",
+		"in": "ループの束縛と反復対象を区切ります。",
+		"break": "最も内側の `foreach` からただちに抜けます。",
+		"continue": "最も内側の `foreach` の次の反復にスキップします。",
+		"return": "評価をただちに終了し、`<expr>` の値を返します。",
+		"stop": "評価をただちに終了し、ここまでに出力されたテキストを残します。"
+	},
+	"kinds": {
+		"namespace": "名前空間",
+		"group": "グループ",
+		"processor": "プロセッサー",
+		"command": "コマンド",
+		"keyword": "キーワード",
+		"entry": "エントリー",
+		"trigger": "トリガー",
+		"declaredHere": "ここで宣言",
+		"parameter": "パラメーター",
+		"loopBinding": "ループ束縛"
+	},
+	"namespaceDoc": "このドキュメントが使用する状態の名前空間。",
+	"holds": "{list}を保持します{more, select, true {。ほかにもあります} other {}}。",
+	"inEntry": "{detail}内。",
+	"triggerDoc": "別のエントリーのテキストをその場に出力します。",
+	"resolvesTo": "読み込まれたコンテキストでは `{value}` に解決されます。",
+	"noValue": "現在のコンテキストには、この変数の読み込み済みの値がありません。",
+	"writtenByCommand": "この本文内のコマンドによって書き込まれます。",
+	"parameterOf": "`{proc}` のパラメーター。",
+	"parameterDefault": "`{proc}` のパラメーター。デフォルトは `{fallback}` です。",
+	"eachElement": "`{iterable}` の各要素。",
+	"hint": "{message}\n\nヒント: {hint}"
+}

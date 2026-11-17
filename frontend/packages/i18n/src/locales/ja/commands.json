@@ -1,0 +1,43 @@
+{
+	"send": {
+		"description": "メッセージを送信して返信を生成します。",
+		"rest": "メッセージ",
+		"unavailable": "返信をストリーミング中です。"
+	},
+	"newchat": {
+		"description": "アクティブなキャラクターと新しい会話を始めます。"
+	},
+	"conversations": {
+		"description": "アクティブなキャラクターとのチャットを一覧表示します。"
+	},
+	"go": {
+		"description": "ビューを開きます: {views}。",
+		"rest": "ビュー",
+		"unknownView": "不明なビュー ''{view}'。"
+	},
+	"back": {
+		"description": "前の画面に戻ります。",
+		"unavailable": "戻る先がありません。"
+	},
+	"noCharacter": "アクティブなキャラクターがありません。",
+	"server": {
+		"rest": "テキスト",
+		"unavailable": "現在の返信、コマンド、プラグインが終了するまでお待ちください。"
+	},
+	"unknown": "不明なコマンド",
+	"noSuchCommand": "/{name} というコマンドはありません。",
+	"unavailableTitle": "/{name} は利用できません",
+	"notAvailable": "現在は利用できません。",
+	"failed": "/{name} に失敗しました",
+	"resources": {
+		"character": "キャラクター",
+		"persona": "ペルソナ",
+		"connection_profile": "接続プロファイル",
+		"context_template": "コンテキストテンプレート",
+		"lorebook": "ロアブック",
+		"tokenizer": "トークナイザー",
+		"user_tool": "ツール",
+		"user_widget": "ウィジェット",
+		"realm": "レルム"
+	}
+}

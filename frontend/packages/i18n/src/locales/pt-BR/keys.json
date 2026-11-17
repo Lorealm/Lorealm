@@ -1,0 +1,81 @@
+{
+	"groups": {
+		"navigation": "Navegação",
+		"views": "Telas",
+		"settings": "Configurações",
+		"chat": "Chat",
+		"inspector": "Inspetor"
+	},
+	"commands": {
+		"navBack": {
+			"title": "Voltar",
+			"description": "Volta ao destino anterior."
+		},
+		"navForward": {
+			"title": "Avançar",
+			"description": "Desfaz um Voltar."
+		},
+		"viewWrite": {
+			"title": "Ir para Escrever"
+		},
+		"viewCharacters": {
+			"title": "Ir para Personagens"
+		},
+		"viewRealms": {
+			"title": "Ir para Reinos"
+		},
+		"viewConnections": {
+			"title": "Ir para Conexões"
+		},
+		"viewStudio": {
+			"title": "Ir para o Estúdio"
+		},
+		"settingsOpen": {
+			"title": "Abrir configurações"
+		},
+		"keysHelp": {
+			"title": "Atalhos de teclado",
+			"description": "Abre a lista de atalhos."
+		},
+		"chatFocus": {
+			"title": "Focar o campo de mensagem",
+			"description": "Coloca o cursor na caixa de chat."
+		},
+		"chatSend": {
+			"title": "Enviar mensagem"
+		},
+		"chatConversations": {
+			"title": "Conversas",
+			"description": "Lista os chats com o personagem ativo."
+		},
+		"chatConversationsClose": {
+			"title": "Fechar conversas"
+		},
+		"chatBranchPrev": {
+			"title": "Ramificação anterior",
+			"description": "Volta a mensagem mais recente para a variante anterior."
+		},
+		"chatBranchNext": {
+			"title": "Próxima ramificação",
+			"description": "Avança a mensagem mais recente, gerando uma nova resposta depois da última variante."
+		},
+		"inspectorNextProfile": {
+			"title": "Próximo perfil do inspetor"
+		},
+		"inspectorPrevProfile": {
+			"title": "Perfil anterior do inspetor"
+		}
+	},
+	"names": {
+		"ctrl": "Ctrl",
+		"alt": "Alt",
+		"shift": "Shift",
+		"win": "Win",
+		"enter": "Enter",
+		"backspace": "Backspace",
+		"delete": "Delete",
+		"escape": "Esc",
+		"tab": "Tab",
+		"space": "Espaço"
+	}
+}

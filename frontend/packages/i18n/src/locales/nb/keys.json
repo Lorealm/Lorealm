@@ -1,0 +1,81 @@
+{
+	"groups": {
+		"navigation": "Navigasjon",
+		"views": "Visninger",
+		"settings": "Innstillinger",
+		"chat": "Chat",
+		"inspector": "Inspektør"
+	},
+	"commands": {
+		"navBack": {
+			"title": "Tilbake",
+			"description": "Gå tilbake til forrige sted."
+		},
+		"navForward": {
+			"title": "Fremover",
+			"description": "Angre en Tilbake."
+		},
+		"viewWrite": {
+			"title": "Gå til Skriv"
+		},
+		"viewCharacters": {
+			"title": "Gå til Karakterer"
+		},
+		"viewRealms": {
+			"title": "Gå til Riker"
+		},
+		"viewConnections": {
+			"title": "Gå til Tilkoblinger"
+		},
+		"viewStudio": {
+			"title": "Gå til Studio"
+		},
+		"settingsOpen": {
+			"title": "Åpne innstillinger"
+		},
+		"keysHelp": {
+			"title": "Hurtigtaster",
+			"description": "Åpne listen over hurtigtaster."
+		},
+		"chatFocus": {
+			"title": "Fokuser meldingsfeltet",
+			"description": "Sett markøren i chatboksen."
+		},
+		"chatSend": {
+			"title": "Send melding"
+		},
+		"chatConversations": {
+			"title": "Samtaler",
+			"description": "List chattene med den aktive karakteren."
+		},
+		"chatConversationsClose": {
+			"title": "Lukk samtaler"
+		},
+		"chatBranchPrev": {
+			"title": "Forrige gren",
+			"description": "Bla den nyeste meldingen tilbake til forrige variant."
+		},
+		"chatBranchNext": {
+			"title": "Neste gren",
+			"description": "Bla den nyeste meldingen fremover, og generer et nytt svar etter siste variant."
+		},
+		"inspectorNextProfile": {
+			"title": "Neste inspektørprofil"
+		},
+		"inspectorPrevProfile": {
+			"title": "Forrige inspektørprofil"
+		}
+	},
+	"names": {
+		"ctrl": "Ctrl",
+		"alt": "Alt",
+		"shift": "Shift",
+		"win": "Win",
+		"enter": "Enter",
+		"backspace": "Backspace",
+		"delete": "Delete",
+		"escape": "Esc",
+		"tab": "Tab",
+		"space": "Mellomrom"
+	}
+}

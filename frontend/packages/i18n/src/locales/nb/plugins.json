@@ -1,0 +1,98 @@
+{
+	"tabs": {
+		"list": "Plugins",
+		"installed": "Installert",
+		"marketplace": "Markedsplass"
+	},
+	"loading": "Laster…",
+	"installedReport": "Installerte {handle}@{version}.",
+	"addManually": "Legg til fra en lenke eller fil",
+	"location": "Lenke eller mappe på serveren",
+	"locationHint": "Et GitHub-repositorium eller en utgivelse, en lenke til en .zip, et git-repositorium eller en mappe som inneholder en manifest.toml.",
+	"dev": "For utvikling",
+	"devHint": "Bygg og last den på nytt fra mappen hver gang du endrer den.",
+	"upload": "Eller last opp en .zip",
+	"installing": "Installerer…",
+	"install": "Installer",
+	"noneInstalled": "Ingen plugins er installert ennå.",
+	"browse": "Bla gjennom markedsplassen",
+	"updateTo": "Oppdater til {version}",
+	"enabled": "Aktivert",
+	"enable": "Aktiver",
+	"settingsNamed": "Innstillinger for {name}",
+	"settings": "Innstillinger",
+	"removeNamed": "Fjern {name} for alle",
+	"remove": "Fjern for alle",
+	"notListed": "Denne pluginen finnes ikke på markedsplassen.",
+	"manage": "Administrer",
+	"noCompatible": "Ingen versjon av den fungerer med denne versjonen av Lorealm.",
+	"notOnServer": "Den finnes ikke på denne serveren ennå. Noen som administrerer pluginene kan legge den til.",
+	"status": {
+		"unsupported": "Ikke for denne versjonen av Lorealm",
+		"update": "Oppdatering tilgjengelig",
+		"enabled": "Aktivert",
+		"installed": "Installert"
+	},
+	"search": "Søk i plugins",
+	"sourcesMissing": "{count, plural, one {Noen plugins kan mangle: én plugin-kilde kunne ikke nås.} other {Noen plugins kan mangle: # plugin-kilder kunne ikke nås.}}",
+	"marketplaceFailed": "Markedsplassen kunne ikke lastes.",
+	"marketplaceEmpty": "Markedsplassen har ingen plugins ennå.",
+	"noMatch": "Ingen plugin samsvarer med «{query}».",
+	"permissions": {
+		"chat:read": "Lese chattene dine",
+		"chat:write": "Endre eller avvise meldinger før de lagres",
+		"data:persist": "Lagre egne data",
+		"model:generate": "Generere et svar på dine vegne",
+		"net:fetch": "Sende forespørsler til vertene nedenfor",
+		"persona:read": "Lese din aktive persona",
+		"prompt:write": "Endre prompter før de sendes",
+		"state:read": "Lese skriptvariabler",
+		"state:write": "Endre skriptvariabler",
+		"tools:write": "Endre verktøykall og resultatene deres, eller avvise kall",
+		"ui:autoplay": "Spille av medier uten at du klikker på dem først",
+		"ui:unsafe": "Kjøre kode direkte i appen"
+	},
+	"callouts": {
+		"note": "Merk",
+		"tip": "Tips",
+		"important": "Viktig",
+		"warning": "Advarsel",
+		"caution": "Forsiktig"
+	},
+	"repository": "Repositorium",
+	"permissionsTitle": "Tillatelser",
+	"sendRequestsTo": "Sender forespørsler til",
+	"none": "Ingen.",
+	"noReadme": "Denne pluginen har ingen README.",
+	"notInstalled": "Denne pluginen er ikke installert.",
+	"reloadHint": "Bygg fra mappen og last på nytt",
+	"reload": "Last på nytt",
+	"detailTabs": {
+		"list": "Plugin-detaljer",
+		"readme": "README",
+		"logs": "Logger"
+	},
+	"logs": {
+		"levels": {
+			"trace": "Trace",
+			"debug": "Debug",
+			"info": "Info",
+			"warn": "Advarsel",
+			"error": "Feil"
+		},
+		"levelFilter": "Nivåer som vises",
+		"period": "Tidsrom",
+		"periods": {
+			"15m": "Siste 15 minutter",
+			"1h": "Siste time",
+			"24h": "Siste 24 timer",
+			"7d": "Siste 7 dager",
+			"all": "Alt"
+		},
+		"refresh": "Oppdater",
+		"fromServer": "Logget av Lorealm",
+		"empty": "Ingenting logget ennå.",
+		"noMatch": "Ingen oppføringer samsvarer med disse filtrene.",
+		"failed": "Loggene kunne ikke lastes."
+	}
+}

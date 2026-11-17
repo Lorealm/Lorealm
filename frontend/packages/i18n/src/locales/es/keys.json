@@ -1,0 +1,81 @@
+{
+	"groups": {
+		"navigation": "Navegación",
+		"views": "Vistas",
+		"settings": "Ajustes",
+		"chat": "Chat",
+		"inspector": "Inspector"
+	},
+	"commands": {
+		"navBack": {
+			"title": "Atrás",
+			"description": "Vuelve al destino anterior."
+		},
+		"navForward": {
+			"title": "Adelante",
+			"description": "Deshace un Atrás."
+		},
+		"viewWrite": {
+			"title": "Ir a Escribir"
+		},
+		"viewCharacters": {
+			"title": "Ir a Personajes"
+		},
+		"viewRealms": {
+			"title": "Ir a Reinos"
+		},
+		"viewConnections": {
+			"title": "Ir a Conexiones"
+		},
+		"viewStudio": {
+			"title": "Ir a Estudio"
+		},
+		"settingsOpen": {
+			"title": "Abrir ajustes"
+		},
+		"keysHelp": {
+			"title": "Atajos de teclado",
+			"description": "Abre la lista de atajos."
+		},
+		"chatFocus": {
+			"title": "Enfocar el cuadro de escritura",
+			"description": "Coloca el cursor en el cuadro del chat."
+		},
+		"chatSend": {
+			"title": "Enviar mensaje"
+		},
+		"chatConversations": {
+			"title": "Conversaciones",
+			"description": "Muestra los chats con el personaje activo."
+		},
+		"chatConversationsClose": {
+			"title": "Cerrar conversaciones"
+		},
+		"chatBranchPrev": {
+			"title": "Rama anterior",
+			"description": "Desliza el mensaje más reciente a su variante anterior."
+		},
+		"chatBranchNext": {
+			"title": "Rama siguiente",
+			"description": "Desliza el mensaje más reciente hacia delante y genera una respuesta nueva al pasar la última variante."
+		},
+		"inspectorNextProfile": {
+			"title": "Siguiente perfil del inspector"
+		},
+		"inspectorPrevProfile": {
+			"title": "Perfil anterior del inspector"
+		}
+	},
+	"names": {
+		"ctrl": "Ctrl",
+		"alt": "Alt",
+		"shift": "Shift",
+		"win": "Win",
+		"enter": "Enter",
+		"backspace": "Backspace",
+		"delete": "Delete",
+		"escape": "Esc",
+		"tab": "Tab",
+		"space": "Space"
+	}
+}

@@ -1,0 +1,186 @@
+{
+	"feed": {
+		"nothingYet": "Aún no ha pasado nada.",
+		"pickCharacter": "Elige un personaje y envía un mensaje para empezar.",
+		"worldStirs": "el mundo se agita…"
+	},
+	"turns": {
+		"running": "Ejecutando turno…",
+		"yourTurnAs": "Tu turno como",
+		"emptyRunFirst": "Aún no ha pasado nada — ejecuta el primer turno.",
+		"nextToAct": "Siguiente en actuar:",
+		"nobody": "Nadie puede actuar ahora mismo.",
+		"seeingAll": "Viendo todos los turnos",
+		"seeingOwn": "Viendo solo lo que percibe tu agente",
+		"director": "Director",
+		"player": "Jugador",
+		"pauseHint": "Terminar este turno y detenerse",
+		"pause": "Pausar",
+		"cancelHint": "Cancelar este turno",
+		"stop": "Detener",
+		"stepHint": "Ejecutar un solo turno",
+		"step": "Paso",
+		"runHint": "Ejecutar turnos hasta que sea tu turno",
+		"run": "Ejecutar"
+	},
+	"composer": {
+		"functions": "Funciones",
+		"conversations": "Conversaciones",
+		"newChat": "Iniciar chat nuevo",
+		"attachments": "Adjuntos",
+		"placeholder": "Envía un mensaje...",
+		"send": "Enviar",
+		"stopCommand": "Detener /{name}",
+		"stopPlugin": "Detener {name}",
+		"stopGenerating": "Dejar de generar",
+		"commands": "Comandos"
+	},
+	"message": {
+		"you": "Tú",
+		"system": "Sistema",
+		"assistant": "Asistente",
+		"ranCommand": "Se ejecutó /{name}",
+		"inspectContext": "Inspeccionar contexto",
+		"continue": "Continuar esta respuesta",
+		"thoughts": "Pensamientos",
+		"thinking": "Pensando…",
+		"swipe": "Deslizar"
+	},
+	"setup": {
+		"title": "Te damos la bienvenida a Lorealm",
+		"lead": "Debes completar unos pasos antes de empezar:",
+		"done": "(hecho)",
+		"todo": "(pendiente)",
+		"noProfile": "Crea un perfil y márcalo con una estrella como tu conexión activa.",
+		"usingProfile": "Usando {name}.",
+		"yourProfileLower": "tu perfil",
+		"yourProfile": "Tu perfil",
+		"needsKey": "{profile} necesita una clave de API para acceder a {provider}.",
+		"template": {
+			"title": "Crea y activa una plantilla de contexto",
+			"hint": "Así se organiza el texto que se envía al modelo. Sin ella no hay nada que enviar."
+		},
+		"persona": {
+			"title": "Crea y activa una persona",
+			"hint": "Una persona son los datos de tu personaje. Crea y activa una en el estudio."
+		},
+		"connection": {
+			"title": "Configura tu perfil de conexión"
+		},
+		"installTokenizer": {
+			"title": "Instala un tokenizador",
+			"hint": "Impórtalo desde un archivo o descárgalo, para poder medir los mensajes con tu presupuesto."
+		},
+		"activeTokenizer": {
+			"title": "Define tu tokenizador activo",
+			"hint": "Elige qué tokenizador instalado cuenta tus tokens."
+		}
+	},
+	"inspector": {
+		"title": "Inspector de contexto",
+		"dialog": "Inspector de contexto",
+		"tokenCountFailed": "Error en el recuento de tokens",
+		"stateFailed": "No se pudo cargar el estado",
+		"sampling": {
+			"temperature": "Temperatura",
+			"topP": "Top P",
+			"topK": "Top K",
+			"minP": "Min P"
+		},
+		"unknownTool": "(desconocida)",
+		"untitledNode": "(nodo sin título)",
+		"node": "nodo {id}",
+		"notReconstructed": "contenido no reconstruido",
+		"noTrace": "este mensaje no tiene registro",
+		"blocks": "{count, plural, one {# bloque} many {# bloques} other {# bloques}}",
+		"units": {
+			"tokens": "tokens",
+			"chars": "car."
+		},
+		"generationSettings": "Ajustes de generación",
+		"tokenBudget": "Presupuesto de tokens",
+		"unlimited": "ilimitado",
+		"profileFailed": "no se pudo cargar el perfil de conexión",
+		"fromProfile": "de {name}",
+		"budgetNotRecorded": "El presupuesto de tokens no se registró en este turno, así que este es el valor actual del perfil.",
+		"layout": "Disposición",
+		"noBlocks": "sin bloques",
+		"layoutAria": "Disposición del contexto, lo más antiguo arriba",
+		"nodeFallback": "nodo",
+		"blockAria": "Bloque de {role}, {size}",
+		"roles": {
+			"system": "sistema",
+			"user": "usuario",
+			"assistant": "asistente"
+		},
+		"bySource": "Por origen",
+		"drift": "Se registraron {count} tokens cuando se envió este turno. La diferencia es contenido editado desde entonces: el panel vuelve a contar lo que dicen ahora esos bloques.",
+		"was": "eran {count}",
+		"trimmed": "Recortado para ajustarse",
+		"shed": "{source} · {count} tokens descartados para ajustarse al presupuesto",
+		"sources": {
+			"conversation": "historial del chat",
+			"context_template": "plantilla",
+			"lorebook": "libro de lore",
+			"character": "personaje",
+			"character_examples": "mensajes de ejemplo",
+			"miscellaneous": "prompts del sistema",
+			"plugin": "plugins"
+		},
+		"tabs": {
+			"context": "Contexto",
+			"state": "Estado",
+			"tools": "Herramientas"
+		},
+		"rawHint": "Mostrar el contexto como texto sin formato",
+		"raw": "Sin formato",
+		"noTraceLong": "Este mensaje no incluye registro de contexto. Solo lo guardan los turnos generados mediante el pipeline de weaver.",
+		"noContextBlocks": "El pipeline no produjo bloques de contexto para este turno.",
+		"msgs": "{count, number} msjs.",
+		"loadingState": "Cargando estado…",
+		"noState": "No hay estado reconstruido para este turno.",
+		"activation": "Activación",
+		"noActivation": "sin estado de activación",
+		"noTrackedEntries": "sin entradas rastreadas",
+		"lastActivated": "activada por última vez hace {turns} turnos",
+		"act": "act {turns}",
+		"stickyRemaining": "{turns, number} turnos fijos restantes",
+		"stk": "fij {turns}",
+		"persistent": "Persistente",
+		"noPersistent": "sin estado persistente",
+		"pool": "POOL",
+		"emptyPool": "pool vacío",
+		"available": "Disponibles",
+		"tools": "{count, plural, one {# herramienta} many {# herramientas} other {# herramientas}}",
+		"noToolRecord": "Este mensaje no registra qué herramientas estaban disponibles.",
+		"noToolsOffered": "No se ofreció ninguna herramienta al modelo en este turno.",
+		"noToolCalls": "No hay llamadas a herramientas en este turno.",
+		"round": "Ronda {n, number}",
+		"calls": "{count, plural, one {# llamada} many {# llamadas} other {# llamadas}}",
+		"error": "error",
+		"ok": "ok",
+		"input": "entrada",
+		"output": "salida",
+		"refs": {
+			"definition": "personaje · definición",
+			"personality": "personaje · personalidad",
+			"scenario": "personaje · escenario",
+			"greeting": "personaje · saludo #{n, number}",
+			"example": "personaje · ejemplo #{n, number}",
+			"character": "personaje",
+			"unresolvedMessage": "mensaje · sin resolver",
+			"persona": "persona · {name}",
+			"plugin": "plugin · {id}"
+		}
+	},
+	"conversations": {
+		"title": "Conversaciones",
+		"loadFailed": "No se pudieron cargar las conversaciones",
+		"openFailed": "No se pudo abrir la conversación",
+		"confirmDelete": "¿Eliminar \"{name}\"? Esta acción no se puede deshacer.",
+		"messages": "{count, plural, one {# mensaje} many {# mensajes} other {# mensajes}}",
+		"delete": "Eliminar conversación",
+		"loading": "Cargando…",
+		"empty": "Aún no hay conversaciones con este personaje."
+	}
+}

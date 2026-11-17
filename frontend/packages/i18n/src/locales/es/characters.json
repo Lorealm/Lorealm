@@ -1,0 +1,35 @@
+{
+	"chat": "Chat",
+	"showInInspector": "Mostrar a {name} en el inspector",
+	"sort": "Ordenar personajes",
+	"sortOptions": {
+		"nameAsc": "Nombre (A–Z)",
+		"nameDesc": "Nombre (Z–A)",
+		"updated": "Actualizados recientemente",
+		"created": "Añadidos recientemente"
+	},
+	"reuseHint": "Cuando una tarjeta trae un libro de lore idéntico a uno que ya tienes, adjunta el tuyo en lugar de importar una copia.",
+	"reuse": "Reutilizar libros de lore coincidentes",
+	"uploading": "Subiendo…",
+	"import": "Importar",
+	"new": "Nuevo",
+	"empty": "Aún no hay personajes — crea uno para empezar.",
+	"newName": "Personaje nuevo",
+	"createFailed": "No se pudo crear el personaje",
+	"attachments": {
+		"title": "Libros de lore, herramientas y widgets",
+		"imported": "Se importaron {count, number}.",
+		"reused": "Se reutilizaron {count, number} que ya tenías.",
+		"rename": "{from} a {to}",
+		"renamed": "Se renombraron {list}, porque esos nombres ya estaban en uso.",
+		"skipped": "Se omitieron {list}, que no se pudieron leer."
+	},
+	"lorebookImport": {
+		"title": "Libro de lore importado",
+		"named": "“{name}”",
+		"lorebooks": "{count, plural, one {# libro de lore} many {# libros de lore} other {# libros de lore}}",
+		"entries": "{count, plural, one {# entrada} many {# entradas} other {# entradas}}",
+		"notConverted": "{count, plural, one {No se pudo convertir # entrada.} many {No se pudieron convertir # entradas.} other {No se pudieron convertir # entradas.}}",
+		"message": "Se importó {subject} con {entries}."
+	}
+}

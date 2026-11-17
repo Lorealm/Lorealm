@@ -1,0 +1,38 @@
+{
+	"keywords": {
+		"if": "Bloco condicional. O corpo é apresentado quando `<expr>` é verdadeiro.\n\nDentro de um literal de lista ou objeto, substitui itens, contribuindo com os que o ramo escolhido contém.",
+		"elif": "Ramo adicional num bloco `if`.",
+		"else": "Ramo alternativo num bloco `if`.",
+		"endif": "Fecha um bloco `if`.",
+		"foreach": "Percorre `<array>`, associando cada elemento a `<name>` num âmbito temporário.\n\nDentro de um literal de lista ou objeto, substitui itens, contribuindo com um por iteração.",
+		"endforeach": "Fecha um bloco `foreach`.",
+		"in": "Separa a associação do ciclo do iterável.",
+		"break": "Sai imediatamente do `foreach` mais interno.",
+		"continue": "Salta para a iteração seguinte do `foreach` mais interno.",
+		"return": "Termina imediatamente a avaliação e devolve o valor de `<expr>`.",
+		"stop": "Termina imediatamente a avaliação, mantendo o texto apresentado até aí."
+	},
+	"kinds": {
+		"namespace": "espaço de nomes",
+		"group": "grupo",
+		"processor": "processador",
+		"command": "comando",
+		"keyword": "palavra-chave",
+		"entry": "entrada",
+		"trigger": "gatilho",
+		"declaredHere": "declarado aqui",
+		"parameter": "parâmetro",
+		"loopBinding": "associação de ciclo"
+	},
+	"namespaceDoc": "Um espaço de nomes de estado que este documento usa.",
+	"holds": "Contém {list}{more, select, true {, e mais} other {}}.",
+	"inEntry": "Em {detail}.",
+	"triggerDoc": "Apresenta o texto de outra entrada neste local.",
+	"resolvesTo": "Resolve para `{value}` no contexto carregado.",
+	"noValue": "Não há valor carregado para esta variável no contexto atual.",
+	"writtenByCommand": "Escrito por um comando neste corpo.",
+	"parameterOf": "Um parâmetro de `{proc}`.",
+	"parameterDefault": "Um parâmetro de `{proc}`. Por predefinição, `{fallback}`.",
+	"eachElement": "Cada elemento de `{iterable}`.",
+	"hint": "{message}\n\nDica: {hint}"
+}

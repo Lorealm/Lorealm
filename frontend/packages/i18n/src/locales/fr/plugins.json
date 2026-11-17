@@ -1,0 +1,98 @@
+{
+	"tabs": {
+		"list": "Plugins",
+		"installed": "Installés",
+		"marketplace": "Marketplace"
+	},
+	"loading": "Chargement…",
+	"installedReport": "{handle}@{version} installé.",
+	"addManually": "Ajouter depuis un lien ou un fichier",
+	"location": "Lien ou dossier sur le serveur",
+	"locationHint": "Un dépôt ou une release GitHub, un lien vers un .zip, un dépôt git, ou un dossier contenant un manifest.toml.",
+	"dev": "Pour le développement",
+	"devHint": "Le recompiler et le recharger depuis son dossier à chaque modification.",
+	"upload": "Ou téléverser un .zip",
+	"installing": "Installation…",
+	"install": "Installer",
+	"noneInstalled": "Aucun plugin n’est encore installé.",
+	"browse": "Parcourir la marketplace",
+	"updateTo": "Mettre à jour vers {version}",
+	"enabled": "Activé",
+	"enable": "Activer",
+	"settingsNamed": "Paramètres de {name}",
+	"settings": "Paramètres",
+	"removeNamed": "Supprimer {name} pour tout le monde",
+	"remove": "Supprimer pour tout le monde",
+	"notListed": "Ce plugin n’est pas dans la marketplace.",
+	"manage": "Gérer",
+	"noCompatible": "Aucune version n’est compatible avec cette version de Lorealm.",
+	"notOnServer": "Il n’est pas encore sur ce serveur. Une personne qui gère ses plugins peut l’ajouter.",
+	"status": {
+		"unsupported": "Incompatible avec cette version de Lorealm",
+		"update": "Mise à jour disponible",
+		"enabled": "Activé",
+		"installed": "Installé"
+	},
+	"search": "Rechercher des plugins",
+	"sourcesMissing": "{count, plural, one {Certains plugins peuvent manquer : une source de plugins était inaccessible.} many {Certains plugins peuvent manquer : # sources de plugins étaient inaccessibles.} other {Certains plugins peuvent manquer : # sources de plugins étaient inaccessibles.}}",
+	"marketplaceFailed": "La marketplace n’a pas pu être chargée.",
+	"marketplaceEmpty": "La marketplace ne contient encore aucun plugin.",
+	"noMatch": "Aucun plugin ne correspond à « {query} ».",
+	"permissions": {
+		"chat:read": "Lire vos chats",
+		"chat:write": "Modifier ou refuser des messages avant leur enregistrement",
+		"data:persist": "Stocker ses propres données",
+		"model:generate": "Générer une réponse en votre nom",
+		"net:fetch": "Envoyer des requêtes aux hôtes ci-dessous",
+		"persona:read": "Lire votre persona active",
+		"prompt:write": "Modifier les prompts avant leur envoi",
+		"state:read": "Lire les variables de script",
+		"state:write": "Modifier les variables de script",
+		"tools:write": "Modifier les appels d’outils et leurs résultats, ou refuser des appels",
+		"ui:autoplay": "Lire des médias sans que vous ayez à cliquer dessus",
+		"ui:unsafe": "Exécuter du code directement dans l’application"
+	},
+	"callouts": {
+		"note": "Note",
+		"tip": "Astuce",
+		"important": "Important",
+		"warning": "Avertissement",
+		"caution": "Attention"
+	},
+	"repository": "Dépôt",
+	"permissionsTitle": "Autorisations",
+	"sendRequestsTo": "Envoyer des requêtes à",
+	"none": "Aucun.",
+	"noReadme": "Ce plugin n’a pas de README.",
+	"notInstalled": "Ce plugin n’est pas installé.",
+	"reloadHint": "Recompiler depuis son dossier et recharger",
+	"reload": "Recharger",
+	"detailTabs": {
+		"list": "Détails du plugin",
+		"readme": "README",
+		"logs": "Journaux"
+	},
+	"logs": {
+		"levels": {
+			"trace": "Trace",
+			"debug": "Debug",
+			"info": "Info",
+			"warn": "Avertissement",
+			"error": "Erreur"
+		},
+		"levelFilter": "Niveaux à afficher",
+		"period": "Période",
+		"periods": {
+			"15m": "15 dernières minutes",
+			"1h": "Dernière heure",
+			"24h": "24 dernières heures",
+			"7d": "7 derniers jours",
+			"all": "Tout"
+		},
+		"refresh": "Actualiser",
+		"fromServer": "Journalisé par Lorealm",
+		"empty": "Rien n’a encore été journalisé.",
+		"noMatch": "Aucune entrée ne correspond à ces filtres.",
+		"failed": "Les journaux n’ont pas pu être chargés."
+	}
+}

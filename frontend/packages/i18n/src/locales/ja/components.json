@@ -1,0 +1,54 @@
+{
+	"toast": {
+		"dismiss": "トーストを閉じる"
+	},
+	"saveIndicator": {
+		"invalid": "未保存 — 無効"
+	},
+	"wideScreenNote": "{subject}はタブレットまたはパソコンのほうが使いやすくなります。",
+	"tokenBadge": {
+		"estimated": "推定値 — トークナイザーが選択されていません。正確な数を表示するには設定で選択してください。",
+		"exact": "アクティブなトークナイザーでのトークン数",
+		"unit": "トークン"
+	},
+	"searchSelect": {
+		"noMatches": "一致するものがありません。",
+		"hideSuggestions": "候補を隠す",
+		"showSuggestions": "候補を表示"
+	},
+	"iconPicker": {
+		"change": "アイコンを変更",
+		"pick": "アイコンを選択",
+		"search": "{count, plural, other {# 個のアイコンから検索}}",
+		"noMatch": "「{query}」に一致するアイコンはありません。"
+	},
+	"listSidebar": {
+		"new": "新規",
+		"creating": "作成中…",
+		"search": "検索…",
+		"sort": "{title}を並べ替え",
+		"showBuiltIn": "組み込みを表示"
+	},
+	"field": {
+		"help": "ヘルプ: {label}",
+		"maximize": "最大化",
+		"maximizeField": "{label}を最大化",
+		"fallbackLabel": "フィールド",
+		"editingFullScreen": "全画面で編集中…",
+		"edit": "編集"
+	},
+	"numberInput": {
+		"increment": "増やす",
+		"decrement": "減らす"
+	},
+	"plugin": {
+		"callFailed": "呼び出しに失敗しました。",
+		"panelFailed": "このプラグインのパネルを読み込めませんでした。"
+	},
+	"loading": "読み込み中",
+	"unknownWidget": "不明なウィジェット: {id}",
+	"maximize": {
+		"minimizeHint": "最小化 (Esc)",
+		"minimize": "最小化"
+	}
+}

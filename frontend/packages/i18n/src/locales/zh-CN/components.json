@@ -1,0 +1,54 @@
+{
+	"toast": {
+		"dismiss": "关闭提示"
+	},
+	"saveIndicator": {
+		"invalid": "未保存——内容无效"
+	},
+	"wideScreenNote": "{subject}在平板或电脑上更好用。",
+	"tokenBadge": {
+		"estimated": "估算值——当前未启用分词器。在设置中选择一个即可获得精确计数。",
+		"exact": "当前分词器统计的 Token 数",
+		"unit": "Token"
+	},
+	"searchSelect": {
+		"noMatches": "无匹配项。",
+		"hideSuggestions": "隐藏建议",
+		"showSuggestions": "显示建议"
+	},
+	"iconPicker": {
+		"change": "更换图标",
+		"pick": "选择图标",
+		"search": "{count, plural, other {搜索 # 个图标}}",
+		"noMatch": "没有匹配“{query}”的图标。"
+	},
+	"listSidebar": {
+		"new": "新建",
+		"creating": "正在创建…",
+		"search": "搜索…",
+		"sort": "排序{title}",
+		"showBuiltIn": "显示内置项"
+	},
+	"field": {
+		"help": "帮助：{label}",
+		"maximize": "最大化",
+		"maximizeField": "最大化{label}",
+		"fallbackLabel": "字段",
+		"editingFullScreen": "正在全屏编辑…",
+		"edit": "编辑"
+	},
+	"numberInput": {
+		"increment": "增加",
+		"decrement": "减少"
+	},
+	"plugin": {
+		"callFailed": "调用失败。",
+		"panelFailed": "无法加载此插件的面板。"
+	},
+	"loading": "加载中",
+	"unknownWidget": "未知小组件：{id}",
+	"maximize": {
+		"minimizeHint": "最小化（Esc）",
+		"minimize": "最小化"
+	}
+}

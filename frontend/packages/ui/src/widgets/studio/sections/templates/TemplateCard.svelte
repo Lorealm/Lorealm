@@ -54,12 +54,12 @@
 	<div class="meta">
 		<span class="stat" {@attach tooltip(t.studio.templates.topLevelNodes)}>
 			<Layers size={13} />
-			{t.studio.templates.nodes(meta.node_count)}
+			{t.studio.templates.nodes({ count: meta.node_count })}
 		</span>
 		<span class="stat">v{meta.version}</span>
 		{#if updated}
 			<span class="stat" {@attach tooltip(meta.updated_at)}
-				>{t.studio.templates.updated(updated)}</span
+				>{t.studio.templates.updated({ when: updated })}</span
 			>
 		{/if}
 	</div>
@@ -90,7 +90,7 @@
 				type="button"
 				class="export"
 				{@attach tooltip(t.studio.templates.export)}
-				aria-label={t.studio.templates.exportNamed(meta.name)}
+				aria-label={t.studio.templates.exportNamed({ name: meta.name })}
 				onclick={() => exportItem('template', meta.id, meta.name)}
 			>
 				<Download size={14} />
@@ -99,7 +99,7 @@
 				type="button"
 				class="del"
 				{@attach tooltip(t.studio.templates.delete)}
-				aria-label={t.studio.templates.deleteNamed(meta.name)}
+				aria-label={t.studio.templates.deleteNamed({ name: meta.name })}
 				disabled={busy}
 				onclick={() => (confirmingDelete = true)}
 			>

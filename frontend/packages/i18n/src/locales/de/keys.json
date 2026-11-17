@@ -1,0 +1,81 @@
+{
+	"groups": {
+		"navigation": "Navigation",
+		"views": "Ansichten",
+		"settings": "Einstellungen",
+		"chat": "Chat",
+		"inspector": "Inspektor"
+	},
+	"commands": {
+		"navBack": {
+			"title": "Zurück",
+			"description": "Kehrt zum vorherigen Ziel zurück."
+		},
+		"navForward": {
+			"title": "Vor",
+			"description": "Macht ein „Zurück“ rückgängig."
+		},
+		"viewWrite": {
+			"title": "Zu Schreiben wechseln"
+		},
+		"viewCharacters": {
+			"title": "Zu Charaktere wechseln"
+		},
+		"viewRealms": {
+			"title": "Zu Realms wechseln"
+		},
+		"viewConnections": {
+			"title": "Zu Verbindungen wechseln"
+		},
+		"viewStudio": {
+			"title": "Zu Studio wechseln"
+		},
+		"settingsOpen": {
+			"title": "Einstellungen öffnen"
+		},
+		"keysHelp": {
+			"title": "Tastenkürzel",
+			"description": "Öffnet die Liste der Tastenkürzel."
+		},
+		"chatFocus": {
+			"title": "Eingabefeld fokussieren",
+			"description": "Setzt den Cursor in das Chatfeld."
+		},
+		"chatSend": {
+			"title": "Nachricht senden"
+		},
+		"chatConversations": {
+			"title": "Unterhaltungen",
+			"description": "Listet die Chats mit dem aktiven Charakter auf."
+		},
+		"chatConversationsClose": {
+			"title": "Unterhaltungen schließen"
+		},
+		"chatBranchPrev": {
+			"title": "Vorheriger Zweig",
+			"description": "Schaltet die neueste Nachricht auf ihre vorherige Variante zurück."
+		},
+		"chatBranchNext": {
+			"title": "Nächster Zweig",
+			"description": "Schaltet die neueste Nachricht auf die nächste Variante weiter und erzeugt nach der letzten Variante eine neue Antwort."
+		},
+		"inspectorNextProfile": {
+			"title": "Nächstes Inspektor-Profil"
+		},
+		"inspectorPrevProfile": {
+			"title": "Vorheriges Inspektor-Profil"
+		}
+	},
+	"names": {
+		"ctrl": "Strg",
+		"alt": "Alt",
+		"shift": "Umschalt",
+		"win": "Win",
+		"enter": "Eingabe",
+		"backspace": "Rücktaste",
+		"delete": "Entf",
+		"escape": "Esc",
+		"tab": "Tab",
+		"space": "Leertaste"
+	}
+}

@@ -1,0 +1,43 @@
+{
+	"send": {
+		"description": "Sendet eine Nachricht und erzeugt eine Antwort.",
+		"rest": "Nachricht",
+		"unavailable": "Eine Antwort wird noch gestreamt."
+	},
+	"newchat": {
+		"description": "Beginnt eine neue Unterhaltung mit dem aktiven Charakter."
+	},
+	"conversations": {
+		"description": "Listet die Chats mit dem aktiven Charakter auf."
+	},
+	"go": {
+		"description": "Öffnet eine Ansicht: {views}.",
+		"rest": "Ansicht",
+		"unknownView": "Unbekannte Ansicht ''{view}'."
+	},
+	"back": {
+		"description": "Kehrt zum vorherigen Ziel zurück.",
+		"unavailable": "Es gibt nichts, wohin man zurückkehren könnte."
+	},
+	"noCharacter": "Kein Charakter ist aktiv.",
+	"server": {
+		"rest": "Text",
+		"unavailable": "Warten Sie, bis die aktuelle Antwort, der Befehl oder das Plugin fertig ist."
+	},
+	"unknown": "Unbekannter Befehl",
+	"noSuchCommand": "Es gibt keinen Befehl /{name}.",
+	"unavailableTitle": "/{name} ist nicht verfügbar",
+	"notAvailable": "Derzeit nicht verfügbar.",
+	"failed": "/{name} ist fehlgeschlagen",
+	"resources": {
+		"character": "Charakter",
+		"persona": "Persona",
+		"connection_profile": "Verbindungsprofil",
+		"context_template": "Kontextvorlage",
+		"lorebook": "Lorebook",
+		"tokenizer": "Tokenizer",
+		"user_tool": "Tool",
+		"user_widget": "Widget",
+		"realm": "Realm"
+	}
+}

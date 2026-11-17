@@ -533,7 +533,7 @@ dependencies = [
 
 [[package]]
 name = "ci"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "argh",
  "xshell",
@@ -2259,7 +2259,7 @@ dependencies = [
 
 [[package]]
 name = "lorealm_encryption"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "aes-gcm",
  "argon2",
@@ -2280,7 +2280,7 @@ dependencies = [
 
 [[package]]
 name = "lorealm_plugin_manifest"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "semver",
  "serde",
@@ -2290,7 +2290,7 @@ dependencies = [
 
 [[package]]
 name = "lorealm_plugins"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -2307,7 +2307,7 @@ dependencies = [
 
 [[package]]
 name = "lorealm_providers"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -2321,7 +2321,7 @@ dependencies = [
 
 [[package]]
 name = "lorealm_server"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -2374,7 +2374,7 @@ dependencies = [
 
 [[package]]
 name = "lorealm_storage"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-trait",

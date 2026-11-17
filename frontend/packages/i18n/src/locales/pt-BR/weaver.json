@@ -1,0 +1,38 @@
+{
+	"keywords": {
+		"if": "Bloco condicional. O corpo é renderizado quando `<expr>` é verdadeira.\n\nDentro de um literal de array ou objeto, ele representa itens, contribuindo com os que o ramo escolhido contém.",
+		"elif": "Ramo adicional em um bloco `if`.",
+		"else": "Ramo alternativo em um bloco `if`.",
+		"endif": "Fecha um bloco `if`.",
+		"foreach": "Percorre `<array>`, associando cada elemento a `<name>` em um escopo temporário.\n\nDentro de um literal de array ou objeto, ele representa itens, contribuindo com um por iteração.",
+		"endforeach": "Fecha um bloco `foreach`.",
+		"in": "Separa a associação do laço do iterável.",
+		"break": "Sai imediatamente do `foreach` mais interno.",
+		"continue": "Pula para a próxima iteração do `foreach` mais interno.",
+		"return": "Encerra a avaliação imediatamente e retorna o valor de `<expr>`.",
+		"stop": "Encerra a avaliação imediatamente, mantendo o texto renderizado até aqui."
+	},
+	"kinds": {
+		"namespace": "namespace",
+		"group": "grupo",
+		"processor": "processador",
+		"command": "comando",
+		"keyword": "palavra-chave",
+		"entry": "entrada",
+		"trigger": "gatilho",
+		"declaredHere": "declarado aqui",
+		"parameter": "parâmetro",
+		"loopBinding": "associação de laço"
+	},
+	"namespaceDoc": "Um namespace de estado usado por este documento.",
+	"holds": "Contém {list}{more, select, true {, e mais} other {}}.",
+	"inEntry": "Em {detail}.",
+	"triggerDoc": "Renderiza o texto de outra entrada neste lugar.",
+	"resolvesTo": "Resolve para `{value}` no contexto carregado.",
+	"noValue": "Nenhum valor carregado para esta variável no contexto atual.",
+	"writtenByCommand": "Gravado por um comando neste corpo.",
+	"parameterOf": "Um parâmetro de `{proc}`.",
+	"parameterDefault": "Um parâmetro de `{proc}`. O padrão é `{fallback}`.",
+	"eachElement": "Cada elemento de `{iterable}`.",
+	"hint": "{message}\n\nDica: {hint}"
+}

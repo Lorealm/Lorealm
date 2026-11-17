@@ -1,0 +1,38 @@
+{
+	"keywords": {
+		"if": "Betinget blokk. Innholdet vises når `<expr>` er sann.\n\nI en array- eller objektliteral står den for elementer og bidrar med de grenen den tar inneholder.",
+		"elif": "Ekstra gren i en `if`-blokk.",
+		"else": "Reservegren i en `if`-blokk.",
+		"endif": "Avslutt en `if`-blokk.",
+		"foreach": "Gå gjennom `<array>` og bind hvert element til `<name>` i et midlertidig omfang.\n\nI en array- eller objektliteral står den for elementer og bidrar med ett per gjennomløp.",
+		"endforeach": "Avslutt en `foreach`-blokk.",
+		"in": "Skiller løkkebindingen fra det som gås gjennom.",
+		"break": "Bryt umiddelbart ut av den innerste `foreach`.",
+		"continue": "Hopp til neste gjennomløp av den innerste `foreach`.",
+		"return": "Avslutt evalueringen umiddelbart og returner verdien av `<expr>`.",
+		"stop": "Avslutt evalueringen umiddelbart, og behold teksten som er gjengitt så langt."
+	},
+	"kinds": {
+		"namespace": "navnerom",
+		"group": "gruppe",
+		"processor": "prosessor",
+		"command": "kommando",
+		"keyword": "nøkkelord",
+		"entry": "oppføring",
+		"trigger": "utløser",
+		"declaredHere": "deklarert her",
+		"parameter": "parameter",
+		"loopBinding": "løkkebinding"
+	},
+	"namespaceDoc": "Et tilstandsnavnerom dette dokumentet bruker.",
+	"holds": "Inneholder {list}{more, select, true {, og mer} other {}}.",
+	"inEntry": "I {detail}.",
+	"triggerDoc": "Gjengi teksten til en annen oppføring på stedet.",
+	"resolvesTo": "Blir til `{value}` for den innlastede konteksten.",
+	"noValue": "Ingen innlastet verdi for denne variabelen i gjeldende kontekst.",
+	"writtenByCommand": "Skrevet av en kommando i dette innholdet.",
+	"parameterOf": "En parameter til `{proc}`.",
+	"parameterDefault": "En parameter til `{proc}`. Standardverdi er `{fallback}`.",
+	"eachElement": "Hvert element i `{iterable}`.",
+	"hint": "{message}\n\nTips: {hint}"
+}

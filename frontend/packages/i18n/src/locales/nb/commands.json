@@ -1,0 +1,43 @@
+{
+	"send": {
+		"description": "Send en melding og generer et svar.",
+		"rest": "melding",
+		"unavailable": "Et svar strømmes fortsatt inn."
+	},
+	"newchat": {
+		"description": "Start en ny samtale med den aktive karakteren."
+	},
+	"conversations": {
+		"description": "List chattene med den aktive karakteren."
+	},
+	"go": {
+		"description": "Åpne en visning: {views}.",
+		"rest": "visning",
+		"unknownView": "Ukjent visning ''{view}'."
+	},
+	"back": {
+		"description": "Gå tilbake til forrige sted.",
+		"unavailable": "Det er ingenting å gå tilbake til."
+	},
+	"noCharacter": "Ingen karakter er aktiv.",
+	"server": {
+		"rest": "tekst",
+		"unavailable": "Vent til det pågående svaret, kommandoen eller pluginen er ferdig."
+	},
+	"unknown": "Ukjent kommando",
+	"noSuchCommand": "Det finnes ingen kommando /{name}.",
+	"unavailableTitle": "/{name} er utilgjengelig",
+	"notAvailable": "Ikke tilgjengelig akkurat nå.",
+	"failed": "/{name} mislyktes",
+	"resources": {
+		"character": "Karakter",
+		"persona": "Persona",
+		"connection_profile": "Tilkoblingsprofil",
+		"context_template": "Kontekstmal",
+		"lorebook": "Lorebok",
+		"tokenizer": "Tokenizer",
+		"user_tool": "Verktøy",
+		"user_widget": "Widget",
+		"realm": "Rike"
+	}
+}

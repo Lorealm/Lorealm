@@ -21,7 +21,7 @@ async function invoke(name: string, rest: string): Promise<void> {
 	if (!command) {
 		showToast({
 			title: t.commands.unknown,
-			message: t.commands.noSuchCommand(name),
+			message: t.commands.noSuchCommand({ name }),
 			variant: 'error'
 		});
 		return;
@@ -29,7 +29,7 @@ async function invoke(name: string, rest: string): Promise<void> {
 
 	if (command.enabled && !command.enabled()) {
 		showToast({
-			title: t.commands.unavailableTitle(command.name),
+			title: t.commands.unavailableTitle({ name: command.name }),
 			message: command.unavailable ?? t.commands.notAvailable,
 			variant: 'warning'
 		});
@@ -41,7 +41,7 @@ async function invoke(name: string, rest: string): Promise<void> {
 	} catch (error) {
 		if (extractError(error).code === 'command.cancelled') return;
 		showToast({
-			title: t.commands.failed(command.name),
+			title: t.commands.failed({ name: command.name }),
 			message: error instanceof Error ? error.message : String(error),
 			variant: 'error'
 		});

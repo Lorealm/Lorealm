@@ -1,0 +1,43 @@
+{
+	"send": {
+		"description": "发送消息并生成回复。",
+		"rest": "message",
+		"unavailable": "回复仍在流式输出中。"
+	},
+	"newchat": {
+		"description": "与当前角色开始一段新对话。"
+	},
+	"conversations": {
+		"description": "列出与当前角色的聊天。"
+	},
+	"go": {
+		"description": "打开视图：{views}。",
+		"rest": "view",
+		"unknownView": "未知视图 ''{view}'。"
+	},
+	"back": {
+		"description": "返回上一个位置。",
+		"unavailable": "没有可返回的位置。"
+	},
+	"noCharacter": "当前没有活动角色。",
+	"server": {
+		"rest": "text",
+		"unavailable": "请等待当前的回复、命令或插件完成。"
+	},
+	"unknown": "未知命令",
+	"noSuchCommand": "没有 /{name} 这个命令。",
+	"unavailableTitle": "/{name} 不可用",
+	"notAvailable": "目前不可用。",
+	"failed": "/{name} 执行失败",
+	"resources": {
+		"character": "角色",
+		"persona": "人设",
+		"connection_profile": "连接配置",
+		"context_template": "上下文模板",
+		"lorebook": "世界书",
+		"tokenizer": "分词器",
+		"user_tool": "工具",
+		"user_widget": "小组件",
+		"realm": "领域"
+	}
+}

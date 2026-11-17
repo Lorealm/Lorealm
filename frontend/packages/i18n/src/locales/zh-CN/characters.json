@@ -1,0 +1,35 @@
+{
+	"chat": "聊天",
+	"showInInspector": "在检查器中显示 {name}",
+	"sort": "排序角色",
+	"sortOptions": {
+		"nameAsc": "名称（A–Z）",
+		"nameDesc": "名称（Z–A）",
+		"updated": "最近更新",
+		"created": "最近添加"
+	},
+	"reuseHint": "当角色卡附带的世界书与你已有的相同时，附加你已有的，而不是导入副本。",
+	"reuse": "复用匹配的世界书",
+	"uploading": "正在上传…",
+	"import": "导入",
+	"new": "新建",
+	"empty": "还没有角色——创建一个即可开始。",
+	"newName": "新角色",
+	"createFailed": "无法创建角色",
+	"attachments": {
+		"title": "世界书、工具和小组件",
+		"imported": "已导入 {count, number} 项。",
+		"reused": "复用了你已有的 {count, number} 项。",
+		"rename": "{from} 改为 {to}",
+		"renamed": "已重命名{list}，因为这些名称已被占用。",
+		"skipped": "已略过{list}，因为无法读取。"
+	},
+	"lorebookImport": {
+		"title": "世界书已导入",
+		"named": "“{name}”",
+		"lorebooks": "{count, plural, other {# 本世界书}}",
+		"entries": "{count, plural, other {# 个条目}}",
+		"notConverted": "{count, plural, other {有 # 个条目无法转换。}}",
+		"message": "已导入{subject}，包含{entries}。"
+	}
+}

@@ -54,7 +54,10 @@
 	const exportItems = $derived(
 		characterStore.exportProfiles.flatMap((profile) =>
 			(['png', 'json'] as const).map((format) => ({
-				label: t.studio.characters.exportOption(profile.label, format.toUpperCase()),
+				label: t.studio.characters.exportOption({
+					profile: profile.label,
+					format: format.toUpperCase()
+				}),
 				icon: format === 'png' ? FileImage : FileBraces,
 				onSelect: () => void exportAs(profile, format)
 			}))
@@ -74,7 +77,7 @@
 			if (warnings.length > 0) {
 				const download = t.studio.characters.download;
 				const choice = await showPopup({
-					title: t.studio.characters.exportTitle(summary.name, profile.label),
+					title: t.studio.characters.exportTitle({ name: summary.name, profile: profile.label }),
 					message: [
 						profile.description,
 						t.studio.characters.wontCarry,
@@ -133,14 +136,14 @@
 
 		{#if relative}
 			<div class="subheader" {@attach tooltip(summary.updated_at)}>
-				{t.studio.characters.updated(relative)}
+				{t.studio.characters.updated({ when: relative })}
 			</div>
 		{/if}
 	</div>
 
 	{#if confirmingDelete}
 		<div class="controls confirm">
-			<span class="confirmText">{t.studio.characters.confirmDelete(summary.name)}</span>
+			<span class="confirmText">{t.studio.characters.confirmDelete({ name: summary.name })}</span>
 			<div class="confirmButtons">
 				<button type="button" class="danger" disabled={deleting} onclick={remove}
 					>{t.common.delete}</button
@@ -169,7 +172,7 @@
 					type="button"
 					class="minor del"
 					{@attach tooltip(t.studio.characters.delete)}
-					aria-label={t.studio.characters.deleteNamed(summary.name)}
+					aria-label={t.studio.characters.deleteNamed({ name: summary.name })}
 					onclick={() => (confirmingDelete = true)}
 				>
 					<Trash2 size={16} />

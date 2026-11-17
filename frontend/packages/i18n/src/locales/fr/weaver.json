@@ -1,0 +1,38 @@
+{
+	"keywords": {
+		"if": "Bloc conditionnel. Le corps est affiché lorsque `<expr>` est vrai.\n\nDans un littéral de tableau ou d’objet, il tient lieu d’éléments et apporte ceux de la branche retenue.",
+		"elif": "Branche supplémentaire d’un bloc `if`.",
+		"else": "Branche de repli d’un bloc `if`.",
+		"endif": "Fermer un bloc `if`.",
+		"foreach": "Parcourt `<array>` en liant chaque élément à `<name>` dans une portée temporaire.\n\nDans un littéral de tableau ou d’objet, il tient lieu d’éléments et en apporte un par itération.",
+		"endforeach": "Fermer un bloc `foreach`.",
+		"in": "Sépare la liaison de boucle de l’itérable.",
+		"break": "Sort immédiatement du `foreach` le plus interne.",
+		"continue": "Passe à l’itération suivante du `foreach` le plus interne.",
+		"return": "Termine immédiatement l’évaluation et renvoie la valeur de `<expr>`.",
+		"stop": "Termine immédiatement l’évaluation en conservant le texte produit jusque-là."
+	},
+	"kinds": {
+		"namespace": "espace de noms",
+		"group": "groupe",
+		"processor": "processeur",
+		"command": "commande",
+		"keyword": "mot-clé",
+		"entry": "entrée",
+		"trigger": "déclencheur",
+		"declaredHere": "déclaré ici",
+		"parameter": "paramètre",
+		"loopBinding": "liaison de boucle"
+	},
+	"namespaceDoc": "Un espace de noms d’état utilisé par ce document.",
+	"holds": "Contient {list}{more, select, true {, et plus} other {}}.",
+	"inEntry": "Dans {detail}.",
+	"triggerDoc": "Affiche sur place le texte d’une autre entrée.",
+	"resolvesTo": "Vaut `{value}` dans le contexte chargé.",
+	"noValue": "Aucune valeur chargée pour cette variable dans le contexte actuel.",
+	"writtenByCommand": "Écrit par une commande de ce corps.",
+	"parameterOf": "Un paramètre de `{proc}`.",
+	"parameterDefault": "Un paramètre de `{proc}`. Vaut `{fallback}` par défaut.",
+	"eachElement": "Chaque élément de `{iterable}`.",
+	"hint": "{message}\n\nAstuce : {hint}"
+}

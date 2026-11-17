@@ -1,0 +1,31 @@
+{
+	"login": {
+		"title": "Страница входа",
+		"serverUrl": "URL сервера",
+		"username": "Имя пользователя",
+		"password": "Пароль",
+		"emailOptional": "Эл. почта (необязательно)",
+		"inviteCode": "Код приглашения",
+		"invitePlaceholder": "Нужен, если регистрация закрыта",
+		"createAccount": "Создать учётную запись",
+		"haveAccount": "У меня уже есть учётная запись",
+		"logIn": "Войти",
+		"createAnAccount": "Создать учётную запись"
+	},
+	"closePanel": "Закрыть панель",
+	"window": {
+		"minimize": "Свернуть",
+		"maximize": "Развернуть",
+		"close": "Закрыть"
+	},
+	"underConstruction": "В разработке",
+	"update": {
+		"title": "Доступно обновление",
+		"message": "Lorealm {version} готов к установке.",
+		"install": "Перезапустить и обновить",
+		"later": "Позже",
+		"installingTitle": "Обновление",
+		"installing": "Загрузка обновления. По завершении Lorealm перезапустится.",
+		"failed": "Не удалось установить обновление"
+	}
+}

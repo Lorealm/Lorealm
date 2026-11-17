@@ -66,7 +66,7 @@
 	<div class="meta">
 		<span class="stat" {@attach tooltip(t.studio.lorebooks.entriesHint)}>
 			<BookOpen size={13} />
-			{t.studio.lorebooks.entries(meta.entry_count)}
+			{t.studio.lorebooks.entries({ count: meta.entry_count })}
 		</span>
 	</div>
 
@@ -93,7 +93,7 @@
 				type="button"
 				class="del"
 				{@attach tooltip(t.studio.lorebooks.delete)}
-				aria-label={t.studio.lorebooks.deleteNamed(meta.name)}
+				aria-label={t.studio.lorebooks.deleteNamed({ name: meta.name })}
 				disabled={busy}
 				onclick={() => (confirmingDelete = true)}
 			>

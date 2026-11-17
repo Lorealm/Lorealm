@@ -141,7 +141,9 @@ function procParams(text: string, pos: number): VariableRef[] {
 		const m = PARAM.exec(param.trim());
 		if (!m) return [];
 		const [, name, type, fallback] = m;
-		const doc = fallback ? t.weaver.parameterDefault(proc, fallback) : t.weaver.parameterOf(proc);
+		const doc = fallback
+			? t.weaver.parameterDefault({ proc, fallback })
+			: t.weaver.parameterOf({ proc });
 		return [variable('input', name, t.weaver.kinds.parameter, doc, type)];
 	});
 }
@@ -149,7 +151,12 @@ function procParams(text: string, pos: number): VariableRef[] {
 function loopRefs(state: EditorState, pos: number): VariableRef[] {
 	const source = state.facet(variableSource);
 	return bindingsAt(state.doc.toString(), pos).flatMap((loop) => [
-		variable('', loop.name, t.weaver.kinds.loopBinding, t.weaver.eachElement(loop.iterable)),
+		variable(
+			'',
+			loop.name,
+			t.weaver.kinds.loopBinding,
+			t.weaver.eachElement({ iterable: loop.iterable })
+		),
 		...(source?.elements?.(loop.iterable) ?? []).map((field) => ({
 			...field,
 			scope: loop.name,

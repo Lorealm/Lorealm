@@ -80,7 +80,7 @@
 					key: `loop:${reach}`,
 					group: t.realms.binding.fromLoop,
 					label: reach,
-					hint: t.realms.binding.each(REF_NAME[kind], input.name),
+					hint: t.realms.binding.each({ type: REF_NAME[kind], input: input.name }),
 					binding: { source: 'loop', varName, path }
 				});
 			}
@@ -255,8 +255,8 @@
 			class:empty={value === null}
 			class:loop={value !== null && value.source !== 'resource'}
 			aria-label={value === null
-				? t.realms.binding.emptyAria(ariaLabel ?? t.realms.binding.field)
-				: t.realms.binding.filledAria(ariaLabel ?? t.realms.binding.field, label)}
+				? t.realms.binding.emptyAria({ label: ariaLabel ?? t.realms.binding.field })
+				: t.realms.binding.filledAria({ label: ariaLabel ?? t.realms.binding.field, value: label })}
 			onclick={() => {
 				if (value === null) return open ? close() : openPicker();
 				onlocate?.(value, 'select');
@@ -271,7 +271,7 @@
 				type="button"
 				class="clear"
 				{@attach tooltip(t.realms.binding.clear)}
-				aria-label={t.realms.binding.clearAria(ariaLabel ?? t.realms.binding.fieldLower)}
+				aria-label={t.realms.binding.clearAria({ label: ariaLabel ?? t.realms.binding.fieldLower })}
 				onclick={() => onchange(null)}
 			>
 				<X size={12} />
@@ -282,7 +282,7 @@
 			type="button"
 			class="pick"
 			{@attach tooltip(t.realms.binding.pick)}
-			aria-label={t.realms.binding.pickAria(ariaLabel ?? t.realms.binding.thisField)}
+			aria-label={t.realms.binding.pickAria({ label: ariaLabel ?? t.realms.binding.thisField })}
 			role="combobox"
 			aria-expanded={open}
 			aria-controls={listId}

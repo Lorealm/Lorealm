@@ -1,0 +1,54 @@
+{
+	"toast": {
+		"dismiss": "Lukk varselet"
+	},
+	"saveIndicator": {
+		"invalid": "Ikke lagret – ugyldig"
+	},
+	"wideScreenNote": "{subject} er enklere å bruke på et nettbrett eller en datamaskin.",
+	"tokenBadge": {
+		"estimated": "Anslått – ingen tokenizer er aktiv. Velg en i Innstillinger for nøyaktige tall.",
+		"exact": "Tokens med den aktive tokenizeren",
+		"unit": "tokens"
+	},
+	"searchSelect": {
+		"noMatches": "Ingen treff.",
+		"hideSuggestions": "Skjul forslag",
+		"showSuggestions": "Vis forslag"
+	},
+	"iconPicker": {
+		"change": "Bytt ikon",
+		"pick": "Velg et ikon",
+		"search": "{count, plural, one {Søk blant # ikon} other {Søk blant # ikoner}}",
+		"noMatch": "Ingen ikoner samsvarer med «{query}»."
+	},
+	"listSidebar": {
+		"new": "Ny",
+		"creating": "Oppretter…",
+		"search": "Søk…",
+		"sort": "Sorter {title}",
+		"showBuiltIn": "Vis innebygde"
+	},
+	"field": {
+		"help": "Hjelp: {label}",
+		"maximize": "Maksimer",
+		"maximizeField": "Maksimer {label}",
+		"fallbackLabel": "felt",
+		"editingFullScreen": "Redigerer i fullskjerm…",
+		"edit": "Rediger"
+	},
+	"numberInput": {
+		"increment": "Øk",
+		"decrement": "Reduser"
+	},
+	"plugin": {
+		"callFailed": "Kallet mislyktes.",
+		"panelFailed": "Panelet til denne pluginen kunne ikke lastes."
+	},
+	"loading": "Laster",
+	"unknownWidget": "Ukjent widget: {id}",
+	"maximize": {
+		"minimizeHint": "Minimer (Esc)",
+		"minimize": "Minimer"
+	}
+}

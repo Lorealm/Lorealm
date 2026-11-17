@@ -39,7 +39,7 @@
 	function optionLabel(c: SlotChoice): string {
 		if (c === 'inherit') {
 			return inheritedDefault
-				? t.studio.slot.inheritFrom(slotLabel(inheritedDefault))
+				? t.studio.slot.inheritFrom({ slot: slotLabel(inheritedDefault) })
 				: t.studio.slot.inheritDefault;
 		}
 		return c;

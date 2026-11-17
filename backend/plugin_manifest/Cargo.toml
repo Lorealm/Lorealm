@@ -1,6 +1,6 @@
 [package]
 name = "lorealm_plugin_manifest"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 license = "MIT"
 description = "The manifest.toml format of Lorealm plugins"

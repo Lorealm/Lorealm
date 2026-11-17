@@ -1,0 +1,16 @@
+{
+	"close": "閉じる",
+	"dismiss": "閉じる",
+	"error": "エラー",
+	"saving": "保存中…",
+	"saved": "保存済み",
+	"save": "保存",
+	"cancel": "キャンセル",
+	"edit": "編集",
+	"delete": "削除",
+	"previous": "前へ",
+	"next": "次へ",
+	"loading": "読み込み中…",
+	"ok": "OK",
+	"notification": "通知"
+}

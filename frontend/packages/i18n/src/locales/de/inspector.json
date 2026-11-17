@@ -1,0 +1,66 @@
+{
+	"resize": "Größe des Inspektors ändern, aktuell {width, number} Pixel. Pfeiltasten verwenden.",
+	"realmPlaceholder": "Realm-Platzhalter",
+	"close": "Inspektor schließen",
+	"nothingConfigured": "Für diese Ansicht ist nichts eingerichtet.",
+	"widgets": {
+		"characterImage": "Charakterbild",
+		"template": "Vorlage",
+		"context": "Kontext",
+		"state": "Zustand",
+		"realmAgent": "Realm-Agent",
+		"authorNote": "Autorennotiz",
+		"creatorNotes": "Notizen des Erstellers"
+	},
+	"creatorNotes": {
+		"loading": "Laden…",
+		"noCharacter": "Kein aktiver Charakter. Wählen Sie auf dem Charakterbildschirm einen aus, um dessen Notizen zu lesen.",
+		"empty": "Dieser Charakter hat keine Notizen des Erstellers."
+	},
+	"authorNote": {
+		"noChat": "Kein aktiver Chat.",
+		"placeholder": "'{{'char:name'}}' hat etwas Bemerkenswertes erreicht..."
+	},
+	"image": {
+		"cover": "Das Panel ausfüllen und die Ränder beschneiden",
+		"fit": "Das ganze Bild im Panel anzeigen",
+		"full": "Das Panel auf das ganze Bild vergrößern",
+		"change": "Bildanpassung ändern",
+		"noCharacter": "Kein aktiver Charakter."
+	},
+	"context": {
+		"title": "Live-Kontext",
+		"blocks": "{count, plural, one {# Block} other {# Blöcke}}",
+		"noTrace": "Noch kein nachverfolgter Zug.",
+		"noBlocks": "Der letzte Zug hat keine Blöcke erzeugt.",
+		"kinds": {
+			"source": "QUE",
+			"group": "GRP",
+			"text": "TXT"
+		},
+		"untitled": "(ohne Titel)",
+		"source": "Quelle {id}"
+	},
+	"template": {
+		"title": "Vorlagenknoten",
+		"toggleFailed": "Umschalten fehlgeschlagen",
+		"rowHint": "Klicken zum Umschalten, Umschalt-Klick zum Einklappen",
+		"boxHint": "Klicken zum Umschalten, Umschalt-Klick zum Öffnen",
+		"untitled": "Ohne Titel",
+		"showGrid": "Als Raster anzeigen",
+		"showTree": "Als Baum anzeigen",
+		"noTemplate": "Keine aktive Vorlage.",
+		"nodes": "Vorlagenknoten",
+		"empty": "Leere Vorlage.",
+		"emptyGroup": "Leere Gruppe."
+	},
+	"state": {
+		"title": "Live-Zustand",
+		"turn": "Zug {n, number}",
+		"noMessage": "Keine Nachricht angeheftet.",
+		"unavailable": "Zustand nicht verfügbar.",
+		"noActivation": "Kein Aktivierungszustand.",
+		"unknown": "Unbekannt",
+		"noPersistent": "Kein persistenter Zustand."
+	}
+}

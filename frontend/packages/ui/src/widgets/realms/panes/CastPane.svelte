@@ -151,7 +151,7 @@
 			type="button"
 			class="remove"
 			{@attach tooltip(t.realms.castPane.removeAgent)}
-			aria-label={t.realms.castPane.removeNamed(agent.handle)}
+			aria-label={t.realms.castPane.removeNamed({ handle: agent.handle })}
 			onclick={() => realmDraft.removeAgent(agent.key)}
 		>
 			<Trash2 size={12} />
@@ -191,7 +191,10 @@
 					type="button"
 					class="grip"
 					{@attach tooltip(t.realms.castPane.reorder)}
-					aria-label={t.realms.castPane.reorderAria(index + 1, realmDraft.cast.length)}
+					aria-label={t.realms.castPane.reorderAria({
+						n: index + 1,
+						total: realmDraft.cast.length
+					})}
 					onpointerdown={() => (gripped = entry.key)}
 					onpointerup={() => (gripped = null)}
 					onkeydown={(e) => onEntryKeydown(e, entry.key)}
@@ -249,7 +252,7 @@
 							{#if decl && loopReaches(decl.ty).length === 0}
 								<span
 									class="warn"
-									{@attach tooltip(t.realms.castPane.notReferences(entry.varName))}
+									{@attach tooltip(t.realms.castPane.notReferences({ variable: entry.varName }))}
 								>
 									<FlagOff size={12} />
 								</span>
@@ -282,7 +285,7 @@
 								onclick={() => realmDraft.addToBody(entry.key)}
 							>
 								<Plus size={12} />
-								{t.realms.castPane.agentPer(entry.varName)}
+								{t.realms.castPane.agentPer({ variable: entry.varName })}
 							</button>
 						</div>
 					{/if}

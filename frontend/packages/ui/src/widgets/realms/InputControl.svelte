@@ -79,7 +79,9 @@
 				</label>
 			{:else}
 				<p class="none">
-					{t.realms.inputs.noneToPick(kind ? t.realms.kindsPlural[kind].toLocaleLowerCase() : '')}
+					{t.realms.inputs.noneToPick({
+						kinds: kind ? t.realms.kindsPlural[kind].toLocaleLowerCase() : ''
+					})}
 				</p>
 			{/each}
 		</div>
@@ -90,13 +92,13 @@
 					<Self
 						ty={ty.of}
 						value={row}
-						ariaLabel={t.realms.inputs.item(ariaLabel, i + 1)}
+						ariaLabel={t.realms.inputs.item({ label: ariaLabel, n: i + 1 })}
 						onchange={(next) => onchange(rows.map((held, at) => (at === i ? next : held)))}
 					/>
 					<button
 						type="button"
 						class="drop"
-						aria-label={t.realms.inputs.remove(ariaLabel, i + 1)}
+						aria-label={t.realms.inputs.remove({ label: ariaLabel, n: i + 1 })}
 						onclick={() => onchange(rows.filter((_, at) => at !== i))}
 					>
 						<X size={12} />
@@ -123,7 +125,7 @@
 			{/each}
 		</select>
 	{:else}
-		<p class="none">{t.realms.inputs.noKeys(ty.ref_name)}</p>
+		<p class="none">{t.realms.inputs.noKeys({ provider: ty.ref_name })}</p>
 	{/if}
 {:else if ty.type === 'reference'}
 	<select
@@ -157,7 +159,7 @@
 				min={ty.min}
 				max={ty.max}
 				step={(ty.max - ty.min) / 100}
-				aria-label={t.realms.inputs.from(ariaLabel)}
+				aria-label={t.realms.inputs.from({ label: ariaLabel })}
 				value={span.from}
 				oninput={(e) => setSpan(Number(e.currentTarget.value), span.to)}
 			/>
@@ -166,7 +168,7 @@
 				min={ty.min}
 				max={ty.max}
 				step={(ty.max - ty.min) / 100}
-				aria-label={t.realms.inputs.to(ariaLabel)}
+				aria-label={t.realms.inputs.to({ label: ariaLabel })}
 				value={span.to}
 				oninput={(e) => setSpan(span.from, Number(e.currentTarget.value))}
 			/>

@@ -1,0 +1,81 @@
+{
+	"groups": {
+		"navigation": "ナビゲーション",
+		"views": "ビュー",
+		"settings": "設定",
+		"chat": "チャット",
+		"inspector": "インスペクター"
+	},
+	"commands": {
+		"navBack": {
+			"title": "戻る",
+			"description": "前の画面に戻ります。"
+		},
+		"navForward": {
+			"title": "進む",
+			"description": "「戻る」を取り消します。"
+		},
+		"viewWrite": {
+			"title": "「執筆」に移動"
+		},
+		"viewCharacters": {
+			"title": "「キャラクター」に移動"
+		},
+		"viewRealms": {
+			"title": "「レルム」に移動"
+		},
+		"viewConnections": {
+			"title": "「接続」に移動"
+		},
+		"viewStudio": {
+			"title": "「スタジオ」に移動"
+		},
+		"settingsOpen": {
+			"title": "設定を開く"
+		},
+		"keysHelp": {
+			"title": "キーボードショートカット",
+			"description": "ショートカット一覧を開きます。"
+		},
+		"chatFocus": {
+			"title": "入力欄にフォーカス",
+			"description": "チャットボックスにカーソルを置きます。"
+		},
+		"chatSend": {
+			"title": "メッセージを送信"
+		},
+		"chatConversations": {
+			"title": "会話",
+			"description": "アクティブなキャラクターとのチャットを一覧表示します。"
+		},
+		"chatConversationsClose": {
+			"title": "会話を閉じる"
+		},
+		"chatBranchPrev": {
+			"title": "前のブランチ",
+			"description": "最新のメッセージを前のバリエーションにスワイプで戻します。"
+		},
+		"chatBranchNext": {
+			"title": "次のブランチ",
+			"description": "最新のメッセージを次へスワイプします。最後のバリエーションを過ぎると新しい返信を生成します。"
+		},
+		"inspectorNextProfile": {
+			"title": "次のインスペクタープロファイル"
+		},
+		"inspectorPrevProfile": {
+			"title": "前のインスペクタープロファイル"
+		}
+	},
+	"names": {
+		"ctrl": "Ctrl",
+		"alt": "Alt",
+		"shift": "Shift",
+		"win": "Win",
+		"enter": "Enter",
+		"backspace": "Backspace",
+		"delete": "Delete",
+		"escape": "Esc",
+		"tab": "Tab",
+		"space": "Space"
+	}
+}

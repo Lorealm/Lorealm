@@ -1,0 +1,66 @@
+{
+	"resize": "Endre størrelse på inspektøren, nå {width, number} piksler. Bruk piltastene.",
+	"realmPlaceholder": "Plassholder for rike",
+	"close": "Lukk inspektøren",
+	"nothingConfigured": "Ingenting er satt opp for denne visningen.",
+	"widgets": {
+		"characterImage": "Karakterbilde",
+		"template": "Mal",
+		"context": "Kontekst",
+		"state": "Tilstand",
+		"realmAgent": "Rikets agent",
+		"authorNote": "Forfatternotat",
+		"creatorNotes": "Skaperens notater"
+	},
+	"creatorNotes": {
+		"loading": "Laster…",
+		"noCharacter": "Ingen aktiv karakter. Velg en på karakterskjermen for å lese notatene.",
+		"empty": "Denne karakteren har ingen notater fra skaperen."
+	},
+	"authorNote": {
+		"noChat": "Ingen aktiv chat.",
+		"placeholder": "'{{'char:name'}}' har oppnådd noe bemerkelsesverdig..."
+	},
+	"image": {
+		"cover": "Fyll panelet og beskjær kantene",
+		"fit": "Tilpass hele bildet inni panelet",
+		"full": "Utvid panelet til hele bildet",
+		"change": "Endre hvordan bildet passer",
+		"noCharacter": "Ingen aktiv karakter."
+	},
+	"context": {
+		"title": "Live kontekst",
+		"blocks": "{count, plural, one {# blokk} other {# blokker}}",
+		"noTrace": "Ingen sporet tur ennå.",
+		"noBlocks": "Siste tur ga ingen blokker.",
+		"kinds": {
+			"source": "KLD",
+			"group": "GRP",
+			"text": "TKS"
+		},
+		"untitled": "(uten tittel)",
+		"source": "kilde {id}"
+	},
+	"template": {
+		"title": "Malnoder",
+		"toggleFailed": "Veksling mislyktes",
+		"rowHint": "Klikk for å veksle, Shift-klikk for å skjule",
+		"boxHint": "Klikk for å veksle, Shift-klikk for å åpne",
+		"untitled": "Uten tittel",
+		"showGrid": "Vis som rutenett",
+		"showTree": "Vis som tre",
+		"noTemplate": "Ingen aktiv mal.",
+		"nodes": "Malnoder",
+		"empty": "Tom mal.",
+		"emptyGroup": "Tom gruppe."
+	},
+	"state": {
+		"title": "Live tilstand",
+		"turn": "tur {n, number}",
+		"noMessage": "Ingen melding festet.",
+		"unavailable": "Tilstand utilgjengelig.",
+		"noActivation": "Ingen aktiveringstilstand.",
+		"unknown": "Ukjent",
+		"noPersistent": "Ingen vedvarende tilstand."
+	}
+}

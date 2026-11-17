@@ -1,0 +1,66 @@
+{
+	"resize": "Redimensionar inspetor, atualmente com {width, number} píxeis. Use as teclas de seta.",
+	"realmPlaceholder": "Marcador de posição do reino",
+	"close": "Fechar inspetor",
+	"nothingConfigured": "Nada configurado para esta vista.",
+	"widgets": {
+		"characterImage": "Imagem da personagem",
+		"template": "Modelo",
+		"context": "Contexto",
+		"state": "Estado",
+		"realmAgent": "Agente do reino",
+		"authorNote": "Nota do autor",
+		"creatorNotes": "Notas do criador"
+	},
+	"creatorNotes": {
+		"loading": "A carregar…",
+		"noCharacter": "Nenhuma personagem ativa. Escolha uma no ecrã de personagens para ler as respetivas notas.",
+		"empty": "Esta personagem não tem notas do criador."
+	},
+	"authorNote": {
+		"noChat": "Nenhuma conversa ativa.",
+		"placeholder": "'{{'char:name'}}' alcançou algo extraordinário..."
+	},
+	"image": {
+		"cover": "Preencher o painel, cortando as margens",
+		"fit": "Ajustar a imagem inteira ao painel",
+		"full": "Aumentar o painel até à imagem inteira",
+		"change": "Alterar o ajuste da imagem",
+		"noCharacter": "Nenhuma personagem ativa."
+	},
+	"context": {
+		"title": "Contexto em direto",
+		"blocks": "{count, plural, one {# bloco} many {# blocos} other {# blocos}}",
+		"noTrace": "Ainda sem turno registado.",
+		"noBlocks": "O último turno não produziu blocos.",
+		"kinds": {
+			"source": "ORI",
+			"group": "GRP",
+			"text": "TXT"
+		},
+		"untitled": "(sem título)",
+		"source": "origem {id}"
+	},
+	"template": {
+		"title": "Nós do modelo",
+		"toggleFailed": "Falha ao alternar",
+		"rowHint": "Clique para alternar, Shift+clique para recolher",
+		"boxHint": "Clique para alternar, Shift+clique para abrir",
+		"untitled": "Sem título",
+		"showGrid": "Mostrar como grelha",
+		"showTree": "Mostrar como árvore",
+		"noTemplate": "Nenhum modelo ativo.",
+		"nodes": "Nós do modelo",
+		"empty": "Modelo vazio.",
+		"emptyGroup": "Grupo vazio."
+	},
+	"state": {
+		"title": "Estado em direto",
+		"turn": "turno {n, number}",
+		"noMessage": "Nenhuma mensagem fixada.",
+		"unavailable": "Estado indisponível.",
+		"noActivation": "Sem estado de ativação.",
+		"unknown": "Desconhecido",
+		"noPersistent": "Sem estado persistente."
+	}
+}

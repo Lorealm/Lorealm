@@ -60,7 +60,7 @@
 			{#if sortOptions.length > 0}
 				<div class="sort">
 					<ArrowUpDown size={13} />
-					<select bind:value={sort} aria-label={t.components.listSidebar.sort(title)}>
+					<select bind:value={sort} aria-label={t.components.listSidebar.sort({ title })}>
 						{#each sortOptions as option (option.value)}
 							<option value={option.value}>{option.label}</option>
 						{/each}

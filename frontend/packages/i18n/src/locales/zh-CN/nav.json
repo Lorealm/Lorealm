@@ -1,0 +1,60 @@
+{
+	"views": {
+		"write": "写作",
+		"characters": "角色",
+		"realms": "领域",
+		"connections": "连接",
+		"studio": "工作室",
+		"plugins": "插件",
+		"settings": "设置"
+	},
+	"studio": {
+		"realm": "领域",
+		"characters": "角色",
+		"lorebooks": "世界书",
+		"templates": "模板",
+		"tools": "工具",
+		"modules": "模块",
+		"personas": "人设",
+		"widgets": "小组件"
+	},
+	"scopes": {
+		"user": "个人",
+		"server": "服务器"
+	},
+	"user": {
+		"profile": "个人资料",
+		"tokenizers": "分词器",
+		"plugins": "插件",
+		"appearance": "外观",
+		"editor": "编辑器",
+		"inspector": "检查器",
+		"keybinds": "快捷键"
+	},
+	"server": {
+		"hosting": "托管",
+		"storage": "存储",
+		"sessions": "会话",
+		"users": "用户",
+		"accounts": "账号",
+		"roles": "身份组",
+		"characters": "角色",
+		"tokenizers": "分词器",
+		"plugins": "插件",
+		"tasks": "任务"
+	},
+	"blueprints": "蓝图",
+	"marketplace": "市场",
+	"apiKeys": "API 密钥",
+	"closeMenu": "关闭菜单",
+	"expandMenu": "展开菜单",
+	"collapseMenu": "折叠菜单",
+	"openMenu": "打开菜单",
+	"back": "后退",
+	"forward": "前进",
+	"breadcrumb": "面包屑导航",
+	"openInspector": "打开检查器",
+	"loadFailed": "部分内容加载失败。",
+	"retry": "重试",
+	"rolesPlaceholder": "身份组视图"
+}

@@ -1,0 +1,186 @@
+{
+	"feed": {
+		"nothingYet": "Es ist noch nichts passiert.",
+		"pickCharacter": "Wählen Sie einen Charakter und senden Sie eine Nachricht, um zu beginnen.",
+		"worldStirs": "die Welt regt sich…"
+	},
+	"turns": {
+		"running": "Zug läuft…",
+		"yourTurnAs": "Ihr Zug als",
+		"emptyRunFirst": "Es ist noch nichts passiert — führen Sie den ersten Zug aus.",
+		"nextToAct": "Als Nächstes am Zug:",
+		"nobody": "Im Moment kann niemand handeln.",
+		"seeingAll": "Alle Züge sichtbar",
+		"seeingOwn": "Nur sichtbar, was Ihr Agent wahrnimmt",
+		"director": "Spielleiter",
+		"player": "Spieler",
+		"pauseHint": "Diesen Zug beenden, dann anhalten",
+		"pause": "Pausieren",
+		"cancelHint": "Diesen Zug abbrechen",
+		"stop": "Stopp",
+		"stepHint": "Einen einzelnen Zug ausführen",
+		"step": "Schritt",
+		"runHint": "Züge ausführen, bis Sie an der Reihe sind",
+		"run": "Ausführen"
+	},
+	"composer": {
+		"functions": "Funktionen",
+		"conversations": "Unterhaltungen",
+		"newChat": "Neuen Chat beginnen",
+		"attachments": "Anhänge",
+		"placeholder": "Nachricht senden...",
+		"send": "Senden",
+		"stopCommand": "/{name} stoppen",
+		"stopPlugin": "{name} stoppen",
+		"stopGenerating": "Erzeugung stoppen",
+		"commands": "Befehle"
+	},
+	"message": {
+		"you": "Sie",
+		"system": "System",
+		"assistant": "Assistent",
+		"ranCommand": "/{name} ausgeführt",
+		"inspectContext": "Kontext untersuchen",
+		"continue": "Diese Antwort fortsetzen",
+		"thoughts": "Gedanken",
+		"thinking": "Denkt nach…",
+		"swipe": "Wischen"
+	},
+	"setup": {
+		"title": "Willkommen bei Lorealm",
+		"lead": "Bevor es losgehen kann, sind ein paar Schritte nötig:",
+		"done": "(erledigt)",
+		"todo": "(offen)",
+		"noProfile": "Erstellen Sie ein Profil und markieren Sie es als Ihre aktive Verbindung.",
+		"usingProfile": "{name} wird verwendet.",
+		"yourProfileLower": "Ihr Profil",
+		"yourProfile": "Ihr Profil",
+		"needsKey": "{profile} benötigt einen API-Schlüssel, um {provider} zu erreichen.",
+		"template": {
+			"title": "Eine Kontextvorlage erstellen und aktivieren",
+			"hint": "Sie legt fest, wie der an das Modell gesendete Text aufgebaut ist. Ohne sie gibt es nichts zu senden."
+		},
+		"persona": {
+			"title": "Eine Persona erstellen und aktivieren",
+			"hint": "Eine Persona enthält die Angaben zu Ihrem Charakter. Erstellen und aktivieren Sie im Studio eine."
+		},
+		"connection": {
+			"title": "Verbindungsprofil einrichten"
+		},
+		"installTokenizer": {
+			"title": "Einen Tokenizer installieren",
+			"hint": "Importieren Sie einen aus einer Datei oder laden Sie ihn herunter, damit Nachrichten an Ihrem Budget gemessen werden können."
+		},
+		"activeTokenizer": {
+			"title": "Aktiven Tokenizer festlegen",
+			"hint": "Wählen Sie, welcher installierte Tokenizer Ihre Token zählt."
+		}
+	},
+	"inspector": {
+		"title": "Kontext-Inspektor",
+		"dialog": "Kontext-Inspektor",
+		"tokenCountFailed": "Token-Zählung fehlgeschlagen",
+		"stateFailed": "Zustand konnte nicht geladen werden",
+		"sampling": {
+			"temperature": "Temperatur",
+			"topP": "Top P",
+			"topK": "Top K",
+			"minP": "Min P"
+		},
+		"unknownTool": "(unbekannt)",
+		"untitledNode": "(Knoten ohne Titel)",
+		"node": "Knoten {id}",
+		"notReconstructed": "Inhalt nicht rekonstruiert",
+		"noTrace": "keine Ablaufspur bei dieser Nachricht",
+		"blocks": "{count, plural, one {# Block} other {# Blöcke}}",
+		"units": {
+			"tokens": "Token",
+			"chars": "Zeichen"
+		},
+		"generationSettings": "Generierungseinstellungen",
+		"tokenBudget": "Token-Budget",
+		"unlimited": "unbegrenzt",
+		"profileFailed": "Verbindungsprofil konnte nicht geladen werden",
+		"fromProfile": "aus {name}",
+		"budgetNotRecorded": "Das Token-Budget wurde bei diesem Zug nicht aufgezeichnet, daher ist dies der aktuelle Wert des Profils.",
+		"layout": "Aufbau",
+		"noBlocks": "keine Blöcke",
+		"layoutAria": "Kontextaufbau, älteste oben",
+		"nodeFallback": "Knoten",
+		"blockAria": "{role}-Block, {size}",
+		"roles": {
+			"system": "System",
+			"user": "Benutzer",
+			"assistant": "Assistent"
+		},
+		"bySource": "Nach Quelle",
+		"drift": "Beim Senden dieses Zuges wurden {count} Token aufgezeichnet. Der Unterschied sind seither bearbeitete Inhalte — das Panel zählt neu, was diese Blöcke jetzt enthalten.",
+		"was": "war {count}",
+		"trimmed": "Zum Einpassen gekürzt",
+		"shed": "{source} · {count} Token wurden gekürzt, um ins Budget zu passen",
+		"sources": {
+			"conversation": "Chatverlauf",
+			"context_template": "Vorlage",
+			"lorebook": "Lorebook",
+			"character": "Charakter",
+			"character_examples": "Beispielnachrichten",
+			"miscellaneous": "System-Prompts",
+			"plugin": "Plugins"
+		},
+		"tabs": {
+			"context": "Kontext",
+			"state": "Zustand",
+			"tools": "Tools"
+		},
+		"rawHint": "Den Kontext als Rohtext anzeigen",
+		"raw": "Roh",
+		"noTraceLong": "Diese Nachricht enthält keine Kontext-Ablaufspur. Nur über die Weaver-Pipeline erzeugte Züge zeichnen eine auf.",
+		"noContextBlocks": "Die Pipeline hat für diesen Zug keine Kontextblöcke erzeugt.",
+		"msgs": "{count, number} Nachr.",
+		"loadingState": "Zustand wird geladen…",
+		"noState": "Kein rekonstruierter Zustand für diesen Zug.",
+		"activation": "Aktivierung",
+		"noActivation": "kein Aktivierungszustand",
+		"noTrackedEntries": "keine verfolgten Einträge",
+		"lastActivated": "zuletzt vor {turns} Zügen aktiviert",
+		"act": "akt {turns}",
+		"stickyRemaining": "noch {turns, number} Sticky-Züge",
+		"stk": "stk {turns}",
+		"persistent": "Persistent",
+		"noPersistent": "kein persistenter Zustand",
+		"pool": "POOL",
+		"emptyPool": "leerer Pool",
+		"available": "Verfügbar",
+		"tools": "{count, plural, one {# Tool} other {# Tools}}",
+		"noToolRecord": "Diese Nachricht hält nicht fest, welche Tools verfügbar waren.",
+		"noToolsOffered": "Dem Modell wurden in diesem Zug keine Tools angeboten.",
+		"noToolCalls": "Keine Tool-Aufrufe in diesem Zug.",
+		"round": "Runde {n, number}",
+		"calls": "{count, plural, one {# Aufruf} other {# Aufrufe}}",
+		"error": "Fehler",
+		"ok": "OK",
+		"input": "Eingabe",
+		"output": "Ausgabe",
+		"refs": {
+			"definition": "Charakter · Definition",
+			"personality": "Charakter · Persönlichkeit",
+			"scenario": "Charakter · Szenario",
+			"greeting": "Charakter · Begrüßung #{n, number}",
+			"example": "Charakter · Beispiel #{n, number}",
+			"character": "Charakter",
+			"unresolvedMessage": "Nachricht · nicht aufgelöst",
+			"persona": "Persona · {name}",
+			"plugin": "Plugin · {id}"
+		}
+	},
+	"conversations": {
+		"title": "Unterhaltungen",
+		"loadFailed": "Unterhaltungen konnten nicht geladen werden",
+		"openFailed": "Unterhaltung konnte nicht geöffnet werden",
+		"confirmDelete": "„{name}“ löschen? Das lässt sich nicht rückgängig machen.",
+		"messages": "{count, plural, one {# Nachricht} other {# Nachrichten}}",
+		"delete": "Unterhaltung löschen",
+		"loading": "Laden…",
+		"empty": "Noch keine Unterhaltungen mit diesem Charakter."
+	}
+}

@@ -1,0 +1,35 @@
+{
+	"chat": "Chat",
+	"showInInspector": "Vis {name} i inspektøren",
+	"sort": "Sorter karakterer",
+	"sortOptions": {
+		"nameAsc": "Navn (A–Å)",
+		"nameDesc": "Navn (Å–A)",
+		"updated": "Nylig oppdatert",
+		"created": "Nylig lagt til"
+	},
+	"reuseHint": "Når et kort har med en lorebok som er identisk med en du har, kobles din til i stedet for å importere en kopi.",
+	"reuse": "Gjenbruk samsvarende lorebøker",
+	"uploading": "Laster opp…",
+	"import": "Importer",
+	"new": "Ny",
+	"empty": "Ingen karakterer ennå – lag en for å komme i gang.",
+	"newName": "Ny karakter",
+	"createFailed": "Kunne ikke opprette karakter",
+	"attachments": {
+		"title": "Lorebøker, verktøy og widgets",
+		"imported": "Importerte {count, number}.",
+		"reused": "Gjenbrukte {count, number} du allerede hadde.",
+		"rename": "{from} til {to}",
+		"renamed": "Endret navn på {list}, siden navnene var tatt.",
+		"skipped": "Utelot {list}, som ikke kunne leses."
+	},
+	"lorebookImport": {
+		"title": "Lorebok importert",
+		"named": "«{name}»",
+		"lorebooks": "{count, plural, one {# lorebok} other {# lorebøker}}",
+		"entries": "{count, plural, one {# oppføring} other {# oppføringer}}",
+		"notConverted": "{count, plural, one {# oppføring kunne ikke konverteres.} other {# oppføringer kunne ikke konverteres.}}",
+		"message": "Importerte {subject} med {entries}."
+	}
+}

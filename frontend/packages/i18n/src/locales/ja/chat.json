@@ -1,0 +1,186 @@
+{
+	"feed": {
+		"nothingYet": "まだ何も起きていません。",
+		"pickCharacter": "キャラクターを選んでメッセージを送ると始まります。",
+		"worldStirs": "世界が動き出す…"
+	},
+	"turns": {
+		"running": "ターンを実行中…",
+		"yourTurnAs": "あなたのターン:",
+		"emptyRunFirst": "まだ何も起きていません — 最初のターンを実行してください。",
+		"nextToAct": "次に行動するのは:",
+		"nobody": "現在、行動できる人がいません。",
+		"seeingAll": "すべてのターンを表示中",
+		"seeingOwn": "自分のエージェントが認識する内容のみ表示中",
+		"director": "ディレクター",
+		"player": "プレイヤー",
+		"pauseHint": "このターンを終えてから停止",
+		"pause": "一時停止",
+		"cancelHint": "このターンをキャンセル",
+		"stop": "停止",
+		"stepHint": "1ターンだけ実行",
+		"step": "ステップ",
+		"runHint": "あなたのターンになるまで実行",
+		"run": "実行"
+	},
+	"composer": {
+		"functions": "機能",
+		"conversations": "会話",
+		"newChat": "新しいチャットを開始",
+		"attachments": "添付",
+		"placeholder": "メッセージを送信...",
+		"send": "送信",
+		"stopCommand": "/{name} を停止",
+		"stopPlugin": "{name}を停止",
+		"stopGenerating": "生成を停止",
+		"commands": "コマンド"
+	},
+	"message": {
+		"you": "あなた",
+		"system": "システム",
+		"assistant": "アシスタント",
+		"ranCommand": "/{name} を実行しました",
+		"inspectContext": "コンテキストを調べる",
+		"continue": "この返信を続ける",
+		"thoughts": "思考",
+		"thinking": "思考中…",
+		"swipe": "スワイプ"
+	},
+	"setup": {
+		"title": "Lorealmへようこそ",
+		"lead": "始める前に、いくつかの手順を完了してください:",
+		"done": "(完了)",
+		"todo": "(未完了)",
+		"noProfile": "プロファイルを作成し、星を付けてアクティブな接続にしてください。",
+		"usingProfile": "{name}を使用中。",
+		"yourProfileLower": "あなたのプロファイル",
+		"yourProfile": "あなたのプロファイル",
+		"needsKey": "{profile}が{provider}に接続するにはAPIキーが必要です。",
+		"template": {
+			"title": "コンテキストテンプレートを作成して有効にする",
+			"hint": "モデルに送るテキストの並べ方を決めるものです。これがないと送るものがありません。"
+		},
+		"persona": {
+			"title": "ペルソナを作成して有効にする",
+			"hint": "ペルソナは、あなたのキャラクターに関する詳細です。スタジオで作成して有効にしてください。"
+		},
+		"connection": {
+			"title": "接続プロファイルを設定する"
+		},
+		"installTokenizer": {
+			"title": "トークナイザーをインストールする",
+			"hint": "ファイルからインポートするかダウンロードして、メッセージを予算と照らして計測できるようにします。"
+		},
+		"activeTokenizer": {
+			"title": "アクティブなトークナイザーを設定する",
+			"hint": "インストール済みのどのトークナイザーでトークンを数えるかを選びます。"
+		}
+	},
+	"inspector": {
+		"title": "コンテキストインスペクター",
+		"dialog": "コンテキストインスペクター",
+		"tokenCountFailed": "トークン数のカウントに失敗しました",
+		"stateFailed": "状態を読み込めませんでした",
+		"sampling": {
+			"temperature": "Temperature",
+			"topP": "Top P",
+			"topK": "Top K",
+			"minP": "Min P"
+		},
+		"unknownTool": "(不明)",
+		"untitledNode": "(無題のノード)",
+		"node": "ノード {id}",
+		"notReconstructed": "内容は再構築されていません",
+		"noTrace": "このメッセージにトレースはありません",
+		"blocks": "{count, plural, other {# ブロック}}",
+		"units": {
+			"tokens": "トークン",
+			"chars": "文字"
+		},
+		"generationSettings": "生成設定",
+		"tokenBudget": "トークン予算",
+		"unlimited": "無制限",
+		"profileFailed": "接続プロファイルを読み込めませんでした",
+		"fromProfile": "{name}より",
+		"budgetNotRecorded": "このターンではトークン予算が記録されていないため、プロファイルの現在の値を表示しています。",
+		"layout": "レイアウト",
+		"noBlocks": "ブロックなし",
+		"layoutAria": "コンテキストレイアウト(古いものが上)",
+		"nodeFallback": "ノード",
+		"blockAria": "{role}ブロック、{size}",
+		"roles": {
+			"system": "システム",
+			"user": "ユーザー",
+			"assistant": "アシスタント"
+		},
+		"bySource": "ソース別",
+		"drift": "このターンの送信時に {count} トークンが記録されました。差分はその後に編集された内容です。パネルは、それらのブロックの現在の内容を再カウントします。",
+		"was": "以前は {count}",
+		"trimmed": "収まるように切り詰め",
+		"shed": "{source} · 予算に収めるため {count} トークンを削減",
+		"sources": {
+			"conversation": "チャット履歴",
+			"context_template": "テンプレート",
+			"lorebook": "ロアブック",
+			"character": "キャラクター",
+			"character_examples": "例文メッセージ",
+			"miscellaneous": "システムプロンプト",
+			"plugin": "プラグイン"
+		},
+		"tabs": {
+			"context": "コンテキスト",
+			"state": "状態",
+			"tools": "ツール"
+		},
+		"rawHint": "コンテキストを生のテキストで表示",
+		"raw": "生データ",
+		"noTraceLong": "このメッセージにはコンテキストのトレースがありません。トレースが記録されるのは、weaverパイプライン経由で生成されたターンのみです。",
+		"noContextBlocks": "このターンでは、パイプラインがコンテキストブロックを生成しませんでした。",
+		"msgs": "{count, number} 件のメッセージ",
+		"loadingState": "状態を読み込み中…",
+		"noState": "このターンの再構築された状態はありません。",
+		"activation": "アクティベーション",
+		"noActivation": "アクティベーション状態なし",
+		"noTrackedEntries": "追跡中のエントリーなし",
+		"lastActivated": "最後に有効化されたのは {turns} ターン前",
+		"act": "act {turns}",
+		"stickyRemaining": "スティッキーターン残り {turns, number}",
+		"stk": "stk {turns}",
+		"persistent": "永続",
+		"noPersistent": "永続状態なし",
+		"pool": "POOL",
+		"emptyPool": "空のプール",
+		"available": "利用可能",
+		"tools": "{count, plural, other {# 個のツール}}",
+		"noToolRecord": "このメッセージには、利用可能だったツールの記録がありません。",
+		"noToolsOffered": "このターンでは、モデルにツールが提供されませんでした。",
+		"noToolCalls": "このターンにツール呼び出しはありません。",
+		"round": "ラウンド {n, number}",
+		"calls": "{count, plural, other {# 件の呼び出し}}",
+		"error": "エラー",
+		"ok": "OK",
+		"input": "入力",
+		"output": "出力",
+		"refs": {
+			"definition": "キャラクター · 定義",
+			"personality": "キャラクター · 性格",
+			"scenario": "キャラクター · シナリオ",
+			"greeting": "キャラクター · 挨拶 #{n, number}",
+			"example": "キャラクター · 例 #{n, number}",
+			"character": "キャラクター",
+			"unresolvedMessage": "メッセージ · 未解決",
+			"persona": "ペルソナ · {name}",
+			"plugin": "プラグイン · {id}"
+		}
+	},
+	"conversations": {
+		"title": "会話",
+		"loadFailed": "会話を読み込めませんでした",
+		"openFailed": "会話を開けませんでした",
+		"confirmDelete": "「{name}」を削除しますか?この操作は元に戻せません。",
+		"messages": "{count, plural, other {# 件のメッセージ}}",
+		"delete": "会話を削除",
+		"loading": "読み込み中…",
+		"empty": "このキャラクターとの会話はまだありません。"
+	}
+}

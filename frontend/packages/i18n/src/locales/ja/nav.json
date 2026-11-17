@@ -1,0 +1,60 @@
+{
+	"views": {
+		"write": "執筆",
+		"characters": "キャラクター",
+		"realms": "レルム",
+		"connections": "接続",
+		"studio": "スタジオ",
+		"plugins": "プラグイン",
+		"settings": "設定"
+	},
+	"studio": {
+		"realm": "レルム",
+		"characters": "キャラクター",
+		"lorebooks": "ロアブック",
+		"templates": "テンプレート",
+		"tools": "ツール",
+		"modules": "モジュール",
+		"personas": "ペルソナ",
+		"widgets": "ウィジェット"
+	},
+	"scopes": {
+		"user": "あなた",
+		"server": "サーバー"
+	},
+	"user": {
+		"profile": "プロフィール",
+		"tokenizers": "トークナイザー",
+		"plugins": "プラグイン",
+		"appearance": "外観",
+		"editor": "エディター",
+		"inspector": "インスペクター",
+		"keybinds": "キーバインド"
+	},
+	"server": {
+		"hosting": "ホスティング",
+		"storage": "ストレージ",
+		"sessions": "セッション",
+		"users": "ユーザー",
+		"accounts": "アカウント",
+		"roles": "ロール",
+		"characters": "キャラクター",
+		"tokenizers": "トークナイザー",
+		"plugins": "プラグイン",
+		"tasks": "タスク"
+	},
+	"blueprints": "ブループリント",
+	"marketplace": "マーケットプレイス",
+	"apiKeys": "APIキー",
+	"closeMenu": "メニューを閉じる",
+	"expandMenu": "メニューを展開",
+	"collapseMenu": "メニューを折りたたむ",
+	"openMenu": "メニューを開く",
+	"back": "戻る",
+	"forward": "進む",
+	"breadcrumb": "パンくずリスト",
+	"openInspector": "インスペクターを開く",
+	"loadFailed": "読み込みに失敗しました。",
+	"retry": "再試行",
+	"rolesPlaceholder": "ロールビュー"
+}

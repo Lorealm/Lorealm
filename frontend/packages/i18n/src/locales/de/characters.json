@@ -1,0 +1,35 @@
+{
+	"chat": "Chat",
+	"showInInspector": "{name} im Inspektor anzeigen",
+	"sort": "Charaktere sortieren",
+	"sortOptions": {
+		"nameAsc": "Name (A–Z)",
+		"nameDesc": "Name (Z–A)",
+		"updated": "Zuletzt aktualisiert",
+		"created": "Zuletzt hinzugefügt"
+	},
+	"reuseHint": "Bringt eine Karte ein Lorebook mit, das einem Ihrer vorhandenen entspricht, wird Ihres angehängt, statt eine Kopie zu importieren.",
+	"reuse": "Passende Lorebooks wiederverwenden",
+	"uploading": "Wird hochgeladen…",
+	"import": "Importieren",
+	"new": "Neu",
+	"empty": "Noch keine Charaktere — erstellen Sie einen, um loszulegen.",
+	"newName": "Neuer Charakter",
+	"createFailed": "Charakter konnte nicht erstellt werden",
+	"attachments": {
+		"title": "Lorebooks, Tools und Widgets",
+		"imported": "{count, number} importiert.",
+		"reused": "{count, number} bereits vorhandene wiederverwendet.",
+		"rename": "{from} zu {to}",
+		"renamed": "{list} umbenannt, da die Namen bereits vergeben waren.",
+		"skipped": "{list} ausgelassen, da nicht lesbar."
+	},
+	"lorebookImport": {
+		"title": "Lorebook importiert",
+		"named": "„{name}“",
+		"lorebooks": "{count, plural, one {# Lorebook} other {# Lorebooks}}",
+		"entries": "{count, plural, one {# Eintrag} other {# Einträge}}",
+		"notConverted": "{count, plural, one {# Eintrag konnte nicht konvertiert werden.} other {# Einträge konnten nicht konvertiert werden.}}",
+		"message": "{subject} mit {entries} importiert."
+	}
+}

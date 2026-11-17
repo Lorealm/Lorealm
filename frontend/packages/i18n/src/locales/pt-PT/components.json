@@ -1,0 +1,54 @@
+{
+	"toast": {
+		"dismiss": "Dispensar notificação"
+	},
+	"saveIndicator": {
+		"invalid": "Por guardar — inválido"
+	},
+	"wideScreenNote": "{subject} é mais fácil de usar num tablet ou computador.",
+	"tokenBadge": {
+		"estimated": "Estimado — nenhum tokenizador está ativo. Escolha um nas Definições para contagens exatas.",
+		"exact": "Tokens segundo o tokenizador ativo",
+		"unit": "tokens"
+	},
+	"searchSelect": {
+		"noMatches": "Sem resultados.",
+		"hideSuggestions": "Ocultar sugestões",
+		"showSuggestions": "Mostrar sugestões"
+	},
+	"iconPicker": {
+		"change": "Alterar ícone",
+		"pick": "Escolher um ícone",
+		"search": "{count, plural, one {Pesquisar # ícone} many {Pesquisar # ícones} other {Pesquisar # ícones}}",
+		"noMatch": "Nenhum ícone corresponde a “{query}”."
+	},
+	"listSidebar": {
+		"new": "Novo",
+		"creating": "A criar…",
+		"search": "Pesquisar…",
+		"sort": "Ordenar {title}",
+		"showBuiltIn": "Mostrar integrados"
+	},
+	"field": {
+		"help": "Ajuda: {label}",
+		"maximize": "Maximizar",
+		"maximizeField": "Maximizar {label}",
+		"fallbackLabel": "campo",
+		"editingFullScreen": "A editar em ecrã inteiro…",
+		"edit": "Editar"
+	},
+	"numberInput": {
+		"increment": "Aumentar",
+		"decrement": "Diminuir"
+	},
+	"plugin": {
+		"callFailed": "A chamada falhou.",
+		"panelFailed": "Não foi possível carregar o painel deste plugin."
+	},
+	"loading": "A carregar",
+	"unknownWidget": "Widget desconhecido: {id}",
+	"maximize": {
+		"minimizeHint": "Minimizar (Esc)",
+		"minimize": "Minimizar"
+	}
+}

@@ -1,0 +1,60 @@
+{
+	"views": {
+		"write": "Skriv",
+		"characters": "Karakterer",
+		"realms": "Riker",
+		"connections": "Tilkoblinger",
+		"studio": "Studio",
+		"plugins": "Plugins",
+		"settings": "Innstillinger"
+	},
+	"studio": {
+		"realm": "Rike",
+		"characters": "Karakterer",
+		"lorebooks": "Lorebøker",
+		"templates": "Maler",
+		"tools": "Verktøy",
+		"modules": "Moduler",
+		"personas": "Personaer",
+		"widgets": "Widgets"
+	},
+	"scopes": {
+		"user": "Deg",
+		"server": "Server"
+	},
+	"user": {
+		"profile": "Profil",
+		"tokenizers": "Tokenizers",
+		"plugins": "Plugins",
+		"appearance": "Utseende",
+		"editor": "Redigering",
+		"inspector": "Inspektør",
+		"keybinds": "Hurtigtaster"
+	},
+	"server": {
+		"hosting": "Hosting",
+		"storage": "Lagring",
+		"sessions": "Økter",
+		"users": "Brukere",
+		"accounts": "Kontoer",
+		"roles": "Roller",
+		"characters": "Karakterer",
+		"tokenizers": "Tokenizers",
+		"plugins": "Plugins",
+		"tasks": "Oppgaver"
+	},
+	"blueprints": "Blåkopier",
+	"marketplace": "Markedsplass",
+	"apiKeys": "API-nøkler",
+	"closeMenu": "Lukk meny",
+	"expandMenu": "Utvid meny",
+	"collapseMenu": "Skjul meny",
+	"openMenu": "Åpne meny",
+	"back": "Tilbake",
+	"forward": "Fremover",
+	"breadcrumb": "Brødsmulesti",
+	"openInspector": "Åpne inspektør",
+	"loadFailed": "Noe kunne ikke lastes.",
+	"retry": "Prøv igjen",
+	"rolesPlaceholder": "Rollevisning"
+}

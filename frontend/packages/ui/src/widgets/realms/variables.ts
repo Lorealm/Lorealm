@@ -48,10 +48,10 @@ function castElements(iterable: string): VariableRef[] | null {
 				key,
 				all
 					? t.realms.variables.property
-					: t.realms.variables.propertyShare(handles.length, walked.length),
+					: t.realms.variables.propertyShare({ count: handles.length, total: walked.length }),
 				all
 					? t.realms.variables.carriedByAll
-					: t.realms.variables.carriedBy(handles.map((h) => `\`${h}\``).join(', '))
+					: t.realms.variables.carriedBy({ handles: handles.map((h) => `\`${h}\``).join(', ') })
 			)
 		);
 	}
@@ -94,7 +94,7 @@ function collect(agentKey?: string): VariableRef[] {
 				'cast',
 				`agents.${agent.handle}.name`,
 				t.realms.variables.castMember,
-				t.realms.variables.agentName(agent.name || agent.handle),
+				t.realms.variables.agentName({ name: agent.name || agent.handle }),
 				'string'
 			),
 			variable(
@@ -114,7 +114,7 @@ function collect(agentKey?: string): VariableRef[] {
 		);
 		for (const property of agent.properties) {
 			if (!property.key.trim()) continue;
-			const seeded = t.realms.variables.seededOn(property.value, agent.handle);
+			const seeded = t.realms.variables.seededOn({ value: property.value, handle: agent.handle });
 			refs.push(
 				variable('agents', `${agent.handle}.${property.key}`, t.realms.variables.property, seeded),
 				variable(
@@ -134,7 +134,7 @@ function collect(agentKey?: string): VariableRef[] {
 				'self',
 				property.key,
 				t.realms.variables.ownProperty,
-				t.realms.variables.seeded(property.value)
+				t.realms.variables.seeded({ value: property.value })
 			)
 		);
 	}
@@ -145,7 +145,7 @@ function collect(agentKey?: string): VariableRef[] {
 			variable(
 				grant.namespace,
 				grantName(grant.scope) ?? '',
-				t.realms.variables.granted(grant.access),
+				t.realms.variables.granted({ access: grant.access }),
 				grant.access === 'read' ? t.realms.variables.mayRead : t.realms.variables.mayReadWrite
 			)
 		);

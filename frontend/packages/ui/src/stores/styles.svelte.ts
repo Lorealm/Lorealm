@@ -78,7 +78,7 @@ class StyleStore {
 		await this.select(style.id);
 	}
 
-	create(name: string = t.settings.appearance.newStyle): Promise<void> {
+	create(name: string = t.settings.interface.newStyle): Promise<void> {
 		return this.add({ id: newId(), name, tokens: {}, css: '' });
 	}
 
@@ -135,10 +135,10 @@ class StyleStore {
 			? {
 					...active,
 					id: newId(),
-					name: t.settings.appearance.copyOf(active.name),
+					name: t.settings.interface.copyOf({ name: active.name }),
 					tokens: { ...active.tokens }
 				}
-			: { id: newId(), name: t.settings.appearance.custom, tokens: {}, css: '' };
+			: { id: newId(), name: t.settings.interface.custom, tokens: {}, css: '' };
 
 		return this.add(change(base));
 	}
@@ -151,7 +151,7 @@ class StyleStore {
 		const tokens = old.tokens ?? {};
 		const css = old.css ?? '';
 		if (Object.keys(tokens).length > 0 || css !== '') {
-			await this.add({ id: newId(), name: t.settings.appearance.custom, tokens, css });
+			await this.add({ id: newId(), name: t.settings.interface.custom, tokens, css });
 		}
 		await store.delete('theme');
 	}
@@ -229,7 +229,7 @@ export function parseStyle(text: string): Style {
 			throw new Error(t.errors.failed.styleTokens);
 		}
 		for (const [name, value] of Object.entries(raw.tokens)) {
-			if (typeof value !== 'string') throw new Error(t.errors.failed.styleTokenValue(name));
+			if (typeof value !== 'string') throw new Error(t.errors.failed.styleTokenValue({ name }));
 			tokens[name] = value;
 		}
 	}

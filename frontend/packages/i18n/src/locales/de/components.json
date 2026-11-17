@@ -1,0 +1,54 @@
+{
+	"toast": {
+		"dismiss": "Hinweis schließen"
+	},
+	"saveIndicator": {
+		"invalid": "Nicht gespeichert — ungültig"
+	},
+	"wideScreenNote": "{subject} lässt sich auf einem Tablet oder Computer leichter bedienen.",
+	"tokenBadge": {
+		"estimated": "Geschätzt — es ist kein Tokenizer aktiv. Wählen Sie in den Einstellungen einen aus, um exakte Zahlen zu erhalten.",
+		"exact": "Token gemäß aktivem Tokenizer",
+		"unit": "Token"
+	},
+	"searchSelect": {
+		"noMatches": "Keine Treffer.",
+		"hideSuggestions": "Vorschläge ausblenden",
+		"showSuggestions": "Vorschläge anzeigen"
+	},
+	"iconPicker": {
+		"change": "Symbol ändern",
+		"pick": "Symbol auswählen",
+		"search": "{count, plural, one {# Symbol durchsuchen} other {# Symbole durchsuchen}}",
+		"noMatch": "Kein Symbol passt zu „{query}“."
+	},
+	"listSidebar": {
+		"new": "Neu",
+		"creating": "Wird erstellt…",
+		"search": "Suchen…",
+		"sort": "{title} sortieren",
+		"showBuiltIn": "Integrierte anzeigen"
+	},
+	"field": {
+		"help": "Hilfe: {label}",
+		"maximize": "Maximieren",
+		"maximizeField": "{label} maximieren",
+		"fallbackLabel": "Feld",
+		"editingFullScreen": "Bearbeitung im Vollbild…",
+		"edit": "Bearbeiten"
+	},
+	"numberInput": {
+		"increment": "Erhöhen",
+		"decrement": "Verringern"
+	},
+	"plugin": {
+		"callFailed": "Der Aufruf ist fehlgeschlagen.",
+		"panelFailed": "Das Panel dieses Plugins konnte nicht geladen werden."
+	},
+	"loading": "Laden",
+	"unknownWidget": "Unbekanntes Widget: {id}",
+	"maximize": {
+		"minimizeHint": "Minimieren (Esc)",
+		"minimize": "Minimieren"
+	}
+}

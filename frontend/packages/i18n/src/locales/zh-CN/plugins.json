@@ -1,0 +1,98 @@
+{
+	"tabs": {
+		"list": "插件",
+		"installed": "已安装",
+		"marketplace": "市场"
+	},
+	"loading": "正在加载…",
+	"installedReport": "已安装 {handle}@{version}。",
+	"addManually": "从链接或文件添加",
+	"location": "服务器上的链接或文件夹",
+	"locationHint": "GitHub 仓库或发布版本、.zip 链接、git 仓库，或包含 manifest.toml 的文件夹。",
+	"dev": "用于开发",
+	"devHint": "每当你修改后，从其文件夹重新构建并重新加载。",
+	"upload": "或上传 .zip",
+	"installing": "正在安装…",
+	"install": "安装",
+	"noneInstalled": "尚未安装任何插件。",
+	"browse": "浏览市场",
+	"updateTo": "更新到 {version}",
+	"enabled": "已启用",
+	"enable": "启用",
+	"settingsNamed": "{name} 设置",
+	"settings": "设置",
+	"removeNamed": "为所有人移除 {name}",
+	"remove": "为所有人移除",
+	"notListed": "此插件不在市场中。",
+	"manage": "管理",
+	"noCompatible": "它没有与当前 Lorealm 版本兼容的版本。",
+	"notOnServer": "它还不在此服务器上。可由管理插件的人添加。",
+	"status": {
+		"unsupported": "不适用于此 Lorealm 版本",
+		"update": "有可用更新",
+		"enabled": "已启用",
+		"installed": "已安装"
+	},
+	"search": "搜索插件",
+	"sourcesMissing": "{count, plural, other {部分插件可能缺失：有 # 个插件来源无法访问。}}",
+	"marketplaceFailed": "无法加载市场。",
+	"marketplaceEmpty": "市场中还没有插件。",
+	"noMatch": "没有匹配“{query}”的插件。",
+	"permissions": {
+		"chat:read": "读取你的聊天",
+		"chat:write": "在消息保存前修改或拒绝消息",
+		"data:persist": "存储自身数据",
+		"model:generate": "代表你生成回复",
+		"net:fetch": "向下列主机发送请求",
+		"persona:read": "读取你当前的人设",
+		"prompt:write": "在提示词发送前修改提示词",
+		"state:read": "读取脚本变量",
+		"state:write": "修改脚本变量",
+		"tools:write": "修改工具调用及其结果，或拒绝调用",
+		"ui:autoplay": "无需你先点击即可播放媒体",
+		"ui:unsafe": "直接在应用中运行代码"
+	},
+	"callouts": {
+		"note": "注意",
+		"tip": "提示",
+		"important": "重要",
+		"warning": "警告",
+		"caution": "小心"
+	},
+	"repository": "仓库",
+	"permissionsTitle": "权限",
+	"sendRequestsTo": "向以下地址发送请求",
+	"none": "无。",
+	"noReadme": "此插件没有 README。",
+	"notInstalled": "此插件尚未安装。",
+	"reloadHint": "从其文件夹重新构建并重新加载",
+	"reload": "重新加载",
+	"detailTabs": {
+		"list": "插件详情",
+		"readme": "README",
+		"logs": "日志"
+	},
+	"logs": {
+		"levels": {
+			"trace": "跟踪",
+			"debug": "调试",
+			"info": "信息",
+			"warn": "警告",
+			"error": "错误"
+		},
+		"levelFilter": "显示的级别",
+		"period": "时间范围",
+		"periods": {
+			"15m": "最近 15 分钟",
+			"1h": "最近 1 小时",
+			"24h": "最近 24 小时",
+			"7d": "最近 7 天",
+			"all": "全部时间"
+		},
+		"refresh": "刷新",
+		"fromServer": "由 Lorealm 记录",
+		"empty": "尚无日志。",
+		"noMatch": "没有符合这些筛选条件的条目。",
+		"failed": "无法加载日志。"
+	}
+}

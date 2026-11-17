@@ -1,0 +1,54 @@
+{
+	"toast": {
+		"dismiss": "Закрыть уведомление"
+	},
+	"saveIndicator": {
+		"invalid": "Не сохранено — ошибка в данных"
+	},
+	"wideScreenNote": "{subject} удобнее использовать на планшете или компьютере.",
+	"tokenBadge": {
+		"estimated": "Приблизительно — токенайзер не выбран. Выберите его в настройках, чтобы считать точно.",
+		"exact": "Токены по активному токенайзеру",
+		"unit": "токенов"
+	},
+	"searchSelect": {
+		"noMatches": "Ничего не найдено.",
+		"hideSuggestions": "Скрыть подсказки",
+		"showSuggestions": "Показать подсказки"
+	},
+	"iconPicker": {
+		"change": "Сменить значок",
+		"pick": "Выберите значок",
+		"search": "{count, plural, one {Поиск среди # значка} few {Поиск среди # значков} many {Поиск среди # значков} other {Поиск среди # значка}}",
+		"noMatch": "Значков по запросу «{query}» нет."
+	},
+	"listSidebar": {
+		"new": "Создать",
+		"creating": "Создание…",
+		"search": "Поиск…",
+		"sort": "Сортировка: {title}",
+		"showBuiltIn": "Показать встроенные"
+	},
+	"field": {
+		"help": "Справка: {label}",
+		"maximize": "Развернуть",
+		"maximizeField": "Развернуть: {label}",
+		"fallbackLabel": "поле",
+		"editingFullScreen": "Редактирование на весь экран…",
+		"edit": "Изменить"
+	},
+	"numberInput": {
+		"increment": "Увеличить",
+		"decrement": "Уменьшить"
+	},
+	"plugin": {
+		"callFailed": "Вызов не удался.",
+		"panelFailed": "Не удалось загрузить панель этого плагина."
+	},
+	"loading": "Загрузка",
+	"unknownWidget": "Неизвестный виджет: {id}",
+	"maximize": {
+		"minimizeHint": "Свернуть (Esc)",
+		"minimize": "Свернуть"
+	}
+}
