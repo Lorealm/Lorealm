@@ -30,16 +30,16 @@
 		X
 	} from '@lucide/svelte';
 
-	const file = () => ({ label: t.settings.appearance.fileLabel, extensions: ['json'] });
+	const file = () => ({ label: t.settings.interface.fileLabel, extensions: ['json'] });
 	const image = () => ({
-		label: t.settings.appearance.imageLabel,
+		label: t.settings.interface.imageLabel,
 		extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif']
 	});
 
 	const shipped = tokenCatalogue();
-interface
+
 	let query = $state('');
-interface
+
 	const groups = $derived.by(() => {
 		const q = query.trim().toLowerCase();
 		if (!q) return APPEARANCE_GROUPS;
@@ -69,21 +69,21 @@ interface
 			const style = parseStyle(text);
 			await styles.add(style);
 			showToast({
-				message: t.settings.appearance.imported({ name: style.name }),
-				title: t.settings.appearance.importedTitle
+				message: t.settings.interface.imported({ name: style.name }),
+				title: t.settings.interface.importedTitle
 			});
 		} catch (e) {
-			showError(e, { title: t.settings.appearance.importFailed });
-		}interface
+			showError(e, { title: t.settings.interface.importFailed });
+		}
 	}
-interface
+
 	async function chooseBackdrop(): Promise<void> {
 		try {
 			const picked = await usePlatform().files.openBinary(image());
 			if (picked === null) return; // Nothing picked.
 			await backdrop.set(await fitImageForStorage(picked));
 		} catch (e) {
-			showError(e, { title: t.settings.appearance.imageFailed });
+			showError(e, { title: t.settings.interface.imageFailed });
 		}
 	}
 
@@ -97,7 +97,7 @@ interface
 				suggestedName: styleFilename(style)
 			});
 		} catch (e) {
-			showError(e, { title: t.settings.appearance.exportFailed });
+			showError(e, { title: t.settings.interface.exportFailed });
 		}
 	}
 
@@ -113,11 +113,11 @@ interface
 		canvas.fillStyle = '#ffffff';
 		canvas.fillStyle = value;
 		if (canvas.fillStyle !== reading) return null;
-interface
-		if (reading.startsWiinterfaceeturn { hex: reading, alpha: 1 };
+
+		if (reading.startsWith('#')) return { hex: reading, alpha: 1 };
 
 		const [r, g, b, alpha = 1] = (reading.match(/[\d.]+/g) ?? []).map(Number);
-		const channels = [r, g, b].map((c)interfaceound(c).toString(16).padStart(2, '0'));
+		const channels = [r, g, b].map((c) => Math.round(c).toString(16).padStart(2, '0'));
 		return { hex: `#${channels.join('')}`, alpha };
 	}
 
@@ -127,7 +127,7 @@ interface
 		return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 	}
 
-	function numeric(value: string | uninterfacenumber | '' {
+	function numeric(value: string | undefined): number | '' {
 		const parsed = parseFloat(value ?? '');
 		return Number.isNaN(parsed) ? '' : parsed;
 	}
@@ -141,13 +141,13 @@ interface
 		{#if color}
 			<input
 				class="swatch"
-				type="color"interface
+				type="color"
 				value={color.hex}
-				aria-label={t.settings.appearance.colourAria({ label: field.label })}
+				aria-label={t.settings.interface.colourAria({ label: field.label })}
 				oninput={(e) => set(field, withAlpha(e.currentTarget.value, color.alpha))}
 			/>
 		{:else}
-			<span class="swatch empty" {@attach tooltip(t.settings.appearance.notPickable)}></span>
+			<span class="swatch empty" {@attach tooltip(t.settings.interface.notPickable)}></span>
 		{/if}
 		<input
 			class="text"
@@ -185,28 +185,25 @@ interface
 			spellcheck="false"
 			oninput={(e) => set(field, e.currentTarget.value)}
 		/>
-	{/if}interface
+	{/if}
 {/snippet}
 
-<section class="interface
+<section class="section">
 	<div class="body">
-		
-
 		<div class="library">
-			<label class="languageLabel" for="appearance-language">{t.settings.appearance.language}</label
-			>
+			<label class="languageLabel" for="appearance-language">{t.settings.interface.language}</label>
 			<select
 				id="appearance-language"
 				class="picker"
-				value={settings.current.locale ?? ''}interface
-				onchange={(e) => settings.set('locale', e.currentTarget.valueinterface
+				value={settings.current.locale ?? ''}
+				onchange={(e) => settings.set('locale', e.currentTarget.value)}
 			>
 				<option value="">
-					{t.settings.appearance.systemLanguage({ language: localeName(deviceLocale()) })}
+					{t.settings.interface.systemLanguage({ language: localeName(deviceLocale()) })}
 				</option>
 				{#each locales as tag (tag)}
 					<option value={tag}>{localeName(tag)}</option>
-				{/each}interface
+				{/each}
 			</select>
 		</div>
 
@@ -214,104 +211,104 @@ interface
 		<div class="library">
 			<select
 				class="picker"
-				aria-label={t.settings.appearance.style}
-				value={stylinterfaced ?? ''}
+				aria-label={t.settings.interface.style}
+				value={styles.select ?? ''}
 				onchange={(e) => styles.select(e.currentTarget.value === '' ? null : e.currentTarget.value)}
 			>
-				<optgroup label={t.settings.appearance.builtIn}>
-					<option vainterfaceASSIC_NAME}</option>
+				<optgroup label={t.settings.interface.builtIn}>
+					<option value="">{CLASSIC_NAME}</option>
 					{#each BUILT_IN_STYLES as style (style.id)}
 						<option value={style.id}>{style.name}</option>
 					{/each}
-				</optgroup>interface
+				</optgroup>
 				{#if styles.all.length > 0}
-					<optgroup label={t.settings.appearance.yours}>
+					<optgroup label={t.settings.interface.yours}>
 						{#each styles.all as style (style.id)}
 							<option value={style.id}>{style.name}</option>
 						{/each}
 					</optgroup>
-				{/if}interface
+				{/if}
 			</select>
 			<button class="action" onclick={() => styles.create()}>
 				<Plus size={14} />
-				{t.settings.appearance.new}
+				{t.settings.interface.new}
 			</button>
 			<button class="action" onclick={importStyle}>
-				<Upload size={14} />interface
-				{t.settings.appearance.import}interfaceinterface
-			</button>interface
+				<Upload size={14} />
+				{t.settings.interface.import}
+			</button>
 			<button class="action" disabled={!styles.active} onclick={exportStyle}>
 				<Download size={14} />
-				{t.settings.appearance.export}
+				{t.settings.interface.export}
 			</button>
 		</div>
 
-		{#if styles.active && !styles.editable}interface
+		{#if styles.active && !styles.editable}
 			<p class="hint">
 				<code>{styles.active.name}</code>
-				{t.settings.appearance.shippedSuffix}
-			</p>interface
+				{t.settings.interface.shippedSuffix}
+			</p>
 		{/if}
 
 		{#if styles.editable && styles.active}
 			{@const active = styles.active}
-			<div class="library">interfaceinterface
+			<div class="library">
 				<input
 					class="name"
-					aria-label={t.settings.appearance.styleName}
+					aria-label={t.settings.interface.styleName}
 					value={active.name}
-					oninput={(einterfaces.rename(e.currentTarget.value)}
+					oninput={(e) => styles.rename(e.currentTarget.value)}
 				/>
 				<input
 					class="author"
-					aria-label={t.settings.appearance.styleAuthor}
-					placeholder={t.settings.appearance.authorPlaceholder}
+					aria-label={t.settings.interface.styleAuthor}
+					placeholder={t.settings.interface.authorPlaceholder}
 					value={active.author ?? ''}
 					oninput={(e) => styles.setAuthor(e.currentTarget.value)}
-				/>interface
+				/>
 				<button
 					class="action"
-					{@attach tooltip(t.settings.appearance.deleteStyle)}
-					onclick={() =interfaceemove(active.id)}
-				>interface
+					{@attach tooltip(t.settings.interface.deleteStyle)}
+					onclick={() => styles.remove(active.id)}
+				>
 					<Trash2 size={14} />
 					{t.common.delete}
 				</button>
-			</div>interface
+			</div>
 		{/if}
 
-		<h3>{t.settings.appearance.backdrop}</h3>
+		<h3>{t.settings.interface.backdrop}</h3>
 		<div class="library">
 			{#if backdrop.image}
 				<span class="preview">
 					<TransportImage
 						src={backdrop.image}
-						alt={t.settings.appearance.backdropAlt}
+						alt={t.settings.interface.backdropAlt}
 						style="display:block;width:100%;height:100%"
 					/>
 				</span>
 			{/if}
 			<button class="action" onclick={chooseBackdrop}>
 				<ImageIcon size={14} />
-				{backdrop.image ? t.settings.appearance.replaceImage : t.settings.appearance.chooseImage}interface
+				{backdrop.image ? t.settings.interface.replaceImage : t.settings.interface.chooseImage}
 			</button>
 			{#if backdrop.image}
 				<button class="action" onclick={() => backdrop.clear()}>
 					<X size={14} />
-					{t.settings.appearance.remove}
+					{t.settings.interface.remove}
 				</button>
-			{/if}interface
+			{/if}
 		</div>
 
 		<div class="toolbar">
-			<div class="searchRow">interface
+			<div class="searchRow">
 				<Search size={14} />
-				<input class="search" placeholder={t.settings.appearance.search} bind:value={query} />
+				<input class="search" placeholder={t.settings.interface.search} bind:value={query} />
 			</div>
 			<span class="count">
 				{overridden === 0
-					? t.settings.appearance.nothingOverridden
-					: t.settings.appearance.overridden({ count: overridden })}
+					? t.settings.interface.nothingOverridden
+					: t.settings.interface.overridden({ count: overridden })}
 			</span>
 			<button
 				class="reset"
@@ -319,7 +316,7 @@ interface
 				onclick={() => styles.reset()}
 			>
 				<RotateCcw size={14} />
-				{t.settings.appearance.resetAll}
+				{t.settings.interface.resetAll}
 			</button>
 		</div>
 
@@ -337,7 +334,7 @@ interface
 						<span class="control">{@render control(field)}</span>
 						<button
 							class="revert"
-							{@attach tooltip(t.settings.appearance.revert)}
+							{@attach tooltip(t.settings.interface.revert)}
 							disabled={!(field.name in styles.tokens)}
 							onclick={() => styles.removeToken(field.name)}
 						>
@@ -347,11 +344,11 @@ interface
 				{/each}
 			</div>
 		{:else}
-			<span class="empty">{t.settings.appearance.noMatch({ query })}</span>
+			<span class="empty">{t.settings.interface.noMatch({ query })}</span>
 		{/each}
 
 		<div class="group">
-			<h3>{t.settings.appearance.customCss}</h3>
+			<h3>{t.settings.interface.customCss}</h3>
 
 			<textarea
 				class="css"
