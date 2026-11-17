@@ -1,31 +1,31 @@
 {
 	"login": {
-		"title": "Login Page",
-		"serverUrl": "Server URL",
-		"username": "Username",
-		"password": "Password",
-		"emailOptional": "Email (optional)",
-		"inviteCode": "Invite code",
-		"invitePlaceholder": "Needed if sign-ups are closed",
-		"createAccount": "Create account",
-		"haveAccount": "I already have an account",
-		"logIn": "Log in",
-		"createAnAccount": "Create an account"
+		"title": "登录页",
+		"serverUrl": "服务器地址",
+		"username": "用户名",
+		"password": "密码",
+		"emailOptional": "邮箱（可选）",
+		"inviteCode": "邀请码",
+		"invitePlaceholder": "未开放注册时需要填写",
+		"createAccount": "创建账号",
+		"haveAccount": "我已有账号",
+		"logIn": "登录",
+		"createAnAccount": "创建账号"
 	},
-	"closePanel": "Close panel",
+	"closePanel": "关闭面板",
 	"window": {
-		"minimize": "Minimize",
-		"maximize": "Maximize",
-		"close": "Close"
+		"minimize": "最小化",
+		"maximize": "最大化",
+		"close": "关闭"
 	},
-	"underConstruction": "Under Construction",
+	"underConstruction": "建设中",
 	"update": {
-		"title": "Update available",
-		"message": "Lorealm {version} is ready to install.",
-		"install": "Restart and update",
-		"later": "Later",
-		"installingTitle": "Updating",
-		"installing": "Downloading the update. Lorealm will restart when it’s done.",
-		"failed": "The update couldn’t be installed"
+		"title": "有可用更新",
+		"message": "Lorealm {version} 已可安装。",
+		"install": "重启并更新",
+		"later": "稍后",
+		"installingTitle": "正在更新",
+		"installing": "正在下载更新，完成后 Lorealm 将自动重启。",
+		"failed": "无法安装更新"
 	}
 }
