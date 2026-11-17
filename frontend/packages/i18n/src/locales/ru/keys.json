@@ -1,69 +1,69 @@
 {
 	"groups": {
-		"navigation": "Navigation",
-		"views": "Views",
-		"settings": "Settings",
-		"chat": "Chat",
-		"inspector": "Inspector"
+		"navigation": "Навигация",
+		"views": "Разделы",
+		"settings": "Настройки",
+		"chat": "Чат",
+		"inspector": "Инспектор"
 	},
 	"commands": {
 		"navBack": {
-			"title": "Back",
-			"description": "Return to the previous destination."
+			"title": "Назад",
+			"description": "Вернуться на предыдущий экран."
 		},
 		"navForward": {
-			"title": "Forward",
-			"description": "Undo a Back."
+			"title": "Вперёд",
+			"description": "Отменить «Назад»."
 		},
 		"viewWrite": {
-			"title": "Go to Write"
+			"title": "Перейти в «Чат»"
 		},
 		"viewCharacters": {
-			"title": "Go to Characters"
+			"title": "Перейти в «Персонажи»"
 		},
 		"viewRealms": {
-			"title": "Go to Realms"
+			"title": "Перейти в «Миры»"
 		},
 		"viewConnections": {
-			"title": "Go to Connections"
+			"title": "Перейти в «Подключения»"
 		},
 		"viewStudio": {
-			"title": "Go to Studio"
+			"title": "Перейти в «Студию»"
 		},
 		"settingsOpen": {
-			"title": "Open settings"
+			"title": "Открыть настройки"
 		},
 		"keysHelp": {
-			"title": "Keyboard shortcuts",
-			"description": "Open the shortcut list."
+			"title": "Сочетания клавиш",
+			"description": "Открыть список сочетаний клавиш."
 		},
 		"chatFocus": {
-			"title": "Focus the composer",
-			"description": "Put the cursor in the chat box."
+			"title": "Перейти к полю ввода",
+			"description": "Поставить курсор в поле ввода сообщения."
 		},
 		"chatSend": {
-			"title": "Send message"
+			"title": "Отправить сообщение"
 		},
 		"chatConversations": {
-			"title": "Conversations",
-			"description": "List the chats with the active character."
+			"title": "Разговоры",
+			"description": "Показать чаты с активным персонажем."
 		},
 		"chatConversationsClose": {
-			"title": "Close conversations"
+			"title": "Закрыть разговоры"
 		},
 		"chatBranchPrev": {
-			"title": "Previous branch",
-			"description": "Swipe the newest message back to its previous variant."
+			"title": "Предыдущая ветка",
+			"description": "Вернуть последнее сообщение к предыдущему варианту."
 		},
 		"chatBranchNext": {
-			"title": "Next branch",
-			"description": "Swipe the newest message forward, generating a fresh reply once past the last variant."
+			"title": "Следующая ветка",
+			"description": "Перелистнуть последнее сообщение вперёд; после последнего варианта генерируется новый ответ."
 		},
 		"inspectorNextProfile": {
-			"title": "Next inspector profile"
+			"title": "Следующий профиль инспектора"
 		},
 		"inspectorPrevProfile": {
-			"title": "Previous inspector profile"
+			"title": "Предыдущий профиль инспектора"
 		}
 	},
 	"names": {
