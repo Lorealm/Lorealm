@@ -1,66 +1,66 @@
 {
-	"resize": "Resize inspector, currently {width, number} pixels. Use arrow keys.",
-	"realmPlaceholder": "Realm Placeholder",
-	"close": "Close inspector",
-	"nothingConfigured": "Nothing configured for this view.",
+	"resize": "Größe des Inspektors ändern, aktuell {width, number} Pixel. Pfeiltasten verwenden.",
+	"realmPlaceholder": "Realm-Platzhalter",
+	"close": "Inspektor schließen",
+	"nothingConfigured": "Für diese Ansicht ist nichts eingerichtet.",
 	"widgets": {
-		"characterImage": "Character Image",
-		"template": "Template",
-		"context": "Context",
-		"state": "State",
-		"realmAgent": "Realm Agent",
-		"authorNote": "Author's Note",
-		"creatorNotes": "Creator's Notes"
+		"characterImage": "Charakterbild",
+		"template": "Vorlage",
+		"context": "Kontext",
+		"state": "Zustand",
+		"realmAgent": "Realm-Agent",
+		"authorNote": "Autorennotiz",
+		"creatorNotes": "Notizen des Erstellers"
 	},
 	"creatorNotes": {
-		"loading": "Loading…",
-		"noCharacter": "No active character. Pick one on the characters screen to read its notes.",
-		"empty": "This character has no creator's notes."
+		"loading": "Laden…",
+		"noCharacter": "Kein aktiver Charakter. Wählen Sie auf dem Charakterbildschirm einen aus, um dessen Notizen zu lesen.",
+		"empty": "Dieser Charakter hat keine Notizen des Erstellers."
 	},
 	"authorNote": {
-		"noChat": "No active chat.",
-		"placeholder": "'{{'char:name'}}' has achieved something remarkable..."
+		"noChat": "Kein aktiver Chat.",
+		"placeholder": "'{{'char:name'}}' hat etwas Bemerkenswertes erreicht..."
 	},
 	"image": {
-		"cover": "Fill the panel, cropping the edges",
-		"fit": "Fit the whole image inside the panel",
-		"full": "Grow the panel to the whole image",
-		"change": "Change how the image fits",
-		"noCharacter": "No active character."
+		"cover": "Das Panel ausfüllen und die Ränder beschneiden",
+		"fit": "Das ganze Bild im Panel anzeigen",
+		"full": "Das Panel auf das ganze Bild vergrößern",
+		"change": "Bildanpassung ändern",
+		"noCharacter": "Kein aktiver Charakter."
 	},
 	"context": {
-		"title": "Live Context",
-		"blocks": "{count, plural, one {# block} other {# blocks}}",
-		"noTrace": "No traced turn yet.",
-		"noBlocks": "Latest turn produced no blocks.",
+		"title": "Live-Kontext",
+		"blocks": "{count, plural, one {# Block} other {# Blöcke}}",
+		"noTrace": "Noch kein nachverfolgter Zug.",
+		"noBlocks": "Der letzte Zug hat keine Blöcke erzeugt.",
 		"kinds": {
-			"source": "SRC",
+			"source": "QUE",
 			"group": "GRP",
 			"text": "TXT"
 		},
-		"untitled": "(untitled)",
-		"source": "source {id}"
+		"untitled": "(ohne Titel)",
+		"source": "Quelle {id}"
 	},
 	"template": {
-		"title": "Template Nodes",
-		"toggleFailed": "Toggle failed",
-		"rowHint": "Click to toggle, shift-click to collapse",
-		"boxHint": "Click to toggle, shift-click to open",
-		"untitled": "Untitled",
-		"showGrid": "Show as grid",
-		"showTree": "Show as tree",
-		"noTemplate": "No active template.",
-		"nodes": "Template nodes",
-		"empty": "Empty template.",
-		"emptyGroup": "Empty group."
+		"title": "Vorlagenknoten",
+		"toggleFailed": "Umschalten fehlgeschlagen",
+		"rowHint": "Klicken zum Umschalten, Umschalt-Klick zum Einklappen",
+		"boxHint": "Klicken zum Umschalten, Umschalt-Klick zum Öffnen",
+		"untitled": "Ohne Titel",
+		"showGrid": "Als Raster anzeigen",
+		"showTree": "Als Baum anzeigen",
+		"noTemplate": "Keine aktive Vorlage.",
+		"nodes": "Vorlagenknoten",
+		"empty": "Leere Vorlage.",
+		"emptyGroup": "Leere Gruppe."
 	},
 	"state": {
-		"title": "Live State",
-		"turn": "turn {n, number}",
-		"noMessage": "No message pinned.",
-		"unavailable": "State unavailable.",
-		"noActivation": "No activation state.",
-		"unknown": "Unknown",
-		"noPersistent": "No persistent state."
+		"title": "Live-Zustand",
+		"turn": "Zug {n, number}",
+		"noMessage": "Keine Nachricht angeheftet.",
+		"unavailable": "Zustand nicht verfügbar.",
+		"noActivation": "Kein Aktivierungszustand.",
+		"unknown": "Unbekannt",
+		"noPersistent": "Kein persistenter Zustand."
 	}
 }
