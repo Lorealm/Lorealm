@@ -25,25 +25,25 @@ export const FONT_CHOICES: Array<{ label: string; value: string }> = [
 	{ label: 'Karla', value: 'var(--font-family-karla)' },
 	{
 		get label() {
-			return t.settings.appearance.fonts.system;
+			return t.settings.interface.fonts.system;
 		},
 		value: 'var(--font-family-system)'
 	},
 	{
 		get label() {
-			return t.settings.appearance.fonts.monospace;
+			return t.settings.interface.fonts.monospace;
 		},
 		value: 'var(--font-family-mono)'
 	}
 ];
 
-type TokenName = keyof Messages['settings']['appearance']['tokens'];
+type TokenName = keyof Messages['settings']['interface']['tokens'];
 
 /** A row whose label follows the active locale. */
 const field = (name: TokenName, kind: TokenKind): TokenField => ({
 	name,
 	get label() {
-		return t.settings.appearance.tokens[name];
+		return t.settings.interface.tokens[name];
 	},
 	kind
 });
@@ -55,10 +55,10 @@ const lengths = (names: TokenName[]): TokenField[] => names.map((name) => field(
 export const APPEARANCE_GROUPS: TokenGroup[] = [
 	{
 		get title() {
-			return t.settings.appearance.groups.accent.title;
+			return t.settings.interface.groups.accent.title;
 		},
 		get blurb() {
-			return t.settings.appearance.groups.accent.blurb;
+			return t.settings.interface.groups.accent.blurb;
 		},
 		fields: colors([
 			'--color-primary',
@@ -70,10 +70,10 @@ export const APPEARANCE_GROUPS: TokenGroup[] = [
 	},
 	{
 		get title() {
-			return t.settings.appearance.groups.surfaces.title;
+			return t.settings.interface.groups.surfaces.title;
 		},
 		get blurb() {
-			return t.settings.appearance.groups.surfaces.blurb;
+			return t.settings.interface.groups.surfaces.blurb;
 		},
 		fields: colors([
 			'--color-bg-base',
@@ -88,10 +88,10 @@ export const APPEARANCE_GROUPS: TokenGroup[] = [
 	},
 	{
 		get title() {
-			return t.settings.appearance.groups.text.title;
+			return t.settings.interface.groups.text.title;
 		},
 		get blurb() {
-			return t.settings.appearance.groups.text.blurb;
+			return t.settings.interface.groups.text.blurb;
 		},
 		fields: colors([
 			'--color-text-primary',
@@ -104,10 +104,10 @@ export const APPEARANCE_GROUPS: TokenGroup[] = [
 	},
 	{
 		get title() {
-			return t.settings.appearance.groups.borders.title;
+			return t.settings.interface.groups.borders.title;
 		},
 		get blurb() {
-			return t.settings.appearance.groups.borders.blurb;
+			return t.settings.interface.groups.borders.blurb;
 		},
 		fields: colors([
 			'--color-border-subtle',
@@ -119,19 +119,19 @@ export const APPEARANCE_GROUPS: TokenGroup[] = [
 	},
 	{
 		get title() {
-			return t.settings.appearance.groups.interaction.title;
+			return t.settings.interface.groups.interaction.title;
 		},
 		get blurb() {
-			return t.settings.appearance.groups.interaction.blurb;
+			return t.settings.interface.groups.interaction.blurb;
 		},
 		fields: colors(['--color-hover', '--color-active', '--color-focus', '--color-selected'])
 	},
 	{
 		get title() {
-			return t.settings.appearance.groups.status.title;
+			return t.settings.interface.groups.status.title;
 		},
 		get blurb() {
-			return t.settings.appearance.groups.status.blurb;
+			return t.settings.interface.groups.status.blurb;
 		},
 		fields: colors([
 			'--color-success',
@@ -146,10 +146,10 @@ export const APPEARANCE_GROUPS: TokenGroup[] = [
 	},
 	{
 		get title() {
-			return t.settings.appearance.groups.chatRoles.title;
+			return t.settings.interface.groups.chatRoles.title;
 		},
 		get blurb() {
-			return t.settings.appearance.groups.chatRoles.blurb;
+			return t.settings.interface.groups.chatRoles.blurb;
 		},
 		fields: colors([
 			'--color-role-system',
@@ -162,10 +162,10 @@ export const APPEARANCE_GROUPS: TokenGroup[] = [
 	},
 	{
 		get title() {
-			return t.settings.appearance.groups.type.title;
+			return t.settings.interface.groups.type.title;
 		},
 		get blurb() {
-			return t.settings.appearance.groups.type.blurb;
+			return t.settings.interface.groups.type.blurb;
 		},
 		fields: [
 			field('--font-family-heading', 'font'),
@@ -186,19 +186,19 @@ export const APPEARANCE_GROUPS: TokenGroup[] = [
 	},
 	{
 		get title() {
-			return t.settings.appearance.groups.shape.title;
+			return t.settings.interface.groups.shape.title;
 		},
 		get blurb() {
-			return t.settings.appearance.groups.shape.blurb;
+			return t.settings.interface.groups.shape.blurb;
 		},
 		fields: lengths(['--radius-sm', '--radius-md', '--radius-lg', '--radius-xl', '--radius-2xl'])
 	},
 	{
 		get title() {
-			return t.settings.appearance.groups.spacing.title;
+			return t.settings.interface.groups.spacing.title;
 		},
 		get blurb() {
-			return t.settings.appearance.groups.spacing.blurb;
+			return t.settings.interface.groups.spacing.blurb;
 		},
 		fields: lengths([
 			'--spacing-xs',
@@ -210,10 +210,10 @@ export const APPEARANCE_GROUPS: TokenGroup[] = [
 	},
 	{
 		get title() {
-			return t.settings.appearance.groups.layout.title;
+			return t.settings.interface.groups.layout.title;
 		},
 		get blurb() {
-			return t.settings.appearance.groups.layout.blurb;
+			return t.settings.interface.groups.layout.blurb;
 		},
 		fields: [
 			...lengths([
@@ -230,10 +230,10 @@ export const APPEARANCE_GROUPS: TokenGroup[] = [
 	},
 	{
 		get title() {
-			return t.settings.appearance.groups.motion.title;
+			return t.settings.interface.groups.motion.title;
 		},
 		get blurb() {
-			return t.settings.appearance.groups.motion.blurb;
+			return t.settings.interface.groups.motion.blurb;
 		},
 		fields: [
 			field('--transition-fast', 'text'),
@@ -243,10 +243,10 @@ export const APPEARANCE_GROUPS: TokenGroup[] = [
 	},
 	{
 		get title() {
-			return t.settings.appearance.groups.scrollbars.title;
+			return t.settings.interface.groups.scrollbars.title;
 		},
 		get blurb() {
-			return t.settings.appearance.groups.scrollbars.blurb;
+			return t.settings.interface.groups.scrollbars.blurb;
 		},
 		fields: [
 			field('--scrollbar-width', 'px'),

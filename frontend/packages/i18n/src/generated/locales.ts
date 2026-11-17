@@ -20,10 +20,371 @@ import transfer from '../locales/en/transfer.json' with { type: 'json' };
 import weaver from '../locales/en/weaver.json' with { type: 'json' };
 
 /** Languages the interface ships with. */
-export const locales = ['en'] as const;
+export const locales = ['en', 'de', 'es', 'fr', 'ja', 'nb', 'pt-BR', 'pt-PT', 'ru', 'zh-CN'] as const;
 export type Locale = (typeof locales)[number];
 
 /** The English catalog every translation falls back to. */
 export const source: Tree = { characters, chat, commands, common, components, connections, errors, inspector, keys, nav, plugins, realms, settings, shell, studio, transfer, weaver };
 
-export const translations: Partial<Record<Locale, () => Promise<Record<string, unknown>>>> = {};
+export const translations: Partial<Record<Locale, () => Promise<Record<string, unknown>>>> = {
+	de: async () => {
+		const files = await Promise.all([
+			import('../locales/de/characters.json', { with: { type: 'json' } }),
+			import('../locales/de/chat.json', { with: { type: 'json' } }),
+			import('../locales/de/commands.json', { with: { type: 'json' } }),
+			import('../locales/de/common.json', { with: { type: 'json' } }),
+			import('../locales/de/components.json', { with: { type: 'json' } }),
+			import('../locales/de/connections.json', { with: { type: 'json' } }),
+			import('../locales/de/errors.json', { with: { type: 'json' } }),
+			import('../locales/de/inspector.json', { with: { type: 'json' } }),
+			import('../locales/de/keys.json', { with: { type: 'json' } }),
+			import('../locales/de/nav.json', { with: { type: 'json' } }),
+			import('../locales/de/plugins.json', { with: { type: 'json' } }),
+			import('../locales/de/realms.json', { with: { type: 'json' } }),
+			import('../locales/de/settings.json', { with: { type: 'json' } }),
+			import('../locales/de/shell.json', { with: { type: 'json' } }),
+			import('../locales/de/studio.json', { with: { type: 'json' } }),
+			import('../locales/de/transfer.json', { with: { type: 'json' } }),
+			import('../locales/de/weaver.json', { with: { type: 'json' } })
+		]);
+		return {
+			characters: files[0].default,
+			chat: files[1].default,
+			commands: files[2].default,
+			common: files[3].default,
+			components: files[4].default,
+			connections: files[5].default,
+			errors: files[6].default,
+			inspector: files[7].default,
+			keys: files[8].default,
+			nav: files[9].default,
+			plugins: files[10].default,
+			realms: files[11].default,
+			settings: files[12].default,
+			shell: files[13].default,
+			studio: files[14].default,
+			transfer: files[15].default,
+			weaver: files[16].default
+		};
+	},
+	es: async () => {
+		const files = await Promise.all([
+			import('../locales/es/characters.json', { with: { type: 'json' } }),
+			import('../locales/es/chat.json', { with: { type: 'json' } }),
+			import('../locales/es/commands.json', { with: { type: 'json' } }),
+			import('../locales/es/common.json', { with: { type: 'json' } }),
+			import('../locales/es/components.json', { with: { type: 'json' } }),
+			import('../locales/es/connections.json', { with: { type: 'json' } }),
+			import('../locales/es/errors.json', { with: { type: 'json' } }),
+			import('../locales/es/inspector.json', { with: { type: 'json' } }),
+			import('../locales/es/keys.json', { with: { type: 'json' } }),
+			import('../locales/es/nav.json', { with: { type: 'json' } }),
+			import('../locales/es/plugins.json', { with: { type: 'json' } }),
+			import('../locales/es/realms.json', { with: { type: 'json' } }),
+			import('../locales/es/settings.json', { with: { type: 'json' } }),
+			import('../locales/es/shell.json', { with: { type: 'json' } }),
+			import('../locales/es/studio.json', { with: { type: 'json' } }),
+			import('../locales/es/transfer.json', { with: { type: 'json' } }),
+			import('../locales/es/weaver.json', { with: { type: 'json' } })
+		]);
+		return {
+			characters: files[0].default,
+			chat: files[1].default,
+			commands: files[2].default,
+			common: files[3].default,
+			components: files[4].default,
+			connections: files[5].default,
+			errors: files[6].default,
+			inspector: files[7].default,
+			keys: files[8].default,
+			nav: files[9].default,
+			plugins: files[10].default,
+			realms: files[11].default,
+			settings: files[12].default,
+			shell: files[13].default,
+			studio: files[14].default,
+			transfer: files[15].default,
+			weaver: files[16].default
+		};
+	},
+	fr: async () => {
+		const files = await Promise.all([
+			import('../locales/fr/characters.json', { with: { type: 'json' } }),
+			import('../locales/fr/chat.json', { with: { type: 'json' } }),
+			import('../locales/fr/commands.json', { with: { type: 'json' } }),
+			import('../locales/fr/common.json', { with: { type: 'json' } }),
+			import('../locales/fr/components.json', { with: { type: 'json' } }),
+			import('../locales/fr/connections.json', { with: { type: 'json' } }),
+			import('../locales/fr/errors.json', { with: { type: 'json' } }),
+			import('../locales/fr/inspector.json', { with: { type: 'json' } }),
+			import('../locales/fr/keys.json', { with: { type: 'json' } }),
+			import('../locales/fr/nav.json', { with: { type: 'json' } }),
+			import('../locales/fr/plugins.json', { with: { type: 'json' } }),
+			import('../locales/fr/realms.json', { with: { type: 'json' } }),
+			import('../locales/fr/settings.json', { with: { type: 'json' } }),
+			import('../locales/fr/shell.json', { with: { type: 'json' } }),
+			import('../locales/fr/studio.json', { with: { type: 'json' } }),
+			import('../locales/fr/transfer.json', { with: { type: 'json' } }),
+			import('../locales/fr/weaver.json', { with: { type: 'json' } })
+		]);
+		return {
+			characters: files[0].default,
+			chat: files[1].default,
+			commands: files[2].default,
+			common: files[3].default,
+			components: files[4].default,
+			connections: files[5].default,
+			errors: files[6].default,
+			inspector: files[7].default,
+			keys: files[8].default,
+			nav: files[9].default,
+			plugins: files[10].default,
+			realms: files[11].default,
+			settings: files[12].default,
+			shell: files[13].default,
+			studio: files[14].default,
+			transfer: files[15].default,
+			weaver: files[16].default
+		};
+	},
+	ja: async () => {
+		const files = await Promise.all([
+			import('../locales/ja/characters.json', { with: { type: 'json' } }),
+			import('../locales/ja/chat.json', { with: { type: 'json' } }),
+			import('../locales/ja/commands.json', { with: { type: 'json' } }),
+			import('../locales/ja/common.json', { with: { type: 'json' } }),
+			import('../locales/ja/components.json', { with: { type: 'json' } }),
+			import('../locales/ja/connections.json', { with: { type: 'json' } }),
+			import('../locales/ja/errors.json', { with: { type: 'json' } }),
+			import('../locales/ja/inspector.json', { with: { type: 'json' } }),
+			import('../locales/ja/keys.json', { with: { type: 'json' } }),
+			import('../locales/ja/nav.json', { with: { type: 'json' } }),
+			import('../locales/ja/plugins.json', { with: { type: 'json' } }),
+			import('../locales/ja/realms.json', { with: { type: 'json' } }),
+			import('../locales/ja/settings.json', { with: { type: 'json' } }),
+			import('../locales/ja/shell.json', { with: { type: 'json' } }),
+			import('../locales/ja/studio.json', { with: { type: 'json' } }),
+			import('../locales/ja/transfer.json', { with: { type: 'json' } }),
+			import('../locales/ja/weaver.json', { with: { type: 'json' } })
+		]);
+		return {
+			characters: files[0].default,
+			chat: files[1].default,
+			commands: files[2].default,
+			common: files[3].default,
+			components: files[4].default,
+			connections: files[5].default,
+			errors: files[6].default,
+			inspector: files[7].default,
+			keys: files[8].default,
+			nav: files[9].default,
+			plugins: files[10].default,
+			realms: files[11].default,
+			settings: files[12].default,
+			shell: files[13].default,
+			studio: files[14].default,
+			transfer: files[15].default,
+			weaver: files[16].default
+		};
+	},
+	nb: async () => {
+		const files = await Promise.all([
+			import('../locales/nb/characters.json', { with: { type: 'json' } }),
+			import('../locales/nb/chat.json', { with: { type: 'json' } }),
+			import('../locales/nb/commands.json', { with: { type: 'json' } }),
+			import('../locales/nb/common.json', { with: { type: 'json' } }),
+			import('../locales/nb/components.json', { with: { type: 'json' } }),
+			import('../locales/nb/connections.json', { with: { type: 'json' } }),
+			import('../locales/nb/errors.json', { with: { type: 'json' } }),
+			import('../locales/nb/inspector.json', { with: { type: 'json' } }),
+			import('../locales/nb/keys.json', { with: { type: 'json' } }),
+			import('../locales/nb/nav.json', { with: { type: 'json' } }),
+			import('../locales/nb/plugins.json', { with: { type: 'json' } }),
+			import('../locales/nb/realms.json', { with: { type: 'json' } }),
+			import('../locales/nb/settings.json', { with: { type: 'json' } }),
+			import('../locales/nb/shell.json', { with: { type: 'json' } }),
+			import('../locales/nb/studio.json', { with: { type: 'json' } }),
+			import('../locales/nb/transfer.json', { with: { type: 'json' } }),
+			import('../locales/nb/weaver.json', { with: { type: 'json' } })
+		]);
+		return {
+			characters: files[0].default,
+			chat: files[1].default,
+			commands: files[2].default,
+			common: files[3].default,
+			components: files[4].default,
+			connections: files[5].default,
+			errors: files[6].default,
+			inspector: files[7].default,
+			keys: files[8].default,
+			nav: files[9].default,
+			plugins: files[10].default,
+			realms: files[11].default,
+			settings: files[12].default,
+			shell: files[13].default,
+			studio: files[14].default,
+			transfer: files[15].default,
+			weaver: files[16].default
+		};
+	},
+	"pt-BR": async () => {
+		const files = await Promise.all([
+			import('../locales/pt-BR/characters.json', { with: { type: 'json' } }),
+			import('../locales/pt-BR/chat.json', { with: { type: 'json' } }),
+			import('../locales/pt-BR/commands.json', { with: { type: 'json' } }),
+			import('../locales/pt-BR/common.json', { with: { type: 'json' } }),
+			import('../locales/pt-BR/components.json', { with: { type: 'json' } }),
+			import('../locales/pt-BR/connections.json', { with: { type: 'json' } }),
+			import('../locales/pt-BR/errors.json', { with: { type: 'json' } }),
+			import('../locales/pt-BR/inspector.json', { with: { type: 'json' } }),
+			import('../locales/pt-BR/keys.json', { with: { type: 'json' } }),
+			import('../locales/pt-BR/nav.json', { with: { type: 'json' } }),
+			import('../locales/pt-BR/plugins.json', { with: { type: 'json' } }),
+			import('../locales/pt-BR/realms.json', { with: { type: 'json' } }),
+			import('../locales/pt-BR/settings.json', { with: { type: 'json' } }),
+			import('../locales/pt-BR/shell.json', { with: { type: 'json' } }),
+			import('../locales/pt-BR/studio.json', { with: { type: 'json' } }),
+			import('../locales/pt-BR/transfer.json', { with: { type: 'json' } }),
+			import('../locales/pt-BR/weaver.json', { with: { type: 'json' } })
+		]);
+		return {
+			characters: files[0].default,
+			chat: files[1].default,
+			commands: files[2].default,
+			common: files[3].default,
+			components: files[4].default,
+			connections: files[5].default,
+			errors: files[6].default,
+			inspector: files[7].default,
+			keys: files[8].default,
+			nav: files[9].default,
+			plugins: files[10].default,
+			realms: files[11].default,
+			settings: files[12].default,
+			shell: files[13].default,
+			studio: files[14].default,
+			transfer: files[15].default,
+			weaver: files[16].default
+		};
+	},
+	"pt-PT": async () => {
+		const files = await Promise.all([
+			import('../locales/pt-PT/characters.json', { with: { type: 'json' } }),
+			import('../locales/pt-PT/chat.json', { with: { type: 'json' } }),
+			import('../locales/pt-PT/commands.json', { with: { type: 'json' } }),
+			import('../locales/pt-PT/common.json', { with: { type: 'json' } }),
+			import('../locales/pt-PT/components.json', { with: { type: 'json' } }),
+			import('../locales/pt-PT/connections.json', { with: { type: 'json' } }),
+			import('../locales/pt-PT/errors.json', { with: { type: 'json' } }),
+			import('../locales/pt-PT/inspector.json', { with: { type: 'json' } }),
+			import('../locales/pt-PT/keys.json', { with: { type: 'json' } }),
+			import('../locales/pt-PT/nav.json', { with: { type: 'json' } }),
+			import('../locales/pt-PT/plugins.json', { with: { type: 'json' } }),
+			import('../locales/pt-PT/realms.json', { with: { type: 'json' } }),
+			import('../locales/pt-PT/settings.json', { with: { type: 'json' } }),
+			import('../locales/pt-PT/shell.json', { with: { type: 'json' } }),
+			import('../locales/pt-PT/studio.json', { with: { type: 'json' } }),
+			import('../locales/pt-PT/transfer.json', { with: { type: 'json' } }),
+			import('../locales/pt-PT/weaver.json', { with: { type: 'json' } })
+		]);
+		return {
+			characters: files[0].default,
+			chat: files[1].default,
+			commands: files[2].default,
+			common: files[3].default,
+			components: files[4].default,
+			connections: files[5].default,
+			errors: files[6].default,
+			inspector: files[7].default,
+			keys: files[8].default,
+			nav: files[9].default,
+			plugins: files[10].default,
+			realms: files[11].default,
+			settings: files[12].default,
+			shell: files[13].default,
+			studio: files[14].default,
+			transfer: files[15].default,
+			weaver: files[16].default
+		};
+	},
+	ru: async () => {
+		const files = await Promise.all([
+			import('../locales/ru/characters.json', { with: { type: 'json' } }),
+			import('../locales/ru/chat.json', { with: { type: 'json' } }),
+			import('../locales/ru/commands.json', { with: { type: 'json' } }),
+			import('../locales/ru/common.json', { with: { type: 'json' } }),
+			import('../locales/ru/components.json', { with: { type: 'json' } }),
+			import('../locales/ru/connections.json', { with: { type: 'json' } }),
+			import('../locales/ru/errors.json', { with: { type: 'json' } }),
+			import('../locales/ru/inspector.json', { with: { type: 'json' } }),
+			import('../locales/ru/keys.json', { with: { type: 'json' } }),
+			import('../locales/ru/nav.json', { with: { type: 'json' } }),
+			import('../locales/ru/plugins.json', { with: { type: 'json' } }),
+			import('../locales/ru/realms.json', { with: { type: 'json' } }),
+			import('../locales/ru/settings.json', { with: { type: 'json' } }),
+			import('../locales/ru/shell.json', { with: { type: 'json' } }),
+			import('../locales/ru/studio.json', { with: { type: 'json' } }),
+			import('../locales/ru/transfer.json', { with: { type: 'json' } }),
+			import('../locales/ru/weaver.json', { with: { type: 'json' } })
+		]);
+		return {
+			characters: files[0].default,
+			chat: files[1].default,
+			commands: files[2].default,
+			common: files[3].default,
+			components: files[4].default,
+			connections: files[5].default,
+			errors: files[6].default,
+			inspector: files[7].default,
+			keys: files[8].default,
+			nav: files[9].default,
+			plugins: files[10].default,
+			realms: files[11].default,
+			settings: files[12].default,
+			shell: files[13].default,
+			studio: files[14].default,
+			transfer: files[15].default,
+			weaver: files[16].default
+		};
+	},
+	"zh-CN": async () => {
+		const files = await Promise.all([
+			import('../locales/zh-CN/characters.json', { with: { type: 'json' } }),
+			import('../locales/zh-CN/chat.json', { with: { type: 'json' } }),
+			import('../locales/zh-CN/commands.json', { with: { type: 'json' } }),
+			import('../locales/zh-CN/common.json', { with: { type: 'json' } }),
+			import('../locales/zh-CN/components.json', { with: { type: 'json' } }),
+			import('../locales/zh-CN/connections.json', { with: { type: 'json' } }),
+			import('../locales/zh-CN/errors.json', { with: { type: 'json' } }),
+			import('../locales/zh-CN/inspector.json', { with: { type: 'json' } }),
+			import('../locales/zh-CN/keys.json', { with: { type: 'json' } }),
+			import('../locales/zh-CN/nav.json', { with: { type: 'json' } }),
+			import('../locales/zh-CN/plugins.json', { with: { type: 'json' } }),
+			import('../locales/zh-CN/realms.json', { with: { type: 'json' } }),
+			import('../locales/zh-CN/settings.json', { with: { type: 'json' } }),
+			import('../locales/zh-CN/shell.json', { with: { type: 'json' } }),
+			import('../locales/zh-CN/studio.json', { with: { type: 'json' } }),
+			import('../locales/zh-CN/transfer.json', { with: { type: 'json' } }),
+			import('../locales/zh-CN/weaver.json', { with: { type: 'json' } })
+		]);
+		return {
+			characters: files[0].default,
+			chat: files[1].default,
+			commands: files[2].default,
+			common: files[3].default,
+			components: files[4].default,
+			connections: files[5].default,
+			errors: files[6].default,
+			inspector: files[7].default,
+			keys: files[8].default,
+			nav: files[9].default,
+			plugins: files[10].default,
+			realms: files[11].default,
+			settings: files[12].default,
+			shell: files[13].default,
+			studio: files[14].default,
+			transfer: files[15].default,
+			weaver: files[16].default
+		};
+	}
+};
