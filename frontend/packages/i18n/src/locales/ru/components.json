@@ -1,54 +1,54 @@
 {
 	"toast": {
-		"dismiss": "Dismiss toast"
+		"dismiss": "Закрыть уведомление"
 	},
 	"saveIndicator": {
-		"invalid": "Unsaved — invalid"
+		"invalid": "Не сохранено — ошибка в данных"
 	},
-	"wideScreenNote": "{subject} is easier to use on a tablet or computer.",
+	"wideScreenNote": "{subject} удобнее использовать на планшете или компьютере.",
 	"tokenBadge": {
-		"estimated": "Estimated — no tokenizer is active. Pick one in Settings for exact counts.",
-		"exact": "Tokens under the active tokenizer",
-		"unit": "tokens"
+		"estimated": "Приблизительно — токенайзер не выбран. Выберите его в настройках, чтобы считать точно.",
+		"exact": "Токены по активному токенайзеру",
+		"unit": "токенов"
 	},
 	"searchSelect": {
-		"noMatches": "No matches.",
-		"hideSuggestions": "Hide suggestions",
-		"showSuggestions": "Show suggestions"
+		"noMatches": "Ничего не найдено.",
+		"hideSuggestions": "Скрыть подсказки",
+		"showSuggestions": "Показать подсказки"
 	},
 	"iconPicker": {
-		"change": "Change icon",
-		"pick": "Pick an icon",
-		"search": "{count, plural, one {Search # icon} other {Search # icons}}",
-		"noMatch": "No icon matches “{query}”."
+		"change": "Сменить значок",
+		"pick": "Выберите значок",
+		"search": "{count, plural, one {Поиск среди # значка} few {Поиск среди # значков} many {Поиск среди # значков} other {Поиск среди # значка}}",
+		"noMatch": "Значков по запросу «{query}» нет."
 	},
 	"listSidebar": {
-		"new": "New",
-		"creating": "Creating…",
-		"search": "Search…",
-		"sort": "Sort {title}",
-		"showBuiltIn": "Show built-in"
+		"new": "Создать",
+		"creating": "Создание…",
+		"search": "Поиск…",
+		"sort": "Сортировка: {title}",
+		"showBuiltIn": "Показать встроенные"
 	},
 	"field": {
-		"help": "Help: {label}",
-		"maximize": "Maximize",
-		"maximizeField": "Maximize {label}",
-		"fallbackLabel": "field",
-		"editingFullScreen": "Editing full screen…",
-		"edit": "Edit"
+		"help": "Справка: {label}",
+		"maximize": "Развернуть",
+		"maximizeField": "Развернуть: {label}",
+		"fallbackLabel": "поле",
+		"editingFullScreen": "Редактирование на весь экран…",
+		"edit": "Изменить"
 	},
 	"numberInput": {
-		"increment": "Increment",
-		"decrement": "Decrement"
+		"increment": "Увеличить",
+		"decrement": "Уменьшить"
 	},
 	"plugin": {
-		"callFailed": "The call failed.",
-		"panelFailed": "This plugin's panel couldn't be loaded."
+		"callFailed": "Вызов не удался.",
+		"panelFailed": "Не удалось загрузить панель этого плагина."
 	},
-	"loading": "Loading",
-	"unknownWidget": "Unknown widget: {id}",
+	"loading": "Загрузка",
+	"unknownWidget": "Неизвестный виджет: {id}",
 	"maximize": {
-		"minimizeHint": "Minimize (Esc)",
-		"minimize": "Minimize"
+		"minimizeHint": "Свернуть (Esc)",
+		"minimize": "Свернуть"
 	}
 }
