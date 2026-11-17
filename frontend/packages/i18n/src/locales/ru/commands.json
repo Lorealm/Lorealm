@@ -1,43 +1,43 @@
 {
 	"send": {
-		"description": "Send a message and generate a reply.",
-		"rest": "message",
-		"unavailable": "A reply is still streaming."
+		"description": "Отправить сообщение и сгенерировать ответ.",
+		"rest": "сообщение",
+		"unavailable": "Ответ ещё формируется."
 	},
 	"newchat": {
-		"description": "Start a fresh conversation with the active character."
+		"description": "Начать новый разговор с активным персонажем."
 	},
 	"conversations": {
-		"description": "List the chats with the active character."
+		"description": "Показать чаты с активным персонажем."
 	},
 	"go": {
-		"description": "Open a view: {views}.",
-		"rest": "view",
-		"unknownView": "Unknown view ''{view}'."
+		"description": "Открыть раздел: {views}.",
+		"rest": "раздел",
+		"unknownView": "Неизвестный раздел ''{view}'."
 	},
 	"back": {
-		"description": "Return to the previous destination.",
-		"unavailable": "There is nothing to go back to."
+		"description": "Вернуться на предыдущий экран.",
+		"unavailable": "Возвращаться некуда."
 	},
-	"noCharacter": "No character is active.",
+	"noCharacter": "Нет активного персонажа.",
 	"server": {
-		"rest": "text",
-		"unavailable": "Wait for the current reply, command or plugin to finish."
+		"rest": "текст",
+		"unavailable": "Дождитесь, пока завершится текущий ответ, команда или плагин."
 	},
-	"unknown": "Unknown command",
-	"noSuchCommand": "There is no /{name} command.",
-	"unavailableTitle": "/{name} is unavailable",
-	"notAvailable": "Not available right now.",
-	"failed": "/{name} failed",
+	"unknown": "Неизвестная команда",
+	"noSuchCommand": "Команды /{name} не существует.",
+	"unavailableTitle": "Команда /{name} недоступна",
+	"notAvailable": "Сейчас недоступно.",
+	"failed": "Ошибка в команде /{name}",
 	"resources": {
-		"character": "Character",
-		"persona": "Persona",
-		"connection_profile": "Connection profile",
-		"context_template": "Context template",
-		"lorebook": "Lorebook",
-		"tokenizer": "Tokenizer",
-		"user_tool": "Tool",
-		"user_widget": "Widget",
-		"realm": "Realm"
+		"character": "Персонаж",
+		"persona": "Персона",
+		"connection_profile": "Профиль подключения",
+		"context_template": "Шаблон контекста",
+		"lorebook": "Лорбук",
+		"tokenizer": "Токенайзер",
+		"user_tool": "Инструмент",
+		"user_widget": "Виджет",
+		"realm": "Мир"
 	}
 }
