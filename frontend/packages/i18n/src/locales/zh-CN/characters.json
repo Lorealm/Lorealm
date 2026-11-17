@@ -1,35 +1,35 @@
 {
-	"chat": "Chat",
-	"showInInspector": "Show {name} in the inspector",
-	"sort": "Sort characters",
+	"chat": "聊天",
+	"showInInspector": "在检查器中显示 {name}",
+	"sort": "排序角色",
 	"sortOptions": {
-		"nameAsc": "Name (A–Z)",
-		"nameDesc": "Name (Z–A)",
-		"updated": "Recently updated",
-		"created": "Recently added"
+		"nameAsc": "名称（A–Z）",
+		"nameDesc": "名称（Z–A）",
+		"updated": "最近更新",
+		"created": "最近添加"
 	},
-	"reuseHint": "When a card brings a lorebook identical to one you have, attach yours instead of importing a copy.",
-	"reuse": "Reuse matching lorebooks",
-	"uploading": "Uploading…",
-	"import": "Import",
-	"new": "New",
-	"empty": "No characters yet — create one to get started.",
-	"newName": "New Character",
-	"createFailed": "Couldn't create character",
+	"reuseHint": "当角色卡附带的世界书与你已有的相同时，附加你已有的，而不是导入副本。",
+	"reuse": "复用匹配的世界书",
+	"uploading": "正在上传…",
+	"import": "导入",
+	"new": "新建",
+	"empty": "还没有角色——创建一个即可开始。",
+	"newName": "新角色",
+	"createFailed": "无法创建角色",
 	"attachments": {
-		"title": "Lorebooks, tools and widgets",
-		"imported": "Imported {count, number}.",
-		"reused": "Reused {count, number} you already had.",
-		"rename": "{from} to {to}",
-		"renamed": "Renamed {list}, since those names were taken.",
-		"skipped": "Left out {list}, which couldn't be read."
+		"title": "世界书、工具和小组件",
+		"imported": "已导入 {count, number} 项。",
+		"reused": "复用了你已有的 {count, number} 项。",
+		"rename": "{from} 改为 {to}",
+		"renamed": "已重命名{list}，因为这些名称已被占用。",
+		"skipped": "已略过{list}，因为无法读取。"
 	},
 	"lorebookImport": {
-		"title": "Lorebook imported",
+		"title": "世界书已导入",
 		"named": "“{name}”",
-		"lorebooks": "{count, plural, one {# lorebook} other {# lorebooks}}",
-		"entries": "{count, plural, one {# entry} other {# entries}}",
-		"notConverted": "{count, plural, one {# entry could not be converted.} other {# entries could not be converted.}}",
-		"message": "Imported {subject} with {entries}."
+		"lorebooks": "{count, plural, other {# 本世界书}}",
+		"entries": "{count, plural, other {# 个条目}}",
+		"notConverted": "{count, plural, other {有 # 个条目无法转换。}}",
+		"message": "已导入{subject}，包含{entries}。"
 	}
 }
