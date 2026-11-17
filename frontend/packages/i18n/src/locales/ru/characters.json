@@ -1,35 +1,35 @@
 {
-	"chat": "Chat",
-	"showInInspector": "Show {name} in the inspector",
-	"sort": "Sort characters",
+	"chat": "Чат",
+	"showInInspector": "Показать «{name}» в инспекторе",
+	"sort": "Сортировка персонажей",
 	"sortOptions": {
-		"nameAsc": "Name (A–Z)",
-		"nameDesc": "Name (Z–A)",
-		"updated": "Recently updated",
-		"created": "Recently added"
+		"nameAsc": "Название (А–Я)",
+		"nameDesc": "Название (Я–А)",
+		"updated": "Недавно изменённые",
+		"created": "Недавно добавленные"
 	},
-	"reuseHint": "When a card brings a lorebook identical to one you have, attach yours instead of importing a copy.",
-	"reuse": "Reuse matching lorebooks",
-	"uploading": "Uploading…",
-	"import": "Import",
-	"new": "New",
-	"empty": "No characters yet — create one to get started.",
-	"newName": "New Character",
-	"createFailed": "Couldn't create character",
+	"reuseHint": "Если в карточке есть лорбук, идентичный вашему, прикрепить ваш вместо импорта копии.",
+	"reuse": "Использовать совпадающие лорбуки",
+	"uploading": "Загрузка…",
+	"import": "Импортировать",
+	"new": "Создать",
+	"empty": "Персонажей пока нет — создайте первого, чтобы начать.",
+	"newName": "Новый персонаж",
+	"createFailed": "Не удалось создать персонажа",
 	"attachments": {
-		"title": "Lorebooks, tools and widgets",
-		"imported": "Imported {count, number}.",
-		"reused": "Reused {count, number} you already had.",
-		"rename": "{from} to {to}",
-		"renamed": "Renamed {list}, since those names were taken.",
-		"skipped": "Left out {list}, which couldn't be read."
+		"title": "Лорбуки, инструменты и виджеты",
+		"imported": "Импортировано: {count, number}.",
+		"reused": "Использовано уже имеющихся: {count, number}.",
+		"rename": "{from} → {to}",
+		"renamed": "Переименовано: {list}, так как эти имена были заняты.",
+		"skipped": "Пропущено: {list} — не удалось прочитать."
 	},
 	"lorebookImport": {
-		"title": "Lorebook imported",
-		"named": "“{name}”",
-		"lorebooks": "{count, plural, one {# lorebook} other {# lorebooks}}",
-		"entries": "{count, plural, one {# entry} other {# entries}}",
-		"notConverted": "{count, plural, one {# entry could not be converted.} other {# entries could not be converted.}}",
-		"message": "Imported {subject} with {entries}."
+		"title": "Лорбук импортирован",
+		"named": "«{name}»",
+		"lorebooks": "{count, plural, one {# лорбук} few {# лорбука} many {# лорбуков} other {# лорбука}}",
+		"entries": "{count, plural, one {# запись} few {# записи} many {# записей} other {# записи}}",
+		"notConverted": "{count, plural, one {# запись не удалось преобразовать.} few {# записи не удалось преобразовать.} many {# записей не удалось преобразовать.} other {# записи не удалось преобразовать.}}",
+		"message": "Импортировано: {subject} ({entries})."
 	}
 }

@@ -1,54 +1,54 @@
 {
 	"toast": {
-		"dismiss": "Dismiss toast"
+		"dismiss": "Descartar notificación"
 	},
 	"saveIndicator": {
-		"invalid": "Unsaved — invalid"
+		"invalid": "Sin guardar — no válido"
 	},
-	"wideScreenNote": "{subject} is easier to use on a tablet or computer.",
+	"wideScreenNote": "{subject} se usa mejor en una tableta o un ordenador.",
 	"tokenBadge": {
-		"estimated": "Estimated — no tokenizer is active. Pick one in Settings for exact counts.",
-		"exact": "Tokens under the active tokenizer",
+		"estimated": "Estimado — no hay ningún tokenizador activo. Elige uno en Ajustes para obtener recuentos exactos.",
+		"exact": "Tokens según el tokenizador activo",
 		"unit": "tokens"
 	},
 	"searchSelect": {
-		"noMatches": "No matches.",
-		"hideSuggestions": "Hide suggestions",
-		"showSuggestions": "Show suggestions"
+		"noMatches": "Sin coincidencias.",
+		"hideSuggestions": "Ocultar sugerencias",
+		"showSuggestions": "Mostrar sugerencias"
 	},
 	"iconPicker": {
-		"change": "Change icon",
-		"pick": "Pick an icon",
-		"search": "{count, plural, one {Search # icon} other {Search # icons}}",
-		"noMatch": "No icon matches “{query}”."
+		"change": "Cambiar icono",
+		"pick": "Elegir un icono",
+		"search": "{count, plural, one {Buscar # icono} many {Buscar # iconos} other {Buscar # iconos}}",
+		"noMatch": "Ningún icono coincide con “{query}”."
 	},
 	"listSidebar": {
-		"new": "New",
-		"creating": "Creating…",
-		"search": "Search…",
-		"sort": "Sort {title}",
-		"showBuiltIn": "Show built-in"
+		"new": "Nuevo",
+		"creating": "Creando…",
+		"search": "Buscar…",
+		"sort": "Ordenar {title}",
+		"showBuiltIn": "Mostrar integrados"
 	},
 	"field": {
-		"help": "Help: {label}",
-		"maximize": "Maximize",
-		"maximizeField": "Maximize {label}",
-		"fallbackLabel": "field",
-		"editingFullScreen": "Editing full screen…",
-		"edit": "Edit"
+		"help": "Ayuda: {label}",
+		"maximize": "Maximizar",
+		"maximizeField": "Maximizar {label}",
+		"fallbackLabel": "campo",
+		"editingFullScreen": "Editando a pantalla completa…",
+		"edit": "Editar"
 	},
 	"numberInput": {
-		"increment": "Increment",
-		"decrement": "Decrement"
+		"increment": "Aumentar",
+		"decrement": "Disminuir"
 	},
 	"plugin": {
-		"callFailed": "The call failed.",
-		"panelFailed": "This plugin's panel couldn't be loaded."
+		"callFailed": "La llamada ha fallado.",
+		"panelFailed": "No se pudo cargar el panel de este plugin."
 	},
-	"loading": "Loading",
-	"unknownWidget": "Unknown widget: {id}",
+	"loading": "Cargando",
+	"unknownWidget": "Widget desconocido: {id}",
 	"maximize": {
-		"minimizeHint": "Minimize (Esc)",
-		"minimize": "Minimize"
+		"minimizeHint": "Minimizar (Esc)",
+		"minimize": "Minimizar"
 	}
 }

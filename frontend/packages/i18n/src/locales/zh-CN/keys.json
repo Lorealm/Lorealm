@@ -1,69 +1,69 @@
 {
 	"groups": {
-		"navigation": "Navigation",
-		"views": "Views",
-		"settings": "Settings",
-		"chat": "Chat",
-		"inspector": "Inspector"
+		"navigation": "导航",
+		"views": "视图",
+		"settings": "设置",
+		"chat": "聊天",
+		"inspector": "检查器"
 	},
 	"commands": {
 		"navBack": {
-			"title": "Back",
-			"description": "Return to the previous destination."
+			"title": "后退",
+			"description": "返回上一个位置。"
 		},
 		"navForward": {
-			"title": "Forward",
-			"description": "Undo a Back."
+			"title": "前进",
+			"description": "撤销一次后退。"
 		},
 		"viewWrite": {
-			"title": "Go to Write"
+			"title": "前往写作"
 		},
 		"viewCharacters": {
-			"title": "Go to Characters"
+			"title": "前往角色"
 		},
 		"viewRealms": {
-			"title": "Go to Realms"
+			"title": "前往领域"
 		},
 		"viewConnections": {
-			"title": "Go to Connections"
+			"title": "前往连接"
 		},
 		"viewStudio": {
-			"title": "Go to Studio"
+			"title": "前往工作室"
 		},
 		"settingsOpen": {
-			"title": "Open settings"
+			"title": "打开设置"
 		},
 		"keysHelp": {
-			"title": "Keyboard shortcuts",
-			"description": "Open the shortcut list."
+			"title": "键盘快捷键",
+			"description": "打开快捷键列表。"
 		},
 		"chatFocus": {
-			"title": "Focus the composer",
-			"description": "Put the cursor in the chat box."
+			"title": "聚焦输入框",
+			"description": "将光标置于聊天输入框中。"
 		},
 		"chatSend": {
-			"title": "Send message"
+			"title": "发送消息"
 		},
 		"chatConversations": {
-			"title": "Conversations",
-			"description": "List the chats with the active character."
+			"title": "对话",
+			"description": "列出与当前角色的聊天。"
 		},
 		"chatConversationsClose": {
-			"title": "Close conversations"
+			"title": "关闭对话列表"
 		},
 		"chatBranchPrev": {
-			"title": "Previous branch",
-			"description": "Swipe the newest message back to its previous variant."
+			"title": "上一个分支",
+			"description": "将最新消息滑回上一个版本。"
 		},
 		"chatBranchNext": {
-			"title": "Next branch",
-			"description": "Swipe the newest message forward, generating a fresh reply once past the last variant."
+			"title": "下一个分支",
+			"description": "将最新消息向后滑动；越过最后一个版本时会生成新的回复。"
 		},
 		"inspectorNextProfile": {
-			"title": "Next inspector profile"
+			"title": "下一个检查器配置"
 		},
 		"inspectorPrevProfile": {
-			"title": "Previous inspector profile"
+			"title": "上一个检查器配置"
 		}
 	},
 	"names": {

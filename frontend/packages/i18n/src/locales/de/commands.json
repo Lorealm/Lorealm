@@ -1,39 +1,39 @@
 {
 	"send": {
-		"description": "Send a message and generate a reply.",
-		"rest": "message",
-		"unavailable": "A reply is still streaming."
+		"description": "Sendet eine Nachricht und erzeugt eine Antwort.",
+		"rest": "Nachricht",
+		"unavailable": "Eine Antwort wird noch gestreamt."
 	},
 	"newchat": {
-		"description": "Start a fresh conversation with the active character."
+		"description": "Beginnt eine neue Unterhaltung mit dem aktiven Charakter."
 	},
 	"conversations": {
-		"description": "List the chats with the active character."
+		"description": "Listet die Chats mit dem aktiven Charakter auf."
 	},
 	"go": {
-		"description": "Open a view: {views}.",
-		"rest": "view",
-		"unknownView": "Unknown view ''{view}'."
+		"description": "Öffnet eine Ansicht: {views}.",
+		"rest": "Ansicht",
+		"unknownView": "Unbekannte Ansicht ''{view}'."
 	},
 	"back": {
-		"description": "Return to the previous destination.",
-		"unavailable": "There is nothing to go back to."
+		"description": "Kehrt zum vorherigen Ziel zurück.",
+		"unavailable": "Es gibt nichts, wohin man zurückkehren könnte."
 	},
-	"noCharacter": "No character is active.",
+	"noCharacter": "Kein Charakter ist aktiv.",
 	"server": {
-		"rest": "text",
-		"unavailable": "Wait for the current reply, command or plugin to finish."
+		"rest": "Text",
+		"unavailable": "Warten Sie, bis die aktuelle Antwort, der Befehl oder das Plugin fertig ist."
 	},
-	"unknown": "Unknown command",
-	"noSuchCommand": "There is no /{name} command.",
-	"unavailableTitle": "/{name} is unavailable",
-	"notAvailable": "Not available right now.",
-	"failed": "/{name} failed",
+	"unknown": "Unbekannter Befehl",
+	"noSuchCommand": "Es gibt keinen Befehl /{name}.",
+	"unavailableTitle": "/{name} ist nicht verfügbar",
+	"notAvailable": "Derzeit nicht verfügbar.",
+	"failed": "/{name} ist fehlgeschlagen",
 	"resources": {
-		"character": "Character",
+		"character": "Charakter",
 		"persona": "Persona",
-		"connection_profile": "Connection profile",
-		"context_template": "Context template",
+		"connection_profile": "Verbindungsprofil",
+		"context_template": "Kontextvorlage",
 		"lorebook": "Lorebook",
 		"tokenizer": "Tokenizer",
 		"user_tool": "Tool",

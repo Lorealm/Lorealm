@@ -1,43 +1,43 @@
 {
 	"send": {
-		"description": "Send a message and generate a reply.",
-		"rest": "message",
-		"unavailable": "A reply is still streaming."
+		"description": "Send en melding og generer et svar.",
+		"rest": "melding",
+		"unavailable": "Et svar strømmes fortsatt inn."
 	},
 	"newchat": {
-		"description": "Start a fresh conversation with the active character."
+		"description": "Start en ny samtale med den aktive karakteren."
 	},
 	"conversations": {
-		"description": "List the chats with the active character."
+		"description": "List chattene med den aktive karakteren."
 	},
 	"go": {
-		"description": "Open a view: {views}.",
-		"rest": "view",
-		"unknownView": "Unknown view ''{view}'."
+		"description": "Åpne en visning: {views}.",
+		"rest": "visning",
+		"unknownView": "Ukjent visning ''{view}'."
 	},
 	"back": {
-		"description": "Return to the previous destination.",
-		"unavailable": "There is nothing to go back to."
+		"description": "Gå tilbake til forrige sted.",
+		"unavailable": "Det er ingenting å gå tilbake til."
 	},
-	"noCharacter": "No character is active.",
+	"noCharacter": "Ingen karakter er aktiv.",
 	"server": {
-		"rest": "text",
-		"unavailable": "Wait for the current reply, command or plugin to finish."
+		"rest": "tekst",
+		"unavailable": "Vent til det pågående svaret, kommandoen eller pluginen er ferdig."
 	},
-	"unknown": "Unknown command",
-	"noSuchCommand": "There is no /{name} command.",
-	"unavailableTitle": "/{name} is unavailable",
-	"notAvailable": "Not available right now.",
-	"failed": "/{name} failed",
+	"unknown": "Ukjent kommando",
+	"noSuchCommand": "Det finnes ingen kommando /{name}.",
+	"unavailableTitle": "/{name} er utilgjengelig",
+	"notAvailable": "Ikke tilgjengelig akkurat nå.",
+	"failed": "/{name} mislyktes",
 	"resources": {
-		"character": "Character",
+		"character": "Karakter",
 		"persona": "Persona",
-		"connection_profile": "Connection profile",
-		"context_template": "Context template",
-		"lorebook": "Lorebook",
+		"connection_profile": "Tilkoblingsprofil",
+		"context_template": "Kontekstmal",
+		"lorebook": "Lorebok",
 		"tokenizer": "Tokenizer",
-		"user_tool": "Tool",
+		"user_tool": "Verktøy",
 		"user_widget": "Widget",
-		"realm": "Realm"
+		"realm": "Rike"
 	}
 }

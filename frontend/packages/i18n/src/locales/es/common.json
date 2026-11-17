@@ -1,16 +1,16 @@
 {
-	"close": "Close",
-	"dismiss": "Dismiss",
+	"close": "Cerrar",
+	"dismiss": "Descartar",
 	"error": "Error",
-	"saving": "Saving…",
-	"saved": "Saved",
-	"save": "Save",
-	"cancel": "Cancel",
-	"edit": "Edit",
-	"delete": "Delete",
-	"previous": "Previous",
-	"next": "Next",
-	"loading": "Loading…",
+	"saving": "Guardando…",
+	"saved": "Guardado",
+	"save": "Guardar",
+	"cancel": "Cancelar",
+	"edit": "Editar",
+	"delete": "Eliminar",
+	"previous": "Anterior",
+	"next": "Siguiente",
+	"loading": "Cargando…",
 	"ok": "OK",
-	"notification": "Notification"
+	"notification": "Notificación"
 }

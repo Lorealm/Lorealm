@@ -1,31 +1,31 @@
 {
 	"login": {
-		"title": "Login Page",
-		"serverUrl": "Server URL",
-		"username": "Username",
-		"password": "Password",
-		"emailOptional": "Email (optional)",
-		"inviteCode": "Invite code",
-		"invitePlaceholder": "Needed if sign-ups are closed",
-		"createAccount": "Create account",
-		"haveAccount": "I already have an account",
-		"logIn": "Log in",
-		"createAnAccount": "Create an account"
+		"title": "Página de login",
+		"serverUrl": "URL do servidor",
+		"username": "Nome de usuário",
+		"password": "Senha",
+		"emailOptional": "E-mail (opcional)",
+		"inviteCode": "Código de convite",
+		"invitePlaceholder": "Necessário se os cadastros estiverem fechados",
+		"createAccount": "Criar conta",
+		"haveAccount": "Já tenho uma conta",
+		"logIn": "Entrar",
+		"createAnAccount": "Criar uma conta"
 	},
-	"closePanel": "Close panel",
+	"closePanel": "Fechar painel",
 	"window": {
-		"minimize": "Minimize",
-		"maximize": "Maximize",
-		"close": "Close"
+		"minimize": "Minimizar",
+		"maximize": "Maximizar",
+		"close": "Fechar"
 	},
-	"underConstruction": "Under Construction",
+	"underConstruction": "Em construção",
 	"update": {
-		"title": "Update available",
-		"message": "Lorealm {version} is ready to install.",
-		"install": "Restart and update",
-		"later": "Later",
-		"installingTitle": "Updating",
-		"installing": "Downloading the update. Lorealm will restart when it’s done.",
-		"failed": "The update couldn’t be installed"
+		"title": "Atualização disponível",
+		"message": "O Lorealm {version} está pronto para instalar.",
+		"install": "Reiniciar e atualizar",
+		"later": "Mais tarde",
+		"installingTitle": "Atualizando",
+		"installing": "Baixando a atualização. O Lorealm será reiniciado quando terminar.",
+		"failed": "Não foi possível instalar a atualização"
 	}
 }

@@ -1,66 +1,66 @@
 {
-	"resize": "Resize inspector, currently {width, number} pixels. Use arrow keys.",
-	"realmPlaceholder": "Realm Placeholder",
-	"close": "Close inspector",
-	"nothingConfigured": "Nothing configured for this view.",
+	"resize": "调整检查器大小，当前为 {width, number} 像素。使用方向键调整。",
+	"realmPlaceholder": "领域占位",
+	"close": "关闭检查器",
+	"nothingConfigured": "此视图尚未配置任何内容。",
 	"widgets": {
-		"characterImage": "Character Image",
-		"template": "Template",
-		"context": "Context",
-		"state": "State",
-		"realmAgent": "Realm Agent",
-		"authorNote": "Author's Note",
-		"creatorNotes": "Creator's Notes"
+		"characterImage": "角色图像",
+		"template": "模板",
+		"context": "上下文",
+		"state": "状态",
+		"realmAgent": "领域智能体",
+		"authorNote": "作者注",
+		"creatorNotes": "创作者备注"
 	},
 	"creatorNotes": {
-		"loading": "Loading…",
-		"noCharacter": "No active character. Pick one on the characters screen to read its notes.",
-		"empty": "This character has no creator's notes."
+		"loading": "正在加载…",
+		"noCharacter": "当前没有活动角色。在角色页面选择一个即可阅读其备注。",
+		"empty": "此角色没有创作者备注。"
 	},
 	"authorNote": {
-		"noChat": "No active chat.",
-		"placeholder": "'{{'char:name'}}' has achieved something remarkable..."
+		"noChat": "当前没有活动聊天。",
+		"placeholder": "'{{'char:name'}}' 取得了非凡的成就……"
 	},
 	"image": {
-		"cover": "Fill the panel, cropping the edges",
-		"fit": "Fit the whole image inside the panel",
-		"full": "Grow the panel to the whole image",
-		"change": "Change how the image fits",
-		"noCharacter": "No active character."
+		"cover": "填满面板，裁切边缘",
+		"fit": "将整张图像完整放入面板",
+		"full": "将面板扩展至整张图像大小",
+		"change": "更改图像的适应方式",
+		"noCharacter": "当前没有活动角色。"
 	},
 	"context": {
-		"title": "Live Context",
-		"blocks": "{count, plural, one {# block} other {# blocks}}",
-		"noTrace": "No traced turn yet.",
-		"noBlocks": "Latest turn produced no blocks.",
+		"title": "实时上下文",
+		"blocks": "{count, plural, other {# 个块}}",
+		"noTrace": "尚无已追踪的回合。",
+		"noBlocks": "最近一个回合没有产生任何块。",
 		"kinds": {
 			"source": "SRC",
 			"group": "GRP",
 			"text": "TXT"
 		},
-		"untitled": "(untitled)",
-		"source": "source {id}"
+		"untitled": "（无标题）",
+		"source": "来源 {id}"
 	},
 	"template": {
-		"title": "Template Nodes",
-		"toggleFailed": "Toggle failed",
-		"rowHint": "Click to toggle, shift-click to collapse",
-		"boxHint": "Click to toggle, shift-click to open",
-		"untitled": "Untitled",
-		"showGrid": "Show as grid",
-		"showTree": "Show as tree",
-		"noTemplate": "No active template.",
-		"nodes": "Template nodes",
-		"empty": "Empty template.",
-		"emptyGroup": "Empty group."
+		"title": "模板节点",
+		"toggleFailed": "切换失败",
+		"rowHint": "点击切换，Shift 点击折叠",
+		"boxHint": "点击切换，Shift 点击打开",
+		"untitled": "无标题",
+		"showGrid": "以网格显示",
+		"showTree": "以树状显示",
+		"noTemplate": "当前没有活动模板。",
+		"nodes": "模板节点",
+		"empty": "模板为空。",
+		"emptyGroup": "分组为空。"
 	},
 	"state": {
-		"title": "Live State",
-		"turn": "turn {n, number}",
-		"noMessage": "No message pinned.",
-		"unavailable": "State unavailable.",
-		"noActivation": "No activation state.",
-		"unknown": "Unknown",
-		"noPersistent": "No persistent state."
+		"title": "实时状态",
+		"turn": "第 {n, number} 回合",
+		"noMessage": "未固定任何消息。",
+		"unavailable": "状态不可用。",
+		"noActivation": "没有激活状态。",
+		"unknown": "未知",
+		"noPersistent": "没有持久状态。"
 	}
 }

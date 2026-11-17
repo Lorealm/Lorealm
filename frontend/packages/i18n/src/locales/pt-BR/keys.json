@@ -1,69 +1,69 @@
 {
 	"groups": {
-		"navigation": "Navigation",
-		"views": "Views",
-		"settings": "Settings",
+		"navigation": "Navegação",
+		"views": "Telas",
+		"settings": "Configurações",
 		"chat": "Chat",
-		"inspector": "Inspector"
+		"inspector": "Inspetor"
 	},
 	"commands": {
 		"navBack": {
-			"title": "Back",
-			"description": "Return to the previous destination."
+			"title": "Voltar",
+			"description": "Volta ao destino anterior."
 		},
 		"navForward": {
-			"title": "Forward",
-			"description": "Undo a Back."
+			"title": "Avançar",
+			"description": "Desfaz um Voltar."
 		},
 		"viewWrite": {
-			"title": "Go to Write"
+			"title": "Ir para Escrever"
 		},
 		"viewCharacters": {
-			"title": "Go to Characters"
+			"title": "Ir para Personagens"
 		},
 		"viewRealms": {
-			"title": "Go to Realms"
+			"title": "Ir para Reinos"
 		},
 		"viewConnections": {
-			"title": "Go to Connections"
+			"title": "Ir para Conexões"
 		},
 		"viewStudio": {
-			"title": "Go to Studio"
+			"title": "Ir para o Estúdio"
 		},
 		"settingsOpen": {
-			"title": "Open settings"
+			"title": "Abrir configurações"
 		},
 		"keysHelp": {
-			"title": "Keyboard shortcuts",
-			"description": "Open the shortcut list."
+			"title": "Atalhos de teclado",
+			"description": "Abre a lista de atalhos."
 		},
 		"chatFocus": {
-			"title": "Focus the composer",
-			"description": "Put the cursor in the chat box."
+			"title": "Focar o campo de mensagem",
+			"description": "Coloca o cursor na caixa de chat."
 		},
 		"chatSend": {
-			"title": "Send message"
+			"title": "Enviar mensagem"
 		},
 		"chatConversations": {
-			"title": "Conversations",
-			"description": "List the chats with the active character."
+			"title": "Conversas",
+			"description": "Lista os chats com o personagem ativo."
 		},
 		"chatConversationsClose": {
-			"title": "Close conversations"
+			"title": "Fechar conversas"
 		},
 		"chatBranchPrev": {
-			"title": "Previous branch",
-			"description": "Swipe the newest message back to its previous variant."
+			"title": "Ramificação anterior",
+			"description": "Volta a mensagem mais recente para a variante anterior."
 		},
 		"chatBranchNext": {
-			"title": "Next branch",
-			"description": "Swipe the newest message forward, generating a fresh reply once past the last variant."
+			"title": "Próxima ramificação",
+			"description": "Avança a mensagem mais recente, gerando uma nova resposta depois da última variante."
 		},
 		"inspectorNextProfile": {
-			"title": "Next inspector profile"
+			"title": "Próximo perfil do inspetor"
 		},
 		"inspectorPrevProfile": {
-			"title": "Previous inspector profile"
+			"title": "Perfil anterior do inspetor"
 		}
 	},
 	"names": {
@@ -76,6 +76,6 @@
 		"delete": "Delete",
 		"escape": "Esc",
 		"tab": "Tab",
-		"space": "Space"
+		"space": "Espaço"
 	}
 }

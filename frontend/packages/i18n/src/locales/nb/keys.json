@@ -1,69 +1,69 @@
 {
 	"groups": {
-		"navigation": "Navigation",
-		"views": "Views",
-		"settings": "Settings",
+		"navigation": "Navigasjon",
+		"views": "Visninger",
+		"settings": "Innstillinger",
 		"chat": "Chat",
-		"inspector": "Inspector"
+		"inspector": "Inspektør"
 	},
 	"commands": {
 		"navBack": {
-			"title": "Back",
-			"description": "Return to the previous destination."
+			"title": "Tilbake",
+			"description": "Gå tilbake til forrige sted."
 		},
 		"navForward": {
-			"title": "Forward",
-			"description": "Undo a Back."
+			"title": "Fremover",
+			"description": "Angre en Tilbake."
 		},
 		"viewWrite": {
-			"title": "Go to Write"
+			"title": "Gå til Skriv"
 		},
 		"viewCharacters": {
-			"title": "Go to Characters"
+			"title": "Gå til Karakterer"
 		},
 		"viewRealms": {
-			"title": "Go to Realms"
+			"title": "Gå til Riker"
 		},
 		"viewConnections": {
-			"title": "Go to Connections"
+			"title": "Gå til Tilkoblinger"
 		},
 		"viewStudio": {
-			"title": "Go to Studio"
+			"title": "Gå til Studio"
 		},
 		"settingsOpen": {
-			"title": "Open settings"
+			"title": "Åpne innstillinger"
 		},
 		"keysHelp": {
-			"title": "Keyboard shortcuts",
-			"description": "Open the shortcut list."
+			"title": "Hurtigtaster",
+			"description": "Åpne listen over hurtigtaster."
 		},
 		"chatFocus": {
-			"title": "Focus the composer",
-			"description": "Put the cursor in the chat box."
+			"title": "Fokuser meldingsfeltet",
+			"description": "Sett markøren i chatboksen."
 		},
 		"chatSend": {
-			"title": "Send message"
+			"title": "Send melding"
 		},
 		"chatConversations": {
-			"title": "Conversations",
-			"description": "List the chats with the active character."
+			"title": "Samtaler",
+			"description": "List chattene med den aktive karakteren."
 		},
 		"chatConversationsClose": {
-			"title": "Close conversations"
+			"title": "Lukk samtaler"
 		},
 		"chatBranchPrev": {
-			"title": "Previous branch",
-			"description": "Swipe the newest message back to its previous variant."
+			"title": "Forrige gren",
+			"description": "Bla den nyeste meldingen tilbake til forrige variant."
 		},
 		"chatBranchNext": {
-			"title": "Next branch",
-			"description": "Swipe the newest message forward, generating a fresh reply once past the last variant."
+			"title": "Neste gren",
+			"description": "Bla den nyeste meldingen fremover, og generer et nytt svar etter siste variant."
 		},
 		"inspectorNextProfile": {
-			"title": "Next inspector profile"
+			"title": "Neste inspektørprofil"
 		},
 		"inspectorPrevProfile": {
-			"title": "Previous inspector profile"
+			"title": "Forrige inspektørprofil"
 		}
 	},
 	"names": {
@@ -76,6 +76,6 @@
 		"delete": "Delete",
 		"escape": "Esc",
 		"tab": "Tab",
-		"space": "Space"
+		"space": "Mellomrom"
 	}
 }

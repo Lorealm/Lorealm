@@ -1,60 +1,60 @@
 {
 	"views": {
-		"write": "Write",
-		"characters": "Characters",
-		"realms": "Realms",
-		"connections": "Connections",
+		"write": "Écrire",
+		"characters": "Personnages",
+		"realms": "Royaumes",
+		"connections": "Connexions",
 		"studio": "Studio",
 		"plugins": "Plugins",
-		"settings": "Settings"
+		"settings": "Paramètres"
 	},
 	"studio": {
-		"realm": "Realm",
-		"characters": "Characters",
+		"realm": "Royaume",
+		"characters": "Personnages",
 		"lorebooks": "Lorebooks",
-		"templates": "Templates",
-		"tools": "Tools",
+		"templates": "Modèles",
+		"tools": "Outils",
 		"modules": "Modules",
 		"personas": "Personas",
 		"widgets": "Widgets"
 	},
 	"scopes": {
-		"user": "You",
-		"server": "Server"
+		"user": "Vous",
+		"server": "Serveur"
 	},
 	"user": {
-		"profile": "Profile",
+		"profile": "Profil",
 		"tokenizers": "Tokenizers",
 		"plugins": "Plugins",
-		"appearance": "Appearance",
-		"editor": "Editor",
-		"inspector": "Inspector",
-		"keybinds": "Keybinds"
+		"appearance": "Apparence",
+		"editor": "Éditeur",
+		"inspector": "Inspecteur",
+		"keybinds": "Raccourcis"
 	},
 	"server": {
-		"hosting": "Hosting",
-		"storage": "Storage",
+		"hosting": "Hébergement",
+		"storage": "Stockage",
 		"sessions": "Sessions",
-		"users": "Users",
-		"accounts": "Accounts",
-		"roles": "Roles",
-		"characters": "Characters",
+		"users": "Utilisateurs",
+		"accounts": "Comptes",
+		"roles": "Rôles",
+		"characters": "Personnages",
 		"tokenizers": "Tokenizers",
 		"plugins": "Plugins",
-		"tasks": "Tasks"
+		"tasks": "Tâches"
 	},
-	"blueprints": "Blueprints",
+	"blueprints": "Plans",
 	"marketplace": "Marketplace",
-	"apiKeys": "API keys",
-	"closeMenu": "Close menu",
-	"expandMenu": "Expand menu",
-	"collapseMenu": "Collapse menu",
-	"openMenu": "Open menu",
-	"back": "Back",
-	"forward": "Forward",
-	"breadcrumb": "Breadcrumb",
-	"openInspector": "Open inspector",
-	"loadFailed": "Something failed to load.",
-	"retry": "Retry",
-	"rolesPlaceholder": "Roles view"
+	"apiKeys": "Clés API",
+	"closeMenu": "Fermer le menu",
+	"expandMenu": "Développer le menu",
+	"collapseMenu": "Réduire le menu",
+	"openMenu": "Ouvrir le menu",
+	"back": "Retour",
+	"forward": "Suivant",
+	"breadcrumb": "Fil d’Ariane",
+	"openInspector": "Ouvrir l’inspecteur",
+	"loadFailed": "Un élément n’a pas pu être chargé.",
+	"retry": "Réessayer",
+	"rolesPlaceholder": "Vue des rôles"
 }

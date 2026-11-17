@@ -1,31 +1,31 @@
 {
 	"login": {
-		"title": "Login Page",
-		"serverUrl": "Server URL",
-		"username": "Username",
-		"password": "Password",
-		"emailOptional": "Email (optional)",
-		"inviteCode": "Invite code",
-		"invitePlaceholder": "Needed if sign-ups are closed",
-		"createAccount": "Create account",
-		"haveAccount": "I already have an account",
-		"logIn": "Log in",
-		"createAnAccount": "Create an account"
+		"title": "ログインページ",
+		"serverUrl": "サーバーURL",
+		"username": "ユーザー名",
+		"password": "パスワード",
+		"emailOptional": "メールアドレス(任意)",
+		"inviteCode": "招待コード",
+		"invitePlaceholder": "新規登録が閉鎖中の場合に必要",
+		"createAccount": "アカウントを作成",
+		"haveAccount": "すでにアカウントをお持ちの方",
+		"logIn": "ログイン",
+		"createAnAccount": "アカウントを作成する"
 	},
-	"closePanel": "Close panel",
+	"closePanel": "パネルを閉じる",
 	"window": {
-		"minimize": "Minimize",
-		"maximize": "Maximize",
-		"close": "Close"
+		"minimize": "最小化",
+		"maximize": "最大化",
+		"close": "閉じる"
 	},
-	"underConstruction": "Under Construction",
+	"underConstruction": "準備中",
 	"update": {
-		"title": "Update available",
-		"message": "Lorealm {version} is ready to install.",
-		"install": "Restart and update",
-		"later": "Later",
-		"installingTitle": "Updating",
-		"installing": "Downloading the update. Lorealm will restart when it’s done.",
-		"failed": "The update couldn’t be installed"
+		"title": "アップデートがあります",
+		"message": "Lorealm {version} をインストールできます。",
+		"install": "再起動して更新",
+		"later": "後で",
+		"installingTitle": "更新中",
+		"installing": "アップデートをダウンロードしています。完了するとLorealmが再起動します。",
+		"failed": "アップデートをインストールできませんでした"
 	}
 }

@@ -1,43 +1,43 @@
 {
 	"send": {
-		"description": "Send a message and generate a reply.",
-		"rest": "message",
-		"unavailable": "A reply is still streaming."
+		"description": "Envia uma mensagem e gera uma resposta.",
+		"rest": "mensagem",
+		"unavailable": "Ainda está a ser transmitida uma resposta."
 	},
 	"newchat": {
-		"description": "Start a fresh conversation with the active character."
+		"description": "Inicia uma nova conversa com a personagem ativa."
 	},
 	"conversations": {
-		"description": "List the chats with the active character."
+		"description": "Lista as conversas com a personagem ativa."
 	},
 	"go": {
-		"description": "Open a view: {views}.",
-		"rest": "view",
-		"unknownView": "Unknown view ''{view}'."
+		"description": "Abre uma vista: {views}.",
+		"rest": "vista",
+		"unknownView": "Vista desconhecida ''{view}'."
 	},
 	"back": {
-		"description": "Return to the previous destination.",
-		"unavailable": "There is nothing to go back to."
+		"description": "Volta ao destino anterior.",
+		"unavailable": "Não há nada para onde voltar."
 	},
-	"noCharacter": "No character is active.",
+	"noCharacter": "Nenhuma personagem está ativa.",
 	"server": {
-		"rest": "text",
-		"unavailable": "Wait for the current reply, command or plugin to finish."
+		"rest": "texto",
+		"unavailable": "Aguarde que a resposta, o comando ou o plugin atual terminem."
 	},
-	"unknown": "Unknown command",
-	"noSuchCommand": "There is no /{name} command.",
-	"unavailableTitle": "/{name} is unavailable",
-	"notAvailable": "Not available right now.",
-	"failed": "/{name} failed",
+	"unknown": "Comando desconhecido",
+	"noSuchCommand": "Não existe o comando /{name}.",
+	"unavailableTitle": "/{name} não está disponível",
+	"notAvailable": "Não disponível neste momento.",
+	"failed": "/{name} falhou",
 	"resources": {
-		"character": "Character",
+		"character": "Personagem",
 		"persona": "Persona",
-		"connection_profile": "Connection profile",
-		"context_template": "Context template",
+		"connection_profile": "Perfil de ligação",
+		"context_template": "Modelo de contexto",
 		"lorebook": "Lorebook",
-		"tokenizer": "Tokenizer",
-		"user_tool": "Tool",
+		"tokenizer": "Tokenizador",
+		"user_tool": "Ferramenta",
 		"user_widget": "Widget",
-		"realm": "Realm"
+		"realm": "Reino"
 	}
 }

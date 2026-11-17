@@ -1,43 +1,43 @@
 {
 	"send": {
-		"description": "Send a message and generate a reply.",
-		"rest": "message",
-		"unavailable": "A reply is still streaming."
+		"description": "Envía un mensaje y genera una respuesta.",
+		"rest": "mensaje",
+		"unavailable": "Aún se está recibiendo una respuesta."
 	},
 	"newchat": {
-		"description": "Start a fresh conversation with the active character."
+		"description": "Inicia una conversación nueva con el personaje activo."
 	},
 	"conversations": {
-		"description": "List the chats with the active character."
+		"description": "Muestra los chats con el personaje activo."
 	},
 	"go": {
-		"description": "Open a view: {views}.",
-		"rest": "view",
-		"unknownView": "Unknown view ''{view}'."
+		"description": "Abre una vista: {views}.",
+		"rest": "vista",
+		"unknownView": "Vista desconocida ''{view}'."
 	},
 	"back": {
-		"description": "Return to the previous destination.",
-		"unavailable": "There is nothing to go back to."
+		"description": "Vuelve al destino anterior.",
+		"unavailable": "No hay nada a lo que volver."
 	},
-	"noCharacter": "No character is active.",
+	"noCharacter": "No hay ningún personaje activo.",
 	"server": {
-		"rest": "text",
-		"unavailable": "Wait for the current reply, command or plugin to finish."
+		"rest": "texto",
+		"unavailable": "Espera a que termine la respuesta, el comando o el plugin en curso."
 	},
-	"unknown": "Unknown command",
-	"noSuchCommand": "There is no /{name} command.",
-	"unavailableTitle": "/{name} is unavailable",
-	"notAvailable": "Not available right now.",
-	"failed": "/{name} failed",
+	"unknown": "Comando desconocido",
+	"noSuchCommand": "No existe el comando /{name}.",
+	"unavailableTitle": "/{name} no está disponible",
+	"notAvailable": "No disponible en este momento.",
+	"failed": "/{name} ha fallado",
 	"resources": {
-		"character": "Character",
+		"character": "Personaje",
 		"persona": "Persona",
-		"connection_profile": "Connection profile",
-		"context_template": "Context template",
-		"lorebook": "Lorebook",
-		"tokenizer": "Tokenizer",
-		"user_tool": "Tool",
+		"connection_profile": "Perfil de conexión",
+		"context_template": "Plantilla de contexto",
+		"lorebook": "Libro de lore",
+		"tokenizer": "Tokenizador",
+		"user_tool": "Herramienta",
 		"user_widget": "Widget",
-		"realm": "Realm"
+		"realm": "Reino"
 	}
 }

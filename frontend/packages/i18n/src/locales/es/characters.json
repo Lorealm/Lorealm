@@ -1,35 +1,35 @@
 {
 	"chat": "Chat",
-	"showInInspector": "Show {name} in the inspector",
-	"sort": "Sort characters",
+	"showInInspector": "Mostrar a {name} en el inspector",
+	"sort": "Ordenar personajes",
 	"sortOptions": {
-		"nameAsc": "Name (A–Z)",
-		"nameDesc": "Name (Z–A)",
-		"updated": "Recently updated",
-		"created": "Recently added"
+		"nameAsc": "Nombre (A–Z)",
+		"nameDesc": "Nombre (Z–A)",
+		"updated": "Actualizados recientemente",
+		"created": "Añadidos recientemente"
 	},
-	"reuseHint": "When a card brings a lorebook identical to one you have, attach yours instead of importing a copy.",
-	"reuse": "Reuse matching lorebooks",
-	"uploading": "Uploading…",
-	"import": "Import",
-	"new": "New",
-	"empty": "No characters yet — create one to get started.",
-	"newName": "New Character",
-	"createFailed": "Couldn't create character",
+	"reuseHint": "Cuando una tarjeta trae un libro de lore idéntico a uno que ya tienes, adjunta el tuyo en lugar de importar una copia.",
+	"reuse": "Reutilizar libros de lore coincidentes",
+	"uploading": "Subiendo…",
+	"import": "Importar",
+	"new": "Nuevo",
+	"empty": "Aún no hay personajes — crea uno para empezar.",
+	"newName": "Personaje nuevo",
+	"createFailed": "No se pudo crear el personaje",
 	"attachments": {
-		"title": "Lorebooks, tools and widgets",
-		"imported": "Imported {count, number}.",
-		"reused": "Reused {count, number} you already had.",
-		"rename": "{from} to {to}",
-		"renamed": "Renamed {list}, since those names were taken.",
-		"skipped": "Left out {list}, which couldn't be read."
+		"title": "Libros de lore, herramientas y widgets",
+		"imported": "Se importaron {count, number}.",
+		"reused": "Se reutilizaron {count, number} que ya tenías.",
+		"rename": "{from} a {to}",
+		"renamed": "Se renombraron {list}, porque esos nombres ya estaban en uso.",
+		"skipped": "Se omitieron {list}, que no se pudieron leer."
 	},
 	"lorebookImport": {
-		"title": "Lorebook imported",
+		"title": "Libro de lore importado",
 		"named": "“{name}”",
-		"lorebooks": "{count, plural, one {# lorebook} other {# lorebooks}}",
-		"entries": "{count, plural, one {# entry} other {# entries}}",
-		"notConverted": "{count, plural, one {# entry could not be converted.} other {# entries could not be converted.}}",
-		"message": "Imported {subject} with {entries}."
+		"lorebooks": "{count, plural, one {# libro de lore} many {# libros de lore} other {# libros de lore}}",
+		"entries": "{count, plural, one {# entrada} many {# entradas} other {# entradas}}",
+		"notConverted": "{count, plural, one {No se pudo convertir # entrada.} many {No se pudieron convertir # entradas.} other {No se pudieron convertir # entradas.}}",
+		"message": "Se importó {subject} con {entries}."
 	}
 }

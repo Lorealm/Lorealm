@@ -1,31 +1,31 @@
 {
 	"login": {
-		"title": "Login Page",
-		"serverUrl": "Server URL",
-		"username": "Username",
-		"password": "Password",
-		"emailOptional": "Email (optional)",
-		"inviteCode": "Invite code",
-		"invitePlaceholder": "Needed if sign-ups are closed",
-		"createAccount": "Create account",
-		"haveAccount": "I already have an account",
-		"logIn": "Log in",
-		"createAnAccount": "Create an account"
+		"title": "Innloggingsside",
+		"serverUrl": "Server-URL",
+		"username": "Brukernavn",
+		"password": "Passord",
+		"emailOptional": "E-post (valgfritt)",
+		"inviteCode": "Invitasjonskode",
+		"invitePlaceholder": "Kreves hvis registrering er stengt",
+		"createAccount": "Opprett konto",
+		"haveAccount": "Jeg har allerede en konto",
+		"logIn": "Logg inn",
+		"createAnAccount": "Opprett en konto"
 	},
-	"closePanel": "Close panel",
+	"closePanel": "Lukk panel",
 	"window": {
-		"minimize": "Minimize",
-		"maximize": "Maximize",
-		"close": "Close"
+		"minimize": "Minimer",
+		"maximize": "Maksimer",
+		"close": "Lukk"
 	},
-	"underConstruction": "Under Construction",
+	"underConstruction": "Under utvikling",
 	"update": {
-		"title": "Update available",
-		"message": "Lorealm {version} is ready to install.",
-		"install": "Restart and update",
-		"later": "Later",
-		"installingTitle": "Updating",
-		"installing": "Downloading the update. Lorealm will restart when it’s done.",
-		"failed": "The update couldn’t be installed"
+		"title": "Oppdatering tilgjengelig",
+		"message": "Lorealm {version} er klar til å installeres.",
+		"install": "Start på nytt og oppdater",
+		"later": "Senere",
+		"installingTitle": "Oppdaterer",
+		"installing": "Laster ned oppdateringen. Lorealm starter på nytt når den er ferdig.",
+		"failed": "Oppdateringen kunne ikke installeres"
 	}
 }

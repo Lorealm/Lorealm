@@ -1,54 +1,54 @@
 {
 	"toast": {
-		"dismiss": "Dismiss toast"
+		"dismiss": "Dispensar notificação"
 	},
 	"saveIndicator": {
-		"invalid": "Unsaved — invalid"
+		"invalid": "Por guardar — inválido"
 	},
-	"wideScreenNote": "{subject} is easier to use on a tablet or computer.",
+	"wideScreenNote": "{subject} é mais fácil de usar num tablet ou computador.",
 	"tokenBadge": {
-		"estimated": "Estimated — no tokenizer is active. Pick one in Settings for exact counts.",
-		"exact": "Tokens under the active tokenizer",
+		"estimated": "Estimado — nenhum tokenizador está ativo. Escolha um nas Definições para contagens exatas.",
+		"exact": "Tokens segundo o tokenizador ativo",
 		"unit": "tokens"
 	},
 	"searchSelect": {
-		"noMatches": "No matches.",
-		"hideSuggestions": "Hide suggestions",
-		"showSuggestions": "Show suggestions"
+		"noMatches": "Sem resultados.",
+		"hideSuggestions": "Ocultar sugestões",
+		"showSuggestions": "Mostrar sugestões"
 	},
 	"iconPicker": {
-		"change": "Change icon",
-		"pick": "Pick an icon",
-		"search": "{count, plural, one {Search # icon} other {Search # icons}}",
-		"noMatch": "No icon matches “{query}”."
+		"change": "Alterar ícone",
+		"pick": "Escolher um ícone",
+		"search": "{count, plural, one {Pesquisar # ícone} many {Pesquisar # ícones} other {Pesquisar # ícones}}",
+		"noMatch": "Nenhum ícone corresponde a “{query}”."
 	},
 	"listSidebar": {
-		"new": "New",
-		"creating": "Creating…",
-		"search": "Search…",
-		"sort": "Sort {title}",
-		"showBuiltIn": "Show built-in"
+		"new": "Novo",
+		"creating": "A criar…",
+		"search": "Pesquisar…",
+		"sort": "Ordenar {title}",
+		"showBuiltIn": "Mostrar integrados"
 	},
 	"field": {
-		"help": "Help: {label}",
-		"maximize": "Maximize",
-		"maximizeField": "Maximize {label}",
-		"fallbackLabel": "field",
-		"editingFullScreen": "Editing full screen…",
-		"edit": "Edit"
+		"help": "Ajuda: {label}",
+		"maximize": "Maximizar",
+		"maximizeField": "Maximizar {label}",
+		"fallbackLabel": "campo",
+		"editingFullScreen": "A editar em ecrã inteiro…",
+		"edit": "Editar"
 	},
 	"numberInput": {
-		"increment": "Increment",
-		"decrement": "Decrement"
+		"increment": "Aumentar",
+		"decrement": "Diminuir"
 	},
 	"plugin": {
-		"callFailed": "The call failed.",
-		"panelFailed": "This plugin's panel couldn't be loaded."
+		"callFailed": "A chamada falhou.",
+		"panelFailed": "Não foi possível carregar o painel deste plugin."
 	},
-	"loading": "Loading",
-	"unknownWidget": "Unknown widget: {id}",
+	"loading": "A carregar",
+	"unknownWidget": "Widget desconhecido: {id}",
 	"maximize": {
-		"minimizeHint": "Minimize (Esc)",
-		"minimize": "Minimize"
+		"minimizeHint": "Minimizar (Esc)",
+		"minimize": "Minimizar"
 	}
 }

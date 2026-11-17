@@ -1,69 +1,69 @@
 {
 	"groups": {
-		"navigation": "Navigation",
-		"views": "Views",
-		"settings": "Settings",
-		"chat": "Chat",
-		"inspector": "Inspector"
+		"navigation": "ナビゲーション",
+		"views": "ビュー",
+		"settings": "設定",
+		"chat": "チャット",
+		"inspector": "インスペクター"
 	},
 	"commands": {
 		"navBack": {
-			"title": "Back",
-			"description": "Return to the previous destination."
+			"title": "戻る",
+			"description": "前の画面に戻ります。"
 		},
 		"navForward": {
-			"title": "Forward",
-			"description": "Undo a Back."
+			"title": "進む",
+			"description": "「戻る」を取り消します。"
 		},
 		"viewWrite": {
-			"title": "Go to Write"
+			"title": "「執筆」に移動"
 		},
 		"viewCharacters": {
-			"title": "Go to Characters"
+			"title": "「キャラクター」に移動"
 		},
 		"viewRealms": {
-			"title": "Go to Realms"
+			"title": "「レルム」に移動"
 		},
 		"viewConnections": {
-			"title": "Go to Connections"
+			"title": "「接続」に移動"
 		},
 		"viewStudio": {
-			"title": "Go to Studio"
+			"title": "「スタジオ」に移動"
 		},
 		"settingsOpen": {
-			"title": "Open settings"
+			"title": "設定を開く"
 		},
 		"keysHelp": {
-			"title": "Keyboard shortcuts",
-			"description": "Open the shortcut list."
+			"title": "キーボードショートカット",
+			"description": "ショートカット一覧を開きます。"
 		},
 		"chatFocus": {
-			"title": "Focus the composer",
-			"description": "Put the cursor in the chat box."
+			"title": "入力欄にフォーカス",
+			"description": "チャットボックスにカーソルを置きます。"
 		},
 		"chatSend": {
-			"title": "Send message"
+			"title": "メッセージを送信"
 		},
 		"chatConversations": {
-			"title": "Conversations",
-			"description": "List the chats with the active character."
+			"title": "会話",
+			"description": "アクティブなキャラクターとのチャットを一覧表示します。"
 		},
 		"chatConversationsClose": {
-			"title": "Close conversations"
+			"title": "会話を閉じる"
 		},
 		"chatBranchPrev": {
-			"title": "Previous branch",
-			"description": "Swipe the newest message back to its previous variant."
+			"title": "前のブランチ",
+			"description": "最新のメッセージを前のバリエーションにスワイプで戻します。"
 		},
 		"chatBranchNext": {
-			"title": "Next branch",
-			"description": "Swipe the newest message forward, generating a fresh reply once past the last variant."
+			"title": "次のブランチ",
+			"description": "最新のメッセージを次へスワイプします。最後のバリエーションを過ぎると新しい返信を生成します。"
 		},
 		"inspectorNextProfile": {
-			"title": "Next inspector profile"
+			"title": "次のインスペクタープロファイル"
 		},
 		"inspectorPrevProfile": {
-			"title": "Previous inspector profile"
+			"title": "前のインスペクタープロファイル"
 		}
 	},
 	"names": {

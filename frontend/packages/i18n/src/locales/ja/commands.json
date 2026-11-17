@@ -1,43 +1,43 @@
 {
 	"send": {
-		"description": "Send a message and generate a reply.",
-		"rest": "message",
-		"unavailable": "A reply is still streaming."
+		"description": "メッセージを送信して返信を生成します。",
+		"rest": "メッセージ",
+		"unavailable": "返信をストリーミング中です。"
 	},
 	"newchat": {
-		"description": "Start a fresh conversation with the active character."
+		"description": "アクティブなキャラクターと新しい会話を始めます。"
 	},
 	"conversations": {
-		"description": "List the chats with the active character."
+		"description": "アクティブなキャラクターとのチャットを一覧表示します。"
 	},
 	"go": {
-		"description": "Open a view: {views}.",
-		"rest": "view",
-		"unknownView": "Unknown view ''{view}'."
+		"description": "ビューを開きます: {views}。",
+		"rest": "ビュー",
+		"unknownView": "不明なビュー ''{view}'。"
 	},
 	"back": {
-		"description": "Return to the previous destination.",
-		"unavailable": "There is nothing to go back to."
+		"description": "前の画面に戻ります。",
+		"unavailable": "戻る先がありません。"
 	},
-	"noCharacter": "No character is active.",
+	"noCharacter": "アクティブなキャラクターがありません。",
 	"server": {
-		"rest": "text",
-		"unavailable": "Wait for the current reply, command or plugin to finish."
+		"rest": "テキスト",
+		"unavailable": "現在の返信、コマンド、プラグインが終了するまでお待ちください。"
 	},
-	"unknown": "Unknown command",
-	"noSuchCommand": "There is no /{name} command.",
-	"unavailableTitle": "/{name} is unavailable",
-	"notAvailable": "Not available right now.",
-	"failed": "/{name} failed",
+	"unknown": "不明なコマンド",
+	"noSuchCommand": "/{name} というコマンドはありません。",
+	"unavailableTitle": "/{name} は利用できません",
+	"notAvailable": "現在は利用できません。",
+	"failed": "/{name} に失敗しました",
 	"resources": {
-		"character": "Character",
-		"persona": "Persona",
-		"connection_profile": "Connection profile",
-		"context_template": "Context template",
-		"lorebook": "Lorebook",
-		"tokenizer": "Tokenizer",
-		"user_tool": "Tool",
-		"user_widget": "Widget",
-		"realm": "Realm"
+		"character": "キャラクター",
+		"persona": "ペルソナ",
+		"connection_profile": "接続プロファイル",
+		"context_template": "コンテキストテンプレート",
+		"lorebook": "ロアブック",
+		"tokenizer": "トークナイザー",
+		"user_tool": "ツール",
+		"user_widget": "ウィジェット",
+		"realm": "レルム"
 	}
 }
