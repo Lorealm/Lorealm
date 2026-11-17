@@ -1,66 +1,66 @@
 {
-	"resize": "Resize inspector, currently {width, number} pixels. Use arrow keys.",
-	"realmPlaceholder": "Realm Placeholder",
-	"close": "Close inspector",
-	"nothingConfigured": "Nothing configured for this view.",
+	"resize": "インスペクターのサイズを変更します(現在 {width, number} ピクセル)。矢印キーを使用してください。",
+	"realmPlaceholder": "レルムのプレースホルダー",
+	"close": "インスペクターを閉じる",
+	"nothingConfigured": "このビューには何も設定されていません。",
 	"widgets": {
-		"characterImage": "Character Image",
-		"template": "Template",
-		"context": "Context",
-		"state": "State",
-		"realmAgent": "Realm Agent",
-		"authorNote": "Author's Note",
-		"creatorNotes": "Creator's Notes"
+		"characterImage": "キャラクター画像",
+		"template": "テンプレート",
+		"context": "コンテキスト",
+		"state": "状態",
+		"realmAgent": "レルムエージェント",
+		"authorNote": "作者メモ",
+		"creatorNotes": "制作者ノート"
 	},
 	"creatorNotes": {
-		"loading": "Loading…",
-		"noCharacter": "No active character. Pick one on the characters screen to read its notes.",
-		"empty": "This character has no creator's notes."
+		"loading": "読み込み中…",
+		"noCharacter": "アクティブなキャラクターがありません。ノートを読むには、キャラクター画面で選択してください。",
+		"empty": "このキャラクターには制作者ノートがありません。"
 	},
 	"authorNote": {
-		"noChat": "No active chat.",
-		"placeholder": "'{{'char:name'}}' has achieved something remarkable..."
+		"noChat": "アクティブなチャットがありません。",
+		"placeholder": "'{{'char:name'}}' は驚くべきことを成し遂げた..."
 	},
 	"image": {
-		"cover": "Fill the panel, cropping the edges",
-		"fit": "Fit the whole image inside the panel",
-		"full": "Grow the panel to the whole image",
-		"change": "Change how the image fits",
-		"noCharacter": "No active character."
+		"cover": "パネルいっぱいに表示し、端を切り取る",
+		"fit": "画像全体をパネル内に収める",
+		"full": "パネルを画像全体の大きさに広げる",
+		"change": "画像の表示方法を変更",
+		"noCharacter": "アクティブなキャラクターがありません。"
 	},
 	"context": {
-		"title": "Live Context",
-		"blocks": "{count, plural, one {# block} other {# blocks}}",
-		"noTrace": "No traced turn yet.",
-		"noBlocks": "Latest turn produced no blocks.",
+		"title": "ライブコンテキスト",
+		"blocks": "{count, plural, other {# ブロック}}",
+		"noTrace": "トレースされたターンはまだありません。",
+		"noBlocks": "最新のターンではブロックが生成されませんでした。",
 		"kinds": {
 			"source": "SRC",
 			"group": "GRP",
 			"text": "TXT"
 		},
-		"untitled": "(untitled)",
-		"source": "source {id}"
+		"untitled": "(無題)",
+		"source": "ソース {id}"
 	},
 	"template": {
-		"title": "Template Nodes",
-		"toggleFailed": "Toggle failed",
-		"rowHint": "Click to toggle, shift-click to collapse",
-		"boxHint": "Click to toggle, shift-click to open",
-		"untitled": "Untitled",
-		"showGrid": "Show as grid",
-		"showTree": "Show as tree",
-		"noTemplate": "No active template.",
-		"nodes": "Template nodes",
-		"empty": "Empty template.",
-		"emptyGroup": "Empty group."
+		"title": "テンプレートノード",
+		"toggleFailed": "切り替えに失敗しました",
+		"rowHint": "クリックで切り替え、Shift+クリックで折りたたみ",
+		"boxHint": "クリックで切り替え、Shift+クリックで開く",
+		"untitled": "無題",
+		"showGrid": "グリッドで表示",
+		"showTree": "ツリーで表示",
+		"noTemplate": "アクティブなテンプレートがありません。",
+		"nodes": "テンプレートノード",
+		"empty": "テンプレートが空です。",
+		"emptyGroup": "グループが空です。"
 	},
 	"state": {
-		"title": "Live State",
-		"turn": "turn {n, number}",
-		"noMessage": "No message pinned.",
-		"unavailable": "State unavailable.",
-		"noActivation": "No activation state.",
-		"unknown": "Unknown",
-		"noPersistent": "No persistent state."
+		"title": "ライブ状態",
+		"turn": "ターン {n, number}",
+		"noMessage": "固定されたメッセージはありません。",
+		"unavailable": "状態を利用できません。",
+		"noActivation": "アクティベーション状態がありません。",
+		"unknown": "不明",
+		"noPersistent": "永続状態がありません。"
 	}
 }
