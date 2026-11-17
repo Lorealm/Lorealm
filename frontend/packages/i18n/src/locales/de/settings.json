@@ -136,7 +136,7 @@
 		"profileName": "Profile {n, number}",
 		"defaultProfile": "Overview"
 	},
-	"appearance": {
+	"interface": {
 		"fileLabel": "Lorealm style",
 		"imageLabel": "Image",
 		"imported": "“{name}” is now in force.",
@@ -162,7 +162,7 @@
 		"replaceImage": "Replace image",
 		"chooseImage": "Choose image",
 		"remove": "Remove",
-		"search": "Search appearance settings",
+		"search": "Search interface settings",
 		"nothingOverridden": "Nothing overridden",
 		"overridden": "{count, number} overridden",
 		"resetAll": "Reset all",

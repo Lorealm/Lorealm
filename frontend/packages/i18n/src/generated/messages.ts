@@ -2564,7 +2564,7 @@ export type Messages = {
 			chooseImage: string;
 			/** Remove */
 			remove: string;
-			/** Search appearance settings */
+			/** Search interface settings */
 			search: string;
 			/** Nothing overridden */
 			nothingOverridden: string;
