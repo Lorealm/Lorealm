@@ -1,35 +1,35 @@
 {
-	"chat": "Chat",
-	"showInInspector": "Show {name} in the inspector",
-	"sort": "Sort characters",
+	"chat": "チャット",
+	"showInInspector": "{name}をインスペクターに表示",
+	"sort": "キャラクターを並べ替え",
 	"sortOptions": {
-		"nameAsc": "Name (A–Z)",
-		"nameDesc": "Name (Z–A)",
-		"updated": "Recently updated",
-		"created": "Recently added"
+		"nameAsc": "名前 (A〜Z)",
+		"nameDesc": "名前 (Z〜A)",
+		"updated": "最近更新した順",
+		"created": "最近追加した順"
 	},
-	"reuseHint": "When a card brings a lorebook identical to one you have, attach yours instead of importing a copy.",
-	"reuse": "Reuse matching lorebooks",
-	"uploading": "Uploading…",
-	"import": "Import",
-	"new": "New",
-	"empty": "No characters yet — create one to get started.",
-	"newName": "New Character",
-	"createFailed": "Couldn't create character",
+	"reuseHint": "カードに含まれるロアブックが手持ちのものと同一の場合、コピーをインポートせずに手持ちのものを添付します。",
+	"reuse": "一致するロアブックを再利用",
+	"uploading": "アップロード中…",
+	"import": "インポート",
+	"new": "新規",
+	"empty": "キャラクターはまだありません — 作成して始めましょう。",
+	"newName": "新しいキャラクター",
+	"createFailed": "キャラクターを作成できませんでした",
 	"attachments": {
-		"title": "Lorebooks, tools and widgets",
-		"imported": "Imported {count, number}.",
-		"reused": "Reused {count, number} you already had.",
-		"rename": "{from} to {to}",
-		"renamed": "Renamed {list}, since those names were taken.",
-		"skipped": "Left out {list}, which couldn't be read."
+		"title": "ロアブック、ツール、ウィジェット",
+		"imported": "{count, number} 件をインポートしました。",
+		"reused": "すでにある {count, number} 件を再利用しました。",
+		"rename": "{from}を{to}に",
+		"renamed": "名前がすでに使われているため、{list}の名前を変更しました。",
+		"skipped": "読み取れなかった{list}を除外しました。"
 	},
 	"lorebookImport": {
-		"title": "Lorebook imported",
-		"named": "“{name}”",
-		"lorebooks": "{count, plural, one {# lorebook} other {# lorebooks}}",
-		"entries": "{count, plural, one {# entry} other {# entries}}",
-		"notConverted": "{count, plural, one {# entry could not be converted.} other {# entries could not be converted.}}",
-		"message": "Imported {subject} with {entries}."
+		"title": "ロアブックをインポートしました",
+		"named": "「{name}」",
+		"lorebooks": "{count, plural, other {# 冊のロアブック}}",
+		"entries": "{count, plural, other {# 件のエントリー}}",
+		"notConverted": "{count, plural, other {# 件のエントリーを変換できませんでした。}}",
+		"message": "{subject}を{entries}と共にインポートしました。"
 	}
 }
