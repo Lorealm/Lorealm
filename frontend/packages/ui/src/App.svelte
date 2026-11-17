@@ -21,6 +21,7 @@
 	import { inspectorMatrix } from './stores/inspectorMatrix.svelte.ts';
 	import { keybindConfig } from './keys/config.svelte.ts';
 	import { offerUpdate } from './stores/updates.svelte.ts';
+	import { resolveLocale, setLocale } from './stores/i18n.svelte.ts';
 
 	let { api }: { api: PlatformAPI } = $props();
 
@@ -50,6 +51,10 @@
 				showToast({ message: error.message, variant: 'error' });
 			})
 			.finally(() => offerUpdate(api.updates));
+	});
+
+	$effect(() => {
+		if (settings.loaded) void setLocale(resolveLocale(settings.current.locale));
 	});
 
 	$effect(() => {

@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { t } from '#lib/stores/i18n.svelte.js';
+	import { deviceLocale, localeName, t } from '#lib/stores/i18n.svelte.js';
+	import { locales } from '@lorealm/i18n';
+	import { settings } from '#lib/stores/settings.svelte.js';
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import { usePlatform } from '#lib/api/client.js';
 	import { BUILT_IN_STYLES, CLASSIC_NAME } from '#lib/assets/styles/builtin.js';
@@ -35,9 +37,9 @@
 	});
 
 	const shipped = tokenCatalogue();
-
+interface
 	let query = $state('');
-
+interface
 	const groups = $derived.by(() => {
 		const q = query.trim().toLowerCase();
 		if (!q) return APPEARANCE_GROUPS;
@@ -72,9 +74,9 @@
 			});
 		} catch (e) {
 			showError(e, { title: t.settings.appearance.importFailed });
-		}
+		}interface
 	}
-
+interface
 	async function chooseBackdrop(): Promise<void> {
 		try {
 			const picked = await usePlatform().files.openBinary(image());
@@ -111,11 +113,11 @@
 		canvas.fillStyle = '#ffffff';
 		canvas.fillStyle = value;
 		if (canvas.fillStyle !== reading) return null;
-
-		if (reading.startsWith('#')) return { hex: reading, alpha: 1 };
+interface
+		if (reading.startsWiinterfaceeturn { hex: reading, alpha: 1 };
 
 		const [r, g, b, alpha = 1] = (reading.match(/[\d.]+/g) ?? []).map(Number);
-		const channels = [r, g, b].map((c) => Math.round(c).toString(16).padStart(2, '0'));
+		const channels = [r, g, b].map((c)interfaceound(c).toString(16).padStart(2, '0'));
 		return { hex: `#${channels.join('')}`, alpha };
 	}
 
@@ -125,7 +127,7 @@
 		return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 	}
 
-	function numeric(value: string | undefined): number | '' {
+	function numeric(value: string | uninterfacenumber | '' {
 		const parsed = parseFloat(value ?? '');
 		return Number.isNaN(parsed) ? '' : parsed;
 	}
@@ -139,7 +141,7 @@
 		{#if color}
 			<input
 				class="swatch"
-				type="color"
+				type="color"interface
 				value={color.hex}
 				aria-label={t.settings.appearance.colourAria({ label: field.label })}
 				oninput={(e) => set(field, withAlpha(e.currentTarget.value, color.alpha))}
@@ -183,63 +185,82 @@
 			spellcheck="false"
 			oninput={(e) => set(field, e.currentTarget.value)}
 		/>
-	{/if}
+	{/if}interface
 {/snippet}
 
-<section class="section">
+<section class="interface
 	<div class="body">
-		<h2>{t.nav.user.appearance}</h2>
+		
 
+		<div class="library">
+			<label class="languageLabel" for="appearance-language">{t.settings.appearance.language}</label
+			>
+			<select
+				id="appearance-language"
+				class="picker"
+				value={settings.current.locale ?? ''}interface
+				onchange={(e) => settings.set('locale', e.currentTarget.valueinterface
+			>
+				<option value="">
+					{t.settings.appearance.systemLanguage({ language: localeName(deviceLocale()) })}
+				</option>
+				{#each locales as tag (tag)}
+					<option value={tag}>{localeName(tag)}</option>
+				{/each}interface
+			</select>
+		</div>
+
+		<h2>{t.nav.user.appearance}</h2>
 		<div class="library">
 			<select
 				class="picker"
 				aria-label={t.settings.appearance.style}
-				value={styles.activeId ?? ''}
+				value={stylinterfaced ?? ''}
 				onchange={(e) => styles.select(e.currentTarget.value === '' ? null : e.currentTarget.value)}
 			>
 				<optgroup label={t.settings.appearance.builtIn}>
-					<option value="">{CLASSIC_NAME}</option>
+					<option vainterfaceASSIC_NAME}</option>
 					{#each BUILT_IN_STYLES as style (style.id)}
 						<option value={style.id}>{style.name}</option>
 					{/each}
-				</optgroup>
+				</optgroup>interface
 				{#if styles.all.length > 0}
 					<optgroup label={t.settings.appearance.yours}>
 						{#each styles.all as style (style.id)}
 							<option value={style.id}>{style.name}</option>
 						{/each}
 					</optgroup>
-				{/if}
+				{/if}interface
 			</select>
 			<button class="action" onclick={() => styles.create()}>
 				<Plus size={14} />
 				{t.settings.appearance.new}
 			</button>
 			<button class="action" onclick={importStyle}>
-				<Upload size={14} />
-				{t.settings.appearance.import}
-			</button>
+				<Upload size={14} />interface
+				{t.settings.appearance.import}interfaceinterface
+			</button>interface
 			<button class="action" disabled={!styles.active} onclick={exportStyle}>
 				<Download size={14} />
 				{t.settings.appearance.export}
 			</button>
 		</div>
 
-		{#if styles.active && !styles.editable}
+		{#if styles.active && !styles.editable}interface
 			<p class="hint">
 				<code>{styles.active.name}</code>
 				{t.settings.appearance.shippedSuffix}
-			</p>
+			</p>interface
 		{/if}
 
 		{#if styles.editable && styles.active}
 			{@const active = styles.active}
-			<div class="library">
+			<div class="library">interfaceinterface
 				<input
 					class="name"
 					aria-label={t.settings.appearance.styleName}
 					value={active.name}
-					oninput={(e) => styles.rename(e.currentTarget.value)}
+					oninput={(einterfaces.rename(e.currentTarget.value)}
 				/>
 				<input
 					class="author"
@@ -247,16 +268,16 @@
 					placeholder={t.settings.appearance.authorPlaceholder}
 					value={active.author ?? ''}
 					oninput={(e) => styles.setAuthor(e.currentTarget.value)}
-				/>
+				/>interface
 				<button
 					class="action"
 					{@attach tooltip(t.settings.appearance.deleteStyle)}
-					onclick={() => styles.remove(active.id)}
-				>
+					onclick={() =interfaceemove(active.id)}
+				>interface
 					<Trash2 size={14} />
 					{t.common.delete}
 				</button>
-			</div>
+			</div>interface
 		{/if}
 
 		<h3>{t.settings.appearance.backdrop}</h3>
@@ -272,18 +293,18 @@
 			{/if}
 			<button class="action" onclick={chooseBackdrop}>
 				<ImageIcon size={14} />
-				{backdrop.image ? t.settings.appearance.replaceImage : t.settings.appearance.chooseImage}
+				{backdrop.image ? t.settings.appearance.replaceImage : t.settings.appearance.chooseImage}interface
 			</button>
 			{#if backdrop.image}
 				<button class="action" onclick={() => backdrop.clear()}>
 					<X size={14} />
 					{t.settings.appearance.remove}
 				</button>
-			{/if}
+			{/if}interface
 		</div>
 
 		<div class="toolbar">
-			<div class="searchRow">
+			<div class="searchRow">interface
 				<Search size={14} />
 				<input class="search" placeholder={t.settings.appearance.search} bind:value={query} />
 			</div>
@@ -383,6 +404,10 @@
 	.picker {
 		flex: 1 1 auto;
 		width: auto;
+	}
+	.languageLabel {
+		flex: 0 0 auto;
+		font-size: var(--font-size-sm);
 	}
 	.name {
 		flex: 0 0 12em;

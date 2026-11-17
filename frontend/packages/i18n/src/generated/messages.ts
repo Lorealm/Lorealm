@@ -2509,7 +2509,11 @@ export type Messages = {
 			/** Overview */
 			defaultProfile: string;
 		};
-		appearance: {
+		interface: {
+			/** Language */
+			language: string;
+			/** Same as this device ({language}) */
+			systemLanguage: (args: { language: string }) => string;
 			/** Lorealm style */
 			fileLabel: string;
 			/** Image */

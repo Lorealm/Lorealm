@@ -12,13 +12,17 @@ export interface ClientSettings {
 
 	/** Give `{#- … -#}` trim markers their own colour, apart from the delimiter. */
 	weaverHighlightTrimMarkers: boolean;
+
+	/** Interface language, or `null` to follow the device. */
+	locale: string | null;
 }
 
 const DEFAULTS: ClientSettings = {
 	weaverSuggestCrossBookIds: true,
 	weaverFollowCrossBookIds: true,
 	autoExpandLorebookAdvanced: false,
-	weaverHighlightTrimMarkers: true
+	weaverHighlightTrimMarkers: true,
+	locale: null
 };
 
 export const settings = new PersistedRecord<ClientSettings>('settings', DEFAULTS);
