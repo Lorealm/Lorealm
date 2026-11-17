@@ -1,66 +1,66 @@
 {
-	"resize": "Resize inspector, currently {width, number} pixels. Use arrow keys.",
-	"realmPlaceholder": "Realm Placeholder",
-	"close": "Close inspector",
-	"nothingConfigured": "Nothing configured for this view.",
+	"resize": "Endre størrelse på inspektøren, nå {width, number} piksler. Bruk piltastene.",
+	"realmPlaceholder": "Plassholder for rike",
+	"close": "Lukk inspektøren",
+	"nothingConfigured": "Ingenting er satt opp for denne visningen.",
 	"widgets": {
-		"characterImage": "Character Image",
-		"template": "Template",
-		"context": "Context",
-		"state": "State",
-		"realmAgent": "Realm Agent",
-		"authorNote": "Author's Note",
-		"creatorNotes": "Creator's Notes"
+		"characterImage": "Karakterbilde",
+		"template": "Mal",
+		"context": "Kontekst",
+		"state": "Tilstand",
+		"realmAgent": "Rikets agent",
+		"authorNote": "Forfatternotat",
+		"creatorNotes": "Skaperens notater"
 	},
 	"creatorNotes": {
-		"loading": "Loading…",
-		"noCharacter": "No active character. Pick one on the characters screen to read its notes.",
-		"empty": "This character has no creator's notes."
+		"loading": "Laster…",
+		"noCharacter": "Ingen aktiv karakter. Velg en på karakterskjermen for å lese notatene.",
+		"empty": "Denne karakteren har ingen notater fra skaperen."
 	},
 	"authorNote": {
-		"noChat": "No active chat.",
-		"placeholder": "'{{'char:name'}}' has achieved something remarkable..."
+		"noChat": "Ingen aktiv chat.",
+		"placeholder": "'{{'char:name'}}' har oppnådd noe bemerkelsesverdig..."
 	},
 	"image": {
-		"cover": "Fill the panel, cropping the edges",
-		"fit": "Fit the whole image inside the panel",
-		"full": "Grow the panel to the whole image",
-		"change": "Change how the image fits",
-		"noCharacter": "No active character."
+		"cover": "Fyll panelet og beskjær kantene",
+		"fit": "Tilpass hele bildet inni panelet",
+		"full": "Utvid panelet til hele bildet",
+		"change": "Endre hvordan bildet passer",
+		"noCharacter": "Ingen aktiv karakter."
 	},
 	"context": {
-		"title": "Live Context",
-		"blocks": "{count, plural, one {# block} other {# blocks}}",
-		"noTrace": "No traced turn yet.",
-		"noBlocks": "Latest turn produced no blocks.",
+		"title": "Live kontekst",
+		"blocks": "{count, plural, one {# blokk} other {# blokker}}",
+		"noTrace": "Ingen sporet tur ennå.",
+		"noBlocks": "Siste tur ga ingen blokker.",
 		"kinds": {
-			"source": "SRC",
+			"source": "KLD",
 			"group": "GRP",
-			"text": "TXT"
+			"text": "TKS"
 		},
-		"untitled": "(untitled)",
-		"source": "source {id}"
+		"untitled": "(uten tittel)",
+		"source": "kilde {id}"
 	},
 	"template": {
-		"title": "Template Nodes",
-		"toggleFailed": "Toggle failed",
-		"rowHint": "Click to toggle, shift-click to collapse",
-		"boxHint": "Click to toggle, shift-click to open",
-		"untitled": "Untitled",
-		"showGrid": "Show as grid",
-		"showTree": "Show as tree",
-		"noTemplate": "No active template.",
-		"nodes": "Template nodes",
-		"empty": "Empty template.",
-		"emptyGroup": "Empty group."
+		"title": "Malnoder",
+		"toggleFailed": "Veksling mislyktes",
+		"rowHint": "Klikk for å veksle, Shift-klikk for å skjule",
+		"boxHint": "Klikk for å veksle, Shift-klikk for å åpne",
+		"untitled": "Uten tittel",
+		"showGrid": "Vis som rutenett",
+		"showTree": "Vis som tre",
+		"noTemplate": "Ingen aktiv mal.",
+		"nodes": "Malnoder",
+		"empty": "Tom mal.",
+		"emptyGroup": "Tom gruppe."
 	},
 	"state": {
-		"title": "Live State",
-		"turn": "turn {n, number}",
-		"noMessage": "No message pinned.",
-		"unavailable": "State unavailable.",
-		"noActivation": "No activation state.",
-		"unknown": "Unknown",
-		"noPersistent": "No persistent state."
+		"title": "Live tilstand",
+		"turn": "tur {n, number}",
+		"noMessage": "Ingen melding festet.",
+		"unavailable": "Tilstand utilgjengelig.",
+		"noActivation": "Ingen aktiveringstilstand.",
+		"unknown": "Ukjent",
+		"noPersistent": "Ingen vedvarende tilstand."
 	}
 }
