@@ -19,7 +19,7 @@ use crate::{
         chat::{
             ChatService, ChatStreamEvent, PlayerAction, PromptMessage, TurnAccumulator,
             TurnRequest, WidgetRenderer,
-            perceive::{MAIN_CHANNEL, perceive},
+            perceive::{observe_events, observers, perceive},
             stage::{Stage, handle_of},
             types::Prepared,
             weaver,
@@ -99,6 +99,7 @@ fn emitted_events(emitted: Vec<EmittedEvent>) -> impl Iterator<Item = TurnEvent>
         channel: e.scope,
         kind: e.kind,
         content: e.content,
+        observers: None,
     })
 }
 
@@ -169,7 +170,9 @@ impl ChatService {
                 yield ChatStreamEvent::TurnStarted {
                     handle: agent.handle.clone(),
                     name: agent.name.clone(),
+                    observers: observers(&cast, &world.persistent, &agent.handle),
                 };
+                let before_turn = world.persistent.clone();
 
                 let is_llm = agent.kind == AgentKind::Llm;
                 let mut notes = Vec::new();
@@ -232,7 +235,7 @@ impl ChatService {
                     service.script_turn(agent, place, &view, world, plugins.as_ref()).await?
                 };
 
-                let message = service.commit(&convo, production).await?;
+                let message = service.commit(&convo, &cast, &before_turn, production).await?;
                 if is_llm {
                     let plugins = Arc::clone(&service.plugins);
                     let (owner, convo_id) = (convo.user_id, convo.id);
@@ -374,6 +377,7 @@ impl ChatService {
                 channel: binding.event_channel.unwrap_or_default(),
                 kind: EventKind::Acted,
                 content: config.action(&agent.name, &tool.name),
+                observers: None,
             });
             events.extend(emitted_events(emitted));
             notes.push(config.tool_result(&tool.name, &output));
@@ -385,6 +389,8 @@ impl ChatService {
 
         self.commit(
             convo,
+            cast,
+            &world.persistent,
             TurnMessage {
                 agent,
                 place,
@@ -600,6 +606,7 @@ impl ChatService {
                 channel: channel.clone().unwrap_or_default(),
                 kind: EventKind::Acted,
                 content: config.action(&agent.name, &call.name),
+                observers: None,
             });
             tool_results.push(config.tool_result(&call.name, &call.output.to_string()));
         }
@@ -641,10 +648,13 @@ impl ChatService {
         })
     }
 
-    /// Commit a turn message to the conversation.
+    /// Commit a turn message to the conversation. `before` is the world the
+    /// turn started from; who observed it is decided by the world it left.
     async fn commit(
         &self,
         convo: &Conversation,
+        cast: &RealmCast,
+        before: &StatePool,
         msg: TurnMessage,
     ) -> Result<ConversationMessage, ChatError> {
         let TurnMessage {
@@ -654,22 +664,22 @@ impl ChatService {
             content,
             mut meta,
             state,
-            events,
+            mut events,
             tool_results,
         } = msg;
+
+        let mut after = before.clone();
+        if let Some(captured) = &state {
+            apply_delta(&mut after, &captured.persistent);
+        }
+        observe_events(cast, &after, &agent.handle, &mut events);
 
         // TODO: there is probably a world where a seperate metadata factory makes
         // sense. It would handle conflicts and error reporting, while also cleaning
         // up the top level API. Alas, I am lazy.
         meta["handle"] = json!(agent.handle);
         meta["agent_name"] = json!(agent.name);
-        if let Some(channel) = agent
-            .speech_channel
-            .as_deref()
-            .filter(|c| *c != MAIN_CHANNEL)
-        {
-            meta["channel"] = json!(channel);
-        }
+        meta["observers"] = json!(observers(cast, &after, &agent.handle));
         if !events.is_empty() {
             meta["events"] = json!(events);
         }

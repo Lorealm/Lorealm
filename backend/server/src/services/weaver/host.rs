@@ -18,8 +18,8 @@ use crate::services::{
     plugins::UserVocabulary,
     state::{StatePool, diff},
     tools::{
-        Actor, DelVarCommand, EmitEventCommand, EmittedEvent, EventSink, RealmVariables,
-        ToolContext,
+        Actor, ChannelCommand, DelVarCommand, EmitEventCommand, EmittedEvent, EventSink,
+        RealmVariables, ToolContext,
     },
     weaver::{
         Caps, WeaverProfile,
@@ -298,6 +298,8 @@ impl WeaverBuilder {
         // Not part of `register_all`: that also loads into the lorebook
         // engine, whose context `del_var` cannot reach.
         registry.register_command(DelVarCommand);
+        registry.register_command(ChannelCommand::SET);
+        registry.register_command(ChannelCommand::UNSET);
 
         let mut sinks = Sinks::default();
 

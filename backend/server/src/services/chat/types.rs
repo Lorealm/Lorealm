@@ -67,6 +67,7 @@ pub enum ChatStreamEvent {
     TurnStarted {
         handle: String,
         name: String,
+        observers: Vec<String>,
     },
     /// A chunk of generated text. Client appends to a provisional bubble.
     Delta {

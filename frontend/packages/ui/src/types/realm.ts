@@ -110,7 +110,6 @@ export interface RealmAgent {
 	properties: Record<string, JsonValue>;
 	grants: AgentGrant[];
 	tools: ToolBinding[];
-	speech_channel?: string | null;
 	lorebooks: Snowflake[];
 	/** Static display widgets shown when this agent is the viewer. */
 	widgets: Snowflake[];
@@ -144,6 +143,7 @@ export interface TurnEvent {
 	channel: string;
 	kind: EventKind;
 	content: string;
+	observers?: string[];
 }
 
 export interface ActionSpec {

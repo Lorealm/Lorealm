@@ -107,9 +107,6 @@ function agent(block: AgentBlock, depth: number): string {
 	if (block.kind === 'script' && block.script.trim()) {
 		lines.push(`${pad}script: ${raw(block.script)}`);
 	}
-	if (block.speechChannel.trim()) {
-		lines.push(`${pad}speech_channel: ${raw(block.speechChannel.trim())}`);
-	}
 	lines.push(`${pad}template_id: ${idField(block.kind === 'script' ? null : block.template)}`);
 	if (block.tools.length > 0) {
 		const rows = block.tools.map((t) => {

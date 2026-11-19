@@ -113,7 +113,6 @@ pub struct AgentBlock {
     pub tools: Vec<ToolBinding>,
     pub grants: Vec<Grant>,
     pub properties: Vec<Property>,
-    pub speech_channel: String,
     pub script: String,
     pub run_condition: String,
 }
@@ -497,7 +496,6 @@ fn agent(expr: &ExprKind, span: Span, source: &str) -> Refused<AgentBlock> {
             "tools" => block.tools = tools(value, at)?,
             "grants" => block.grants = grants(value, at)?,
             "properties" => block.properties = properties(value, at, source)?,
-            "speech_channel" => block.speech_channel = text(value, at)?,
             _ => {}
         }
     }
@@ -986,7 +984,6 @@ extra: Ref<Module>
       handle: r"regent"
       name: r"Regent"
       kind: r"llm"
-      speech_channel: r"court"
       grants: [
         { channel: r"world", access: r"read" }
         { channel: r"orders:ito.*", access: r"read_write" }
@@ -1017,8 +1014,6 @@ extra: Ref<Module>
         let CastEntry::Agent { agent } = &got.cast[0] else {
             panic!("expected an agent");
         };
-        assert_eq!(agent.speech_channel, "court");
-
         // Grants keep their pattern text; the editor splits it into controls.
         let channels: Vec<(&str, &str)> = agent
             .grants

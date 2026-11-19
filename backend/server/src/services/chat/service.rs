@@ -266,7 +266,6 @@ impl ChatService {
                 access: AgentAccess::ReadWrite,
             }],
             tools: Vec::new(),
-            speech_channel: None,
             lorebooks: Vec::new(),
             widgets: Vec::new(),
             script: None,

@@ -2128,8 +2128,6 @@ export type Messages = {
 			bindTool: string;
 			/** Bind another tool */
 			bindAnotherTool: string;
-			/** Speaks on */
-			speaksOn: string;
 			/** Grants */
 			grants: string;
 			/** Add a grant */

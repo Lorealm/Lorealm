@@ -90,7 +90,6 @@ export interface AgentBlock {
 	tools: ToolBinding[];
 	grants: Grant[];
 	properties: Property[];
-	speechChannel: string;
 	script: string;
 	run_condition: string;
 }
@@ -145,7 +144,6 @@ export function emptyAgent(handle: string, kind: AgentKind = 'llm'): AgentBlock 
 		tools: [],
 		grants: [],
 		properties: [],
-		speechChannel: '',
 		script: '',
 		run_condition: ''
 	};

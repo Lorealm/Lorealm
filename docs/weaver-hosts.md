@@ -133,6 +133,14 @@ against one; the lorebook engine does not, which is why the command is not in
 `register_all` alongside the rest. A read-only profile refuses it exactly as
 it refuses `set_var`.
 
+`channel.set(name, handle?)` and `channel.unset(name, handle?)` are Lorealm's
+own too, and sit beside `del_var`. They edit `agents:<handle>.channels` (the
+running agent's own when no handle is given) through ordinary state writes, so
+a read-only profile refuses them as well. An agent speaks on and hears every
+channel in that list, and is on `main` alone until it has one. When a turn is
+committed, the agents sharing a channel with the speaker are stored on the
+message as its `observers`, and each event stores its own the same way.
+
 ### Entity kinds
 
 Registered alongside the stdlib, for the `Ref<...>` declarations a WTN
