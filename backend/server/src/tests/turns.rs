@@ -515,3 +515,54 @@ async fn a_realm_may_not_import_someone_elses_module() {
         "{refused:?}"
     );
 }
+
+#[tokio::test]
+async fn a_players_actions_run_in_order_beside_what_they_say() {
+    let h = Harness::new().await;
+    let convo = counting_house(&h, COUNTING_HOUSE).await;
+
+    let events = turn(
+        &h,
+        convo,
+        json!({
+            "content": "Keep this between us.",
+            "actions": [
+                { "run": r#"$[set_var("world:coins", 5)]"# },
+                { "run": r#"$[inc_var("world:coins", 1)]$[channel.unset("main")]"# },
+            ],
+        }),
+    )
+    .await
+    .unwrap();
+
+    let [mine, clerks] = messages(&events).try_into().unwrap();
+    assert_eq!(mine.content, "Keep this between us.");
+    assert_eq!(mine.metadata["actions"].as_array().unwrap().len(), 2);
+    assert_eq!(mine.metadata["observers"], json!(["you"]));
+    assert_eq!(clerks.metadata["observers"], json!(["clerk"]));
+
+    let world = h
+        .chat
+        .agent_state(convo, "you", h.user, None)
+        .await
+        .unwrap();
+    // 5, then +1 from the second action, then the clerk's coin.
+    assert_eq!(world["world"]["coins"], json!(7));
+}
+
+#[tokio::test]
+async fn a_widgets_weaver_cannot_generate() {
+    let h = Harness::new().await;
+    let convo = counting_house(&h, COUNTING_HOUSE).await;
+
+    let refused = turn(
+        &h,
+        convo,
+        json!({ "actions": [{ "run": r#"$[generate("Say hello.")]"# }] }),
+    )
+    .await;
+    let error = refused
+        .expect_err("a widget's weaver may not generate")
+        .to_string();
+    assert!(error.contains("generate"), "{error}");
+}

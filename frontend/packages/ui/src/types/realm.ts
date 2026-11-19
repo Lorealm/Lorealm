@@ -177,10 +177,8 @@ export interface StartRealmChatRequest {
 	scenario?: string | null;
 }
 
-export interface PlayerAction {
-	tool_id: Snowflake;
-	args: JsonValue;
-}
+/** One of the player's bound tools, or Weaver a widget sends. */
+export type PlayerAction = { tool_id: Snowflake; args: JsonValue } | { run: string };
 
 export interface NextTurn {
 	/** Null when nobody in the cast can act at the active leaf. */

@@ -25,11 +25,19 @@ fn agent_channels(world: &StatePool, handle: &str) -> Vec<String> {
     }
 }
 
-fn channel_observers(cast: &RealmCast, world: &StatePool, speaker: &str, on: &[String]) -> Vec<String> {
+fn channel_observers(
+    cast: &RealmCast,
+    world: &StatePool,
+    speaker: &str,
+    on: &[String],
+) -> Vec<String> {
     cast.agents
         .iter()
         .filter(|a| {
-            a.handle == speaker || agent_channels(world, &a.handle).iter().any(|c| on.contains(c))
+            a.handle == speaker
+                || agent_channels(world, &a.handle)
+                    .iter()
+                    .any(|c| on.contains(c))
         })
         .map(|a| a.handle.clone())
         .collect()

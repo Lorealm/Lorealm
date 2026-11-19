@@ -56,8 +56,7 @@ export interface StartChatRequest {
  */
 export interface TurnRequest {
 	content?: string | null;
-	/** A bound tool the player triggers. */
-	action?: PlayerAction | null;
+	actions?: PlayerAction[];
 	swipe_from?: Snowflake | null;
 	continue?: boolean;
 }

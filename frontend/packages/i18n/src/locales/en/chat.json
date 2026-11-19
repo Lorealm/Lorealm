@@ -33,7 +33,8 @@
 		"stopCommand": "Stop /{name}",
 		"stopPlugin": "Stop {name}",
 		"stopGenerating": "Stop generating",
-		"commands": "Commands"
+		"commands": "Commands",
+		"removeAction": "Remove {label}"
 	},
 	"message": {
 		"you": "You",

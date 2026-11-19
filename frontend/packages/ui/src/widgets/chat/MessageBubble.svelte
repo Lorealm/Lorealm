@@ -183,7 +183,7 @@
 							{@html renderMd(presentedText(seg.text))}
 						{:else if widgets[seg.index]}
 							<div class="inline-widget">
-								<ChatWidget widget={widgets[seg.index]} />
+								<ChatWidget widget={widgets[seg.index]} key="{message.id}:{seg.index}" />
 							</div>
 						{/if}
 					{/each}
@@ -194,7 +194,7 @@
 			{#if !editing && trailing.length > 0 && message.role === 'assistant' && message.parent !== null}
 				<div class="widgets">
 					{#each trailing as widget, i (i)}
-						<ChatWidget {widget} />
+						<ChatWidget {widget} key="{message.id}:trailing:{i}" />
 					{/each}
 				</div>
 			{/if}

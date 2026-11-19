@@ -118,18 +118,18 @@ impl ChatService {
 
         let stream = async_stream::try_stream! {
             let _guard = guard; // the stream owns the cancellation slot
-            let TurnRequest { content, action, mut swipe_from, continued } = request;
+            let TurnRequest { content, actions, mut swipe_from, continued } = request;
             let mut leaf = convo.active_leaf_id;
 
             // The player's own turn, if the request carries one.
             let content = content.filter(|c| !c.trim().is_empty());
-            if content.is_some() || action.is_some() {
+            if content.is_some() || !actions.is_empty() {
                 let place = match swipe_from.take() {
                     Some(id) => Relationship::Sibling(service.owned_message(id, convo.id).await?),
                     None => Relationship::Child(leaf),
                 };
                 let message = service
-                    .player_turn(&convo, &cast, place, content.unwrap_or_default(), action)
+                    .player_turn(&convo, &cast, place, content.unwrap_or_default(), actions)
                     .await?;
                 leaf = Some(message.id);
                 yield ChatStreamEvent::Message { message };
@@ -323,7 +323,7 @@ impl ChatService {
         cast: &RealmCast,
         place: Relationship,
         content: String,
-        action: Option<PlayerAction>,
+        actions: Vec<PlayerAction>,
     ) -> Result<ConversationMessage, ChatError> {
         let path = self.path_to(convo.id, &place).await?;
         let world = self.state.reconstruct(&message_ids(&path)).await?;
@@ -344,48 +344,72 @@ impl ChatService {
         };
         self.announce_turn_start(convo, &agent);
 
-        let mut delta = StateDelta::default();
+        let config = ResolvedRealmConfig::from_config(&cast.config);
+        let mut working = world.persistent.clone();
         let mut events = Vec::new();
         let mut notes = Vec::new();
-        let mut meta = json!({});
-        if let Some(action) = action {
-            // A player may trigger any tool its agent is bound to, including
-            // those bundled by a widget.
-            let binding = self
-                .tool_bindings(&agent)
-                .await?
-                .into_iter()
-                .find(|b| b.tool_id == action.tool_id)
-                .ok_or(RealmError::ToolNotBound(action.tool_id))?;
-            let tool = self
-                .bound_tool(binding.tool_id)
-                .await?
-                .ok_or(ChatError::NotFound(TargetType::UserTool, binding.tool_id))?;
-            let (output, changed, emitted) = weaver::run_scoped(
-                &tool.body,
-                &tool.params,
-                action.args.clone(),
-                &agent,
-                &world.persistent,
-                &stage.view,
-                plugins.as_ref(),
-            )
-            .await?;
+        let mut done = Vec::new();
+        for action in actions {
+            match action {
+                PlayerAction::Tool { tool_id, args } => {
+                    // A player may trigger any tool its agent is bound to,
+                    // including those bundled by a widget.
+                    let binding = self
+                        .tool_bindings(&agent)
+                        .await?
+                        .into_iter()
+                        .find(|b| b.tool_id == tool_id)
+                        .ok_or(RealmError::ToolNotBound(tool_id))?;
+                    let tool = self
+                        .bound_tool(binding.tool_id)
+                        .await?
+                        .ok_or(ChatError::NotFound(TargetType::UserTool, binding.tool_id))?;
+                    let (output, changed, emitted) = weaver::run_scoped(
+                        &tool.body,
+                        &tool.params,
+                        args.clone(),
+                        &agent,
+                        &working,
+                        &stage.view,
+                        plugins.as_ref(),
+                    )
+                    .await?;
+                    apply_delta(&mut working, &changed);
 
-            let config = ResolvedRealmConfig::from_config(&cast.config);
-            events.push(TurnEvent {
-                channel: binding.event_channel.unwrap_or_default(),
-                kind: EventKind::Acted,
-                content: config.action(&agent.name, &tool.name),
-                observers: None,
-            });
-            events.extend(emitted_events(emitted));
-            notes.push(config.tool_result(&tool.name, &output));
-            meta = json!({
-                "action": { "tool": tool.name, "input": action.args, "output": output },
-            });
-            delta = changed;
+                    events.push(TurnEvent {
+                        channel: binding.event_channel.unwrap_or_default(),
+                        kind: EventKind::Acted,
+                        content: config.action(&agent.name, &tool.name),
+                        observers: None,
+                    });
+                    events.extend(emitted_events(emitted));
+                    notes.push(config.tool_result(&tool.name, &output));
+                    done.push(json!({ "tool": tool.name, "input": args, "output": output }));
+                }
+                PlayerAction::Run { run } => {
+                    // `run_scoped` uses the RealmScript profile: no
+                    // `generation`, no `effects`. Its output goes nowhere.
+                    let (_, changed, emitted) = weaver::run_scoped(
+                        &run,
+                        &[],
+                        json!({}),
+                        &agent,
+                        &working,
+                        &stage.view,
+                        plugins.as_ref(),
+                    )
+                    .await?;
+                    apply_delta(&mut working, &changed);
+                    events.extend(emitted_events(emitted));
+                    done.push(json!({ "run": run }));
+                }
+            }
         }
+        let meta = match done.is_empty() {
+            true => json!({}),
+            false => json!({ "actions": done }),
+        };
+        let delta = self.state.diff(&world.persistent, &working);
 
         self.commit(
             convo,

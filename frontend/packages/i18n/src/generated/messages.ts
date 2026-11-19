@@ -130,6 +130,8 @@ export type Messages = {
 			stopGenerating: string;
 			/** Commands */
 			commands: string;
+			/** Remove {label} */
+			removeAction: (args: { label: string }) => string;
 		};
 		message: {
 			/** You */

@@ -43,9 +43,9 @@ pub struct TurnRequest {
     /// What the player says.
     #[serde(default)]
     pub content: Option<String>,
-    /// A bound tool the player triggers.
+    /// What the player does this turn, run in order before it is committed.
     #[serde(default)]
-    pub action: Option<PlayerAction>,
+    pub actions: Vec<PlayerAction>,
     #[serde(default)]
     pub swipe_from: Option<Snowflake>,
     #[serde(default, rename = "continue")]
@@ -53,10 +53,16 @@ pub struct TurnRequest {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct PlayerAction {
-    pub tool_id: Snowflake,
-    #[serde(default)]
-    pub args: serde_json::Value,
+#[serde(untagged)]
+pub enum PlayerAction {
+    /// One of the player's bound tools.
+    Tool {
+        tool_id: Snowflake,
+        #[serde(default)]
+        args: serde_json::Value,
+    },
+    /// Weaver a widget sends, run as the player without `generation`.
+    Run { run: String },
 }
 
 /// What a client watching a turn receives over SSE.

@@ -60,6 +60,14 @@ interface TurnMetadata {
 	tool_results?: string[];
 }
 
+/** A widget action waiting for the player's next turn. */
+export interface QueuedAction {
+	/** Which widget placement queued it. */
+	key: string;
+	label: string;
+	action: PlayerAction;
+}
+
 const turnMeta = (m: ConversationMessage) => (m.metadata ?? {}) as TurnMetadata;
 
 /** Without recorded observers, only what was said on this channel reached everyone. */
@@ -401,6 +409,7 @@ class ChatStore {
 		this._streamObservers = [];
 		this.autoRun = true;
 		this.directorView = false;
+		this.queuedActions = [];
 		this.streamState = { status: 'idle' };
 	}
 
@@ -428,13 +437,23 @@ class ChatStore {
 			await Promise.all([this.loadList(), this.#loadCast()]);
 		}
 
-		await this.#play({ content });
+		const actions = this.queuedActions.map((q) => q.action);
+		this.queuedActions = [];
+		await this.#play({ content, actions });
 	}
 
-	/** Trigger one of the player's bound tools as their turn. */
-	async act(action: PlayerAction) {
-		if (this.isStreaming) return;
-		await this.#play({ action });
+	queuedActions = $state<QueuedAction[]>([]);
+
+	/** Queue an action for the next turn, */
+	queueAction(key: string, label: string, action: PlayerAction) {
+		this.queuedActions = [
+			...this.queuedActions.filter((q) => q.key !== key),
+			{ key, label, action }
+		];
+	}
+
+	unqueueAction(key: string) {
+		this.queuedActions = this.queuedActions.filter((q) => q.key !== key);
 	}
 
 	/** Replace one of the player's own turns with a new take on it. */
@@ -549,7 +568,7 @@ class ChatStore {
 		let settled = this._activeLeafId;
 		const target = request.swipe_from ? this._messages.get(request.swipe_from) : undefined;
 		const continued = request.continue ? target : undefined;
-		const speaks = request.content != null || request.action != null;
+		const speaks = request.content != null || (request.actions?.length ?? 0) > 0;
 
 		// The player's words show at once; the server's copy replaces them.
 		let pendingUser: Snowflake | null = null;
