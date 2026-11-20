@@ -92,6 +92,7 @@
 		"untitledNode": "(untitled node)",
 		"node": "node {id}",
 		"notReconstructed": "content not reconstructed",
+		"expandsToNothing": "Expands to nothing",
 		"noTrace": "no trace on this message",
 		"blocks": "{count, plural, one {# block} other {# blocks}}",
 		"units": {

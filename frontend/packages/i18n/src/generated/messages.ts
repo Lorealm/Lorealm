@@ -228,6 +228,8 @@ export type Messages = {
 			node: (args: { id: string }) => string;
 			/** content not reconstructed */
 			notReconstructed: string;
+			/** Expands to nothing */
+			expandsToNothing: string;
 			/** no trace on this message */
 			noTrace: string;
 			/** {count, plural, one {# block} other {# blocks}} */

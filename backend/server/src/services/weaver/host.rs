@@ -21,6 +21,7 @@ use crate::services::{
         Actor, ChannelCommand, DelVarCommand, EmitEventCommand, EmittedEvent, EventSink,
         RealmVariables, ToolContext,
     },
+    variables::Variables,
     weaver::{
         Caps, WeaverProfile,
         eval::{Evaluable, Limits, Outcome, WeaverError, cancellation_flag},
@@ -73,6 +74,7 @@ pub struct WeaverHost {
     cmd: HashMap<String, WeaverValue>,
     actor: Option<Actor>,
     realm: Option<RealmVariables>,
+    variables: Variables,
     read_only: bool,
     limits: Limits,
     cancel: Option<CancellationToken>,
@@ -156,6 +158,7 @@ impl WeaverHost {
         let ctx = ToolContext::new(self.cmd.clone(), Arc::clone(&self.pool))
             .with_actor(self.actor.clone())
             .with_realm(self.realm.clone())
+            .with_variables(self.variables.clone())
             .with_modules(self.module_exports());
         if self.read_only { ctx.read_only() } else { ctx }
     }
@@ -195,6 +198,7 @@ pub struct WeaverBuilder {
     cmd: HashMap<String, WeaverValue>,
     actor: Option<Actor>,
     realm: Option<RealmVariables>,
+    variables: Variables,
     read_only: bool,
     limits: Limits,
     cancel: Option<CancellationToken>,
@@ -267,6 +271,12 @@ impl WeaverBuilder {
     /// The realm the body runs inside, mounting `cast:` and `turn:`.
     pub fn realm(mut self, realm: RealmVariables) -> Self {
         self.realm = Some(realm);
+        self
+    }
+
+    /// Read-only host values such as `{{char:name}}` and `{{user:name}}`.
+    pub fn variables(mut self, variables: Variables) -> Self {
+        self.variables = variables;
         self
     }
 
@@ -346,6 +356,7 @@ impl WeaverBuilder {
             cmd: self.cmd,
             actor: self.actor,
             realm: self.realm,
+            variables: self.variables,
             read_only: self.read_only,
             limits: self.limits,
             cancel: self.cancel,

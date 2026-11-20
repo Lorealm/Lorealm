@@ -11,7 +11,10 @@ use serde_json::{Value, json};
 
 use crate::{
     errors::{ChatError, RealmError},
-    services::{chat::TurnRequest, context_template::ContextNode},
+    services::{
+        chat::TurnRequest,
+        context_template::{ContextNode, PromptRole},
+    },
     tests::Harness,
 };
 
@@ -565,4 +568,79 @@ async fn a_widgets_weaver_cannot_generate() {
         .expect_err("a widget's weaver may not generate")
         .to_string();
     assert!(error.contains("generate"), "{error}");
+}
+
+#[tokio::test]
+async fn a_templates_text_is_weaver_over_the_agents_view() {
+    let h = Harness::new().await;
+    let base_url = stub_model("Understood.").await;
+    ready_for_models(&h, &base_url).await;
+
+    let template = h.template(h.user, "Roles").await;
+    let mut stored = h.store.get_template(template).await.unwrap().unwrap();
+    stored.nodes_json = json!([
+        ContextNode::text(
+            &h.snow,
+            "Role",
+            "",
+            "You are {{char:name}}. {{self:brief}} Turn {{turn:index}}.",
+            PromptRole::System,
+        ),
+        ContextNode::text(
+            &h.snow,
+            "Legacy",
+            "",
+            "Stay in character as {{char}}.",
+            PromptRole::System
+        ),
+    ]);
+    h.store.save_template(&stored).await.unwrap();
+
+    let scout = h.character(h.user, "Scout").await;
+    let document = format!(
+        r##"{{
+  name: "Watch"
+  agents: [
+    {{
+      handle: "scout"
+      name: "Scout"
+      kind: "llm"
+      character_id: "{scout}"
+      template_id: "{template}"
+      properties: {{ brief: "Report what you see." }}
+    }}
+    {{ handle: "you", name: "You", kind: "player" }}
+  ]
+}}"##
+    );
+    let convo = counting_house(&h, &document).await;
+
+    let events = turn(&h, convo, json!({})).await.unwrap();
+    let [reply] = messages(&events).try_into().unwrap();
+    let context = reply.metadata["context"].to_string();
+    assert!(
+        context.contains("You are Scout. Report what you see. Turn 0."),
+        "{context}"
+    );
+    assert!(
+        context.contains("Stay in character as {{char}}."),
+        "{context}"
+    );
+
+    // The inspector shows the source, with what each expression became.
+    let role = &reply.metadata["context"][0]["content_ref"]["Template"];
+    assert_eq!(
+        role,
+        &json!([
+            { "source": "You are " },
+            { "source": "{{char:name}}", "value": "Scout" },
+            { "source": ". " },
+            { "source": "{{self:brief}}", "value": "Report what you see." },
+            { "source": " Turn " },
+            { "source": "{{turn:index}}", "value": "0" },
+            { "source": "." },
+        ]),
+        "{context}"
+    );
+    assert_eq!(reply.metadata["context"][1]["content_ref"], "Verbatim");
 }

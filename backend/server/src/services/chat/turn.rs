@@ -530,6 +530,8 @@ impl ChatService {
             .assemble_context(
                 &spec,
                 cast,
+                agent,
+                &view,
                 Some(convo.id),
                 &turns,
                 &baseline,

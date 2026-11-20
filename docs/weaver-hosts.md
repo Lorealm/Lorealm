@@ -65,6 +65,7 @@ cargo test -p lorealm_server --bin lorealm_server dump_weaver_vocabulary -- --ig
 | `RealmDirector` | none | — |
 | `WidgetRender` | none | — |
 | `RealmTemplate` | none | — |
+| `TemplateText` | none | — |
 
 Where each one is built:
 
@@ -77,6 +78,7 @@ Where each one is built:
 | `RealmDirector` | `services/realm/weaver.rs` | A realm's `Director::Script`, rendering the handle of whoever acts next |
 | `WidgetRender` | `services/chat/widgets.rs` | A widget's `render`, turning it into prompt text during assembly |
 | `RealmTemplate` | `services/realm/wtn.rs` | A WTN document, expanded once into a realm definition |
+| `TemplateText` | `services/context_template/resolve/mod.rs` | A context template's text node, over the agent's view; text that fails is kept as written |
 
 The editor's two endpoints — `check` in `services/context/weaver/check.rs` and
 `list_weaver_vocabulary` in `routes/templates/handlers.rs` — build

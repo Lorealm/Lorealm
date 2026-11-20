@@ -33,6 +33,7 @@ use crate::{
         chat::{
             ActionSpec, ActiveWidgets, CancelGuard, FullConversation, Prepared, PromptMessage,
             perceive::perceive,
+            stage::Stage,
             weaver,
             widgets::{
                 AttachmentSpec, InferEvent, ToolCallRecord, WidgetInstance, WidgetRenderer,
@@ -52,8 +53,8 @@ use crate::{
         state::{CapturedState, ReconstructedState, StatePool, StateService, write_var},
         tokenizer::TokenizerService,
         tools::{
-            ATTACHMENT_TOOL_IDS, CompiledUserTool, ToolPolicy, ToolSignature, UserToolService,
-            builtin_tool,
+            ATTACHMENT_TOOL_IDS, CompiledUserTool, RealmVariables, ToolPolicy, ToolSignature,
+            UserToolService, builtin_tool,
         },
         user_widgets::builtin_widgets,
         variables::{VariableContext, VariableRegistry},
@@ -687,6 +688,8 @@ impl ChatService {
         &self,
         spec: &AgentSpec,
         cast: &RealmCast,
+        agent: &RealmAgent,
+        view: &RealmVariables,
         conversation: Option<Snowflake>,
         thread: &[PromptTurn],
         baseline: &ReconstructedState,
@@ -753,6 +756,8 @@ impl ChatService {
                 widget_renders: &widget_renders,
                 author_note,
                 plugins,
+                actor: Some(weaver::actor_of(agent)),
+                realm: Some(view.clone()),
             };
             let trace = assemble(&template, &sources, &ctx).await?;
             captured = ctx.lorebook_state.lock().await.take();
@@ -1160,6 +1165,7 @@ impl ChatService {
         let turns = perceive(&cast, agent, &path, &mut WidgetRenderer::default());
         let ids: Vec<Snowflake> = path.iter().map(|m| m.id).collect();
         let baseline = self.state.reconstruct(&ids).await?;
+        let view = Stage::new(&cast, &path, &baseline.persistent).view;
 
         let Prepared {
             prompt: mut messages,
@@ -1168,6 +1174,8 @@ impl ChatService {
             .assemble_context(
                 &spec,
                 &cast,
+                agent,
+                &view,
                 Some(conversation_id),
                 &turns,
                 &baseline,

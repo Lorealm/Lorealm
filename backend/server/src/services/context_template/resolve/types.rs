@@ -9,6 +9,7 @@ use crate::services::{
     context_template::PromptRole,
     plugins::UserVocabulary,
     state::{CapturedState, ReconstructedState},
+    tools::{Actor, RealmVariables},
     variables::Variables,
 };
 
@@ -20,13 +21,23 @@ pub enum ContentRef {
     Message(Snowflake),
     Character(CharacterPart),
     Persona(UserPersona),
+    /// A text node's Weaver source, split so each expression carries what it
+    /// expanded to. The rendered text is stored too.
+    Template(Vec<TemplatePart>),
 }
 
 impl ContentRef {
     /// Whether the live content can be dropped before persisting.
     pub fn is_recoverable(&self) -> bool {
-        !matches!(self, ContentRef::Verbatim)
+        !matches!(self, ContentRef::Verbatim | ContentRef::Template(_))
     }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TemplatePart {
+    pub source: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -154,6 +165,10 @@ pub struct ResolveContext<'a> {
     pub author_note: &'a str,
     /// The user's plugin vocabulary, for Weaver run during assembly.
     pub plugins: Option<UserVocabulary>,
+    /// The agent the prompt is for
+    pub actor: Option<Actor>,
+    /// The realm as that agent sees it
+    pub realm: Option<RealmVariables>,
 }
 
 /// A single prompt-visible turn, source-agnostic
