@@ -33,7 +33,8 @@
 		"stopCommand": "Stopp /{name}",
 		"stopPlugin": "Stopp {name}",
 		"stopGenerating": "Stopp generering",
-		"commands": "Kommandoer"
+		"commands": "Kommandoer",
+		"removeAction": "Remove {label}"
 	},
 	"message": {
 		"you": "Du",
@@ -91,6 +92,7 @@
 		"untitledNode": "(node uten tittel)",
 		"node": "node {id}",
 		"notReconstructed": "innhold ikke gjenopprettet",
+		"expandsToNothing": "Expands to nothing",
 		"noTrace": "ingen sporing på denne meldingen",
 		"blocks": "{count, plural, one {# blokk} other {# blokker}}",
 		"units": {
