@@ -33,7 +33,8 @@
 		"stopCommand": "/{name} stoppen",
 		"stopPlugin": "{name} stoppen",
 		"stopGenerating": "Erzeugung stoppen",
-		"commands": "Befehle"
+		"commands": "Befehle",
+		"removeAction": "Remove {label}"
 	},
 	"message": {
 		"you": "Sie",
@@ -91,6 +92,7 @@
 		"untitledNode": "(Knoten ohne Titel)",
 		"node": "Knoten {id}",
 		"notReconstructed": "Inhalt nicht rekonstruiert",
+		"expandsToNothing": "Expands to nothing",
 		"noTrace": "keine Ablaufspur bei dieser Nachricht",
 		"blocks": "{count, plural, one {# Block} other {# Blöcke}}",
 		"units": {
