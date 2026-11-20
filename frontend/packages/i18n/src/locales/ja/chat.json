@@ -33,7 +33,8 @@
 		"stopCommand": "/{name} を停止",
 		"stopPlugin": "{name}を停止",
 		"stopGenerating": "生成を停止",
-		"commands": "コマンド"
+		"commands": "コマンド",
+		"removeAction": "Remove {label}"
 	},
 	"message": {
 		"you": "あなた",
@@ -91,6 +92,7 @@
 		"untitledNode": "(無題のノード)",
 		"node": "ノード {id}",
 		"notReconstructed": "内容は再構築されていません",
+		"expandsToNothing": "Expands to nothing",
 		"noTrace": "このメッセージにトレースはありません",
 		"blocks": "{count, plural, other {# ブロック}}",
 		"units": {
