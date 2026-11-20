@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { JsonValue } from '#lib/types/core.js';
+	import type { PlayerAction } from '#lib/types/realm.js';
 	import { frameTheme } from '#lib/stores/frameTheme.svelte.js';
 
 	let {
@@ -13,7 +14,8 @@
 		slice: Record<string, JsonValue>;
 		title: string;
 		kind?: 'state' | 'props';
-		onaction?: (toolId: string, args: JsonValue) => void;
+		/** A tool the widget triggers, or Weaver it sends, and what to call it. */
+		onaction?: (action: PlayerAction, label: string) => void;
 	} = $props();
 
 	/**
@@ -97,6 +99,8 @@
 			type?: string;
 			tool_id?: unknown;
 			args?: unknown;
+			source?: unknown;
+			label?: unknown;
 			height?: unknown;
 		} | null;
 		if (data?.type === 'lorealm:ready') {
@@ -105,8 +109,14 @@
 		} else if (data?.type === 'lorealm:height' && typeof data.height === 'number') {
 			height = Math.max(0, Math.min(4000, data.height));
 		} else if (data?.type === 'lorealm:action' && typeof data.tool_id === 'string') {
-			onaction?.(data.tool_id, (data.args ?? {}) as JsonValue);
+			onaction?.({ tool_id: data.tool_id, args: (data.args ?? {}) as JsonValue }, labelOf(data));
+		} else if (data?.type === 'lorealm:run' && typeof data.source === 'string') {
+			onaction?.({ run: data.source }, labelOf(data));
 		}
+	}
+
+	function labelOf(data: { label?: unknown }): string {
+		return typeof data.label === 'string' && data.label.trim() ? data.label : title;
 	}
 </script>
 

@@ -9,6 +9,9 @@ use crate::models::{RealmOrigin, Snowflake};
 /// owns `agents:h.*`.
 pub const AGENTS_SCOPE: &str = "agents";
 
+/// The channel an agent is on until something changes its `channels`.
+pub const MAIN_CHANNEL: &str = "main";
+
 pub struct AgentSpec {
     pub owner: Snowflake,
     pub character: Option<(Snowflake, Snowflake)>,
@@ -307,10 +310,6 @@ pub struct RealmAgent {
     /// Bound tools. Empty = speak-only.
     #[serde(default)]
     pub tools: Vec<AgentToolBinding>,
-    /// The scope this agent's [`EventKind::Spoke`] events carry. `None` = the broadcast
-    /// `main` channel
-    #[serde(default)]
-    pub speech_channel: Option<String>,
     /// Lorebooks feeding this agent's context assembly. Empty = whichever
     /// lorebooks the owner has active when the turn runs.
     #[serde(default)]
@@ -396,6 +395,8 @@ pub struct TurnEvent {
     pub channel: String,
     pub kind: EventKind,
     pub content: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observers: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]

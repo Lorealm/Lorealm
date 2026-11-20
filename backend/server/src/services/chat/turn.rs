@@ -19,7 +19,7 @@ use crate::{
         chat::{
             ChatService, ChatStreamEvent, PlayerAction, PromptMessage, TurnAccumulator,
             TurnRequest, WidgetRenderer,
-            perceive::{MAIN_CHANNEL, perceive},
+            perceive::{observe_events, observers, perceive},
             stage::{Stage, handle_of},
             types::Prepared,
             weaver,
@@ -99,6 +99,7 @@ fn emitted_events(emitted: Vec<EmittedEvent>) -> impl Iterator<Item = TurnEvent>
         channel: e.scope,
         kind: e.kind,
         content: e.content,
+        observers: None,
     })
 }
 
@@ -117,18 +118,18 @@ impl ChatService {
 
         let stream = async_stream::try_stream! {
             let _guard = guard; // the stream owns the cancellation slot
-            let TurnRequest { content, action, mut swipe_from, continued } = request;
+            let TurnRequest { content, actions, mut swipe_from, continued } = request;
             let mut leaf = convo.active_leaf_id;
 
             // The player's own turn, if the request carries one.
             let content = content.filter(|c| !c.trim().is_empty());
-            if content.is_some() || action.is_some() {
+            if content.is_some() || !actions.is_empty() {
                 let place = match swipe_from.take() {
                     Some(id) => Relationship::Sibling(service.owned_message(id, convo.id).await?),
                     None => Relationship::Child(leaf),
                 };
                 let message = service
-                    .player_turn(&convo, &cast, place, content.unwrap_or_default(), action)
+                    .player_turn(&convo, &cast, place, content.unwrap_or_default(), actions)
                     .await?;
                 leaf = Some(message.id);
                 yield ChatStreamEvent::Message { message };
@@ -169,7 +170,9 @@ impl ChatService {
                 yield ChatStreamEvent::TurnStarted {
                     handle: agent.handle.clone(),
                     name: agent.name.clone(),
+                    observers: observers(&cast, &world.persistent, &agent.handle),
                 };
+                let before_turn = world.persistent.clone();
 
                 let is_llm = agent.kind == AgentKind::Llm;
                 let mut notes = Vec::new();
@@ -232,7 +235,7 @@ impl ChatService {
                     service.script_turn(agent, place, &view, world, plugins.as_ref()).await?
                 };
 
-                let message = service.commit(&convo, production).await?;
+                let message = service.commit(&convo, &cast, &before_turn, production).await?;
                 if is_llm {
                     let plugins = Arc::clone(&service.plugins);
                     let (owner, convo_id) = (convo.user_id, convo.id);
@@ -320,7 +323,7 @@ impl ChatService {
         cast: &RealmCast,
         place: Relationship,
         content: String,
-        action: Option<PlayerAction>,
+        actions: Vec<PlayerAction>,
     ) -> Result<ConversationMessage, ChatError> {
         let path = self.path_to(convo.id, &place).await?;
         let world = self.state.reconstruct(&message_ids(&path)).await?;
@@ -341,50 +344,77 @@ impl ChatService {
         };
         self.announce_turn_start(convo, &agent);
 
-        let mut delta = StateDelta::default();
+        let config = ResolvedRealmConfig::from_config(&cast.config);
+        let mut working = world.persistent.clone();
         let mut events = Vec::new();
         let mut notes = Vec::new();
-        let mut meta = json!({});
-        if let Some(action) = action {
-            // A player may trigger any tool its agent is bound to, including
-            // those bundled by a widget.
-            let binding = self
-                .tool_bindings(&agent)
-                .await?
-                .into_iter()
-                .find(|b| b.tool_id == action.tool_id)
-                .ok_or(RealmError::ToolNotBound(action.tool_id))?;
-            let tool = self
-                .bound_tool(binding.tool_id)
-                .await?
-                .ok_or(ChatError::NotFound(TargetType::UserTool, binding.tool_id))?;
-            let (output, changed, emitted) = weaver::run_scoped(
-                &tool.body,
-                &tool.params,
-                action.args.clone(),
-                &agent,
-                &world.persistent,
-                &stage.view,
-                plugins.as_ref(),
-            )
-            .await?;
+        let mut done = Vec::new();
+        for action in actions {
+            match action {
+                PlayerAction::Tool { tool_id, args } => {
+                    // A player may trigger any tool its agent is bound to,
+                    // including those bundled by a widget.
+                    let binding = self
+                        .tool_bindings(&agent)
+                        .await?
+                        .into_iter()
+                        .find(|b| b.tool_id == tool_id)
+                        .ok_or(RealmError::ToolNotBound(tool_id))?;
+                    let tool = self
+                        .bound_tool(binding.tool_id)
+                        .await?
+                        .ok_or(ChatError::NotFound(TargetType::UserTool, binding.tool_id))?;
+                    let (output, changed, emitted) = weaver::run_scoped(
+                        &tool.body,
+                        &tool.params,
+                        args.clone(),
+                        &agent,
+                        &working,
+                        &stage.view,
+                        plugins.as_ref(),
+                    )
+                    .await?;
+                    apply_delta(&mut working, &changed);
 
-            let config = ResolvedRealmConfig::from_config(&cast.config);
-            events.push(TurnEvent {
-                channel: binding.event_channel.unwrap_or_default(),
-                kind: EventKind::Acted,
-                content: config.action(&agent.name, &tool.name),
-            });
-            events.extend(emitted_events(emitted));
-            notes.push(config.tool_result(&tool.name, &output));
-            meta = json!({
-                "action": { "tool": tool.name, "input": action.args, "output": output },
-            });
-            delta = changed;
+                    events.push(TurnEvent {
+                        channel: binding.event_channel.unwrap_or_default(),
+                        kind: EventKind::Acted,
+                        content: config.action(&agent.name, &tool.name),
+                        observers: None,
+                    });
+                    events.extend(emitted_events(emitted));
+                    notes.push(config.tool_result(&tool.name, &output));
+                    done.push(json!({ "tool": tool.name, "input": args, "output": output }));
+                }
+                PlayerAction::Run { run } => {
+                    // `run_scoped` uses the RealmScript profile: no
+                    // `generation`, no `effects`. Its output goes nowhere.
+                    let (_, changed, emitted) = weaver::run_scoped(
+                        &run,
+                        &[],
+                        json!({}),
+                        &agent,
+                        &working,
+                        &stage.view,
+                        plugins.as_ref(),
+                    )
+                    .await?;
+                    apply_delta(&mut working, &changed);
+                    events.extend(emitted_events(emitted));
+                    done.push(json!({ "run": run }));
+                }
+            }
         }
+        let meta = match done.is_empty() {
+            true => json!({}),
+            false => json!({ "actions": done }),
+        };
+        let delta = self.state.diff(&world.persistent, &working);
 
         self.commit(
             convo,
+            cast,
+            &world.persistent,
             TurnMessage {
                 agent,
                 place,
@@ -500,6 +530,8 @@ impl ChatService {
             .assemble_context(
                 &spec,
                 cast,
+                agent,
+                &view,
                 Some(convo.id),
                 &turns,
                 &baseline,
@@ -600,6 +632,7 @@ impl ChatService {
                 channel: channel.clone().unwrap_or_default(),
                 kind: EventKind::Acted,
                 content: config.action(&agent.name, &call.name),
+                observers: None,
             });
             tool_results.push(config.tool_result(&call.name, &call.output.to_string()));
         }
@@ -641,10 +674,13 @@ impl ChatService {
         })
     }
 
-    /// Commit a turn message to the conversation.
+    /// Commit a turn message to the conversation. `before` is the world the
+    /// turn started from; who observed it is decided by the world it left.
     async fn commit(
         &self,
         convo: &Conversation,
+        cast: &RealmCast,
+        before: &StatePool,
         msg: TurnMessage,
     ) -> Result<ConversationMessage, ChatError> {
         let TurnMessage {
@@ -654,22 +690,22 @@ impl ChatService {
             content,
             mut meta,
             state,
-            events,
+            mut events,
             tool_results,
         } = msg;
+
+        let mut after = before.clone();
+        if let Some(captured) = &state {
+            apply_delta(&mut after, &captured.persistent);
+        }
+        observe_events(cast, &after, &agent.handle, &mut events);
 
         // TODO: there is probably a world where a seperate metadata factory makes
         // sense. It would handle conflicts and error reporting, while also cleaning
         // up the top level API. Alas, I am lazy.
         meta["handle"] = json!(agent.handle);
         meta["agent_name"] = json!(agent.name);
-        if let Some(channel) = agent
-            .speech_channel
-            .as_deref()
-            .filter(|c| *c != MAIN_CHANNEL)
-        {
-            meta["channel"] = json!(channel);
-        }
+        meta["observers"] = json!(observers(cast, &after, &agent.handle));
         if !events.is_empty() {
             meta["events"] = json!(events);
         }

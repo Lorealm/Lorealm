@@ -130,6 +130,8 @@ export type Messages = {
 			stopGenerating: string;
 			/** Commands */
 			commands: string;
+			/** Remove {label} */
+			removeAction: (args: { label: string }) => string;
 		};
 		message: {
 			/** You */
@@ -226,6 +228,8 @@ export type Messages = {
 			node: (args: { id: string }) => string;
 			/** content not reconstructed */
 			notReconstructed: string;
+			/** Expands to nothing */
+			expandsToNothing: string;
 			/** no trace on this message */
 			noTrace: string;
 			/** {count, plural, one {# block} other {# blocks}} */
@@ -2128,8 +2132,6 @@ export type Messages = {
 			bindTool: string;
 			/** Bind another tool */
 			bindAnotherTool: string;
-			/** Speaks on */
-			speaksOn: string;
 			/** Grants */
 			grants: string;
 			/** Add a grant */

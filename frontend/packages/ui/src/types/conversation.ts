@@ -56,8 +56,7 @@ export interface StartChatRequest {
  */
 export interface TurnRequest {
 	content?: string | null;
-	/** A bound tool the player triggers. */
-	action?: PlayerAction | null;
+	actions?: PlayerAction[];
 	swipe_from?: Snowflake | null;
 	continue?: boolean;
 }
@@ -74,7 +73,7 @@ export interface FullConversation {
 }
 
 export type ChatStreamEvent =
-	| { type: 'turn_started'; handle: string; name: string }
+	| { type: 'turn_started'; handle: string; name: string; observers: string[] }
 	| { type: 'delta'; content: string }
 	| { type: 'widget'; widget: WidgetInstance }
 	| { type: 'reasoning'; content: string }

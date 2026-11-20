@@ -31,7 +31,7 @@
     document.getElementById('out').textContent = JSON.stringify(e.data.state, null, 2);
   });
 
-  // To act, post back a bound tool call — it runs as an ordinary player turn:
+  // parent.postMessage({ type: 'lorealm:run', source: '$[set_var("world:x", 1)]', label: 'Set x' }, '*');
   // parent.postMessage({ type: 'lorealm:action', tool_id: '…', args: {} }, '*');
 ${'</'}script>
 `;

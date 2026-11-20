@@ -127,7 +127,6 @@ class RealmDraft {
 			}),
 			grants: from.grants.map((g) => parseGrant(g.channel, g.access)),
 			properties: from.properties.map((p) => ({ ...p })),
-			speechChannel: from.speech_channel,
 			script: from.script,
 			run_condition: from.run_condition
 		});

@@ -53,23 +53,28 @@ const isTemp = (id: Snowflake) => (id as unknown as string).startsWith(TEMP_PREF
 /** What a turn's message says about who took it. */
 interface TurnMetadata {
 	handle?: string;
+	observers?: string[];
 	channel?: string;
 	command?: string;
 	events?: TurnEvent[];
 	tool_results?: string[];
 }
 
+/** A widget action waiting for the player's next turn. */
+export interface QueuedAction {
+	/** Which widget placement queued it. */
+	key: string;
+	label: string;
+	action: PlayerAction;
+}
+
 const turnMeta = (m: ConversationMessage) => (m.metadata ?? {}) as TurnMetadata;
 
-/** The channel everybody hears. Any other takes a grant. */
+/** Without recorded observers, only what was said on this channel reached everyone. */
 const MAIN_CHANNEL = 'main';
 
-function hears(viewer: RealmAgent, channel: string): boolean {
-	if (channel === MAIN_CHANNEL) return true;
-	return viewer.grants.some((g) => {
-		const scope = g.channel.split(':', 1)[0];
-		return scope === '*' || scope === channel;
-	});
+function hears(viewer: RealmAgent, observers: string[] | undefined, channel: string): boolean {
+	return observers ? observers.includes(viewer.handle) : channel === MAIN_CHANNEL;
 }
 
 class ChatStore {
@@ -101,6 +106,7 @@ class ChatStore {
 	private _nextHandle = $state<string | null>(null);
 	private _streamAgentName = $state<string | null>(null);
 	private _streamHandle = $state<string | null>(null);
+	private _streamObservers = $state<string[]>([]);
 	/** Keep running turns until it is a player's. */
 	autoRun = $state(true);
 	/** Show every turn, not only what the player's agent perceives. */
@@ -171,7 +177,7 @@ class ChatStore {
 		if (meta.handle === viewer.handle) return true;
 		if (meta.handle === undefined) return m.content.trim().length > 0 || meta.command != null;
 		if (m.id !== this._streamingId && m.content.trim().length === 0) return false;
-		return hears(viewer, meta.channel ?? MAIN_CHANNEL);
+		return hears(viewer, meta.observers, meta.channel ?? MAIN_CHANNEL);
 	}
 
 	get renderedPath(): ConversationMessage[] {
@@ -192,7 +198,7 @@ class ChatStore {
 					audible: !viewer || this.#audible(message, viewer),
 					notices: [
 						...(meta.events ?? [])
-							.filter((e) => own || hears(viewer, e.channel))
+							.filter((e) => own || hears(viewer, e.observers, e.channel))
 							.map((e) => e.content),
 						...(own ? (meta.tool_results ?? []) : [])
 					]
@@ -227,8 +233,7 @@ class ChatStore {
 								reasoning: this._streamReasoning,
 								agent_name: this._streamAgentName,
 								handle: this._streamHandle,
-								channel: this._cast?.agents.find((a) => a.handle === this._streamHandle)
-									?.speech_channel
+								observers: this._streamObservers
 							} as unknown as ConversationMessage['metadata']
 						}
 					: cur;
@@ -401,8 +406,10 @@ class ChatStore {
 		this._nextHandle = null;
 		this._streamAgentName = null;
 		this._streamHandle = null;
+		this._streamObservers = [];
 		this.autoRun = true;
 		this.directorView = false;
+		this.queuedActions = [];
 		this.streamState = { status: 'idle' };
 	}
 
@@ -430,13 +437,23 @@ class ChatStore {
 			await Promise.all([this.loadList(), this.#loadCast()]);
 		}
 
-		await this.#play({ content });
+		const actions = this.queuedActions.map((q) => q.action);
+		this.queuedActions = [];
+		await this.#play({ content, actions });
 	}
 
-	/** Trigger one of the player's bound tools as their turn. */
-	async act(action: PlayerAction) {
-		if (this.isStreaming) return;
-		await this.#play({ action });
+	queuedActions = $state<QueuedAction[]>([]);
+
+	/** Queue an action for the next turn, */
+	queueAction(key: string, label: string, action: PlayerAction) {
+		this.queuedActions = [
+			...this.queuedActions.filter((q) => q.key !== key),
+			{ key, label, action }
+		];
+	}
+
+	unqueueAction(key: string) {
+		this.queuedActions = this.queuedActions.filter((q) => q.key !== key);
 	}
 
 	/** Replace one of the player's own turns with a new take on it. */
@@ -551,7 +568,7 @@ class ChatStore {
 		let settled = this._activeLeafId;
 		const target = request.swipe_from ? this._messages.get(request.swipe_from) : undefined;
 		const continued = request.continue ? target : undefined;
-		const speaks = request.content != null || request.action != null;
+		const speaks = request.content != null || (request.actions?.length ?? 0) > 0;
 
 		// The player's words show at once; the server's copy replaces them.
 		let pendingUser: Snowflake | null = null;
@@ -587,6 +604,7 @@ class ChatStore {
 					case 'turn_started':
 						this._streamAgentName = event.name;
 						this._streamHandle = event.handle;
+						this._streamObservers = event.observers;
 						if (!continued) {
 							// Another take sits beside its target; a new turn under the leaf.
 							const beside = target && !speaks ? target.parent : this._activeLeafId;
@@ -649,6 +667,7 @@ class ChatStore {
 		this._streamWidgets = [];
 		this._streamAgentName = null;
 		this._streamHandle = null;
+		this._streamObservers = [];
 		if (!failed) this.streamState = { status: 'idle' };
 	}
 

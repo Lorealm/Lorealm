@@ -41,6 +41,8 @@ pub enum WeaverProfile {
     WidgetRender,
     /// A WTN document, expanded once into a realm definition.
     RealmTemplate,
+    /// A context template's text node, evaluated during prompt assembly.
+    TemplateText,
 }
 
 impl WeaverProfile {
@@ -53,6 +55,7 @@ impl WeaverProfile {
         Self::RealmDirector,
         Self::WidgetRender,
         Self::RealmTemplate,
+        Self::TemplateText,
     ];
 
     pub const fn caps(self) -> Caps {
@@ -76,6 +79,8 @@ impl WeaverProfile {
             // A document only reads, and answers with a value. There is no
             // conversation, realm or pool to deliver an effect or event to.
             Self::RealmTemplate => Caps::empty(),
+            // A template's text only reads, and answers with prompt text.
+            Self::TemplateText => Caps::empty(),
         }
     }
 
@@ -83,7 +88,11 @@ impl WeaverProfile {
     pub const fn read_only(self) -> bool {
         matches!(
             self,
-            Self::RealmCondition | Self::RealmDirector | Self::WidgetRender | Self::RealmTemplate
+            Self::RealmCondition
+                | Self::RealmDirector
+                | Self::WidgetRender
+                | Self::RealmTemplate
+                | Self::TemplateText
         )
     }
 }

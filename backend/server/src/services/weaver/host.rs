@@ -18,9 +18,10 @@ use crate::services::{
     plugins::UserVocabulary,
     state::{StatePool, diff},
     tools::{
-        Actor, DelVarCommand, EmitEventCommand, EmittedEvent, EventSink, RealmVariables,
-        ToolContext,
+        Actor, ChannelCommand, DelVarCommand, EmitEventCommand, EmittedEvent, EventSink,
+        RealmVariables, ToolContext,
     },
+    variables::Variables,
     weaver::{
         Caps, WeaverProfile,
         eval::{Evaluable, Limits, Outcome, WeaverError, cancellation_flag},
@@ -73,6 +74,7 @@ pub struct WeaverHost {
     cmd: HashMap<String, WeaverValue>,
     actor: Option<Actor>,
     realm: Option<RealmVariables>,
+    variables: Variables,
     read_only: bool,
     limits: Limits,
     cancel: Option<CancellationToken>,
@@ -156,6 +158,7 @@ impl WeaverHost {
         let ctx = ToolContext::new(self.cmd.clone(), Arc::clone(&self.pool))
             .with_actor(self.actor.clone())
             .with_realm(self.realm.clone())
+            .with_variables(self.variables.clone())
             .with_modules(self.module_exports());
         if self.read_only { ctx.read_only() } else { ctx }
     }
@@ -195,6 +198,7 @@ pub struct WeaverBuilder {
     cmd: HashMap<String, WeaverValue>,
     actor: Option<Actor>,
     realm: Option<RealmVariables>,
+    variables: Variables,
     read_only: bool,
     limits: Limits,
     cancel: Option<CancellationToken>,
@@ -270,6 +274,12 @@ impl WeaverBuilder {
         self
     }
 
+    /// Read-only host values such as `{{char:name}}` and `{{user:name}}`.
+    pub fn variables(mut self, variables: Variables) -> Self {
+        self.variables = variables;
+        self
+    }
+
     #[cfg(test)] // Gated to mute clippy errors
     pub fn limits(mut self, limits: Limits) -> Self {
         self.limits = limits;
@@ -298,6 +308,8 @@ impl WeaverBuilder {
         // Not part of `register_all`: that also loads into the lorebook
         // engine, whose context `del_var` cannot reach.
         registry.register_command(DelVarCommand);
+        registry.register_command(ChannelCommand::SET);
+        registry.register_command(ChannelCommand::UNSET);
 
         let mut sinks = Sinks::default();
 
@@ -344,6 +356,7 @@ impl WeaverBuilder {
             cmd: self.cmd,
             actor: self.actor,
             realm: self.realm,
+            variables: self.variables,
             read_only: self.read_only,
             limits: self.limits,
             cancel: self.cancel,

@@ -413,17 +413,6 @@
 			/>
 		</div>
 
-		<label>
-			<span>{t.realms.inspector.speaksOn}</span>
-			<input
-				class="mono"
-				value={a.speechChannel}
-				placeholder="main"
-				spellcheck="false"
-				oninput={(e) => (a.speechChannel = e.currentTarget.value)}
-			/>
-		</label>
-
 		<div class="field">
 			<span class="withAction">
 				{t.realms.inspector.grants}

@@ -7,8 +7,16 @@ export type ContentRef =
 	| { kind: 'persona'; persona: UserPersona }
 	| { kind: 'character'; part: CharacterPart }
 	| { kind: 'plugin'; source_id: string; data: unknown }
+	/** A text node's Weaver source, with what each expression expanded to. */
+	| { kind: 'template'; parts: TemplatePart[] }
 	/** Future-proofing so deserialization doesn't break */
 	| { kind: 'unknown' };
+
+/** Literal source text, or an expression and the text it rendered to. */
+export interface TemplatePart {
+	source: string;
+	value?: string;
+}
 
 export type CharacterPart =
 	| { part: 'definition' }
@@ -56,9 +64,18 @@ function parseCharacterPart(v: unknown): CharacterPart {
 	return { part: 'unknown' };
 }
 
+function parseTemplatePart(v: unknown): TemplatePart | null {
+	if (!isRecord(v) || typeof v.source !== 'string') return null;
+	return typeof v.value === 'string' ? { source: v.source, value: v.value } : { source: v.source };
+}
+
 function parseContentRef(v: unknown): ContentRef {
 	if (v === 'Verbatim') return { kind: 'verbatim' };
 	if (isRecord(v)) {
+		if (Array.isArray(v.Template)) {
+			const parts = v.Template.map(parseTemplatePart).filter((p): p is TemplatePart => p !== null);
+			return { kind: 'template', parts };
+		}
 		if (typeof v.Message === 'string') return { kind: 'message', id: v.Message };
 		if ('Character' in v) return { kind: 'character', part: parseCharacterPart(v.Character) };
 		if (isRecord(v.Persona))

@@ -65,6 +65,7 @@ cargo test -p lorealm_server --bin lorealm_server dump_weaver_vocabulary -- --ig
 | `RealmDirector` | none | — |
 | `WidgetRender` | none | — |
 | `RealmTemplate` | none | — |
+| `TemplateText` | none | — |
 
 Where each one is built:
 
@@ -77,6 +78,7 @@ Where each one is built:
 | `RealmDirector` | `services/realm/weaver.rs` | A realm's `Director::Script`, rendering the handle of whoever acts next |
 | `WidgetRender` | `services/chat/widgets.rs` | A widget's `render`, turning it into prompt text during assembly |
 | `RealmTemplate` | `services/realm/wtn.rs` | A WTN document, expanded once into a realm definition |
+| `TemplateText` | `services/context_template/resolve/mod.rs` | A context template's text node, over the agent's view; text that fails is kept as written |
 
 The editor's two endpoints — `check` in `services/context/weaver/check.rs` and
 `list_weaver_vocabulary` in `routes/templates/handlers.rs` — build
@@ -132,6 +134,14 @@ reaches the pool by downcasting to `ToolContext`. Every host above evaluates
 against one; the lorebook engine does not, which is why the command is not in
 `register_all` alongside the rest. A read-only profile refuses it exactly as
 it refuses `set_var`.
+
+`channel.set(name, handle?)` and `channel.unset(name, handle?)` are Lorealm's
+own too, and sit beside `del_var`. They edit `agents:<handle>.channels` (the
+running agent's own when no handle is given) through ordinary state writes, so
+a read-only profile refuses them as well. An agent speaks on and hears every
+channel in that list, and is on `main` alone until it has one. When a turn is
+committed, the agents sharing a channel with the speaker are stored on the
+message as its `observers`, and each event stores its own the same way.
 
 ### Entity kinds
 

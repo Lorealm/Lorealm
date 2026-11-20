@@ -54,6 +54,9 @@ export function resolveBlockContent(block: TracedBlock): ResolvedContent {
 		case 'verbatim':
 			return { text: inline, label: 'verbatim', resolved: true };
 
+		case 'template':
+			return { text: inline, label: 'template', resolved: true };
+
 		case 'message': {
 			const msg = chatStore.messageById(ref.id as unknown as Snowflake);
 			if (msg) return { text: msg.content, label: 'message', resolved: true };

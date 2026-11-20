@@ -1,12 +1,21 @@
-use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc};
+use std::{
+    collections::HashMap,
+    future::Future,
+    pin::Pin,
+    sync::{Arc, Mutex},
+};
 
 use async_trait::async_trait;
 use lorealm_storage::models::Snowflake;
+use weaver_lang::ast::template::NodeKind;
 
 use crate::{
     errors::ContextError,
     services::{
-        context_template::GroupWrapMode, plugins::PLUGIN_SOURCE_PREFIX, variables::substitute,
+        context_template::GroupWrapMode,
+        plugins::PLUGIN_SOURCE_PREFIX,
+        variables::substitute,
+        weaver::{WeaverHost, WeaverProfile, compile_template},
     },
 };
 
@@ -84,11 +93,10 @@ fn resolve_nodes<'a>(
             }
             match &node.content {
                 NodeContent::Text { content, role } => out.push(TracedBlock {
-                    block: ResolvedBlock::atomic(
-                        role.clone(),
-                        content.clone(),
-                        ContentRef::Verbatim,
-                    ),
+                    block: {
+                        let (text, content_ref) = render_text(&node.title, content, ctx);
+                        ResolvedBlock::atomic(role.clone(), text, content_ref)
+                    },
                     origin: BlockOrigin {
                         node_id: node.id,
                         node_title: node.title.clone(),
@@ -152,6 +160,66 @@ fn resolve_nodes<'a>(
 
         Ok(out)
     })
+}
+
+fn render_text(title: &str, content: &str, ctx: &ResolveContext) -> (String, ContentRef) {
+    let mut host = WeaverHost::builder()
+        .profile(WeaverProfile::TemplateText)
+        .pool(Arc::new(Mutex::new(ctx.state.persistent.clone())))
+        .actor(ctx.actor.clone())
+        .variables(ctx.variables.clone())
+        .plugins(ctx.plugins.clone());
+    if let Some(realm) = &ctx.realm {
+        host = host.realm(realm.clone());
+    }
+    let host = host.build();
+    let run = |source: &str| {
+        compile_template(source)
+            .and_then(|body| host.evaluate_inline(body))
+            .map(|outcome| outcome.to_output_string())
+    };
+    match run(content) {
+        Ok(text) => (text, expansions(content, run)),
+        Err(e) => {
+            tracing::warn!("template text node '{title}' kept as written: {e}");
+            (content.to_string(), ContentRef::Verbatim)
+        }
+    }
+}
+
+fn expansions<E>(source: &str, run: impl Fn(&str) -> Result<String, E>) -> ContentRef {
+    let Ok(template) = weaver_lang::parse(source) else {
+        return ContentRef::Verbatim;
+    };
+    let literal = |s: &str| TemplatePart {
+        source: s.to_string(),
+        value: None,
+    };
+    let mut parts = Vec::new();
+    let mut at = 0;
+    for node in &template.nodes {
+        if matches!(node.node, NodeKind::Literal(_)) {
+            continue;
+        }
+        let Some(piece) = source.get(node.span.start..node.span.end) else {
+            continue;
+        };
+        if node.span.start > at {
+            parts.push(literal(&source[at..node.span.start]));
+        }
+        parts.push(TemplatePart {
+            source: piece.to_string(),
+            value: run(piece).ok(),
+        });
+        at = node.span.end;
+    }
+    if parts.is_empty() {
+        return ContentRef::Verbatim;
+    }
+    if at < source.len() {
+        parts.push(literal(&source[at..]));
+    }
+    ContentRef::Template(parts)
 }
 
 fn apply_variables(content: &mut String, ctx: &ResolveContext) {

@@ -16,7 +16,7 @@
 	import { chatStore } from '#lib/stores/chat.svelte.js';
 	import { conversationManager } from '#lib/stores/conversationManager.svelte.js';
 	import { pluginCalls } from '#lib/stores/pluginCalls.svelte.js';
-	import { FilePlus, MessagesSquare, Paperclip, Send, Sparkles, Square } from '@lucide/svelte';
+	import { FilePlus, MessagesSquare, Paperclip, Send, Sparkles, Square, X } from '@lucide/svelte';
 	import { CHAT_COMPOSER_LAYER, type ChatComposerLayer } from '#lib/keys/commands.js';
 	import { keyLayer } from '#lib/keys/layers.svelte.js';
 	import { inputEnvironment } from '#lib/keys/environment.svelte.js';
@@ -79,7 +79,11 @@
 
 	function send() {
 		const text = inputText.trim();
-		if (!text) return;
+		if (!text) {
+			// Queued widget actions are a turn on their own.
+			if (chatStore.queuedActions.length > 0) void chatStore.sendMessage('');
+			return;
+		}
 		inputText = '';
 		dismissed = false;
 		cursor = 0;
@@ -160,6 +164,22 @@
 </script>
 
 <div class="container">
+	{#if chatStore.queuedActions.length > 0}
+		<div class="queued">
+			{#each chatStore.queuedActions as queued (queued.key)}
+				<span class="queued-action">
+					{queued.label}
+					<button
+						type="button"
+						aria-label={t.chat.composer.removeAction({ label: queued.label })}
+						onclick={() => chatStore.unqueueAction(queued.key)}
+					>
+						<X size={11} />
+					</button>
+				</span>
+			{/each}
+		</div>
+	{/if}
 	<div class="control-container">
 		{#if suggestions.length > 0}
 			<CommandAutocomplete items={suggestions} activeIndex={active} {heading} onSelect={accept} />
@@ -221,12 +241,38 @@
 <style>
 	.container {
 		display: flex;
-		flex-direction: row;
+		flex-direction: column;
+		justify-content: center;
+		gap: var(--spacing-xs);
 		min-height: 4em;
-		max-height: 10em;
-		padding: 0 var(--spacing-md);
+		padding: var(--spacing-xs) var(--spacing-md);
 		background-color: var(--color-bg-base);
+	}
+	.queued {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--spacing-xs);
+	}
+	.queued-action {
+		display: inline-flex;
 		align-items: center;
+		gap: var(--spacing-xs);
+		padding: 2px var(--spacing-sm);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius-sm);
+		background-color: var(--color-bg-elevated);
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-xs);
+	}
+	.queued-action button {
+		display: flex;
+		padding: 0;
+		background: none;
+		border: none;
+		color: inherit;
+	}
+	.queued-action button:hover {
+		color: var(--color-text-accent);
 	}
 	.control-container {
 		position: relative; /* anchors the command autocomplete */

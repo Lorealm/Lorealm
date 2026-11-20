@@ -81,6 +81,7 @@
 							<WeaverArea
 								doc={text}
 								onChange={onInput}
+								profile="template_text"
 								hint={t.studio.templateEditor.emptyPrompt}
 								fill
 								autofocus={fill}

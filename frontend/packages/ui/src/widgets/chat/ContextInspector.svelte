@@ -452,7 +452,13 @@
 			</div>
 		{/if}
 
-		{#if content.text}
+		{#if block.content_ref.kind === 'template'}
+			<pre
+				class="content">{#each block.content_ref.parts as part, pi (pi)}{#if part.value === undefined}{part.source}{:else}<span
+							class="expansion"
+							{@attach tooltip(part.value || t.chat.inspector.expandsToNothing)}>{part.source}</span
+						>{/if}{/each}</pre>
+		{:else if content.text}
 			<pre class="content">{content.text}</pre>
 		{:else}
 			<div class="unresolved">{t.chat.inspector.notReconstructed}</div>
@@ -1363,6 +1369,13 @@
 		line-height: var(--line-height-snug);
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;
+	}
+
+	.expansion {
+		color: var(--color-text-accent);
+		text-decoration: underline dotted;
+		text-underline-offset: 3px;
+		cursor: help;
 	}
 
 	.raw {

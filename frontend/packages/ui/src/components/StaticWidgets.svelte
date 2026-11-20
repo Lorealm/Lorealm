@@ -48,12 +48,13 @@
 			}
 		})();
 	});
-
-	function onAction(toolId: string, args: JsonValue) {
-		void chatStore.act({ tool_id: toolId, args });
-	}
 </script>
 
 {#each widgets as widget (widget.id)}
-	<StateFrame source={widget.source} title={widget.name} slice={state} onaction={onAction} />
+	<StateFrame
+		source={widget.source}
+		title={widget.name}
+		slice={state}
+		onaction={(action, label) => chatStore.queueAction(`static:${widget.id}`, label, action)}
+	/>
 {/each}
