@@ -33,7 +33,8 @@
 		"stopCommand": "Arrêter /{name}",
 		"stopPlugin": "Arrêter {name}",
 		"stopGenerating": "Arrêter la génération",
-		"commands": "Commandes"
+		"commands": "Commandes",
+		"removeAction": "Remove {label}"
 	},
 	"message": {
 		"you": "Vous",
@@ -91,6 +92,7 @@
 		"untitledNode": "(nœud sans titre)",
 		"node": "nœud {id}",
 		"notReconstructed": "contenu non reconstitué",
+		"expandsToNothing": "Expands to nothing",
 		"noTrace": "aucune trace sur ce message",
 		"blocks": "{count, plural, one {# bloc} many {# blocs} other {# blocs}}",
 		"units": {
