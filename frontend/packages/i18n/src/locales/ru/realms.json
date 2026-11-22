@@ -58,6 +58,8 @@
 		"import": "Импортировать",
 		"exportHint": "Экспортировать вместе с используемыми ресурсами",
 		"exportNamed": "Экспортировать «{name}»",
+		"duplicate": "Duplicate",
+		"duplicateNamed": "Duplicate {name}",
 		"delete": "Удалить заготовку",
 		"empty": "Заготовок пока нет."
 	},
@@ -254,7 +256,7 @@
 		}
 	},
 	"overview": {
-		"name": "Название",
+		"name": "Realm name",
 		"untitled": "Без названия",
 		"description": "Описание",
 		"descriptionPlaceholder": "Что здесь происходит и для кого это.",
