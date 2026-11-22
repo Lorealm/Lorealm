@@ -307,11 +307,45 @@ async fn a_blueprint_belongs_to_its_owner() {
             .expand(blueprint.id, h.stranger, Map::new())
             .await
             .unwrap_err(),
+        h.blueprints
+            .duplicate(blueprint.id, h.stranger)
+            .await
+            .unwrap_err(),
     ] {
         assert!(matches!(err, RealmError::NotOwned(_, _)), "{err:?}");
     }
 
     assert!(h.blueprints.list(h.stranger).await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn a_duplicate_is_an_independent_copy_under_the_next_free_name() {
+    let h = Harness::new().await;
+    let original = h
+        .blueprints
+        .create(h.user, "Sengoku".into(), SOURCE.into())
+        .await
+        .unwrap();
+    h.blueprints
+        .update(original.id, h.user, None, Some("A campaign.".into()), None)
+        .await
+        .unwrap();
+
+    let first = h.blueprints.duplicate(original.id, h.user).await.unwrap();
+    let second = h.blueprints.duplicate(original.id, h.user).await.unwrap();
+
+    assert_eq!(first.name, "Sengoku (1)");
+    assert_eq!(second.name, "Sengoku (2)");
+    assert_ne!(first.id, original.id);
+    assert_eq!(first.source, SOURCE);
+    assert_eq!(first.description, "A campaign.");
+
+    h.blueprints
+        .update(first.id, h.user, None, None, Some("{}".into()))
+        .await
+        .unwrap();
+    let untouched = h.blueprints.get(original.id, h.user).await.unwrap();
+    assert_eq!(untouched.source, SOURCE);
 }
 
 #[tokio::test]

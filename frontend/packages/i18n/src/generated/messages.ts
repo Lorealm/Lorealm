@@ -798,6 +798,8 @@ export type Messages = {
 			createBlueprint: string;
 			/** Failed to delete blueprint */
 			deleteBlueprint: string;
+			/** Failed to duplicate blueprint */
+			duplicateBlueprint: string;
 			/** Could not import blueprint */
 			importBlueprint: string;
 			/** Failed to build a realm */
@@ -1572,6 +1574,10 @@ export type Messages = {
 			exportHint: string;
 			/** Export {name} */
 			exportNamed: (args: { name: string }) => string;
+			/** Duplicate */
+			duplicate: string;
+			/** Duplicate {name} */
+			duplicateNamed: (args: { name: string }) => string;
 			/** Delete blueprint */
 			delete: string;
 			/** No blueprints yet. */

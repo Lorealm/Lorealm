@@ -564,6 +564,7 @@ export function createApiClient(platform: PlatformAPI) {
 			update: (id: Snowflake, update: UpdateBlueprintRequest) =>
 				http.patch<Blueprint>(`/api/v1/blueprints/${id}`, update),
 			delete: (id: Snowflake) => http.delete(`/api/v1/blueprints/${id}`),
+			duplicate: (id: Snowflake) => http.post<Blueprint>(`/api/v1/blueprints/${id}/duplicate`),
 			inputs: (id: Snowflake) => http.get<Array<InputSpec>>(`/api/v1/blueprints/${id}/inputs`),
 			/** The author's introduction and the fields, for building a realm. */
 			form: (id: Snowflake) => http.get<BuildForm>(`/api/v1/blueprints/${id}/form`),

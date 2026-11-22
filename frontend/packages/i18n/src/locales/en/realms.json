@@ -58,6 +58,8 @@
 		"import": "Import",
 		"exportHint": "Export with the resources it uses",
 		"exportNamed": "Export {name}",
+		"duplicate": "Duplicate",
+		"duplicateNamed": "Duplicate {name}",
 		"delete": "Delete blueprint",
 		"empty": "No blueprints yet."
 	},

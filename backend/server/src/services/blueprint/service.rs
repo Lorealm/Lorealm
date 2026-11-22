@@ -121,6 +121,31 @@ impl BlueprintService {
         Ok(blueprint)
     }
 
+    pub async fn duplicate(
+        &self,
+        id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<Blueprint, RealmError> {
+        let original = self.get(id, user_id).await?;
+        let taken: Vec<String> = self
+            .list(user_id)
+            .await?
+            .into_iter()
+            .map(|b| b.name)
+            .collect();
+
+        let now = Utc::now();
+        let copy = Blueprint {
+            id: self.snowflake.generate(),
+            name: duplicate_name(&original.name, &taken),
+            created_at: now,
+            updated_at: now,
+            ..original
+        };
+        self.storage.save_blueprint(&copy).await?;
+        Ok(copy)
+    }
+
     pub async fn delete(&self, id: Snowflake, user_id: Snowflake) -> Result<(), RealmError> {
         self.get(id, user_id).await?;
         self.storage.delete_blueprint(id).await?;
@@ -200,5 +225,50 @@ impl BlueprintService {
             Some(d) => Err(RealmError::InvalidTemplate(d.message)),
             None => Ok(()),
         }
+    }
+}
+
+fn duplicate_name(name: &str, taken: &[String]) -> String {
+    let base = name
+        .strip_suffix(')')
+        .and_then(|rest| rest.rsplit_once(" ("))
+        .filter(|(_, n)| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+        .map_or(name, |(base, _)| base);
+
+    (1u32..)
+        .map(|n| format!("{base} ({n})"))
+        .find(|candidate| !taken.iter().any(|t| t == candidate))
+        .expect("an unbounded range always finds a free name")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::duplicate_name;
+
+    fn taken(names: &[&str]) -> Vec<String> {
+        names.iter().map(|n| n.to_string()).collect()
+    }
+
+    #[test]
+    fn a_duplicate_takes_the_first_free_number() {
+        assert_eq!(duplicate_name("Tavern", &taken(&["Tavern"])), "Tavern (1)");
+        assert_eq!(
+            duplicate_name("Tavern", &taken(&["Tavern", "Tavern (1)", "Tavern (3)"])),
+            "Tavern (2)"
+        );
+    }
+
+    #[test]
+    fn a_copy_of_a_copy_numbers_from_the_original() {
+        assert_eq!(
+            duplicate_name("Tavern (1)", &taken(&["Tavern", "Tavern (1)"])),
+            "Tavern (2)"
+        );
+    }
+
+    #[test]
+    fn only_a_trailing_number_counts_as_a_suffix() {
+        assert_eq!(duplicate_name("Inn (East)", &[]), "Inn (East) (1)");
+        assert_eq!(duplicate_name("()", &[]), "() (1)");
     }
 }
