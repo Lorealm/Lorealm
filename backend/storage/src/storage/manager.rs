@@ -144,7 +144,8 @@ impl StorageManager {
             &cache_config.redis_url,
             cache_config.ttl_seconds,
             &cache_config.key_prefix,
-        )?;
+        )
+        .await?;
 
         // Verify Redis is actually accessible
         if !cache.is_available().await {

@@ -25,6 +25,49 @@ pub struct HostingConfig {
     /// Requests from anywhere else are identified by their connecting address.
     #[serde(default = "default_trusted_proxies")]
     pub trusted_proxies: Vec<String>,
+    /// Open files the server may hold at once.
+    #[serde(default)]
+    pub max_open_files: OpenFileLimit,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum OpenFileLimit {
+    /// Raise the soft limit to the hard limit.
+    #[default]
+    Max,
+    /// Keep whatever limit the process started with.
+    System,
+    /// Raise the soft limit to this, capped by the hard limit.
+    Count(u64),
+}
+
+impl Serialize for OpenFileLimit {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Max => s.serialize_str("max"),
+            Self::System => s.serialize_str("system"),
+            Self::Count(n) => s.serialize_u64(*n),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for OpenFileLimit {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Raw {
+            Count(u64),
+            Word(String),
+        }
+        match Raw::deserialize(d)? {
+            Raw::Count(n) => Ok(Self::Count(n)),
+            Raw::Word(w) if w.eq_ignore_ascii_case("max") => Ok(Self::Max),
+            Raw::Word(w) if w.eq_ignore_ascii_case("system") => Ok(Self::System),
+            Raw::Word(w) => Err(serde::de::Error::custom(format!(
+                "max_open_files must be `max`, `system` or a number, not `{w}`"
+            ))),
+        }
+    }
 }
 
 fn default_ip() -> String {
@@ -60,6 +103,7 @@ impl Default for HostingConfig {
             cookie_secure: false,
             last_setup_version: last_setup_version(),
             trusted_proxies: default_trusted_proxies(),
+            max_open_files: OpenFileLimit::default(),
         }
     }
 }
@@ -67,5 +111,41 @@ impl Default for HostingConfig {
 impl Config for HostingConfig {
     fn key() -> &'static str {
         "hosting"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn open_file_limit_reads_words_and_numbers() {
+        let read = |v: serde_json::Value| serde_json::from_value::<OpenFileLimit>(v);
+        assert_eq!(read("max".into()).unwrap(), OpenFileLimit::Max);
+        assert_eq!(read("System".into()).unwrap(), OpenFileLimit::System);
+        assert_eq!(read(65536.into()).unwrap(), OpenFileLimit::Count(65536));
+        assert!(read("lots".into()).is_err());
+    }
+
+    #[test]
+    fn open_file_limit_round_trips() {
+        for limit in [
+            OpenFileLimit::Max,
+            OpenFileLimit::System,
+            OpenFileLimit::Count(4096),
+        ] {
+            let value = serde_json::to_value(limit).unwrap();
+            assert_eq!(
+                serde_json::from_value::<OpenFileLimit>(value).unwrap(),
+                limit
+            );
+        }
+    }
+
+    #[test]
+    fn older_configs_default_to_max() {
+        let config: HostingConfig =
+            serde_json::from_value(serde_json::json!({ "worker_id": 0 })).unwrap();
+        assert_eq!(config.max_open_files, OpenFileLimit::Max);
     }
 }

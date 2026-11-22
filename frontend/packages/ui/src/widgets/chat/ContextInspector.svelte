@@ -9,6 +9,7 @@
 	import { showApiError } from '#lib/stores/errorActions.js';
 	import {
 		parseContextBlocks,
+		hasStoredContext,
 		groupAdjacentBlocks,
 		parseUsageReport,
 		sourceOf,
@@ -19,7 +20,7 @@
 		type TracedBlock
 	} from '#lib/types/context.js';
 	import { resolveBlockContent } from '#lib/types/content.js';
-	import type { JsonValue } from '#lib/types/core.js';
+	import type { JsonValue, Snowflake } from '#lib/types/core.js';
 	import { ChevronDown, Info, X } from '@lucide/svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
@@ -80,8 +81,33 @@
 		return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(2)} s`;
 	}
 
+	// Messages only flag that a prompt was kept; it's fetched when the inspector opens.
+	let fetched = $state<{ id: Snowflake; blocks: TracedBlock[] | null } | null>(null);
+	let loadingContext = $derived(
+		contextInspector.message !== null && fetched?.id !== contextInspector.message.id
+	);
+	$effect(() => {
+		const msg = contextInspector.message;
+		if (!msg) return;
+		const msgId = msg.id;
+		if (!hasStoredContext(msg.metadata)) {
+			fetched = { id: msgId, blocks: null };
+			return;
+		}
+		api.chat.messages
+			.context(msg.conversation_id, msgId)
+			.then((res) => {
+				if (contextInspector.message?.id === msgId)
+					fetched = { id: msgId, blocks: parseContextBlocks(res) };
+			})
+			.catch((e) => {
+				if (contextInspector.message?.id !== msgId) return;
+				fetched = { id: msgId, blocks: null };
+				showApiError(e);
+			});
+	});
 	let blocks = $derived(
-		contextInspector.message ? parseContextBlocks(contextInspector.message.metadata) : null
+		fetched && fetched.id === contextInspector.message?.id ? fetched.blocks : null
 	);
 	let groups = $derived(blocks ? groupAdjacentBlocks(blocks) : null);
 
@@ -480,7 +506,9 @@
 				<div class="titles">
 					<h2>{t.chat.inspector.title}</h2>
 					<span class="sub">
-						{#if blocks === null}
+						{#if loadingContext}
+							{t.common.loading}
+						{:else if blocks === null}
 							{t.chat.inspector.noTrace}
 						{:else}
 							{t.chat.inspector.blocks({ count: blocks.length })} · {fmtCount(display.total)}
@@ -687,7 +715,9 @@
 
 					<div class="pane">
 						{#if tab === 'context'}
-							{#if groups === null}
+							{#if loadingContext}
+								<div class="empty">{t.common.loading}</div>
+							{:else if groups === null}
 								<div class="empty">
 									{t.chat.inspector.noTraceLong}
 								</div>

@@ -159,6 +159,7 @@ impl ServiceManager {
             Arc::clone(&storage),
             Arc::clone(&snowflake),
             Arc::new(key_manager),
+            http_client.clone(),
         ));
 
         let tokenizers = Arc::new(TokenizerService::new(

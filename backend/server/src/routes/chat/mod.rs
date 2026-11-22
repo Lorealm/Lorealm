@@ -27,6 +27,10 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
             "/{conversation_id}/messages/{message_id}/state",
             get(handlers::get_message_state),
         )
+        .route(
+            "/{conversation_id}/messages/{message_id}/context",
+            get(handlers::get_message_context),
+        )
         .route("/{conversation_id}/cast", get(handlers::get_cast))
         .route("/{conversation_id}/turn/next", get(handlers::next_turn))
         .route(

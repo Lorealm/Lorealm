@@ -339,6 +339,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a8241f3ebb85c056b509d4327ad0358fbbba6ffb340bf388f26350aeda225b1"
 
 [[package]]
+name = "bench"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "argh",
+ "axum",
+ "bytes",
+ "futures-util",
+ "libc",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "bincode"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2344,6 +2360,7 @@ dependencies = [
  "infer",
  "itertools 0.15.0",
  "kitoken",
+ "libc",
  "lorealm_encryption",
  "lorealm_plugins",
  "lorealm_providers",

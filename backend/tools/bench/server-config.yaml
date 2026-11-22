@@ -1,0 +1,16 @@
+# Starting config for a throwaway benchmark server. Copy it into an empty
+# directory, then start the server from there:
+#
+#   CONFIG_PATH=./config.yaml LOREALM_ADMIN_USERNAME=admin \
+#   LOREALM_ADMIN_PASSWORD=change-me RUST_LOG=warn lorealm_server
+#
+# First start writes the remaining defaults into this file and creates ./data.
+hosting:
+  ip: 127.0.0.1
+  port: 1551
+  # The web UI isn't needed, and fetching it would slow startup.
+  serve_frontend: false
+  worker_id: 0
+rate_limits:
+  # loadgen logs in once per bench user, from one address.
+  enabled: false

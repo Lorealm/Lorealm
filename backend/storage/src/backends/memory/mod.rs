@@ -43,6 +43,7 @@ pub struct MemoryStorage {
     pub(crate) enabled_lorebooks: RwLock<HashMap<Snowflake, Vec<Snowflake>>>,
     pub(crate) conversations: RwLock<HashMap<Snowflake, Conversation>>,
     pub(crate) messages: RwLock<HashMap<Snowflake, ConversationMessage>>,
+    pub(crate) message_contexts: RwLock<HashMap<Snowflake, serde_json::Value>>,
     pub(crate) user_state: RwLock<HashMap<Snowflake, UserSettings>>,
     pub(crate) message_states: RwLock<HashMap<Snowflake, MessageState>>,
     pub(crate) personas: RwLock<HashMap<Snowflake, UserPersona>>,

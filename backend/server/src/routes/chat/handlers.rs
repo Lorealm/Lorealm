@@ -102,6 +102,20 @@ pub async fn get_message(
     Ok(Json(message))
 }
 
+pub async fn get_message_context(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path((conversation_id, message_id)): Path<(Snowflake, Snowflake)>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let context = state
+        .services()
+        .chat()
+        .get_message_context(conversation_id, message_id, session.user_id)
+        .await?;
+
+    Ok(Json(serde_json::json!({ "context": context })))
+}
+
 pub async fn edit_message(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,

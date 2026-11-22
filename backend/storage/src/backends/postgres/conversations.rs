@@ -330,6 +330,34 @@ impl ConversationStorage for PostgresStorage {
         Ok(path)
     }
 
+    async fn get_message_context(
+        &self,
+        message_id: Snowflake,
+    ) -> Result<Option<serde_json::Value>, StorageError> {
+        Ok(
+            sqlx::query_scalar("SELECT context FROM message_contexts WHERE message_id = $1")
+                .bind(message_id)
+                .fetch_optional(&self.pool)
+                .await?,
+        )
+    }
+
+    async fn put_message_context(
+        &self,
+        message_id: Snowflake,
+        context: &serde_json::Value,
+    ) -> Result<(), StorageError> {
+        sqlx::query(
+            "INSERT INTO message_contexts (message_id, context) VALUES ($1, $2)
+             ON CONFLICT (message_id) DO UPDATE SET context = excluded.context",
+        )
+        .bind(message_id)
+        .bind(context)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     async fn update_message(&self, id: Snowflake, edit: &MessageEdit) -> Result<(), StorageError> {
         let result = sqlx::query(
             "UPDATE conversation_messages

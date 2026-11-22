@@ -83,10 +83,13 @@ impl ConversationStorage for MemoryStorage {
     async fn delete_conversation(&self, id: Snowflake) -> Result<bool, StorageError> {
         let removed = self.conversations.write().await.remove(&id).is_some();
         if removed {
-            self.messages
+            let mut messages = self.messages.write().await;
+            messages.retain(|_, m| m.conversation_id != id);
+            self.message_contexts
                 .write()
                 .await
-                .retain(|_, m| m.conversation_id != id);
+                .retain(|message_id, _| messages.contains_key(message_id));
+            drop(messages);
             self.conversation_casts.write().await.remove(&id);
         }
         Ok(removed)
@@ -272,6 +275,30 @@ impl ConversationStorage for MemoryStorage {
         Ok(())
     }
 
+    async fn get_message_context(
+        &self,
+        message_id: Snowflake,
+    ) -> Result<Option<serde_json::Value>, StorageError> {
+        Ok(self.message_contexts.read().await.get(&message_id).cloned())
+    }
+
+    async fn put_message_context(
+        &self,
+        message_id: Snowflake,
+        context: &serde_json::Value,
+    ) -> Result<(), StorageError> {
+        if !self.messages.read().await.contains_key(&message_id) {
+            return Err(StorageError::NotFound(format!(
+                "Message {message_id} not found"
+            )));
+        }
+        self.message_contexts
+            .write()
+            .await
+            .insert(message_id, context.clone());
+        Ok(())
+    }
+
     async fn delete_message(&self, id: Snowflake) -> Result<bool, StorageError> {
         let conversation_id;
         let deleted: HashSet<Snowflake>;
@@ -288,6 +315,10 @@ impl ConversationStorage for MemoryStorage {
             }
             deleted = subtree.into_iter().collect();
         }
+        self.message_contexts
+            .write()
+            .await
+            .retain(|message_id, _| !deleted.contains(message_id));
 
         let mut conversations = self.conversations.write().await;
         if let Some(conv) = conversations.get_mut(&conversation_id)

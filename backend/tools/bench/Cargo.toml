@@ -1,0 +1,27 @@
+[package]
+name = "bench"
+version = "0.2.0"
+edition = "2024"
+publish = false
+description = "Load-testing harness: a fake LLM endpoint and a turn load generator"
+
+[[bin]]
+name = "mock-llm"
+path = "src/bin/mock_llm.rs"
+
+[[bin]]
+name = "loadgen"
+path = "src/bin/loadgen/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+bytes = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+
+argh = "0.1"
+axum = "0.8.8"
+futures-util = "0.3.32"
+libc = "0.2"

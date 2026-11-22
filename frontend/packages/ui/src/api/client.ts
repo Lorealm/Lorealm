@@ -380,6 +380,10 @@ export function createApiClient(platform: PlatformAPI) {
 				state: (conversation_id: Snowflake, message_id: Snowflake) =>
 					http.get<ReconstructedState>(
 						`/api/v1/chat/${conversation_id}/messages/${message_id}/state`
+					),
+				context: (conversation_id: Snowflake, message_id: Snowflake) =>
+					http.get<{ context: JsonValue | null }>(
+						`/api/v1/chat/${conversation_id}/messages/${message_id}/context`
 					)
 			}
 		},

@@ -168,6 +168,19 @@ impl ChatService {
         Ok(message)
     }
 
+    /// The prompt a message was built from, or `None` if none was kept.
+    pub async fn get_message_context(
+        &self,
+        conversation_id: Snowflake,
+        message_id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<Option<serde_json::Value>, ChatError> {
+        let message = self
+            .get_message(conversation_id, message_id, user_id)
+            .await?;
+        Ok(self.storage.get_message_context(message.id).await?)
+    }
+
     pub async fn get_path_to(
         &self,
         conversation_id: Snowflake,
@@ -985,7 +998,7 @@ impl ChatService {
         let mut tool_names: Vec<String> = registry.defs().into_iter().map(|d| d.name).collect();
         tool_names.sort();
 
-        let http_client = Arc::new(reqwest::Client::new());
+        let http_client = self.connection.http();
         let stream = match connection.profile.provider.as_str() {
             "openrouter" => {
                 let Some(api_key) = api_key else {

@@ -15,7 +15,7 @@ use std::{
 };
 
 pub use characters::*;
-pub use hosting::HostingConfig;
+pub use hosting::{HostingConfig, OpenFileLimit};
 use indexmap::IndexMap;
 pub use plugins::PluginConfig;
 pub use rate_limit::*;
