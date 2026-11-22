@@ -5,6 +5,7 @@
 		"readBlueprint": "ブループリントを読み取れませんでした",
 		"createBlueprint": "ブループリントを作成できませんでした",
 		"deleteBlueprint": "ブループリントを削除できませんでした",
+		"duplicateBlueprint": "Failed to duplicate blueprint",
 		"importBlueprint": "ブループリントをインポートできませんでした",
 		"buildRealm": "レルムを構築できませんでした",
 		"loadCast": "キャストを読み込めませんでした",

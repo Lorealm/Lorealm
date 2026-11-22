@@ -5,6 +5,7 @@
 		"readBlueprint": "无法读取蓝图",
 		"createBlueprint": "无法创建蓝图",
 		"deleteBlueprint": "无法删除蓝图",
+		"duplicateBlueprint": "Failed to duplicate blueprint",
 		"importBlueprint": "无法导入蓝图",
 		"buildRealm": "无法构建领域",
 		"loadCast": "无法加载演员表",

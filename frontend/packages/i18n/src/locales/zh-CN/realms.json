@@ -58,6 +58,8 @@
 		"import": "导入",
 		"exportHint": "连同其使用的资源一并导出",
 		"exportNamed": "导出 {name}",
+		"duplicate": "Duplicate",
+		"duplicateNamed": "Duplicate {name}",
 		"delete": "删除蓝图",
 		"empty": "还没有蓝图。"
 	},
@@ -254,7 +256,7 @@
 		}
 	},
 	"overview": {
-		"name": "名称",
+		"name": "Realm name",
 		"untitled": "未命名",
 		"description": "描述",
 		"descriptionPlaceholder": "这里会发生什么，适合谁玩。",

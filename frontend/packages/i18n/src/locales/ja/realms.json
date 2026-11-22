@@ -58,6 +58,8 @@
 		"import": "インポート",
 		"exportHint": "使用しているリソースと共にエクスポート",
 		"exportNamed": "{name}をエクスポート",
+		"duplicate": "Duplicate",
+		"duplicateNamed": "Duplicate {name}",
 		"delete": "ブループリントを削除",
 		"empty": "ブループリントはまだありません。"
 	},
@@ -254,7 +256,7 @@
 		}
 	},
 	"overview": {
-		"name": "名前",
+		"name": "Realm name",
 		"untitled": "無題",
 		"description": "説明",
 		"descriptionPlaceholder": "ここで何が起こるか、誰向けか。",

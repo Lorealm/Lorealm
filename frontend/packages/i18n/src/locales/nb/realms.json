@@ -58,6 +58,8 @@
 		"import": "Importer",
 		"exportHint": "Eksporter med ressursene den bruker",
 		"exportNamed": "Eksporter {name}",
+		"duplicate": "Duplicate",
+		"duplicateNamed": "Duplicate {name}",
 		"delete": "Slett blåkopi",
 		"empty": "Ingen blåkopier ennå."
 	},
@@ -254,7 +256,7 @@
 		}
 	},
 	"overview": {
-		"name": "Navn",
+		"name": "Realm name",
 		"untitled": "Uten navn",
 		"description": "Beskrivelse",
 		"descriptionPlaceholder": "Hva som skjer her, og hvem det er for.",

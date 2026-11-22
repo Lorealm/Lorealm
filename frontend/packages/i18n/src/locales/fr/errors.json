@@ -5,6 +5,7 @@
 		"readBlueprint": "Échec de la lecture du plan",
 		"createBlueprint": "Échec de la création du plan",
 		"deleteBlueprint": "Échec de la suppression du plan",
+		"duplicateBlueprint": "Failed to duplicate blueprint",
 		"importBlueprint": "Impossible d’importer le plan",
 		"buildRealm": "Échec de la construction d’un royaume",
 		"loadCast": "Échec du chargement de la distribution",

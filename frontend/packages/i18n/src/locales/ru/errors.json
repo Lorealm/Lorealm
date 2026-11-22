@@ -5,6 +5,7 @@
 		"readBlueprint": "Не удалось прочитать заготовку",
 		"createBlueprint": "Не удалось создать заготовку",
 		"deleteBlueprint": "Не удалось удалить заготовку",
+		"duplicateBlueprint": "Failed to duplicate blueprint",
 		"importBlueprint": "Не удалось импортировать заготовку",
 		"buildRealm": "Не удалось собрать мир",
 		"loadCast": "Не удалось загрузить состав",

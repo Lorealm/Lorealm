@@ -5,6 +5,7 @@
 		"readBlueprint": "No se pudo leer el esquema",
 		"createBlueprint": "No se pudo crear el esquema",
 		"deleteBlueprint": "No se pudo eliminar el esquema",
+		"duplicateBlueprint": "Failed to duplicate blueprint",
 		"importBlueprint": "No se pudo importar el esquema",
 		"buildRealm": "No se pudo construir un reino",
 		"loadCast": "No se pudo cargar el reparto",

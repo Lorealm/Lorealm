@@ -58,6 +58,8 @@
 		"import": "Importieren",
 		"exportHint": "Mit den verwendeten Ressourcen exportieren",
 		"exportNamed": "{name} exportieren",
+		"duplicate": "Duplicate",
+		"duplicateNamed": "Duplicate {name}",
 		"delete": "Blueprint löschen",
 		"empty": "Noch keine Blueprints."
 	},
@@ -254,7 +256,7 @@
 		}
 	},
 	"overview": {
-		"name": "Name",
+		"name": "Realm name",
 		"untitled": "Ohne Titel",
 		"description": "Beschreibung",
 		"descriptionPlaceholder": "Was hier geschieht und für wen es gedacht ist.",
