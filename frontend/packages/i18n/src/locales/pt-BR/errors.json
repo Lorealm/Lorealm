@@ -5,6 +5,7 @@
 		"readBlueprint": "Falha ao ler o blueprint",
 		"createBlueprint": "Falha ao criar o blueprint",
 		"deleteBlueprint": "Falha ao excluir o blueprint",
+		"duplicateBlueprint": "Failed to duplicate blueprint",
 		"importBlueprint": "Não foi possível importar o blueprint",
 		"buildRealm": "Falha ao construir um reino",
 		"loadCast": "Falha ao carregar o elenco",
