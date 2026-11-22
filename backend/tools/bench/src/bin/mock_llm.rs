@@ -340,7 +340,7 @@ const WORDS: &[&str] = &[
     "night",
     "xylophone",
     "i",
-    "guess"
+    "guess",
 ];
 
 fn words(rng: &mut Rng, count: u64) -> String {

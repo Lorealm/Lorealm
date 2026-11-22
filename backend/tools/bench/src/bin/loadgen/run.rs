@@ -322,26 +322,26 @@ pub async fn run_step(api: &Api, convs: &[Conversation], config: &StepConfig) ->
             for (index, conv) in convs.iter().take(n).enumerate() {
                 let conv = conv.clone();
                 let (api, shared) = (api.clone(), Arc::clone(&shared));
-                
+
                 let (content, think, timeout) =
                     (config.content.clone(), config.think, config.timeout);
-                
+
                 let mut rng = Rng::derive(config.seed ^ THINK_STREAM, index as u64);
-                
+
                 tasks.spawn(async move {
                     if !think.is_zero() {
                         tokio::time::sleep(think.mul_f64(rng.unit())).await;
                     }
                     while Instant::now() < stop_at {
                         let begun = Instant::now();
-                        
+
                         shared.begin();
                         let turn = run_turn(&api, &conv, &content, begun, timeout).await;
                         let failed = turn.outcome != Outcome::Ok;
                         shared.end(turn, begun >= measure_from);
-                        
+
                         let think = think.mul_f64(0.5 + rng.unit());
-                        
+
                         let pause = if failed {
                             think.max(FAILURE_BACKOFF)
                         } else {
@@ -357,29 +357,29 @@ pub async fn run_step(api: &Api, convs: &[Conversation], config: &StepConfig) ->
         Load::Rate(rate) => {
             let idle: Arc<Mutex<Vec<usize>>> =
                 Arc::new(Mutex::new((0..convs.len()).rev().collect()));
-            
+
             let mut rng = Rng::derive(config.seed, rate.to_bits());
             let mut next = start;
-            
+
             loop {
                 next += Duration::from_secs_f64(rng.exponential(1.0 / rate));
                 if next >= stop_at {
                     break;
                 }
-                
+
                 sleep_until(next.into()).await;
-                
+
                 max_lag = max_lag.max(Instant::now().saturating_duration_since(next));
-                
+
                 let Some(index) = idle.lock().unwrap().pop() else {
                     skipped += u64::from(next >= measure_from);
                     continue;
                 };
-                
+
                 let conv = convs[index].clone();
                 let (api, shared, idle) = (api.clone(), Arc::clone(&shared), Arc::clone(&idle));
                 let (content, timeout, scheduled) = (config.content.clone(), config.timeout, next);
-                
+
                 shared.begin();
                 tasks.spawn(async move {
                     let turn = run_turn(&api, &conv, &content, scheduled, timeout).await;
