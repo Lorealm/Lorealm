@@ -1922,7 +1922,7 @@ export type Messages = {
 			};
 		};
 		overview: {
-			/** Name */
+			/** Realm name */
 			name: string;
 			/** Untitled */
 			untitled: string;

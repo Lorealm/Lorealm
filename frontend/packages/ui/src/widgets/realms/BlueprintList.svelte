@@ -58,7 +58,7 @@
 
 	function beginEditing() {
 		blueprintStore.beginEditing(
-			realmDraft.name,
+			realmDraft.blueprintName,
 			toWtn(
 				{
 					name: realmDraft.name,
@@ -84,6 +84,7 @@
 	function start(name: string, description: string) {
 		realmDraft.reset();
 		panes.reset();
+		realmDraft.blueprintName = name;
 		realmDraft.name = name;
 		realmDraft.description = description;
 	}

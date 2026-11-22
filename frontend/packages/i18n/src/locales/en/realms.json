@@ -254,7 +254,7 @@
 		}
 	},
 	"overview": {
-		"name": "Name",
+		"name": "Realm name",
 		"untitled": "Untitled",
 		"description": "Description",
 		"descriptionPlaceholder": "What happens here, and who it is for.",

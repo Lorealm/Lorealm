@@ -5,8 +5,12 @@
 	import { realmDraft } from '../draft.svelte.js';
 	import { panes } from '../panes.svelte.js';
 	import RadioField from '../RadioField.svelte';
+	import { activeDrag, carriesAsset, dropTextInto } from '../drag.svelte.js';
 
 	const AGENT_KINDS: AgentKind[] = ['llm', 'player', 'script'];
+
+	const incoming = $derived(activeDrag());
+	const takesInput = $derived(incoming?.drag === 'input');
 
 	const kind = $derived(realmDraft.director?.kind ?? 'round_robin');
 	const filterOf = $derived<AgentFilter>(
@@ -60,9 +64,16 @@
 		<label>
 			<span>{t.realms.overview.name}</span>
 			<input
+				class:candidate={takesInput}
+				class:incompatible={incoming !== null && !takesInput}
 				value={realmDraft.name}
 				placeholder={t.realms.overview.untitled}
 				oninput={(e) => (realmDraft.name = e.currentTarget.value)}
+				ondragover={(e) => carriesAsset(e) && takesInput && e.preventDefault()}
+				ondrop={(e) => {
+					const next = dropTextInto(e);
+					if (next !== null) realmDraft.name = next;
+				}}
 			/>
 		</label>
 
@@ -227,6 +238,14 @@
 </div>
 
 <style>
+	.candidate {
+		border-color: var(--color-border-active) !important;
+		border-style: dashed !important;
+	}
+	.incompatible {
+		opacity: 0.35;
+		filter: grayscale(1);
+	}
 	.pane {
 		display: flex;
 		flex-direction: column;
