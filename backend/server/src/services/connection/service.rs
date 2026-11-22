@@ -32,6 +32,7 @@ pub struct ConnectionService {
     storage: Arc<dyn Storage>,
     snowflake: Arc<SnowflakeService>,
     key_manager: Arc<dyn KeyManager>,
+    http: Arc<reqwest::Client>,
 }
 
 impl ConnectionService {
@@ -39,12 +40,18 @@ impl ConnectionService {
         storage: Arc<dyn Storage>,
         snowflake: Arc<SnowflakeService>,
         key_manager: Arc<dyn KeyManager>,
+        http: reqwest::Client,
     ) -> Self {
         Self {
             storage,
             snowflake,
             key_manager,
+            http: Arc::new(http),
         }
+    }
+
+    pub fn http(&self) -> Arc<reqwest::Client> {
+        Arc::clone(&self.http)
     }
 
     /// Store a new provider API key, encrypted and bound to its own row id.
@@ -272,7 +279,7 @@ impl ConnectionService {
         profile_id: Snowflake,
     ) -> Result<Vec<ModelInfo>, ConnectionError> {
         let connection = self.resolve_connection(user_id, profile_id).await?;
-        let http_client = Arc::new(reqwest::Client::new());
+        let http_client = self.http();
 
         // A listing request carries no model, hence the empty model name.
         let models = match connection.profile.provider.as_str() {

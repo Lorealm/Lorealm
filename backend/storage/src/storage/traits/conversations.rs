@@ -83,6 +83,19 @@ pub trait ConversationStorage: Send + Sync {
         message_id: Snowflake,
     ) -> Result<Vec<ConversationMessage>, StorageError>;
 
+    /// The prompt `message_id` was built from.
+    async fn get_message_context(
+        &self,
+        message_id: Snowflake,
+    ) -> Result<Option<serde_json::Value>, StorageError>;
+
+    /// Keep the prompt `message_id` was built from, replacing any earlier one.
+    async fn put_message_context(
+        &self,
+        message_id: Snowflake,
+        context: &serde_json::Value,
+    ) -> Result<(), StorageError>;
+
     /// Edit a message's mutable fields
     async fn update_message(&self, id: Snowflake, edit: &MessageEdit) -> Result<(), StorageError>;
 

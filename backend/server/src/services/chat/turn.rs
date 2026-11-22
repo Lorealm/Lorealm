@@ -54,6 +54,8 @@ struct TurnMessage {
     role: ChatRole,
     content: String,
     meta: serde_json::Value,
+    /// The prompt a model reply was built from, kept apart from `meta`.
+    context: Option<serde_json::Value>,
     state: Option<CapturedState>,
     events: Vec<TurnEvent>,
     tool_results: Vec<String>,
@@ -421,6 +423,7 @@ impl ChatService {
                 role: ChatRole::User,
                 content,
                 meta,
+                context: None,
                 // Carried forward so a player's state row never resets
                 // lorebook activation for the turns after it.
                 state: extract_captured_state(world.activation, delta),
@@ -457,6 +460,7 @@ impl ChatService {
             role: ChatRole::Assistant,
             content: String::new(),
             meta: json!({ "script": true, "output": output }),
+            context: None,
             state: extract_captured_state(world.activation, delta),
             events: emitted_events(emitted).collect(),
             tool_results: Vec::new(),
@@ -655,7 +659,7 @@ impl ChatService {
             role: ChatRole::Assistant,
             content: outcome.spoken,
             meta: json!({
-                "context": stored,
+                "has_context": true,
                 "context_usage": open.usage,
                 "reasoning": outcome.reasoning,
                 "tool_calls": outcome.tool_calls,
@@ -665,6 +669,7 @@ impl ChatService {
                 "template_id": open.spec.template_id,
                 "available_tools": open.available_tools,
             }),
+            context: Some(json!(stored)),
             state: (open.had_assembly || changed).then_some(CapturedState {
                 activation: open.activation,
                 persistent: delta,
@@ -689,6 +694,7 @@ impl ChatService {
             role,
             content,
             mut meta,
+            context,
             state,
             mut events,
             tool_results,
@@ -736,6 +742,11 @@ impl ChatService {
             }
         };
 
+        if let Some(context) = context {
+            self.storage
+                .put_message_context(message.id, &context)
+                .await?;
+        }
         if let Some(captured) = state {
             self.state.persist(message.id, captured).await?;
         }

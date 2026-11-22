@@ -123,6 +123,11 @@ function parseBlock(v: unknown): TracedBlock | null {
 	};
 }
 
+export function hasStoredContext(metadata: unknown): boolean {
+	return isRecord(metadata) && metadata.has_context === true;
+}
+
+/** Reads the `context` field of a `chat.messages.context` response. */
 export function parseContextBlocks(metadata: unknown): TracedBlock[] | null {
 	if (!isRecord(metadata) || !Array.isArray(metadata.context)) return null;
 	return metadata.context.map(parseBlock).filter((b): b is TracedBlock => b !== null);

@@ -57,6 +57,27 @@ fn messages(events: &[Value]) -> Vec<ConversationMessage> {
         .collect()
 }
 
+async fn prompt_of(h: &Harness, reply: &ConversationMessage) -> Value {
+    assert_eq!(reply.metadata["has_context"], true);
+    assert!(
+        reply.metadata.get("context").is_none(),
+        "{}",
+        reply.metadata
+    );
+    assert!(
+        h.chat
+            .get_message_context(reply.conversation_id, reply.id, h.stranger)
+            .await
+            .is_err(),
+        "someone else's prompt must not be readable"
+    );
+    h.chat
+        .get_message_context(reply.conversation_id, reply.id, h.user)
+        .await
+        .expect("loads")
+        .expect("a model reply keeps its prompt")
+}
+
 async fn counting_house(h: &Harness, document: &str) -> Snowflake {
     let realm = h
         .realms
@@ -333,12 +354,10 @@ async fn the_first_reply_of_a_chat_keeps_its_lorebook_state() {
         .unwrap();
     let [_, reply] = messages(&events).try_into().unwrap();
     assert_eq!(reply.content, "It sleeps.");
+    let prompt = prompt_of(&h, &reply).await;
     assert!(
-        reply.metadata["context"]
-            .to_string()
-            .contains("A dragon sleeps"),
-        "lorebook entry missing from the prompt: {}",
-        reply.metadata["context"]
+        prompt.to_string().contains("A dragon sleeps"),
+        "lorebook entry missing from the prompt: {prompt}"
     );
 
     let state = h
@@ -414,12 +433,10 @@ async fn a_lorebook_entry_calls_a_module() {
         .await
         .unwrap();
     let [_, reply] = messages(&events).try_into().unwrap();
+    let prompt = prompt_of(&h, &reply).await;
     assert!(
-        reply.metadata["context"]
-            .to_string()
-            .contains("A WYRM sleeps"),
-        "module output missing from the prompt: {}",
-        reply.metadata["context"]
+        prompt.to_string().contains("A WYRM sleeps"),
+        "module output missing from the prompt: {prompt}"
     );
 }
 
@@ -617,7 +634,8 @@ async fn a_templates_text_is_weaver_over_the_agents_view() {
 
     let events = turn(&h, convo, json!({})).await.unwrap();
     let [reply] = messages(&events).try_into().unwrap();
-    let context = reply.metadata["context"].to_string();
+    let prompt = prompt_of(&h, &reply).await;
+    let context = prompt.to_string();
     assert!(
         context.contains("You are Scout. Report what you see. Turn 0."),
         "{context}"
@@ -628,7 +646,7 @@ async fn a_templates_text_is_weaver_over_the_agents_view() {
     );
 
     // The inspector shows the source, with what each expression became.
-    let role = &reply.metadata["context"][0]["content_ref"]["Template"];
+    let role = &prompt[0]["content_ref"]["Template"];
     assert_eq!(
         role,
         &json!([
@@ -642,5 +660,5 @@ async fn a_templates_text_is_weaver_over_the_agents_view() {
         ]),
         "{context}"
     );
-    assert_eq!(reply.metadata["context"][1]["content_ref"], "Verbatim");
+    assert_eq!(prompt[1]["content_ref"], "Verbatim");
 }

@@ -11,7 +11,7 @@
 	import PluginMessageSlots from '#lib/components/PluginMessageSlots.svelte';
 	import { ChevronLeft, ChevronRight, Layers, Pencil, StepForward, Trash2 } from '@lucide/svelte';
 	import { contextInspector } from '#lib/stores/contextInspector.svelte.js';
-	import { parseContextBlocks } from '#lib/types/context.js';
+	import { hasStoredContext } from '#lib/types/context.js';
 	import { parseReasoning, parseWidgets, splitWidgetMarkers } from '#lib/types/widgets.js';
 	import { marked } from '#lib/assets/scripts/marked-rp.js';
 	import DOMPurify from 'dompurify';
@@ -44,7 +44,7 @@
 
 	let canContinue = $derived(last && message.role === 'assistant');
 
-	let hasContext = $derived(parseContextBlocks(message.metadata) !== null);
+	let hasContext = $derived(hasStoredContext(message.metadata));
 	let reasoning = $derived(parseReasoning(message.metadata));
 	let widgets = $derived(parseWidgets(message.metadata));
 	let segments = $derived(splitWidgetMarkers(message.content));

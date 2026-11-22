@@ -11,6 +11,7 @@ mod modules;
 mod plugins;
 mod realm_import;
 mod roles;
+mod tokenizers;
 mod turns;
 
 pub(crate) use harness::Harness;
