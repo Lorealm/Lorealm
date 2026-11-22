@@ -39,6 +39,10 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
         )
         .route("/{blueprint_id}/realms", post(handlers::expand_blueprint))
         .route(
+            "/{blueprint_id}/duplicate",
+            post(handlers::duplicate_blueprint),
+        )
+        .route(
             "/import/preview",
             put(handlers::preview_import).layer(DefaultBodyLimit::max(MAX_BUNDLE)),
         )

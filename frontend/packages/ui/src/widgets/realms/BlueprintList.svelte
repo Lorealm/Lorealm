@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
-	import { Download, FileCode2, Plus, Trash2, Upload } from '@lucide/svelte';
+	import { Copy, Download, FileCode2, Plus, Trash2, Upload } from '@lucide/svelte';
 	import { useApi, usePlatform } from '#lib/api/client.js';
 	import { showApiError } from '#lib/stores/errorActions.js';
 	import { blueprintStore } from '#lib/stores/blueprint.svelte.js';
@@ -58,7 +58,7 @@
 
 	function beginEditing() {
 		blueprintStore.beginEditing(
-			realmDraft.name,
+			realmDraft.blueprintName,
 			toWtn(
 				{
 					name: realmDraft.name,
@@ -84,6 +84,7 @@
 	function start(name: string, description: string) {
 		realmDraft.reset();
 		panes.reset();
+		realmDraft.blueprintName = name;
 		realmDraft.name = name;
 		realmDraft.description = description;
 	}
@@ -105,6 +106,11 @@
 		} catch (e) {
 			showApiError(e, { title: t.realms.blueprints.exportFailed, durationMs: 15000 });
 		}
+	}
+
+	async function duplicate(event: MouseEvent, id: Snowflake) {
+		event.stopPropagation();
+		await blueprintStore.duplicate(id);
 	}
 
 	async function remove(event: MouseEvent, id: Snowflake) {
@@ -146,6 +152,8 @@
 				<div class="cardTop">
 					<FileCode2 size={14} />
 					<span class="name">{blueprint.name}</span>
+				</div>
+				<div class="actions">
 					<button
 						type="button"
 						class="act"
@@ -154,6 +162,15 @@
 						onclick={(e) => exportFile(e, blueprint.id, blueprint.name)}
 					>
 						<Download size={14} />
+					</button>
+					<button
+						type="button"
+						class="act"
+						{@attach tooltip(t.realms.blueprints.duplicate)}
+						aria-label={t.realms.blueprints.duplicateNamed({ name: blueprint.name })}
+						onclick={(e) => duplicate(e, blueprint.id)}
+					>
+						<Copy size={14} />
 					</button>
 					<button
 						type="button"
@@ -245,16 +262,26 @@
 		text-overflow: ellipsis;
 		font-size: var(--font-size-md);
 	}
+	.actions {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+	}
 	.act {
 		flex: 0 0 auto;
 		display: flex;
-		padding: 2px;
+		padding: var(--spacing-xs);
 		background: transparent;
 		border: none;
+		border-radius: var(--radius-sm);
 		color: var(--color-text-disabled);
 	}
 	.act:hover {
+		background-color: var(--color-hover);
 		color: var(--color-text-accent);
+	}
+	.del {
+		margin-left: auto;
 	}
 	.del:hover {
 		color: var(--color-error-text);

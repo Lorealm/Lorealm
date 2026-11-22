@@ -65,6 +65,9 @@ const BINDING_SLOTS = ['character', 'template', 'persona', 'profile'] as const;
  * The document the editor is currently working on, held entirely in memory.
  */
 class RealmDraft {
+	/** The blueprint's name. */
+	blueprintName = $state('');
+	/** The name a built Realm will have. */
 	name = $state('');
 	description = $state('');
 	/** Markdown shown before the inputs when a realm is built. */
@@ -155,6 +158,7 @@ class RealmDraft {
 	}
 
 	reset() {
+		this.blueprintName = '';
 		this.name = '';
 		this.description = '';
 		this.introduction = '';

@@ -44,18 +44,19 @@
 	let asking = $state(false);
 
 	$effect(() => {
-		blueprintStore.queueSave(realmDraft.name, wtn.source, realmDraft.isEmpty);
+		blueprintStore.queueSave(realmDraft.blueprintName, wtn.source, realmDraft.isEmpty);
 	});
 
 	async function save() {
 		if (!blueprint) return;
-		await blueprintStore.save(realmDraft.name, wtn.source, realmDraft.isEmpty);
+		await blueprintStore.save(realmDraft.blueprintName, wtn.source, realmDraft.isEmpty);
 	}
 
 	/** Build a realm from the active blueprint */
 	async function build() {
 		if (!blueprint) return;
-		if (!(await blueprintStore.save(realmDraft.name, wtn.source, realmDraft.isEmpty))) return;
+		if (!(await blueprintStore.save(realmDraft.blueprintName, wtn.source, realmDraft.isEmpty)))
+			return;
 		if (blueprintStore.inputs.length > 0 || blueprintStore.introduction) {
 			asking = true;
 			return;
@@ -104,9 +105,9 @@
 				</button>
 				<input
 					class="nameField"
-					value={realmDraft.name}
+					value={realmDraft.blueprintName}
 					aria-label={t.realms.page.blueprintName}
-					oninput={(e) => (realmDraft.name = e.currentTarget.value)}
+					oninput={(e) => (realmDraft.blueprintName = e.currentTarget.value)}
 				/>
 			{:else}
 				<div class="title">{t.realms.page.title}</div>

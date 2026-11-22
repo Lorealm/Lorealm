@@ -582,6 +582,24 @@ custom: {name: string, text: string}
     }
 
     #[test]
+    fn the_realm_name_can_be_filled_from_an_input() {
+        let source = r######"
+#inputs
+title: string
+
+{
+  name: "{{input:title}} (Group Chat)"
+}
+"######;
+        let resolved =
+            BTreeMap::from([("title".to_string(), WeaverValue::String("Tea House".into()))]);
+
+        let definition = super::super::wtn::from_wtn(source, resolved).expect("expands");
+
+        assert_eq!(definition.name, "Tea House (Group Chat)");
+    }
+
+    #[test]
     fn a_loop_can_mint_scenarios_now_that_identity_is_a_slug() {
         let source = r######"
 #inputs

@@ -159,6 +159,15 @@ class BlueprintStore {
 		}
 	}
 
+	async duplicate(id: Snowflake) {
+		try {
+			await this.#api.blueprints.duplicate(id);
+			await this.loadList();
+		} catch (e) {
+			showApiError(e, { title: t.errors.failed.duplicateBlueprint });
+		}
+	}
+
 	async delete(id: Snowflake) {
 		try {
 			await this.#api.blueprints.delete(id);
