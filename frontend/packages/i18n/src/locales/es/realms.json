@@ -58,6 +58,8 @@
 		"import": "Importar",
 		"exportHint": "Exportar con los recursos que usa",
 		"exportNamed": "Exportar {name}",
+		"duplicate": "Duplicate",
+		"duplicateNamed": "Duplicate {name}",
 		"delete": "Eliminar esquema",
 		"empty": "Aún no hay esquemas."
 	},
@@ -254,7 +256,7 @@
 		}
 	},
 	"overview": {
-		"name": "Nombre",
+		"name": "Realm name",
 		"untitled": "Sin título",
 		"description": "Descripción",
 		"descriptionPlaceholder": "Qué ocurre aquí y para quién es.",
