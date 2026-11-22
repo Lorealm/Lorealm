@@ -58,6 +58,8 @@
 		"import": "Importar",
 		"exportHint": "Exportar com os recursos que ele usa",
 		"exportNamed": "Exportar {name}",
+		"duplicate": "Duplicate",
+		"duplicateNamed": "Duplicate {name}",
 		"delete": "Excluir blueprint",
 		"empty": "Ainda não há blueprints."
 	},
@@ -254,7 +256,7 @@
 		}
 	},
 	"overview": {
-		"name": "Nome",
+		"name": "Realm name",
 		"untitled": "Sem título",
 		"description": "Descrição",
 		"descriptionPlaceholder": "O que acontece aqui e para quem é.",
