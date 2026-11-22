@@ -58,6 +58,8 @@
 		"import": "Importer",
 		"exportHint": "Exporter avec les ressources qu’il utilise",
 		"exportNamed": "Exporter {name}",
+		"duplicate": "Duplicate",
+		"duplicateNamed": "Duplicate {name}",
 		"delete": "Supprimer le plan",
 		"empty": "Aucun plan pour l’instant."
 	},
@@ -254,7 +256,7 @@
 		}
 	},
 	"overview": {
-		"name": "Nom",
+		"name": "Realm name",
 		"untitled": "Sans titre",
 		"description": "Description",
 		"descriptionPlaceholder": "Ce qui s’y passe, et à qui cela s’adresse.",
