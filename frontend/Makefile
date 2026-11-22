@@ -42,7 +42,7 @@ build-web: ## Build the web app for production
 	cd apps/web && bun run build
 
 build-desktop: ## Build the tauri app for production
-	cd apps/desktop && bun run tauri build
+	cd apps/desktop && bun run tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
 
 build-all: build-ui build-web build-desktop ## Build everything
 
