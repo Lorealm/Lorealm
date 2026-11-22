@@ -33,7 +33,8 @@
 		"stopCommand": "Остановить /{name}",
 		"stopPlugin": "Остановить {name}",
 		"stopGenerating": "Остановить генерацию",
-		"commands": "Команды"
+		"commands": "Команды",
+		"removeAction": "Remove {label}"
 	},
 	"message": {
 		"you": "Вы",
@@ -91,6 +92,7 @@
 		"untitledNode": "(узел без названия)",
 		"node": "узел {id}",
 		"notReconstructed": "содержимое не восстановлено",
+		"expandsToNothing": "Expands to nothing",
 		"noTrace": "у этого сообщения нет трассировки",
 		"blocks": "{count, plural, one {# блок} few {# блока} many {# блоков} other {# блока}}",
 		"units": {
