@@ -7,11 +7,13 @@
 		VERTEX_THINKING_BUDGET,
 		getProviderSchema,
 		OPENROUTER_REASONING_BUDGET,
-		TOKEN_BUDGET
+		TOKEN_BUDGET,
+		TOOL_ROUNDS
 	} from '#lib/types/schema.js';
 	import type { JsonValue, Snowflake } from '#lib/types/core.js';
 	import NumberParam from './NumberParam.svelte';
 	import SearchSelect from '#lib/components/SearchSelect.svelte';
+	import { parse as parseYaml } from 'yaml';
 
 	let {
 		draft,
@@ -87,6 +89,23 @@
 			.map((s) => s.trim())
 			.filter(Boolean);
 		setCommon('stop', arr.length ? arr : undefined);
+	}
+
+	// Saved as the YAML the user typed; the server parses it per request.
+	let yamlErrors = $state<Record<string, boolean>>({});
+	function setYaml(key: string, shape: 'mapping' | 'list', e: Event) {
+		const text = (e.currentTarget as HTMLTextAreaElement).value;
+		let ok: boolean;
+		try {
+			const v: unknown = parseYaml(text);
+			ok =
+				v == null ||
+				(shape === 'list' ? Array.isArray(v) : typeof v === 'object' && !Array.isArray(v));
+		} catch {
+			ok = false;
+		}
+		yamlErrors[key] = !ok;
+		if (ok) setCommon(key, text.trim() === '' ? undefined : text);
 	}
 
 	const isOpenRouter = $derived(draft.provider === 'openrouter');
@@ -346,6 +365,12 @@
 				draft.token_budget = v ?? TOKEN_BUDGET.default;
 				requestSave();
 			}}
+		/>
+		<NumberParam
+			label={t.connections.editor.toolRounds}
+			spec={TOOL_ROUNDS}
+			value={commonNum('max_tool_rounds')}
+			onChange={(v) => setCommon('max_tool_rounds', v)}
 		/>
 	</section>
 
@@ -612,6 +637,56 @@
 			</label>
 		</section>
 	{/if}
+
+	{#snippet yamlField(
+		key: string,
+		shape: 'mapping' | 'list',
+		label: string,
+		hint: string,
+		placeholder: string
+	)}
+		<label class="field">
+			<span>{label}</span>
+			<textarea
+				rows="3"
+				value={typeof draft.common_params[key] === 'string' ? draft.common_params[key] : ''}
+				{placeholder}
+				onchange={(e) => setYaml(key, shape, e)}
+			></textarea>
+		</label>
+		{#if yamlErrors[key]}
+			<p class="error">
+				{shape === 'list' ? t.connections.editor.yamlList : t.connections.editor.yamlMapping}
+			</p>
+		{:else}
+			<p class="hint">{hint}</p>
+		{/if}
+	{/snippet}
+
+	<section class="group">
+		<h3>{t.connections.editor.customFields}</h3>
+		{@render yamlField(
+			'include_body',
+			'mapping',
+			t.connections.editor.includeBody,
+			t.connections.editor.includeBodyHint,
+			'mirostat: 2'
+		)}
+		{@render yamlField(
+			'exclude_body',
+			'list',
+			t.connections.editor.excludeBody,
+			t.connections.editor.excludeBodyHint,
+			'- frequency_penalty'
+		)}
+		{@render yamlField(
+			'include_headers',
+			'mapping',
+			t.connections.editor.includeHeaders,
+			t.connections.editor.includeHeadersHint,
+			'X-Custom-Header: value'
+		)}
+	</section>
 </div>
 
 <style>
@@ -653,6 +728,16 @@
 		margin: 0;
 		font-size: var(--font-size-sm);
 		opacity: 0.7;
+	}
+	textarea {
+		font-family: var(--font-family-mono);
+		font-size: var(--font-size-sm);
+		resize: vertical;
+	}
+	.error {
+		margin: 0;
+		font-size: var(--font-size-sm);
+		color: var(--color-text-error, #c0392b);
 	}
 	.link {
 		background: none;

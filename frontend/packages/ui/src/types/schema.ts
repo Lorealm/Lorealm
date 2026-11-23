@@ -48,6 +48,14 @@ export const TOKEN_BUDGET: NumberSpec = {
 	default: 8192
 };
 
+export const TOOL_ROUNDS: NumberSpec = {
+	kind: 'number',
+	min: 1,
+	max: 32,
+	step: 1,
+	default: 8
+};
+
 export const OPENROUTER_REASONING_BUDGET: NumberSpec = {
 	kind: 'number',
 	min: 256,

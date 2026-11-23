@@ -44,4 +44,13 @@ pub struct CommonParamsInput {
     pub seed: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop: Option<Vec<String>>,
+    /// Model calls per turn before tool use stops; the chat service defaults it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_tool_rounds: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub include_body: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exclude_body: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub include_headers: Option<String>,
 }

@@ -31,6 +31,7 @@
 		"noKeys": "No keys for this provider.",
 		"addOne": "Add one",
 		"tokenBudget": "Token Budget",
+		"toolRounds": "Tool rounds",
 		"endpoint": "Endpoint",
 		"baseUrl": "Base URL",
 		"projectId": "Project ID",
@@ -85,7 +86,16 @@
 		"googleDefault": "Google default",
 		"blockHigh": "Block only high risk",
 		"blockMedium": "Block medium risk and above",
-		"blockLow": "Block low risk and above"
+		"blockLow": "Block low risk and above",
+		"customFields": "Custom fields",
+		"includeBody": "Add to request",
+		"includeBodyHint": "Sent with every request, replacing any setting above with the same name.",
+		"excludeBody": "Remove from request",
+		"excludeBodyHint": "Settings left out of every request, even ones set above.",
+		"includeHeaders": "Add headers",
+		"includeHeadersHint": "Sent with every request, replacing any header of the same name.",
+		"yamlMapping": "Not saved: write one name: value pair per line.",
+		"yamlList": "Not saved: write one - name per line."
 	},
 	"secrets": {
 		"unnamed": "Unnamed key",

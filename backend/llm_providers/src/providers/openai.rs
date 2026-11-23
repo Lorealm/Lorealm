@@ -123,10 +123,13 @@ impl super::LlmProvider for OpenAiProvider {
     ) -> Result<Response> {
         let request = self.build_request(messages, params, false);
 
-        let builder = self.authorize(
-            self.client
-                .post(format!("{}/chat/completions", self.base_url))
-                .json(&request),
+        let builder = super::with_custom_fields(
+            self.authorize(
+                self.client
+                    .post(format!("{}/chat/completions", self.base_url)),
+            ),
+            &request,
+            params,
         );
         let response = builder.send().await?;
 
@@ -147,10 +150,13 @@ impl super::LlmProvider for OpenAiProvider {
     ) -> Result<Box<dyn Stream<Item = Result<Delta>> + Unpin + Send>> {
         let request = self.build_request(messages, params, true);
 
-        let builder = self.authorize(
-            self.client
-                .post(format!("{}/chat/completions", self.base_url))
-                .json(&request),
+        let builder = super::with_custom_fields(
+            self.authorize(
+                self.client
+                    .post(format!("{}/chat/completions", self.base_url)),
+            ),
+            &request,
+            params,
         );
         let response = builder.send().await?;
 

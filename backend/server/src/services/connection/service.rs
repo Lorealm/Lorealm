@@ -511,6 +511,13 @@ fn validate_common_params(value: &serde_json::Value) -> Result<serde_json::Value
             "max_tokens must be greater than 0".into(),
         ));
     }
+    if typed.max_tool_rounds == Some(0) {
+        return Err(ConnectionError::Validation(
+            "max_tool_rounds must be greater than 0".into(),
+        ));
+    }
+    apply_custom_fields(value, &mut lorealm_providers::CommonParams::default())
+        .map_err(ConnectionError::Validation)?;
     if let Some(stop) = &typed.stop
         && stop.iter().any(|s| s.is_empty())
     {
@@ -520,6 +527,54 @@ fn validate_common_params(value: &serde_json::Value) -> Result<serde_json::Value
     }
 
     Ok(serde_json::to_value(&typed).expect("DTO serialization cannot fail"))
+}
+
+pub fn apply_custom_fields(
+    common_params: &serde_json::Value,
+    params: &mut lorealm_providers::CommonParams,
+) -> Result<(), String> {
+    if let Some(body) = yaml_field(common_params, "include_body")? {
+        params.extra_body = Some(body);
+    }
+    if let Some(keys) = yaml_field(common_params, "exclude_body")? {
+        params.exclude_body = keys;
+    }
+    let headers: Option<serde_json::Map<String, serde_json::Value>> =
+        yaml_field(common_params, "include_headers")?;
+    for (name, value) in headers.unwrap_or_default() {
+        let value = match value {
+            serde_json::Value::String(s) => s,
+            serde_json::Value::Number(n) => n.to_string(),
+            serde_json::Value::Bool(b) => b.to_string(),
+            _ => return Err(format!("include_headers: {name} must be a single value")),
+        };
+        if reqwest::header::HeaderName::from_bytes(name.as_bytes()).is_err() {
+            return Err(format!(
+                "include_headers: {name} is not a valid header name"
+            ));
+        }
+        if reqwest::header::HeaderValue::from_str(&value).is_err() {
+            return Err(format!("include_headers: {name} has an invalid value"));
+        }
+        params.extra_headers.push((name, value));
+    }
+    Ok(())
+}
+
+fn yaml_field<T: serde::de::DeserializeOwned>(
+    common_params: &serde_json::Value,
+    key: &str,
+) -> Result<Option<T>, String> {
+    let Some(text) = common_params.get(key).and_then(|v| v.as_str()) else {
+        return Ok(None);
+    };
+    let value: serde_yaml::Value = serde_yaml::from_str(text).map_err(|e| format!("{key}: {e}"))?;
+    if value.is_null() {
+        return Ok(None);
+    }
+    serde_yaml::from_value(value)
+        .map(Some)
+        .map_err(|e| format!("{key}: {e}"))
 }
 
 fn validate_provider_params(
@@ -622,4 +677,60 @@ fn to_encrypted_data(secret: &Secret) -> Result<EncryptedData, ConnectionError> 
             .try_into()
             .map_err(|_| ConnectionError::Corrupted(secret.id))?,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn common_params_keep_tool_rounds_and_custom_field_yaml() {
+        let input = json!({
+            "max_tool_rounds": 3,
+            "include_body": "# sampler\nmirostat: 2\nprovider:\n  sort: price\n",
+            "exclude_body": "- stop\n",
+            "include_headers": "X-Title: Lorealm\nX-Count: 5\n"
+        });
+        assert_eq!(validate_common_params(&input).unwrap(), input);
+
+        let mut params = lorealm_providers::CommonParams::default();
+        apply_custom_fields(&input, &mut params).unwrap();
+        assert_eq!(
+            params.extra_body,
+            json!({"mirostat": 2, "provider": {"sort": "price"}})
+                .as_object()
+                .cloned()
+        );
+        assert_eq!(params.exclude_body, ["stop"]);
+        assert_eq!(
+            params.extra_headers,
+            [
+                ("X-Title".to_string(), "Lorealm".to_string()),
+                ("X-Count".to_string(), "5".to_string())
+            ]
+        );
+    }
+
+    #[test]
+    fn blank_custom_fields_set_nothing() {
+        let input = json!({"include_body": "", "exclude_body": "# none yet\n"});
+        let mut params = lorealm_providers::CommonParams::default();
+        apply_custom_fields(&input, &mut params).unwrap();
+        assert!(params.extra_body.is_none() && params.exclude_body.is_empty());
+    }
+
+    #[test]
+    fn bad_tool_rounds_and_custom_fields_are_rejected() {
+        for input in [
+            json!({"max_tool_rounds": 0}),
+            json!({"include_body": "- a list"}),
+            json!({"include_body": "a: [unclosed"}),
+            json!({"exclude_body": "key: value"}),
+            json!({"include_headers": "Bad Name: x"}),
+            json!({"include_headers": "X-List: [1, 2]"}),
+        ] {
+            assert!(validate_common_params(&input).is_err(), "accepted {input}");
+        }
+    }
 }

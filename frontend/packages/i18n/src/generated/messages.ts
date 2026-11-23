@@ -656,6 +656,8 @@ export type Messages = {
 			addOne: string;
 			/** Token Budget */
 			tokenBudget: string;
+			/** Tool rounds */
+			toolRounds: string;
 			/** Endpoint */
 			endpoint: string;
 			/** Base URL */
@@ -766,6 +768,24 @@ export type Messages = {
 			blockMedium: string;
 			/** Block low risk and above */
 			blockLow: string;
+			/** Custom fields */
+			customFields: string;
+			/** Add to request */
+			includeBody: string;
+			/** Sent with every request, replacing any setting above with the same name. */
+			includeBodyHint: string;
+			/** Remove from request */
+			excludeBody: string;
+			/** Settings left out of every request, even ones set above. */
+			excludeBodyHint: string;
+			/** Add headers */
+			includeHeaders: string;
+			/** Sent with every request, replacing any header of the same name. */
+			includeHeadersHint: string;
+			/** Not saved: write one name: value pair per line. */
+			yamlMapping: string;
+			/** Not saved: write one - name per line. */
+			yamlList: string;
 		};
 		secrets: {
 			/** Unnamed key */
