@@ -10,7 +10,12 @@
 		"state": "Zustand",
 		"realmAgent": "Realm-Agent",
 		"authorNote": "Autorennotiz",
-		"creatorNotes": "Notizen des Erstellers"
+		"creatorNotes": "Notizen des Erstellers",
+		"styleVariables": "Style Variables"
+	},
+	"styleVariables": {
+		"copied": "Copied",
+		"search": "Search variables…"
 	},
 	"creatorNotes": {
 		"loading": "Laden…",
