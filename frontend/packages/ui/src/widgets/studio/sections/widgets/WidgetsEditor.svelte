@@ -13,6 +13,7 @@
 	import { onDestroy, untrack } from 'svelte';
 	import ContextField from '#lib/components/ContextField.svelte';
 	import StateFrame from '#lib/components/StateFrame.svelte';
+	import HtmlEditor from '#lib/components/HtmlEditor.svelte';
 	import ListSidebar from '#lib/components/ListSidebar.svelte';
 	import TagField from '../characters/TagField.svelte';
 	import Badge from '#lib/widgets/realms/Badge.svelte';
@@ -420,16 +421,19 @@ ${'</'}script>
 							{/each}
 						</div>
 
-						{#if tab === 'source'}
-							<textarea
-								class="source"
-								aria-label={t.studio.widgets.htmlSource}
-								spellcheck="false"
-								readonly={readOnly}
-								bind:value={draftSource}
-								oninput={requestSave}
-							></textarea>
-						{:else if tab === 'model'}
+						<div class="source" hidden={tab !== 'source'}>
+							{#key syncedId}
+								<HtmlEditor
+									doc={draftSource}
+									{readOnly}
+									onChange={(v) => {
+										draftSource = v;
+										requestSave();
+									}}
+								/>
+							{/key}
+						</div>
+						{#if tab === 'model'}
 							<div class="panel">
 								{#key syncedId}
 									<ContextField
@@ -493,7 +497,7 @@ ${'</'}script>
 									{/if}
 								</fieldset>
 							</div>
-						{:else}
+						{:else if tab === 'settings'}
 							<fieldset class="panel" disabled={readOnly}>
 								<label>
 									<span>{t.studio.widgets.description}</span>
@@ -773,14 +777,13 @@ ${'</'}script>
 	}
 
 	.source {
+		display: flex;
 		flex: 1;
 		min-height: 0;
 		margin-top: var(--spacing-sm);
-		font-family: var(--font-family-mono);
-		font-size: var(--font-size-sm);
-		line-height: var(--line-height-snug);
-		tab-size: 2;
-		resize: none;
+	}
+	.source[hidden] {
+		display: none;
 	}
 
 	.panel {
