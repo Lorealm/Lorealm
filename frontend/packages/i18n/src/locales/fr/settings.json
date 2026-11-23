@@ -27,6 +27,7 @@
 		"members": "Membres",
 		"noMembers": "Personne n’a encore ce rôle.",
 		"removeMember": "Retirer {name}",
+		"confirmRemoveMember": "Remove {name} from this role?",
 		"username": "Nom d’utilisateur",
 		"add": "Ajouter"
 	},
@@ -81,7 +82,8 @@
 		"expiry": "Expiration",
 		"roleOnSignup": "Rôle attribué à l’inscription",
 		"created": "Créé le {date}",
-		"deleteInvite": "Supprimer l’invitation"
+		"deleteInvite": "Supprimer l’invitation",
+		"confirmDeleteInvite": "Delete this invite? Its code will stop working."
 	},
 	"editor": {
 		"suggestCrossBook": "Suggérer des ID inter-lorebooks",
@@ -126,6 +128,7 @@
 		"intro": "Un profil est une colonne de l’inspecteur : il décide quels widgets chaque vue affiche, et dans quel ordre. Les profils apparaissent sous forme de boutons d’icône au-dessus de l’inspecteur ; ceux qui n’ont rien de configuré pour la vue actuelle sont grisés et placés en dernier.",
 		"addProfile": "Ajouter un profil",
 		"deleteProfile": "Supprimer le profil",
+		"confirmDeleteProfile": "Delete “{name}”?",
 		"moveUp": "Monter",
 		"moveDown": "Descendre",
 		"remove": "Retirer",
@@ -159,6 +162,7 @@
 		"styleAuthor": "Auteur du style",
 		"authorPlaceholder": "Le nom de l’auteur",
 		"deleteStyle": "Supprimer ce style",
+		"confirmDeleteStyle": "Delete “{name}”?",
 		"backdrop": "Arrière-plan",
 		"backdropAlt": "L’arrière-plan actuel",
 		"replaceImage": "Remplacer l’image",
@@ -335,7 +339,8 @@
 		"loading": "Chargement…",
 		"empty": "Aucun tokenizer pour l’instant — importez-en un pour commencer.",
 		"active": "Actif",
-		"setActive": "Définir comme actif"
+		"setActive": "Définir comme actif",
+		"confirmDelete": "Delete “{name}”?"
 	},
 	"profile": {
 		"stats": {
