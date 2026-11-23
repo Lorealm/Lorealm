@@ -10,7 +10,12 @@
 		"state": "状態",
 		"realmAgent": "レルムエージェント",
 		"authorNote": "作者メモ",
-		"creatorNotes": "制作者ノート"
+		"creatorNotes": "制作者ノート",
+		"styleVariables": "Style Variables"
+	},
+	"styleVariables": {
+		"copied": "Copied",
+		"search": "Search variables…"
 	},
 	"creatorNotes": {
 		"loading": "読み込み中…",
