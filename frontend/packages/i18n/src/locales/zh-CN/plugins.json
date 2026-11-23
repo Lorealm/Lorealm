@@ -23,6 +23,7 @@
 	"settings": "设置",
 	"removeNamed": "为所有人移除 {name}",
 	"remove": "为所有人移除",
+	"confirmRemove": "Remove {name} for everyone?",
 	"notListed": "此插件不在市场中。",
 	"manage": "管理",
 	"noCompatible": "它没有与当前 Lorealm 版本兼容的版本。",
