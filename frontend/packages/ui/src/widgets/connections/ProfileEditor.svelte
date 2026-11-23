@@ -6,12 +6,16 @@
 		PROVIDER_SCHEMAS,
 		VERTEX_THINKING_BUDGET,
 		getProviderSchema,
+		INSTRUCT_PRESETS,
+		type InstructTemplate,
 		OPENROUTER_REASONING_BUDGET,
-		TOKEN_BUDGET
+		TOKEN_BUDGET,
+		TOOL_ROUNDS
 	} from '#lib/types/schema.js';
 	import type { JsonValue, Snowflake } from '#lib/types/core.js';
 	import NumberParam from './NumberParam.svelte';
 	import SearchSelect from '#lib/components/SearchSelect.svelte';
+	import { parse as parseYaml } from 'yaml';
 
 	let {
 		draft,
@@ -89,6 +93,23 @@
 		setCommon('stop', arr.length ? arr : undefined);
 	}
 
+	// Saved as the YAML the user typed; the server parses it per request.
+	let yamlErrors = $state<Record<string, boolean>>({});
+	function setYaml(key: string, shape: 'mapping' | 'list', e: Event) {
+		const text = (e.currentTarget as HTMLTextAreaElement).value;
+		let ok: boolean;
+		try {
+			const v: unknown = parseYaml(text);
+			ok =
+				v == null ||
+				(shape === 'list' ? Array.isArray(v) : typeof v === 'object' && !Array.isArray(v));
+		} catch {
+			ok = false;
+		}
+		yamlErrors[key] = !ok;
+		if (ok) setCommon(key, text.trim() === '' ? undefined : text);
+	}
+
 	const isOpenRouter = $derived(draft.provider === 'openrouter');
 	const isOpenAi = $derived(draft.provider === 'openai');
 	const isAnthropic = $derived(draft.provider === 'anthropic');
@@ -103,6 +124,37 @@
 		if (v === '') delete draft.provider_params[key];
 		else draft.provider_params[key] = v;
 		requestSave();
+	}
+
+	const template = $derived(
+		draft.provider_params.template as unknown as InstructTemplate | undefined
+	);
+	const templatePreset = $derived.by(() => {
+		const current = template;
+		if (!current) return 'off';
+		const match = INSTRUCT_PRESETS.find((p) =>
+			(Object.keys(p.template) as (keyof InstructTemplate)[]).every(
+				(k) => p.template[k] === current[k]
+			)
+		);
+		return match?.name ?? 'custom';
+	});
+	const templateFields = $derived([
+		['system_prefix', t.connections.editor.systemPrefix],
+		['system_suffix', t.connections.editor.systemSuffix],
+		['user_prefix', t.connections.editor.userPrefix],
+		['user_suffix', t.connections.editor.userSuffix],
+		['assistant_prefix', t.connections.editor.assistantPrefix],
+		['assistant_suffix', t.connections.editor.assistantSuffix]
+	] as const);
+	function setTemplate(t: InstructTemplate | undefined) {
+		if (t) draft.provider_params.template = { ...t } as unknown as JsonValue;
+		else delete draft.provider_params.template;
+		requestSave();
+	}
+	function changeTemplatePreset(e: Event) {
+		const name = (e.currentTarget as HTMLSelectElement).value;
+		setTemplate(INSTRUCT_PRESETS.find((p) => p.name === name)?.template);
 	}
 
 	// Recent Claude models refuse requests that set these.
@@ -347,6 +399,12 @@
 				requestSave();
 			}}
 		/>
+		<NumberParam
+			label={t.connections.editor.toolRounds}
+			spec={TOOL_ROUNDS}
+			value={commonNum('max_tool_rounds')}
+			onChange={(v) => setCommon('max_tool_rounds', v)}
+		/>
 	</section>
 
 	{#if isOpenAi || isAnthropic}
@@ -361,6 +419,39 @@
 					onchange={(e) => setTextParam('base_url', e)}
 				/>
 			</label>
+			{#if isOpenAi}
+				<label class="field">
+					<span>{t.connections.editor.textCompletion}</span>
+					<select value={templatePreset} onchange={changeTemplatePreset}>
+						<option value="off">{t.connections.editor.textCompletionOff}</option>
+						{#each INSTRUCT_PRESETS as preset (preset.name)}
+							<option value={preset.name}>{preset.name}</option>
+						{/each}
+						{#if templatePreset === 'custom'}
+							<option value="custom">{t.connections.editor.custom}</option>
+						{/if}
+					</select>
+				</label>
+			{/if}
+		</section>
+	{/if}
+
+	{#if isOpenAi && template}
+		<section class="group">
+			<h3>{t.connections.editor.instructTemplate}</h3>
+			<div class="template-grid">
+				{#each templateFields as [key, label] (key)}
+					<label class="field">
+						<span>{label}</span>
+						<textarea
+							rows="2"
+							value={template[key]}
+							onchange={(e) => setTemplate({ ...template, [key]: e.currentTarget.value })}
+						></textarea>
+					</label>
+				{/each}
+			</div>
+			<p class="hint">{t.connections.editor.instructTemplateHint}</p>
 		</section>
 	{/if}
 
@@ -612,6 +703,56 @@
 			</label>
 		</section>
 	{/if}
+
+	{#snippet yamlField(
+		key: string,
+		shape: 'mapping' | 'list',
+		label: string,
+		hint: string,
+		placeholder: string
+	)}
+		<label class="field">
+			<span>{label}</span>
+			<textarea
+				rows="3"
+				value={typeof draft.common_params[key] === 'string' ? draft.common_params[key] : ''}
+				{placeholder}
+				onchange={(e) => setYaml(key, shape, e)}
+			></textarea>
+		</label>
+		{#if yamlErrors[key]}
+			<p class="error">
+				{shape === 'list' ? t.connections.editor.yamlList : t.connections.editor.yamlMapping}
+			</p>
+		{:else}
+			<p class="hint">{hint}</p>
+		{/if}
+	{/snippet}
+
+	<section class="group">
+		<h3>{t.connections.editor.customFields}</h3>
+		{@render yamlField(
+			'include_body',
+			'mapping',
+			t.connections.editor.includeBody,
+			t.connections.editor.includeBodyHint,
+			'mirostat: 2'
+		)}
+		{@render yamlField(
+			'exclude_body',
+			'list',
+			t.connections.editor.excludeBody,
+			t.connections.editor.excludeBodyHint,
+			'- frequency_penalty'
+		)}
+		{@render yamlField(
+			'include_headers',
+			'mapping',
+			t.connections.editor.includeHeaders,
+			t.connections.editor.includeHeadersHint,
+			'X-Custom-Header: value'
+		)}
+	</section>
 </div>
 
 <style>
@@ -653,6 +794,21 @@
 		margin: 0;
 		font-size: var(--font-size-sm);
 		opacity: 0.7;
+	}
+	.template-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+		gap: var(--spacing-sm);
+	}
+	textarea {
+		font-family: var(--font-family-mono);
+		font-size: var(--font-size-sm);
+		resize: vertical;
+	}
+	.error {
+		margin: 0;
+		font-size: var(--font-size-sm);
+		color: var(--color-text-error, #c0392b);
 	}
 	.link {
 		background: none;

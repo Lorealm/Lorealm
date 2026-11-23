@@ -875,10 +875,21 @@ impl ChatService {
             return Err(ChatError::Connection("no model".into()));
         };
 
-        let common: lorealm_providers::CommonParams =
-            serde_json::from_value(connection.profile.common_params).map_err(|e| {
+        let max_tool_rounds = connection
+            .profile
+            .common_params
+            .get("max_tool_rounds")
+            .and_then(|v| v.as_u64())
+            .map_or(DEFAULT_TOOL_ROUNDS, |n| n as usize);
+        let mut common: lorealm_providers::CommonParams =
+            serde_json::from_value(connection.profile.common_params.clone()).map_err(|e| {
                 ChatError::Connection(format!("Failed to deserialize common params: {e}"))
             })?;
+        crate::services::connection::apply_custom_fields(
+            &connection.profile.common_params,
+            &mut common,
+        )
+        .map_err(|e| ChatError::Connection(format!("bad custom fields: {e}")))?;
 
         // Map your custom payload directly to what the provider client expects
         let messages: Vec<lorealm_providers::Message> = prompt
@@ -1017,6 +1028,7 @@ impl ChatService {
                     messages,
                     common,
                     pp,
+                    max_tool_rounds,
                     registry,
                     widget_sink,
                     effect_sink,
@@ -1042,6 +1054,7 @@ impl ChatService {
                     messages,
                     common,
                     pp,
+                    max_tool_rounds,
                     registry,
                     widget_sink,
                     effect_sink,
@@ -1068,6 +1081,7 @@ impl ChatService {
                     messages,
                     common,
                     pp,
+                    max_tool_rounds,
                     registry,
                     widget_sink,
                     effect_sink,
@@ -1097,6 +1111,7 @@ impl ChatService {
                     messages,
                     common,
                     pp,
+                    max_tool_rounds,
                     registry,
                     widget_sink,
                     effect_sink,
@@ -1207,6 +1222,9 @@ impl ChatService {
     }
 }
 
+/// Tool rounds per turn for profiles that don't set `max_tool_rounds`.
+const DEFAULT_TOOL_ROUNDS: usize = 8;
+
 fn prompt_role_to_provider_role(role: PromptRole) -> lorealm_providers::Role {
     match role {
         PromptRole::System => lorealm_providers::Role::System,
@@ -1221,6 +1239,7 @@ async fn run_inference<P>(
     mut messages: Vec<lorealm_providers::Message>,
     common: lorealm_providers::CommonParams,
     provider_params: P::ProviderParams,
+    max_tool_rounds: usize,
     registry: lorealm_providers::ToolRegistry,
     widget_sink: WidgetSink,
     effect_sink: EffectSink,
@@ -1234,11 +1253,8 @@ where
     let client = Client::new(provider);
     let tool_defs = registry.defs();
 
-    // TODO: merge into connection profiles?
-    const MAX_TOOL_ROUNDS: usize = 8;
-
     let stream = async_stream::try_stream! {
-        for round in 0..MAX_TOOL_ROUNDS {
+        for round in 0..max_tool_rounds {
             let mut upstream = client
                 .request()
                 .messages(messages.clone())
@@ -1413,6 +1429,7 @@ mod tests {
             vec![Message::text(Role::User, "1 + 2?")],
             Default::default(),
             AnthropicOptions::default(),
+            DEFAULT_TOOL_ROUNDS,
             registry,
             Default::default(),
             Default::default(),

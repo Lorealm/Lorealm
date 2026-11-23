@@ -159,10 +159,10 @@ impl super::LlmProvider for OpenRouterProvider {
         let builder = self
             .client
             .post(format!("{}/chat/completions", self.base_url))
-            .header("Authorization", format!("Bearer {}", self.api_key))
-            .json(&request);
+            .header("Authorization", format!("Bearer {}", self.api_key));
 
-        let builder = self.apply_request_modifier(builder);
+        let builder =
+            super::with_custom_fields(self.apply_request_modifier(builder), &request, params);
         let response = builder.send().await?;
 
         if !response.status().is_success() {
@@ -185,10 +185,10 @@ impl super::LlmProvider for OpenRouterProvider {
         let builder = self
             .client
             .post(format!("{}/chat/completions", self.base_url))
-            .header("Authorization", format!("Bearer {}", self.api_key))
-            .json(&request);
+            .header("Authorization", format!("Bearer {}", self.api_key));
 
-        let builder = self.apply_request_modifier(builder);
+        let builder =
+            super::with_custom_fields(self.apply_request_modifier(builder), &request, params);
         let response = builder.send().await?;
 
         if !response.status().is_success() {
