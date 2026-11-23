@@ -14,6 +14,7 @@
 	"makeActive": "Bruk {name} som aktiv tilkobling",
 	"deleteProfile": "Slett profil",
 	"deleteNamed": "Slett {name}",
+	"confirmDelete": "Delete “{name}”?",
 	"providerDefault": "Bruk leverandørens standard",
 	"openAiCompatible": "OpenAI-kompatibel",
 	"editor": {
@@ -90,6 +91,7 @@
 		"unnamed": "Nøkkel uten navn",
 		"required": "Etikett og nøkkel må fylles ut.",
 		"rename": "Gi nytt navn",
+		"confirmDelete": "Delete “{name}”?",
 		"none": "Ingen nøkler lagret.",
 		"add": "Legg til nøkkel",
 		"provider": "Leverandør",
