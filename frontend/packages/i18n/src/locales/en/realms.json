@@ -43,6 +43,7 @@
 		"untitled": "Untitled Realm",
 		"delete": "Delete realm",
 		"deleteNamed": "Delete {name}",
+		"confirmDelete": "Delete “{name}”?",
 		"imported": "imported",
 		"playthroughs": "{count, plural, one {# playthrough} other {# playthroughs}}",
 		"play": "Play",
@@ -61,6 +62,7 @@
 		"duplicate": "Duplicate",
 		"duplicateNamed": "Duplicate {name}",
 		"delete": "Delete blueprint",
+		"confirmDelete": "Delete “{name}”?",
 		"empty": "No blueprints yet."
 	},
 	"newMenu": {

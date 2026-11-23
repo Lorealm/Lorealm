@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfirmDelete from '#lib/components/ConfirmDelete.svelte';
 	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { FileCode2, Play, Trash2 } from '@lucide/svelte';
@@ -30,8 +31,7 @@
 
 	const playthroughs = (realmId: Snowflake) => conversations.filter((c) => c.realm_id === realmId);
 
-	async function remove(event: MouseEvent, id: Snowflake) {
-		event.stopPropagation();
+	async function remove(id: Snowflake) {
 		await realmStore.deleteRealm(id);
 	}
 </script>
@@ -47,15 +47,22 @@
 			<div class="card">
 				<div class="cardTop">
 					<span class="name">{realm.name || t.realms.cards.untitled}</span>
-					<button
-						type="button"
-						class="del"
-						{@attach tooltip(t.realms.cards.delete)}
-						aria-label={t.realms.cards.deleteNamed({ name: realm.name })}
-						onclick={(e) => remove(e, realm.id)}
+					<ConfirmDelete
+						prompt={t.realms.cards.confirmDelete({ name: realm.name || t.realms.cards.untitled })}
+						onConfirm={() => remove(realm.id)}
 					>
-						<Trash2 size={14} />
-					</button>
+						{#snippet trigger(arm)}
+							<button
+								type="button"
+								class="del"
+								{@attach tooltip(t.realms.cards.delete)}
+								aria-label={t.realms.cards.deleteNamed({ name: realm.name })}
+								onclick={arm}
+							>
+								<Trash2 size={14} />
+							</button>
+						{/snippet}
+					</ConfirmDelete>
 				</div>
 
 				{#if realm.description}

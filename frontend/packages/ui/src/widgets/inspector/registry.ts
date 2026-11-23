@@ -5,6 +5,7 @@ import ContextWidget from './widgets/ContextWidget.svelte';
 import CreatorNotesWidget from './widgets/CreatorNotesWidget.svelte';
 import RealmAgentWidget from './widgets/RealmAgentWidget.svelte';
 import StateWidget from './widgets/StateWidget.svelte';
+import StyleVariablesWidget from './widgets/StyleVariablesWidget.svelte';
 import TemplateWidget from './widgets/TemplateWidget.svelte';
 import { t } from '#lib/stores/i18n.svelte.js';
 
@@ -15,7 +16,8 @@ export type BuiltinWidgetKey =
 	| 'state'
 	| 'realm-agent'
 	| 'author-note'
-	| 'creator-notes';
+	| 'creator-notes'
+	| 'style-variables';
 
 /** A plugin's inspector slot. */
 export type PluginWidgetKey = `plugin:${string}:${string}`;
@@ -65,6 +67,12 @@ export const inspectorRegistry: Record<BuiltinWidgetKey, { label: string; compon
 				return t.inspector.widgets.creatorNotes;
 			},
 			component: CreatorNotesWidget
+		},
+		'style-variables': {
+			get label() {
+				return t.inspector.widgets.styleVariables;
+			},
+			component: StyleVariablesWidget
 		}
 	};
 

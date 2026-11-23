@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfirmDelete from '#lib/components/ConfirmDelete.svelte';
 	import { t } from '#lib/stores/i18n.svelte.js';
 	import { onMount } from 'svelte';
 	import { Clock, Copy, LogOut, Pencil, Plus, Shield, Trash2, Users, X } from '@lucide/svelte';
@@ -430,15 +431,22 @@
 							<span class="hint"
 								>{t.settings.accounts.created({ date: date(invite.created_at) })}</span
 							>
-							<button
-								type="button"
-								class="icon danger-icon"
-								{@attach tooltip(t.settings.accounts.deleteInvite)}
-								onclick={() => revokeInvite(invite.id)}
-								disabled={busy}
+							<ConfirmDelete
+								prompt={t.settings.accounts.confirmDeleteInvite}
+								onConfirm={() => revokeInvite(invite.id)}
 							>
-								<Trash2 size={14} />
-							</button>
+								{#snippet trigger(arm)}
+									<button
+										type="button"
+										class="icon danger-icon"
+										{@attach tooltip(t.settings.accounts.deleteInvite)}
+										onclick={arm}
+										disabled={busy}
+									>
+										<Trash2 size={14} />
+									</button>
+								{/snippet}
+							</ConfirmDelete>
 						</li>
 					{/each}
 				</ul>

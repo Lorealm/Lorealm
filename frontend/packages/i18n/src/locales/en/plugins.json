@@ -23,6 +23,7 @@
 	"settings": "Settings",
 	"removeNamed": "Remove {name} for everyone",
 	"remove": "Remove for everyone",
+	"confirmRemove": "Remove {name} for everyone?",
 	"notListed": "This plugin isn't in the marketplace.",
 	"manage": "Manage",
 	"noCompatible": "No version of it works with this version of Lorealm.",

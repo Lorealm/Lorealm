@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfirmDelete from '#lib/components/ConfirmDelete.svelte';
 	import { t } from '#lib/stores/i18n.svelte.js';
 	import { onMount } from 'svelte';
 	import { Plus, Trash2, X } from '@lucide/svelte';
@@ -328,15 +329,25 @@
 										<span class="name">{member.display_name ?? member.username}</span>
 										<span class="hint">@{member.username}</span>
 										{#if membersEditable}
-											<button
-												type="button"
-												class="icon"
-												aria-label={t.settings.roles.removeMember({ name: member.username })}
-												onclick={() => removeMember(member.id)}
-												disabled={busy}
+											<ConfirmDelete
+												prompt={t.settings.roles.confirmRemoveMember({
+													name: member.display_name ?? member.username
+												})}
+												action={t.common.remove}
+												onConfirm={() => removeMember(member.id)}
 											>
-												<X size={14} />
-											</button>
+												{#snippet trigger(arm)}
+													<button
+														type="button"
+														class="icon"
+														aria-label={t.settings.roles.removeMember({ name: member.username })}
+														onclick={arm}
+														disabled={busy}
+													>
+														<X size={14} />
+													</button>
+												{/snippet}
+											</ConfirmDelete>
 										{/if}
 									</li>
 								{/each}

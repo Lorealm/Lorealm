@@ -27,6 +27,7 @@
 		"members": "Members",
 		"noMembers": "Nobody has this role yet.",
 		"removeMember": "Remove {name}",
+		"confirmRemoveMember": "Remove {name} from this role?",
 		"username": "Username",
 		"add": "Add"
 	},
@@ -81,7 +82,8 @@
 		"expiry": "Expiry",
 		"roleOnSignup": "Role given on sign-up",
 		"created": "Created {date}",
-		"deleteInvite": "Delete invite"
+		"deleteInvite": "Delete invite",
+		"confirmDeleteInvite": "Delete this invite? Its code will stop working."
 	},
 	"editor": {
 		"suggestCrossBook": "Suggest cross-book ids",
@@ -126,6 +128,7 @@
 		"intro": "A profile is one column of the inspector: it decides which widgets each view shows, and in what order. Profiles appear as icon buttons above the inspector; ones with nothing configured for the current view are greyed out and sorted last.",
 		"addProfile": "Add profile",
 		"deleteProfile": "Delete profile",
+		"confirmDeleteProfile": "Delete “{name}”?",
 		"moveUp": "Move up",
 		"moveDown": "Move down",
 		"remove": "Remove",
@@ -159,6 +162,7 @@
 		"styleAuthor": "Style author",
 		"authorPlaceholder": "The author's name",
 		"deleteStyle": "Delete this style",
+		"confirmDeleteStyle": "Delete “{name}”?",
 		"backdrop": "Backdrop",
 		"backdropAlt": "The current backdrop",
 		"replaceImage": "Replace image",
@@ -335,7 +339,8 @@
 		"loading": "Loading…",
 		"empty": "No tokenizers yet — import one to get started.",
 		"active": "Active",
-		"setActive": "Set active"
+		"setActive": "Set active",
+		"confirmDelete": "Delete “{name}”?"
 	},
 	"profile": {
 		"stats": {

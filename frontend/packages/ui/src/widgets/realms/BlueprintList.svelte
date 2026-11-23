@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfirmDelete from '#lib/components/ConfirmDelete.svelte';
 	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { Copy, Download, FileCode2, Plus, Trash2, Upload } from '@lucide/svelte';
@@ -113,8 +114,7 @@
 		await blueprintStore.duplicate(id);
 	}
 
-	async function remove(event: MouseEvent, id: Snowflake) {
-		event.stopPropagation();
+	async function remove(id: Snowflake) {
 		await blueprintStore.delete(id);
 	}
 </script>
@@ -172,15 +172,22 @@
 					>
 						<Copy size={14} />
 					</button>
-					<button
-						type="button"
-						class="act del"
-						{@attach tooltip(t.realms.blueprints.delete)}
-						aria-label={t.realms.cards.deleteNamed({ name: blueprint.name })}
-						onclick={(e) => remove(e, blueprint.id)}
+					<ConfirmDelete
+						prompt={t.realms.blueprints.confirmDelete({ name: blueprint.name })}
+						onConfirm={() => remove(blueprint.id)}
 					>
-						<Trash2 size={14} />
-					</button>
+						{#snippet trigger(arm)}
+							<button
+								type="button"
+								class="act del"
+								{@attach tooltip(t.realms.blueprints.delete)}
+								aria-label={t.realms.cards.deleteNamed({ name: blueprint.name })}
+								onclick={arm}
+							>
+								<Trash2 size={14} />
+							</button>
+						{/snippet}
+					</ConfirmDelete>
 				</div>
 				{#if blueprint.description}
 					<p class="desc">{blueprint.description}</p>
