@@ -43,6 +43,7 @@
 		"untitled": "未命名领域",
 		"delete": "删除领域",
 		"deleteNamed": "删除 {name}",
+		"confirmDelete": "Delete “{name}”?",
 		"imported": "已导入",
 		"playthroughs": "{count, plural, other {# 条游玩记录}}",
 		"play": "开玩",
@@ -61,6 +62,7 @@
 		"duplicate": "Duplicate",
 		"duplicateNamed": "Duplicate {name}",
 		"delete": "删除蓝图",
+		"confirmDelete": "Delete “{name}”?",
 		"empty": "还没有蓝图。"
 	},
 	"newMenu": {

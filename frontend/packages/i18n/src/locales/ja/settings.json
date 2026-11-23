@@ -27,6 +27,7 @@
 		"members": "メンバー",
 		"noMembers": "このロールを持つ人はまだいません。",
 		"removeMember": "{name}を削除",
+		"confirmRemoveMember": "Remove {name} from this role?",
 		"username": "ユーザー名",
 		"add": "追加"
 	},
@@ -81,7 +82,8 @@
 		"expiry": "有効期限",
 		"roleOnSignup": "登録時に付与するロール",
 		"created": "{date}に作成",
-		"deleteInvite": "招待を削除"
+		"deleteInvite": "招待を削除",
+		"confirmDeleteInvite": "Delete this invite? Its code will stop working."
 	},
 	"editor": {
 		"suggestCrossBook": "ブックをまたぐIDを提案",
@@ -126,6 +128,7 @@
 		"intro": "プロファイルはインスペクターの1列分です。各ビューでどのウィジェットを、どの順序で表示するかを決めます。プロファイルはインスペクターの上にアイコンボタンとして表示され、現在のビューに設定がないものはグレーアウトされて最後に並びます。",
 		"addProfile": "プロファイルを追加",
 		"deleteProfile": "プロファイルを削除",
+		"confirmDeleteProfile": "Delete “{name}”?",
 		"moveUp": "上へ移動",
 		"moveDown": "下へ移動",
 		"remove": "削除",
@@ -159,6 +162,7 @@
 		"styleAuthor": "スタイルの作者",
 		"authorPlaceholder": "作者の名前",
 		"deleteStyle": "このスタイルを削除",
+		"confirmDeleteStyle": "Delete “{name}”?",
 		"backdrop": "背景",
 		"backdropAlt": "現在の背景",
 		"replaceImage": "画像を置き換え",
@@ -335,7 +339,8 @@
 		"loading": "読み込み中…",
 		"empty": "トークナイザーはまだありません — インポートして始めましょう。",
 		"active": "アクティブ",
-		"setActive": "アクティブに設定"
+		"setActive": "アクティブに設定",
+		"confirmDelete": "Delete “{name}”?"
 	},
 	"profile": {
 		"stats": {

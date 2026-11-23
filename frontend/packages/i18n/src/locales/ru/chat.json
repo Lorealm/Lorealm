@@ -45,7 +45,8 @@
 		"continue": "Продолжить этот ответ",
 		"thoughts": "Мысли",
 		"thinking": "Размышление…",
-		"swipe": "Листать"
+		"swipe": "Листать",
+		"confirmDelete": "Delete this message and its replies?"
 	},
 	"setup": {
 		"title": "Добро пожаловать в Lorealm",

@@ -43,6 +43,7 @@
 		"untitled": "Мир без названия",
 		"delete": "Удалить мир",
 		"deleteNamed": "Удалить «{name}»",
+		"confirmDelete": "Delete “{name}”?",
 		"imported": "импортирован",
 		"playthroughs": "{count, plural, one {# прохождение} few {# прохождения} many {# прохождений} other {# прохождения}}",
 		"play": "Играть",
@@ -61,6 +62,7 @@
 		"duplicate": "Duplicate",
 		"duplicateNamed": "Duplicate {name}",
 		"delete": "Удалить заготовку",
+		"confirmDelete": "Delete “{name}”?",
 		"empty": "Заготовок пока нет."
 	},
 	"newMenu": {

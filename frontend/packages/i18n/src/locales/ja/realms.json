@@ -43,6 +43,7 @@
 		"untitled": "無題のレルム",
 		"delete": "レルムを削除",
 		"deleteNamed": "{name}を削除",
+		"confirmDelete": "Delete “{name}”?",
 		"imported": "インポート済み",
 		"playthroughs": "{count, plural, other {# 件のプレイスルー}}",
 		"play": "プレイ",
@@ -61,6 +62,7 @@
 		"duplicate": "Duplicate",
 		"duplicateNamed": "Duplicate {name}",
 		"delete": "ブループリントを削除",
+		"confirmDelete": "Delete “{name}”?",
 		"empty": "ブループリントはまだありません。"
 	},
 	"newMenu": {

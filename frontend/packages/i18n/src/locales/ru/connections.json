@@ -14,6 +14,7 @@
 	"makeActive": "Сделать «{name}» активным подключением",
 	"deleteProfile": "Удалить профиль",
 	"deleteNamed": "Удалить «{name}»",
+	"confirmDelete": "Delete “{name}”?",
 	"providerDefault": "Использовать значение провайдера",
 	"openAiCompatible": "Совместимо с OpenAI",
 	"editor": {
@@ -90,6 +91,7 @@
 		"unnamed": "Ключ без названия",
 		"required": "Нужны название и ключ.",
 		"rename": "Переименовать",
+		"confirmDelete": "Delete “{name}”?",
 		"none": "Сохранённых ключей нет.",
 		"add": "Добавить ключ",
 		"provider": "Провайдер",

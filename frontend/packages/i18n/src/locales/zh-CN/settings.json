@@ -27,6 +27,7 @@
 		"members": "成员",
 		"noMembers": "还没有人拥有此身份组。",
 		"removeMember": "移除 {name}",
+		"confirmRemoveMember": "Remove {name} from this role?",
 		"username": "用户名",
 		"add": "添加"
 	},
@@ -81,7 +82,8 @@
 		"expiry": "有效期",
 		"roleOnSignup": "注册时授予的身份组",
 		"created": "{date} 创建",
-		"deleteInvite": "删除邀请"
+		"deleteInvite": "删除邀请",
+		"confirmDeleteInvite": "Delete this invite? Its code will stop working."
 	},
 	"editor": {
 		"suggestCrossBook": "建议跨书 ID",
@@ -126,6 +128,7 @@
 		"intro": "配置是检查器中的一列：它决定每个视图显示哪些小组件以及显示顺序。配置会以图标按钮的形式显示在检查器上方；当前视图下未配置任何内容的配置会置灰并排在最后。",
 		"addProfile": "添加配置",
 		"deleteProfile": "删除配置",
+		"confirmDeleteProfile": "Delete “{name}”?",
 		"moveUp": "上移",
 		"moveDown": "下移",
 		"remove": "移除",
@@ -159,6 +162,7 @@
 		"styleAuthor": "样式作者",
 		"authorPlaceholder": "作者姓名",
 		"deleteStyle": "删除此样式",
+		"confirmDeleteStyle": "Delete “{name}”?",
 		"backdrop": "背景",
 		"backdropAlt": "当前背景",
 		"replaceImage": "更换图像",
@@ -335,7 +339,8 @@
 		"loading": "正在加载…",
 		"empty": "还没有分词器——导入一个即可开始。",
 		"active": "当前",
-		"setActive": "设为当前"
+		"setActive": "设为当前",
+		"confirmDelete": "Delete “{name}”?"
 	},
 	"profile": {
 		"stats": {

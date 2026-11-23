@@ -43,6 +43,7 @@
 		"untitled": "Royaume sans titre",
 		"delete": "Supprimer le royaume",
 		"deleteNamed": "Supprimer {name}",
+		"confirmDelete": "Delete “{name}”?",
 		"imported": "importé",
 		"playthroughs": "{count, plural, one {# partie} many {# parties} other {# parties}}",
 		"play": "Jouer",
@@ -61,6 +62,7 @@
 		"duplicate": "Duplicate",
 		"duplicateNamed": "Duplicate {name}",
 		"delete": "Supprimer le plan",
+		"confirmDelete": "Delete “{name}”?",
 		"empty": "Aucun plan pour l’instant."
 	},
 	"newMenu": {

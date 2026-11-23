@@ -27,6 +27,7 @@
 		"members": "Membros",
 		"noMembers": "Ninguém tem este cargo ainda.",
 		"removeMember": "Remover {name}",
+		"confirmRemoveMember": "Remove {name} from this role?",
 		"username": "Nome de usuário",
 		"add": "Adicionar"
 	},
@@ -81,7 +82,8 @@
 		"expiry": "Expiração",
 		"roleOnSignup": "Cargo atribuído no cadastro",
 		"created": "Criado em {date}",
-		"deleteInvite": "Excluir convite"
+		"deleteInvite": "Excluir convite",
+		"confirmDeleteInvite": "Delete this invite? Its code will stop working."
 	},
 	"editor": {
 		"suggestCrossBook": "Sugerir IDs entre livros",
@@ -126,6 +128,7 @@
 		"intro": "Um perfil é uma coluna do inspetor: ele decide quais widgets cada tela mostra e em que ordem. Os perfis aparecem como botões de ícone acima do inspetor; os que não têm nada configurado para a tela atual ficam esmaecidos e vão para o fim.",
 		"addProfile": "Adicionar perfil",
 		"deleteProfile": "Excluir perfil",
+		"confirmDeleteProfile": "Delete “{name}”?",
 		"moveUp": "Mover para cima",
 		"moveDown": "Mover para baixo",
 		"remove": "Remover",
@@ -159,6 +162,7 @@
 		"styleAuthor": "Autor do estilo",
 		"authorPlaceholder": "O nome do autor",
 		"deleteStyle": "Excluir este estilo",
+		"confirmDeleteStyle": "Delete “{name}”?",
 		"backdrop": "Plano de fundo",
 		"backdropAlt": "O plano de fundo atual",
 		"replaceImage": "Substituir imagem",
@@ -335,7 +339,8 @@
 		"loading": "Carregando…",
 		"empty": "Ainda não há tokenizadores — importe um para começar.",
 		"active": "Ativo",
-		"setActive": "Definir como ativo"
+		"setActive": "Definir como ativo",
+		"confirmDelete": "Delete “{name}”?"
 	},
 	"profile": {
 		"stats": {

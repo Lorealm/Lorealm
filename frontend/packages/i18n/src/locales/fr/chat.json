@@ -45,7 +45,8 @@
 		"continue": "Poursuivre cette réponse",
 		"thoughts": "Réflexions",
 		"thinking": "Réflexion…",
-		"swipe": "Swipe"
+		"swipe": "Swipe",
+		"confirmDelete": "Delete this message and its replies?"
 	},
 	"setup": {
 		"title": "Bienvenue dans Lorealm",

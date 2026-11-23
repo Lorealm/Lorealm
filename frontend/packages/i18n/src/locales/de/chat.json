@@ -45,7 +45,8 @@
 		"continue": "Diese Antwort fortsetzen",
 		"thoughts": "Gedanken",
 		"thinking": "Denkt nach…",
-		"swipe": "Wischen"
+		"swipe": "Wischen",
+		"confirmDelete": "Delete this message and its replies?"
 	},
 	"setup": {
 		"title": "Willkommen bei Lorealm",

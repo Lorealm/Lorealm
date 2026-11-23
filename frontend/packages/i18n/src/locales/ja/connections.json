@@ -14,6 +14,7 @@
 	"makeActive": "{name}をアクティブな接続に設定",
 	"deleteProfile": "プロファイルを削除",
 	"deleteNamed": "{name}を削除",
+	"confirmDelete": "Delete “{name}”?",
 	"providerDefault": "プロバイダーのデフォルトを使用",
 	"openAiCompatible": "OpenAI互換",
 	"editor": {
@@ -90,6 +91,7 @@
 		"unnamed": "名前のないキー",
 		"required": "ラベルとキーは必須です。",
 		"rename": "名前を変更",
+		"confirmDelete": "Delete “{name}”?",
 		"none": "保存されているキーはありません。",
 		"add": "キーを追加",
 		"provider": "プロバイダー",

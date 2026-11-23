@@ -43,6 +43,7 @@
 		"untitled": "Rike uten navn",
 		"delete": "Slett rike",
 		"deleteNamed": "Slett {name}",
+		"confirmDelete": "Delete “{name}”?",
 		"imported": "importert",
 		"playthroughs": "{count, plural, one {# gjennomspilling} other {# gjennomspillinger}}",
 		"play": "Spill",
@@ -61,6 +62,7 @@
 		"duplicate": "Duplicate",
 		"duplicateNamed": "Duplicate {name}",
 		"delete": "Slett blåkopi",
+		"confirmDelete": "Delete “{name}”?",
 		"empty": "Ingen blåkopier ennå."
 	},
 	"newMenu": {

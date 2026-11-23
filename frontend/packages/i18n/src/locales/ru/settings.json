@@ -27,6 +27,7 @@
 		"members": "Участники",
 		"noMembers": "Эту роль пока никто не имеет.",
 		"removeMember": "Убрать: {name}",
+		"confirmRemoveMember": "Remove {name} from this role?",
 		"username": "Имя пользователя",
 		"add": "Добавить"
 	},
@@ -81,7 +82,8 @@
 		"expiry": "Срок действия",
 		"roleOnSignup": "Роль при регистрации",
 		"created": "Создано: {date}",
-		"deleteInvite": "Удалить приглашение"
+		"deleteInvite": "Удалить приглашение",
+		"confirmDeleteInvite": "Delete this invite? Its code will stop working."
 	},
 	"editor": {
 		"suggestCrossBook": "Подсказывать ID из других лорбуков",
@@ -126,6 +128,7 @@
 		"intro": "Профиль — это один столбец инспектора: он определяет, какие виджеты показывает каждый раздел и в каком порядке. Профили отображаются кнопками-значками над инспектором; те, для которых в текущем разделе ничего не настроено, затемнены и стоят в конце.",
 		"addProfile": "Добавить профиль",
 		"deleteProfile": "Удалить профиль",
+		"confirmDeleteProfile": "Delete “{name}”?",
 		"moveUp": "Вверх",
 		"moveDown": "Вниз",
 		"remove": "Убрать",
@@ -159,6 +162,7 @@
 		"styleAuthor": "Автор стиля",
 		"authorPlaceholder": "Имя автора",
 		"deleteStyle": "Удалить этот стиль",
+		"confirmDeleteStyle": "Delete “{name}”?",
 		"backdrop": "Фон",
 		"backdropAlt": "Текущий фон",
 		"replaceImage": "Заменить изображение",
@@ -335,7 +339,8 @@
 		"loading": "Загрузка…",
 		"empty": "Токенайзеров пока нет — импортируйте один, чтобы начать.",
 		"active": "Активный",
-		"setActive": "Сделать активным"
+		"setActive": "Сделать активным",
+		"confirmDelete": "Delete “{name}”?"
 	},
 	"profile": {
 		"stats": {

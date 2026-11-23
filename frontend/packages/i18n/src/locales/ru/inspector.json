@@ -10,7 +10,12 @@
 		"state": "Состояние",
 		"realmAgent": "Агент мира",
 		"authorNote": "Заметка автора",
-		"creatorNotes": "Заметки создателя"
+		"creatorNotes": "Заметки создателя",
+		"styleVariables": "Style Variables"
+	},
+	"styleVariables": {
+		"copied": "Copied",
+		"search": "Search variables…"
 	},
 	"creatorNotes": {
 		"loading": "Загрузка…",
