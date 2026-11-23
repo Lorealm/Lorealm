@@ -43,6 +43,7 @@
 		"untitled": "Realm ohne Titel",
 		"delete": "Realm löschen",
 		"deleteNamed": "{name} löschen",
+		"confirmDelete": "Delete “{name}”?",
 		"imported": "importiert",
 		"playthroughs": "{count, plural, one {# Durchlauf} other {# Durchläufe}}",
 		"play": "Spielen",
@@ -61,6 +62,7 @@
 		"duplicate": "Duplicate",
 		"duplicateNamed": "Duplicate {name}",
 		"delete": "Blueprint löschen",
+		"confirmDelete": "Delete “{name}”?",
 		"empty": "Noch keine Blueprints."
 	},
 	"newMenu": {
