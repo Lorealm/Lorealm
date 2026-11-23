@@ -2,6 +2,7 @@
 //! mimics it (KoboldCPP, llama.cpp, vLLM, LM Studio, Ollama, TabbyAPI, ...).
 
 use super::openai_wire::{self, WireMessage, WireTool};
+use super::text_completion::{self, InstructTemplate};
 use crate::{error::*, streaming::parse_sse_stream, types::*};
 use async_trait::async_trait;
 use futures::Stream;
@@ -26,6 +27,10 @@ pub struct OpenAiOptions {
     /// `http://localhost:5001/v1`. Defaults to [`OPENAI_DEFAULT_BASE_URL`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub base_url: Option<String>,
+    /// When set, requests go to `/completions` as one prompt rendered with
+    /// this template, for models served without a usable chat template.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub template: Option<InstructTemplate>,
 }
 
 impl OpenAiProvider {
@@ -53,6 +58,29 @@ impl OpenAiProvider {
             Some(key) => builder.header("Authorization", format!("Bearer {}", key)),
             None => builder,
         }
+    }
+
+    async fn post_text(
+        &self,
+        template: &InstructTemplate,
+        messages: &[Message],
+        params: &CommonParams,
+        stream: bool,
+    ) -> Result<reqwest::Response> {
+        let request = text_completion::to_request(&self.model, template, messages, params, stream);
+        let builder = super::with_custom_fields(
+            self.authorize(self.client.post(format!("{}/completions", self.base_url))),
+            &request,
+            params,
+        );
+        let response = builder.send().await?;
+
+        if !response.status().is_success() {
+            let status = response.status().as_u16();
+            let message = response.text().await.unwrap_or_default();
+            return Err(Error::ApiError { status, message });
+        }
+        Ok(response)
     }
 
     fn build_request(
@@ -119,8 +147,13 @@ impl super::LlmProvider for OpenAiProvider {
         &self,
         messages: Vec<Message>,
         params: &CommonParams,
-        _provider_params: &Self::ProviderParams,
+        provider_params: &Self::ProviderParams,
     ) -> Result<Response> {
+        if let Some(template) = &provider_params.template {
+            let response = self.post_text(template, &messages, params, false).await?;
+            return text_completion::to_response(response.json().await?);
+        }
+
         let request = self.build_request(messages, params, false);
 
         let builder = super::with_custom_fields(
@@ -146,8 +179,14 @@ impl super::LlmProvider for OpenAiProvider {
         &self,
         messages: Vec<Message>,
         params: &CommonParams,
-        _provider_params: &Self::ProviderParams,
+        provider_params: &Self::ProviderParams,
     ) -> Result<Box<dyn Stream<Item = Result<Delta>> + Unpin + Send>> {
+        if let Some(template) = &provider_params.template {
+            let response = self.post_text(template, &messages, params, true).await?;
+            let stream = parse_sse_stream(response.bytes_stream(), text_completion::to_delta);
+            return Ok(Box::new(Box::pin(stream)));
+        }
+
         let request = self.build_request(messages, params, true);
 
         let builder = super::with_custom_fields(

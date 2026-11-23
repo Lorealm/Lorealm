@@ -768,6 +768,28 @@ export type Messages = {
 			blockMedium: string;
 			/** Block low risk and above */
 			blockLow: string;
+			/** Text completion */
+			textCompletion: string;
+			/** Off (send chat messages) */
+			textCompletionOff: string;
+			/** Custom */
+			custom: string;
+			/** Instruct template */
+			instructTemplate: string;
+			/** System prefix */
+			systemPrefix: string;
+			/** System suffix */
+			systemSuffix: string;
+			/** User prefix */
+			userPrefix: string;
+			/** User suffix */
+			userSuffix: string;
+			/** Assistant prefix */
+			assistantPrefix: string;
+			/** Assistant suffix */
+			assistantSuffix: string;
+			/** Each message is wrapped in its role’s prefix and suffix, and the reply starts after the assistant prefix. The reply stops at the assistant suffix or the user prefix. Tools aren’t available in this mode. */
+			instructTemplateHint: string;
 			/** Custom fields */
 			customFields: string;
 			/** Add to request */

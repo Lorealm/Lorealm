@@ -6,6 +6,8 @@
 		PROVIDER_SCHEMAS,
 		VERTEX_THINKING_BUDGET,
 		getProviderSchema,
+		INSTRUCT_PRESETS,
+		type InstructTemplate,
 		OPENROUTER_REASONING_BUDGET,
 		TOKEN_BUDGET,
 		TOOL_ROUNDS
@@ -122,6 +124,37 @@
 		if (v === '') delete draft.provider_params[key];
 		else draft.provider_params[key] = v;
 		requestSave();
+	}
+
+	const template = $derived(
+		draft.provider_params.template as unknown as InstructTemplate | undefined
+	);
+	const templatePreset = $derived.by(() => {
+		const current = template;
+		if (!current) return 'off';
+		const match = INSTRUCT_PRESETS.find((p) =>
+			(Object.keys(p.template) as (keyof InstructTemplate)[]).every(
+				(k) => p.template[k] === current[k]
+			)
+		);
+		return match?.name ?? 'custom';
+	});
+	const templateFields = $derived([
+		['system_prefix', t.connections.editor.systemPrefix],
+		['system_suffix', t.connections.editor.systemSuffix],
+		['user_prefix', t.connections.editor.userPrefix],
+		['user_suffix', t.connections.editor.userSuffix],
+		['assistant_prefix', t.connections.editor.assistantPrefix],
+		['assistant_suffix', t.connections.editor.assistantSuffix]
+	] as const);
+	function setTemplate(t: InstructTemplate | undefined) {
+		if (t) draft.provider_params.template = { ...t } as unknown as JsonValue;
+		else delete draft.provider_params.template;
+		requestSave();
+	}
+	function changeTemplatePreset(e: Event) {
+		const name = (e.currentTarget as HTMLSelectElement).value;
+		setTemplate(INSTRUCT_PRESETS.find((p) => p.name === name)?.template);
 	}
 
 	// Recent Claude models refuse requests that set these.
@@ -386,6 +419,39 @@
 					onchange={(e) => setTextParam('base_url', e)}
 				/>
 			</label>
+			{#if isOpenAi}
+				<label class="field">
+					<span>{t.connections.editor.textCompletion}</span>
+					<select value={templatePreset} onchange={changeTemplatePreset}>
+						<option value="off">{t.connections.editor.textCompletionOff}</option>
+						{#each INSTRUCT_PRESETS as preset (preset.name)}
+							<option value={preset.name}>{preset.name}</option>
+						{/each}
+						{#if templatePreset === 'custom'}
+							<option value="custom">{t.connections.editor.custom}</option>
+						{/if}
+					</select>
+				</label>
+			{/if}
+		</section>
+	{/if}
+
+	{#if isOpenAi && template}
+		<section class="group">
+			<h3>{t.connections.editor.instructTemplate}</h3>
+			<div class="template-grid">
+				{#each templateFields as [key, label] (key)}
+					<label class="field">
+						<span>{label}</span>
+						<textarea
+							rows="2"
+							value={template[key]}
+							onchange={(e) => setTemplate({ ...template, [key]: e.currentTarget.value })}
+						></textarea>
+					</label>
+				{/each}
+			</div>
+			<p class="hint">{t.connections.editor.instructTemplateHint}</p>
 		</section>
 	{/if}
 
@@ -728,6 +794,11 @@
 		margin: 0;
 		font-size: var(--font-size-sm);
 		opacity: 0.7;
+	}
+	.template-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+		gap: var(--spacing-sm);
 	}
 	textarea {
 		font-family: var(--font-family-mono);

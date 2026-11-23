@@ -82,6 +82,7 @@ mod gemini_wire;
 mod openai;
 mod openai_wire;
 mod openrouter;
+mod text_completion;
 mod vertex;
 
 pub use anthropic::{
@@ -92,6 +93,7 @@ pub use openrouter::{
     OpenRouterOptions, OpenRouterProvider, OpenRouterProviderPreference, OpenRouterReasoning,
 };
 use serde::Serialize;
+pub use text_completion::InstructTemplate;
 pub use vertex::{
     VERTEX_DEFAULT_LOCATION, VertexAuth, VertexOptions, VertexProvider, VertexSafetySetting,
     VertexThinking,
