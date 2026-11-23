@@ -4108,8 +4108,6 @@ export type Messages = {
 			widget: string;
 			/** Untitled */
 			untitled: string;
-			/** Built-in widget */
-			builtInWidget: string;
 			/** Edit widget */
 			edit: string;
 			/** Export */
@@ -4140,20 +4138,24 @@ export type Messages = {
 			every: string;
 			/** Properties */
 			properties: string;
-			/** name */
-			propPlaceholder: string;
-			/** Remove prop */
-			removeProp: string;
+			/** Values the model fills in each time it places this attachment. Press Enter to add one. */
+			propertiesHint: string;
 			/** Add prop */
 			addProp: string;
 			/** HTML source */
 			htmlSource: string;
+			/** Model */
+			tabModel: string;
+			/** Settings */
+			tabSettings: string;
 			/** Preview */
 			preview: string;
 			/** Test payload (JSON) */
 			testPayload: string;
 			/** Not a JSON object; showing the last valid payload. */
 			payloadInvalid: string;
+			/** Reset to sample */
+			resetPayload: string;
 			/** Widget preview */
 			previewTitle: string;
 			/** Directive */
@@ -4172,8 +4174,10 @@ export type Messages = {
 			renderPlaceholderAttachment: string;
 			/** Affection \'{'\'{'relationship:affection\'}'\'}'/10, trust \'{'\'{';relationship:trust\'}'\'}'/10. */
 			renderPlaceholderWidget: string;
-			/** Tools — made available to the model whenever this widget is active. Imported into a realm with the widget; no separate tool import needed. */
+			/** Tools */
 			tools: string;
+			/** Available to the model whenever this widget is active, and imported into a realm along with the widget. */
+			toolsHint: string;
 			/** Remove tool */
 			removeTool: string;
 			/** Add a tool… */

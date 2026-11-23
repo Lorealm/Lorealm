@@ -124,7 +124,6 @@
 
 <iframe
 	class="static-widget"
-	class:bare={kind === 'props'}
 	{title}
 	sandbox="allow-scripts"
 	srcdoc={source + HOST_SCRIPT}
@@ -134,16 +133,11 @@
 ></iframe>
 
 <style>
-	.static-widget.bare {
-		border: none;
-		border-radius: 0;
-		background: transparent;
-	}
+	/* Bare: the widget's own HTML decides how it looks. */
 	.static-widget {
 		display: block;
 		width: 100%;
-		border: 1px solid var(--color-border-subtle);
-		border-radius: var(--radius-lg);
-		background: var(--color-bg-elevated);
+		border: none;
+		background: transparent;
 	}
 </style>
