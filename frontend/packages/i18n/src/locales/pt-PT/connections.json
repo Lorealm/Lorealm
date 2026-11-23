@@ -14,6 +14,7 @@
 	"makeActive": "Definir {name} como a ligação ativa",
 	"deleteProfile": "Eliminar perfil",
 	"deleteNamed": "Eliminar {name}",
+	"confirmDelete": "Delete “{name}”?",
 	"providerDefault": "Usar a predefinição do fornecedor",
 	"openAiCompatible": "Compatível com OpenAI",
 	"editor": {
@@ -90,6 +91,7 @@
 		"unnamed": "Chave sem nome",
 		"required": "A etiqueta e a chave são obrigatórias.",
 		"rename": "Renomear",
+		"confirmDelete": "Delete “{name}”?",
 		"none": "Nenhuma chave guardada.",
 		"add": "Adicionar chave",
 		"provider": "Fornecedor",
