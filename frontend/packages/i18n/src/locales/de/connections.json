@@ -14,6 +14,7 @@
 	"makeActive": "{name} als aktive Verbindung festlegen",
 	"deleteProfile": "Profil löschen",
 	"deleteNamed": "{name} löschen",
+	"confirmDelete": "Delete “{name}”?",
 	"providerDefault": "Standard des Anbieters verwenden",
 	"openAiCompatible": "OpenAI-kompatibel",
 	"editor": {
@@ -90,6 +91,7 @@
 		"unnamed": "Unbenannter Schlüssel",
 		"required": "Bezeichnung und Schlüssel sind erforderlich.",
 		"rename": "Umbenennen",
+		"confirmDelete": "Delete “{name}”?",
 		"none": "Keine Schlüssel gespeichert.",
 		"add": "Schlüssel hinzufügen",
 		"provider": "Anbieter",
