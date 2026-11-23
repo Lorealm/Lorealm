@@ -26,11 +26,9 @@ export function rootVariableEntries(): [string, string][] {
 	}
 
 	const computed = getComputedStyle(document.documentElement);
-	return (
-		[...names]
-			.map((name): [string, string] => [name, computed.getPropertyValue(name).trim()])
-			.filter(([, value]) => value !== '' && !/[<{}]/.test(value))
-	);
+	return [...names]
+		.map((name): [string, string] => [name, computed.getPropertyValue(name).trim()])
+		.filter(([, value]) => value !== '' && !/[<{}]/.test(value));
 }
 
 /**
