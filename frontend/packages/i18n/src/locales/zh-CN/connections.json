@@ -14,6 +14,7 @@
 	"makeActive": "将 {name} 设为当前连接",
 	"deleteProfile": "删除配置",
 	"deleteNamed": "删除 {name}",
+	"confirmDelete": "Delete “{name}”?",
 	"providerDefault": "使用提供商默认值",
 	"openAiCompatible": "OpenAI 兼容",
 	"editor": {
@@ -90,6 +91,7 @@
 		"unnamed": "未命名密钥",
 		"required": "标签和密钥为必填项。",
 		"rename": "重命名",
+		"confirmDelete": "Delete “{name}”?",
 		"none": "尚未存储密钥。",
 		"add": "添加密钥",
 		"provider": "提供商",
