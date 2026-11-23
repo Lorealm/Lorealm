@@ -27,6 +27,7 @@
 		"members": "Miembros",
 		"noMembers": "Nadie tiene este rol todavía.",
 		"removeMember": "Quitar a {name}",
+		"confirmRemoveMember": "Remove {name} from this role?",
 		"username": "Nombre de usuario",
 		"add": "Añadir"
 	},
@@ -81,7 +82,8 @@
 		"expiry": "Caducidad",
 		"roleOnSignup": "Rol asignado al registrarse",
 		"created": "Creada el {date}",
-		"deleteInvite": "Eliminar invitación"
+		"deleteInvite": "Eliminar invitación",
+		"confirmDeleteInvite": "Delete this invite? Its code will stop working."
 	},
 	"editor": {
 		"suggestCrossBook": "Sugerir IDs de otros libros",
@@ -126,6 +128,7 @@
 		"intro": "Un perfil es una columna del inspector: decide qué widgets muestra cada vista y en qué orden. Los perfiles aparecen como botones con icono sobre el inspector; los que no tienen nada configurado para la vista actual aparecen atenuados y se ordenan al final.",
 		"addProfile": "Añadir perfil",
 		"deleteProfile": "Eliminar perfil",
+		"confirmDeleteProfile": "Delete “{name}”?",
 		"moveUp": "Subir",
 		"moveDown": "Bajar",
 		"remove": "Quitar",
@@ -159,6 +162,7 @@
 		"styleAuthor": "Autor del estilo",
 		"authorPlaceholder": "El nombre del autor",
 		"deleteStyle": "Eliminar este estilo",
+		"confirmDeleteStyle": "Delete “{name}”?",
 		"backdrop": "Fondo",
 		"backdropAlt": "El fondo actual",
 		"replaceImage": "Reemplazar imagen",
@@ -335,7 +339,8 @@
 		"loading": "Cargando…",
 		"empty": "Aún no hay tokenizadores — importa uno para empezar.",
 		"active": "Activo",
-		"setActive": "Activar"
+		"setActive": "Activar",
+		"confirmDelete": "Delete “{name}”?"
 	},
 	"profile": {
 		"stats": {
