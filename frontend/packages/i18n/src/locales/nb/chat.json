@@ -45,7 +45,8 @@
 		"continue": "Fortsett dette svaret",
 		"thoughts": "Tanker",
 		"thinking": "Tenker…",
-		"swipe": "Bla"
+		"swipe": "Bla",
+		"confirmDelete": "Delete this message and its replies?"
 	},
 	"setup": {
 		"title": "Velkommen til Lorealm",
