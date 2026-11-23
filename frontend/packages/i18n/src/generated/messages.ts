@@ -974,6 +974,14 @@ export type Messages = {
 			authorNote: string;
 			/** Creator's Notes */
 			creatorNotes: string;
+			/** Style Variables */
+			styleVariables: string;
+		};
+		styleVariables: {
+			/** Copied */
+			copied: string;
+			/** Search variables… */
+			search: string;
 		};
 		creatorNotes: {
 			/** Loading… */
@@ -4140,8 +4148,12 @@ export type Messages = {
 			addProp: string;
 			/** HTML source */
 			htmlSource: string;
-			/** Preview (sample state) */
+			/** Preview */
 			preview: string;
+			/** Test payload (JSON) */
+			testPayload: string;
+			/** Not a JSON object; showing the last valid payload. */
+			payloadInvalid: string;
 			/** Widget preview */
 			previewTitle: string;
 			/** Directive */

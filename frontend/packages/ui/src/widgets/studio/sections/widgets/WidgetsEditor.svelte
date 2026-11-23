@@ -6,10 +6,11 @@
 	import { toolStore } from '#lib/stores/tools.svelte.js';
 	import { userWidgetStore } from '#lib/stores/userWidgets.svelte.js';
 	import { exportItem } from '#lib/stores/transfer.js';
-	import type { Snowflake } from '#lib/types/core.js';
+	import type { JsonValue, Snowflake } from '#lib/types/core.js';
 	import type { WidgetMode, WidgetPlacement } from '#lib/types/widgets.js';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import ContextField from '#lib/components/ContextField.svelte';
+	import StateFrame from '#lib/components/StateFrame.svelte';
 	import ListSidebar from '#lib/components/ListSidebar.svelte';
 	import Badge from '#lib/widgets/realms/Badge.svelte';
 	import { LayoutDashboard, Paperclip } from '@lucide/svelte';
@@ -106,6 +107,7 @@ ${'</'}script>
 			draftPlacement = selected.placement;
 			draftMode = selected.mode;
 			draftProps = [...selected.props];
+			untrack(resetPayload);
 			syncedId = selected.id;
 		} else if (!selected) {
 			loadedId = null;
@@ -202,26 +204,32 @@ ${'</'}script>
 		if (selectedId === id) navigator.start().studio().widgets();
 	}
 
-	let previewFrame = $state<HTMLIFrameElement | null>(null);
-
 	const SAMPLE = {
 		world: { season: 'winter' },
 		self: { stamina: 3, inventory: { sword: 1, potion: 2 } }
 	};
 
-	const previewPayload = $derived(
-		isAttachment ? Object.fromEntries(draftProps.filter(Boolean).map((p) => [p, `<${p}>`])) : SAMPLE
-	);
-	function feedPreview() {
-		const payload = $state.snapshot(previewPayload);
-		previewFrame?.contentWindow?.postMessage(
-			{
-				type: isAttachment ? 'lorealm:props' : 'lorealm:state',
-				state: payload,
-				props: payload
-			},
-			'*'
-		);
+	let payloadText = $state('');
+	let payload = $state<Record<string, JsonValue>>({});
+	let payloadInvalid = $state(false);
+
+	function resetPayload() {
+		const seed =
+			draftPlacement === 'attachment'
+				? Object.fromEntries(draftProps.filter(Boolean).map((p) => [p, `<${p}>`]))
+				: SAMPLE;
+		payloadText = JSON.stringify(seed, null, 2);
+		applyPayload();
+	}
+
+	function applyPayload() {
+		try {
+			const parsed: unknown = JSON.parse(payloadText);
+			payloadInvalid = parsed === null || typeof parsed !== 'object' || Array.isArray(parsed);
+			if (!payloadInvalid) payload = parsed as Record<string, JsonValue>;
+		} catch {
+			payloadInvalid = true;
+		}
 	}
 </script>
 
@@ -352,7 +360,13 @@ ${'</'}script>
 						</label>
 						<label>
 							<span>{t.studio.widgets.placement}</span>
-							<select bind:value={draftPlacement} onchange={requestSave}>
+							<select
+								bind:value={draftPlacement}
+								onchange={() => {
+									resetPayload();
+									requestSave();
+								}}
+							>
 								<option value="widget">{t.studio.widgets.placementWidget}</option>
 								<option value="attachment">{t.studio.widgets.placementAttachment}</option>
 							</select>
@@ -406,15 +420,27 @@ ${'</'}script>
 
 						<div class="previewBox">
 							<span>{t.studio.widgets.preview}</span>
-							{#key draftSource}
-								<iframe
+							<div class="previewFrame">
+								<StateFrame
+									source={draftSource}
+									slice={payload}
 									title={t.studio.widgets.previewTitle}
-									sandbox="allow-scripts"
-									srcdoc={draftSource}
-									bind:this={previewFrame}
-									onload={feedPreview}
-								></iframe>
-							{/key}
+									kind={isAttachment ? 'props' : 'state'}
+								/>
+							</div>
+							<label class="payloadBox">
+								<span>{t.studio.widgets.testPayload}</span>
+								<textarea
+									spellcheck="false"
+									rows="8"
+									class:invalid={payloadInvalid}
+									bind:value={payloadText}
+									oninput={applyPayload}
+								></textarea>
+								{#if payloadInvalid}
+									<span class="payloadError">{t.studio.widgets.payloadInvalid}</span>
+								{/if}
+							</label>
 						</div>
 					</div>
 
@@ -747,12 +773,25 @@ ${'</'}script>
 		color: var(--color-text-secondary);
 	}
 
-	.previewBox > iframe {
+	.previewFrame {
 		flex: 1;
 		min-height: 0;
-		border: 1px solid var(--color-border-subtle);
-		border-radius: var(--radius-md);
-		background: var(--color-bg-elevated);
+		overflow-y: auto;
+	}
+
+	.payloadBox textarea {
+		font-family: var(--font-family-mono);
+		font-size: var(--font-size-sm);
+		resize: vertical;
+	}
+
+	.payloadBox textarea.invalid {
+		border-color: var(--color-error-text);
+	}
+
+	.payloadBox > .payloadError {
+		color: var(--color-error-text);
+		font-size: var(--font-size-xs);
 	}
 
 	.empty {

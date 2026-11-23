@@ -8,6 +8,14 @@ export interface FrameFont {
 
 /** Every custom property the app's stylesheets declare on `:root` */
 export function rootVariables(): string {
+	const declarations = rootVariableEntries()
+		.map(([name, value]) => `${name}: ${value};`)
+		.join(' ');
+	return `:root { ${declarations} }`;
+}
+
+/** The `[name, value]` pairs behind {@link rootVariables}. */
+export function rootVariableEntries(): [string, string][] {
 	const names = new Set<string>();
 	for (const rule of cssRules()) {
 		if (rule instanceof CSSStyleRule && rule.selectorText === ':root') {
@@ -18,13 +26,11 @@ export function rootVariables(): string {
 	}
 
 	const computed = getComputedStyle(document.documentElement);
-	const declarations = [...names]
-		.map((name) => [name, computed.getPropertyValue(name).trim()])
-		// Nothing that could end the `<style>` or rule it's written into.
-		.filter(([, value]) => value !== '' && !/[<{}]/.test(value))
-		.map(([name, value]) => `${name}: ${value};`)
-		.join(' ');
-	return `:root { ${declarations} }`;
+	return (
+		[...names]
+			.map((name): [string, string] => [name, computed.getPropertyValue(name).trim()])
+			.filter(([, value]) => value !== '' && !/[<{}]/.test(value))
+	);
 }
 
 /**
