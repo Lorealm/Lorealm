@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfirmDelete from '#lib/components/ConfirmDelete.svelte';
 	import { t } from '#lib/stores/i18n.svelte.js';
 	import { connectionStore } from '#lib/stores/connection.svelte.js';
 	import { pluginsStore } from '#lib/stores/plugins.svelte.js';
@@ -97,9 +98,14 @@
 					<button class="action" type="button" onclick={() => startRename(secret)}
 						>{t.connections.secrets.rename}</button
 					>
-					<button class="action" type="button" onclick={() => removeSecret(secret)}
-						>{t.common.delete}</button
+					<ConfirmDelete
+						prompt={t.connections.secrets.confirmDelete({ name: secret.label })}
+						onConfirm={() => removeSecret(secret)}
 					>
+						{#snippet trigger(arm)}
+							<button class="action" type="button" onclick={arm}>{t.common.delete}</button>
+						{/snippet}
+					</ConfirmDelete>
 				</li>
 			{:else}
 				<li class="none">{t.connections.secrets.none}</li>

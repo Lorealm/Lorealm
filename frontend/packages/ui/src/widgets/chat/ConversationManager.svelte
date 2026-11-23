@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfirmDelete from '#lib/components/ConfirmDelete.svelte';
 	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { useApi } from '#lib/api/client.js';
@@ -53,7 +54,6 @@
 	}
 
 	async function remove(meta: ConversationMetadata) {
-		if (!confirm(t.chat.conversations.confirmDelete({ name: label(meta) }))) return;
 		try {
 			await chatStore.deleteConversation(meta.id);
 		} catch {
@@ -101,14 +101,21 @@
 								{relativeTime(meta.updated_at) ?? ''}
 							</span>
 						</button>
-						<button
-							type="button"
-							class="icon-btn"
-							{@attach tooltip(t.chat.conversations.delete)}
-							onclick={() => remove(meta)}
+						<ConfirmDelete
+							prompt={t.chat.conversations.confirmDelete({ name: label(meta) })}
+							onConfirm={() => remove(meta)}
 						>
-							<Trash2 size={16} />
-						</button>
+							{#snippet trigger(arm)}
+								<button
+									type="button"
+									class="icon-btn"
+									{@attach tooltip(t.chat.conversations.delete)}
+									onclick={arm}
+								>
+									<Trash2 size={16} />
+								</button>
+							{/snippet}
+						</ConfirmDelete>
 					</div>
 				{:else}
 					<div class="empty">

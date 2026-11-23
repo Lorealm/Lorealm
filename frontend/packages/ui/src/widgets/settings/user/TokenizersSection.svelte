@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfirmDelete from '#lib/components/ConfirmDelete.svelte';
 	import { t } from '#lib/stores/i18n.svelte.js';
 	import { onMount } from 'svelte';
 	import { Upload, Check, Trash2, Globe } from '@lucide/svelte';
@@ -74,7 +75,6 @@
 		}
 	}
 
-	// Direct delete for now — swap for your confirm/toast flow if you want a guard.
 	async function remove(id: Snowflake) {
 		error = '';
 		try {
@@ -191,14 +191,16 @@
 							{#if active}<Check size={14} /> {t.settings.tokenizers.active}{:else}{t.settings
 									.tokenizers.setActive}{/if}
 						</button>
-						<button
-							type="button"
-							class="icon"
-							aria-label={t.common.delete}
-							onclick={() => remove(tok.id)}
+						<ConfirmDelete
+							prompt={t.settings.tokenizers.confirmDelete({ name: tok.name })}
+							onConfirm={() => remove(tok.id)}
 						>
-							<Trash2 size={16} />
-						</button>
+							{#snippet trigger(arm)}
+								<button type="button" class="icon" aria-label={t.common.delete} onclick={arm}>
+									<Trash2 size={16} />
+								</button>
+							{/snippet}
+						</ConfirmDelete>
 					</div>
 				</div>
 			{/each}

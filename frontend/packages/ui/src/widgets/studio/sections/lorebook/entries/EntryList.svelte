@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfirmDelete from '#lib/components/ConfirmDelete.svelte';
 	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../../../stores/tooltip.svelte.ts';
 	import type { DraftEntry, SaveState } from '#lib/stores/lorebook.svelte.js';
@@ -76,15 +77,19 @@
 								>!</span
 							>{/if}
 					</button>
-					<button
-						type="button"
-						class="delete"
-						aria-label={t.studio.lorebookEditor.deleteEntry}
-						onclick={(e) => {
-							e.stopPropagation();
-							onDelete(entry.snowflake);
-						}}>×</button
+					<ConfirmDelete
+						prompt={t.studio.lorebookEditor.confirmDeleteEntry({ name: label(entry) })}
+						onConfirm={() => onDelete(entry.snowflake)}
 					>
+						{#snippet trigger(arm)}
+							<button
+								type="button"
+								class="delete"
+								aria-label={t.studio.lorebookEditor.deleteEntry}
+								onclick={arm}>×</button
+							>
+						{/snippet}
+					</ConfirmDelete>
 				</li>
 			{/each}
 		</ul>

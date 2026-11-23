@@ -152,6 +152,8 @@ export type Messages = {
 			thinking: string;
 			/** Swipe */
 			swipe: string;
+			/** Delete this message and its replies? */
+			confirmDelete: string;
 		};
 		setup: {
 			/** Welcome to Lorealm */
@@ -491,6 +493,8 @@ export type Messages = {
 		edit: string;
 		/** Delete */
 		delete: string;
+		/** Remove */
+		remove: string;
 		/** Previous */
 		previous: string;
 		/** Next */
@@ -619,6 +623,8 @@ export type Messages = {
 		deleteProfile: string;
 		/** Delete {name} */
 		deleteNamed: (args: { name: string }) => string;
+		/** Delete “{name}”? */
+		confirmDelete: (args: { name: string }) => string;
 		/** Use provider default */
 		providerDefault: string;
 		/** OpenAI-compatible */
@@ -768,6 +774,8 @@ export type Messages = {
 			required: string;
 			/** Rename */
 			rename: string;
+			/** Delete “{name}”? */
+			confirmDelete: (args: { name: string }) => string;
 			/** No keys stored. */
 			none: string;
 			/** Add key */
@@ -1331,6 +1339,8 @@ export type Messages = {
 		removeNamed: (args: { name: string }) => string;
 		/** Remove for everyone */
 		remove: string;
+		/** Remove {name} for everyone? */
+		confirmRemove: (args: { name: string }) => string;
 		/** This plugin isn't in the marketplace. */
 		notListed: string;
 		/** Manage */
@@ -1546,6 +1556,8 @@ export type Messages = {
 			delete: string;
 			/** Delete {name} */
 			deleteNamed: (args: { name: string }) => string;
+			/** Delete “{name}”? */
+			confirmDelete: (args: { name: string }) => string;
 			/** imported */
 			imported: string;
 			/** {count, plural, one {# playthrough} other {# playthroughs}} */
@@ -1580,6 +1592,8 @@ export type Messages = {
 			duplicateNamed: (args: { name: string }) => string;
 			/** Delete blueprint */
 			delete: string;
+			/** Delete “{name}”? */
+			confirmDelete: (args: { name: string }) => string;
 			/** No blueprints yet. */
 			empty: string;
 		};
@@ -2312,6 +2326,8 @@ export type Messages = {
 			noMembers: string;
 			/** Remove {name} */
 			removeMember: (args: { name: string }) => string;
+			/** Remove {name} from this role? */
+			confirmRemoveMember: (args: { name: string }) => string;
 			/** Username */
 			username: string;
 			/** Add */
@@ -2418,6 +2434,8 @@ export type Messages = {
 			created: (args: { date: string }) => string;
 			/** Delete invite */
 			deleteInvite: string;
+			/** Delete this invite? Its code will stop working. */
+			confirmDeleteInvite: string;
 		};
 		editor: {
 			/** Suggest cross-book ids */
@@ -2498,6 +2516,8 @@ export type Messages = {
 			addProfile: string;
 			/** Delete profile */
 			deleteProfile: string;
+			/** Delete “{name}”? */
+			confirmDeleteProfile: (args: { name: string }) => string;
 			/** Move up */
 			moveUp: string;
 			/** Move down */
@@ -2562,6 +2582,8 @@ export type Messages = {
 			authorPlaceholder: string;
 			/** Delete this style */
 			deleteStyle: string;
+			/** Delete “{name}”? */
+			confirmDeleteStyle: (args: { name: string }) => string;
 			/** Backdrop */
 			backdrop: string;
 			/** The current backdrop */
@@ -2880,6 +2902,8 @@ export type Messages = {
 			active: string;
 			/** Set active */
 			setActive: string;
+			/** Delete “{name}”? */
+			confirmDelete: (args: { name: string }) => string;
 		};
 		profile: {
 			stats: {
@@ -3532,6 +3556,8 @@ export type Messages = {
 			invalid: string;
 			/** Delete entry */
 			deleteEntry: string;
+			/** Delete “{name}”? */
+			confirmDeleteEntry: (args: { name: string }) => string;
 		};
 		entry: {
 			/** ID */

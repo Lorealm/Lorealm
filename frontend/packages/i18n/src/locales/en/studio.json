@@ -182,7 +182,8 @@
 		"noEntries": "No entries yet.",
 		"enabled": "Enabled",
 		"invalid": "Unsaved — invalid",
-		"deleteEntry": "Delete entry"
+		"deleteEntry": "Delete entry",
+		"confirmDeleteEntry": "Delete “{name}”?"
 	},
 	"entry": {
 		"id": "ID",

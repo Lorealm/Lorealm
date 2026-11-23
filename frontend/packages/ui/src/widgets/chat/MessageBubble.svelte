@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfirmDelete from '#lib/components/ConfirmDelete.svelte';
 	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { chatStore } from '#lib/stores/chat.svelte.js';
@@ -143,14 +144,21 @@
 						>
 							<Pencil />
 						</button>
-						<button
-							class="icon-btn"
-							{@attach tooltip(t.common.delete)}
-							disabled={busy}
-							onclick={() => chatStore.deleteMessage(message.id)}
+						<ConfirmDelete
+							prompt={t.chat.message.confirmDelete}
+							onConfirm={() => chatStore.deleteMessage(message.id)}
 						>
-							<Trash2 />
-						</button>
+							{#snippet trigger(arm)}
+								<button
+									class="icon-btn"
+									{@attach tooltip(t.common.delete)}
+									disabled={busy}
+									onclick={arm}
+								>
+									<Trash2 />
+								</button>
+							{/snippet}
+						</ConfirmDelete>
 					</div>
 				{/if}
 			</div>

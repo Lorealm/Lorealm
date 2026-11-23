@@ -14,6 +14,7 @@
 	"makeActive": "Set {name} as the active connection",
 	"deleteProfile": "Delete profile",
 	"deleteNamed": "Delete {name}",
+	"confirmDelete": "Delete “{name}”?",
 	"providerDefault": "Use provider default",
 	"openAiCompatible": "OpenAI-compatible",
 	"editor": {
@@ -90,6 +91,7 @@
 		"unnamed": "Unnamed key",
 		"required": "Label and key are required.",
 		"rename": "Rename",
+		"confirmDelete": "Delete “{name}”?",
 		"none": "No keys stored.",
 		"add": "Add key",
 		"provider": "Provider",
