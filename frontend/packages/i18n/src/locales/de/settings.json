@@ -27,6 +27,7 @@
 		"members": "Mitglieder",
 		"noMembers": "Diese Rolle hat noch niemand.",
 		"removeMember": "{name} entfernen",
+		"confirmRemoveMember": "Remove {name} from this role?",
 		"username": "Benutzername",
 		"add": "Hinzufügen"
 	},
@@ -81,7 +82,8 @@
 		"expiry": "Ablauf",
 		"roleOnSignup": "Bei Registrierung vergebene Rolle",
 		"created": "Erstellt am {date}",
-		"deleteInvite": "Einladung löschen"
+		"deleteInvite": "Einladung löschen",
+		"confirmDeleteInvite": "Delete this invite? Its code will stop working."
 	},
 	"editor": {
 		"suggestCrossBook": "Buchübergreifende IDs vorschlagen",
@@ -126,6 +128,7 @@
 		"intro": "Ein Profil ist eine Spalte des Inspektors: Es legt fest, welche Widgets jede Ansicht zeigt und in welcher Reihenfolge. Profile erscheinen als Symbolschaltflächen über dem Inspektor; Profile ohne Konfiguration für die aktuelle Ansicht sind ausgegraut und werden zuletzt einsortiert.",
 		"addProfile": "Profil hinzufügen",
 		"deleteProfile": "Profil löschen",
+		"confirmDeleteProfile": "Delete “{name}”?",
 		"moveUp": "Nach oben",
 		"moveDown": "Nach unten",
 		"remove": "Entfernen",
@@ -159,6 +162,7 @@
 		"styleAuthor": "Stilautor",
 		"authorPlaceholder": "Name des Autors",
 		"deleteStyle": "Diesen Stil löschen",
+		"confirmDeleteStyle": "Delete “{name}”?",
 		"backdrop": "Hintergrund",
 		"backdropAlt": "Der aktuelle Hintergrund",
 		"replaceImage": "Bild ersetzen",
@@ -335,7 +339,8 @@
 		"loading": "Laden…",
 		"empty": "Noch keine Tokenizer — importieren Sie einen, um loszulegen.",
 		"active": "Aktiv",
-		"setActive": "Aktiv setzen"
+		"setActive": "Aktiv setzen",
+		"confirmDelete": "Delete “{name}”?"
 	},
 	"profile": {
 		"stats": {
