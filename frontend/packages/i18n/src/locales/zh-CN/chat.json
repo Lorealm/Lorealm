@@ -45,7 +45,8 @@
 		"continue": "继续此回复",
 		"thoughts": "思考",
 		"thinking": "正在思考…",
-		"swipe": "滑动切换"
+		"swipe": "滑动切换",
+		"confirmDelete": "Delete this message and its replies?"
 	},
 	"setup": {
 		"title": "欢迎使用 Lorealm",
