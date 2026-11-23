@@ -23,6 +23,7 @@
 	"settings": "設定",
 	"removeNamed": "{name}を全員から削除",
 	"remove": "全員から削除",
+	"confirmRemove": "Remove {name} for everyone?",
 	"notListed": "このプラグインはマーケットプレイスにありません。",
 	"manage": "管理",
 	"noCompatible": "このバージョンのLorealmで動作するバージョンはありません。",
