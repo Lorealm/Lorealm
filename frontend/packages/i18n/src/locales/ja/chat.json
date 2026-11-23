@@ -45,7 +45,8 @@
 		"continue": "この返信を続ける",
 		"thoughts": "思考",
 		"thinking": "思考中…",
-		"swipe": "スワイプ"
+		"swipe": "スワイプ",
+		"confirmDelete": "Delete this message and its replies?"
 	},
 	"setup": {
 		"title": "Lorealmへようこそ",
