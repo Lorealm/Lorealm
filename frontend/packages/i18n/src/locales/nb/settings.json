@@ -27,6 +27,7 @@
 		"members": "Medlemmer",
 		"noMembers": "Ingen har denne rollen ennå.",
 		"removeMember": "Fjern {name}",
+		"confirmRemoveMember": "Remove {name} from this role?",
 		"username": "Brukernavn",
 		"add": "Legg til"
 	},
@@ -81,7 +82,8 @@
 		"expiry": "Utløp",
 		"roleOnSignup": "Rolle gitt ved registrering",
 		"created": "Opprettet {date}",
-		"deleteInvite": "Slett invitasjon"
+		"deleteInvite": "Slett invitasjon",
+		"confirmDeleteInvite": "Delete this invite? Its code will stop working."
 	},
 	"editor": {
 		"suggestCrossBook": "Foreslå ID-er på tvers av bøker",
@@ -126,6 +128,7 @@
 		"intro": "En profil er én kolonne i inspektøren: den bestemmer hvilke widgets hver visning viser, og i hvilken rekkefølge. Profiler vises som ikonknapper over inspektøren. De som ikke har noe satt opp for gjeldende visning, er nedtonet og sortert sist.",
 		"addProfile": "Legg til profil",
 		"deleteProfile": "Slett profil",
+		"confirmDeleteProfile": "Delete “{name}”?",
 		"moveUp": "Flytt opp",
 		"moveDown": "Flytt ned",
 		"remove": "Fjern",
@@ -159,6 +162,7 @@
 		"styleAuthor": "Stilens forfatter",
 		"authorPlaceholder": "Forfatterens navn",
 		"deleteStyle": "Slett denne stilen",
+		"confirmDeleteStyle": "Delete “{name}”?",
 		"backdrop": "Bakgrunn",
 		"backdropAlt": "Gjeldende bakgrunn",
 		"replaceImage": "Bytt ut bilde",
@@ -335,7 +339,8 @@
 		"loading": "Laster…",
 		"empty": "Ingen tokenizers ennå – importer en for å komme i gang.",
 		"active": "Aktiv",
-		"setActive": "Sett som aktiv"
+		"setActive": "Sett som aktiv",
+		"confirmDelete": "Delete “{name}”?"
 	},
 	"profile": {
 		"stats": {
