@@ -60,7 +60,7 @@ use crate::{
         variables::{VariableContext, VariableRegistry},
         weaver::{WeaverHost, WeaverProfile},
     },
-    util::context_eval::{ContextEvalResult, ContextEvaluator, TokenCounter},
+    util::context_eval::{ContextEvalResult, ContextEvaluator, TokenCounter, squash_messages},
 };
 
 pub struct ChatService {
@@ -777,16 +777,15 @@ impl ChatService {
             trace
         };
 
-        let budget = self
+        let profile = self
             .connection
             .get_profile(spec.owner, spec.profile_id)
-            .await?
-            .token_budget;
+            .await?;
 
         let mut evaluator =
             ContextEvaluator::builder(Arc::clone(&tokenizer) as Arc<dyn TokenCounter>);
-        if budget > 0 {
-            evaluator = evaluator.budget(budget as u32);
+        if profile.token_budget > 0 {
+            evaluator = evaluator.budget(profile.token_budget as u32);
         }
         let ContextEvalResult {
             messages,
@@ -803,6 +802,7 @@ impl ChatService {
             trace,
             captured,
             usage,
+            squash_messages: squashes_messages(&profile.common_params),
         })
     }
 
@@ -890,6 +890,12 @@ impl ChatService {
             &mut common,
         )
         .map_err(|e| ChatError::Connection(format!("bad custom fields: {e}")))?;
+
+        let prompt = if squashes_messages(&connection.profile.common_params) {
+            squash_messages(prompt)
+        } else {
+            prompt
+        };
 
         // Map your custom payload directly to what the provider client expects
         let messages: Vec<lorealm_providers::Message> = prompt
@@ -1224,6 +1230,13 @@ impl ChatService {
 
 /// Tool rounds per turn for profiles that don't set `max_tool_rounds`.
 const DEFAULT_TOOL_ROUNDS: usize = 8;
+
+fn squashes_messages(common_params: &serde_json::Value) -> bool {
+    common_params
+        .get("squash_messages")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
 
 fn prompt_role_to_provider_role(role: PromptRole) -> lorealm_providers::Role {
     match role {

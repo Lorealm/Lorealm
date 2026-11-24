@@ -10,6 +10,7 @@
 	import {
 		parseContextBlocks,
 		hasStoredContext,
+		wasSquashed,
 		groupAdjacentBlocks,
 		parseUsageReport,
 		sourceOf,
@@ -396,8 +397,28 @@
 
 	let raw = $state(false);
 
-	let rawText = $derived.by(() =>
-		flat.map((f, i) => `[${f.block.role}]\n${flatTexts[i]}`).join('\n\n')
+	// Starts as the turn was sent; the toggle previews either way.
+	let squash = $derived(wasSquashed(contextInspector.message?.metadata));
+
+	let squashedMessages = $derived.by(() => {
+		const out: { role: string; text: string; size: number }[] = [];
+		flat.forEach((f, i) => {
+			const size = display.counts[i] ?? 0;
+			const last = out[out.length - 1];
+			if (last && last.role === f.block.role) {
+				last.text += `\n${flatTexts[i]}`;
+				last.size += size;
+			} else {
+				out.push({ role: f.block.role, text: flatTexts[i], size });
+			}
+		});
+		return out;
+	});
+
+	let rawText = $derived(
+		squash
+			? squashedMessages.map((m) => `[${m.role}]\n${m.text}`).join('\n\n')
+			: flat.map((f, i) => `[${f.block.role}]\n${flatTexts[i]}`).join('\n\n')
 	);
 
 	let collapsedGroups = new SvelteSet<number>();
@@ -710,6 +731,15 @@
 							>
 								{t.chat.inspector.raw}
 							</button>
+							<button
+								class="raw-toggle"
+								class:active={squash}
+								aria-pressed={squash}
+								{@attach tooltip(t.chat.inspector.squashHint)}
+								onclick={() => (squash = !squash)}
+							>
+								{t.chat.inspector.squash}
+							</button>
 						{/if}
 					</div>
 
@@ -725,6 +755,18 @@
 								<div class="empty">{t.chat.inspector.noContextBlocks}</div>
 							{:else if raw}
 								<pre class="raw">{rawText}</pre>
+							{:else if squash}
+								{#each squashedMessages as m, i (i)}
+									<div class="entry accent-{roleClass(m.role)}">
+										<div class="entry-top">
+											<span class="eyebrow">{m.role}</span>
+											<span class="num"
+												>{fmtCount(m.size)} {t.chat.inspector.units[display.unit]}</span
+											>
+										</div>
+										<pre class="content">{m.text}</pre>
+									</div>
+								{/each}
 							{:else}
 								{#each groups as group, gi (gi)}
 									{#if group.blocks.length > 1}

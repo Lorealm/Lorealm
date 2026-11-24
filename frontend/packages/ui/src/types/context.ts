@@ -127,6 +127,11 @@ export function hasStoredContext(metadata: unknown): boolean {
 	return isRecord(metadata) && metadata.has_context === true;
 }
 
+/** Whether adjacent same-role blocks were merged into one message when sent. */
+export function wasSquashed(metadata: unknown): boolean {
+	return isRecord(metadata) && metadata.squash_messages === true;
+}
+
 /** Reads the `context` field of a `chat.messages.context` response. */
 export function parseContextBlocks(metadata: unknown): TracedBlock[] | null {
 	if (!isRecord(metadata) || !Array.isArray(metadata.context)) return null;

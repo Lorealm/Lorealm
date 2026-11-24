@@ -137,6 +137,8 @@
 		},
 		"rawHint": "Show the context as raw text",
 		"raw": "Raw",
+		"squashHint": "Show adjacent messages from the same role merged into one",
+		"squash": "Squash",
 		"noTraceLong": "This message carries no context trace. Only turns generated through the weaver pipeline record one.",
 		"noContextBlocks": "The pipeline produced no context blocks for this turn.",
 		"msgs": "{count, number} msgs",

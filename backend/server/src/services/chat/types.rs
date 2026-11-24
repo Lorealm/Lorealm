@@ -29,6 +29,7 @@ pub(super) struct Prepared {
     pub trace: Vec<TracedBlock>,
     pub captured: Option<CapturedState>,
     pub usage: UsageReport,
+    pub squash_messages: bool,
 }
 
 #[derive(Serialize)]
