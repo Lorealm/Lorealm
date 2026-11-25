@@ -61,9 +61,7 @@ cd backend && cargo ci
 cd frontend && make check lint
 ```
 
-We only have two rules:
-- We don't accept vibe-coded contributions.
-- All contributions should be in English (excluding translation files).
+Refer to the [Contribution Guidelines](./CONTRIBUTING.md) for specifics regarding our AI Policy, Style Guidelines, and more.
 
 ## License
 MIT
