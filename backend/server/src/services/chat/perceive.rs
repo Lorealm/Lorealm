@@ -1,24 +1,69 @@
 use lorealm_storage::models::{
-    ConversationMessage, EventKind, RealmAgent, RealmCast, ResolvedRealmConfig, ScopePattern,
-    TurnEvent,
+    AGENTS_SCOPE, ConversationMessage, EventKind, MAIN_CHANNEL, RealmAgent, RealmCast,
+    ResolvedRealmConfig, TurnEvent,
 };
 
 use crate::services::{
     chat::WidgetRenderer,
     context_template::{ContentRef, PromptRole, PromptTurn},
+    state::StatePool,
 };
 
 use super::stage::handle_of;
 
-/// The channel everybody hears. Any other channel takes a grant.
-pub(super) const MAIN_CHANNEL: &str = "main";
-
-fn hears(viewer: &RealmAgent, channel: &str) -> bool {
-    channel == MAIN_CHANNEL
-        || viewer
-            .grants
+fn agent_channels(world: &StatePool, handle: &str) -> Vec<String> {
+    match world
+        .get(AGENTS_SCOPE)
+        .and_then(|agents| agents.get(handle))
+        .and_then(|agent| agent.get("channels"))
+    {
+        Some(serde_json::Value::Array(items)) => items
             .iter()
-            .any(|g| ScopePattern::parse(&g.channel).matches_channel(channel))
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect(),
+        _ => vec![MAIN_CHANNEL.to_string()],
+    }
+}
+
+fn channel_observers(
+    cast: &RealmCast,
+    world: &StatePool,
+    speaker: &str,
+    on: &[String],
+) -> Vec<String> {
+    cast.agents
+        .iter()
+        .filter(|a| {
+            a.handle == speaker
+                || agent_channels(world, &a.handle)
+                    .iter()
+                    .any(|c| on.contains(c))
+        })
+        .map(|a| a.handle.clone())
+        .collect()
+}
+
+pub(super) fn observers(cast: &RealmCast, world: &StatePool, speaker: &str) -> Vec<String> {
+    channel_observers(cast, world, speaker, &agent_channels(world, speaker))
+}
+
+pub(super) fn observe_events(
+    cast: &RealmCast,
+    world: &StatePool,
+    speaker: &str,
+    events: &mut [TurnEvent],
+) {
+    for event in events {
+        let on = [event.channel.clone()];
+        event.observers = Some(channel_observers(cast, world, speaker, &on));
+    }
+}
+
+fn hears(viewer: &RealmAgent, observers: Option<&[String]>, channel: &str) -> bool {
+    match observers {
+        Some(observers) => observers.contains(&viewer.handle),
+        None => channel == MAIN_CHANNEL,
+    }
 }
 
 /// A list stored under `key` in a message's metadata.
@@ -55,9 +100,15 @@ pub(super) fn perceive(
             let own = speaker == Some(viewer.handle.as_str());
             let name = message.metadata["agent_name"].as_str().unwrap_or_default();
             let channel = message.metadata["channel"].as_str().unwrap_or(MAIN_CHANNEL);
+            let observers: Option<Vec<String>> = message
+                .metadata
+                .get("observers")
+                .and_then(|v| serde_json::from_value(v.clone()).ok());
 
             let mut heard = Vec::new();
-            if !message.content.trim().is_empty() && (own || hears(viewer, channel)) {
+            if !message.content.trim().is_empty()
+                && (own || hears(viewer, observers.as_deref(), channel))
+            {
                 let mut turn = PromptTurn::from_message(message, widgets);
                 if own {
                     turn.role = PromptRole::Assistant;
@@ -72,7 +123,7 @@ pub(super) fn perceive(
             }
 
             for event in stored::<TurnEvent>(message, "events") {
-                if !own && !hears(viewer, &event.channel) {
+                if !own && !hears(viewer, event.observers.as_deref(), &event.channel) {
                     continue;
                 }
                 heard.push(match event.kind {
@@ -130,7 +181,6 @@ mod tests {
                 })
                 .collect(),
             tools: Vec::new(),
-            speech_channel: None,
             lorebooks: Vec::new(),
             widgets: Vec::new(),
             script: None,
@@ -225,15 +275,14 @@ mod tests {
     }
 
     #[test]
-    fn others_are_named_and_only_heard_on_channels_the_viewer_is_granted() {
+    fn others_are_named_and_only_heard_by_their_observers() {
         let ito = agent("ito", AgentKind::Llm, &[]);
-        let mut mori = agent("mori", AgentKind::Llm, &[]);
-        mori.speech_channel = Some("court".into());
-        let courtier = agent("courtier", AgentKind::Llm, &["court"]);
+        let mori = agent("mori", AgentKind::Llm, &[]);
+        let courtier = agent("courtier", AgentKind::Llm, &[]);
         let cast = cast(vec![ito.clone(), mori.clone(), courtier.clone()], None);
 
         let mut whisper = said(2, &mori, "The treasury is empty.");
-        whisper.metadata["channel"] = json!("court");
+        whisper.metadata["observers"] = json!(["mori", "courtier"]);
         let path = [said(1, &ito, "Good morning."), whisper];
 
         assert_eq!(
@@ -246,6 +295,46 @@ mod tests {
                 (PromptRole::User, "ITO: Good morning.".to_string()),
                 (PromptRole::User, "MORI: The treasury is empty.".to_string()),
             ]
+        );
+    }
+
+    #[test]
+    fn observers_are_whoever_shares_a_channel_and_main_is_the_default() {
+        let names = ["ito", "mori", "takeda", "hermit"];
+        let cast = cast(
+            names
+                .iter()
+                .map(|h| agent(h, AgentKind::Llm, &[]))
+                .collect(),
+            None,
+        );
+        let world: StatePool = HashMap::from([(
+            AGENTS_SCOPE.to_string(),
+            HashMap::from([
+                (
+                    "mori".to_string(),
+                    json!({ "channels": ["cell_1", "cell_2"] }),
+                ),
+                ("takeda".to_string(), json!({ "channels": ["cell_2"] })),
+                ("hermit".to_string(), json!({ "channels": [] })),
+            ]),
+        )]);
+
+        // ito has no list, so is on main alone.
+        assert_eq!(observers(&cast, &world, "ito"), ["ito"]);
+        assert_eq!(observers(&cast, &world, "takeda"), ["mori", "takeda"]);
+        assert_eq!(observers(&cast, &world, "hermit"), ["hermit"]);
+
+        let mut events = vec![TurnEvent {
+            channel: "main".into(),
+            kind: EventKind::System,
+            content: "Night falls.".into(),
+            observers: None,
+        }];
+        observe_events(&cast, &world, "hermit", &mut events);
+        assert_eq!(
+            events[0].observers.as_deref(),
+            Some(&["ito".to_string(), "hermit".to_string()][..])
         );
     }
 

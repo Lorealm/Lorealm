@@ -82,6 +82,8 @@ impl TokenizerStorage for CachedStorage {
         user_id: Snowflake,
         tokenizer_id: Option<Snowflake>,
     ) -> Result<(), StorageError> {
-        self.set_active_tokenizer(user_id, tokenizer_id).await
+        self.backend
+            .set_active_tokenizer(user_id, tokenizer_id)
+            .await
     }
 }

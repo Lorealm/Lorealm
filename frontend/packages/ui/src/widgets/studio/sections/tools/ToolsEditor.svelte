@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfirmDelete from '#lib/components/ConfirmDelete.svelte';
 	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { onDestroy } from 'svelte';
@@ -80,8 +81,7 @@
 		if (id) navigator.start().studio().tools(id);
 	}
 
-	async function removeTool(id: Snowflake, name: string) {
-		if (!confirm(t.studio.tools.confirmDelete({ name: name || t.studio.tools.untitled }))) return;
+	async function removeTool(id: Snowflake) {
 		clearTimeout(timer);
 		await toolStore.deleteTool(id);
 		if (id === selectedId) navigator.start().studio().tools();
@@ -246,9 +246,16 @@
 						>
 							{t.studio.tools.export}
 						</button>
-						<button type="button" class="delete" onclick={() => removeTool(shown.id, shown.name)}>
-							{t.common.delete}
-						</button>
+						<ConfirmDelete
+							prompt={t.studio.tools.confirmDelete({ name: shown.name || t.studio.tools.untitled })}
+							onConfirm={() => removeTool(shown.id)}
+						>
+							{#snippet trigger(arm)}
+								<button type="button" class="delete" onclick={arm}>
+									{t.common.delete}
+								</button>
+							{/snippet}
+						</ConfirmDelete>
 					{/if}
 				</div>
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfirmDelete from '#lib/components/ConfirmDelete.svelte';
 	import { deviceLocale, localeName, t } from '#lib/stores/i18n.svelte.js';
 	import { locales } from '@lorealm/i18n';
 	import { settings } from '#lib/stores/settings.svelte.js';
@@ -266,14 +267,21 @@
 					value={active.author ?? ''}
 					oninput={(e) => styles.setAuthor(e.currentTarget.value)}
 				/>
-				<button
-					class="action"
-					{@attach tooltip(t.settings.interface.deleteStyle)}
-					onclick={() => styles.remove(active.id)}
+				<ConfirmDelete
+					prompt={t.settings.interface.confirmDeleteStyle({ name: active.name })}
+					onConfirm={() => styles.remove(active.id)}
 				>
-					<Trash2 size={14} />
-					{t.common.delete}
-				</button>
+					{#snippet trigger(arm)}
+						<button
+							class="action"
+							{@attach tooltip(t.settings.interface.deleteStyle)}
+							onclick={arm}
+						>
+							<Trash2 size={14} />
+							{t.common.delete}
+						</button>
+					{/snippet}
+				</ConfirmDelete>
 			</div>
 		{/if}
 

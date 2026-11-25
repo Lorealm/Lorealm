@@ -123,6 +123,21 @@ impl ConversationStorage for CachedStorage {
         self.backend.get_path_to(conversation_id, message_id).await
     }
 
+    async fn get_message_context(
+        &self,
+        message_id: Snowflake,
+    ) -> Result<Option<serde_json::Value>, StorageError> {
+        self.backend.get_message_context(message_id).await
+    }
+
+    async fn put_message_context(
+        &self,
+        message_id: Snowflake,
+        context: &serde_json::Value,
+    ) -> Result<(), StorageError> {
+        self.backend.put_message_context(message_id, context).await
+    }
+
     async fn update_message(&self, id: Snowflake, edit: &MessageEdit) -> Result<(), StorageError> {
         self.backend.update_message(id, edit).await?;
         self.cache_del(&self.key("message", &id.to_string())).await;

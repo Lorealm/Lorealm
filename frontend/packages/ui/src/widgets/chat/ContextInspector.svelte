@@ -9,6 +9,8 @@
 	import { showApiError } from '#lib/stores/errorActions.js';
 	import {
 		parseContextBlocks,
+		hasStoredContext,
+		wasSquashed,
 		groupAdjacentBlocks,
 		parseUsageReport,
 		sourceOf,
@@ -19,8 +21,9 @@
 		type TracedBlock
 	} from '#lib/types/context.js';
 	import { resolveBlockContent } from '#lib/types/content.js';
-	import type { JsonValue } from '#lib/types/core.js';
+	import type { JsonValue, Snowflake } from '#lib/types/core.js';
 	import { ChevronDown, Info, X } from '@lucide/svelte';
+	import StateTree from '../../components/StateTree.svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 	const api = useApi();
@@ -80,8 +83,33 @@
 		return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(2)} s`;
 	}
 
+	// Messages only flag that a prompt was kept; it's fetched when the inspector opens.
+	let fetched = $state<{ id: Snowflake; blocks: TracedBlock[] | null } | null>(null);
+	let loadingContext = $derived(
+		contextInspector.message !== null && fetched?.id !== contextInspector.message.id
+	);
+	$effect(() => {
+		const msg = contextInspector.message;
+		if (!msg) return;
+		const msgId = msg.id;
+		if (!hasStoredContext(msg.metadata)) {
+			fetched = { id: msgId, blocks: null };
+			return;
+		}
+		api.chat.messages
+			.context(msg.conversation_id, msgId)
+			.then((res) => {
+				if (contextInspector.message?.id === msgId)
+					fetched = { id: msgId, blocks: parseContextBlocks(res) };
+			})
+			.catch((e) => {
+				if (contextInspector.message?.id !== msgId) return;
+				fetched = { id: msgId, blocks: null };
+				showApiError(e);
+			});
+	});
 	let blocks = $derived(
-		contextInspector.message ? parseContextBlocks(contextInspector.message.metadata) : null
+		fetched && fetched.id === contextInspector.message?.id ? fetched.blocks : null
 	);
 	let groups = $derived(blocks ? groupAdjacentBlocks(blocks) : null);
 
@@ -306,6 +334,7 @@
 		if (!recon) return [];
 		return Object.entries(recon.persistent).map(([name, pool]) => ({
 			name,
+			data: pool,
 			entries: Object.entries(pool).map(([key, value]) => ({ key, value }))
 		}));
 	});
@@ -369,9 +398,30 @@
 	let tab = $state<Tab>('context');
 
 	let raw = $state(false);
+	let stateRaw = $state(false);
 
-	let rawText = $derived.by(() =>
-		flat.map((f, i) => `[${f.block.role}]\n${flatTexts[i]}`).join('\n\n')
+	// Starts as the turn was sent; the toggle previews either way.
+	let squash = $derived(wasSquashed(contextInspector.message?.metadata));
+
+	let squashedMessages = $derived.by(() => {
+		const out: { role: string; text: string; size: number }[] = [];
+		flat.forEach((f, i) => {
+			const size = display.counts[i] ?? 0;
+			const last = out[out.length - 1];
+			if (last && last.role === f.block.role) {
+				last.text += `\n${flatTexts[i]}`;
+				last.size += size;
+			} else {
+				out.push({ role: f.block.role, text: flatTexts[i], size });
+			}
+		});
+		return out;
+	});
+
+	let rawText = $derived(
+		squash
+			? squashedMessages.map((m) => `[${m.role}]\n${m.text}`).join('\n\n')
+			: flat.map((f, i) => `[${f.block.role}]\n${flatTexts[i]}`).join('\n\n')
 	);
 
 	let collapsedGroups = new SvelteSet<number>();
@@ -452,7 +502,13 @@
 			</div>
 		{/if}
 
-		{#if content.text}
+		{#if block.content_ref.kind === 'template'}
+			<pre
+				class="content">{#each block.content_ref.parts as part, pi (pi)}{#if part.value === undefined}{part.source}{:else}<span
+							class="expansion"
+							{@attach tooltip(part.value || t.chat.inspector.expandsToNothing)}>{part.source}</span
+						>{/if}{/each}</pre>
+		{:else if content.text}
 			<pre class="content">{content.text}</pre>
 		{:else}
 			<div class="unresolved">{t.chat.inspector.notReconstructed}</div>
@@ -474,7 +530,9 @@
 				<div class="titles">
 					<h2>{t.chat.inspector.title}</h2>
 					<span class="sub">
-						{#if blocks === null}
+						{#if loadingContext}
+							{t.common.loading}
+						{:else if blocks === null}
 							{t.chat.inspector.noTrace}
 						{:else}
 							{t.chat.inspector.blocks({ count: blocks.length })} · {fmtCount(display.total)}
@@ -676,12 +734,33 @@
 							>
 								{t.chat.inspector.raw}
 							</button>
+							<button
+								class="raw-toggle"
+								class:active={squash}
+								aria-pressed={squash}
+								{@attach tooltip(t.chat.inspector.squashHint)}
+								onclick={() => (squash = !squash)}
+							>
+								{t.chat.inspector.squash}
+							</button>
+						{:else if tab === 'state'}
+							<button
+								class="raw-toggle"
+								class:active={stateRaw}
+								aria-pressed={stateRaw}
+								{@attach tooltip(t.chat.inspector.stateRawHint)}
+								onclick={() => (stateRaw = !stateRaw)}
+							>
+								{t.chat.inspector.raw}
+							</button>
 						{/if}
 					</div>
 
 					<div class="pane">
 						{#if tab === 'context'}
-							{#if groups === null}
+							{#if loadingContext}
+								<div class="empty">{t.common.loading}</div>
+							{:else if groups === null}
 								<div class="empty">
 									{t.chat.inspector.noTraceLong}
 								</div>
@@ -689,6 +768,18 @@
 								<div class="empty">{t.chat.inspector.noContextBlocks}</div>
 							{:else if raw}
 								<pre class="raw">{rawText}</pre>
+							{:else if squash}
+								{#each squashedMessages as m, i (i)}
+									<div class="entry accent-{roleClass(m.role)}">
+										<div class="entry-top">
+											<span class="eyebrow">{m.role}</span>
+											<span class="num"
+												>{fmtCount(m.size)} {t.chat.inspector.units[display.unit]}</span
+											>
+										</div>
+										<pre class="content">{m.text}</pre>
+									</div>
+								{/each}
 							{:else}
 								{#each groups as group, gi (gi)}
 									{#if group.blocks.length > 1}
@@ -803,6 +894,8 @@
 										<div class="detail">
 											{#if pool.entries.length === 0}
 												<div class="unresolved">{t.chat.inspector.emptyPool}</div>
+											{:else if !stateRaw}
+												<StateTree data={pool.data} />
 											{:else}
 												{#each pool.entries as kv (kv.key)}
 													<div class="kv">
@@ -1363,6 +1456,13 @@
 		line-height: var(--line-height-snug);
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;
+	}
+
+	.expansion {
+		color: var(--color-text-accent);
+		text-decoration: underline dotted;
+		text-underline-offset: 3px;
+		cursor: help;
 	}
 
 	.raw {

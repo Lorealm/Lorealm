@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfirmDelete from '#lib/components/ConfirmDelete.svelte';
 	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { connectionStore } from '#lib/stores/connection.svelte.js';
@@ -52,15 +53,22 @@
 		>
 			<Star size={14} fill={profile.id === activeProfileId ? 'currentColor' : 'none'} />
 		</button>
-		<button
-			class="icon-button delete"
-			type="button"
-			{@attach tooltip(t.connections.deleteProfile)}
-			aria-label={t.connections.deleteNamed({ name: profile.name })}
-			onclick={() => onDelete(profile.id)}
+		<ConfirmDelete
+			prompt={t.connections.confirmDelete({ name: profile.name || t.connections.untitledProfile })}
+			onConfirm={() => onDelete(profile.id)}
 		>
-			<Trash2 size={14} />
-		</button>
+			{#snippet trigger(arm)}
+				<button
+					class="icon-button delete"
+					type="button"
+					{@attach tooltip(t.connections.deleteProfile)}
+					aria-label={t.connections.deleteNamed({ name: profile.name })}
+					onclick={arm}
+				>
+					<Trash2 size={14} />
+				</button>
+			{/snippet}
+		</ConfirmDelete>
 	</div>
 {/each}
 

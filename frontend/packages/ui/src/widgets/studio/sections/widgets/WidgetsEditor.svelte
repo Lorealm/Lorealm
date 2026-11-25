@@ -1,15 +1,21 @@
 <script lang="ts">
+	import ConfirmDelete from '#lib/components/ConfirmDelete.svelte';
 	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { navigator } from '#lib/navigation/navigator.js';
 	import { toolStore } from '#lib/stores/tools.svelte.js';
 	import { userWidgetStore } from '#lib/stores/userWidgets.svelte.js';
 	import { exportItem } from '#lib/stores/transfer.js';
-	import type { Snowflake } from '#lib/types/core.js';
+	import { usePlatform } from '#lib/api/client.js';
+	import { showError } from '#lib/stores/errorToast.svelte.js';
+	import type { JsonValue, Snowflake } from '#lib/types/core.js';
 	import type { WidgetMode, WidgetPlacement } from '#lib/types/widgets.js';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import ContextField from '#lib/components/ContextField.svelte';
+	import StateFrame from '#lib/components/StateFrame.svelte';
+	import HtmlEditor from '#lib/components/HtmlEditor.svelte';
 	import ListSidebar from '#lib/components/ListSidebar.svelte';
+	import TagField from '../characters/TagField.svelte';
 	import Badge from '#lib/widgets/realms/Badge.svelte';
 	import { LayoutDashboard, Paperclip } from '@lucide/svelte';
 
@@ -19,7 +25,7 @@
 	const STARTER = `<!doctype html>
 <meta charset="utf-8" />
 <style>
-  body { margin: 0; font: 13px system-ui, sans-serif; color: CanvasText; background: Canvas; }
+  body { margin: 0; font: 13px system-ui, sans-serif; color: var(--color-text-primary); background: transparent; }
   pre { margin: 0; padding: 8px; white-space: pre-wrap; word-break: break-word; }
 </style>
 <pre id="out">waiting for state…</pre>
@@ -31,7 +37,7 @@
     document.getElementById('out').textContent = JSON.stringify(e.data.state, null, 2);
   });
 
-  // To act, post back a bound tool call — it runs as an ordinary player turn:
+  // parent.postMessage({ type: 'lorealm:run', source: '$[set_var("world:x", 1)]', label: 'Set x' }, '*');
   // parent.postMessage({ type: 'lorealm:action', tool_id: '…', args: {} }, '*');
 ${'</'}script>
 `;
@@ -93,6 +99,10 @@ ${'</'}script>
 
 	const isAttachment = $derived(draftPlacement === 'attachment');
 
+	const TABS = ['source', 'model', 'settings'] as const;
+	let tab = $state<(typeof TABS)[number]>('source');
+	let payloadOpen = $state(false);
+
 	$effect(() => {
 		if (selected && selected.id !== loadedId) {
 			loadedId = selected.id;
@@ -105,6 +115,7 @@ ${'</'}script>
 			draftPlacement = selected.placement;
 			draftMode = selected.mode;
 			draftProps = [...selected.props];
+			untrack(() => void loadPayload());
 			syncedId = selected.id;
 		} else if (!selected) {
 			loadedId = null;
@@ -133,14 +144,6 @@ ${'</'}script>
 			mode: draftMode,
 			props: draftProps.map((p) => p.trim()).filter(Boolean)
 		});
-	}
-
-	function addProp() {
-		draftProps = [...draftProps, ''];
-	}
-	function removeProp(i: number) {
-		draftProps = draftProps.filter((_, k) => k !== i);
-		requestSave();
 	}
 
 	function bindTool() {
@@ -195,33 +198,72 @@ ${'</'}script>
 		if (created) navigator.start().studio().widgets(created.id);
 	}
 
-	async function removeWidget(id: Snowflake, name: string) {
-		if (!confirm(t.studio.tools.confirmDelete({ name: name || t.studio.widgets.untitled }))) return;
+	async function removeWidget(id: Snowflake) {
 		clearTimeout(timer);
 		await userWidgetStore.deleteWidget(id);
+		for (const placement of ['widget', 'attachment'] as const) {
+			void usePlatform().store.delete(payloadKey(id, placement));
+		}
 		if (selectedId === id) navigator.start().studio().widgets();
 	}
-
-	let previewFrame = $state<HTMLIFrameElement | null>(null);
 
 	const SAMPLE = {
 		world: { season: 'winter' },
 		self: { stamina: 3, inventory: { sword: 1, potion: 2 } }
 	};
 
-	const previewPayload = $derived(
-		isAttachment ? Object.fromEntries(draftProps.filter(Boolean).map((p) => [p, `<${p}>`])) : SAMPLE
-	);
-	function feedPreview() {
-		const payload = $state.snapshot(previewPayload);
-		previewFrame?.contentWindow?.postMessage(
-			{
-				type: isAttachment ? 'lorealm:props' : 'lorealm:state',
-				state: payload,
-				props: payload
-			},
-			'*'
-		);
+	let payloadText = $state('');
+	let payload = $state<Record<string, JsonValue>>({});
+	let payloadInvalid = $state(false);
+
+	const payloadKey = (id: string, placement: WidgetPlacement) => `widgetPayload:${id}:${placement}`;
+
+	function seedPayload(): string {
+		const seed =
+			draftPlacement === 'attachment'
+				? Object.fromEntries(draftProps.filter(Boolean).map((p) => [p, `<${p}>`]))
+				: SAMPLE;
+		return JSON.stringify(seed, null, 2);
+	}
+
+	async function loadPayload() {
+		const id = loadedId;
+		const placement = draftPlacement;
+		if (!id) return;
+		payloadText = seedPayload();
+		applyPayload();
+		const stored = await usePlatform()
+			.store.get<string>(payloadKey(id, placement))
+			.catch(() => null);
+		// The selection moved on while this was loading.
+		if (stored === null || id !== loadedId || placement !== draftPlacement) return;
+		payloadText = stored;
+		applyPayload();
+	}
+
+	function editPayload() {
+		applyPayload();
+		if (!loadedId) return;
+		const key = payloadKey(loadedId, draftPlacement);
+		usePlatform()
+			.store.set(key, payloadText)
+			.catch((e) => showError(e, { title: t.errors.failed.persist({ key }) }));
+	}
+
+	function resetPayload() {
+		payloadText = seedPayload();
+		applyPayload();
+		if (loadedId) void usePlatform().store.delete(payloadKey(loadedId, draftPlacement));
+	}
+
+	function applyPayload() {
+		try {
+			const parsed: unknown = JSON.parse(payloadText);
+			payloadInvalid = parsed === null || typeof parsed !== 'object' || Array.isArray(parsed);
+			if (!payloadInvalid) payload = parsed as Record<string, JsonValue>;
+		} catch {
+			payloadInvalid = true;
+		}
 	}
 </script>
 
@@ -297,9 +339,29 @@ ${'</'}script>
 	<section class="col-content">
 		{#if selected}
 			<div class="pane">
-				<div class="pane-head">
-					<h1>{readOnly ? t.studio.widgets.builtInWidget : t.studio.widgets.edit}</h1>
-					{#if !readOnly}
+				<header class="pane-head">
+					<span
+						class="kind-icon"
+						{@attach tooltip(isAttachment ? t.studio.widgets.attachment : t.studio.widgets.widget)}
+					>
+						{#if isAttachment}
+							<Paperclip size={18} />
+						{:else}
+							<LayoutDashboard size={18} />
+						{/if}
+					</span>
+					<input
+						class="title"
+						type="text"
+						aria-label={t.studio.widgets.name}
+						placeholder={t.studio.widgets.untitled}
+						readonly={readOnly}
+						bind:value={draftName}
+						oninput={requestSave}
+					/>
+					{#if readOnly}
+						<Badge>{t.studio.tools.builtIn}</Badge>
+					{:else}
 						<button
 							type="button"
 							class="export"
@@ -307,182 +369,206 @@ ${'</'}script>
 						>
 							{t.studio.widgets.export}
 						</button>
-						<button
-							type="button"
-							class="delete"
-							onclick={() => void removeWidget(selected.id, selected.name)}
+						<ConfirmDelete
+							prompt={t.studio.tools.confirmDelete({
+								name: selected.name || t.studio.widgets.untitled
+							})}
+							onConfirm={() => removeWidget(selected.id)}
 						>
-							{t.common.delete}
-						</button>
+							{#snippet trigger(arm)}
+								<button type="button" class="delete" onclick={arm}>
+									{t.common.delete}
+								</button>
+							{/snippet}
+						</ConfirmDelete>
 					{/if}
-				</div>
+				</header>
 
 				{#if readOnly}
 					<div class="readonly-note">
-						<p>{t.studio.widgets.builtInNote}</p>
-						{#if forkable}
-							<button type="button" class="fork" onclick={forkBuiltin}
-								>{t.studio.widgets.fork}</button
-							>
-						{:else}
-							<p class="already-forked">
+						<p>
+							{t.studio.widgets.builtInNote}
+							{#if !forkable}
 								{t.studio.widgets.alreadyForkedPrefix} <code>{selected.name}</code>
 								{t.studio.widgets.alreadyForkedSuffix}
-							</p>
+							{/if}
+						</p>
+						{#if forkable}
+							<button type="button" class="fork" onclick={forkBuiltin}>
+								{t.studio.widgets.fork}
+							</button>
 						{/if}
 					</div>
 				{/if}
 
-				<fieldset class="body" disabled={readOnly}>
-					<div class="fields">
-						<label>
-							<span>{t.studio.widgets.name}</span>
-							<input type="text" bind:value={draftName} oninput={requestSave} />
-						</label>
-						<label>
-							<span>
-								{t.studio.widgets.description}
-							</span>
-							<input type="text" bind:value={draftDescription} oninput={requestSave} />
-						</label>
-						<label>
-							<span>{t.studio.widgets.placement}</span>
-							<select bind:value={draftPlacement} onchange={requestSave}>
-								<option value="widget">{t.studio.widgets.placementWidget}</option>
-								<option value="attachment">{t.studio.widgets.placementAttachment}</option>
-							</select>
-						</label>
-						{#if !isAttachment}
-							<label>
-								<span>{t.studio.widgets.rendersOn}</span>
-								<select bind:value={draftMode} onchange={requestSave}>
-									<option value="latest">{t.studio.widgets.latest}</option>
-									<option value="every">{t.studio.widgets.every}</option>
-								</select>
-							</label>
-						{/if}
-					</div>
-
-					{#if isAttachment}
-						<div class="props">
-							<span class="propsLabel">
-								{t.studio.widgets.properties}
-								<code>{'{ type: "lorealm:props", props }'}</code>.
-							</span>
-							{#each draftProps, i (i)}
-								<div class="propRow">
-									<input
-										type="text"
-										placeholder={t.studio.widgets.propPlaceholder}
-										bind:value={draftProps[i]}
-										oninput={requestSave}
-									/>
-									<button
-										type="button"
-										class="del"
-										{@attach tooltip(t.studio.widgets.removeProp)}
-										onclick={() => removeProp(i)}
-									>
-										×
-									</button>
-								</div>
-							{/each}
-							<button type="button" class="new" onclick={addProp}>{t.studio.widgets.addProp}</button
-							>
-						</div>
-					{/if}
-
-					<div class="split">
-						<label class="sourceBox">
-							<span>{t.studio.widgets.htmlSource}</span>
-							<textarea spellcheck="false" bind:value={draftSource} oninput={requestSave}
-							></textarea>
-						</label>
-
-						<div class="previewBox">
-							<span>{t.studio.widgets.preview}</span>
-							{#key draftSource}
-								<iframe
-									title={t.studio.widgets.previewTitle}
-									sandbox="allow-scripts"
-									srcdoc={draftSource}
-									bind:this={previewFrame}
-									onload={feedPreview}
-								></iframe>
-							{/key}
-						</div>
-					</div>
-
-					<div class="prompt">
-						{#key syncedId}
-							<ContextField
-								label={t.studio.widgets.directive}
-								value={draftPrompt}
-								hint={t.studio.widgets.directiveHint}
-								rows={3}
-								{readOnly}
-								placeholder={t.studio.widgets.directivePlaceholder}
-								onchange={(v) => {
-									draftPrompt = v;
-									requestSave();
-								}}
-							/>
-						{/key}
-					</div>
-
-					<div class="prompt">
-						{#key syncedId}
-							<ContextField
-								label={t.studio.widgets.textRendering}
-								value={draftRender}
-								hint={isAttachment
-									? t.studio.widgets.renderHintAttachment
-									: t.studio.widgets.renderHintWidget}
-								rows={3}
-								{readOnly}
-								placeholder={isAttachment
-									? t.studio.widgets.renderPlaceholderAttachment
-									: t.studio.widgets.renderPlaceholderWidget}
-								onchange={(v) => {
-									draftRender = v;
-									requestSave();
-								}}
-							/>
-						{/key}
-					</div>
-
-					<div class="tools">
-						<span class="toolsLabel">
-							{t.studio.widgets.tools}
-						</span>
-						{#each draftTools as id (id)}
-							<div class="toolRow">
-								<span class="toolName">{toolName(id)}</span>
+				<div class="workspace">
+					<div class="editor">
+						<div class="tabs" role="tablist" aria-label={t.studio.widgets.edit}>
+							{#each TABS as key (key)}
 								<button
 									type="button"
-									class="del"
-									{@attach tooltip(t.studio.widgets.removeTool)}
-									onclick={() => unbindTool(id)}
+									role="tab"
+									aria-selected={tab === key}
+									class:active={tab === key}
+									onclick={() => (tab = key)}
 								>
-									×
+									{key === 'source'
+										? t.studio.widgets.htmlSource
+										: key === 'model'
+											? t.studio.widgets.tabModel
+											: t.studio.widgets.tabSettings}
 								</button>
-							</div>
-						{/each}
-						{#if availableTools.some((t) => !draftTools.includes(t.id))}
-							<div class="bindRow">
-								<select bind:value={toolPick}>
-									<option value="">{t.studio.widgets.addTool}</option>
-									{#each availableTools.filter((tool) => !draftTools.includes(tool.id)) as tool (tool.id)}
-										<option value={tool.id}>{tool.name}</option>
+							{/each}
+						</div>
+
+						<div class="source" hidden={tab !== 'source'}>
+							{#key syncedId}
+								<HtmlEditor
+									doc={draftSource}
+									{readOnly}
+									onChange={(v) => {
+										draftSource = v;
+										requestSave();
+									}}
+								/>
+							{/key}
+						</div>
+						{#if tab === 'model'}
+							<div class="panel">
+								{#key syncedId}
+									<ContextField
+										label={t.studio.widgets.directive}
+										value={draftPrompt}
+										hint={t.studio.widgets.directiveHint}
+										rows={4}
+										{readOnly}
+										placeholder={t.studio.widgets.directivePlaceholder}
+										onchange={(v) => {
+											draftPrompt = v;
+											requestSave();
+										}}
+									/>
+									<ContextField
+										label={t.studio.widgets.textRendering}
+										value={draftRender}
+										hint={isAttachment
+											? t.studio.widgets.renderHintAttachment
+											: t.studio.widgets.renderHintWidget}
+										rows={4}
+										{readOnly}
+										placeholder={isAttachment
+											? t.studio.widgets.renderPlaceholderAttachment
+											: t.studio.widgets.renderPlaceholderWidget}
+										onchange={(v) => {
+											draftRender = v;
+											requestSave();
+										}}
+									/>
+								{/key}
+
+								<fieldset class="group" disabled={readOnly}>
+									<span class="group-label">{t.studio.widgets.tools}</span>
+									<span class="hint">{t.studio.widgets.toolsHint}</span>
+									{#each draftTools as id (id)}
+										<div class="toolRow">
+											<span class="toolName">{toolName(id)}</span>
+											<button
+												type="button"
+												class="del"
+												{@attach tooltip(t.studio.widgets.removeTool)}
+												onclick={() => unbindTool(id)}
+											>
+												×
+											</button>
+										</div>
 									{/each}
-								</select>
-								<button type="button" class="bind" onclick={bindTool}
-									>{t.studio.widgets.bind}</button
-								>
+									{#if availableTools.some((t) => !draftTools.includes(t.id))}
+										<div class="bindRow">
+											<select bind:value={toolPick}>
+												<option value="">{t.studio.widgets.addTool}</option>
+												{#each availableTools.filter((tool) => !draftTools.includes(tool.id)) as tool (tool.id)}
+													<option value={tool.id}>{tool.name}</option>
+												{/each}
+											</select>
+											<button type="button" class="bind" onclick={bindTool}>
+												{t.studio.widgets.bind}
+											</button>
+										</div>
+									{/if}
+								</fieldset>
 							</div>
+						{:else if tab === 'settings'}
+							<fieldset class="panel" disabled={readOnly}>
+								<label>
+									<span>{t.studio.widgets.description}</span>
+									<input type="text" bind:value={draftDescription} oninput={requestSave} />
+								</label>
+								<label>
+									<span>{t.studio.widgets.placement}</span>
+									<select
+										bind:value={draftPlacement}
+										onchange={() => {
+											void loadPayload();
+											requestSave();
+										}}
+									>
+										<option value="widget">{t.studio.widgets.placementWidget}</option>
+										<option value="attachment">{t.studio.widgets.placementAttachment}</option>
+									</select>
+								</label>
+								{#if isAttachment}
+									<div class="group">
+										<TagField
+											items={draftProps}
+											label={t.studio.widgets.properties}
+											placeholder={t.studio.widgets.addProp}
+											onchange={requestSave}
+										/>
+										<span class="hint">{t.studio.widgets.propertiesHint}</span>
+									</div>
+								{:else}
+									<label>
+										<span>{t.studio.widgets.rendersOn}</span>
+										<select bind:value={draftMode} onchange={requestSave}>
+											<option value="latest">{t.studio.widgets.latest}</option>
+											<option value="every">{t.studio.widgets.every}</option>
+										</select>
+									</label>
+								{/if}
+							</fieldset>
 						{/if}
 					</div>
-				</fieldset>
+
+					<div class="preview">
+						<div class="preview-head">{t.studio.widgets.preview}</div>
+						<div class="preview-frame">
+							<StateFrame
+								source={draftSource}
+								slice={payload}
+								title={t.studio.widgets.previewTitle}
+								kind={isAttachment ? 'props' : 'state'}
+							/>
+						</div>
+						<details class="payload" bind:open={payloadOpen}>
+							<summary>
+								{t.studio.widgets.testPayload}
+								{#if payloadInvalid}
+									<span class="payload-error">{t.studio.widgets.payloadInvalid}</span>
+								{/if}
+							</summary>
+							<textarea
+								spellcheck="false"
+								aria-label={t.studio.widgets.testPayload}
+								class:invalid={payloadInvalid}
+								bind:value={payloadText}
+								oninput={editPayload}
+							></textarea>
+							<button type="button" class="payload-reset" onclick={resetPayload}>
+								{t.studio.widgets.resetPayload}
+							</button>
+						</details>
+					</div>
+				</div>
 			</div>
 		{:else}
 			<div class="pane empty-pane">
@@ -572,17 +658,6 @@ ${'</'}script>
 		transition: background-color 0.15s ease;
 	}
 
-	.del {
-		background: none;
-		border: none;
-		color: var(--color-text-muted);
-		padding: 0 4px;
-	}
-
-	.del:hover {
-		color: var(--color-text-primary);
-	}
-
 	.pane {
 		display: flex;
 		flex-direction: column;
@@ -590,29 +665,49 @@ ${'</'}script>
 		min-width: 0;
 		min-height: 0;
 		gap: var(--spacing-md);
-		overflow-y: auto;
-	}
-	.pane-head {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-	.pane h1 {
-		font-size: var(--font-size-h3);
-		margin: 0;
 	}
 	.empty-pane {
 		align-items: center;
 		justify-content: center;
 	}
-	.body {
-		display: contents;
+	.pane-head {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
 	}
+	.kind-icon {
+		flex: 0 0 auto;
+		display: flex;
+		color: var(--color-text-muted);
+	}
+	.title {
+		flex: 1 1 auto;
+		min-width: 0;
+		padding: var(--spacing-xs) var(--spacing-sm);
+		background: transparent;
+		border-color: transparent;
+		font-family: var(--font-family-heading);
+		font-size: var(--font-size-h4);
+		font-weight: var(--font-weight-semibold);
+	}
+	.title:hover:not([readonly]),
+	.title:focus {
+		background: var(--color-bg-input);
+	}
+	.export,
+	.delete {
+		flex: 0 0 auto;
+		padding: var(--spacing-xs) var(--spacing-sm);
+		font-size: var(--font-size-sm);
+	}
+	.delete {
+		color: var(--color-error-text);
+	}
+
 	.readonly-note {
 		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: var(--spacing-sm);
+		align-items: center;
+		gap: var(--spacing-md);
 		padding: var(--spacing-sm) var(--spacing-md);
 		border: 1px solid var(--color-border-subtle);
 		border-radius: var(--radius-md);
@@ -621,77 +716,111 @@ ${'</'}script>
 		font-size: var(--font-size-sm);
 	}
 	.readonly-note p {
+		flex: 1;
 		margin: 0;
 	}
 	.fork {
+		flex: 0 0 auto;
 		width: auto;
 	}
-	.already-forked {
-		color: var(--color-text-muted);
-	}
-	.export {
-		flex: 0 0 auto;
-		margin-left: auto;
-		padding: var(--spacing-xs) var(--spacing-sm);
-		font-size: var(--font-size-sm);
-	}
-	.delete {
-		flex: 0 0 auto;
-		padding: var(--spacing-xs) var(--spacing-sm);
-		font-size: var(--font-size-sm);
-		color: var(--color-error-text);
-	}
 
-	.fields {
+	.workspace {
 		display: flex;
-		gap: var(--spacing-md);
-	}
-
-	.fields > label {
 		flex: 1;
+		min-height: 0;
+		gap: var(--spacing-lg);
 	}
-
-	label {
+	.editor {
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
+		flex: 3 1 0;
+		min-width: 0;
+	}
+	.preview {
+		display: flex;
+		flex-direction: column;
+		flex: 2 1 0;
+		min-width: 280px;
 	}
 
+	.tabs,
+	.preview-head {
+		display: flex;
+		flex: 0 0 auto;
+		align-items: flex-end;
+		height: 36px;
+		border-bottom: 1px solid var(--color-border-subtle);
+	}
+	.tabs {
+		gap: var(--spacing-xs);
+	}
+	.tabs button {
+		padding: var(--spacing-sm) var(--spacing-md);
+		background: transparent;
+		border: none;
+		border-bottom: 2px solid transparent;
+		border-radius: 0;
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
+	}
+	.tabs button:hover {
+		color: var(--color-text-secondary);
+	}
+	.tabs button.active {
+		border-bottom-color: var(--color-primary-light);
+		color: var(--color-text-primary);
+	}
+	.preview-head {
+		padding: var(--spacing-sm) 0;
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-sm);
+	}
+
+	.source {
+		display: flex;
+		flex: 1;
+		min-height: 0;
+		margin-top: var(--spacing-sm);
+	}
+	.source[hidden] {
+		display: none;
+	}
+
+	.panel {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-height: 0;
+		gap: var(--spacing-lg);
+		margin: 0;
+		padding: var(--spacing-md) var(--spacing-xs) var(--spacing-md) 0;
+		border: none;
+		overflow-y: auto;
+	}
+	fieldset.panel {
+		max-width: 560px;
+	}
+	.group {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-sm);
+		margin: 0;
+		padding: 0;
+		border: none;
+	}
+	.group-label,
 	label > span {
 		font-size: var(--font-size-sm);
 		color: var(--color-text-secondary);
 	}
-
-	.split {
-		display: flex;
-		flex: 1 0 auto;
-		min-height: 300px;
-		gap: var(--spacing-md);
+	.hint {
+		color: var(--color-text-muted);
+		font-size: var(--font-size-xs);
 	}
-
-	.prompt,
-	.tools,
-	.props {
-		flex-shrink: 0;
-	}
-
-	.tools,
-	.props {
+	label {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
-	}
-
-	.toolsLabel,
-	.propsLabel {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
-	}
-
-	.propRow {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
+		gap: 6px;
 	}
 
 	.toolRow {
@@ -700,54 +829,70 @@ ${'</'}script>
 		justify-content: space-between;
 		gap: var(--spacing-sm);
 	}
-
 	.toolName {
 		font-family: var(--font-family-mono);
 		font-size: var(--font-size-sm);
 	}
-
 	.bindRow {
 		display: flex;
 		gap: var(--spacing-sm);
 	}
-
 	.bindRow > select {
 		flex: 1;
 		min-width: 0;
 	}
-
-	.sourceBox {
-		flex: 1;
-		min-width: 0;
+	.del {
+		background: none;
+		border: none;
+		color: var(--color-text-muted);
+		padding: 0 4px;
+	}
+	.del:hover {
+		color: var(--color-text-primary);
 	}
 
-	.sourceBox textarea {
-		flex: 1;
-		min-height: 0;
-		font-family: var(--font-family-mono);
-		font-size: var(--font-size-sm);
-		resize: none;
-	}
-
-	.previewBox {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-		width: 320px;
-		flex-shrink: 0;
-	}
-
-	.previewBox > span {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
-	}
-
-	.previewBox > iframe {
+	.preview-frame {
 		flex: 1;
 		min-height: 0;
+		margin-top: var(--spacing-sm);
+		padding: var(--spacing-md);
 		border: 1px solid var(--color-border-subtle);
 		border-radius: var(--radius-md);
-		background: var(--color-bg-elevated);
+		background: var(--color-bg-base);
+		overflow-y: auto;
+	}
+	.payload {
+		flex: 0 0 auto;
+		display: flex;
+		flex-direction: column;
+		margin-top: var(--spacing-sm);
+	}
+	.payload summary {
+		padding: var(--spacing-xs) 0;
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-sm);
+		cursor: pointer;
+	}
+	.payload-error {
+		margin-left: var(--spacing-sm);
+		color: var(--color-error-text);
+		font-size: var(--font-size-xs);
+	}
+	.payload textarea {
+		width: 100%;
+		height: 200px;
+		font-family: var(--font-family-mono);
+		font-size: var(--font-size-sm);
+		resize: vertical;
+	}
+	.payload-reset {
+		align-self: flex-end;
+		margin-top: var(--spacing-xs);
+		padding: var(--spacing-xs) var(--spacing-sm);
+		font-size: var(--font-size-xs);
+	}
+	.payload textarea.invalid {
+		border-color: var(--color-error-text);
 	}
 
 	.empty {

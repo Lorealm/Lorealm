@@ -43,6 +43,7 @@
 		"untitled": "Rike uten navn",
 		"delete": "Slett rike",
 		"deleteNamed": "Slett {name}",
+		"confirmDelete": "Delete “{name}”?",
 		"imported": "importert",
 		"playthroughs": "{count, plural, one {# gjennomspilling} other {# gjennomspillinger}}",
 		"play": "Spill",
@@ -58,7 +59,10 @@
 		"import": "Importer",
 		"exportHint": "Eksporter med ressursene den bruker",
 		"exportNamed": "Eksporter {name}",
+		"duplicate": "Duplicate",
+		"duplicateNamed": "Duplicate {name}",
 		"delete": "Slett blåkopi",
+		"confirmDelete": "Delete “{name}”?",
 		"empty": "Ingen blåkopier ennå."
 	},
 	"newMenu": {
@@ -254,7 +258,7 @@
 		}
 	},
 	"overview": {
-		"name": "Navn",
+		"name": "Realm name",
 		"untitled": "Uten navn",
 		"description": "Beskrivelse",
 		"descriptionPlaceholder": "Hva som skjer her, og hvem det er for.",
@@ -362,7 +366,6 @@
 		"nobody": "ingen",
 		"bindTool": "Bind et verktøy…",
 		"bindAnotherTool": "Bind et verktøy til",
-		"speaksOn": "Snakker på",
 		"grants": "Tilganger",
 		"addGrant": "Legg til en tilgang",
 		"namespace": "Navnerom",

@@ -19,9 +19,6 @@ interface InspectorMatrix {
 	activeId: string;
 }
 
-/** What the inspector showed before profiles existed. */
-const DEFAULT_WIDGETS: InspectorWidgetKey[] = ['character-image', 'template', 'context', 'state'];
-
 function defaults(): InspectorMatrix {
 	return {
 		profiles: [
@@ -30,12 +27,20 @@ function defaults(): InspectorMatrix {
 				name: t.settings.inspector.defaultProfile,
 				icon: 'layout-panel-left',
 				cells: {
-					write: DEFAULT_WIDGETS,
-					characters: DEFAULT_WIDGETS,
-					connections: DEFAULT_WIDGETS,
-					studio: DEFAULT_WIDGETS,
-					settings: DEFAULT_WIDGETS,
-					realms: ['realm-agent']
+					write: ['character-image', 'author-note', 'template'],
+					characters: ['creator-notes'],
+					realms: ['realm-agent'],
+					studio: ['weaver-reference', 'style-variables']
+				}
+			},
+			{
+				id: 'debug',
+				name: t.settings.inspector.debugProfile,
+				icon: 'bug',
+				cells: {
+					write: ['context', 'state'],
+					realms: ['realm-agent'],
+					studio: ['style-variables', 'context', 'state']
 				}
 			}
 		],

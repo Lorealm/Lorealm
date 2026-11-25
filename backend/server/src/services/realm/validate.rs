@@ -126,7 +126,6 @@ impl RealmService {
             validate_handle(&agent.handle, &definition.agents[..i], None)?;
             validate_properties(&agent.properties)?;
             validate_grants(&agent.grants)?;
-            validate_channel("speech_channel", agent.speech_channel.as_deref())?;
             for binding in &agent.tools {
                 validate_channel("event_channel", binding.event_channel.as_deref())?;
             }
@@ -366,7 +365,6 @@ mod tests {
                 tool_id: sf(40),
                 event_channel: None,
             }],
-            speech_channel: None,
             lorebooks: vec![sf(50)],
             widgets: Vec::new(),
             script: None,

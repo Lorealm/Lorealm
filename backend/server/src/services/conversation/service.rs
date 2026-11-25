@@ -171,6 +171,12 @@ impl ConversationService {
                 );
 
                 self.storage.append_and_advance(&message).await?;
+                // The copy keeps `has_context`, so it needs the prompt too.
+                if let Some(context) = self.storage.get_message_context(original.id).await? {
+                    self.storage
+                        .put_message_context(message.id, &context)
+                        .await?;
+                }
                 Ok(message)
             }
         }
@@ -539,6 +545,34 @@ mod tests {
         // Original and its continuation preserved.
         assert!(store.get_message(b.id).await.unwrap().is_some());
         assert!(store.get_message(old_leaf.id).await.unwrap().is_some());
+    }
+
+    #[tokio::test]
+    async fn edit_branch_keeps_the_prompt_of_the_reply_it_copies() {
+        let (s, store, c, _) = setup().await;
+        append(&s, c, "A").await;
+        let b = s
+            .append_message(
+                c,
+                ChatRole::Assistant,
+                "B".into(),
+                serde_json::json!({ "has_context": true }),
+            )
+            .await
+            .unwrap();
+        let prompt = serde_json::json!([{ "role": "system", "content": "be brief" }]);
+        store.put_message_context(b.id, &prompt).await.unwrap();
+
+        let b2 = s
+            .edit_message(c, b.id, "B-alt".into(), EditMode::Branch)
+            .await
+            .unwrap();
+
+        assert_eq!(b2.metadata["has_context"], true);
+        assert_eq!(
+            store.get_message_context(b2.id).await.unwrap(),
+            Some(prompt)
+        );
     }
 
     #[tokio::test]

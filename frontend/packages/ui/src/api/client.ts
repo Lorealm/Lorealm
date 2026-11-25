@@ -86,7 +86,7 @@ import type {
 	RealmResourceRef,
 	NextTurn,
 	Realm,
-	RealmCast,
+	DisplayCast,
 	RealmSummary,
 	RealmVersionInfo,
 	StartRealmChatRequest,
@@ -110,6 +110,7 @@ import type {
 import type {
 	BatchTokenizeRequest,
 	BatchTokenizeResponse,
+	ImportQuery,
 	NetworkCreate,
 	ShareRequest,
 	Tokenizer,
@@ -352,7 +353,7 @@ export function createApiClient(platform: PlatformAPI) {
 				http.post<FullConversation>('/api/v1/chat/realm', request),
 			/** The cast this conversation plays with, pinned when it started. */
 			cast: (conversation_id: Snowflake) =>
-				http.get<RealmCast>(`/api/v1/chat/${conversation_id}/cast`),
+				http.get<DisplayCast>(`/api/v1/chat/${conversation_id}/cast`),
 			nextTurn: (conversation_id: Snowflake) =>
 				http.get<NextTurn>(`/api/v1/chat/${conversation_id}/turn/next`),
 			/** Advance the conversation and stream what happens. */
@@ -380,6 +381,10 @@ export function createApiClient(platform: PlatformAPI) {
 				state: (conversation_id: Snowflake, message_id: Snowflake) =>
 					http.get<ReconstructedState>(
 						`/api/v1/chat/${conversation_id}/messages/${message_id}/state`
+					),
+				context: (conversation_id: Snowflake, message_id: Snowflake) =>
+					http.get<{ context: JsonValue | null }>(
+						`/api/v1/chat/${conversation_id}/messages/${message_id}/context`
 					)
 			}
 		},
@@ -535,7 +540,11 @@ export function createApiClient(platform: PlatformAPI) {
 					http.delete(`/api/v1/tokenizers/${tok_id}/shares/${user_id}`)
 			},
 			imports: {
-				file: (blob: Blob) => http.putBlob<Tokenizer>('/api/v1/tokenizers/import', blob),
+				file: (query: ImportQuery, blob: Blob) =>
+					http.putBlob<Tokenizer>(
+						`/api/v1/tokenizers/import?${new URLSearchParams({ name: query.name, is_public: String(query.is_public) })}`,
+						blob
+					),
 				network: (res: NetworkCreate) => http.post<Tokenizer>('/api/v1/tokenizers/network', res)
 			},
 			active: {
@@ -560,6 +569,7 @@ export function createApiClient(platform: PlatformAPI) {
 			update: (id: Snowflake, update: UpdateBlueprintRequest) =>
 				http.patch<Blueprint>(`/api/v1/blueprints/${id}`, update),
 			delete: (id: Snowflake) => http.delete(`/api/v1/blueprints/${id}`),
+			duplicate: (id: Snowflake) => http.post<Blueprint>(`/api/v1/blueprints/${id}/duplicate`),
 			inputs: (id: Snowflake) => http.get<Array<InputSpec>>(`/api/v1/blueprints/${id}/inputs`),
 			/** The author's introduction and the fields, for building a realm. */
 			form: (id: Snowflake) => http.get<BuildForm>(`/api/v1/blueprints/${id}/form`),

@@ -1,0 +1,80 @@
+name: Bug report
+description: Report something broken
+title: "[BUG]: "
+labels: [T-Bug]
+body:
+  - type: checkboxes
+    attributes:
+      label: Check these first!
+      options:
+        - label: I have searched existing issues for duplicate bug reports
+          required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: e.g. Windows 11, macOS 15, Ubuntu 24.04
+    validations:
+      required: true
+
+  - type: input
+    id: server-version
+    attributes:
+      label: Server version
+    validations:
+      required: true
+
+  - type: input
+    id: frontend-version
+    attributes:
+      label: Frontend version
+    validations:
+      required: true
+
+  - type: dropdown
+    id: client-official
+    attributes:
+      label: Are you using the official client?
+      options: ["Yes", "No"]
+    validations:
+      required: true
+
+  - type: dropdown
+    id: client-type
+    attributes:
+      label: Client type
+      options: [Web, Desktop]
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      render: shell

@@ -9,7 +9,7 @@ use axum::{
     },
 };
 use futures_util::StreamExt;
-use lorealm_storage::models::{ConversationMessage, ConversationMetadata, RealmCast, Snowflake};
+use lorealm_storage::models::{ConversationMessage, ConversationMetadata, Snowflake};
 use reqwest::StatusCode;
 
 use crate::{
@@ -21,7 +21,7 @@ use crate::{
         StartRealmChatRequest,
     },
     services::{
-        chat::{ActionSpec, FullConversation, NextTurn, TurnRequest},
+        chat::{ActionSpec, DisplayCast, FullConversation, NextTurn, TurnRequest},
         state::{ReconstructedState, StatePool},
     },
 };
@@ -100,6 +100,20 @@ pub async fn get_message(
         .await?;
 
     Ok(Json(message))
+}
+
+pub async fn get_message_context(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path((conversation_id, message_id)): Path<(Snowflake, Snowflake)>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let context = state
+        .services()
+        .chat()
+        .get_message_context(conversation_id, message_id, session.user_id)
+        .await?;
+
+    Ok(Json(serde_json::json!({ "context": context })))
 }
 
 pub async fn edit_message(
@@ -255,11 +269,11 @@ pub async fn get_cast(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,
     Path(conversation_id): Path<Snowflake>,
-) -> Result<Json<RealmCast>, AppError> {
+) -> Result<Json<DisplayCast>, AppError> {
     let cast = state
         .services()
         .chat()
-        .cast(conversation_id, session.user_id)
+        .display_cast(conversation_id, session.user_id)
         .await?;
 
     Ok(Json(cast))

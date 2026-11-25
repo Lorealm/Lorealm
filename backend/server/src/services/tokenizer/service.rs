@@ -243,8 +243,7 @@ impl TokenizerService {
         tok_id: Snowflake,
         user_id: Snowflake,
     ) -> Result<Arc<Kitoken>, TokenizerError> {
-        // Authorize on every call, including cache hits.
-        let tokenizer_def = self.get_owned(user_id, tok_id).await?;
+        let tokenizer_def = self.get_tokenizer(user_id, tok_id).await?;
 
         // Fast path: short critical section, no .await held.
         {

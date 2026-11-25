@@ -1,6 +1,9 @@
 <script lang="ts">
 	import type { JsonValue } from '#lib/types/core.js';
+	import type { PlayerAction } from '#lib/types/realm.js';
 	import { frameTheme } from '#lib/stores/frameTheme.svelte.js';
+	import { characterStore } from '#lib/stores/character.svelte.js';
+	import { macroContext } from '#lib/assets/scripts/variable-replace.js';
 
 	let {
 		source,
@@ -13,14 +16,16 @@
 		slice: Record<string, JsonValue>;
 		title: string;
 		kind?: 'state' | 'props';
-		onaction?: (toolId: string, args: JsonValue) => void;
+		/** A tool the widget triggers, or Weaver it sends, and what to call it. */
+		onaction?: (action: PlayerAction, label: string) => void;
 	} = $props();
 
 	/**
-	 * Injected at the end of every widget so authors don't hand-write it:
-	 * reports content height (iframes can't self-size), pings ready so the
-	 * host pushes the initial payload, and adopts the app's style variables and fonts
-	 * ahead of the widget's own styles.
+	 * Injected at the end of every widget. Provides functionality for:
+	 * - Auto-resizing
+	 * - Variable access
+	 * - Automatic theme-adherence & CSS variables
+	 * - Ready handling
 	 */
 	const HOST_SCRIPT = `<script>(function () {
   function report() {
@@ -36,10 +41,37 @@
   }
   function ready() { parent.postMessage({ type: 'lorealm:ready' }, '*'); }
   var faces = [];
+  var written = new WeakMap();
+  function expand(text, ctx) {
+    return text.replace(/\\{\\{(\\w+):(\\w+)\\}\\}/g, function (m, who, field) {
+      var side = ctx[who];
+      var v = side && side[field];
+      return typeof v === 'string' ? v : m;
+    });
+  }
+  function fill(ctx) {
+    window.lorealm = window.lorealm || {};
+    window.lorealm.context = ctx;
+    var root = document.body || document.documentElement;
+    var walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (var n = walk.nextNode(); n; n = walk.nextNode()) {
+      var tag = n.parentNode && n.parentNode.nodeName;
+      if (tag === 'SCRIPT' || tag === 'STYLE') continue;
+      var seen = written.get(n);
+      // A widget script that rewrote the node since we last filled it owns the new text.
+      var tpl = seen && seen.out === n.nodeValue ? seen.tpl : n.nodeValue;
+      if (tpl.indexOf('{{') < 0) continue;
+      var out = expand(tpl, ctx);
+      written.set(n, { tpl: tpl, out: out });
+      if (out !== n.nodeValue) n.nodeValue = out;
+    }
+  }
   addEventListener('message', function (e) {
     var d = e.data;
     if (e.source !== parent || !d) return;
-    if (d.type === 'lorealm:theme') {
+    if (d.type === 'lorealm:context') {
+      fill(d.context || {});
+    } else if (d.type === 'lorealm:theme') {
       var style = document.getElementById('lorealm-theme');
       if (!style) {
         style = document.createElement('style');
@@ -80,9 +112,21 @@
 		frame?.contentWindow?.postMessage({ type: 'lorealm:fonts', fonts: frameTheme.fonts }, '*');
 	}
 
+	/** The same names `{{char:name}}` and `{{user:name}}` resolve to in messages. */
+	const context = $derived(macroContext(characterStore.activeCharacter?.id ?? null));
+
+	function pushContext() {
+		frame?.contentWindow?.postMessage({ type: 'lorealm:context', context }, '*');
+	}
+
 	$effect(() => {
 		void slice;
 		push();
+	});
+
+	$effect(() => {
+		void context;
+		pushContext();
 	});
 
 	$effect(() => {
@@ -97,16 +141,25 @@
 			type?: string;
 			tool_id?: unknown;
 			args?: unknown;
+			source?: unknown;
+			label?: unknown;
 			height?: unknown;
 		} | null;
 		if (data?.type === 'lorealm:ready') {
+			pushContext();
 			push();
 			pushTheme();
 		} else if (data?.type === 'lorealm:height' && typeof data.height === 'number') {
 			height = Math.max(0, Math.min(4000, data.height));
 		} else if (data?.type === 'lorealm:action' && typeof data.tool_id === 'string') {
-			onaction?.(data.tool_id, (data.args ?? {}) as JsonValue);
+			onaction?.({ tool_id: data.tool_id, args: (data.args ?? {}) as JsonValue }, labelOf(data));
+		} else if (data?.type === 'lorealm:run' && typeof data.source === 'string') {
+			onaction?.({ run: data.source }, labelOf(data));
 		}
+	}
+
+	function labelOf(data: { label?: unknown }): string {
+		return typeof data.label === 'string' && data.label.trim() ? data.label : title;
 	}
 </script>
 
@@ -114,7 +167,6 @@
 
 <iframe
 	class="static-widget"
-	class:bare={kind === 'props'}
 	{title}
 	sandbox="allow-scripts"
 	srcdoc={source + HOST_SCRIPT}
@@ -124,16 +176,11 @@
 ></iframe>
 
 <style>
-	.static-widget.bare {
-		border: none;
-		border-radius: 0;
-		background: transparent;
-	}
+	/* Bare: the widget's own HTML decides how it looks. */
 	.static-widget {
 		display: block;
 		width: 100%;
-		border: 1px solid var(--color-border-subtle);
-		border-radius: var(--radius-lg);
-		background: var(--color-bg-elevated);
+		border: none;
+		background: transparent;
 	}
 </style>

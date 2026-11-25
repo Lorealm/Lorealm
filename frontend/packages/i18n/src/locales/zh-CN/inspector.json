@@ -10,7 +10,12 @@
 		"state": "状态",
 		"realmAgent": "领域智能体",
 		"authorNote": "作者注",
-		"creatorNotes": "创作者备注"
+		"creatorNotes": "创作者备注",
+		"styleVariables": "Style Variables"
+	},
+	"styleVariables": {
+		"copied": "Copied",
+		"search": "Search variables…"
 	},
 	"creatorNotes": {
 		"loading": "正在加载…",

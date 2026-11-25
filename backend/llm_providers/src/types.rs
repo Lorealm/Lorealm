@@ -145,6 +145,17 @@ pub struct CommonParams {
     pub seed: Option<u64>,
     pub stop: Option<Vec<String>>,
     pub tools: Option<Vec<ToolDef>>,
+    // Custom request fields, filled in by the caller rather than read from a
+    // stored profile. See `providers::with_custom_fields`.
+    /// Merged into the request body; nested objects merge key by key.
+    #[serde(skip)]
+    pub extra_body: Option<serde_json::Map<String, serde_json::Value>>,
+    /// Top-level body fields removed before sending.
+    #[serde(skip)]
+    pub exclude_body: Vec<String>,
+    /// Sent with the request, replacing any header of the same name.
+    #[serde(skip)]
+    pub extra_headers: Vec<(String, String)>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -10,7 +10,12 @@
 		"state": "Tilstand",
 		"realmAgent": "Rikets agent",
 		"authorNote": "Forfatternotat",
-		"creatorNotes": "Skaperens notater"
+		"creatorNotes": "Skaperens notater",
+		"styleVariables": "Style Variables"
+	},
+	"styleVariables": {
+		"copied": "Copied",
+		"search": "Search variables…"
 	},
 	"creatorNotes": {
 		"loading": "Laster…",

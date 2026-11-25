@@ -13,6 +13,7 @@ use crate::{
     services::{
         module::ModuleExports,
         state::{delete_var, write_var},
+        variables::Variables,
     },
     util::weaver::{json_to_weaver, weaver_to_json},
 };
@@ -74,6 +75,7 @@ pub struct ToolContext {
     read_only: bool,
     actor: Option<Actor>,
     realm: Option<RealmVariables>,
+    variables: Variables,
     modules: ModuleExports,
 }
 
@@ -86,6 +88,7 @@ impl ToolContext {
             read_only: false,
             actor: None,
             realm: None,
+            variables: Variables::default(),
             modules: ModuleExports::default(),
         }
     }
@@ -105,6 +108,12 @@ impl ToolContext {
     /// Mount `cast:` and `turn:` for a body running inside a realm.
     pub fn with_realm(mut self, realm: Option<RealmVariables>) -> Self {
         self.realm = realm;
+        self
+    }
+
+    /// Host values such as `{{char:name}}`, read before anything else.
+    pub fn with_variables(mut self, variables: Variables) -> Self {
+        self.variables = variables;
         self
     }
 
@@ -218,6 +227,9 @@ fn module_is_read_only(scope: &str) -> EvalError {
 
 impl EvalContext for ToolContext {
     fn resolve_variable(&self, scope: &str, name: &str) -> Result<Option<WeaverValue>, EvalError> {
+        if let Some(value) = self.variables.get(scope, name) {
+            return Ok(Some(value.clone()));
+        }
         match scope {
             // `props:` is the widget-render spelling of the same bound map.
             "cmd" | "props" => Ok(self.cmd.get(name).cloned()),

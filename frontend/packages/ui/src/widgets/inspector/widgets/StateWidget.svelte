@@ -3,7 +3,7 @@
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import { lorebookStore } from '#lib/stores/lorebook.svelte.js';
 	import { messageStateStore } from '#lib/stores/messageState.svelte.js';
-	import { flattenPaths } from '#lib/types/state.js';
+	import StateTree from '../../../components/StateTree.svelte';
 	import { ChevronDown } from '@lucide/svelte';
 
 	let messageState = $derived(messageStateStore.current);
@@ -45,7 +45,8 @@
 		if (!messageState) return [];
 		return Object.entries(messageState.persistent).map(([name, pool]) => ({
 			name,
-			entries: flattenPaths(pool)
+			data: pool,
+			count: Object.keys(pool).length
 		}));
 	});
 
@@ -58,19 +59,6 @@
 	}
 	function togglePool(name: string) {
 		openPool = openPool === name ? null : name;
-	}
-
-	function fmt(value: unknown): string {
-		if (typeof value === 'string') return value;
-		if (value === null || value === undefined) return String(value);
-		if (typeof value === 'object') {
-			try {
-				return JSON.stringify(value);
-			} catch {
-				return String(value);
-			}
-		}
-		return String(value);
 	}
 </script>
 
@@ -179,21 +167,16 @@
 						>
 							<span class="kind kind-source">{t.chat.inspector.pool}</span>
 							<span class="title">{pool.name}</span>
-							<span class="count">{pool.entries.length}</span>
+							<span class="count">{pool.count}</span>
 							<span class="chev" class:open={openPool === pool.name}><ChevronDown /></span>
 						</button>
 
 						{#if openPool === pool.name}
 							<div class="detail">
-								{#if pool.entries.length === 0}
+								{#if pool.count === 0}
 									<div class="unresolved">{t.chat.inspector.emptyPool}</div>
 								{:else}
-									{#each pool.entries as kv (kv.key)}
-										<div class="kv">
-											<span class="kv-key" {@attach tooltip(kv.key)}>{kv.key}</span>
-											<pre class="kv-val">{fmt(kv.value)}</pre>
-										</div>
-									{/each}
+									<StateTree data={pool.data} />
 								{/if}
 							</div>
 						{/if}
@@ -210,7 +193,7 @@
 		flex-direction: column;
 		flex: 0 0 auto;
 		width: 100%;
-		height: var(--inspector-widget-height, 280px);
+		height: var(--inspector-widget-large, 280px);
 		border-bottom: 1px solid var(--color-border-subtle);
 	}
 	.widget.collapsed {
@@ -402,35 +385,6 @@
 		opacity: 0.6;
 	}
 
-	.kv {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-		padding-left: var(--spacing-md);
-		border-left: 2px solid var(--color-border-subtle);
-	}
-	.kv-key {
-		color: var(--color-text-accent);
-		font-family: var(--font-family-mono);
-		font-size: var(--font-size-xs);
-		overflow: hidden;
-		white-space: nowrap;
-		text-overflow: ellipsis;
-	}
-	.kv-val {
-		margin: 0;
-		max-height: 120px;
-		overflow-y: auto;
-		padding: var(--spacing-xs) var(--spacing-sm);
-		background: var(--color-bg-base);
-		border-radius: var(--radius-sm);
-		color: var(--color-text-primary);
-		font-family: var(--font-family-mono);
-		font-size: var(--font-size-xs);
-		line-height: var(--line-height-snug);
-		white-space: pre-wrap;
-		overflow-wrap: anywhere;
-	}
 	.unresolved {
 		padding: var(--spacing-sm);
 		background: var(--color-bg-base);

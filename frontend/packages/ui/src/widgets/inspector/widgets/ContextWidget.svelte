@@ -1,17 +1,44 @@
 <script lang="ts">
 	import { t } from '#lib/stores/i18n.svelte.js';
 	import { chatStore } from '#lib/stores/chat.svelte.js';
-	import { parseContextBlocks, groupAdjacentBlocks } from '#lib/types/context.js';
+	import { useApi } from '#lib/api/client.js';
+	import {
+		parseContextBlocks,
+		hasStoredContext,
+		groupAdjacentBlocks,
+		type TracedBlock
+	} from '#lib/types/context.js';
 	import { resolveBlockContent } from '#lib/types/content.js';
 	import { ChevronDown } from '@lucide/svelte';
 
-	let latest = $derived.by(() => {
+	const api = useApi();
+
+	let source = $derived.by(() => {
 		const path = chatStore.activePath;
 		for (let i = path.length - 1; i >= 0; i--) {
-			const blocks = parseContextBlocks(path[i].metadata);
-			if (blocks) return { id: path[i].id, blocks };
+			if (hasStoredContext(path[i].metadata)) return path[i];
 		}
 		return null;
+	});
+	let sourceId = $derived(source?.id ?? null);
+	let sourceConvo = $derived(source?.conversation_id ?? null);
+
+	let latest = $state<{ id: string; blocks: TracedBlock[] } | null>(null);
+	$effect(() => {
+		const id = sourceId;
+		const convo = sourceConvo;
+		if (id === null || convo === null) {
+			latest = null;
+			return;
+		}
+		api.chat.messages
+			.context(convo, id)
+			.then((res) => {
+				if (sourceId === id) latest = { id, blocks: parseContextBlocks(res) ?? [] };
+			})
+			.catch(() => {
+				if (sourceId === id) latest = null;
+			});
 	});
 
 	let groups = $derived(latest ? groupAdjacentBlocks(latest.blocks) : null);

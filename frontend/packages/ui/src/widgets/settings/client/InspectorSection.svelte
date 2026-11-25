@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfirmDelete from '#lib/components/ConfirmDelete.svelte';
 	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../stores/tooltip.svelte.ts';
 	import IconPicker from '#lib/components/IconPicker.svelte';
@@ -95,14 +96,21 @@
 					value={profile.name}
 					oninput={(e) => inspectorMatrix.rename(profile.id, e.currentTarget.value)}
 				/>
-				<button
-					class="delete"
-					{@attach tooltip(t.settings.inspector.deleteProfile)}
-					disabled={inspectorMatrix.profiles.length < 2}
-					onclick={() => inspectorMatrix.removeProfile(profile.id)}
+				<ConfirmDelete
+					prompt={t.settings.inspector.confirmDeleteProfile({ name: profile.name })}
+					onConfirm={() => inspectorMatrix.removeProfile(profile.id)}
 				>
-					<Trash2 size={16} />
-				</button>
+					{#snippet trigger(arm)}
+						<button
+							class="delete"
+							{@attach tooltip(t.settings.inspector.deleteProfile)}
+							disabled={inspectorMatrix.profiles.length < 2}
+							onclick={arm}
+						>
+							<Trash2 size={16} />
+						</button>
+					{/snippet}
+				</ConfirmDelete>
 			</div>
 
 			<div class="views">

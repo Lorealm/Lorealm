@@ -43,6 +43,7 @@
 		"untitled": "未命名领域",
 		"delete": "删除领域",
 		"deleteNamed": "删除 {name}",
+		"confirmDelete": "Delete “{name}”?",
 		"imported": "已导入",
 		"playthroughs": "{count, plural, other {# 条游玩记录}}",
 		"play": "开玩",
@@ -58,7 +59,10 @@
 		"import": "导入",
 		"exportHint": "连同其使用的资源一并导出",
 		"exportNamed": "导出 {name}",
+		"duplicate": "Duplicate",
+		"duplicateNamed": "Duplicate {name}",
 		"delete": "删除蓝图",
+		"confirmDelete": "Delete “{name}”?",
 		"empty": "还没有蓝图。"
 	},
 	"newMenu": {
@@ -254,7 +258,7 @@
 		}
 	},
 	"overview": {
-		"name": "名称",
+		"name": "Realm name",
 		"untitled": "未命名",
 		"description": "描述",
 		"descriptionPlaceholder": "这里会发生什么，适合谁玩。",
@@ -362,7 +366,6 @@
 		"nobody": "无人",
 		"bindTool": "绑定工具…",
 		"bindAnotherTool": "再绑定一个工具",
-		"speaksOn": "发言于",
 		"grants": "授权",
 		"addGrant": "添加授权",
 		"namespace": "命名空间",

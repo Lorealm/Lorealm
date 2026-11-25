@@ -43,6 +43,7 @@
 		"untitled": "Мир без названия",
 		"delete": "Удалить мир",
 		"deleteNamed": "Удалить «{name}»",
+		"confirmDelete": "Delete “{name}”?",
 		"imported": "импортирован",
 		"playthroughs": "{count, plural, one {# прохождение} few {# прохождения} many {# прохождений} other {# прохождения}}",
 		"play": "Играть",
@@ -58,7 +59,10 @@
 		"import": "Импортировать",
 		"exportHint": "Экспортировать вместе с используемыми ресурсами",
 		"exportNamed": "Экспортировать «{name}»",
+		"duplicate": "Duplicate",
+		"duplicateNamed": "Duplicate {name}",
 		"delete": "Удалить заготовку",
+		"confirmDelete": "Delete “{name}”?",
 		"empty": "Заготовок пока нет."
 	},
 	"newMenu": {
@@ -254,7 +258,7 @@
 		}
 	},
 	"overview": {
-		"name": "Название",
+		"name": "Realm name",
 		"untitled": "Без названия",
 		"description": "Описание",
 		"descriptionPlaceholder": "Что здесь происходит и для кого это.",
@@ -362,7 +366,6 @@
 		"nobody": "никому",
 		"bindTool": "Привязать инструмент…",
 		"bindAnotherTool": "Привязать ещё один инструмент",
-		"speaksOn": "Говорит в",
 		"grants": "Доступ",
 		"addGrant": "Добавить доступ",
 		"namespace": "Пространство имён",

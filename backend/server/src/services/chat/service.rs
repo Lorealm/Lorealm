@@ -9,9 +9,9 @@ use chrono::Utc;
 use dashmap::DashMap;
 use futures_util::{Stream, StreamExt};
 use lorealm_providers::{
-    AnthropicOptions, AnthropicProvider, BlockAccumulator, Client, ContentBlock, LlmProvider,
-    OpenAiOptions, OpenAiProvider, OpenRouterOptions, OpenRouterProvider, VertexAuth,
-    VertexOptions, VertexProvider,
+    AnthropicOptions, AnthropicProvider, BlockAccumulator, Client, ContentBlock, GeminiOptions,
+    GeminiProvider, LlmProvider, OpenAiOptions, OpenAiProvider, OpenRouterOptions,
+    OpenRouterProvider, VertexAuth, VertexOptions, VertexProvider,
 };
 use lorealm_storage::{
     Storage,
@@ -27,12 +27,14 @@ use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    errors::{ChatError, RealmError, TargetType},
+    errors::{CharacterError, ChatError, RealmError, TargetType},
     services::{
         character::CharacterService,
         chat::{
-            ActionSpec, ActiveWidgets, CancelGuard, FullConversation, Prepared, PromptMessage,
+            ActionSpec, ActiveWidgets, CancelGuard, DisplayCast, FullConversation, Prepared,
+            PromptMessage,
             perceive::perceive,
+            stage::Stage,
             weaver,
             widgets::{
                 AttachmentSpec, InferEvent, ToolCallRecord, WidgetInstance, WidgetRenderer,
@@ -52,14 +54,14 @@ use crate::{
         state::{CapturedState, ReconstructedState, StatePool, StateService, write_var},
         tokenizer::TokenizerService,
         tools::{
-            ATTACHMENT_TOOL_IDS, CompiledUserTool, ToolPolicy, ToolSignature, UserToolService,
-            builtin_tool,
+            ATTACHMENT_TOOL_IDS, CompiledUserTool, RealmVariables, ToolPolicy, ToolSignature,
+            UserToolService, builtin_tool,
         },
         user_widgets::builtin_widgets,
         variables::{VariableContext, VariableRegistry},
         weaver::{WeaverHost, WeaverProfile},
     },
-    util::context_eval::{ContextEvalResult, ContextEvaluator, TokenCounter},
+    util::context_eval::{ContextEvalResult, ContextEvaluator, TokenCounter, squash_messages},
 };
 
 pub struct ChatService {
@@ -167,6 +169,19 @@ impl ChatService {
         Ok(message)
     }
 
+    /// The prompt a message was built from, or `None` if none was kept.
+    pub async fn get_message_context(
+        &self,
+        conversation_id: Snowflake,
+        message_id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<Option<serde_json::Value>, ChatError> {
+        let message = self
+            .get_message(conversation_id, message_id, user_id)
+            .await?;
+        Ok(self.storage.get_message_context(message.id).await?)
+    }
+
     pub async fn get_path_to(
         &self,
         conversation_id: Snowflake,
@@ -266,7 +281,6 @@ impl ChatService {
                 access: AgentAccess::ReadWrite,
             }],
             tools: Vec::new(),
-            speech_channel: None,
             lorebooks: Vec::new(),
             widgets: Vec::new(),
             script: None,
@@ -469,6 +483,35 @@ impl ChatService {
     ) -> Result<RealmCast, ChatError> {
         self.get_conversation(convo_id, user_id).await?;
         self.cast_of(convo_id).await
+    }
+
+    pub async fn display_cast(
+        &self,
+        convo_id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<DisplayCast, ChatError> {
+        let cast = self.cast(convo_id, user_id).await?;
+        let mut character_widgets = Vec::new();
+        for agent in &cast.agents {
+            let Some((id, version)) = agent.character_id.zip(agent.char_version_id) else {
+                continue;
+            };
+            let character = match self.characters.load_version(id, version, user_id).await {
+                Ok(character) => character,
+                // A character deleted since the chat began has nothing to add.
+                Err(CharacterError::NotFound(..)) => continue,
+                Err(e) => return Err(e.into()),
+            };
+            for widget in character.widget_ids {
+                if !character_widgets.contains(&widget) {
+                    character_widgets.push(widget);
+                }
+            }
+        }
+        Ok(DisplayCast {
+            cast,
+            character_widgets,
+        })
     }
 
     /// Whose turn it is at the active leaf.
@@ -688,6 +731,8 @@ impl ChatService {
         &self,
         spec: &AgentSpec,
         cast: &RealmCast,
+        agent: &RealmAgent,
+        view: &RealmVariables,
         conversation: Option<Snowflake>,
         thread: &[PromptTurn],
         baseline: &ReconstructedState,
@@ -754,22 +799,23 @@ impl ChatService {
                 widget_renders: &widget_renders,
                 author_note,
                 plugins,
+                actor: Some(weaver::actor_of(agent)),
+                realm: Some(view.clone()),
             };
             let trace = assemble(&template, &sources, &ctx).await?;
             captured = ctx.lorebook_state.lock().await.take();
             trace
         };
 
-        let budget = self
+        let profile = self
             .connection
             .get_profile(spec.owner, spec.profile_id)
-            .await?
-            .token_budget;
+            .await?;
 
         let mut evaluator =
             ContextEvaluator::builder(Arc::clone(&tokenizer) as Arc<dyn TokenCounter>);
-        if budget > 0 {
-            evaluator = evaluator.budget(budget as u32);
+        if profile.token_budget > 0 {
+            evaluator = evaluator.budget(profile.token_budget as u32);
         }
         let ContextEvalResult {
             messages,
@@ -786,6 +832,7 @@ impl ChatService {
             trace,
             captured,
             usage,
+            squash_messages: squashes_messages(&profile.common_params),
         })
     }
 
@@ -858,10 +905,27 @@ impl ChatService {
             return Err(ChatError::Connection("no model".into()));
         };
 
-        let common: lorealm_providers::CommonParams =
-            serde_json::from_value(connection.profile.common_params).map_err(|e| {
+        let max_tool_rounds = connection
+            .profile
+            .common_params
+            .get("max_tool_rounds")
+            .and_then(|v| v.as_u64())
+            .map_or(DEFAULT_TOOL_ROUNDS, |n| n as usize);
+        let mut common: lorealm_providers::CommonParams =
+            serde_json::from_value(connection.profile.common_params.clone()).map_err(|e| {
                 ChatError::Connection(format!("Failed to deserialize common params: {e}"))
             })?;
+        crate::services::connection::apply_custom_fields(
+            &connection.profile.common_params,
+            &mut common,
+        )
+        .map_err(|e| ChatError::Connection(format!("bad custom fields: {e}")))?;
+
+        let prompt = if squashes_messages(&connection.profile.common_params) {
+            squash_messages(prompt)
+        } else {
+            prompt
+        };
 
         // Map your custom payload directly to what the provider client expects
         let messages: Vec<lorealm_providers::Message> = prompt
@@ -981,7 +1045,7 @@ impl ChatService {
         let mut tool_names: Vec<String> = registry.defs().into_iter().map(|d| d.name).collect();
         tool_names.sort();
 
-        let http_client = Arc::new(reqwest::Client::new());
+        let http_client = self.connection.http();
         let stream = match connection.profile.provider.as_str() {
             "openrouter" => {
                 let Some(api_key) = api_key else {
@@ -1000,6 +1064,7 @@ impl ChatService {
                     messages,
                     common,
                     pp,
+                    max_tool_rounds,
                     registry,
                     widget_sink,
                     effect_sink,
@@ -1025,6 +1090,7 @@ impl ChatService {
                     messages,
                     common,
                     pp,
+                    max_tool_rounds,
                     registry,
                     widget_sink,
                     effect_sink,
@@ -1051,6 +1117,7 @@ impl ChatService {
                     messages,
                     common,
                     pp,
+                    max_tool_rounds,
                     registry,
                     widget_sink,
                     effect_sink,
@@ -1080,6 +1147,54 @@ impl ChatService {
                     messages,
                     common,
                     pp,
+                    max_tool_rounds,
+                    registry,
+                    widget_sink,
+                    effect_sink,
+                    Arc::clone(&self.plugins),
+                    owner,
+                )
+                .await
+            }
+            "gemini" => {
+                let Some(api_key) = api_key else {
+                    return Err(ChatError::Connection("no api key".into()));
+                };
+                let pp: GeminiOptions =
+                    serde_json::from_value(connection.profile.provider_params.clone())
+                        .map_err(|e| ChatError::Connection(format!("bad provider params: {e}")))?;
+                let provider =
+                    GeminiProvider::new(http_client, model, pp.base_url.clone(), api_key.as_str());
+                run_inference(
+                    provider,
+                    messages,
+                    common,
+                    pp,
+                    max_tool_rounds,
+                    registry,
+                    widget_sink,
+                    effect_sink,
+                    Arc::clone(&self.plugins),
+                    owner,
+                )
+                .await
+            }
+            // Hosted OpenAI-compatible services: the `openai` client at a
+            // fixed endpoint.
+            other if let Some(preset) = crate::services::connection::openai_preset(other) => {
+                let Some(api_key) = api_key else {
+                    return Err(ChatError::Connection("no api key".into()));
+                };
+                let pp: OpenAiOptions =
+                    serde_json::from_value(connection.profile.provider_params.clone())
+                        .map_err(|e| ChatError::Connection(format!("bad provider params: {e}")))?;
+                let provider = preset.provider(http_client, model, &pp, Some(api_key.to_string()));
+                run_inference(
+                    provider,
+                    messages,
+                    common,
+                    pp,
+                    max_tool_rounds,
                     registry,
                     widget_sink,
                     effect_sink,
@@ -1161,6 +1276,7 @@ impl ChatService {
         let turns = perceive(&cast, agent, &path, &mut WidgetRenderer::default());
         let ids: Vec<Snowflake> = path.iter().map(|m| m.id).collect();
         let baseline = self.state.reconstruct(&ids).await?;
+        let view = Stage::new(&cast, &path, &baseline.persistent).view;
 
         let Prepared {
             prompt: mut messages,
@@ -1169,6 +1285,8 @@ impl ChatService {
             .assemble_context(
                 &spec,
                 &cast,
+                agent,
+                &view,
                 Some(conversation_id),
                 &turns,
                 &baseline,
@@ -1187,6 +1305,16 @@ impl ChatService {
     }
 }
 
+/// Tool rounds per turn for profiles that don't set `max_tool_rounds`.
+const DEFAULT_TOOL_ROUNDS: usize = 8;
+
+fn squashes_messages(common_params: &serde_json::Value) -> bool {
+    common_params
+        .get("squash_messages")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
 fn prompt_role_to_provider_role(role: PromptRole) -> lorealm_providers::Role {
     match role {
         PromptRole::System => lorealm_providers::Role::System,
@@ -1201,6 +1329,7 @@ async fn run_inference<P>(
     mut messages: Vec<lorealm_providers::Message>,
     common: lorealm_providers::CommonParams,
     provider_params: P::ProviderParams,
+    max_tool_rounds: usize,
     registry: lorealm_providers::ToolRegistry,
     widget_sink: WidgetSink,
     effect_sink: EffectSink,
@@ -1214,11 +1343,8 @@ where
     let client = Client::new(provider);
     let tool_defs = registry.defs();
 
-    // TODO: merge into connection profiles?
-    const MAX_TOOL_ROUNDS: usize = 8;
-
     let stream = async_stream::try_stream! {
-        for round in 0..MAX_TOOL_ROUNDS {
+        for round in 0..max_tool_rounds {
             let mut upstream = client
                 .request()
                 .messages(messages.clone())
@@ -1393,6 +1519,7 @@ mod tests {
             vec![Message::text(Role::User, "1 + 2?")],
             Default::default(),
             AnthropicOptions::default(),
+            DEFAULT_TOOL_ROUNDS,
             registry,
             Default::default(),
             Default::default(),

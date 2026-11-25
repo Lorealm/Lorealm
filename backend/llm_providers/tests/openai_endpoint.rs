@@ -10,13 +10,13 @@ use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
-async fn stub_server() -> (String, tokio::task::JoinHandle<Vec<String>>) {
+async fn stub_server(connections: usize) -> (String, tokio::task::JoinHandle<Vec<String>>) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
 
     let handle = tokio::spawn(async move {
         let mut seen = Vec::new();
-        for _ in 0..2 {
+        for _ in 0..connections {
             let (mut socket, _) = listener.accept().await.unwrap();
             let mut buf = vec![0u8; 8192];
             let n = socket.read(&mut buf).await.unwrap();
@@ -28,6 +28,17 @@ async fn stub_server() -> (String, tokio::task::JoinHandle<Vec<String>>) {
                     "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
                     json.len(),
                     json
+                )
+            } else if request.starts_with("POST /v1/completions") {
+                let sse = concat!(
+                    "data: {\"choices\":[{\"text\":\"Hel\"}]}\n\n",
+                    "data: {\"choices\":[{\"text\":\"lo\",\"finish_reason\":\"stop\"}]}\n\n",
+                    "data: [DONE]\n\n"
+                );
+                format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\n\r\n{}",
+                    sse.len(),
+                    sse
                 )
             } else {
                 let sse = concat!(
@@ -54,7 +65,7 @@ async fn stub_server() -> (String, tokio::task::JoinHandle<Vec<String>>) {
 
 #[tokio::test]
 async fn streams_and_lists_models_without_an_api_key() {
-    let (base_url, server) = stub_server().await;
+    let (base_url, server) = stub_server(2).await;
 
     let provider = OpenAiProvider::new(
         Arc::new(reqwest::Client::new()),
@@ -87,4 +98,41 @@ async fn streams_and_lists_models_without_an_api_key() {
     assert!(requests[0].contains("POST /v1/chat/completions"));
     assert!(requests[0].contains(r#""stream":true"#));
     assert!(requests[0].contains(r#""temperature":0.7"#));
+}
+
+#[tokio::test]
+async fn text_completion_sends_the_rendered_prompt() {
+    let (base_url, server) = stub_server(1).await;
+
+    let provider = OpenAiProvider::new(
+        Arc::new(reqwest::Client::new()),
+        "koboldcpp/L3",
+        Some(base_url),
+        None,
+    );
+    let template = InstructTemplate {
+        user_prefix: "### Instruction:\n".into(),
+        user_suffix: "\n\n".into(),
+        assistant_prefix: "### Response:\n".into(),
+        ..InstructTemplate::default()
+    };
+
+    let mut stream = Client::new(provider)
+        .request()
+        .user("hi")
+        .configure(|p| p.template = Some(template))
+        .stream()
+        .await
+        .unwrap();
+
+    let mut text = String::new();
+    while let Some(delta) = stream.next().await {
+        text.push_str(&delta.unwrap().content);
+    }
+    assert_eq!(text, "Hello");
+
+    let requests = server.await.unwrap();
+    assert!(requests[0].contains("POST /v1/completions"));
+    assert!(requests[0].contains("\"prompt\":\"### Instruction:\\nhi\\n\\n### Response:\\n\""));
+    assert!(requests[0].contains("\"stop\":[\"### Instruction:\"]"));
 }

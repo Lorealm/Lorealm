@@ -82,6 +82,20 @@ pub async fn update_blueprint(
     ))
 }
 
+pub async fn duplicate_blueprint(
+    State(state): State<Arc<AppState>>,
+    session: AuthenticatedSession,
+    Path(id): Path<Snowflake>,
+) -> Result<Json<Blueprint>, AppError> {
+    Ok(Json(
+        state
+            .services()
+            .blueprints()
+            .duplicate(id, session.user_id)
+            .await?,
+    ))
+}
+
 pub async fn delete_blueprint(
     State(state): State<Arc<AppState>>,
     session: AuthenticatedSession,

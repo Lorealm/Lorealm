@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfirmDelete from '#lib/components/ConfirmDelete.svelte';
 	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { chatStore } from '#lib/stores/chat.svelte.js';
@@ -9,15 +10,34 @@
 	import ChatWidget from '#lib/components/ChatWidget.svelte';
 	import StaticWidgets from '#lib/components/StaticWidgets.svelte';
 	import PluginMessageSlots from '#lib/components/PluginMessageSlots.svelte';
-	import { ChevronLeft, ChevronRight, Layers, Pencil, StepForward, Trash2 } from '@lucide/svelte';
+	import {
+		ChevronLeft,
+		ChevronRight,
+		Crosshair,
+		Layers,
+		Pencil,
+		StepForward,
+		Trash2
+	} from '@lucide/svelte';
 	import { contextInspector } from '#lib/stores/contextInspector.svelte.js';
-	import { parseContextBlocks } from '#lib/types/context.js';
+	import { hasStoredContext } from '#lib/types/context.js';
 	import { parseReasoning, parseWidgets, splitWidgetMarkers } from '#lib/types/widgets.js';
 	import { marked } from '#lib/assets/scripts/marked-rp.js';
 	import DOMPurify from 'dompurify';
 	import { createPresentable } from '#lib/assets/scripts/variable-replace.js';
 
-	let { message, last = false }: { message: ConversationMessage; last?: boolean } = $props();
+	let {
+		message,
+		last = false,
+		targeted = last,
+		ontarget
+	}: {
+		message: ConversationMessage;
+		last?: boolean;
+		/** Whether `latest` widgets render on this message. */
+		targeted?: boolean;
+		ontarget?: () => void;
+	} = $props();
 
 	let info = $derived(chatStore.siblingInfo(message.id));
 	let turn = $derived(message.metadata as { agent_name?: string; handle?: string } | null);
@@ -44,7 +64,7 @@
 
 	let canContinue = $derived(last && message.role === 'assistant');
 
-	let hasContext = $derived(parseContextBlocks(message.metadata) !== null);
+	let hasContext = $derived(hasStoredContext(message.metadata));
 	let reasoning = $derived(parseReasoning(message.metadata));
 	let widgets = $derived(parseWidgets(message.metadata));
 	let segments = $derived(splitWidgetMarkers(message.content));
@@ -125,6 +145,17 @@
 								<Layers />
 							</button>
 						{/if}
+						{#if ontarget && message.role === 'assistant' && message.parent !== null}
+							<button
+								class="icon-btn"
+								class:active={targeted}
+								{@attach tooltip(t.chat.message.showWidgets)}
+								aria-pressed={targeted}
+								onclick={ontarget}
+							>
+								<Crosshair />
+							</button>
+						{/if}
 						{#if canContinue}
 							<button
 								class="icon-btn"
@@ -143,14 +174,21 @@
 						>
 							<Pencil />
 						</button>
-						<button
-							class="icon-btn"
-							{@attach tooltip(t.common.delete)}
-							disabled={busy}
-							onclick={() => chatStore.deleteMessage(message.id)}
+						<ConfirmDelete
+							prompt={t.chat.message.confirmDelete}
+							onConfirm={() => chatStore.deleteMessage(message.id)}
 						>
-							<Trash2 />
-						</button>
+							{#snippet trigger(arm)}
+								<button
+									class="icon-btn"
+									{@attach tooltip(t.common.delete)}
+									disabled={busy}
+									onclick={arm}
+								>
+									<Trash2 />
+								</button>
+							{/snippet}
+						</ConfirmDelete>
 					</div>
 				{/if}
 			</div>
@@ -183,7 +221,7 @@
 							{@html renderMd(presentedText(seg.text))}
 						{:else if widgets[seg.index]}
 							<div class="inline-widget">
-								<ChatWidget widget={widgets[seg.index]} />
+								<ChatWidget widget={widgets[seg.index]} key="{message.id}:{seg.index}" />
 							</div>
 						{/if}
 					{/each}
@@ -194,15 +232,15 @@
 			{#if !editing && trailing.length > 0 && message.role === 'assistant' && message.parent !== null}
 				<div class="widgets">
 					{#each trailing as widget, i (i)}
-						<ChatWidget {widget} />
+						<ChatWidget {widget} key="{message.id}:trailing:{i}" />
 					{/each}
 				</div>
 			{/if}
 
 			{#if !editing && !busy && message.role === 'assistant' && message.parent !== null}
 				<div class="widgets">
-					<StaticWidgets messageId={message.id} {last} />
-					<PluginMessageSlots {message} {last} />
+					<StaticWidgets messageId={message.id} last={targeted} />
+					<PluginMessageSlots {message} last={targeted} />
 				</div>
 			{/if}
 
@@ -399,6 +437,9 @@
 		padding: var(--spacing-xs);
 		color: var(--color-text-muted);
 		cursor: pointer;
+	}
+	.icon-btn.active {
+		color: var(--color-primary);
 	}
 	.icon-btn:disabled {
 		opacity: 0.4;

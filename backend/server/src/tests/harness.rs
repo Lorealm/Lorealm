@@ -71,6 +71,7 @@ pub(crate) struct Harness {
     pub plugins: Arc<PluginService>,
     pub connection: Arc<ConnectionService>,
     pub permissions: Arc<PermissionService>,
+    pub tokenizers: Arc<TokenizerService>,
     pub user: Snowflake,
     pub stranger: Snowflake,
 }
@@ -126,6 +127,7 @@ impl Harness {
             Arc::clone(&storage),
             Arc::clone(&snow),
             Arc::new(LocalKeyManager::new_random()),
+            reqwest::Client::new(),
         ));
         let tokenizers = Arc::new(TokenizerService::new(
             Arc::clone(&storage),
@@ -201,6 +203,7 @@ impl Harness {
             plugins,
             connection,
             permissions,
+            tokenizers,
         }
     }
 

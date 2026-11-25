@@ -1,7 +1,7 @@
 use futures_util::StreamExt;
 use lorealm_storage::{
     CharacterStorage, ConnectionStorage, LorebookStorage, PersonaStorage, TemplateStorage,
-    TokenizerStorage, WeaverStateStorage,
+    TokenizerStorage, UserWidgetStorage, WeaverStateStorage,
     models::{
         AgentKind, ConversationMessage, Greeting, LorebookEntry, Snowflake, Tokenizer,
         VersionedSaveMode,
@@ -11,7 +11,10 @@ use serde_json::{Value, json};
 
 use crate::{
     errors::{ChatError, RealmError},
-    services::{chat::TurnRequest, context_template::ContextNode},
+    services::{
+        chat::TurnRequest,
+        context_template::{ContextNode, PromptRole},
+    },
     tests::Harness,
 };
 
@@ -52,6 +55,27 @@ fn messages(events: &[Value]) -> Vec<ConversationMessage> {
         .filter(|e| e["type"] == "message")
         .map(|e| serde_json::from_value(e["message"].clone()).unwrap())
         .collect()
+}
+
+async fn prompt_of(h: &Harness, reply: &ConversationMessage) -> Value {
+    assert_eq!(reply.metadata["has_context"], true);
+    assert!(
+        reply.metadata.get("context").is_none(),
+        "{}",
+        reply.metadata
+    );
+    assert!(
+        h.chat
+            .get_message_context(reply.conversation_id, reply.id, h.stranger)
+            .await
+            .is_err(),
+        "someone else's prompt must not be readable"
+    );
+    h.chat
+        .get_message_context(reply.conversation_id, reply.id, h.user)
+        .await
+        .expect("loads")
+        .expect("a model reply keeps its prompt")
 }
 
 async fn counting_house(h: &Harness, document: &str) -> Snowflake {
@@ -114,6 +138,40 @@ async fn a_chat_with_a_character_is_a_cast_of_two_with_nothing_pinned() {
         h.chat.next_agent(convo, h.user).await.unwrap().as_deref(),
         Some("user")
     );
+}
+
+#[tokio::test]
+async fn the_displayed_cast_shows_a_characters_widgets_even_when_switched_off() {
+    let h = Harness::new().await;
+    let me = h.persona(h.user, "Me").await;
+    h.store.set_active_persona(h.user, me).await.unwrap();
+
+    let widget = h.widget(h.user, "Affection").await;
+    h.store.set_widget_enabled(widget, false).await.unwrap();
+
+    let sayuri = h.character(h.user, "Sayuri").await;
+    let mut character = h.store.get_character(sayuri).await.unwrap().unwrap();
+    let greeting = h.snow.generate();
+    character.definition.greetings.push(Greeting {
+        id: greeting,
+        order: 0,
+        text: "Welcome back.".into(),
+    });
+    character.widget_ids.push(widget);
+    h.store
+        .save_character(&character, VersionedSaveMode::UpdateCurrent)
+        .await
+        .unwrap();
+
+    let chat = h
+        .chat
+        .start_with_character(h.user, sayuri, None, greeting, String::new())
+        .await
+        .expect("starts");
+
+    let shown = h.chat.display_cast(chat.metadata.id, h.user).await.unwrap();
+    assert_eq!(shown.character_widgets, vec![widget]);
+    assert!(shown.cast.agents.iter().all(|a| a.widgets.is_empty()));
 }
 
 #[tokio::test]
@@ -330,12 +388,10 @@ async fn the_first_reply_of_a_chat_keeps_its_lorebook_state() {
         .unwrap();
     let [_, reply] = messages(&events).try_into().unwrap();
     assert_eq!(reply.content, "It sleeps.");
+    let prompt = prompt_of(&h, &reply).await;
     assert!(
-        reply.metadata["context"]
-            .to_string()
-            .contains("A dragon sleeps"),
-        "lorebook entry missing from the prompt: {}",
-        reply.metadata["context"]
+        prompt.to_string().contains("A dragon sleeps"),
+        "lorebook entry missing from the prompt: {prompt}"
     );
 
     let state = h
@@ -411,12 +467,10 @@ async fn a_lorebook_entry_calls_a_module() {
         .await
         .unwrap();
     let [_, reply] = messages(&events).try_into().unwrap();
+    let prompt = prompt_of(&h, &reply).await;
     assert!(
-        reply.metadata["context"]
-            .to_string()
-            .contains("A WYRM sleeps"),
-        "module output missing from the prompt: {}",
-        reply.metadata["context"]
+        prompt.to_string().contains("A WYRM sleeps"),
+        "module output missing from the prompt: {prompt}"
     );
 }
 
@@ -514,4 +568,131 @@ async fn a_realm_may_not_import_someone_elses_module() {
         matches!(refused, Err(RealmError::NotOwned(..))),
         "{refused:?}"
     );
+}
+
+#[tokio::test]
+async fn a_players_actions_run_in_order_beside_what_they_say() {
+    let h = Harness::new().await;
+    let convo = counting_house(&h, COUNTING_HOUSE).await;
+
+    let events = turn(
+        &h,
+        convo,
+        json!({
+            "content": "Keep this between us.",
+            "actions": [
+                { "run": r#"$[set_var("world:coins", 5)]"# },
+                { "run": r#"$[inc_var("world:coins", 1)]$[channel.unset("main")]"# },
+            ],
+        }),
+    )
+    .await
+    .unwrap();
+
+    let [mine, clerks] = messages(&events).try_into().unwrap();
+    assert_eq!(mine.content, "Keep this between us.");
+    assert_eq!(mine.metadata["actions"].as_array().unwrap().len(), 2);
+    assert_eq!(mine.metadata["observers"], json!(["you"]));
+    assert_eq!(clerks.metadata["observers"], json!(["clerk"]));
+
+    let world = h
+        .chat
+        .agent_state(convo, "you", h.user, None)
+        .await
+        .unwrap();
+    // 5, then +1 from the second action, then the clerk's coin.
+    assert_eq!(world["world"]["coins"], json!(7));
+}
+
+#[tokio::test]
+async fn a_widgets_weaver_cannot_generate() {
+    let h = Harness::new().await;
+    let convo = counting_house(&h, COUNTING_HOUSE).await;
+
+    let refused = turn(
+        &h,
+        convo,
+        json!({ "actions": [{ "run": r#"$[generate("Say hello.")]"# }] }),
+    )
+    .await;
+    let error = refused
+        .expect_err("a widget's weaver may not generate")
+        .to_string();
+    assert!(error.contains("generate"), "{error}");
+}
+
+#[tokio::test]
+async fn a_templates_text_is_weaver_over_the_agents_view() {
+    let h = Harness::new().await;
+    let base_url = stub_model("Understood.").await;
+    ready_for_models(&h, &base_url).await;
+
+    let template = h.template(h.user, "Roles").await;
+    let mut stored = h.store.get_template(template).await.unwrap().unwrap();
+    stored.nodes_json = json!([
+        ContextNode::text(
+            &h.snow,
+            "Role",
+            "",
+            "You are {{char:name}}. {{self:brief}} Turn {{turn:index}}.",
+            PromptRole::System,
+        ),
+        ContextNode::text(
+            &h.snow,
+            "Legacy",
+            "",
+            "Stay in character as {{char}}.",
+            PromptRole::System
+        ),
+    ]);
+    h.store.save_template(&stored).await.unwrap();
+
+    let scout = h.character(h.user, "Scout").await;
+    let document = format!(
+        r##"{{
+  name: "Watch"
+  agents: [
+    {{
+      handle: "scout"
+      name: "Scout"
+      kind: "llm"
+      character_id: "{scout}"
+      template_id: "{template}"
+      properties: {{ brief: "Report what you see." }}
+    }}
+    {{ handle: "you", name: "You", kind: "player" }}
+  ]
+}}"##
+    );
+    let convo = counting_house(&h, &document).await;
+
+    let events = turn(&h, convo, json!({})).await.unwrap();
+    let [reply] = messages(&events).try_into().unwrap();
+    let prompt = prompt_of(&h, &reply).await;
+    let context = prompt.to_string();
+    assert!(
+        context.contains("You are Scout. Report what you see. Turn 0."),
+        "{context}"
+    );
+    assert!(
+        context.contains("Stay in character as {{char}}."),
+        "{context}"
+    );
+
+    // The inspector shows the source, with what each expression became.
+    let role = &prompt[0]["content_ref"]["Template"];
+    assert_eq!(
+        role,
+        &json!([
+            { "source": "You are " },
+            { "source": "{{char:name}}", "value": "Scout" },
+            { "source": ". " },
+            { "source": "{{self:brief}}", "value": "Report what you see." },
+            { "source": " Turn " },
+            { "source": "{{turn:index}}", "value": "0" },
+            { "source": "." },
+        ]),
+        "{context}"
+    );
+    assert_eq!(prompt[1]["content_ref"], "Verbatim");
 }

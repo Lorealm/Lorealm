@@ -24,9 +24,6 @@ interface State {
 	phase?: Phase;
 }
 
-export const DELIMITER_COLOR = '#7c8a9e';
-const TRIM_COLOR = '#d782a8';
-
 const IDENT = /^[A-Za-z_]\w*/;
 const DOTTED = /^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*/; // e.g. core.weaver.rng
 const KEYWORD =
@@ -416,29 +413,37 @@ export const weaverLanguage = StreamLanguage.define(parser);
 export const weaverModuleLanguage = StreamLanguage.define(moduleParser);
 
 const weaverHighlight = HighlightStyle.define([
-	{ tag: t.brace, color: DELIMITER_COLOR, fontWeight: '600' }, // {{ }} {# #}
-	{ tag: t.modifier, color: `var(--weaver-trim-color, ${TRIM_COLOR})`, fontWeight: '700' },
-	{ tag: t.squareBracket, color: '#c98a3a', fontWeight: '600' }, // @[ ] $[ ] [[ ]] [ ] { }
-	{ tag: t.controlKeyword, color: '#c678dd', fontWeight: '600' },
-	{ tag: t.namespace, color: '#56b6c2' }, // scope before colon
-	{ tag: t.variableName, color: '#e5c07b' },
-	{ tag: t.function(t.variableName), color: '#61afef' }, // processor/command name
-	{ tag: t.propertyName, color: '#98c379' }, // arg keys, object keys
-	{ tag: t.typeName, color: '#d19a66' }, // Variant(…), a literal in disguise
-	{ tag: t.string, color: '#98c379' },
-	{ tag: t.number, color: '#d19a66' },
-	{ tag: t.bool, color: '#d19a66' },
-	{ tag: t.null, color: '#d19a66' },
-	{ tag: t.operator, color: '#56b6c2' },
-	{ tag: t.punctuation, color: '#828a99' },
-	{ tag: t.lineComment, color: '#6b7a8d', fontStyle: 'italic' },
-	{ tag: t.tagName, color: '#e06c75', fontWeight: '600' }, // <trigger>
-	{ tag: t.attributeName, color: '#d19a66' }, // id=
-	{ tag: t.labelName, color: '#e5c07b', textDecoration: 'underline' }, // [[doc]]
-	{ tag: t.definitionKeyword, color: '#c678dd', fontWeight: '600' }, // export, proc
-	{ tag: t.definition(t.variableName), color: '#e5c07b', fontWeight: '600' }, // exported value
-	{ tag: t.definition(t.function(t.variableName)), color: '#61afef', fontWeight: '600' }, // proc
-	{ tag: t.definition(t.propertyName), color: '#e06c75' } // a proc's parameter
+	{ tag: t.brace, color: 'var(--weaver-color-delimiter)', fontWeight: '600' }, // {{ }} {# #}
+	{
+		tag: t.modifier,
+		color: 'var(--weaver-trim-color, var(--weaver-color-trim))',
+		fontWeight: '700'
+	},
+	{ tag: t.squareBracket, color: 'var(--weaver-color-bracket)', fontWeight: '600' }, // @[ ] $[ ] [[ ]] [ ] { }
+	{ tag: t.controlKeyword, color: 'var(--weaver-color-keyword)', fontWeight: '600' },
+	{ tag: t.namespace, color: 'var(--weaver-color-scope)' }, // scope before colon
+	{ tag: t.variableName, color: 'var(--weaver-color-variable)' },
+	{ tag: t.function(t.variableName), color: 'var(--weaver-color-function)' }, // processor/command name
+	{ tag: t.propertyName, color: 'var(--weaver-color-property)' }, // arg keys, object keys
+	{ tag: t.typeName, color: 'var(--weaver-color-type)' }, // Variant(…), a literal in disguise
+	{ tag: t.string, color: 'var(--weaver-color-string)' },
+	{ tag: t.number, color: 'var(--weaver-color-literal)' },
+	{ tag: t.bool, color: 'var(--weaver-color-literal)' },
+	{ tag: t.null, color: 'var(--weaver-color-literal)' },
+	{ tag: t.operator, color: 'var(--weaver-color-operator)' },
+	{ tag: t.punctuation, color: 'var(--weaver-color-punctuation)' },
+	{ tag: t.lineComment, color: 'var(--weaver-color-comment)', fontStyle: 'italic' },
+	{ tag: t.tagName, color: 'var(--weaver-color-tag)', fontWeight: '600' }, // <trigger>
+	{ tag: t.attributeName, color: 'var(--weaver-color-attribute)' }, // id=
+	{ tag: t.labelName, color: 'var(--weaver-color-variable)', textDecoration: 'underline' }, // [[doc]]
+	{ tag: t.definitionKeyword, color: 'var(--weaver-color-keyword)', fontWeight: '600' }, // export, proc
+	{ tag: t.definition(t.variableName), color: 'var(--weaver-color-variable)', fontWeight: '600' }, // exported value
+	{
+		tag: t.definition(t.function(t.variableName)),
+		color: 'var(--weaver-color-function)',
+		fontWeight: '600'
+	}, // proc
+	{ tag: t.definition(t.propertyName), color: 'var(--weaver-color-parameter)' } // a proc's parameter
 ]);
 
 export const weaverSyntax = [weaverLanguage, syntaxHighlighting(weaverHighlight)];

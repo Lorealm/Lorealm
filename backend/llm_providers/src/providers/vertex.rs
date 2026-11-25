@@ -144,9 +144,15 @@ impl VertexProvider {
         }
     }
 
-    async fn post(&self, method: &str, request: &GenerateRequest) -> Result<reqwest::Response> {
+    async fn post(
+        &self,
+        method: &str,
+        request: &GenerateRequest,
+        params: &CommonParams,
+    ) -> Result<reqwest::Response> {
         let url = format!("{}/models/{}:{}", self.base_url, self.model, method);
-        let builder = self.authorize(self.client.post(url).json(request));
+        let builder =
+            super::with_custom_fields(self.authorize(self.client.post(url)), request, params);
         let response = builder.send().await?;
 
         if !response.status().is_success() {
@@ -216,7 +222,7 @@ impl super::LlmProvider for VertexProvider {
         provider_params: &Self::ProviderParams,
     ) -> Result<Response> {
         let request = self.build_request(messages, params, provider_params);
-        let response = self.post("generateContent", &request).await?;
+        let response = self.post("generateContent", &request, params).await?;
         gemini_wire::to_response(response.json().await?)
     }
 
@@ -227,7 +233,9 @@ impl super::LlmProvider for VertexProvider {
         provider_params: &Self::ProviderParams,
     ) -> Result<Box<dyn Stream<Item = Result<Delta>> + Unpin + Send>> {
         let request = self.build_request(messages, params, provider_params);
-        let response = self.post("streamGenerateContent?alt=sse", &request).await?;
+        let response = self
+            .post("streamGenerateContent?alt=sse", &request, params)
+            .await?;
 
         let mut parser = DeltaParser::default();
         let stream = parse_sse_stream(response.bytes_stream(), move |data| parser.parse(data))

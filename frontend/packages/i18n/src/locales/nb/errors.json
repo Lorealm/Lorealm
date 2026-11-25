@@ -5,6 +5,7 @@
 		"readBlueprint": "Kunne ikke lese blåkopien",
 		"createBlueprint": "Kunne ikke opprette blåkopi",
 		"deleteBlueprint": "Kunne ikke slette blåkopi",
+		"duplicateBlueprint": "Failed to duplicate blueprint",
 		"importBlueprint": "Kunne ikke importere blåkopi",
 		"buildRealm": "Kunne ikke bygge et rike",
 		"loadCast": "Kunne ikke laste rollebesetningen",

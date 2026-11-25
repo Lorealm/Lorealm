@@ -1,6 +1,6 @@
 [package]
 name = "lorealm_server"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 license = "MIT"
 
@@ -56,4 +56,5 @@ console = "0.16.3"
 itertools = "0.15.0"
 zip = { version = "9.5.1", default-features = false, features = ["deflate"] }
 sha2 = "0.10"
+libc = "0.2"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif"] }

@@ -423,6 +423,7 @@ mod tests {
             store.clone(),
             Arc::clone(&snow),
             Arc::new(lorealm_encryption::LocalKeyManager::new_random()),
+            reqwest::Client::new(),
         ));
         let plugins = Arc::new(PluginService::new(
             store.clone(),

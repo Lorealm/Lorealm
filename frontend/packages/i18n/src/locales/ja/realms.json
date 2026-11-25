@@ -43,6 +43,7 @@
 		"untitled": "無題のレルム",
 		"delete": "レルムを削除",
 		"deleteNamed": "{name}を削除",
+		"confirmDelete": "Delete “{name}”?",
 		"imported": "インポート済み",
 		"playthroughs": "{count, plural, other {# 件のプレイスルー}}",
 		"play": "プレイ",
@@ -58,7 +59,10 @@
 		"import": "インポート",
 		"exportHint": "使用しているリソースと共にエクスポート",
 		"exportNamed": "{name}をエクスポート",
+		"duplicate": "Duplicate",
+		"duplicateNamed": "Duplicate {name}",
 		"delete": "ブループリントを削除",
+		"confirmDelete": "Delete “{name}”?",
 		"empty": "ブループリントはまだありません。"
 	},
 	"newMenu": {
@@ -254,7 +258,7 @@
 		}
 	},
 	"overview": {
-		"name": "名前",
+		"name": "Realm name",
 		"untitled": "無題",
 		"description": "説明",
 		"descriptionPlaceholder": "ここで何が起こるか、誰向けか。",
@@ -362,7 +366,6 @@
 		"nobody": "なし",
 		"bindTool": "ツールをバインド…",
 		"bindAnotherTool": "別のツールをバインド",
-		"speaksOn": "発言先",
 		"grants": "付与",
 		"addGrant": "付与を追加",
 		"namespace": "名前空間",

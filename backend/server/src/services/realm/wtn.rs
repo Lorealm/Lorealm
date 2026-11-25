@@ -195,7 +195,6 @@ $[inc_var("self:gold", -150)]
                 tool_id: Snowflake(40),
                 event_channel: Some("main".into()),
             }],
-            speech_channel: None,
             lorebooks: vec![Snowflake(50)],
             widgets: Vec::new(),
             script: Some(SCRIPT.into()),

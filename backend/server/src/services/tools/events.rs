@@ -18,8 +18,6 @@ pub struct EmittedEvent {
 pub type EventSink = Arc<Mutex<Vec<EmittedEvent>>>;
 
 /// `$[emit_event(scope, content, kind?)]` — draft a realm event on channel
-/// `scope`. `kind` is `"spoke"` (default) or `"system"`. Only agents whose
-/// grants cover the channel observe it.
 pub struct EmitEventCommand {
     sink: EventSink,
 }

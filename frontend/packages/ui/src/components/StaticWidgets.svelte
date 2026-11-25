@@ -17,9 +17,10 @@
 		const all = userWidgetStore.loadedWidgets ?? [];
 		if (!chatStore.conversationId) return [];
 		// What you have switched on, plus what the cast brings with it.
-		const bound = new Set(
-			(viewer ? [viewer] : (chatStore.cast?.agents ?? [])).flatMap((a) => a.widgets)
-		);
+		const bound = new Set([
+			...(viewer ? [viewer] : (chatStore.cast?.agents ?? [])).flatMap((a) => a.widgets),
+			...(chatStore.cast?.character_widgets ?? [])
+		]);
 
 		return all.filter(
 			(w) =>
@@ -48,12 +49,13 @@
 			}
 		})();
 	});
-
-	function onAction(toolId: string, args: JsonValue) {
-		void chatStore.act({ tool_id: toolId, args });
-	}
 </script>
 
 {#each widgets as widget (widget.id)}
-	<StateFrame source={widget.source} title={widget.name} slice={state} onaction={onAction} />
+	<StateFrame
+		source={widget.source}
+		title={widget.name}
+		slice={state}
+		onaction={(action, label) => chatStore.queueAction(`static:${widget.id}`, label, action)}
+	/>
 {/each}

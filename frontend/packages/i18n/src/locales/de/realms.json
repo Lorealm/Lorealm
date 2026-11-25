@@ -43,6 +43,7 @@
 		"untitled": "Realm ohne Titel",
 		"delete": "Realm löschen",
 		"deleteNamed": "{name} löschen",
+		"confirmDelete": "Delete “{name}”?",
 		"imported": "importiert",
 		"playthroughs": "{count, plural, one {# Durchlauf} other {# Durchläufe}}",
 		"play": "Spielen",
@@ -58,7 +59,10 @@
 		"import": "Importieren",
 		"exportHint": "Mit den verwendeten Ressourcen exportieren",
 		"exportNamed": "{name} exportieren",
+		"duplicate": "Duplicate",
+		"duplicateNamed": "Duplicate {name}",
 		"delete": "Blueprint löschen",
+		"confirmDelete": "Delete “{name}”?",
 		"empty": "Noch keine Blueprints."
 	},
 	"newMenu": {
@@ -254,7 +258,7 @@
 		}
 	},
 	"overview": {
-		"name": "Name",
+		"name": "Realm name",
 		"untitled": "Ohne Titel",
 		"description": "Beschreibung",
 		"descriptionPlaceholder": "Was hier geschieht und für wen es gedacht ist.",
@@ -362,7 +366,6 @@
 		"nobody": "niemand",
 		"bindTool": "Tool verknüpfen…",
 		"bindAnotherTool": "Weiteres Tool verknüpfen",
-		"speaksOn": "Spricht bei",
 		"grants": "Berechtigungen",
 		"addGrant": "Berechtigung hinzufügen",
 		"namespace": "Namespace",

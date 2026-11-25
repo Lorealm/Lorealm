@@ -43,6 +43,7 @@
 		"untitled": "Reino sin título",
 		"delete": "Eliminar reino",
 		"deleteNamed": "Eliminar {name}",
+		"confirmDelete": "Delete “{name}”?",
 		"imported": "importado",
 		"playthroughs": "{count, plural, one {# partida} many {# partidas} other {# partidas}}",
 		"play": "Jugar",
@@ -58,7 +59,10 @@
 		"import": "Importar",
 		"exportHint": "Exportar con los recursos que usa",
 		"exportNamed": "Exportar {name}",
+		"duplicate": "Duplicate",
+		"duplicateNamed": "Duplicate {name}",
 		"delete": "Eliminar esquema",
+		"confirmDelete": "Delete “{name}”?",
 		"empty": "Aún no hay esquemas."
 	},
 	"newMenu": {
@@ -254,7 +258,7 @@
 		}
 	},
 	"overview": {
-		"name": "Nombre",
+		"name": "Realm name",
 		"untitled": "Sin título",
 		"description": "Descripción",
 		"descriptionPlaceholder": "Qué ocurre aquí y para quién es.",
@@ -362,7 +366,6 @@
 		"nobody": "nadie",
 		"bindTool": "Vincular una herramienta…",
 		"bindAnotherTool": "Vincular otra herramienta",
-		"speaksOn": "Habla en",
 		"grants": "Permisos",
 		"addGrant": "Añadir un permiso",
 		"namespace": "Espacio de nombres",

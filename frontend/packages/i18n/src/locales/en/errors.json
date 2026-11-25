@@ -5,6 +5,7 @@
 		"readBlueprint": "Failed to read the blueprint",
 		"createBlueprint": "Failed to create blueprint",
 		"deleteBlueprint": "Failed to delete blueprint",
+		"duplicateBlueprint": "Failed to duplicate blueprint",
 		"importBlueprint": "Could not import blueprint",
 		"buildRealm": "Failed to build a realm",
 		"loadCast": "Failed to load the cast",

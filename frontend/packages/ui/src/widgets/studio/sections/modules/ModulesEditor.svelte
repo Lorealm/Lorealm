@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfirmDelete from '#lib/components/ConfirmDelete.svelte';
 	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../../../stores/tooltip.svelte.ts';
 	import { onDestroy } from 'svelte';
@@ -55,8 +56,7 @@
 		if (id) navigator.start().studio().modules(id);
 	}
 
-	async function removeModule(id: Snowflake, name: string) {
-		if (!confirm(t.studio.modules.confirmDelete({ name }))) return;
+	async function removeModule(id: Snowflake) {
 		clearTimeout(timer);
 		await moduleStore.deleteModule(id);
 		if (id === selectedId) navigator.start().studio().modules();
@@ -140,9 +140,16 @@
 			<div class="pane">
 				<div class="pane-head">
 					<h1>{t.studio.modules.edit}</h1>
-					<button type="button" class="delete" onclick={() => removeModule(draft.id, draft.name)}>
-						{t.common.delete}
-					</button>
+					<ConfirmDelete
+						prompt={t.studio.modules.confirmDelete({ name: draft.name })}
+						onConfirm={() => removeModule(draft.id)}
+					>
+						{#snippet trigger(arm)}
+							<button type="button" class="delete" onclick={arm}>
+								{t.common.delete}
+							</button>
+						{/snippet}
+					</ConfirmDelete>
 				</div>
 
 				<div class="field">

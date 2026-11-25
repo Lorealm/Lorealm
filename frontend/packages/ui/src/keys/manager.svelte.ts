@@ -37,6 +37,25 @@ function isEditable(target: EventTarget | null): boolean {
 	return target.closest('.cm-editor') !== null;
 }
 
+const TEXT_INPUTS = new Set(['text', 'search', 'email', 'url', 'tel', 'password']);
+
+const ARROW_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
+
+/**
+ * Whether an arrow key 'idle', meaning it doesn't serve a standard purpose
+ * such as moving the caret.
+ */
+function isIdleArrow(event: KeyboardEvent): boolean {
+	if (!ARROW_KEYS.has(event.key)) return false;
+	if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return false;
+
+	const target = event.target;
+	if (target instanceof HTMLTextAreaElement) return target.value === '';
+	if (target instanceof HTMLInputElement)
+		return TEXT_INPUTS.has(target.type) && target.value === '';
+	return false;
+}
+
 /**
  * Turns keystrokes into commands.
  */
@@ -71,7 +90,7 @@ class KeybindManager {
 		const chords = chordsFromEvent(event);
 		if (chords.length === 0) return;
 
-		const editable = isEditable(event.target);
+		const editable = isEditable(event.target) && !isIdleArrow(event);
 
 		for (const layer of layers.chainFor(event.target)) {
 			for (const chord of chords) {

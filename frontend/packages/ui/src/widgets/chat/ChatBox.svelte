@@ -1,3 +1,13 @@
+<script lang="ts" module>
+	let feedEl: HTMLDivElement | undefined;
+
+	const ARROW_STEP = 40;
+
+	export function scrollFeed(direction: 1 | -1) {
+		feedEl?.scrollBy({ top: direction * ARROW_STEP });
+	}
+</script>
+
 <script lang="ts">
 	import { t } from '#lib/stores/i18n.svelte.js';
 	import { chatStore } from '#lib/stores/chat.svelte.js';
@@ -11,6 +21,10 @@
 		if (!userWidgetStore.loadedWidgets) void userWidgetStore.loadWidgets();
 		if (!userWidgetStore.builtinWidgets) void userWidgetStore.loadBuiltins();
 		loadSetupState();
+		feedEl = scrollEl;
+		return () => {
+			if (feedEl === scrollEl) feedEl = undefined;
+		};
 	});
 
 	let scrollEl: HTMLDivElement;
@@ -23,6 +37,17 @@
 	}
 
 	const feed = $derived(chatStore.renderedFeed);
+
+	/** The message `latest` widgets render on; a new message falls back to the newest. */
+	let widgetTarget = $state<string | null>(null);
+	$effect(() => {
+		void feed.at(-1)?.message.id;
+		widgetTarget = null;
+	});
+	const targetIndex = $derived.by(() => {
+		const i = feed.findIndex((e) => e.message.id === widgetTarget);
+		return i === -1 ? feed.length - 1 : i;
+	});
 
 	$effect(() => {
 		void feed.length;
@@ -47,7 +72,12 @@
 	{:else}
 		{#each feed as entry, i (entry.message.id)}
 			{#if entry.audible}
-				<MessageBubble message={entry.message} last={i === feed.length - 1} />
+				<MessageBubble
+					message={entry.message}
+					last={i === feed.length - 1}
+					targeted={i === targetIndex}
+					ontarget={() => (widgetTarget = entry.message.id)}
+				/>
 			{/if}
 			{#each entry.notices as notice, n (n)}
 				<div class="dispatch">{notice}</div>

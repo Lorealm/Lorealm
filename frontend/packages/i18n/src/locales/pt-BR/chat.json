@@ -33,7 +33,8 @@
 		"stopCommand": "Parar /{name}",
 		"stopPlugin": "Parar {name}",
 		"stopGenerating": "Parar a geração",
-		"commands": "Comandos"
+		"commands": "Comandos",
+		"removeAction": "Remove {label}"
 	},
 	"message": {
 		"you": "Você",
@@ -44,7 +45,8 @@
 		"continue": "Continuar esta resposta",
 		"thoughts": "Pensamentos",
 		"thinking": "Pensando…",
-		"swipe": "Deslizar"
+		"swipe": "Deslizar",
+		"confirmDelete": "Delete this message and its replies?"
 	},
 	"setup": {
 		"title": "Boas-vindas ao Lorealm",
@@ -91,6 +93,7 @@
 		"untitledNode": "(nó sem título)",
 		"node": "nó {id}",
 		"notReconstructed": "conteúdo não reconstruído",
+		"expandsToNothing": "Expands to nothing",
 		"noTrace": "nenhum rastro nesta mensagem",
 		"blocks": "{count, plural, one {# bloco} many {# blocos} other {# blocos}}",
 		"units": {

@@ -4,8 +4,8 @@ use lorealm_encryption::{
     EncryptedData, EncryptionContext, decrypt_bytes, encrypt_bytes, traits::KeyManager,
 };
 use lorealm_providers::{
-    AnthropicOptions, AnthropicProvider, LlmProvider, ModelInfo, OpenAiOptions, OpenAiProvider,
-    OpenRouterProvider,
+    AnthropicOptions, AnthropicProvider, GeminiOptions, GeminiProvider, LlmProvider, ModelInfo,
+    OpenAiOptions, OpenAiProvider, OpenRouterProvider,
 };
 use lorealm_storage::{
     Storage,
@@ -21,9 +21,10 @@ use crate::{
     },
 };
 
-/// Providers the app can build a client for. Keep in sync with the match in
+/// Providers the app can build a client for, besides the OpenAI-compatible
+/// services in `catalog`. Keep in sync with the match in
 /// `validate_provider_params` and the dispatch in ChatService::infer.
-const SUPPORTED_PROVIDERS: &[&str] = &["openrouter", "openai", "anthropic", "vertex"];
+const SUPPORTED_PROVIDERS: &[&str] = &["openrouter", "openai", "anthropic", "vertex", "gemini"];
 
 /// How many trailing characters of a key are kept for display.
 const KEY_HINT_LEN: usize = 4;
@@ -32,6 +33,7 @@ pub struct ConnectionService {
     storage: Arc<dyn Storage>,
     snowflake: Arc<SnowflakeService>,
     key_manager: Arc<dyn KeyManager>,
+    http: Arc<reqwest::Client>,
 }
 
 impl ConnectionService {
@@ -39,12 +41,18 @@ impl ConnectionService {
         storage: Arc<dyn Storage>,
         snowflake: Arc<SnowflakeService>,
         key_manager: Arc<dyn KeyManager>,
+        http: reqwest::Client,
     ) -> Self {
         Self {
             storage,
             snowflake,
             key_manager,
+            http: Arc::new(http),
         }
+    }
+
+    pub fn http(&self) -> Arc<reqwest::Client> {
+        Arc::clone(&self.http)
     }
 
     /// Store a new provider API key, encrypted and bound to its own row id.
@@ -272,7 +280,7 @@ impl ConnectionService {
         profile_id: Snowflake,
     ) -> Result<Vec<ModelInfo>, ConnectionError> {
         let connection = self.resolve_connection(user_id, profile_id).await?;
-        let http_client = Arc::new(reqwest::Client::new());
+        let http_client = self.http();
 
         // A listing request carries no model, hence the empty model name.
         let models = match connection.profile.provider.as_str() {
@@ -319,8 +327,34 @@ impl ConnectionService {
                     .list_models()
                     .await?
             }
+            "gemini" => {
+                let options: GeminiOptions = serde_json::from_value(
+                    connection.profile.provider_params.clone(),
+                )
+                .map_err(|e| ConnectionError::Validation(format!("invalid gemini params: {e}")))?;
+                let Some(api_key) = connection.api_key else {
+                    return Ok(Vec::new());
+                };
+                GeminiProvider::new(http_client, "", options.base_url, api_key.as_str())
+                    .list_models()
+                    .await?
+            }
             // Vertex offers no listing this provider can use.
             "vertex" => None,
+            other if let Some(preset) = super::openai_preset(other) => {
+                let options: OpenAiOptions = serde_json::from_value(
+                    connection.profile.provider_params.clone(),
+                )
+                .map_err(|e| ConnectionError::Validation(format!("invalid {other} params: {e}")))?;
+                // These services all want a key, even for their listing.
+                let Some(api_key) = connection.api_key else {
+                    return Ok(Vec::new());
+                };
+                preset
+                    .provider(http_client, "", &options, Some(api_key.to_string()))
+                    .list_models()
+                    .await?
+            }
             other => {
                 return Err(ConnectionError::Validation(format!(
                     "unsupported provider: {other}"
@@ -428,7 +462,7 @@ impl ConnectionService {
 const API_KEY_CONTEXT: &str = "api_key";
 
 fn validate_provider(provider: &str) -> Result<(), ConnectionError> {
-    if SUPPORTED_PROVIDERS.contains(&provider) {
+    if SUPPORTED_PROVIDERS.contains(&provider) || super::openai_preset(provider).is_some() {
         Ok(())
     } else {
         Err(ConnectionError::Validation(format!(
@@ -504,6 +538,13 @@ fn validate_common_params(value: &serde_json::Value) -> Result<serde_json::Value
             "max_tokens must be greater than 0".into(),
         ));
     }
+    if typed.max_tool_rounds == Some(0) {
+        return Err(ConnectionError::Validation(
+            "max_tool_rounds must be greater than 0".into(),
+        ));
+    }
+    apply_custom_fields(value, &mut lorealm_providers::CommonParams::default())
+        .map_err(ConnectionError::Validation)?;
     if let Some(stop) = &typed.stop
         && stop.iter().any(|s| s.is_empty())
     {
@@ -513,6 +554,54 @@ fn validate_common_params(value: &serde_json::Value) -> Result<serde_json::Value
     }
 
     Ok(serde_json::to_value(&typed).expect("DTO serialization cannot fail"))
+}
+
+pub fn apply_custom_fields(
+    common_params: &serde_json::Value,
+    params: &mut lorealm_providers::CommonParams,
+) -> Result<(), String> {
+    if let Some(body) = yaml_field(common_params, "include_body")? {
+        params.extra_body = Some(body);
+    }
+    if let Some(keys) = yaml_field(common_params, "exclude_body")? {
+        params.exclude_body = keys;
+    }
+    let headers: Option<serde_json::Map<String, serde_json::Value>> =
+        yaml_field(common_params, "include_headers")?;
+    for (name, value) in headers.unwrap_or_default() {
+        let value = match value {
+            serde_json::Value::String(s) => s,
+            serde_json::Value::Number(n) => n.to_string(),
+            serde_json::Value::Bool(b) => b.to_string(),
+            _ => return Err(format!("include_headers: {name} must be a single value")),
+        };
+        if reqwest::header::HeaderName::from_bytes(name.as_bytes()).is_err() {
+            return Err(format!(
+                "include_headers: {name} is not a valid header name"
+            ));
+        }
+        if reqwest::header::HeaderValue::from_str(&value).is_err() {
+            return Err(format!("include_headers: {name} has an invalid value"));
+        }
+        params.extra_headers.push((name, value));
+    }
+    Ok(())
+}
+
+fn yaml_field<T: serde::de::DeserializeOwned>(
+    common_params: &serde_json::Value,
+    key: &str,
+) -> Result<Option<T>, String> {
+    let Some(text) = common_params.get(key).and_then(|v| v.as_str()) else {
+        return Ok(None);
+    };
+    let value: serde_yaml::Value = serde_yaml::from_str(text).map_err(|e| format!("{key}: {e}"))?;
+    if value.is_null() {
+        return Ok(None);
+    }
+    serde_yaml::from_value(value)
+        .map(Some)
+        .map_err(|e| format!("{key}: {e}"))
 }
 
 fn validate_provider_params(
@@ -553,6 +642,28 @@ fn validate_provider_params(
             }
             if let Some(location) = &typed.location {
                 validate_vertex_location(location)?;
+            }
+            Ok(serde_json::to_value(&typed).expect("options serialization cannot fail"))
+        }
+        "gemini" => {
+            let typed: lorealm_providers::GeminiOptions = serde_json::from_value(value.clone())
+                .map_err(|e| ConnectionError::Validation(format!("invalid gemini params: {e}")))?;
+            if let Some(base_url) = &typed.base_url {
+                validate_base_url(base_url)?;
+            }
+            Ok(serde_json::to_value(&typed).expect("options serialization cannot fail"))
+        }
+        other if super::openai_preset(other).is_some() => {
+            let typed: lorealm_providers::OpenAiOptions = serde_json::from_value(value.clone())
+                .map_err(|e| ConnectionError::Validation(format!("invalid {other} params: {e}")))?;
+            if let Some(base_url) = &typed.base_url {
+                validate_base_url(base_url)?;
+            }
+            // Hosted chat services; text completion is for local servers.
+            if typed.template.is_some() {
+                return Err(ConnectionError::Validation(format!(
+                    "{other} does not support an instruct template"
+                )));
             }
             Ok(serde_json::to_value(&typed).expect("options serialization cannot fail"))
         }
@@ -615,4 +726,60 @@ fn to_encrypted_data(secret: &Secret) -> Result<EncryptedData, ConnectionError> 
             .try_into()
             .map_err(|_| ConnectionError::Corrupted(secret.id))?,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn common_params_keep_tool_rounds_and_custom_field_yaml() {
+        let input = json!({
+            "max_tool_rounds": 3,
+            "include_body": "# sampler\nmirostat: 2\nprovider:\n  sort: price\n",
+            "exclude_body": "- stop\n",
+            "include_headers": "X-Title: Lorealm\nX-Count: 5\n"
+        });
+        assert_eq!(validate_common_params(&input).unwrap(), input);
+
+        let mut params = lorealm_providers::CommonParams::default();
+        apply_custom_fields(&input, &mut params).unwrap();
+        assert_eq!(
+            params.extra_body,
+            json!({"mirostat": 2, "provider": {"sort": "price"}})
+                .as_object()
+                .cloned()
+        );
+        assert_eq!(params.exclude_body, ["stop"]);
+        assert_eq!(
+            params.extra_headers,
+            [
+                ("X-Title".to_string(), "Lorealm".to_string()),
+                ("X-Count".to_string(), "5".to_string())
+            ]
+        );
+    }
+
+    #[test]
+    fn blank_custom_fields_set_nothing() {
+        let input = json!({"include_body": "", "exclude_body": "# none yet\n"});
+        let mut params = lorealm_providers::CommonParams::default();
+        apply_custom_fields(&input, &mut params).unwrap();
+        assert!(params.extra_body.is_none() && params.exclude_body.is_empty());
+    }
+
+    #[test]
+    fn bad_tool_rounds_and_custom_fields_are_rejected() {
+        for input in [
+            json!({"max_tool_rounds": 0}),
+            json!({"include_body": "- a list"}),
+            json!({"include_body": "a: [unclosed"}),
+            json!({"exclude_body": "key: value"}),
+            json!({"include_headers": "Bad Name: x"}),
+            json!({"include_headers": "X-List: [1, 2]"}),
+        ] {
+            assert!(validate_common_params(&input).is_err(), "accepted {input}");
+        }
+    }
 }

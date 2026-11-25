@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use dashmap::DashMap;
-use lorealm_storage::models::{Conversation, ConversationMessage, Param, Snowflake};
+use lorealm_storage::models::{Conversation, ConversationMessage, Param, RealmCast, Snowflake};
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 
@@ -18,6 +18,13 @@ use crate::{
     util::context_eval::UsageReport,
 };
 
+#[derive(Debug, Clone, Serialize)]
+pub struct DisplayCast {
+    #[serde(flatten)]
+    pub cast: RealmCast,
+    pub character_widgets: Vec<Snowflake>,
+}
+
 #[derive(Debug, Clone)]
 pub struct PromptMessage {
     pub role: PromptRole,
@@ -29,6 +36,7 @@ pub(super) struct Prepared {
     pub trace: Vec<TracedBlock>,
     pub captured: Option<CapturedState>,
     pub usage: UsageReport,
+    pub squash_messages: bool,
 }
 
 #[derive(Serialize)]
@@ -43,9 +51,9 @@ pub struct TurnRequest {
     /// What the player says.
     #[serde(default)]
     pub content: Option<String>,
-    /// A bound tool the player triggers.
+    /// What the player does this turn, run in order before it is committed.
     #[serde(default)]
-    pub action: Option<PlayerAction>,
+    pub actions: Vec<PlayerAction>,
     #[serde(default)]
     pub swipe_from: Option<Snowflake>,
     #[serde(default, rename = "continue")]
@@ -53,10 +61,16 @@ pub struct TurnRequest {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct PlayerAction {
-    pub tool_id: Snowflake,
-    #[serde(default)]
-    pub args: serde_json::Value,
+#[serde(untagged)]
+pub enum PlayerAction {
+    /// One of the player's bound tools.
+    Tool {
+        tool_id: Snowflake,
+        #[serde(default)]
+        args: serde_json::Value,
+    },
+    /// Weaver a widget sends, run as the player without `generation`.
+    Run { run: String },
 }
 
 /// What a client watching a turn receives over SSE.
@@ -67,6 +81,7 @@ pub enum ChatStreamEvent {
     TurnStarted {
         handle: String,
         name: String,
+        observers: Vec<String>,
     },
     /// A chunk of generated text. Client appends to a provisional bubble.
     Delta {

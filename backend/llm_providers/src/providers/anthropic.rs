@@ -108,11 +108,15 @@ impl AnthropicProvider {
         }
     }
 
-    async fn post(&self, request: &AnthropicRequest) -> Result<reqwest::Response> {
-        let builder = self.authorize(
-            self.client
-                .post(format!("{}/messages", self.base_url))
-                .json(request),
+    async fn post(
+        &self,
+        request: &AnthropicRequest,
+        params: &CommonParams,
+    ) -> Result<reqwest::Response> {
+        let builder = super::with_custom_fields(
+            self.authorize(self.client.post(format!("{}/messages", self.base_url))),
+            request,
+            params,
         );
         let response = builder.send().await?;
 
@@ -169,7 +173,7 @@ impl super::LlmProvider for AnthropicProvider {
         provider_params: &Self::ProviderParams,
     ) -> Result<Response> {
         let request = self.build_request(messages, params, provider_params, false);
-        let response = self.post(&request).await?;
+        let response = self.post(&request, params).await?;
         Ok(anthropic_wire::to_response(response.json().await?))
     }
 
@@ -180,7 +184,7 @@ impl super::LlmProvider for AnthropicProvider {
         provider_params: &Self::ProviderParams,
     ) -> Result<Box<dyn Stream<Item = Result<Delta>> + Unpin + Send>> {
         let request = self.build_request(messages, params, provider_params, true);
-        let response = self.post(&request).await?;
+        let response = self.post(&request, params).await?;
 
         let mut parser = StreamParser::default();
         let stream = parse_sse_stream(response.bytes_stream(), move |data| parser.parse(data));

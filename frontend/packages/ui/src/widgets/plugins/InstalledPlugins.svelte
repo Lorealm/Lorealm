@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfirmDelete from '#lib/components/ConfirmDelete.svelte';
 	import { t } from '#lib/stores/i18n.svelte.js';
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { onMount } from 'svelte';
@@ -184,15 +185,23 @@
 						</button>
 					{/if}
 					{#if canInstall()}
-						<button
-							type="button"
-							class="icon"
-							aria-label={t.plugins.removeNamed({ name: plugin.name })}
-							{@attach tooltip(t.plugins.remove)}
-							onclick={() => act(() => api.plugins.uninstall(plugin.handle))}
+						<ConfirmDelete
+							prompt={t.plugins.confirmRemove({ name: plugin.name })}
+							action={t.common.remove}
+							onConfirm={() => act(() => api.plugins.uninstall(plugin.handle))}
 						>
-							<Trash2 size={16} />
-						</button>
+							{#snippet trigger(arm)}
+								<button
+									type="button"
+									class="icon"
+									aria-label={t.plugins.removeNamed({ name: plugin.name })}
+									{@attach tooltip(t.plugins.remove)}
+									onclick={arm}
+								>
+									<Trash2 size={16} />
+								</button>
+							{/snippet}
+						</ConfirmDelete>
 					{/if}
 				</div>
 			</div>

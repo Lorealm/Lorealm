@@ -130,6 +130,8 @@ export type Messages = {
 			stopGenerating: string;
 			/** Commands */
 			commands: string;
+			/** Remove {label} */
+			removeAction: (args: { label: string }) => string;
 		};
 		message: {
 			/** You */
@@ -144,12 +146,16 @@ export type Messages = {
 			inspectContext: string;
 			/** Continue this reply */
 			continue: string;
+			/** Show widgets here */
+			showWidgets: string;
 			/** Thoughts */
 			thoughts: string;
 			/** Thinking… */
 			thinking: string;
 			/** Swipe */
 			swipe: string;
+			/** Delete this message and its replies? */
+			confirmDelete: string;
 		};
 		setup: {
 			/** Welcome to Lorealm */
@@ -226,6 +232,8 @@ export type Messages = {
 			node: (args: { id: string }) => string;
 			/** content not reconstructed */
 			notReconstructed: string;
+			/** Expands to nothing */
+			expandsToNothing: string;
 			/** no trace on this message */
 			noTrace: string;
 			/** {count, plural, one {# block} other {# blocks}} */
@@ -304,6 +312,12 @@ export type Messages = {
 			rawHint: string;
 			/** Raw */
 			raw: string;
+			/** Show adjacent messages from the same role merged into one */
+			squashHint: string;
+			/** Squash */
+			squash: string;
+			/** Show persistent state as raw key/value pairs instead of a tree */
+			stateRawHint: string;
 			/** This message carries no context trace. Only turns generated through the weaver pipeline record one. */
 			noTraceLong: string;
 			/** The pipeline produced no context blocks for this turn. */
@@ -487,6 +501,8 @@ export type Messages = {
 		edit: string;
 		/** Delete */
 		delete: string;
+		/** Remove */
+		remove: string;
 		/** Previous */
 		previous: string;
 		/** Next */
@@ -615,6 +631,8 @@ export type Messages = {
 		deleteProfile: string;
 		/** Delete {name} */
 		deleteNamed: (args: { name: string }) => string;
+		/** Delete “{name}”? */
+		confirmDelete: (args: { name: string }) => string;
 		/** Use provider default */
 		providerDefault: string;
 		/** OpenAI-compatible */
@@ -646,6 +664,10 @@ export type Messages = {
 			addOne: string;
 			/** Token Budget */
 			tokenBudget: string;
+			/** Tool rounds */
+			toolRounds: string;
+			/** Merge consecutive messages from the same role */
+			squashMessages: string;
 			/** Endpoint */
 			endpoint: string;
 			/** Base URL */
@@ -756,6 +778,46 @@ export type Messages = {
 			blockMedium: string;
 			/** Block low risk and above */
 			blockLow: string;
+			/** Text completion */
+			textCompletion: string;
+			/** Off (send chat messages) */
+			textCompletionOff: string;
+			/** Custom */
+			custom: string;
+			/** Instruct template */
+			instructTemplate: string;
+			/** System prefix */
+			systemPrefix: string;
+			/** System suffix */
+			systemSuffix: string;
+			/** User prefix */
+			userPrefix: string;
+			/** User suffix */
+			userSuffix: string;
+			/** Assistant prefix */
+			assistantPrefix: string;
+			/** Assistant suffix */
+			assistantSuffix: string;
+			/** Each message is wrapped in its role’s prefix and suffix, and the reply starts after the assistant prefix. The reply stops at the assistant suffix or the user prefix. Tools aren’t available in this mode. */
+			instructTemplateHint: string;
+			/** Custom fields */
+			customFields: string;
+			/** Add to request */
+			includeBody: string;
+			/** Sent with every request, replacing any setting above with the same name. */
+			includeBodyHint: string;
+			/** Remove from request */
+			excludeBody: string;
+			/** Settings left out of every request, even ones set above. */
+			excludeBodyHint: string;
+			/** Add headers */
+			includeHeaders: string;
+			/** Sent with every request, replacing any header of the same name. */
+			includeHeadersHint: string;
+			/** Not saved: write one name: value pair per line. */
+			yamlMapping: string;
+			/** Not saved: write one - name per line. */
+			yamlList: string;
 		};
 		secrets: {
 			/** Unnamed key */
@@ -764,6 +826,8 @@ export type Messages = {
 			required: string;
 			/** Rename */
 			rename: string;
+			/** Delete “{name}”? */
+			confirmDelete: (args: { name: string }) => string;
 			/** No keys stored. */
 			none: string;
 			/** Add key */
@@ -794,6 +858,8 @@ export type Messages = {
 			createBlueprint: string;
 			/** Failed to delete blueprint */
 			deleteBlueprint: string;
+			/** Failed to duplicate blueprint */
+			duplicateBlueprint: string;
 			/** Could not import blueprint */
 			importBlueprint: string;
 			/** Failed to build a realm */
@@ -960,6 +1026,22 @@ export type Messages = {
 			authorNote: string;
 			/** Creator's Notes */
 			creatorNotes: string;
+			/** Style Variables */
+			styleVariables: string;
+			/** Weaver Reference */
+			weaverReference: string;
+		};
+		styleVariables: {
+			/** Copied */
+			copied: string;
+			/** Search variables… */
+			search: string;
+		};
+		weaverReference: {
+			/** Search commands and processors… */
+			search: string;
+			/** Copy as call */
+			copy: string;
 		};
 		creatorNotes: {
 			/** Loading… */
@@ -1325,6 +1407,8 @@ export type Messages = {
 		removeNamed: (args: { name: string }) => string;
 		/** Remove for everyone */
 		remove: string;
+		/** Remove {name} for everyone? */
+		confirmRemove: (args: { name: string }) => string;
 		/** This plugin isn't in the marketplace. */
 		notListed: string;
 		/** Manage */
@@ -1540,6 +1624,8 @@ export type Messages = {
 			delete: string;
 			/** Delete {name} */
 			deleteNamed: (args: { name: string }) => string;
+			/** Delete “{name}”? */
+			confirmDelete: (args: { name: string }) => string;
 			/** imported */
 			imported: string;
 			/** {count, plural, one {# playthrough} other {# playthroughs}} */
@@ -1568,8 +1654,14 @@ export type Messages = {
 			exportHint: string;
 			/** Export {name} */
 			exportNamed: (args: { name: string }) => string;
+			/** Duplicate */
+			duplicate: string;
+			/** Duplicate {name} */
+			duplicateNamed: (args: { name: string }) => string;
 			/** Delete blueprint */
 			delete: string;
+			/** Delete “{name}”? */
+			confirmDelete: (args: { name: string }) => string;
 			/** No blueprints yet. */
 			empty: string;
 		};
@@ -1918,7 +2010,7 @@ export type Messages = {
 			};
 		};
 		overview: {
-			/** Name */
+			/** Realm name */
 			name: string;
 			/** Untitled */
 			untitled: string;
@@ -2128,8 +2220,6 @@ export type Messages = {
 			bindTool: string;
 			/** Bind another tool */
 			bindAnotherTool: string;
-			/** Speaks on */
-			speaksOn: string;
 			/** Grants */
 			grants: string;
 			/** Add a grant */
@@ -2304,6 +2394,8 @@ export type Messages = {
 			noMembers: string;
 			/** Remove {name} */
 			removeMember: (args: { name: string }) => string;
+			/** Remove {name} from this role? */
+			confirmRemoveMember: (args: { name: string }) => string;
 			/** Username */
 			username: string;
 			/** Add */
@@ -2410,6 +2502,8 @@ export type Messages = {
 			created: (args: { date: string }) => string;
 			/** Delete invite */
 			deleteInvite: string;
+			/** Delete this invite? Its code will stop working. */
+			confirmDeleteInvite: string;
 		};
 		editor: {
 			/** Suggest cross-book ids */
@@ -2490,6 +2584,8 @@ export type Messages = {
 			addProfile: string;
 			/** Delete profile */
 			deleteProfile: string;
+			/** Delete “{name}”? */
+			confirmDeleteProfile: (args: { name: string }) => string;
 			/** Move up */
 			moveUp: string;
 			/** Move down */
@@ -2508,6 +2604,8 @@ export type Messages = {
 			profileName: (args: { n: number }) => string;
 			/** Overview */
 			defaultProfile: string;
+			/** Debug */
+			debugProfile: string;
 		};
 		interface: {
 			/** Language */
@@ -2554,6 +2652,8 @@ export type Messages = {
 			authorPlaceholder: string;
 			/** Delete this style */
 			deleteStyle: string;
+			/** Delete “{name}”? */
+			confirmDeleteStyle: (args: { name: string }) => string;
 			/** Backdrop */
 			backdrop: string;
 			/** The current backdrop */
@@ -2872,6 +2972,8 @@ export type Messages = {
 			active: string;
 			/** Set active */
 			setActive: string;
+			/** Delete “{name}”? */
+			confirmDelete: (args: { name: string }) => string;
 		};
 		profile: {
 			stats: {
@@ -3524,6 +3626,8 @@ export type Messages = {
 			invalid: string;
 			/** Delete entry */
 			deleteEntry: string;
+			/** Delete “{name}”? */
+			confirmDeleteEntry: (args: { name: string }) => string;
 		};
 		entry: {
 			/** ID */
@@ -4066,8 +4170,6 @@ export type Messages = {
 			widget: string;
 			/** Untitled */
 			untitled: string;
-			/** Built-in widget */
-			builtInWidget: string;
 			/** Edit widget */
 			edit: string;
 			/** Export */
@@ -4098,16 +4200,24 @@ export type Messages = {
 			every: string;
 			/** Properties */
 			properties: string;
-			/** name */
-			propPlaceholder: string;
-			/** Remove prop */
-			removeProp: string;
+			/** Values the model fills in each time it places this attachment. Press Enter to add one. */
+			propertiesHint: string;
 			/** Add prop */
 			addProp: string;
 			/** HTML source */
 			htmlSource: string;
-			/** Preview (sample state) */
+			/** Model */
+			tabModel: string;
+			/** Settings */
+			tabSettings: string;
+			/** Preview */
 			preview: string;
+			/** Test payload (JSON) */
+			testPayload: string;
+			/** Not a JSON object; showing the last valid payload. */
+			payloadInvalid: string;
+			/** Reset to sample */
+			resetPayload: string;
 			/** Widget preview */
 			previewTitle: string;
 			/** Directive */
@@ -4126,8 +4236,10 @@ export type Messages = {
 			renderPlaceholderAttachment: string;
 			/** Affection \'{'\'{'relationship:affection\'}'\'}'/10, trust \'{'\'{';relationship:trust\'}'\'}'/10. */
 			renderPlaceholderWidget: string;
-			/** Tools — made available to the model whenever this widget is active. Imported into a realm with the widget; no separate tool import needed. */
+			/** Tools */
 			tools: string;
+			/** Available to the model whenever this widget is active, and imported into a realm along with the widget. */
+			toolsHint: string;
 			/** Remove tool */
 			removeTool: string;
 			/** Add a tool… */

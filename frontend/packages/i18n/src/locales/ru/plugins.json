@@ -23,6 +23,7 @@
 	"settings": "Настройки",
 	"removeNamed": "Удалить {name} для всех",
 	"remove": "Удалить для всех",
+	"confirmRemove": "Remove {name} for everyone?",
 	"notListed": "Этого плагина нет в маркетплейсе.",
 	"manage": "Управление",
 	"noCompatible": "Ни одна его версия не работает с этой версией Lorealm.",

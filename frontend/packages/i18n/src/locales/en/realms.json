@@ -43,6 +43,7 @@
 		"untitled": "Untitled Realm",
 		"delete": "Delete realm",
 		"deleteNamed": "Delete {name}",
+		"confirmDelete": "Delete “{name}”?",
 		"imported": "imported",
 		"playthroughs": "{count, plural, one {# playthrough} other {# playthroughs}}",
 		"play": "Play",
@@ -58,7 +59,10 @@
 		"import": "Import",
 		"exportHint": "Export with the resources it uses",
 		"exportNamed": "Export {name}",
+		"duplicate": "Duplicate",
+		"duplicateNamed": "Duplicate {name}",
 		"delete": "Delete blueprint",
+		"confirmDelete": "Delete “{name}”?",
 		"empty": "No blueprints yet."
 	},
 	"newMenu": {
@@ -254,7 +258,7 @@
 		}
 	},
 	"overview": {
-		"name": "Name",
+		"name": "Realm name",
 		"untitled": "Untitled",
 		"description": "Description",
 		"descriptionPlaceholder": "What happens here, and who it is for.",
@@ -362,7 +366,6 @@
 		"nobody": "nobody",
 		"bindTool": "Bind a tool…",
 		"bindAnotherTool": "Bind another tool",
-		"speaksOn": "Speaks on",
 		"grants": "Grants",
 		"addGrant": "Add a grant",
 		"namespace": "Namespace",

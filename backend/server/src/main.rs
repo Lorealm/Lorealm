@@ -57,6 +57,8 @@ async fn main() -> anyhow::Result<()> {
 
     let state = Arc::new(AppState::new().await?);
 
+    util::fdlimit::apply(state.config().get::<HostingConfig>().max_open_files);
+
     run_setup(Arc::clone(&state)).await?;
 
     let cfg_host = state.config().get::<HostingConfig>();

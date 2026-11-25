@@ -10,7 +10,17 @@
 		"state": "State",
 		"realmAgent": "Realm Agent",
 		"authorNote": "Author's Note",
-		"creatorNotes": "Creator's Notes"
+		"creatorNotes": "Creator's Notes",
+		"styleVariables": "Style Variables",
+		"weaverReference": "Weaver Reference"
+	},
+	"styleVariables": {
+		"copied": "Copied",
+		"search": "Search variables…"
+	},
+	"weaverReference": {
+		"search": "Search commands and processors…",
+		"copy": "Copy as call"
 	},
 	"creatorNotes": {
 		"loading": "Loading…",

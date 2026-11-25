@@ -2,6 +2,7 @@
 //! mimics it (KoboldCPP, llama.cpp, vLLM, LM Studio, Ollama, TabbyAPI, ...).
 
 use super::openai_wire::{self, WireMessage, WireTool};
+use super::text_completion::{self, InstructTemplate};
 use crate::{error::*, streaming::parse_sse_stream, types::*};
 use async_trait::async_trait;
 use futures::Stream;
@@ -17,6 +18,7 @@ pub struct OpenAiProvider {
     api_key: Option<String>,
     base_url: String,
     model: String,
+    max_completion_tokens: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -26,6 +28,13 @@ pub struct OpenAiOptions {
     /// `http://localhost:5001/v1`. Defaults to [`OPENAI_DEFAULT_BASE_URL`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub base_url: Option<String>,
+    /// When set, requests go to `/completions` as one prompt rendered with
+    /// this template, for models served without a usable chat template.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub template: Option<InstructTemplate>,
+    /// `reasoning_effort` for reasoning models, e.g. "low" or "high".
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning_effort: Option<String>,
 }
 
 impl OpenAiProvider {
@@ -43,7 +52,16 @@ impl OpenAiProvider {
             api_key,
             base_url: base_url.trim_end_matches('/').to_string(),
             model: model.into(),
+            max_completion_tokens: false,
         }
+    }
+
+    /// Send the output limit as `max_completion_tokens`. OpenAI's own API
+    /// rejects `max_tokens` for its reasoning models, while many compatible
+    /// servers only understand `max_tokens`.
+    pub fn with_max_completion_tokens(mut self) -> Self {
+        self.max_completion_tokens = true;
+        self
     }
 
     /// Add the bearer header only when a key was configured: some local
@@ -55,17 +73,47 @@ impl OpenAiProvider {
         }
     }
 
+    async fn post_text(
+        &self,
+        template: &InstructTemplate,
+        messages: &[Message],
+        params: &CommonParams,
+        stream: bool,
+    ) -> Result<reqwest::Response> {
+        let request = text_completion::to_request(&self.model, template, messages, params, stream);
+        let builder = super::with_custom_fields(
+            self.authorize(self.client.post(format!("{}/completions", self.base_url))),
+            &request,
+            params,
+        );
+        let response = builder.send().await?;
+
+        if !response.status().is_success() {
+            let status = response.status().as_u16();
+            let message = response.text().await.unwrap_or_default();
+            return Err(Error::ApiError { status, message });
+        }
+        Ok(response)
+    }
+
     fn build_request(
         &self,
         messages: Vec<Message>,
         params: &CommonParams,
+        options: &OpenAiOptions,
         stream: bool,
     ) -> OpenAiRequest {
+        let (max_tokens, max_completion_tokens) = if self.max_completion_tokens {
+            (None, params.max_tokens)
+        } else {
+            (params.max_tokens, None)
+        };
         OpenAiRequest {
             model: self.model.clone(),
             messages: openai_wire::to_wire_messages(&messages),
             temperature: params.temperature,
-            max_tokens: params.max_tokens,
+            max_tokens,
+            max_completion_tokens,
             top_p: params.top_p,
             frequency_penalty: params.frequency_penalty,
             presence_penalty: params.presence_penalty,
@@ -75,6 +123,7 @@ impl OpenAiProvider {
             repetition_penalty: params.repetition_penalty,
             stop: params.stop.clone(),
             tools: openai_wire::to_wire_tools(params.tools.as_ref()),
+            reasoning_effort: options.reasoning_effort.clone(),
             stream: if stream { Some(true) } else { None },
         }
     }
@@ -88,6 +137,8 @@ struct OpenAiRequest {
     temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     max_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_completion_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     top_p: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -108,6 +159,8 @@ struct OpenAiRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     tools: Option<Vec<WireTool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    reasoning_effort: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     stream: Option<bool>,
 }
 
@@ -119,14 +172,22 @@ impl super::LlmProvider for OpenAiProvider {
         &self,
         messages: Vec<Message>,
         params: &CommonParams,
-        _provider_params: &Self::ProviderParams,
+        provider_params: &Self::ProviderParams,
     ) -> Result<Response> {
-        let request = self.build_request(messages, params, false);
+        if let Some(template) = &provider_params.template {
+            let response = self.post_text(template, &messages, params, false).await?;
+            return text_completion::to_response(response.json().await?);
+        }
 
-        let builder = self.authorize(
-            self.client
-                .post(format!("{}/chat/completions", self.base_url))
-                .json(&request),
+        let request = self.build_request(messages, params, provider_params, false);
+
+        let builder = super::with_custom_fields(
+            self.authorize(
+                self.client
+                    .post(format!("{}/chat/completions", self.base_url)),
+            ),
+            &request,
+            params,
         );
         let response = builder.send().await?;
 
@@ -143,14 +204,23 @@ impl super::LlmProvider for OpenAiProvider {
         &self,
         messages: Vec<Message>,
         params: &CommonParams,
-        _provider_params: &Self::ProviderParams,
+        provider_params: &Self::ProviderParams,
     ) -> Result<Box<dyn Stream<Item = Result<Delta>> + Unpin + Send>> {
-        let request = self.build_request(messages, params, true);
+        if let Some(template) = &provider_params.template {
+            let response = self.post_text(template, &messages, params, true).await?;
+            let stream = parse_sse_stream(response.bytes_stream(), text_completion::to_delta);
+            return Ok(Box::new(Box::pin(stream)));
+        }
 
-        let builder = self.authorize(
-            self.client
-                .post(format!("{}/chat/completions", self.base_url))
-                .json(&request),
+        let request = self.build_request(messages, params, provider_params, true);
+
+        let builder = super::with_custom_fields(
+            self.authorize(
+                self.client
+                    .post(format!("{}/chat/completions", self.base_url)),
+            ),
+            &request,
+            params,
         );
         let response = builder.send().await?;
 
@@ -202,6 +272,7 @@ mod tests {
         let request = provider().build_request(
             vec![Message::text(Role::User, "hi")],
             &CommonParams::default(),
+            &OpenAiOptions::default(),
             false,
         );
 
@@ -223,7 +294,7 @@ mod tests {
             repetition_penalty: Some(1.1),
             ..CommonParams::default()
         };
-        let request = provider().build_request(vec![], &params, true);
+        let request = provider().build_request(vec![], &params, &OpenAiOptions::default(), true);
 
         assert_eq!(
             serde_json::to_value(&request).unwrap(),
@@ -235,6 +306,31 @@ mod tests {
                 "min_p": 0.05_f32,
                 "repetition_penalty": 1.1_f32,
                 "stream": true
+            })
+        );
+    }
+
+    #[test]
+    fn openai_platform_sends_max_completion_tokens_and_effort() {
+        let params = CommonParams {
+            max_tokens: Some(1024),
+            ..CommonParams::default()
+        };
+        let options = OpenAiOptions {
+            reasoning_effort: Some("low".into()),
+            ..OpenAiOptions::default()
+        };
+        let request = OpenAiProvider::new(Arc::new(HttpClient::new()), "gpt-5", None, None)
+            .with_max_completion_tokens()
+            .build_request(vec![], &params, &options, false);
+
+        assert_eq!(
+            serde_json::to_value(&request).unwrap(),
+            serde_json::json!({
+                "model": "gpt-5",
+                "messages": [],
+                "max_completion_tokens": 1024,
+                "reasoning_effort": "low"
             })
         );
     }

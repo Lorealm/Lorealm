@@ -112,7 +112,6 @@ export interface OutlineAgent {
 	tools: OutlineTool[];
 	grants: OutlineGrant[];
 	properties: OutlineProperty[];
-	speech_channel: string;
 	script: string;
 	run_condition: string;
 }

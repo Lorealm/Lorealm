@@ -340,6 +340,151 @@ async fn recursive_active_path_walks_the_message_tree() {
     );
 }
 
+/// A message's prompt lives in its own table and goes when the message does.
+#[tokio::test]
+async fn message_contexts_round_trip_and_cascade() {
+    async fn check(s: &dyn ConversationStorage, convo: Snowflake, user: Snowflake) {
+        s.create_conversation(&Conversation {
+            id: convo,
+            user_id: user,
+            character_id: None,
+            char_version_id: None,
+            realm_id: None,
+            active_leaf_id: None,
+            title: None,
+            author_note: String::new(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        })
+        .await
+        .unwrap();
+        let id = Snowflake(convo.0 + 1);
+        s.append_and_advance(&ConversationMessage {
+            id,
+            conversation_id: convo,
+            parent: None,
+            role: ChatRole::Assistant,
+            content: "hi".into(),
+            order: 0,
+            metadata: serde_json::json!({ "has_context": true }),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        })
+        .await
+        .unwrap();
+
+        assert_eq!(s.get_message_context(id).await.unwrap(), None);
+        let first = serde_json::json!([{ "role": "system", "content": "first" }]);
+        let second = serde_json::json!([{ "role": "system", "content": "second" }]);
+        s.put_message_context(id, &first).await.unwrap();
+        s.put_message_context(id, &second).await.unwrap();
+        assert_eq!(s.get_message_context(id).await.unwrap(), Some(second));
+
+        assert!(s.delete_message(id).await.unwrap());
+        assert_eq!(s.get_message_context(id).await.unwrap(), None);
+    }
+
+    let sqlite = db().await;
+    let user = a_user(&sqlite, 61).await;
+    check(&sqlite, Snowflake(610), user).await;
+    check(&MemoryStorage::new(), Snowflake(620), user).await;
+}
+
+/// Prompts used to sit in `metadata.context`; 0007 moves them out, for
+/// databases that already have messages.
+#[tokio::test]
+async fn migration_moves_prompts_out_of_message_metadata() {
+    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+
+    let dir = std::env::temp_dir().join(format!("lorealm-sqlite-0007-{}", uuid_like()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let pool = SqlitePoolOptions::new()
+        .connect_with(
+            SqliteConnectOptions::new()
+                .filename(dir.join("test.db"))
+                .create_if_missing(true)
+                .foreign_keys(true),
+        )
+        .await
+        .unwrap();
+
+    let all = sqlx::migrate!("src/migrations/sqlite");
+    let mut before = sqlx::migrate!("src/migrations/sqlite");
+    before.migrations = all
+        .migrations
+        .iter()
+        .filter(|m| m.version < 7)
+        .cloned()
+        .collect::<Vec<_>>()
+        .into();
+    before.run(&pool).await.unwrap();
+
+    let prompt = serde_json::json!([
+        { "role": "system", "content": "", "content_ref": { "Message": "1" } }
+    ]);
+    let old = [
+        (
+            11,
+            serde_json::json!({ "context": prompt, "context_usage": {}, "widgets": [] }),
+        ),
+        (
+            12,
+            serde_json::json!({ "context": null, "agent_name": "Mori" }),
+        ),
+        (13, serde_json::json!({ "handle": "you" })),
+    ];
+    sqlx::query("INSERT INTO users (id, username, password_hash) VALUES (1, 'u', 'h')")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO conversations (id, user_id) VALUES (10, 1)")
+        .execute(&pool)
+        .await
+        .unwrap();
+    for (id, metadata) in &old {
+        sqlx::query(
+            "INSERT INTO conversation_messages (id, conversation_id, role, \"order\", metadata)
+             VALUES ($1, 10, 'assistant', 0, $2)",
+        )
+        .bind(id)
+        .bind(metadata)
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+
+    all.run(&pool).await.unwrap();
+
+    let metadata = |id: i64| {
+        let pool = pool.clone();
+        async move {
+            sqlx::query_scalar::<_, serde_json::Value>(
+                "SELECT metadata FROM conversation_messages WHERE id = $1",
+            )
+            .bind(id)
+            .fetch_one(&pool)
+            .await
+            .unwrap()
+        }
+    };
+    assert_eq!(
+        metadata(11).await,
+        serde_json::json!({ "has_context": true, "context_usage": {}, "widgets": [] })
+    );
+    assert_eq!(
+        metadata(12).await,
+        serde_json::json!({ "agent_name": "Mori" })
+    );
+    assert_eq!(metadata(13).await, serde_json::json!({ "handle": "you" }));
+
+    let moved: Vec<(i64, serde_json::Value)> =
+        sqlx::query_as("SELECT message_id, context FROM message_contexts")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+    assert_eq!(moved, vec![(11, prompt)]);
+}
+
 /// The Postgres CHECK uses `name ~ '^[a-zA-Z0-9_-]{1,64}$'`; SQLite uses a
 /// length bound plus a negated GLOB. Both must accept and reject the same names.
 #[tokio::test]

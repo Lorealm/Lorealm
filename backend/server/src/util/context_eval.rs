@@ -11,7 +11,7 @@ use crate::{
     errors::{ContextError, TokenizerError},
     services::{
         chat::PromptMessage,
-        context_template::{BlockPart, OriginKind, PromptRole, TracedBlock, Trim},
+        context_template::{BlockPart, OriginKind, TracedBlock, Trim},
     },
 };
 
@@ -236,9 +236,7 @@ impl CountResult {
     }
 }
 
-/// Evaluates some context by conditionally:
-/// - Applying context limits
-/// - Merging/squashing messages
+/// Evaluates some context by applying context limits.
 ///
 /// Note: This is applied *after* equivalent nodes in a [`ContextTemplate`],
 /// on the flattened trace they produced.
@@ -527,25 +525,31 @@ impl ContextEvaluator {
     }
 
     fn to_messages(&self, trace: &[TracedBlock]) -> Vec<PromptMessage> {
-        let messages = trace.iter().map(|t| PromptMessage {
-            role: t.block.role.clone(),
-            content: t.block.content.clone(),
-        });
-
-        if !self.config.squash_system_messages {
-            return messages.collect();
-        }
-
-        messages
-            .coalesce(|a, b| match (&a.role, &b.role) {
-                (PromptRole::System, PromptRole::System) => Ok(PromptMessage {
-                    role: PromptRole::System,
-                    content: format!("{}\n{}", a.content, b.content),
-                }),
-                _ => Err((a, b)),
+        trace
+            .iter()
+            .map(|t| PromptMessage {
+                role: t.block.role.clone(),
+                content: t.block.content.clone(),
             })
             .collect()
     }
+}
+
+/// Merges each run of adjacent same-role messages into one.
+pub fn squash_messages(messages: Vec<PromptMessage>) -> Vec<PromptMessage> {
+    messages
+        .into_iter()
+        .coalesce(|a, b| {
+            if a.role == b.role {
+                Ok(PromptMessage {
+                    role: a.role,
+                    content: format!("{}\n{}", a.content, b.content),
+                })
+            } else {
+                Err((a, b))
+            }
+        })
+        .collect()
 }
 
 fn join_kept(parts: &[BlockPart], gone: &HashSet<usize>, separator: &str) -> String {
@@ -559,7 +563,6 @@ fn join_kept(parts: &[BlockPart], gone: &HashSet<usize>, separator: &str) -> Str
 
 #[derive(Default)]
 pub struct ContextEvalConfig {
-    squash_system_messages: bool,
     budget: Option<u32>,
     /// Overrides for [`SourceBudget::default_for`].
     policies: HashMap<ContextSource, SourceBudget>,
@@ -576,11 +579,6 @@ impl ContextEvalBuilder {
             counter,
             config: ContextEvalConfig::default(),
         }
-    }
-
-    pub fn _squash_system_messages(mut self, squash: bool) -> Self {
-        self.config.squash_system_messages = squash;
-        self
     }
 
     /// The total token budget for the assembled prompt. Unset = unlimited.
@@ -606,7 +604,7 @@ impl ContextEvalBuilder {
 mod tests {
     use lorealm_storage::models::Snowflake;
 
-    use crate::services::context_template::{BlockOrigin, ContentRef, ResolvedBlock};
+    use crate::services::context_template::{BlockOrigin, ContentRef, PromptRole, ResolvedBlock};
 
     use super::*;
 
@@ -906,17 +904,30 @@ mod tests {
     }
 
     #[test]
-    fn adjacent_system_blocks_squash_when_asked() {
-        let trace = vec![text("a"), text("b")];
-        let out = ContextEvaluator::builder(Arc::new(Words))
-            ._squash_system_messages(true)
-            .build()
-            .evaluate(trace)
-            .unwrap();
+    fn adjacent_same_role_messages_squash() {
+        let m = |role: PromptRole, content: &str| PromptMessage {
+            role,
+            content: content.into(),
+        };
+        let out = squash_messages(vec![
+            m(PromptRole::System, "a"),
+            m(PromptRole::System, "b"),
+            m(PromptRole::User, "c"),
+            m(PromptRole::User, "d"),
+            m(PromptRole::Assistant, "e"),
+            m(PromptRole::User, "f"),
+        ]);
 
-        assert_eq!(out.messages.len(), 1);
-        assert_eq!(out.messages[0].content, "a\nb");
-        assert_eq!(out.trace.len(), 2);
+        let out: Vec<_> = out.iter().map(|p| (&p.role, p.content.as_str())).collect();
+        assert_eq!(
+            out,
+            [
+                (&PromptRole::System, "a\nb"),
+                (&PromptRole::User, "c\nd"),
+                (&PromptRole::Assistant, "e"),
+                (&PromptRole::User, "f"),
+            ]
+        );
     }
 
     /// The report is what the inspector reads, so it has to name both halves.

@@ -48,6 +48,14 @@ export const TOKEN_BUDGET: NumberSpec = {
 	default: 8192
 };
 
+export const TOOL_ROUNDS: NumberSpec = {
+	kind: 'number',
+	min: 1,
+	max: 32,
+	step: 1,
+	default: 8
+};
+
 export const OPENROUTER_REASONING_BUDGET: NumberSpec = {
 	kind: 'number',
 	min: 256,
@@ -112,6 +120,101 @@ export const PROVIDER_SCHEMAS: ProviderSchema[] = [
 		}
 	},
 	{
+		provider: 'openai_platform',
+		label: 'OpenAI',
+		requiresKey: true,
+		common: {
+			temperature: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },
+			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 1 },
+			max_tokens: { kind: 'number', min: 1, max: 128000, step: 1, default: 4096 },
+			stop: { kind: 'string_list' },
+			frequency_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 },
+			presence_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 }
+		}
+	},
+	{
+		provider: 'nanogpt',
+		label: 'NanoGPT',
+		requiresKey: true,
+		common: {
+			temperature: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },
+			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 1 },
+			max_tokens: { kind: 'number', min: 1, max: 131072, step: 1, default: 4096 },
+			stop: { kind: 'string_list' },
+			// Passed through to the serving engine; ignored by models that lack them.
+			top_k: { kind: 'number', min: 0, max: 200, step: 1, default: 0 },
+			min_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 0 },
+			frequency_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 },
+			presence_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 },
+			repetition_penalty: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 }
+		}
+	},
+	{
+		provider: 'chutes',
+		label: 'Chutes',
+		requiresKey: true,
+		common: {
+			temperature: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },
+			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 1 },
+			max_tokens: { kind: 'number', min: 1, max: 131072, step: 1, default: 4096 },
+			stop: { kind: 'string_list' },
+			// Passed through to the serving engine; ignored by models that lack them.
+			top_k: { kind: 'number', min: 0, max: 200, step: 1, default: 0 },
+			min_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 0 },
+			frequency_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 },
+			presence_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 },
+			repetition_penalty: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 }
+		}
+	},
+	{
+		provider: 'deepseek',
+		label: 'DeepSeek',
+		requiresKey: true,
+		common: {
+			temperature: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },
+			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 1 },
+			max_tokens: { kind: 'number', min: 1, max: 65536, step: 1, default: 4096 },
+			stop: { kind: 'string_list' },
+			frequency_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 },
+			presence_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 }
+		}
+	},
+	{
+		provider: 'zai',
+		label: 'Z.AI',
+		requiresKey: true,
+		common: {
+			temperature: { kind: 'number', min: 0, max: 1, step: 0.01, default: 1 },
+			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 0.95 },
+			max_tokens: { kind: 'number', min: 1, max: 131072, step: 1, default: 4096 },
+			stop: { kind: 'string_list' }
+		}
+	},
+	{
+		provider: 'moonshot',
+		label: 'Moonshot AI',
+		requiresKey: true,
+		common: {
+			temperature: { kind: 'number', min: 0, max: 1, step: 0.01, default: 0.6 },
+			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 1 },
+			max_tokens: { kind: 'number', min: 1, max: 131072, step: 1, default: 4096 },
+			stop: { kind: 'string_list' },
+			frequency_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 },
+			presence_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 }
+		}
+	},
+	{
+		provider: 'xai',
+		label: 'xAI',
+		requiresKey: true,
+		// Grok's reasoning models reject stop sequences and penalties.
+		common: {
+			temperature: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },
+			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 1 },
+			max_tokens: { kind: 'number', min: 1, max: 131072, step: 1, default: 4096 }
+		}
+	},
+	{
 		provider: 'anthropic',
 		label: 'Anthropic',
 		requiresKey: true,
@@ -136,6 +239,88 @@ export const PROVIDER_SCHEMAS: ProviderSchema[] = [
 			stop: { kind: 'string_list' },
 			frequency_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 },
 			presence_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 }
+		}
+	},
+	{
+		provider: 'gemini',
+		label: 'Google AI Studio',
+		requiresKey: true,
+		common: {
+			temperature: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },
+			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 0.95 },
+			top_k: { kind: 'number', min: 1, max: 200, step: 1, default: 64 },
+			max_tokens: { kind: 'number', min: 1, max: 65536, step: 1, default: 8192 },
+			stop: { kind: 'string_list' },
+			frequency_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 },
+			presence_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 }
+		}
+	}
+];
+
+export interface InstructTemplate {
+	system_prefix: string;
+	system_suffix: string;
+	user_prefix: string;
+	user_suffix: string;
+	assistant_prefix: string;
+	assistant_suffix: string;
+}
+
+export const INSTRUCT_PRESETS: { name: string; template: InstructTemplate }[] = [
+	{
+		name: 'ChatML',
+		template: {
+			system_prefix: '<|im_start|>system\n',
+			system_suffix: '<|im_end|>\n',
+			user_prefix: '<|im_start|>user\n',
+			user_suffix: '<|im_end|>\n',
+			assistant_prefix: '<|im_start|>assistant\n',
+			assistant_suffix: '<|im_end|>\n'
+		}
+	},
+	{
+		name: 'Llama 3',
+		template: {
+			system_prefix: '<|start_header_id|>system<|end_header_id|>\n\n',
+			system_suffix: '<|eot_id|>',
+			user_prefix: '<|start_header_id|>user<|end_header_id|>\n\n',
+			user_suffix: '<|eot_id|>',
+			assistant_prefix: '<|start_header_id|>assistant<|end_header_id|>\n\n',
+			assistant_suffix: '<|eot_id|>'
+		}
+	},
+	{
+		name: 'Mistral V7',
+		template: {
+			system_prefix: '[SYSTEM_PROMPT]',
+			system_suffix: '[/SYSTEM_PROMPT]',
+			user_prefix: '[INST]',
+			user_suffix: '[/INST]',
+			assistant_prefix: '',
+			assistant_suffix: '</s>'
+		}
+	},
+	{
+		// Gemma has no system role; system text goes in a user turn.
+		name: 'Gemma',
+		template: {
+			system_prefix: '<start_of_turn>user\n',
+			system_suffix: '<end_of_turn>\n',
+			user_prefix: '<start_of_turn>user\n',
+			user_suffix: '<end_of_turn>\n',
+			assistant_prefix: '<start_of_turn>model\n',
+			assistant_suffix: '<end_of_turn>\n'
+		}
+	},
+	{
+		name: 'Alpaca',
+		template: {
+			system_prefix: '',
+			system_suffix: '\n\n',
+			user_prefix: '### Instruction:\n',
+			user_suffix: '\n\n',
+			assistant_prefix: '### Response:\n',
+			assistant_suffix: '\n\n'
 		}
 	}
 ];

@@ -5,6 +5,7 @@
 		"readBlueprint": "Der Blueprint konnte nicht gelesen werden",
 		"createBlueprint": "Blueprint konnte nicht erstellt werden",
 		"deleteBlueprint": "Blueprint konnte nicht gelöscht werden",
+		"duplicateBlueprint": "Failed to duplicate blueprint",
 		"importBlueprint": "Blueprint konnte nicht importiert werden",
 		"buildRealm": "Realm konnte nicht erstellt werden",
 		"loadCast": "Die Besetzung konnte nicht geladen werden",

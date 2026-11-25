@@ -33,7 +33,8 @@
 		"stopCommand": "Stop /{name}",
 		"stopPlugin": "Stop {name}",
 		"stopGenerating": "Stop generating",
-		"commands": "Commands"
+		"commands": "Commands",
+		"removeAction": "Remove {label}"
 	},
 	"message": {
 		"you": "You",
@@ -42,9 +43,11 @@
 		"ranCommand": "Ran /{name}",
 		"inspectContext": "Inspect context",
 		"continue": "Continue this reply",
+		"showWidgets": "Show widgets here",
 		"thoughts": "Thoughts",
 		"thinking": "Thinking…",
-		"swipe": "Swipe"
+		"swipe": "Swipe",
+		"confirmDelete": "Delete this message and its replies?"
 	},
 	"setup": {
 		"title": "Welcome to Lorealm",
@@ -91,6 +94,7 @@
 		"untitledNode": "(untitled node)",
 		"node": "node {id}",
 		"notReconstructed": "content not reconstructed",
+		"expandsToNothing": "Expands to nothing",
 		"noTrace": "no trace on this message",
 		"blocks": "{count, plural, one {# block} other {# blocks}}",
 		"units": {
@@ -134,6 +138,9 @@
 		},
 		"rawHint": "Show the context as raw text",
 		"raw": "Raw",
+		"squashHint": "Show adjacent messages from the same role merged into one",
+		"squash": "Squash",
+		"stateRawHint": "Show persistent state as raw key/value pairs instead of a tree",
 		"noTraceLong": "This message carries no context trace. Only turns generated through the weaver pipeline record one.",
 		"noContextBlocks": "The pipeline produced no context blocks for this turn.",
 		"msgs": "{count, number} msgs",

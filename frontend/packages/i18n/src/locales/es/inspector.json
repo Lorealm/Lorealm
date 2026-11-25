@@ -10,7 +10,12 @@
 		"state": "Estado",
 		"realmAgent": "Agente del reino",
 		"authorNote": "Nota del autor",
-		"creatorNotes": "Notas del creador"
+		"creatorNotes": "Notas del creador",
+		"styleVariables": "Style Variables"
+	},
+	"styleVariables": {
+		"copied": "Copied",
+		"search": "Search variables…"
 	},
 	"creatorNotes": {
 		"loading": "Cargando…",
