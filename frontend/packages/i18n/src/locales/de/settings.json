@@ -137,7 +137,8 @@
 		"noMatch": "Nichts passt zu „{query}“.",
 		"allAdded": "Jedes Widget ist bereits in diesem Stapel.",
 		"profileName": "Profil {n, number}",
-		"defaultProfile": "Übersicht"
+		"defaultProfile": "Übersicht",
+		"debugProfile": "Debug"
 	},
 	"interface": {
 		"language": "Language",
