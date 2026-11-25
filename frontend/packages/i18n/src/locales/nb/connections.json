@@ -32,6 +32,7 @@
 		"addOne": "Legg til en",
 		"tokenBudget": "Token-budsjett",
 		"toolRounds": "Tool rounds",
+		"squashMessages": "Merge consecutive messages from the same role",
 		"endpoint": "Endepunkt",
 		"baseUrl": "Basis-URL",
 		"projectId": "Prosjekt-ID",
