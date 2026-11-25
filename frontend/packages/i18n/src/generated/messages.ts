@@ -1026,12 +1026,20 @@ export type Messages = {
 			creatorNotes: string;
 			/** Style Variables */
 			styleVariables: string;
+			/** Weaver Reference */
+			weaverReference: string;
 		};
 		styleVariables: {
 			/** Copied */
 			copied: string;
 			/** Search variables… */
 			search: string;
+		};
+		weaverReference: {
+			/** Search commands and processors… */
+			search: string;
+			/** Copy as call */
+			copy: string;
 		};
 		creatorNotes: {
 			/** Loading… */

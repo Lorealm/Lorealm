@@ -1,4 +1,4 @@
-function renderDoc(md: string): string {
+export function renderDoc(md: string): string {
 	const esc = md.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 	const withCode = esc.replace(/`([^`]+)`/g, '<code>$1</code>');
 	return withCode

@@ -30,7 +30,7 @@ function defaults(): InspectorMatrix {
 					write: ['character-image', 'author-note', 'template'],
 					characters: ['creator-notes'],
 					realms: ['realm-agent'],
-					studio: ['style-variables']
+					studio: ['weaver-reference', 'style-variables']
 				}
 			},
 			{

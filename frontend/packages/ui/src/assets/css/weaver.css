@@ -1,0 +1,19 @@
+:root {
+	--weaver-color-delimiter: #7c8a9e; /* {{ }} {# #} */
+	--weaver-color-trim: #d782a8; /* whitespace trim markers */
+	--weaver-color-bracket: #c98a3a; /* @[ ] $[ ] [[ ]] [ ] { } */
+	--weaver-color-keyword: #c678dd;
+	--weaver-color-scope: #56b6c2; /* scope before a colon */
+	--weaver-color-variable: #e5c07b;
+	--weaver-color-function: #61afef; /* processor/command name */
+	--weaver-color-property: #98c379; /* arg keys, object keys */
+	--weaver-color-type: #d19a66;
+	--weaver-color-string: #98c379;
+	--weaver-color-literal: #d19a66; /* numbers, bools, none */
+	--weaver-color-operator: #56b6c2;
+	--weaver-color-punctuation: #828a99;
+	--weaver-color-comment: #6b7a8d;
+	--weaver-color-tag: #e06c75; /* <trigger> */
+	--weaver-color-attribute: #d19a66; /* id= */
+	--weaver-color-parameter: #e06c75; /* a proc's declared parameter */
+}
