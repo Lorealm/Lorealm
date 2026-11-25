@@ -122,12 +122,14 @@
 							<span class="punct">-&gt;</span> <span class="type">{entry.returns}</span>
 						</div>
 						{#if entry.description}
+							<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 							<div class="body">{@html renderDoc(entry.description)}</div>
 						{/if}
 						{#if entry.docs.length > 0}
 							<dl>
 								{#each entry.docs as param (param.name)}
 									<dt>{param.name}</dt>
+									<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 									<dd>{@html renderDoc(param.description)}</dd>
 								{/each}
 							</dl>
