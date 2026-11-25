@@ -137,7 +137,8 @@
 		"noMatch": "Ingenting samsvarer med «{query}».",
 		"allAdded": "Alle widgets er allerede i denne stabelen.",
 		"profileName": "Profil {n, number}",
-		"defaultProfile": "Oversikt"
+		"defaultProfile": "Oversikt",
+		"debugProfile": "Debug"
 	},
 	"interface": {
 		"language": "Language",
