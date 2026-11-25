@@ -146,6 +146,8 @@ export type Messages = {
 			inspectContext: string;
 			/** Continue this reply */
 			continue: string;
+			/** Show widgets here */
+			showWidgets: string;
 			/** Thoughts */
 			thoughts: string;
 			/** Thinking… */
@@ -314,6 +316,8 @@ export type Messages = {
 			squashHint: string;
 			/** Squash */
 			squash: string;
+			/** Show persistent state as raw key/value pairs instead of a tree */
+			stateRawHint: string;
 			/** This message carries no context trace. Only turns generated through the weaver pipeline record one. */
 			noTraceLong: string;
 			/** The pipeline produced no context blocks for this turn. */
@@ -1024,12 +1028,20 @@ export type Messages = {
 			creatorNotes: string;
 			/** Style Variables */
 			styleVariables: string;
+			/** Weaver Reference */
+			weaverReference: string;
 		};
 		styleVariables: {
 			/** Copied */
 			copied: string;
 			/** Search variables… */
 			search: string;
+		};
+		weaverReference: {
+			/** Search commands and processors… */
+			search: string;
+			/** Copy as call */
+			copy: string;
 		};
 		creatorNotes: {
 			/** Loading… */
@@ -2592,6 +2604,8 @@ export type Messages = {
 			profileName: (args: { n: number }) => string;
 			/** Overview */
 			defaultProfile: string;
+			/** Debug */
+			debugProfile: string;
 		};
 		interface: {
 			/** Language */

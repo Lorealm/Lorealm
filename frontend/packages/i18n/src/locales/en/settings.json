@@ -137,7 +137,8 @@
 		"noMatch": "Nothing matches “{query}”.",
 		"allAdded": "Every widget is already in this stack.",
 		"profileName": "Profile {n, number}",
-		"defaultProfile": "Overview"
+		"defaultProfile": "Overview",
+		"debugProfile": "Debug"
 	},
 	"interface": {
 		"language": "Language",

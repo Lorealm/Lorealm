@@ -38,10 +38,10 @@ dev-desktop-nvidia: ## Run the tauri app in dev mode (NVIDIA GPU + Wayland worka
 build-ui: ## Build the UI library and generate type definitions
 	cd packages/ui && bun run prepack
 
-build-web: ## Build the web app for production
+build-web: build-ui ## Build the web app for production
 	cd apps/web && bun run build
 
-build-desktop: ## Build the tauri app for production
+build-desktop: build-ui ## Build the tauri app for production
 	cd apps/desktop && bun run tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
 
 build-all: build-ui build-web build-desktop ## Build everything

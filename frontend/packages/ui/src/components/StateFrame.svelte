@@ -2,6 +2,8 @@
 	import type { JsonValue } from '#lib/types/core.js';
 	import type { PlayerAction } from '#lib/types/realm.js';
 	import { frameTheme } from '#lib/stores/frameTheme.svelte.js';
+	import { characterStore } from '#lib/stores/character.svelte.js';
+	import { macroContext } from '#lib/assets/scripts/variable-replace.js';
 
 	let {
 		source,
@@ -19,10 +21,11 @@
 	} = $props();
 
 	/**
-	 * Injected at the end of every widget so authors don't hand-write it:
-	 * reports content height (iframes can't self-size), pings ready so the
-	 * host pushes the initial payload, and adopts the app's style variables and fonts
-	 * ahead of the widget's own styles.
+	 * Injected at the end of every widget. Provides functionality for:
+	 * - Auto-resizing
+	 * - Variable access
+	 * - Automatic theme-adherence & CSS variables
+	 * - Ready handling
 	 */
 	const HOST_SCRIPT = `<script>(function () {
   function report() {
@@ -38,10 +41,37 @@
   }
   function ready() { parent.postMessage({ type: 'lorealm:ready' }, '*'); }
   var faces = [];
+  var written = new WeakMap();
+  function expand(text, ctx) {
+    return text.replace(/\\{\\{(\\w+):(\\w+)\\}\\}/g, function (m, who, field) {
+      var side = ctx[who];
+      var v = side && side[field];
+      return typeof v === 'string' ? v : m;
+    });
+  }
+  function fill(ctx) {
+    window.lorealm = window.lorealm || {};
+    window.lorealm.context = ctx;
+    var root = document.body || document.documentElement;
+    var walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (var n = walk.nextNode(); n; n = walk.nextNode()) {
+      var tag = n.parentNode && n.parentNode.nodeName;
+      if (tag === 'SCRIPT' || tag === 'STYLE') continue;
+      var seen = written.get(n);
+      // A widget script that rewrote the node since we last filled it owns the new text.
+      var tpl = seen && seen.out === n.nodeValue ? seen.tpl : n.nodeValue;
+      if (tpl.indexOf('{{') < 0) continue;
+      var out = expand(tpl, ctx);
+      written.set(n, { tpl: tpl, out: out });
+      if (out !== n.nodeValue) n.nodeValue = out;
+    }
+  }
   addEventListener('message', function (e) {
     var d = e.data;
     if (e.source !== parent || !d) return;
-    if (d.type === 'lorealm:theme') {
+    if (d.type === 'lorealm:context') {
+      fill(d.context || {});
+    } else if (d.type === 'lorealm:theme') {
       var style = document.getElementById('lorealm-theme');
       if (!style) {
         style = document.createElement('style');
@@ -82,9 +112,21 @@
 		frame?.contentWindow?.postMessage({ type: 'lorealm:fonts', fonts: frameTheme.fonts }, '*');
 	}
 
+	/** The same names `{{char:name}}` and `{{user:name}}` resolve to in messages. */
+	const context = $derived(macroContext(characterStore.activeCharacter?.id ?? null));
+
+	function pushContext() {
+		frame?.contentWindow?.postMessage({ type: 'lorealm:context', context }, '*');
+	}
+
 	$effect(() => {
 		void slice;
 		push();
+	});
+
+	$effect(() => {
+		void context;
+		pushContext();
 	});
 
 	$effect(() => {
@@ -104,6 +146,7 @@
 			height?: unknown;
 		} | null;
 		if (data?.type === 'lorealm:ready') {
+			pushContext();
 			push();
 			pushTheme();
 		} else if (data?.type === 'lorealm:height' && typeof data.height === 'number') {

@@ -31,7 +31,7 @@ pub(super) fn router(app_state: Arc<AppState>, middleware_state: SessionMiddlewa
     let session_permission_routes = Router::new()
         .route("/active", put(handlers::set_active_tokenizer))
         .route("/active", delete(handlers::unset_active_tokenizer))
-        .route("/import", post(handlers::import_tokenizer))
+        .route("/import", put(handlers::import_tokenizer))
         .route("/network", post(handlers::create_from_network))
         .route("/{tokenizer_id}/count", post(handlers::count))
         .route("/{tokenizer_id}/batchCount", post(handlers::batch_count))

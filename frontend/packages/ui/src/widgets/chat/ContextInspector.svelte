@@ -23,6 +23,7 @@
 	import { resolveBlockContent } from '#lib/types/content.js';
 	import type { JsonValue, Snowflake } from '#lib/types/core.js';
 	import { ChevronDown, Info, X } from '@lucide/svelte';
+	import StateTree from '../../components/StateTree.svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 	const api = useApi();
@@ -333,6 +334,7 @@
 		if (!recon) return [];
 		return Object.entries(recon.persistent).map(([name, pool]) => ({
 			name,
+			data: pool,
 			entries: Object.entries(pool).map(([key, value]) => ({ key, value }))
 		}));
 	});
@@ -396,6 +398,7 @@
 	let tab = $state<Tab>('context');
 
 	let raw = $state(false);
+	let stateRaw = $state(false);
 
 	// Starts as the turn was sent; the toggle previews either way.
 	let squash = $derived(wasSquashed(contextInspector.message?.metadata));
@@ -740,6 +743,16 @@
 							>
 								{t.chat.inspector.squash}
 							</button>
+						{:else if tab === 'state'}
+							<button
+								class="raw-toggle"
+								class:active={stateRaw}
+								aria-pressed={stateRaw}
+								{@attach tooltip(t.chat.inspector.stateRawHint)}
+								onclick={() => (stateRaw = !stateRaw)}
+							>
+								{t.chat.inspector.raw}
+							</button>
 						{/if}
 					</div>
 
@@ -881,6 +894,8 @@
 										<div class="detail">
 											{#if pool.entries.length === 0}
 												<div class="unresolved">{t.chat.inspector.emptyPool}</div>
+											{:else if !stateRaw}
+												<StateTree data={pool.data} />
 											{:else}
 												{#each pool.entries as kv (kv.key)}
 													<div class="kv">

@@ -136,6 +136,10 @@ export interface RealmCast {
 	director?: Director | null;
 }
 
+export interface DisplayCast extends RealmCast {
+	character_widgets: Snowflake[];
+}
+
 export type EventKind = 'spoke' | 'acted' | 'system';
 
 /** Something a turn did besides speak, kept in its message's `events` metadata. */
