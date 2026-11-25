@@ -78,6 +78,7 @@ fn merge(
 
 mod anthropic;
 mod anthropic_wire;
+mod gemini;
 mod gemini_wire;
 mod openai;
 mod openai_wire;
@@ -88,6 +89,7 @@ mod vertex;
 pub use anthropic::{
     ANTHROPIC_DEFAULT_BASE_URL, AnthropicOptions, AnthropicProvider, AnthropicThinking,
 };
+pub use gemini::{GEMINI_DEFAULT_BASE_URL, GeminiOptions, GeminiProvider};
 pub use openai::{OPENAI_DEFAULT_BASE_URL, OpenAiOptions, OpenAiProvider};
 pub use openrouter::{
     OpenRouterOptions, OpenRouterProvider, OpenRouterProviderPreference, OpenRouterReasoning,

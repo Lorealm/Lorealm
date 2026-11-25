@@ -114,6 +114,23 @@
 	const isOpenAi = $derived(draft.provider === 'openai');
 	const isAnthropic = $derived(draft.provider === 'anthropic');
 	const isVertex = $derived(draft.provider === 'vertex');
+	const isOpenAiPlatform = $derived(draft.provider === 'openai_platform');
+	const isGemini = $derived(draft.provider === 'gemini');
+	const BASE_URL_PLACEHOLDERS: Record<string, string> = {
+		anthropic: 'https://api.anthropic.com/v1',
+		gemini: 'https://generativelanguage.googleapis.com/v1beta',
+		nanogpt: 'https://nano-gpt.com/api/v1',
+		chutes: 'https://llm.chutes.ai/v1',
+		deepseek: 'https://api.deepseek.com',
+		zai: 'https://api.z.ai/api/paas/v4',
+		moonshot: 'https://api.moonshot.ai/v1',
+		xai: 'https://api.x.ai/v1'
+	};
+	// Fixed-endpoint OpenAI-compatible services; the base URL only matters for a proxy.
+	const isHostedOpenAi = $derived(
+		isOpenAiPlatform ||
+			['nanogpt', 'chutes', 'deepseek', 'zai', 'moonshot', 'xai'].includes(draft.provider)
+	);
 
 	function textParam(key: string): string {
 		const v = draft.provider_params[key];
@@ -415,7 +432,7 @@
 		</label>
 	</section>
 
-	{#if isOpenAi || isAnthropic}
+	{#if isOpenAi || isAnthropic || isHostedOpenAi || isGemini}
 		<section class="group">
 			<h3>{t.connections.editor.endpoint}</h3>
 			<label class="field">
@@ -423,7 +440,7 @@
 				<input
 					type="text"
 					value={textParam('base_url')}
-					placeholder={isAnthropic ? 'https://api.anthropic.com/v1' : 'https://api.openai.com/v1'}
+					placeholder={BASE_URL_PLACEHOLDERS[draft.provider] ?? 'https://api.openai.com/v1'}
 					onchange={(e) => setTextParam('base_url', e)}
 				/>
 			</label>
@@ -671,7 +688,27 @@
 		</section>
 	{/if}
 
-	{#if isVertex}
+	{#if isOpenAiPlatform}
+		<section class="group">
+			<h3>OpenAI</h3>
+			<label class="field">
+				<span>{t.connections.editor.reasoning}</span>
+				<select
+					value={textParam('reasoning_effort')}
+					onchange={(e) => setTextParam('reasoning_effort', e)}
+				>
+					<option value="">{t.connections.editor.modelDefault}</option>
+					<option value="none">{t.connections.editor.off}</option>
+					<option value="low">{t.connections.editor.low}</option>
+					<option value="medium">{t.connections.editor.medium}</option>
+					<option value="high">{t.connections.editor.high}</option>
+					<option value="xhigh">{t.connections.editor.extraHigh}</option>
+				</select>
+			</label>
+		</section>
+	{/if}
+
+	{#if isVertex || isGemini}
 		<section class="group">
 			<h3>Gemini</h3>
 			<label class="field">
