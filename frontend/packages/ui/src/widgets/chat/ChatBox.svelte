@@ -1,3 +1,13 @@
+<script lang="ts" module>
+	let feedEl: HTMLDivElement | undefined;
+
+	const ARROW_STEP = 40;
+
+	export function scrollFeed(direction: 1 | -1) {
+		feedEl?.scrollBy({ top: direction * ARROW_STEP });
+	}
+</script>
+
 <script lang="ts">
 	import { t } from '#lib/stores/i18n.svelte.js';
 	import { chatStore } from '#lib/stores/chat.svelte.js';
@@ -11,6 +21,10 @@
 		if (!userWidgetStore.loadedWidgets) void userWidgetStore.loadWidgets();
 		if (!userWidgetStore.builtinWidgets) void userWidgetStore.loadBuiltins();
 		loadSetupState();
+		feedEl = scrollEl;
+		return () => {
+			if (feedEl === scrollEl) feedEl = undefined;
+		};
 	});
 
 	let scrollEl: HTMLDivElement;
