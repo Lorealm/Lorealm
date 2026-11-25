@@ -2594,6 +2594,8 @@ export type Messages = {
 			profileName: (args: { n: number }) => string;
 			/** Overview */
 			defaultProfile: string;
+			/** Debug */
+			debugProfile: string;
 		};
 		interface: {
 			/** Language */
