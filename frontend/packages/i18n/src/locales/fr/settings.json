@@ -137,7 +137,8 @@
 		"noMatch": "Rien ne correspond à « {query} ».",
 		"allAdded": "Tous les widgets sont déjà dans cette pile.",
 		"profileName": "Profil {n, number}",
-		"defaultProfile": "Aperçu"
+		"defaultProfile": "Aperçu",
+		"debugProfile": "Debug"
 	},
 	"interface": {
 		"language": "Language",
