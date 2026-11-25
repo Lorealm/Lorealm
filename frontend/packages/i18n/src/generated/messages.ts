@@ -314,6 +314,8 @@ export type Messages = {
 			squashHint: string;
 			/** Squash */
 			squash: string;
+			/** Show persistent state as raw key/value pairs instead of a tree */
+			stateRawHint: string;
 			/** This message carries no context trace. Only turns generated through the weaver pipeline record one. */
 			noTraceLong: string;
 			/** The pipeline produced no context blocks for this turn. */

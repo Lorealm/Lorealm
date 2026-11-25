@@ -139,6 +139,7 @@
 		"raw": "Raw",
 		"squashHint": "Show adjacent messages from the same role merged into one",
 		"squash": "Squash",
+		"stateRawHint": "Show persistent state as raw key/value pairs instead of a tree",
 		"noTraceLong": "This message carries no context trace. Only turns generated through the weaver pipeline record one.",
 		"noContextBlocks": "The pipeline produced no context blocks for this turn.",
 		"msgs": "{count, number} msgs",
