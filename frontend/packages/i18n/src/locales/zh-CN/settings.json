@@ -137,7 +137,8 @@
 		"noMatch": "没有匹配“{query}”的内容。",
 		"allAdded": "每个小组件都已在此堆栈中。",
 		"profileName": "配置 {n, number}",
-		"defaultProfile": "概览"
+		"defaultProfile": "概览",
+		"debugProfile": "Debug"
 	},
 	"interface": {
 		"language": "Language",
