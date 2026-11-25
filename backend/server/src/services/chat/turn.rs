@@ -70,6 +70,7 @@ struct ActiveTurn {
     spec: AgentSpec,
     trace: Vec<TracedBlock>,
     usage: UsageReport,
+    squash_messages: bool,
     available_tools: Vec<String>,
     pool: Arc<StdMutex<StatePool>>,
     diff_base: StatePool,
@@ -530,6 +531,7 @@ impl ChatService {
             trace,
             captured,
             usage,
+            squash_messages,
         } = self
             .assemble_context(
                 &spec,
@@ -593,6 +595,7 @@ impl ChatService {
             spec,
             trace,
             usage,
+            squash_messages,
             available_tools,
             pool,
             diff_base,
@@ -661,6 +664,7 @@ impl ChatService {
             meta: json!({
                 "has_context": true,
                 "context_usage": open.usage,
+                "squash_messages": open.squash_messages,
                 "reasoning": outcome.reasoning,
                 "tool_calls": outcome.tool_calls,
                 "widgets": outcome.widgets,

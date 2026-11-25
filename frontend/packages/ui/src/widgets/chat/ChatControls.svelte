@@ -3,6 +3,7 @@
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { tick } from 'svelte';
 	import CommandAutocomplete from './CommandAutocomplete.svelte';
+	import { scrollFeed } from './ChatBox.svelte';
 	import PopupMenu from '#lib/components/PopupMenu.svelte';
 	import {
 		completionAt,
@@ -112,6 +113,15 @@
 					dismissed = true;
 					return;
 			}
+		}
+		if (
+			inputText === '' &&
+			(event.key === 'ArrowUp' || event.key === 'ArrowDown') &&
+			!(event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
+		) {
+			event.preventDefault();
+			scrollFeed(event.key === 'ArrowUp' ? -1 : 1);
+			return;
 		}
 		if (event.key === 'Enter' && !event.shiftKey && !inputEnvironment.touchOnly) {
 			event.preventDefault();

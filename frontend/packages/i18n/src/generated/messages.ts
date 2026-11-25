@@ -310,6 +310,10 @@ export type Messages = {
 			rawHint: string;
 			/** Raw */
 			raw: string;
+			/** Show adjacent messages from the same role merged into one */
+			squashHint: string;
+			/** Squash */
+			squash: string;
 			/** This message carries no context trace. Only turns generated through the weaver pipeline record one. */
 			noTraceLong: string;
 			/** The pipeline produced no context blocks for this turn. */
@@ -658,6 +662,8 @@ export type Messages = {
 			tokenBudget: string;
 			/** Tool rounds */
 			toolRounds: string;
+			/** Merge consecutive messages from the same role */
+			squashMessages: string;
 			/** Endpoint */
 			endpoint: string;
 			/** Base URL */

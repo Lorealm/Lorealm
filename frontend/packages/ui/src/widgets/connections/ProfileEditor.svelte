@@ -405,6 +405,14 @@
 			value={commonNum('max_tool_rounds')}
 			onChange={(v) => setCommon('max_tool_rounds', v)}
 		/>
+		<label class="check">
+			<input
+				type="checkbox"
+				checked={draft.common_params.squash_messages === true}
+				onchange={(e) => setCommon('squash_messages', e.currentTarget.checked || undefined)}
+			/>
+			<span>{t.connections.editor.squashMessages}</span>
+		</label>
 	</section>
 
 	{#if isOpenAi || isAnthropic}
