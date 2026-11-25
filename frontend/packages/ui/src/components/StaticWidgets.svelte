@@ -17,9 +17,10 @@
 		const all = userWidgetStore.loadedWidgets ?? [];
 		if (!chatStore.conversationId) return [];
 		// What you have switched on, plus what the cast brings with it.
-		const bound = new Set(
-			(viewer ? [viewer] : (chatStore.cast?.agents ?? [])).flatMap((a) => a.widgets)
-		);
+		const bound = new Set([
+			...(viewer ? [viewer] : (chatStore.cast?.agents ?? [])).flatMap((a) => a.widgets),
+			...(chatStore.cast?.character_widgets ?? [])
+		]);
 
 		return all.filter(
 			(w) =>

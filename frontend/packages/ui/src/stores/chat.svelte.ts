@@ -10,7 +10,7 @@ import type {
 	TurnRequest
 } from '#lib/types/conversation.js';
 import type { Greeting } from '#lib/types/character.js';
-import type { PlayerAction, RealmAgent, RealmCast, TurnEvent } from '#lib/types/realm.js';
+import type { PlayerAction, DisplayCast, RealmAgent, TurnEvent } from '#lib/types/realm.js';
 import { parseReasoning, parseWidgets, type WidgetInstance } from '#lib/types/widgets.js';
 import { SvelteMap } from 'svelte/reactivity';
 import { messageStateStore } from './messageState.svelte.ts';
@@ -102,7 +102,7 @@ class ChatStore {
 	private _streamingConvId: Snowflake | null = null;
 	private _cancelling = $state(false);
 
-	private _cast = $state<RealmCast | null>(null);
+	private _cast = $state<DisplayCast | null>(null);
 	private _nextHandle = $state<string | null>(null);
 	private _streamAgentName = $state<string | null>(null);
 	private _streamHandle = $state<string | null>(null);
@@ -143,7 +143,7 @@ class ChatStore {
 		return this._cancelling;
 	}
 
-	get cast(): RealmCast | null {
+	get cast(): DisplayCast | null {
 		return this._cast;
 	}
 	get isEnsemble(): boolean {

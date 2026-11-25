@@ -86,7 +86,7 @@ import type {
 	RealmResourceRef,
 	NextTurn,
 	Realm,
-	RealmCast,
+	DisplayCast,
 	RealmSummary,
 	RealmVersionInfo,
 	StartRealmChatRequest,
@@ -352,7 +352,7 @@ export function createApiClient(platform: PlatformAPI) {
 				http.post<FullConversation>('/api/v1/chat/realm', request),
 			/** The cast this conversation plays with, pinned when it started. */
 			cast: (conversation_id: Snowflake) =>
-				http.get<RealmCast>(`/api/v1/chat/${conversation_id}/cast`),
+				http.get<DisplayCast>(`/api/v1/chat/${conversation_id}/cast`),
 			nextTurn: (conversation_id: Snowflake) =>
 				http.get<NextTurn>(`/api/v1/chat/${conversation_id}/turn/next`),
 			/** Advance the conversation and stream what happens. */

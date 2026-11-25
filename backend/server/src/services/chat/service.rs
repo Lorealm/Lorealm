@@ -27,11 +27,12 @@ use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    errors::{ChatError, RealmError, TargetType},
+    errors::{CharacterError, ChatError, RealmError, TargetType},
     services::{
         character::CharacterService,
         chat::{
-            ActionSpec, ActiveWidgets, CancelGuard, FullConversation, Prepared, PromptMessage,
+            ActionSpec, ActiveWidgets, CancelGuard, DisplayCast, FullConversation, Prepared,
+            PromptMessage,
             perceive::perceive,
             stage::Stage,
             weaver,
@@ -482,6 +483,35 @@ impl ChatService {
     ) -> Result<RealmCast, ChatError> {
         self.get_conversation(convo_id, user_id).await?;
         self.cast_of(convo_id).await
+    }
+
+    pub async fn display_cast(
+        &self,
+        convo_id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<DisplayCast, ChatError> {
+        let cast = self.cast(convo_id, user_id).await?;
+        let mut character_widgets = Vec::new();
+        for agent in &cast.agents {
+            let Some((id, version)) = agent.character_id.zip(agent.char_version_id) else {
+                continue;
+            };
+            let character = match self.characters.load_version(id, version, user_id).await {
+                Ok(character) => character,
+                // A character deleted since the chat began has nothing to add.
+                Err(CharacterError::NotFound(..)) => continue,
+                Err(e) => return Err(e.into()),
+            };
+            for widget in character.widget_ids {
+                if !character_widgets.contains(&widget) {
+                    character_widgets.push(widget);
+                }
+            }
+        }
+        Ok(DisplayCast {
+            cast,
+            character_widgets,
+        })
     }
 
     /// Whose turn it is at the active leaf.

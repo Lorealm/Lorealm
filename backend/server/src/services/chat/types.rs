@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use dashmap::DashMap;
-use lorealm_storage::models::{Conversation, ConversationMessage, Param, Snowflake};
+use lorealm_storage::models::{Conversation, ConversationMessage, Param, RealmCast, Snowflake};
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 
@@ -17,6 +17,13 @@ use crate::{
     },
     util::context_eval::UsageReport,
 };
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DisplayCast {
+    #[serde(flatten)]
+    pub cast: RealmCast,
+    pub character_widgets: Vec<Snowflake>,
+}
 
 #[derive(Debug, Clone)]
 pub struct PromptMessage {

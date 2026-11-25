@@ -1,7 +1,7 @@
 use futures_util::StreamExt;
 use lorealm_storage::{
     CharacterStorage, ConnectionStorage, LorebookStorage, PersonaStorage, TemplateStorage,
-    TokenizerStorage, WeaverStateStorage,
+    TokenizerStorage, UserWidgetStorage, WeaverStateStorage,
     models::{
         AgentKind, ConversationMessage, Greeting, LorebookEntry, Snowflake, Tokenizer,
         VersionedSaveMode,
@@ -138,6 +138,40 @@ async fn a_chat_with_a_character_is_a_cast_of_two_with_nothing_pinned() {
         h.chat.next_agent(convo, h.user).await.unwrap().as_deref(),
         Some("user")
     );
+}
+
+#[tokio::test]
+async fn the_displayed_cast_shows_a_characters_widgets_even_when_switched_off() {
+    let h = Harness::new().await;
+    let me = h.persona(h.user, "Me").await;
+    h.store.set_active_persona(h.user, me).await.unwrap();
+
+    let widget = h.widget(h.user, "Affection").await;
+    h.store.set_widget_enabled(widget, false).await.unwrap();
+
+    let sayuri = h.character(h.user, "Sayuri").await;
+    let mut character = h.store.get_character(sayuri).await.unwrap().unwrap();
+    let greeting = h.snow.generate();
+    character.definition.greetings.push(Greeting {
+        id: greeting,
+        order: 0,
+        text: "Welcome back.".into(),
+    });
+    character.widget_ids.push(widget);
+    h.store
+        .save_character(&character, VersionedSaveMode::UpdateCurrent)
+        .await
+        .unwrap();
+
+    let chat = h
+        .chat
+        .start_with_character(h.user, sayuri, None, greeting, String::new())
+        .await
+        .expect("starts");
+
+    let shown = h.chat.display_cast(chat.metadata.id, h.user).await.unwrap();
+    assert_eq!(shown.character_widgets, vec![widget]);
+    assert!(shown.cast.agents.iter().all(|a| a.widgets.is_empty()));
 }
 
 #[tokio::test]
