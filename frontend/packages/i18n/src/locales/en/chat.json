@@ -43,6 +43,7 @@
 		"ranCommand": "Ran /{name}",
 		"inspectContext": "Inspect context",
 		"continue": "Continue this reply",
+		"showWidgets": "Show widgets here",
 		"thoughts": "Thoughts",
 		"thinking": "Thinking…",
 		"swipe": "Swipe",

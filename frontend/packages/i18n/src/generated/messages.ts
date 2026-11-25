@@ -146,6 +146,8 @@ export type Messages = {
 			inspectContext: string;
 			/** Continue this reply */
 			continue: string;
+			/** Show widgets here */
+			showWidgets: string;
 			/** Thoughts */
 			thoughts: string;
 			/** Thinking… */

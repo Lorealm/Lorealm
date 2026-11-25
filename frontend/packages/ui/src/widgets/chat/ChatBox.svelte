@@ -38,6 +38,17 @@
 
 	const feed = $derived(chatStore.renderedFeed);
 
+	/** The message `latest` widgets render on; a new message falls back to the newest. */
+	let widgetTarget = $state<string | null>(null);
+	$effect(() => {
+		void feed.at(-1)?.message.id;
+		widgetTarget = null;
+	});
+	const targetIndex = $derived.by(() => {
+		const i = feed.findIndex((e) => e.message.id === widgetTarget);
+		return i === -1 ? feed.length - 1 : i;
+	});
+
 	$effect(() => {
 		void feed.length;
 		void feed.at(-1)?.message.content;
@@ -61,7 +72,12 @@
 	{:else}
 		{#each feed as entry, i (entry.message.id)}
 			{#if entry.audible}
-				<MessageBubble message={entry.message} last={i === feed.length - 1} />
+				<MessageBubble
+					message={entry.message}
+					last={i === feed.length - 1}
+					targeted={i === targetIndex}
+					ontarget={() => (widgetTarget = entry.message.id)}
+				/>
 			{/if}
 			{#each entry.notices as notice, n (n)}
 				<div class="dispatch">{notice}</div>

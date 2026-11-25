@@ -10,7 +10,15 @@
 	import ChatWidget from '#lib/components/ChatWidget.svelte';
 	import StaticWidgets from '#lib/components/StaticWidgets.svelte';
 	import PluginMessageSlots from '#lib/components/PluginMessageSlots.svelte';
-	import { ChevronLeft, ChevronRight, Layers, Pencil, StepForward, Trash2 } from '@lucide/svelte';
+	import {
+		ChevronLeft,
+		ChevronRight,
+		Crosshair,
+		Layers,
+		Pencil,
+		StepForward,
+		Trash2
+	} from '@lucide/svelte';
 	import { contextInspector } from '#lib/stores/contextInspector.svelte.js';
 	import { hasStoredContext } from '#lib/types/context.js';
 	import { parseReasoning, parseWidgets, splitWidgetMarkers } from '#lib/types/widgets.js';
@@ -18,7 +26,18 @@
 	import DOMPurify from 'dompurify';
 	import { createPresentable } from '#lib/assets/scripts/variable-replace.js';
 
-	let { message, last = false }: { message: ConversationMessage; last?: boolean } = $props();
+	let {
+		message,
+		last = false,
+		targeted = last,
+		ontarget
+	}: {
+		message: ConversationMessage;
+		last?: boolean;
+		/** Whether `latest` widgets render on this message. */
+		targeted?: boolean;
+		ontarget?: () => void;
+	} = $props();
 
 	let info = $derived(chatStore.siblingInfo(message.id));
 	let turn = $derived(message.metadata as { agent_name?: string; handle?: string } | null);
@@ -126,6 +145,17 @@
 								<Layers />
 							</button>
 						{/if}
+						{#if ontarget && message.role === 'assistant' && message.parent !== null}
+							<button
+								class="icon-btn"
+								class:active={targeted}
+								{@attach tooltip(t.chat.message.showWidgets)}
+								aria-pressed={targeted}
+								onclick={ontarget}
+							>
+								<Crosshair />
+							</button>
+						{/if}
 						{#if canContinue}
 							<button
 								class="icon-btn"
@@ -209,8 +239,8 @@
 
 			{#if !editing && !busy && message.role === 'assistant' && message.parent !== null}
 				<div class="widgets">
-					<StaticWidgets messageId={message.id} {last} />
-					<PluginMessageSlots {message} {last} />
+					<StaticWidgets messageId={message.id} last={targeted} />
+					<PluginMessageSlots {message} last={targeted} />
 				</div>
 			{/if}
 
@@ -407,6 +437,9 @@
 		padding: var(--spacing-xs);
 		color: var(--color-text-muted);
 		cursor: pointer;
+	}
+	.icon-btn.active {
+		color: var(--color-primary);
 	}
 	.icon-btn:disabled {
 		opacity: 0.4;
