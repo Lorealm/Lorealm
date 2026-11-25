@@ -120,6 +120,19 @@ export const PROVIDER_SCHEMAS: ProviderSchema[] = [
 		}
 	},
 	{
+		provider: 'openai_platform',
+		label: 'OpenAI',
+		requiresKey: true,
+		common: {
+			temperature: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },
+			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 1 },
+			max_tokens: { kind: 'number', min: 1, max: 128000, step: 1, default: 4096 },
+			stop: { kind: 'string_list' },
+			frequency_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 },
+			presence_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 }
+		}
+	},
+	{
 		provider: 'anthropic',
 		label: 'Anthropic',
 		requiresKey: true,
@@ -135,6 +148,20 @@ export const PROVIDER_SCHEMAS: ProviderSchema[] = [
 	{
 		provider: 'vertex',
 		label: 'Google Vertex AI',
+		requiresKey: true,
+		common: {
+			temperature: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },
+			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 0.95 },
+			top_k: { kind: 'number', min: 1, max: 200, step: 1, default: 64 },
+			max_tokens: { kind: 'number', min: 1, max: 65536, step: 1, default: 8192 },
+			stop: { kind: 'string_list' },
+			frequency_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 },
+			presence_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 }
+		}
+	},
+	{
+		provider: 'gemini',
+		label: 'Google AI Studio',
 		requiresKey: true,
 		common: {
 			temperature: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },

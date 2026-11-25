@@ -85,13 +85,24 @@ async fn bad_native_provider_params_are_rejected() {
     )
     .await;
     rejects(&h, "vertex", serde_json::json!({ "location": "" })).await;
+    // AI Studio has no project or region.
+    rejects(&h, "gemini", serde_json::json!({ "project_id": "p" })).await;
+    rejects(
+        &h,
+        "openai_platform",
+        serde_json::json!({ "template": {
+            "system_prefix": "", "system_suffix": "", "user_prefix": "",
+            "user_suffix": "", "assistant_prefix": "", "assistant_suffix": ""
+        }}),
+    )
+    .await;
 }
 
 #[tokio::test]
 async fn profiles_that_cannot_list_models_get_an_empty_list() {
     let h = Harness::new().await;
 
-    for provider in ["anthropic", "vertex"] {
+    for provider in ["anthropic", "vertex", "gemini", "openai_platform"] {
         let profile = h
             .connection
             .create_profile(h.user, input(provider, None, serde_json::json!({})))
@@ -148,4 +159,111 @@ async fn anthropic_models_are_listed_with_the_stored_key() {
     assert_eq!(models.len(), 1);
     assert_eq!(models[0].name.as_deref(), Some("Claude Opus 5"));
     assert_eq!(models[0].context_length, Some(1_000_000));
+}
+
+/// Serves one listing route on a local port and returns the API root.
+async fn serve_listing(
+    path: &'static str,
+    check: fn(&axum::http::HeaderMap),
+    body: serde_json::Value,
+) -> String {
+    let endpoint = axum::Router::new().route(
+        path,
+        axum::routing::get(move |headers: axum::http::HeaderMap| async move {
+            check(&headers);
+            axum::Json(body)
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base_url = format!("http://{}/v1", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, endpoint).await.unwrap() });
+    base_url
+}
+
+async fn profile_with_key(h: &Harness, provider: &str, base_url: String) -> Snowflake {
+    let secret = h
+        .connection
+        .create_secret(
+            h.user,
+            provider.into(),
+            "main".into(),
+            "sk-test".into(),
+            &[],
+        )
+        .await
+        .unwrap();
+    h.connection
+        .create_profile(
+            h.user,
+            input(
+                provider,
+                Some(secret.id),
+                serde_json::json!({ "base_url": base_url }),
+            ),
+        )
+        .await
+        .unwrap()
+        .id
+}
+
+#[tokio::test]
+async fn gemini_models_are_listed_with_the_stored_key() {
+    let base_url = serve_listing(
+        "/v1/models",
+        |headers| assert_eq!(headers["x-goog-api-key"], "sk-test"),
+        serde_json::json!({ "models": [
+            {"name": "models/gemini-3-pro", "displayName": "Gemini 3 Pro",
+             "supportedGenerationMethods": ["generateContent"]},
+            {"name": "models/embedding-001", "supportedGenerationMethods": ["embedContent"]}
+        ]}),
+    )
+    .await;
+
+    let h = Harness::new().await;
+    let profile = profile_with_key(&h, "gemini", base_url).await;
+
+    let models = h.connection.list_models(h.user, profile).await.unwrap();
+    assert_eq!(models.len(), 1);
+    assert_eq!(models[0].id, "gemini-3-pro");
+}
+
+#[tokio::test]
+async fn openai_platform_models_are_listed_with_the_stored_key() {
+    let base_url = serve_listing(
+        "/v1/models",
+        |headers| assert_eq!(headers["authorization"], "Bearer sk-test"),
+        serde_json::json!({ "object": "list", "data": [{"id": "gpt-5", "object": "model"}] }),
+    )
+    .await;
+
+    let h = Harness::new().await;
+    let profile = profile_with_key(&h, "openai_platform", base_url).await;
+
+    let models = h.connection.list_models(h.user, profile).await.unwrap();
+    assert_eq!(models.len(), 1);
+    assert_eq!(models[0].id, "gpt-5");
+}
+
+#[tokio::test]
+async fn keys_stay_with_their_own_provider() {
+    let h = Harness::new().await;
+    let secret = h
+        .connection
+        .create_secret(
+            h.user,
+            "openai".into(),
+            "local".into(),
+            "sk-test".into(),
+            &[],
+        )
+        .await
+        .unwrap();
+    let result = h
+        .connection
+        .create_profile(
+            h.user,
+            input("openai_platform", Some(secret.id), serde_json::json!({})),
+        )
+        .await;
+    assert!(matches!(result, Err(ConnectionError::Validation(_))));
 }

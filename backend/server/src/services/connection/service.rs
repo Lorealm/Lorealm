@@ -4,8 +4,8 @@ use lorealm_encryption::{
     EncryptedData, EncryptionContext, decrypt_bytes, encrypt_bytes, traits::KeyManager,
 };
 use lorealm_providers::{
-    AnthropicOptions, AnthropicProvider, LlmProvider, ModelInfo, OpenAiOptions, OpenAiProvider,
-    OpenRouterProvider,
+    AnthropicOptions, AnthropicProvider, GeminiOptions, GeminiProvider, LlmProvider, ModelInfo,
+    OpenAiOptions, OpenAiProvider, OpenRouterProvider,
 };
 use lorealm_storage::{
     Storage,
@@ -21,9 +21,10 @@ use crate::{
     },
 };
 
-/// Providers the app can build a client for. Keep in sync with the match in
+/// Providers the app can build a client for, besides the OpenAI-compatible
+/// services in `catalog`. Keep in sync with the match in
 /// `validate_provider_params` and the dispatch in ChatService::infer.
-const SUPPORTED_PROVIDERS: &[&str] = &["openrouter", "openai", "anthropic", "vertex"];
+const SUPPORTED_PROVIDERS: &[&str] = &["openrouter", "openai", "anthropic", "vertex", "gemini"];
 
 /// How many trailing characters of a key are kept for display.
 const KEY_HINT_LEN: usize = 4;
@@ -326,8 +327,34 @@ impl ConnectionService {
                     .list_models()
                     .await?
             }
+            "gemini" => {
+                let options: GeminiOptions = serde_json::from_value(
+                    connection.profile.provider_params.clone(),
+                )
+                .map_err(|e| ConnectionError::Validation(format!("invalid gemini params: {e}")))?;
+                let Some(api_key) = connection.api_key else {
+                    return Ok(Vec::new());
+                };
+                GeminiProvider::new(http_client, "", options.base_url, api_key.as_str())
+                    .list_models()
+                    .await?
+            }
             // Vertex offers no listing this provider can use.
             "vertex" => None,
+            other if let Some(preset) = super::openai_preset(other) => {
+                let options: OpenAiOptions = serde_json::from_value(
+                    connection.profile.provider_params.clone(),
+                )
+                .map_err(|e| ConnectionError::Validation(format!("invalid {other} params: {e}")))?;
+                // These services all want a key, even for their listing.
+                let Some(api_key) = connection.api_key else {
+                    return Ok(Vec::new());
+                };
+                preset
+                    .provider(http_client, "", &options, Some(api_key.to_string()))
+                    .list_models()
+                    .await?
+            }
             other => {
                 return Err(ConnectionError::Validation(format!(
                     "unsupported provider: {other}"
@@ -435,7 +462,7 @@ impl ConnectionService {
 const API_KEY_CONTEXT: &str = "api_key";
 
 fn validate_provider(provider: &str) -> Result<(), ConnectionError> {
-    if SUPPORTED_PROVIDERS.contains(&provider) {
+    if SUPPORTED_PROVIDERS.contains(&provider) || super::openai_preset(provider).is_some() {
         Ok(())
     } else {
         Err(ConnectionError::Validation(format!(
@@ -615,6 +642,28 @@ fn validate_provider_params(
             }
             if let Some(location) = &typed.location {
                 validate_vertex_location(location)?;
+            }
+            Ok(serde_json::to_value(&typed).expect("options serialization cannot fail"))
+        }
+        "gemini" => {
+            let typed: lorealm_providers::GeminiOptions = serde_json::from_value(value.clone())
+                .map_err(|e| ConnectionError::Validation(format!("invalid gemini params: {e}")))?;
+            if let Some(base_url) = &typed.base_url {
+                validate_base_url(base_url)?;
+            }
+            Ok(serde_json::to_value(&typed).expect("options serialization cannot fail"))
+        }
+        other if super::openai_preset(other).is_some() => {
+            let typed: lorealm_providers::OpenAiOptions = serde_json::from_value(value.clone())
+                .map_err(|e| ConnectionError::Validation(format!("invalid {other} params: {e}")))?;
+            if let Some(base_url) = &typed.base_url {
+                validate_base_url(base_url)?;
+            }
+            // Hosted chat services; text completion is for local servers.
+            if typed.template.is_some() {
+                return Err(ConnectionError::Validation(format!(
+                    "{other} does not support an instruct template"
+                )));
             }
             Ok(serde_json::to_value(&typed).expect("options serialization cannot fail"))
         }

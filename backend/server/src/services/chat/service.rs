@@ -9,9 +9,9 @@ use chrono::Utc;
 use dashmap::DashMap;
 use futures_util::{Stream, StreamExt};
 use lorealm_providers::{
-    AnthropicOptions, AnthropicProvider, BlockAccumulator, Client, ContentBlock, LlmProvider,
-    OpenAiOptions, OpenAiProvider, OpenRouterOptions, OpenRouterProvider, VertexAuth,
-    VertexOptions, VertexProvider,
+    AnthropicOptions, AnthropicProvider, BlockAccumulator, Client, ContentBlock, GeminiOptions,
+    GeminiProvider, LlmProvider, OpenAiOptions, OpenAiProvider, OpenRouterOptions,
+    OpenRouterProvider, VertexAuth, VertexOptions, VertexProvider,
 };
 use lorealm_storage::{
     Storage,
@@ -1142,6 +1142,53 @@ impl ChatService {
                     pp.project_id.clone(),
                     pp.location.clone(),
                 );
+                run_inference(
+                    provider,
+                    messages,
+                    common,
+                    pp,
+                    max_tool_rounds,
+                    registry,
+                    widget_sink,
+                    effect_sink,
+                    Arc::clone(&self.plugins),
+                    owner,
+                )
+                .await
+            }
+            "gemini" => {
+                let Some(api_key) = api_key else {
+                    return Err(ChatError::Connection("no api key".into()));
+                };
+                let pp: GeminiOptions =
+                    serde_json::from_value(connection.profile.provider_params.clone())
+                        .map_err(|e| ChatError::Connection(format!("bad provider params: {e}")))?;
+                let provider =
+                    GeminiProvider::new(http_client, model, pp.base_url.clone(), api_key.as_str());
+                run_inference(
+                    provider,
+                    messages,
+                    common,
+                    pp,
+                    max_tool_rounds,
+                    registry,
+                    widget_sink,
+                    effect_sink,
+                    Arc::clone(&self.plugins),
+                    owner,
+                )
+                .await
+            }
+            // Hosted OpenAI-compatible services: the `openai` client at a
+            // fixed endpoint.
+            other if let Some(preset) = crate::services::connection::openai_preset(other) => {
+                let Some(api_key) = api_key else {
+                    return Err(ChatError::Connection("no api key".into()));
+                };
+                let pp: OpenAiOptions =
+                    serde_json::from_value(connection.profile.provider_params.clone())
+                        .map_err(|e| ChatError::Connection(format!("bad provider params: {e}")))?;
+                let provider = preset.provider(http_client, model, &pp, Some(api_key.to_string()));
                 run_inference(
                     provider,
                     messages,
