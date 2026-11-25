@@ -137,7 +137,8 @@
 		"noMatch": "「{query}」に一致するものはありません。",
 		"allAdded": "すべてのウィジェットがすでにこのスタックに入っています。",
 		"profileName": "プロファイル {n, number}",
-		"defaultProfile": "概要"
+		"defaultProfile": "概要",
+		"debugProfile": "Debug"
 	},
 	"interface": {
 		"language": "Language",
