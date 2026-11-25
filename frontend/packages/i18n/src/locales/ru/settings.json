@@ -137,7 +137,8 @@
 		"noMatch": "По запросу «{query}» ничего не найдено.",
 		"allAdded": "Все виджеты уже добавлены в этот набор.",
 		"profileName": "Профиль {n, number}",
-		"defaultProfile": "Обзор"
+		"defaultProfile": "Обзор",
+		"debugProfile": "Debug"
 	},
 	"interface": {
 		"language": "Language",
