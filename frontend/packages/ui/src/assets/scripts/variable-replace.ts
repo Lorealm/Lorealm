@@ -13,7 +13,7 @@ import type { Snowflake } from '#lib/types/core.js';
 export function createPresentable(characterId: Snowflake | null, input: string): string {
 	let output = input;
 
-	// Replace `{{user:name}}` with the persona's configured name.
+	// Replace every `{{user:name}}` with the persona's configured name.
 	// Prefers `display_name` and falls back to `name`. Also
 	// respects overrides and falls back to the global active persona.
 	const persona = characterId ? personaStore.overrideFor(characterId) : null;
@@ -23,17 +23,17 @@ export function createPresentable(characterId: Snowflake | null, input: string):
 		const relevantName = activePersona.display_name
 			? activePersona.display_name
 			: activePersona.name;
-		output = output.replace('{{user:name}}', relevantName);
+		output = output.replaceAll('{{user:name}}', () => relevantName);
 	}
 
-	// Replace `{{char:name}}` with the persona's configured name.
+	// Replace every `{{char:name}}` with the character's configured name.
 	// Prefers `display_name` and falls back to `name`
 	const character = characterId
 		? characterStore.metadataList.find((x) => x.id === characterId)
 		: undefined;
 	if (character) {
 		const relevantName = character.display_name ? character.display_name : character.name;
-		output = output.replace('{{char:name}}', relevantName);
+		output = output.replaceAll('{{char:name}}', () => relevantName);
 	}
 
 	return output;
