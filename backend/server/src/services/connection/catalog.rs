@@ -8,11 +8,28 @@ pub struct OpenAiPreset {
     pub max_completion_tokens: bool,
 }
 
-pub const OPENAI_PRESETS: &[OpenAiPreset] = &[OpenAiPreset {
-    provider: "openai_platform",
-    base_url: OPENAI_DEFAULT_BASE_URL,
-    max_completion_tokens: true,
-}];
+pub const OPENAI_PRESETS: &[OpenAiPreset] = &[
+    OpenAiPreset {
+        provider: "openai_platform",
+        base_url: OPENAI_DEFAULT_BASE_URL,
+        max_completion_tokens: true,
+    },
+    OpenAiPreset {
+        provider: "nanogpt",
+        base_url: "https://nano-gpt.com/api/v1",
+        max_completion_tokens: false,
+    },
+    OpenAiPreset {
+        provider: "chutes",
+        base_url: "https://llm.chutes.ai/v1",
+        max_completion_tokens: false,
+    },
+    OpenAiPreset {
+        provider: "deepseek",
+        base_url: "https://api.deepseek.com",
+        max_completion_tokens: false,
+    },
+];
 
 pub fn openai_preset(provider: &str) -> Option<&'static OpenAiPreset> {
     OPENAI_PRESETS.iter().find(|p| p.provider == provider)

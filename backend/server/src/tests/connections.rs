@@ -102,7 +102,15 @@ async fn bad_native_provider_params_are_rejected() {
 async fn profiles_that_cannot_list_models_get_an_empty_list() {
     let h = Harness::new().await;
 
-    for provider in ["anthropic", "vertex", "gemini", "openai_platform"] {
+    for provider in [
+        "anthropic",
+        "vertex",
+        "gemini",
+        "openai_platform",
+        "nanogpt",
+        "chutes",
+        "deepseek",
+    ] {
         let profile = h
             .connection
             .create_profile(h.user, input(provider, None, serde_json::json!({})))

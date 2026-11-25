@@ -118,8 +118,15 @@
 	const isGemini = $derived(draft.provider === 'gemini');
 	const BASE_URL_PLACEHOLDERS: Record<string, string> = {
 		anthropic: 'https://api.anthropic.com/v1',
-		gemini: 'https://generativelanguage.googleapis.com/v1beta'
+		gemini: 'https://generativelanguage.googleapis.com/v1beta',
+		nanogpt: 'https://nano-gpt.com/api/v1',
+		chutes: 'https://llm.chutes.ai/v1',
+		deepseek: 'https://api.deepseek.com'
 	};
+	// Fixed-endpoint OpenAI-compatible services; the base URL only matters for a proxy.
+	const isHostedOpenAi = $derived(
+		isOpenAiPlatform || ['nanogpt', 'chutes', 'deepseek'].includes(draft.provider)
+	);
 
 	function textParam(key: string): string {
 		const v = draft.provider_params[key];
@@ -421,7 +428,7 @@
 		</label>
 	</section>
 
-	{#if isOpenAi || isAnthropic || isOpenAiPlatform || isGemini}
+	{#if isOpenAi || isAnthropic || isHostedOpenAi || isGemini}
 		<section class="group">
 			<h3>{t.connections.editor.endpoint}</h3>
 			<label class="field">

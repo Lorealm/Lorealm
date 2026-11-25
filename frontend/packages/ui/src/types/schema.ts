@@ -133,6 +133,53 @@ export const PROVIDER_SCHEMAS: ProviderSchema[] = [
 		}
 	},
 	{
+		provider: 'nanogpt',
+		label: 'NanoGPT',
+		requiresKey: true,
+		common: {
+			temperature: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },
+			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 1 },
+			max_tokens: { kind: 'number', min: 1, max: 131072, step: 1, default: 4096 },
+			stop: { kind: 'string_list' },
+			// Passed through to the serving engine; ignored by models that lack them.
+			top_k: { kind: 'number', min: 0, max: 200, step: 1, default: 0 },
+			min_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 0 },
+			frequency_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 },
+			presence_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 },
+			repetition_penalty: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 }
+		}
+	},
+	{
+		provider: 'chutes',
+		label: 'Chutes',
+		requiresKey: true,
+		common: {
+			temperature: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },
+			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 1 },
+			max_tokens: { kind: 'number', min: 1, max: 131072, step: 1, default: 4096 },
+			stop: { kind: 'string_list' },
+			// Passed through to the serving engine; ignored by models that lack them.
+			top_k: { kind: 'number', min: 0, max: 200, step: 1, default: 0 },
+			min_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 0 },
+			frequency_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 },
+			presence_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 },
+			repetition_penalty: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 }
+		}
+	},
+	{
+		provider: 'deepseek',
+		label: 'DeepSeek',
+		requiresKey: true,
+		common: {
+			temperature: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },
+			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 1 },
+			max_tokens: { kind: 'number', min: 1, max: 65536, step: 1, default: 4096 },
+			stop: { kind: 'string_list' },
+			frequency_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 },
+			presence_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 }
+		}
+	},
+	{
 		provider: 'anthropic',
 		label: 'Anthropic',
 		requiresKey: true,
