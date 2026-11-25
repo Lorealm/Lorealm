@@ -180,6 +180,41 @@ export const PROVIDER_SCHEMAS: ProviderSchema[] = [
 		}
 	},
 	{
+		provider: 'zai',
+		label: 'Z.AI',
+		requiresKey: true,
+		common: {
+			temperature: { kind: 'number', min: 0, max: 1, step: 0.01, default: 1 },
+			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 0.95 },
+			max_tokens: { kind: 'number', min: 1, max: 131072, step: 1, default: 4096 },
+			stop: { kind: 'string_list' }
+		}
+	},
+	{
+		provider: 'moonshot',
+		label: 'Moonshot AI',
+		requiresKey: true,
+		common: {
+			temperature: { kind: 'number', min: 0, max: 1, step: 0.01, default: 0.6 },
+			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 1 },
+			max_tokens: { kind: 'number', min: 1, max: 131072, step: 1, default: 4096 },
+			stop: { kind: 'string_list' },
+			frequency_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 },
+			presence_penalty: { kind: 'number', min: -2, max: 2, step: 0.01, default: 0 }
+		}
+	},
+	{
+		provider: 'xai',
+		label: 'xAI',
+		requiresKey: true,
+		// Grok's reasoning models reject stop sequences and penalties.
+		common: {
+			temperature: { kind: 'number', min: 0, max: 2, step: 0.01, default: 1 },
+			top_p: { kind: 'number', min: 0, max: 1, step: 0.01, default: 1 },
+			max_tokens: { kind: 'number', min: 1, max: 131072, step: 1, default: 4096 }
+		}
+	},
+	{
 		provider: 'anthropic',
 		label: 'Anthropic',
 		requiresKey: true,

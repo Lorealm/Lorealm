@@ -110,6 +110,9 @@ async fn profiles_that_cannot_list_models_get_an_empty_list() {
         "nanogpt",
         "chutes",
         "deepseek",
+        "zai",
+        "moonshot",
+        "xai",
     ] {
         let profile = h
             .connection

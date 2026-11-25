@@ -29,6 +29,21 @@ pub const OPENAI_PRESETS: &[OpenAiPreset] = &[
         base_url: "https://api.deepseek.com",
         max_completion_tokens: false,
     },
+    OpenAiPreset {
+        provider: "zai",
+        base_url: "https://api.z.ai/api/paas/v4",
+        max_completion_tokens: false,
+    },
+    OpenAiPreset {
+        provider: "moonshot",
+        base_url: "https://api.moonshot.ai/v1",
+        max_completion_tokens: false,
+    },
+    OpenAiPreset {
+        provider: "xai",
+        base_url: "https://api.x.ai/v1",
+        max_completion_tokens: true,
+    },
 ];
 
 pub fn openai_preset(provider: &str) -> Option<&'static OpenAiPreset> {

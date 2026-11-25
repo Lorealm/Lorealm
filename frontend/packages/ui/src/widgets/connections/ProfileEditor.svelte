@@ -121,11 +121,15 @@
 		gemini: 'https://generativelanguage.googleapis.com/v1beta',
 		nanogpt: 'https://nano-gpt.com/api/v1',
 		chutes: 'https://llm.chutes.ai/v1',
-		deepseek: 'https://api.deepseek.com'
+		deepseek: 'https://api.deepseek.com',
+		zai: 'https://api.z.ai/api/paas/v4',
+		moonshot: 'https://api.moonshot.ai/v1',
+		xai: 'https://api.x.ai/v1'
 	};
 	// Fixed-endpoint OpenAI-compatible services; the base URL only matters for a proxy.
 	const isHostedOpenAi = $derived(
-		isOpenAiPlatform || ['nanogpt', 'chutes', 'deepseek'].includes(draft.provider)
+		isOpenAiPlatform ||
+			['nanogpt', 'chutes', 'deepseek', 'zai', 'moonshot', 'xai'].includes(draft.provider)
 	);
 
 	function textParam(key: string): string {
