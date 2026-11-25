@@ -11,11 +11,16 @@
 		"realmAgent": "レルムエージェント",
 		"authorNote": "作者メモ",
 		"creatorNotes": "制作者ノート",
-		"styleVariables": "Style Variables"
+		"styleVariables": "Style Variables",
+		"weaverReference": "Weaver Reference"
 	},
 	"styleVariables": {
 		"copied": "Copied",
 		"search": "Search variables…"
+	},
+	"weaverReference": {
+		"search": "Search commands and processors…",
+		"copy": "Copy as call"
 	},
 	"creatorNotes": {
 		"loading": "読み込み中…",
