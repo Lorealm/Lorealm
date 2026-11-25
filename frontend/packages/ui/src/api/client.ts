@@ -110,6 +110,7 @@ import type {
 import type {
 	BatchTokenizeRequest,
 	BatchTokenizeResponse,
+	ImportQuery,
 	NetworkCreate,
 	ShareRequest,
 	Tokenizer,
@@ -539,7 +540,11 @@ export function createApiClient(platform: PlatformAPI) {
 					http.delete(`/api/v1/tokenizers/${tok_id}/shares/${user_id}`)
 			},
 			imports: {
-				file: (blob: Blob) => http.putBlob<Tokenizer>('/api/v1/tokenizers/import', blob),
+				file: (query: ImportQuery, blob: Blob) =>
+					http.putBlob<Tokenizer>(
+						`/api/v1/tokenizers/import?${new URLSearchParams({ name: query.name, is_public: String(query.is_public) })}`,
+						blob
+					),
 				network: (res: NetworkCreate) => http.post<Tokenizer>('/api/v1/tokenizers/network', res)
 			},
 			active: {
