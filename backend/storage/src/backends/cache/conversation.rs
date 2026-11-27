@@ -123,6 +123,14 @@ impl ConversationStorage for CachedStorage {
         self.backend.get_path_to(conversation_id, message_id).await
     }
 
+    async fn conversation_revision(&self, id: Snowflake) -> Result<Option<i64>, StorageError> {
+        self.backend.conversation_revision(id).await
+    }
+
+    async fn bump_conversation_revision(&self, id: Snowflake) -> Result<Option<i64>, StorageError> {
+        self.backend.bump_conversation_revision(id).await
+    }
+
     async fn get_message_context(
         &self,
         message_id: Snowflake,

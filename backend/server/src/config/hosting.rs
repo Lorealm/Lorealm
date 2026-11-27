@@ -28,6 +28,9 @@ pub struct HostingConfig {
     /// Open files the server may hold at once.
     #[serde(default)]
     pub max_open_files: OpenFileLimit,
+    /// How much memory the message cache can use in MB. 0 = disabled.
+    #[serde(default = "default_message_cache_mb")]
+    pub message_cache_mb: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -91,6 +94,9 @@ fn default_trusted_proxies() -> Vec<String> {
 fn default_worker_id() -> i64 {
     0
 }
+fn default_message_cache_mb() -> usize {
+    64
+}
 
 impl Default for HostingConfig {
     fn default() -> Self {
@@ -104,6 +110,7 @@ impl Default for HostingConfig {
             last_setup_version: last_setup_version(),
             trusted_proxies: default_trusted_proxies(),
             max_open_files: OpenFileLimit::default(),
+            message_cache_mb: default_message_cache_mb(),
         }
     }
 }

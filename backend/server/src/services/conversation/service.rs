@@ -10,17 +10,64 @@ use lorealm_storage::{
 
 use crate::{
     errors::ConversationError,
-    services::{conversation::EditMode, snowflake::SnowflakeService},
+    services::{
+        conversation::{EditMode, cache},
+        snowflake::SnowflakeService,
+    },
 };
 
 pub struct ConversationService {
     storage: Arc<dyn Storage>,
     snowflake: Arc<SnowflakeService>,
+    cache: cache::MessageCache,
 }
 
 impl ConversationService {
-    pub fn new(storage: Arc<dyn Storage>, snowflake: Arc<SnowflakeService>) -> Self {
-        Self { storage, snowflake }
+    pub fn new(
+        storage: Arc<dyn Storage>,
+        snowflake: Arc<SnowflakeService>,
+        message_cache_mb: usize,
+    ) -> Self {
+        Self {
+            storage,
+            snowflake,
+            cache: cache::MessageCache::new(message_cache_mb * 1024 * 1024),
+        }
+    }
+
+    /// The path root -> `message_id`
+    pub async fn path_to(
+        &self,
+        conversation_id: Snowflake,
+        message_id: Snowflake,
+    ) -> Result<Vec<ConversationMessage>, ConversationError> {
+        let Some(revision) = self.storage.conversation_revision(conversation_id).await? else {
+            return Ok(Vec::new());
+        };
+        let messages = match self.cache.get(conversation_id, revision) {
+            Some(messages) => messages,
+            None => {
+                let messages = self.storage.list_messages(conversation_id).await?;
+                self.cache.put(conversation_id, revision, messages)
+            }
+        };
+        Ok(cache::path_to(&messages, message_id))
+    }
+
+    /// Call after every write to a conversation's messages
+    async fn wrote(
+        &self,
+        conversation_id: Snowflake,
+        inserted: Option<&ConversationMessage>,
+    ) -> Result<(), ConversationError> {
+        if let Some(revision) = self
+            .storage
+            .bump_conversation_revision(conversation_id)
+            .await?
+        {
+            self.cache.record_write(conversation_id, revision, inserted);
+        }
+        Ok(())
     }
 
     fn build_message(
@@ -76,6 +123,7 @@ impl ConversationService {
         let message = self.build_message(conversation_id, parent, role, content, order, metadata);
 
         self.storage.append_and_advance(&message).await?;
+        self.wrote(conversation_id, Some(&message)).await?;
         Ok(message)
     }
 
@@ -105,6 +153,7 @@ impl ConversationService {
         );
 
         self.storage.append_and_advance(&message).await?;
+        self.wrote(conversation_id, Some(&message)).await?;
         Ok(message)
     }
 
@@ -129,6 +178,7 @@ impl ConversationService {
         let message = self.build_message(conversation_id, parent, role, content, order, metadata);
 
         self.storage.append_and_advance(&message).await?;
+        self.wrote(conversation_id, Some(&message)).await?;
         Ok(message)
     }
 
@@ -153,6 +203,7 @@ impl ConversationService {
                     metadata: None,
                 };
                 self.storage.update_message(message_id, &edit).await?;
+                self.wrote(conversation_id, None).await?;
 
                 let mut updated = original;
                 updated.content = new_content;
@@ -171,6 +222,7 @@ impl ConversationService {
                 );
 
                 self.storage.append_and_advance(&message).await?;
+                self.wrote(conversation_id, Some(&message)).await?;
                 // The copy keeps `has_context`, so it needs the prompt too.
                 if let Some(context) = self.storage.get_message_context(original.id).await? {
                     self.storage
@@ -200,6 +252,7 @@ impl ConversationService {
             metadata: Some(metadata.clone()),
         };
         self.storage.update_message(message_id, &edit).await?;
+        self.wrote(original.conversation_id, None).await?;
 
         Ok(ConversationMessage {
             content,
@@ -230,6 +283,7 @@ impl ConversationService {
             .any(|m| m.id == message_id);
 
         self.storage.delete_message(message_id).await?;
+        self.wrote(conversation_id, None).await?;
 
         if on_active_path {
             self.storage
@@ -373,7 +427,7 @@ mod tests {
         };
         let conv_id = conv.id;
         store.create_conversation(&conv).await.unwrap();
-        let service = ConversationService::new(store.clone(), snow.clone());
+        let service = ConversationService::new(store.clone(), snow.clone(), 64);
         (service, store, conv_id, snow)
     }
 

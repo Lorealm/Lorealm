@@ -83,6 +83,13 @@ pub trait ConversationStorage: Send + Sync {
         message_id: Snowflake,
     ) -> Result<Vec<ConversationMessage>, StorageError>;
 
+    /// A counter that keeps track of the conversation state.
+    async fn conversation_revision(&self, id: Snowflake) -> Result<Option<i64>, StorageError>;
+
+    /// Bumps the revision counter. Should be called every time the conversation
+    /// changes.
+    async fn bump_conversation_revision(&self, id: Snowflake) -> Result<Option<i64>, StorageError>;
+
     /// The prompt `message_id` was built from.
     async fn get_message_context(
         &self,

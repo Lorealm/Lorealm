@@ -330,6 +330,24 @@ impl ConversationStorage for PostgresStorage {
         Ok(path)
     }
 
+    async fn conversation_revision(&self, id: Snowflake) -> Result<Option<i64>, StorageError> {
+        Ok(
+            sqlx::query_scalar("SELECT revision FROM conversations WHERE id = $1")
+                .bind(id)
+                .fetch_optional(&self.pool)
+                .await?,
+        )
+    }
+
+    async fn bump_conversation_revision(&self, id: Snowflake) -> Result<Option<i64>, StorageError> {
+        Ok(sqlx::query_scalar(
+            "UPDATE conversations SET revision = revision + 1 WHERE id = $1 RETURNING revision",
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?)
+    }
+
     async fn get_message_context(
         &self,
         message_id: Snowflake,

@@ -12,11 +12,11 @@ use tokio::{sync::RwLock, time::Instant};
 
 use crate::{
     config::TokenizerConfig, core::CleanableService, errors::TokenizerError,
-    services::snowflake::SnowflakeService,
+    services::snowflake::SnowflakeService, util::context_eval::CachedCounter,
 };
 
 struct TokenizerSession {
-    encoder: Arc<kitoken::Kitoken>,
+    counter: Arc<CachedCounter>,
     expires_at: DateTime<Utc>,
 }
 
@@ -243,6 +243,17 @@ impl TokenizerService {
         tok_id: Snowflake,
         user_id: Snowflake,
     ) -> Result<Arc<Kitoken>, TokenizerError> {
+        Ok(Arc::clone(
+            &self.load_counter(tok_id, user_id).await?.tokenizer,
+        ))
+    }
+
+    /// The tokenizer, with the token counts it has made so far.
+    pub async fn load_counter(
+        &self,
+        tok_id: Snowflake,
+        user_id: Snowflake,
+    ) -> Result<Arc<CachedCounter>, TokenizerError> {
         let tokenizer_def = self.get_tokenizer(user_id, tok_id).await?;
 
         // Fast path: short critical section, no .await held.
@@ -250,7 +261,7 @@ impl TokenizerService {
             let mut sessions = self.sessions.write().await;
             if let Some(session) = sessions.get_mut(&tok_id) {
                 session.expires_at = Utc::now() + Duration::seconds(self.config.tokenizer_ttl);
-                return Ok(Arc::clone(&session.encoder));
+                return Ok(Arc::clone(&session.counter));
             }
         }
 
@@ -271,6 +282,7 @@ impl TokenizerService {
             Kitoken::from_slice(blob.as_ref())
                 .map_err(|e| TokenizerError::InvalidData(e.to_string()))?,
         );
+        let counter = Arc::new(CachedCounter::new(tokenizer));
 
         let end = Instant::now();
         tracing::trace!(
@@ -282,10 +294,10 @@ impl TokenizerService {
         // Re-acquire; another task may have inserted while we fetched.
         let mut sessions = self.sessions.write().await;
         let session = sessions.entry(tok_id).or_insert_with(|| TokenizerSession {
-            encoder: Arc::clone(&tokenizer),
+            counter: Arc::clone(&counter),
             expires_at: Utc::now() + Duration::seconds(self.config.tokenizer_ttl),
         });
-        Ok(Arc::clone(&session.encoder))
+        Ok(Arc::clone(&session.counter))
     }
 
     pub async fn tokenize(

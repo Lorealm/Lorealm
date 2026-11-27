@@ -395,7 +395,7 @@ mod tests {
         let conversation_id = conversation.id;
         store.create_conversation(&conversation).await.unwrap();
 
-        let conversations = Arc::new(ConversationService::new(store.clone(), snow.clone()));
+        let conversations = Arc::new(ConversationService::new(store.clone(), snow.clone(), 64));
         let state = Arc::new(StateService::new(store.clone()));
         let tools = Arc::new(UserToolService::new(store.clone(), snow.clone()));
         // `$[generate_raw]` resolves the active profile at the moment of use,

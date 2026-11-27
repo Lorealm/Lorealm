@@ -2,3 +2,7 @@ include = [
     { path = "config_aliases.toml" },
     { path = "config_local.toml", optional = true },
 ]
+
+[env]
+# Disables SQLite memory statistics; ~23-30% throughput increase
+LIBSQLITE3_FLAGS = "-DSQLITE_DEFAULT_MEMSTATUS=0"

@@ -143,6 +143,7 @@ impl ServiceManager {
         let conversation = Arc::new(ConversationService::new(
             Arc::clone(&storage),
             Arc::clone(&snowflake),
+            config.get::<HostingConfig>().message_cache_mb,
         ));
 
         let tools = Arc::new(UserToolService::new(
