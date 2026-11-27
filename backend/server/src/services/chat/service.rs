@@ -61,7 +61,7 @@ use crate::{
         variables::{VariableContext, VariableRegistry},
         weaver::{WeaverHost, WeaverProfile},
     },
-    util::context_eval::{ContextEvalResult, ContextEvaluator, TokenCounter, squash_messages},
+    util::context_eval::{ContextEvalResult, ContextEvaluator, squash_messages},
 };
 
 pub struct ChatService {
@@ -190,8 +190,8 @@ impl ChatService {
     ) -> Result<Vec<ConversationMessage>, ChatError> {
         let _convo = self.get_conversation(conversation_id, user_id).await?;
         let messages = self
-            .storage
-            .get_path_to(conversation_id, message_id)
+            .conversations
+            .path_to(conversation_id, message_id)
             .await?;
 
         Ok(messages)
@@ -759,10 +759,11 @@ impl ChatService {
                 ))?;
             ContextTemplate::from_db(db)?
         };
-        let tokenizer = self
+        let counter = self
             .tokenizers
-            .load_kitoken_tokenizer(spec.tokenizer_id, spec.owner)
+            .load_counter(spec.tokenizer_id, spec.owner)
             .await?;
+        let tokenizer = Arc::clone(&counter.tokenizer);
 
         let plugins = self
             .plugins
@@ -812,8 +813,7 @@ impl ChatService {
             .get_profile(spec.owner, spec.profile_id)
             .await?;
 
-        let mut evaluator =
-            ContextEvaluator::builder(Arc::clone(&tokenizer) as Arc<dyn TokenCounter>);
+        let mut evaluator = ContextEvaluator::builder(counter);
         if profile.token_budget > 0 {
             evaluator = evaluator.budget(profile.token_budget as u32);
         }

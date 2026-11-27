@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
-    sync::Arc,
+    hash::{DefaultHasher, Hash, Hasher},
+    sync::{Arc, Mutex},
 };
 
 use itertools::Itertools;
@@ -27,6 +28,43 @@ impl TokenCounter for Kitoken {
             .encode(text, false)
             .map_err(|e| TokenizerError::Tokenize(e.to_string()))?
             .len() as u32)
+    }
+}
+
+pub struct CachedCounter {
+    pub tokenizer: Arc<Kitoken>,
+    counts: Mutex<HashMap<u64, u32>>,
+}
+
+impl CachedCounter {
+    /// Counts to keep before starting over.
+    const MAX_ENTRIES: usize = 1 << 18;
+
+    pub fn new(tokenizer: Arc<Kitoken>) -> Self {
+        Self {
+            tokenizer,
+            counts: Mutex::default(),
+        }
+    }
+}
+
+impl TokenCounter for CachedCounter {
+    fn count(&self, text: &str) -> Result<u32, TokenizerError> {
+        let key = {
+            let mut hasher = DefaultHasher::new();
+            text.hash(&mut hasher);
+            hasher.finish()
+        };
+        if let Some(&count) = self.counts.lock().unwrap().get(&key) {
+            return Ok(count);
+        }
+        let count = self.tokenizer.count(text)?;
+        let mut counts = self.counts.lock().unwrap();
+        if counts.len() >= Self::MAX_ENTRIES {
+            counts.clear();
+        }
+        counts.insert(key, count);
+        Ok(count)
     }
 }
 

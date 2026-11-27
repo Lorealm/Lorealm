@@ -307,7 +307,7 @@ impl ChatService {
             Relationship::Continuation(message) => Some(message.id),
         };
         Ok(match end {
-            Some(id) => self.storage.get_path_to(convo_id, id).await?,
+            Some(id) => self.conversations.path_to(convo_id, id).await?,
             None => Vec::new(),
         })
     }

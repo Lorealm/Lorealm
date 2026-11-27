@@ -275,6 +275,30 @@ impl ConversationStorage for MemoryStorage {
         Ok(())
     }
 
+    async fn conversation_revision(&self, id: Snowflake) -> Result<Option<i64>, StorageError> {
+        if !self.conversations.read().await.contains_key(&id) {
+            return Ok(None);
+        }
+        Ok(Some(
+            self.conversation_revisions
+                .read()
+                .await
+                .get(&id)
+                .copied()
+                .unwrap_or(0),
+        ))
+    }
+
+    async fn bump_conversation_revision(&self, id: Snowflake) -> Result<Option<i64>, StorageError> {
+        if !self.conversations.read().await.contains_key(&id) {
+            return Ok(None);
+        }
+        let mut revisions = self.conversation_revisions.write().await;
+        let revision = revisions.entry(id).or_default();
+        *revision += 1;
+        Ok(Some(*revision))
+    }
+
     async fn get_message_context(
         &self,
         message_id: Snowflake,

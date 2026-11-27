@@ -118,6 +118,7 @@ impl Harness {
         let conversation = Arc::new(ConversationService::new(
             Arc::clone(&storage),
             Arc::clone(&snow),
+            64,
         ));
         let tools = Arc::new(UserToolService::new(
             Arc::clone(&storage),
