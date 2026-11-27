@@ -64,7 +64,12 @@ impl MessageCache {
         messages
     }
 
-    pub fn record_write(&self, id: Snowflake, revision: i64, inserted: Option<&ConversationMessage>) {
+    pub fn record_write(
+        &self,
+        id: Snowflake,
+        revision: i64,
+        inserted: Option<&ConversationMessage>,
+    ) {
         let mut inner = self.inner.lock().unwrap();
         let Some(entry) = inner.entries.remove(&id) else {
             return;
