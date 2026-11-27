@@ -30,24 +30,30 @@
 		);
 	});
 
-	let state = $state<Record<string, JsonValue>>({});
+	let state = $state<Record<string, JsonValue> | null>(null);
 
 	$effect(() => {
 		const convoId = chatStore.conversationId;
 		const handle = viewer?.handle;
 		if (!convoId || widgets.length === 0 || messageId.startsWith('tmp_')) return;
 
+		// A newer request supersedes this one; its late answer must not win.
+		let stale = false;
 		void (async () => {
 			try {
-				state = (
+				const next = (
 					handle
 						? await api.chat.agents.state(convoId, handle, messageId)
 						: ((await api.chat.messages.state(convoId, messageId))?.persistent ?? {})
 				) as Record<string, JsonValue>;
+				if (!stale) state = next;
 			} catch {
 				// A missing state row just leaves the widgets on their last data.
 			}
 		})();
+		return () => {
+			stale = true;
+		};
 	});
 </script>
 

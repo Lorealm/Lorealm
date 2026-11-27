@@ -13,7 +13,7 @@
 		onaction
 	}: {
 		source: string;
-		slice: Record<string, JsonValue>;
+		slice: Record<string, JsonValue> | null;
 		title: string;
 		kind?: 'state' | 'props';
 		/** A tool the widget triggers, or Weaver it sends, and what to call it. */
@@ -97,7 +97,15 @@
 	let frame = $state<HTMLIFrameElement | null>(null);
 	let height = $state(0);
 
+	let ready = false;
+	const srcdoc = $derived(source + HOST_SCRIPT);
+	$effect.pre(() => {
+		void srcdoc;
+		ready = false;
+	});
+
 	function push() {
+		if (!ready || slice === null) return;
 		const payload = $state.snapshot(slice);
 		frame?.contentWindow?.postMessage(
 			// `state` stays on the payload whatever the kind, so a widget
@@ -108,6 +116,7 @@
 	}
 
 	function pushTheme() {
+		if (!ready) return;
 		frame?.contentWindow?.postMessage({ type: 'lorealm:theme', css: frameTheme.css }, '*');
 		frame?.contentWindow?.postMessage({ type: 'lorealm:fonts', fonts: frameTheme.fonts }, '*');
 	}
@@ -116,6 +125,7 @@
 	const context = $derived(macroContext(characterStore.activeCharacter?.id ?? null));
 
 	function pushContext() {
+		if (!ready) return;
 		frame?.contentWindow?.postMessage({ type: 'lorealm:context', context }, '*');
 	}
 
@@ -146,6 +156,7 @@
 			height?: unknown;
 		} | null;
 		if (data?.type === 'lorealm:ready') {
+			ready = true;
 			pushContext();
 			push();
 			pushTheme();
@@ -169,9 +180,8 @@
 	class="static-widget"
 	{title}
 	sandbox="allow-scripts"
-	srcdoc={source + HOST_SCRIPT}
+	{srcdoc}
 	bind:this={frame}
-	onload={push}
 	style:height="{height}px"
 ></iframe>
 
