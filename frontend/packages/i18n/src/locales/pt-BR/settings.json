@@ -137,7 +137,8 @@
 		"noMatch": "Nada corresponde a “{query}”.",
 		"allAdded": "Todos os widgets já estão nesta pilha.",
 		"profileName": "Perfil {n, number}",
-		"defaultProfile": "Visão geral"
+		"defaultProfile": "Visão geral",
+		"debugProfile": "Debug"
 	},
 	"interface": {
 		"language": "Language",

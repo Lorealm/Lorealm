@@ -32,6 +32,7 @@
 		"addOne": "追加する",
 		"tokenBudget": "トークン予算",
 		"toolRounds": "Tool rounds",
+		"squashMessages": "Merge consecutive messages from the same role",
 		"endpoint": "エンドポイント",
 		"baseUrl": "ベースURL",
 		"projectId": "プロジェクトID",

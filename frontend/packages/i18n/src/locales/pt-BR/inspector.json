@@ -11,11 +11,16 @@
 		"realmAgent": "Agente do reino",
 		"authorNote": "Nota do autor",
 		"creatorNotes": "Notas do criador",
-		"styleVariables": "Style Variables"
+		"styleVariables": "Style Variables",
+		"weaverReference": "Weaver Reference"
 	},
 	"styleVariables": {
 		"copied": "Copied",
 		"search": "Search variables…"
+	},
+	"weaverReference": {
+		"search": "Search commands and processors…",
+		"copy": "Copy as call"
 	},
 	"creatorNotes": {
 		"loading": "Carregando…",

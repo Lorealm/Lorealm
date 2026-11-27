@@ -32,6 +32,7 @@
 		"addOne": "Добавить",
 		"tokenBudget": "Бюджет токенов",
 		"toolRounds": "Tool rounds",
+		"squashMessages": "Merge consecutive messages from the same role",
 		"endpoint": "Конечная точка",
 		"baseUrl": "Базовый URL",
 		"projectId": "ID проекта",

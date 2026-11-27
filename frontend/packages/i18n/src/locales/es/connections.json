@@ -32,6 +32,7 @@
 		"addOne": "Añadir una",
 		"tokenBudget": "Presupuesto de tokens",
 		"toolRounds": "Tool rounds",
+		"squashMessages": "Merge consecutive messages from the same role",
 		"endpoint": "Endpoint",
 		"baseUrl": "URL base",
 		"projectId": "ID del proyecto",
