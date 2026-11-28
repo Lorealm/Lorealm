@@ -265,6 +265,7 @@
 			accept={IMAGE_TYPES.join(',')}
 			multiple
 			hidden
+			style="display:none"
 			onchange={() => {
 				attach(fileInput.files);
 				fileInput.value = '';
