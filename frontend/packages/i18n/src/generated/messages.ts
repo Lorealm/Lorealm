@@ -132,6 +132,10 @@ export type Messages = {
 			commands: string;
 			/** Remove {label} */
 			removeAction: (args: { label: string }) => string;
+			/** Remove image */
+			removeImage: string;
+			/** Uploading image… */
+			uploadingImage: string;
 		};
 		message: {
 			/** You */
@@ -156,6 +160,10 @@ export type Messages = {
 			swipe: string;
 			/** Delete this message and its replies? */
 			confirmDelete: string;
+			/** Attached image */
+			image: string;
+			/** Close */
+			closeImage: string;
 		};
 		setup: {
 			/** Welcome to Lorealm */
@@ -870,6 +878,8 @@ export type Messages = {
 			startChat: string;
 			/** Failed to edit message */
 			editMessage: string;
+			/** Failed to attach image */
+			attachImage: string;
 			/** Failed to switch message */
 			switchMessage: string;
 			/** Failed to delete message */
@@ -1444,6 +1454,8 @@ export type Messages = {
 			"chat:write": string;
 			/** Store its own data */
 			"data:persist": string;
+			/** Add images to your chats */
+			"media:write": string;
 			/** Generate a response on your behalf */
 			"model:generate": string;
 			/** Send requests to the hosts below */

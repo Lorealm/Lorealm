@@ -88,6 +88,7 @@ Messages containing quoted values are examples; the interpolated part varies.
 | `character.not_found` | 404 | That character no longer exists. |
 | `character.unsupported_format` | 400 | Unsupported card format 'chara_card_v1' — expected chara_card_v2. |
 | `character.unsupported_media_type` | 415 | That image format isn't supported. |
+| `chat.bad_image` | 422 | That image can't be attached. Upload it again. |
 | `chat.not_found` | 404 | That conversation no longer exists. |
 | `chat.provider_failed` | 502 | Could not reach the model provider: timed out. |
 | `chat.realm_conversation` | 409 | Realm conversations advance through their turn endpoints. |

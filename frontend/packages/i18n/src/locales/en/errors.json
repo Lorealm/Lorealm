@@ -11,6 +11,7 @@
 		"loadCast": "Failed to load the cast",
 		"startChat": "Failed to start the chat",
 		"editMessage": "Failed to edit message",
+		"attachImage": "Failed to attach image",
 		"switchMessage": "Failed to switch message",
 		"deleteMessage": "Failed to delete message",
 		"deleteConversation": "Failed to delete conversation",

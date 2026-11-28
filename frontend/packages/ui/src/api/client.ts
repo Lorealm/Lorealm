@@ -34,6 +34,7 @@ import type {
 	ConversationMessage,
 	FullConversation,
 	StartChatRequest,
+	StoredImage,
 	TurnRequest
 } from '#lib/types/conversation.js';
 import type { JsonValue, Snowflake } from '#lib/types/core.js';
@@ -339,6 +340,9 @@ export function createApiClient(platform: PlatformAPI) {
 				avatar: (characterId: Snowflake, versionId: Snowflake) =>
 					http.get(`/api/v1/characters/${characterId}/versions/${versionId}/image`)
 			}
+		},
+		blobs: {
+			putImage: (image: Blob) => http.putBlob<StoredImage>('/api/v1/blobs', image)
 		},
 		chat: {
 			list: () => http.get<Array<ConversationMetadata>>('/api/v1/chat'),

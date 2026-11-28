@@ -9,6 +9,7 @@ import type {
 	FullConversation,
 	TurnRequest
 } from '#lib/types/conversation.js';
+import { messageImages } from '#lib/types/conversation.js';
 import type { Greeting } from '#lib/types/character.js';
 import type { PlayerAction, DisplayCast, RealmAgent, TurnEvent } from '#lib/types/realm.js';
 import { parseReasoning, parseWidgets, type WidgetInstance } from '#lib/types/widgets.js';
@@ -176,7 +177,8 @@ class ChatStore {
 		const meta = turnMeta(m);
 		if (meta.handle === viewer.handle) return true;
 		if (meta.handle === undefined) return m.content.trim().length > 0 || meta.command != null;
-		if (m.id !== this._streamingId && m.content.trim().length === 0) return false;
+		const silent = m.content.trim().length === 0 && messageImages(m.metadata).length === 0;
+		if (m.id !== this._streamingId && silent) return false;
 		return hears(viewer, meta.observers, meta.channel ?? MAIN_CHANNEL);
 	}
 
@@ -410,6 +412,7 @@ class ChatStore {
 		this.autoRun = true;
 		this.directorView = false;
 		this.queuedActions = [];
+		this.queuedImages = [];
 		this.streamState = { status: 'idle' };
 	}
 
@@ -438,8 +441,10 @@ class ChatStore {
 		}
 
 		const actions = this.queuedActions.map((q) => q.action);
+		const images = this.queuedImages;
 		this.queuedActions = [];
-		await this.#play({ content, actions });
+		this.queuedImages = [];
+		await this.#play({ content, actions, images });
 	}
 
 	queuedActions = $state<QueuedAction[]>([]);
@@ -454,6 +459,30 @@ class ChatStore {
 
 	unqueueAction(key: string) {
 		this.queuedActions = this.queuedActions.filter((q) => q.key !== key);
+	}
+
+	queuedImages = $state<string[]>([]);
+	/** How many images are still uploading. */
+	uploadingImages = $state(0);
+
+	async attachImages(files: File[]) {
+		await Promise.all(
+			files.map(async (file) => {
+				this.uploadingImages++;
+				try {
+					const { uri } = await this.#api.blobs.putImage(file);
+					if (!this.queuedImages.includes(uri)) this.queuedImages = [...this.queuedImages, uri];
+				} catch (e) {
+					showApiError(e, { title: t.errors.failed.attachImage });
+				} finally {
+					this.uploadingImages--;
+				}
+			})
+		);
+	}
+
+	unqueueImage(uri: string) {
+		this.queuedImages = this.queuedImages.filter((u) => u !== uri);
 	}
 
 	/** Replace one of the player's own turns with a new take on it. */
@@ -544,7 +573,12 @@ class ChatStore {
 		}
 	}
 
-	#provisional(parent: Snowflake | null, role: 'user' | 'assistant', content: string): Snowflake {
+	#provisional(
+		parent: Snowflake | null,
+		role: 'user' | 'assistant',
+		content: string,
+		metadata: ConversationMessage['metadata'] = null
+	): Snowflake {
 		const id = this.#tempId();
 		this._messages.set(id, {
 			id,
@@ -553,7 +587,7 @@ class ChatStore {
 			role,
 			content,
 			order: Number.MAX_SAFE_INTEGER,
-			metadata: null,
+			metadata,
 			created_at: new Date().toISOString(),
 			updated_at: new Date().toISOString()
 		});
@@ -568,15 +602,18 @@ class ChatStore {
 		let settled = this._activeLeafId;
 		const target = request.swipe_from ? this._messages.get(request.swipe_from) : undefined;
 		const continued = request.continue ? target : undefined;
-		const speaks = request.content != null || (request.actions?.length ?? 0) > 0;
+		const images = request.images ?? [];
+		const speaks =
+			request.content != null || (request.actions?.length ?? 0) > 0 || images.length > 0;
 
 		// The player's words show at once; the server's copy replaces them.
 		let pendingUser: Snowflake | null = null;
-		if (request.content) {
+		if (request.content || images.length > 0) {
 			pendingUser = this.#provisional(
 				target ? target.parent : this._activeLeafId,
 				'user',
-				request.content
+				request.content ?? '',
+				images.length > 0 ? { images } : null
 			);
 			this._activeLeafId = pendingUser;
 		}

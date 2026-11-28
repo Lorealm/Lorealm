@@ -30,6 +30,18 @@ export interface ConversationMessage {
 	updated_at: string;
 }
 
+export interface StoredImage {
+	/** `sha256:` URI of the stored image. */
+	uri: string;
+}
+
+/** The `sha256:` URIs of the images a message carries. */
+export function messageImages(metadata: unknown): string[] {
+	if (!metadata || typeof metadata !== 'object') return [];
+	const images = (metadata as Record<string, unknown>).images;
+	return Array.isArray(images) ? images.filter((i): i is string => typeof i === 'string') : [];
+}
+
 export interface ConversationMetadata {
 	id: Snowflake;
 	character_id: Snowflake | null;
@@ -49,14 +61,11 @@ export interface StartChatRequest {
 	author_note?: string;
 }
 
-/**
- * One request to advance a conversation. With `content` or `action` it
- * carries the player's turn, committed first; then at most one other cast
- * member acts.
- */
 export interface TurnRequest {
 	content?: string | null;
 	actions?: PlayerAction[];
+	/** A list of `sha256:`-formatted resource locators */
+	images?: string[];
 	swipe_from?: Snowflake | null;
 	continue?: boolean;
 }

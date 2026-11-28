@@ -34,7 +34,9 @@
 		"stopPlugin": "Stop {name}",
 		"stopGenerating": "Stop generating",
 		"commands": "Commands",
-		"removeAction": "Remove {label}"
+		"removeAction": "Remove {label}",
+		"removeImage": "Remove image",
+		"uploadingImage": "Uploading image…"
 	},
 	"message": {
 		"you": "You",
@@ -47,7 +49,9 @@
 		"thoughts": "Thoughts",
 		"thinking": "Thinking…",
 		"swipe": "Swipe",
-		"confirmDelete": "Delete this message and its replies?"
+		"confirmDelete": "Delete this message and its replies?",
+		"image": "Attached image",
+		"closeImage": "Close"
 	},
 	"setup": {
 		"title": "Welcome to Lorealm",

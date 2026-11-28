@@ -4,12 +4,13 @@
 	import { tooltip } from '../../stores/tooltip.svelte.ts';
 	import { chatStore } from '#lib/stores/chat.svelte.js';
 	import { characterStore } from '#lib/stores/character.svelte.js';
-	import type { ConversationMessage } from '#lib/types/conversation.js';
+	import { messageImages, type ConversationMessage } from '#lib/types/conversation.js';
 	import TransportImage from '#lib/components/TransportImage.svelte';
 	import { blobUrl } from '#lib/api/blobs.js';
 	import ChatWidget from '#lib/components/ChatWidget.svelte';
 	import StaticWidgets from '#lib/components/StaticWidgets.svelte';
 	import PluginMessageSlots from '#lib/components/PluginMessageSlots.svelte';
+	import ImageAttachments from '#lib/components/ImageAttachments.svelte';
 	import {
 		ChevronLeft,
 		ChevronRight,
@@ -67,6 +68,7 @@
 	let hasContext = $derived(hasStoredContext(message.metadata));
 	let reasoning = $derived(parseReasoning(message.metadata));
 	let widgets = $derived(parseWidgets(message.metadata));
+	let images = $derived(messageImages(message.metadata));
 	let segments = $derived(splitWidgetMarkers(message.content));
 	let trailing = $derived(
 		widgets.filter((_, i) => !segments.some((s) => s.type === 'widget' && s.index === i))
@@ -121,6 +123,9 @@
 			<span class="command-output">{message.content}</span>
 		{/if}
 	</div>
+	{#if images.length > 0}
+		<div class="command-images"><ImageAttachments uris={images} /></div>
+	{/if}
 {:else}
 	<div class="message" data-role={message.role}>
 		<div class="avatar">
@@ -228,6 +233,10 @@
 				</div>
 			{/if}
 
+			{#if !editing && images.length > 0}
+				<ImageAttachments uris={images} />
+			{/if}
+
 			<!-- Static widgets currently only appear on assistant messages, and not on the opening message. -->
 			{#if !editing && trailing.length > 0 && message.role === 'assistant' && message.parent !== null}
 				<div class="widgets">
@@ -285,6 +294,9 @@
 	.command-output {
 		white-space: pre-wrap;
 		word-break: break-word;
+	}
+	.command-images {
+		align-self: center;
 	}
 
 	.message {

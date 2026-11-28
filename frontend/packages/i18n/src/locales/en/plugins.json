@@ -43,6 +43,7 @@
 		"chat:read": "Read your chats",
 		"chat:write": "Change or refuse messages before they are saved",
 		"data:persist": "Store its own data",
+		"media:write": "Add images to your chats",
 		"model:generate": "Generate a response on your behalf",
 		"net:fetch": "Send requests to the hosts below",
 		"persona:read": "Read your active persona",

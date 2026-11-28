@@ -5,6 +5,7 @@
 	import CommandAutocomplete from './CommandAutocomplete.svelte';
 	import { scrollFeed } from './ChatBox.svelte';
 	import PopupMenu from '#lib/components/PopupMenu.svelte';
+	import ImageAttachments from '#lib/components/ImageAttachments.svelte';
 	import {
 		completionAt,
 		dispatch,
@@ -29,6 +30,30 @@
 
 	let inputText = $state('');
 	let textareaEl: HTMLTextAreaElement;
+	let fileInput: HTMLInputElement;
+
+	const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+	let uploading = $derived(chatStore.uploadingImages > 0);
+
+	function attach(files: FileList | null | undefined): boolean {
+		const images = [...(files ?? [])].filter((f) => IMAGE_TYPES.includes(f.type));
+		if (images.length > 0) void chatStore.attachImages(images);
+		return images.length > 0;
+	}
+
+	function onpaste(event: ClipboardEvent) {
+		if (attach(event.clipboardData?.files)) event.preventDefault();
+	}
+
+	function ondragover(event: DragEvent) {
+		if (event.dataTransfer?.types.includes('Files')) event.preventDefault();
+	}
+
+	function ondrop(event: DragEvent) {
+		if (!event.dataTransfer?.types.includes('Files')) return;
+		event.preventDefault();
+		attach(event.dataTransfer.files);
+	}
 
 	let activeCharacter = $derived(chatStore.characterId);
 
@@ -79,10 +104,12 @@
 	}
 
 	function send() {
+		if (uploading) return;
 		const text = inputText.trim();
 		if (!text) {
-			// Queued widget actions are a turn on their own.
-			if (chatStore.queuedActions.length > 0) void chatStore.sendMessage('');
+			if (chatStore.queuedActions.length > 0 || chatStore.queuedImages.length > 0) {
+				void chatStore.sendMessage('');
+			}
 			return;
 		}
 		inputText = '';
@@ -173,7 +200,18 @@
 	}
 </script>
 
-<div class="container">
+<div class="container" role="group" {ondragover} {ondrop}>
+	{#if chatStore.queuedImages.length > 0 || uploading}
+		<div class="queued">
+			<ImageAttachments
+				uris={chatStore.queuedImages}
+				onremove={(uri) => chatStore.unqueueImage(uri)}
+			/>
+			{#if uploading}
+				<span class="queued-action">{t.chat.composer.uploadingImage}</span>
+			{/if}
+		</div>
+	{/if}
 	{#if chatStore.queuedActions.length > 0}
 		<div class="queued">
 			{#each chatStore.queuedActions as queued (queued.key)}
@@ -215,9 +253,23 @@
 		>
 			{#snippet icon()}<Sparkles />{/snippet}
 		</PopupMenu>
-		<button class="attachement-button" {@attach tooltip(t.chat.composer.attachments)}
-			><Paperclip /></button
+		<button
+			class="attachement-button"
+			{@attach tooltip(t.chat.composer.attachments)}
+			aria-label={t.chat.composer.attachments}
+			onclick={() => fileInput.click()}><Paperclip /></button
 		>
+		<input
+			bind:this={fileInput}
+			type="file"
+			accept={IMAGE_TYPES.join(',')}
+			multiple
+			hidden
+			onchange={() => {
+				attach(fileInput.files);
+				fileInput.value = '';
+			}}
+		/>
 		<textarea
 			use:keyLayer={{ id: CHAT_COMPOSER_LAYER, data: composerLayer }}
 			class="text-input"
@@ -229,9 +281,15 @@
 			onkeyup={syncCaret}
 			onclick={syncCaret}
 			oninput={resize}
+			{onpaste}
 		></textarea>
 		{#if !busy}
-			<button class="send-button" aria-label={t.chat.composer.send} onclick={send}><Send /></button>
+			<button
+				class="send-button"
+				aria-label={t.chat.composer.send}
+				disabled={uploading}
+				onclick={send}><Send /></button
+			>
 		{:else}
 			<button
 				class="send-button"
@@ -261,7 +319,12 @@
 	.queued {
 		display: flex;
 		flex-wrap: wrap;
+		align-items: center;
 		gap: var(--spacing-xs);
+	}
+	.queued :global(.open) {
+		width: 3.5rem;
+		height: 3.5rem;
 	}
 	.queued-action {
 		display: inline-flex;
