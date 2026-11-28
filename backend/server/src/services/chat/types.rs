@@ -54,6 +54,9 @@ pub struct TurnRequest {
     /// What the player does this turn, run in order before it is committed.
     #[serde(default)]
     pub actions: Vec<PlayerAction>,
+    /// Images represented as an array of `sha256:` URIs.
+    #[serde(default)]
+    pub images: Vec<String>,
     #[serde(default)]
     pub swipe_from: Option<Snowflake>,
     #[serde(default, rename = "continue")]

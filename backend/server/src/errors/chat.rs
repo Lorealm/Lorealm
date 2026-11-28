@@ -46,6 +46,8 @@ pub enum ChatError {
     NotContinuable(Snowflake),
     #[error(transparent)]
     Refused(#[from] Refusal),
+    #[error("{0} is not a stored image")]
+    BadImage(String),
 }
 
 impl DomainError for ChatError {
@@ -61,10 +63,10 @@ impl DomainError for ChatError {
             Self::Tokenizer(err) => err.code(),
             Self::Realm(err) => err.code(),
             Self::NotFound(_, _) | Self::NotOwned(_, _) => "chat.not_found",
-            // Both are failures of the upstream LLM call.
             Self::Provider(_) | Self::Connection(_) => "chat.provider_failed",
             Self::NotContinuable(_) => "chat.not_continuable",
             Self::Refused(_) => "chat.refused",
+            Self::BadImage(_) => "chat.bad_image",
             Self::Storage(_) => "internal",
         }
     }
@@ -83,7 +85,7 @@ impl DomainError for ChatError {
             Self::NotFound(_, _) | Self::NotOwned(_, _) => StatusCode::NOT_FOUND,
             Self::Provider(_) | Self::Connection(_) => StatusCode::BAD_GATEWAY,
             Self::NotContinuable(_) => StatusCode::CONFLICT,
-            Self::Refused(_) => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::Refused(_) | Self::BadImage(_) => StatusCode::UNPROCESSABLE_ENTITY,
             Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -110,6 +112,7 @@ impl DomainError for ChatError {
             Self::Refused(r) => {
                 sentence(format!("{} refused your message: {}", r.handle, r.reason))
             }
+            Self::BadImage(_) => "That image can't be attached. Upload it again.".into(),
             Self::Storage(_) => "An internal error occurred".into(),
         }
     }
@@ -132,7 +135,7 @@ impl DomainError for ChatError {
             Self::Provider(_) | Self::Connection(_) => {
                 Some(ErrorDetails::resource(TargetType::ConnectionProfile))
             }
-            Self::Storage(_) | Self::Refused(_) => None,
+            Self::Storage(_) | Self::Refused(_) | Self::BadImage(_) => None,
         }
     }
 }

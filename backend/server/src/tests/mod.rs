@@ -14,4 +14,4 @@ mod roles;
 mod tokenizers;
 mod turns;
 
-pub(crate) use harness::Harness;
+pub(crate) use harness::{Harness, MemoryBlobs};

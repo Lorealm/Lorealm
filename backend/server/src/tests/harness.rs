@@ -139,6 +139,7 @@ impl Harness {
         ));
         let plugins = Arc::new(PluginService::new(
             Arc::clone(&storage),
+            Arc::clone(&blob),
             Arc::clone(&snow),
             Arc::clone(&state),
             Arc::clone(&connection),
@@ -147,6 +148,7 @@ impl Harness {
         ));
         let chat = Arc::new(ChatService::new(
             Arc::clone(&storage),
+            Arc::clone(&blob),
             Arc::clone(&snow),
             Arc::clone(&conversation),
             Arc::clone(&characters),

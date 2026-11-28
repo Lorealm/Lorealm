@@ -1,7 +1,7 @@
 use futures_util::StreamExt;
 use lorealm_storage::{
-    CharacterStorage, ConnectionStorage, LorebookStorage, PersonaStorage, TemplateStorage,
-    TokenizerStorage, UserWidgetStorage, WeaverStateStorage,
+    CharacterStorage, ConnectionStorage, ConversationStorage, LorebookStorage, PersonaStorage,
+    TemplateStorage, TokenizerStorage, UserWidgetStorage, WeaverStateStorage,
     models::{
         AgentKind, ConversationMessage, Greeting, LorebookEntry, Snowflake, Tokenizer,
         VersionedSaveMode,
@@ -245,6 +245,39 @@ async fn a_request_with_nothing_to_say_runs_only_whoever_is_next() {
     // You are up first, so there is nothing to run yet.
     let events = turn(&h, convo, json!({})).await.unwrap();
     assert_eq!(events, [json!({ "type": "done", "next": "you" })]);
+}
+
+const PNG: &[u8] = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR";
+
+#[tokio::test]
+async fn a_player_can_send_an_image_alone() {
+    let h = Harness::new().await;
+    let convo = counting_house(&h, COUNTING_HOUSE).await;
+    let uri = h.blobs.put(PNG).await.unwrap().to_uri();
+
+    let events = turn(&h, convo, json!({ "images": [uri] })).await.unwrap();
+
+    let mine = &messages(&events)[0];
+    assert_eq!(mine.content, "");
+    assert_eq!(mine.metadata["images"], json!([uri]));
+}
+
+#[tokio::test]
+async fn only_stored_images_can_be_attached() {
+    let h = Harness::new().await;
+    let convo = counting_house(&h, COUNTING_HOUSE).await;
+    let text = h.blobs.put(b"not an image").await.unwrap().to_uri();
+    let missing = format!("sha256:{}", "c".repeat(64));
+
+    for uri in [text, missing, "https://example.com/cat.png".into()] {
+        let result = turn(&h, convo, json!({ "content": "Look.", "images": [uri] })).await;
+        assert!(
+            matches!(result, Err(ChatError::BadImage(_))),
+            "{uri}: {result:?}"
+        );
+    }
+    let convo = h.store.get_conversation(convo).await.unwrap().unwrap();
+    assert!(convo.active_leaf_id.is_none(), "nothing was committed");
 }
 
 #[tokio::test]

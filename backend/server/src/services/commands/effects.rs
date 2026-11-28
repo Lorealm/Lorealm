@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+use lorealm_storage::models::BlobId;
 use serde::Serialize;
 use weaver_lang::{
     EvalContext, EvalError, Registry, Value, WeaverCommand,
@@ -12,8 +13,8 @@ use weaver_lang::{
 /// body. Note that this differs from the tool's return value in the
 /// sense that effects are purely visual.
 ///
-/// NOTE: [`CommandEffect::Sys`] should be consumed in the server and
-/// should never reach the client.
+/// NOTE: [`CommandEffect::Sys`] and [`CommandEffect::Image`] should be
+/// consumed in the server and should never reach the client.
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CommandEffect {
@@ -23,6 +24,8 @@ pub enum CommandEffect {
     Toast { content: String, variant: String },
     /// Text for the client to put in the composer
     Compose { content: String, mode: ComposerMode },
+    /// An image.
+    Image { uri: String },
 }
 
 /// What [`CommandEffect::Compose`] does to whatever is already typed.
@@ -48,6 +51,9 @@ pub fn register_effect_commands(registry: &mut Registry) -> EffectSink {
         sink: Arc::clone(&sink),
     });
     registry.register_command(ComposeCommand {
+        sink: Arc::clone(&sink),
+    });
+    registry.register_command(ImageCommand {
         sink: Arc::clone(&sink),
     });
     sink
@@ -220,6 +226,48 @@ impl WeaverCommand for ComposeCommand {
     }
 }
 
+/// `$[image(uri)]`: attach a stored image, by its `sha256:` URI, to the
+/// message the run produces.
+struct ImageCommand {
+    sink: EffectSink,
+}
+
+impl WeaverCommand for ImageCommand {
+    fn call(
+        &self,
+        args: Vec<Value>,
+        _ctx: &mut dyn EvalContext,
+        _registry: &Registry,
+    ) -> Result<Option<Value>, EvalError> {
+        let uri = match args.into_iter().next() {
+            Some(Value::String(uri)) => uri,
+            _ => return Err(EvalError::host_error("image: a `sha256:` URI is required")),
+        };
+        if BlobId::from_uri(&uri).is_none() {
+            return Err(EvalError::host_error(format!(
+                "image: `{uri}` isn't a `sha256:` URI"
+            )));
+        }
+        self.sink.lock().unwrap().push(CommandEffect::Image { uri });
+        Ok(None)
+    }
+
+    fn signature(&self) -> CommandSignature {
+        CommandSignature {
+            name: "image".into(),
+            description: "Show a stored image under the message".into(),
+            returns: ValueType::None,
+            params: vec![ParamDef {
+                name: "uri".into(),
+                description: "The image's `sha256:` URI".into(),
+                expected_type: Some(ValueType::String),
+                required: true,
+            }],
+            mutates_context: true,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -313,5 +361,22 @@ mod tests {
             })
             .collect();
         assert_eq!(sys, ["first", "second"]);
+    }
+
+    #[test]
+    fn image_attaches_a_well_formed_uri() {
+        let uri = format!("sha256:{}", "a".repeat(64));
+        let (out, effects) = run(&format!(r#"$[image("{uri}")]"#)).unwrap();
+        assert_eq!(out, "");
+        assert!(matches!(
+            effects.as_slice(),
+            [CommandEffect::Image { uri: got }] if *got == uri
+        ));
+    }
+
+    #[test]
+    fn image_rejects_anything_but_a_blob_uri() {
+        assert!(run(r#"$[image("https://example.com/cat.png")]"#).is_err());
+        assert!(run(r#"$[image("sha256:../../etc/passwd")]"#).is_err());
     }
 }

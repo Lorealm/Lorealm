@@ -115,6 +115,7 @@ impl ResourceLimiter for MemoryLimit {
 
 const MAX_DATA_KEY: usize = 256;
 const MAX_DATA_VALUE: usize = 1024 * 1024;
+const MAX_IMAGE: usize = 20 * 1024 * 1024;
 
 /// The variables of the evaluation a command runs in, as JSON.
 pub trait CommandContext {
@@ -158,6 +159,8 @@ pub trait HostServices: Send + Sync {
     ) -> Result<String, String>;
     /// Sends `payload`, as JSON, to the plugin's frontend.
     async fn send_frontend(&self, name: String, payload: String) -> Result<(), String>;
+    /// Stores an image, returning its `sha256:` URI.
+    async fn store_image(&self, bytes: Vec<u8>) -> Result<String, String>;
     /// Receives what the plugin and the host logged during one call.
     async fn log(&self, entries: Vec<LogEntry>);
 }
@@ -446,6 +449,14 @@ impl lorealm::plugin::host::Host for PluginState {
     async fn delete_data(&mut self, key: String) -> Result<(), String> {
         self.require_data_key(&key)?;
         self.services.delete_data(key).await
+    }
+
+    async fn store_image(&mut self, bytes: Vec<u8>) -> Result<String, String> {
+        self.require("media:write")?;
+        if bytes.len() > MAX_IMAGE {
+            return Err(format!("images must be at most {MAX_IMAGE} bytes"));
+        }
+        self.services.store_image(bytes).await
     }
 }
 

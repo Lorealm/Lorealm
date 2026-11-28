@@ -14,11 +14,11 @@ use lorealm_providers::{
     OpenRouterProvider, VertexAuth, VertexOptions, VertexProvider,
 };
 use lorealm_storage::{
-    Storage,
+    BlobStore, Storage,
     models::{
-        AGENTS_SCOPE, AgentAccess, AgentGrant, AgentKind, AgentSpec, ChatRole, Conversation,
-        ConversationMessage, ConversationMetadata, RealmAgent, RealmCast, RealmConfig, Snowflake,
-        StateDelta, WidgetPlacement,
+        AGENTS_SCOPE, AgentAccess, AgentGrant, AgentKind, AgentSpec, BlobId, ChatRole,
+        Conversation, ConversationMessage, ConversationMetadata, RealmAgent, RealmCast,
+        RealmConfig, Snowflake, StateDelta, WidgetPlacement,
     },
 };
 use serde_json::json;
@@ -66,6 +66,7 @@ use crate::{
 
 pub struct ChatService {
     pub(super) storage: Arc<dyn Storage>,
+    blob: Arc<dyn BlobStore>,
     snowflake: Arc<SnowflakeService>,
     pub(super) conversations: Arc<ConversationService>,
     pub(super) characters: Arc<CharacterService>,
@@ -90,6 +91,7 @@ impl ChatService {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         storage: Arc<dyn Storage>,
+        blob: Arc<dyn BlobStore>,
         snowflake: Arc<SnowflakeService>,
         conversations: Arc<ConversationService>,
         characters: Arc<CharacterService>,
@@ -104,6 +106,7 @@ impl ChatService {
     ) -> Self {
         Self {
             storage,
+            blob,
             snowflake,
             conversations,
             characters,
@@ -880,11 +883,15 @@ impl ChatService {
     }
 
     /// Token + widget stream from the model.
+    ///
+    /// `images` are `sha256:` URIs, shown to the model with the prompt's last
+    /// user message.
     pub(super) async fn infer(
         &self,
         owner: Snowflake,
         profile_id: Snowflake,
         prompt: Vec<super::PromptMessage>,
+        images: &[String],
         state: Arc<StdMutex<StatePool>>,
         policy: &ToolPolicy,
     ) -> Result<
@@ -927,14 +934,14 @@ impl ChatService {
             prompt
         };
 
-        // Map your custom payload directly to what the provider client expects
-        let messages: Vec<lorealm_providers::Message> = prompt
+        let mut messages: Vec<lorealm_providers::Message> = prompt
             .into_iter()
             .map(|m| lorealm_providers::Message {
                 role: prompt_role_to_provider_role(m.role),
                 content: vec![ContentBlock::Text { text: m.content }],
             })
             .collect();
+        attach_images(&mut messages, self.image_blocks(images).await?);
 
         let mut registry = lorealm_providers::ToolRegistry::new();
 
@@ -953,14 +960,10 @@ impl ChatService {
             .pool(Arc::clone(&state))
             .plugins(plugins);
 
-        // Realm turns hand over a sink so the events a tool emits are read
-        // back by the realm that scheduled the turn.
         if let Some(sink) = &policy.event_sink {
             host = host.events(Arc::clone(sink));
         }
 
-        // A tool body's `$[generate]` needs a handle back to this service and
-        // a conversation to assemble context from.
         if let (Some(chat), Some(conversation)) = (self.generation(), policy.conversation) {
             host = host.generation(GenerateBridge {
                 handle: tokio::runtime::Handle::current(),
@@ -1229,7 +1232,7 @@ impl ChatService {
         };
 
         let (_, stream) = self
-            .infer(owner, profile_id, prompt, state, &policy)
+            .infer(owner, profile_id, prompt, &[], state, &policy)
             .await?;
         futures_util::pin_mut!(stream);
 
@@ -1302,6 +1305,64 @@ impl ChatService {
         });
 
         self.complete(owner, profile_id, messages, cancel).await
+    }
+}
+
+impl ChatService {
+    /// Checks that each URI names a stored image a chat may show.
+    pub(super) async fn check_images(&self, uris: &[String]) -> Result<(), ChatError> {
+        for uri in uris {
+            let bytes = match BlobId::from_uri(uri) {
+                Some(id) => self.blob.get(&id).await?,
+                None => None,
+            };
+            if bytes.is_none_or(|b| crate::util::image_type(&b).is_none()) {
+                return Err(ChatError::BadImage(uri.clone()));
+            }
+        }
+        Ok(())
+    }
+
+    async fn image_blocks(&self, uris: &[String]) -> Result<Vec<ContentBlock>, ChatError> {
+        use base64::Engine;
+
+        let mut blocks = Vec::with_capacity(uris.len());
+        for uri in uris {
+            let Some(id) = BlobId::from_uri(uri) else {
+                continue;
+            };
+            let Some(bytes) = self.blob.get(&id).await? else {
+                tracing::warn!(%uri, "skipping an attached image that is no longer stored");
+                continue;
+            };
+            let Some(media_type) = crate::util::image_type(&bytes) else {
+                continue;
+            };
+            blocks.push(ContentBlock::Image {
+                media_type: media_type.into(),
+                source: lorealm_providers::ImageSource::Base64(
+                    base64::engine::general_purpose::STANDARD.encode(&bytes),
+                ),
+            });
+        }
+        Ok(blocks)
+    }
+}
+
+fn attach_images(messages: &mut Vec<lorealm_providers::Message>, images: Vec<ContentBlock>) {
+    if images.is_empty() {
+        return;
+    }
+    let last_user = messages
+        .iter_mut()
+        .rev()
+        .find(|m| matches!(m.role, lorealm_providers::Role::User));
+    match last_user {
+        Some(message) => message.content.extend(images),
+        None => messages.push(lorealm_providers::Message {
+            role: lorealm_providers::Role::User,
+            content: images,
+        }),
     }
 }
 
@@ -1557,5 +1618,40 @@ mod tests {
                 {"type": "tool_result", "tool_use_id": "toolu_1", "content": "3"}
             ]})
         );
+    }
+
+    fn image() -> ContentBlock {
+        ContentBlock::Image {
+            media_type: "image/png".into(),
+            source: lorealm_providers::ImageSource::Base64("AAAA".into()),
+        }
+    }
+
+    #[test]
+    fn images_ride_on_the_last_user_message() {
+        let mut messages = vec![
+            Message::text(Role::System, "sys"),
+            Message::text(Role::User, "look"),
+            Message::text(Role::Assistant, "prefill"),
+        ];
+        attach_images(&mut messages, vec![image()]);
+
+        assert_eq!(messages.len(), 3);
+        assert!(matches!(
+            messages[1].content.as_slice(),
+            [ContentBlock::Text { .. }, ContentBlock::Image { .. }]
+        ));
+    }
+
+    #[test]
+    fn images_get_their_own_user_message_when_the_prompt_has_none() {
+        let mut messages = vec![Message::text(Role::System, "sys")];
+        attach_images(&mut messages, vec![image()]);
+
+        assert!(matches!(messages[1].role, Role::User));
+        assert!(matches!(
+            messages[1].content.as_slice(),
+            [ContentBlock::Image { .. }]
+        ));
     }
 }

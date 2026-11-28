@@ -88,7 +88,7 @@ impl BlobId {
     }
 
     pub fn from_uri(uri: &str) -> Option<Self> {
-        uri.strip_prefix("sha256:").map(|hex| Self(hex.to_string()))
+        uri.strip_prefix("sha256:").and_then(Self::from_hex)
     }
 
     /// Parse a bare hex digest, rejecting anything that isn't a well-formed

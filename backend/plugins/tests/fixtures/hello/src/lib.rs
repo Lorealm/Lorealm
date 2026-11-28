@@ -6,7 +6,7 @@ wit_bindgen::generate!({
 use lorealm::plugin::host::{
     active_persona, delete_data, emit, generate, http_fetch, load_data, log, messages,
     persist_data, register_command, register_hook, register_processor, register_source_node,
-    send_frontend, settings, subscribe, unsubscribe,
+    send_frontend, settings, store_image, subscribe, unsubscribe,
 };
 use lorealm::plugin::types::{
     Block, CommandCall, CommandSignature, CustomEvent, Finalizing, FrontendCall, Generated, Hook,
@@ -186,6 +186,12 @@ impl Guest for Hello {
                     Ok(Response::Frontend(json(&String::from_utf8_lossy(
                         &response.body,
                     ))))
+                }
+                // Stores `text` as an image and answers with its URI.
+                "store_image" => {
+                    let args: Value = serde_json::from_str(&args).map_err(|e| e.to_string())?;
+                    let text = args["text"].as_str().unwrap_or_default();
+                    Ok(Response::Frontend(json(&store_image(text.as_bytes())?)))
                 }
                 other => Err(format!("unknown frontend call `{other}`")),
             },

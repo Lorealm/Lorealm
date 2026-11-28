@@ -18,7 +18,7 @@ use lorealm_plugins::{
     TurnStarted, UserInput, Verdict, Version, resolve,
 };
 use lorealm_storage::{
-    Storage, StorageError,
+    BlobStore, Storage, StorageError,
     models::{
         ChatRole, PluginLog, PluginLogLevel, PluginLogSource, Snowflake, UserPlugin, is_identifier,
     },
@@ -246,6 +246,7 @@ impl Mounted {
 
 pub struct PluginService {
     storage: Arc<dyn Storage>,
+    blob: Arc<dyn BlobStore>,
     state: Arc<StateService>,
     host: Arc<PluginHost>,
     logs: Arc<PluginLogs>,
@@ -273,6 +274,7 @@ pub struct PluginService {
 impl PluginService {
     pub fn new(
         storage: Arc<dyn Storage>,
+        blob: Arc<dyn BlobStore>,
         snowflake: Arc<SnowflakeService>,
         state: Arc<StateService>,
         connection: Arc<ConnectionService>,
@@ -280,6 +282,7 @@ impl PluginService {
         dir: PathBuf,
     ) -> Self {
         Self {
+            blob,
             logs: Arc::new(PluginLogs {
                 storage: Arc::clone(&storage),
                 snowflake,
@@ -1007,6 +1010,7 @@ impl PluginService {
                 user_id,
                 handle: handle.clone(),
                 storage: Arc::clone(&self.storage),
+                blob: Arc::clone(&self.blob),
                 state: Arc::clone(&self.state),
                 logs: Arc::clone(&self.logs),
                 settings: tokio::fs::read_to_string(settings).await.ok(),
@@ -1018,7 +1022,6 @@ impl PluginService {
                 user_agent: fetch::user_agent(&handle, &package.manifest.plugin.version),
                 frontend: self.frontend.clone(),
             });
-            // On failure, the plugin crate logged why.
             let Ok(mut plugin) = self.host.instantiate(package, services).await else {
                 continue;
             };
@@ -1230,6 +1233,7 @@ struct UserServices {
     user_id: Snowflake,
     handle: String,
     storage: Arc<dyn Storage>,
+    blob: Arc<dyn BlobStore>,
     state: Arc<StateService>,
     logs: Arc<PluginLogs>,
     /// The plugin's `settings.wtn`, if it has one.
@@ -1362,6 +1366,17 @@ impl HostServices for UserServices {
             payload,
         });
         Ok(())
+    }
+
+    async fn store_image(&self, bytes: Vec<u8>) -> Result<String, String> {
+        if crate::util::image_type(&bytes).is_none() {
+            return Err("only PNG, JPEG, WebP and GIF images can be stored".into());
+        }
+        self.blob
+            .put(&bytes)
+            .await
+            .map(|id| id.to_uri())
+            .map_err(|err| self.storage_error(err))
     }
 
     /// Runs one completion through the user's profile. Nothing is saved.

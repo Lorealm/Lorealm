@@ -97,6 +97,15 @@ fn extract_captured_state(
     }
 }
 
+fn newest_player_images(path: &[ConversationMessage]) -> Vec<String> {
+    path.iter()
+        .rev()
+        .find(|m| m.role == ChatRole::User)
+        .and_then(|m| m.metadata.get("images"))
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default()
+}
+
 fn emitted_events(emitted: Vec<EmittedEvent>) -> impl Iterator<Item = TurnEvent> {
     emitted.into_iter().map(|e| TurnEvent {
         channel: e.scope,
@@ -121,18 +130,18 @@ impl ChatService {
 
         let stream = async_stream::try_stream! {
             let _guard = guard; // the stream owns the cancellation slot
-            let TurnRequest { content, actions, mut swipe_from, continued } = request;
+            let TurnRequest { content, actions, images, mut swipe_from, continued } = request;
             let mut leaf = convo.active_leaf_id;
 
             // The player's own turn, if the request carries one.
             let content = content.filter(|c| !c.trim().is_empty());
-            if content.is_some() || !actions.is_empty() {
+            if content.is_some() || !actions.is_empty() || !images.is_empty() {
                 let place = match swipe_from.take() {
                     Some(id) => Relationship::Sibling(service.owned_message(id, convo.id).await?),
                     None => Relationship::Child(leaf),
                 };
                 let message = service
-                    .player_turn(&convo, &cast, place, content.unwrap_or_default(), actions)
+                    .player_turn(&convo, &cast, place, content.unwrap_or_default(), actions, images)
                     .await?;
                 leaf = Some(message.id);
                 yield ChatStreamEvent::Message { message };
@@ -179,6 +188,15 @@ impl ChatService {
 
                 let is_llm = agent.kind == AgentKind::Llm;
                 let mut notes = Vec::new();
+
+                let mut images: Vec<String> = match &place {
+                    Relationship::Continuation(prior) => prior
+                        .metadata
+                        .get("images")
+                        .and_then(|v| serde_json::from_value(v.clone()).ok())
+                        .unwrap_or_default(),
+                    _ => Vec::new(),
+                };
                 let production = if is_llm {
                     let mut open = service
                         .open_model_turn(&convo, &cast, &agent, &place, &stem, view, cancel.clone())
@@ -216,11 +234,8 @@ impl ChatService {
                                 yield ChatStreamEvent::Delta { content: marker };
                             }
                             InferEvent::ToolCall(record) => open.acc.tool_call(record),
-                            // `$[sys]` adds a system message to the conversation. It can't be written
-                            // until the reply is, or it would come before the reply, so we hold it and
-                            // send it as an ordinary `Message` event after the reply. Other effects
-                            // are the client's to apply and are forwarded immediately.
                             InferEvent::Effect(CommandEffect::Sys { content }) => notes.push(content),
+                            InferEvent::Effect(CommandEffect::Image { uri }) => images.push(uri),
                             InferEvent::Effect(effect) => yield ChatStreamEvent::Effect { effect },
                         }
                     }
@@ -230,7 +245,11 @@ impl ChatService {
                         yield ChatStreamEvent::Delta { content: tail };
                     }
 
-                    service.close_model_turn(&convo, &cast, agent, place, open).await?
+                    let mut production = service.close_model_turn(&convo, &cast, agent, place, open).await?;
+                    if !images.is_empty() {
+                        production.meta["images"] = json!(images);
+                    }
+                    production
                 } else {
                     if let Relationship::Continuation(prior) = &place {
                         Err(ChatError::NotContinuable(prior.id))?;
@@ -327,7 +346,9 @@ impl ChatService {
         place: Relationship,
         content: String,
         actions: Vec<PlayerAction>,
+        images: Vec<String>,
     ) -> Result<ConversationMessage, ChatError> {
+        self.check_images(&images).await?;
         let path = self.path_to(convo.id, &place).await?;
         let world = self.state.reconstruct(&message_ids(&path)).await?;
         let plugins = self
@@ -408,10 +429,13 @@ impl ChatService {
                 }
             }
         }
-        let meta = match done.is_empty() {
-            true => json!({}),
-            false => json!({ "actions": done }),
-        };
+        let mut meta = json!({});
+        if !done.is_empty() {
+            meta["actions"] = json!(done);
+        }
+        if !images.is_empty() {
+            meta["images"] = json!(images);
+        }
         let delta = self.state.diff(&world.persistent, &working);
 
         self.commit(
@@ -567,12 +591,14 @@ impl ChatService {
             });
         }
 
+        let images = newest_player_images(path);
         let emitted = EventSink::default();
         let (available_tools, stream) = self
             .infer(
                 owner,
                 spec.profile_id,
                 prompt,
+                &images,
                 Arc::clone(&pool),
                 &ToolPolicy {
                     tool_ids: None,
@@ -847,5 +873,44 @@ impl ChatService {
             }
         }
         Ok(bindings)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn message(id: i64, role: ChatRole, metadata: serde_json::Value) -> ConversationMessage {
+        ConversationMessage {
+            id: Snowflake(id),
+            conversation_id: Snowflake(100),
+            parent: None,
+            role,
+            content: String::new(),
+            order: id as i32,
+            metadata,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        }
+    }
+
+    #[test]
+    fn only_the_newest_player_message_shows_its_images() {
+        let replied = [
+            message(1, ChatRole::User, json!({ "images": ["sha256:old"] })),
+            message(
+                2,
+                ChatRole::Assistant,
+                json!({ "images": ["sha256:drawn"] }),
+            ),
+        ];
+        let moved_on = [
+            message(1, ChatRole::User, json!({ "images": ["sha256:old"] })),
+            message(2, ChatRole::Assistant, json!({})),
+            message(3, ChatRole::User, json!({})),
+        ];
+
+        assert_eq!(newest_player_images(&replied), ["sha256:old"]);
+        assert!(newest_player_images(&moved_on).is_empty());
     }
 }

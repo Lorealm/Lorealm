@@ -48,6 +48,8 @@ struct TestServices {
     acting: Mutex<Vec<(Option<i64>, bool)>>,
     /// What `send_frontend` was given, as `(name, payload)`.
     sent: Mutex<Vec<(String, String)>>,
+    /// What `store_image` was given.
+    images: Mutex<Vec<Vec<u8>>>,
 }
 
 impl TestServices {
@@ -126,6 +128,11 @@ impl HostServices for TestServices {
     async fn send_frontend(&self, name: String, payload: String) -> Result<(), String> {
         self.sent.lock().unwrap().push((name, payload));
         Ok(())
+    }
+
+    async fn store_image(&self, bytes: Vec<u8>) -> Result<String, String> {
+        self.images.lock().unwrap().push(bytes);
+        Ok("sha256:stored".into())
     }
 
     async fn log(&self, entries: Vec<LogEntry>) {
@@ -1116,4 +1123,47 @@ async fn upgrade_is_told_the_previous_version() {
     assert!(upgraded.is_ok());
     assert!(services.logged(Level::Info, LogSource::Guest, "upgraded from 0.1.0"));
     assert!(matches!(refused, Err(PluginError::Call(_))));
+}
+
+#[tokio::test]
+async fn plugin_stores_images() {
+    let host = host();
+    let package = compile(&host, "hello");
+    let services = Arc::new(TestServices::default());
+    let mut plugin = host.instantiate(&package, services.clone()).await.unwrap();
+
+    let uri = plugin
+        .call_frontend(
+            "store_image".into(),
+            r#"{"text":"png"}"#.into(),
+            None,
+            None,
+            false,
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(uri, r#""sha256:stored""#);
+    assert_eq!(*services.images.lock().unwrap(), vec![b"png".to_vec()]);
+}
+
+#[tokio::test]
+async fn storing_images_needs_permission() {
+    let host = host();
+    let package = compile(&host, "no_data");
+    let services = Arc::new(TestServices::default());
+    let mut plugin = host.instantiate(&package, services.clone()).await.unwrap();
+
+    let result = plugin
+        .call_frontend(
+            "store_image".into(),
+            r#"{"text":"png"}"#.into(),
+            None,
+            None,
+            false,
+        )
+        .await;
+
+    assert!(matches!(&result, Err(PluginError::Call(msg)) if msg.contains("media:write")));
+    assert!(services.images.lock().unwrap().is_empty());
 }

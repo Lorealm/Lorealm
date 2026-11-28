@@ -173,6 +173,7 @@ impl ServiceManager {
 
         let plugins = Arc::new(PluginService::new(
             Arc::clone(&storage),
+            Arc::clone(&blob),
             Arc::clone(&snowflake),
             Arc::clone(&state),
             Arc::clone(&connection),
@@ -185,6 +186,7 @@ impl ServiceManager {
 
         let chat = Arc::new(ChatService::new(
             Arc::clone(&storage),
+            Arc::clone(&blob),
             Arc::clone(&snowflake),
             Arc::clone(&conversation),
             Arc::clone(&characters),

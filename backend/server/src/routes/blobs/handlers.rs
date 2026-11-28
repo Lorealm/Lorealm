@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
 use axum::{
+    Json,
+    body::Bytes,
     extract::{Path, State},
     http::{
         StatusCode,
@@ -9,6 +11,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use lorealm_storage::models::BlobId;
+use serde::Serialize;
 
 use crate::{core::AppState, errors::AppError, extract::AuthenticatedSession};
 
@@ -41,6 +44,37 @@ pub async fn get_blob(
         bytes,
     )
         .into_response())
+}
+
+#[derive(Serialize)]
+pub struct StoredImage {
+    pub uri: String,
+}
+
+/// Store an image a message can carry, by content address.
+pub async fn put_image(
+    State(state): State<Arc<AppState>>,
+    _session: AuthenticatedSession,
+    body: Bytes,
+) -> Result<Json<StoredImage>, AppError> {
+    if crate::util::image_type(&body).is_none() {
+        return Err(AppError::request(
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            "blob.unsupported_type",
+            "Only PNG, JPEG, WebP and GIF images can be attached.",
+        ));
+    }
+
+    let id = state
+        .services()
+        .blobs()
+        .put(&body)
+        .await
+        .map_err(|e| AppError::Internal {
+            internal: e.to_string().into(),
+        })?;
+
+    Ok(Json(StoredImage { uri: id.to_uri() }))
 }
 
 fn not_found() -> AppError {

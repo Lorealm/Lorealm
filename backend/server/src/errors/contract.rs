@@ -225,6 +225,7 @@ fn contract_surface() -> Vec<(&'static str, Vec<Box<dyn DomainError>>)> {
                 Box::new(ChatError::NotFound(TargetType::Conversation, id())),
                 Box::new(ChatError::NotOwned(TargetType::Conversation, id())),
                 Box::new(ChatError::Connection("timed out".into())),
+                Box::new(ChatError::BadImage("sha256:0".into())),
             ],
         ),
         (

@@ -123,25 +123,26 @@ impl CommandService {
         let effects = outcome.effects;
         let delta = outcome.delta;
 
-        // Apply all sys effects
-        let sys: Vec<&str> = effects
-            .iter()
-            .filter_map(|e| match e {
-                CommandEffect::Sys { content } => Some(content.as_str()),
-                _ => None,
-            })
-            .collect();
-        let message = if sys.is_empty() && !wrote_state {
+        // Apply all sys and image effects
+        let mut sys = Vec::new();
+        let mut images = Vec::new();
+        for effect in &effects {
+            match effect {
+                CommandEffect::Sys { content } => sys.push(content.as_str()),
+                CommandEffect::Image { uri } => images.push(uri.as_str()),
+                _ => {}
+            }
+        }
+        let message = if sys.is_empty() && images.is_empty() && !wrote_state {
             None
         } else {
+            let mut meta = json!({ "command": command.name });
+            if !images.is_empty() {
+                meta["images"] = json!(images);
+            }
             let message = self
                 .conversations
-                .append_message(
-                    conversation_id,
-                    ChatRole::System,
-                    sys.join("\n"),
-                    json!({ "command": command.name }),
-                )
+                .append_message(conversation_id, ChatRole::System, sys.join("\n"), meta)
                 .await?;
             self.state
                 .persist(
@@ -159,7 +160,7 @@ impl CommandService {
             output,
             effects: effects
                 .into_iter()
-                .filter(|e| !matches!(e, CommandEffect::Sys { .. }))
+                .filter(|e| !matches!(e, CommandEffect::Sys { .. } | CommandEffect::Image { .. }))
                 .collect(),
             message,
         })
@@ -427,6 +428,7 @@ mod tests {
         ));
         let plugins = Arc::new(PluginService::new(
             store.clone(),
+            Arc::new(crate::tests::MemoryBlobs::default()),
             Arc::clone(&snow),
             Arc::clone(&state),
             connection,
@@ -539,6 +541,28 @@ mod tests {
         assert_eq!(message.role, ChatRole::System);
         assert_eq!(message.metadata, json!({ "command": "greet" }));
         assert!(run.effects.is_empty(), "sys is realized server-side");
+    }
+
+    #[tokio::test]
+    async fn an_image_anchors_a_message_that_carries_it() {
+        let h = harness().await;
+        let uri = format!("sha256:{}", "b".repeat(64));
+        let id = h
+            .define(
+                "draw",
+                &format!(r#"$[image("{uri}")]"#),
+                ToolSurface::Command,
+            )
+            .await;
+
+        let run = h.run(id, "").await.unwrap();
+        let message = run.message.expect("an image anchors a message");
+        assert_eq!(message.content, "");
+        assert_eq!(
+            message.metadata,
+            json!({ "command": "draw", "images": [uri] })
+        );
+        assert!(run.effects.is_empty(), "images are realized server-side");
     }
 
     #[tokio::test]

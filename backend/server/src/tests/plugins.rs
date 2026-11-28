@@ -48,6 +48,7 @@ fn service(h: &Harness, dir: PathBuf, config: PluginConfig) -> Arc<PluginService
     let storage = Arc::clone(&h.store) as Arc<dyn lorealm_storage::Storage>;
     Arc::new(PluginService::new(
         Arc::clone(&storage),
+        Arc::clone(&h.blobs),
         Arc::clone(&h.snow),
         Arc::new(StateService::new(storage)),
         Arc::clone(&h.connection),

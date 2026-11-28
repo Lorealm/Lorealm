@@ -1,4 +1,4 @@
-# The hello component, without `data:persist` or `net:fetch`.
+# The hello component, without `data:persist`, `net:fetch` or `media:write`.
 [plugin]
 name = "No Data"
 handle = "no_data"

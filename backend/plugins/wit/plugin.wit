@@ -390,9 +390,9 @@ interface host {
 
     /// Asks the model through one of the user's connection profiles, or the
     /// active one when `profile` is `none`.
-    /// 
+    ///
     /// Potentially costs the user money, so use sparingly.
-    /// 
+    ///
     /// Requires `model:generate`
     generate: func(messages: list<message>, profile: option<s64>) -> result<string, string>;
 
@@ -404,6 +404,9 @@ interface host {
 
     /// Removes `key`. Requires `data:persist`.
     delete-data: func(key: string) -> result<_, string>;
+
+    /// Stores a PNG, JPEG, WebP or GIF image and returns its `sha256:` URI. Requires `media:write`.
+    store-image: func(bytes: list<u8>) -> result<string, string>;
 }
 
 world plugin {
